@@ -209,12 +209,11 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
             Value directionIV = emitConstantOp(rewriter, loc,
                 rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-            Value sequenceSize;
-            if (sequenceDimSize != -1)
-              sequenceSize = emitConstantOp(
-                  rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
-            else
-              sequenceSize = create.mem.dim(X, 0);
+            Value sequenceSize =
+                (sequenceDimSize != -1)
+                    ? emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+                          sequenceDimSize)
+                    : create.mem.dim(X, 0);
 
             Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
                 reverseIVMap, std::vector<Value>{loopInd[0], sequenceSize});

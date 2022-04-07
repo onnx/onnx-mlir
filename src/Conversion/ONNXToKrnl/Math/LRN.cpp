@@ -72,7 +72,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
           IndexExprScope childScope(&rewriter, shapeHelper.scope);
 
           // Compute the lower bound and upper bound for square_sum.
-          const int loopIndexForC = 1;
+          constexpr int loopIndexForC = 1;
           Value cValue = outputLoopInd[loopIndexForC];
           DimIndexExpr cIE(cValue);
           MemRefBoundsIndexCapture inputBounds(input);
@@ -108,15 +108,10 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
           // Compute quare-sum value
           SmallVector<Value, 4> loadIndices;
-          for (int i = 0; i < outputRank; i++) {
-            if (i == loopIndexForC) {
-              Value loopVal = sumLoops.getInductionVar(0);
-              loadIndices.emplace_back(loopVal);
-            } else {
-              Value loopVal = outputLoopInd[i];
-              loadIndices.emplace_back(loopVal);
-            }
-          }
+          for (int i = 0; i < outputRank; i++)
+            loadIndices.emplace_back((i == loopIndexForC)
+                                         ? sumLoops.getInductionVar(0)
+                                         : outputLoopInd[i]);
 
           Value loadVal = createKrnl.load(input, loadIndices);
           Value squareVal = create.math.mul(loadVal, loadVal);

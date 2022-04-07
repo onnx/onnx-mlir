@@ -2666,7 +2666,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "      /* End user-defined code */"
   ""
   "      /* Implicitly-defined code */"
-  "      const int max_trip_count = 10; // Analogous to input M"
+  "      constexpr int max_trip_count = 10; // Analogous to input M"
   "      int user_defined_vals[]; // Imagine this is resizable"
   "      /* End implicitly-defined code */"
   "      /* initialize loop-carried variables and scan-output variables */"
