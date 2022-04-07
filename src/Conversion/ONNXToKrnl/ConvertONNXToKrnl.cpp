@@ -239,7 +239,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
   }
 
-  // Hooks for accelerators.
+  // Conversion target for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;
@@ -252,7 +252,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Convert types to legal types for the Krnl dialect.
   KrnlTypeConverter krnlTypeConverter;
-
   target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isSignatureLegal(op.getType());
@@ -273,7 +272,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateONNXToKrnlConversionPattern(
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
-  // Hooks for accelerators.
+  // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;

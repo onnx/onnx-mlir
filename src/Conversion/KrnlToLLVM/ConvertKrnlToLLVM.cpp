@@ -520,7 +520,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
-  // Hooks for accelerators.
+  // Conversion target for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;
@@ -555,7 +555,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       outputOMTensorOwnerships,
       /*singleEntryPoint=*/entryPointNames.size() == 1);
 
-  // Hooks for accelerators.
+  // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;
