@@ -112,7 +112,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     else {
       pm.addPass(mlir::createCanonicalizerPass());
       // Add instrumentation for ZHigh Ops
-      pm.addNestedPass<FuncOp>(onnx_mlir::zhigh::createInstrumentZHighPass());
+      pm.addNestedPass<FuncOp>(zhigh::createInstrumentZHighPass());
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
