@@ -2204,17 +2204,20 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_INIT:%.+]]: memref<1xi64>) -> memref<1xi64> {
   // CHECK:           [[Y:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
   // CHECK:           [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK:           krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> [[YCOPY_IV:%.+]] = 0 to 1){
+  // CHECK:           krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> %arg3 = 0 to 1){
+  // CHECK:             [[YCOPY_IV:%.+]] = krnl.get_induction_var_value([[Y_COPY_LOOP]]) : (!krnl.loop) -> index
   // CHECK:             [[Y_VAL:%.+]] = krnl.load [[Y_INIT]]{{.}}[[YCOPY_IV]]{{.}} : memref<1xi64>
   // CHECK:             krnl.store [[Y_VAL]], [[Y]]{{.}}[[YCOPY_IV]]{{.}} : memref<1xi64>
   // CHECK:           }
   // CHECK:           [[COND_GLOBAL:%.+]] = memref.alloc() {{.*}}: memref<i1>
   // CHECK:           [[COND_VAL:%.+]] = krnl.load [[COND]][] : memref<i1>
   // CHECK:           krnl.store [[COND_VAL]], [[COND_GLOBAL]][] : memref<i1>
-  // CHECK:           [[LOOP:%.+]] = krnl.define_loops 1
   // CHECK:           [[TRIP_COUNT_VAL:%.+]] = krnl.load [[TRIP_COUNT]][] : memref<i64>
   // CHECK:           [[TRIP_COUNT_IDX:%.+]] = arith.index_cast [[TRIP_COUNT_VAL]] : i64 to index
-  // CHECK:           krnl.iterate([[LOOP]]) with ([[LOOP]] -> [[LOOP_IV:%.+]] = 0 to [[TRIP_COUNT_IDX]]){
+  // CHECK:           [[LOOP:%.+]] = krnl.define_loops 1
+  // CHECK:           [[ZERO:%.+]] = arith.constant 0 : index
+  // CHECK:           krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = [[ZERO]] to [[TRIP_COUNT_IDX]]){
+  // CHECK:             [[LOOP_IV:%.+]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK:             [[COND_VAL:%.+]] = krnl.load [[COND_GLOBAL]][] : memref<i1>
   // CHECK:             scf.if [[COND_VAL]] {
   // CHECK:               [[LOOP_IV_VAL:%.+]] = arith.index_cast [[LOOP_IV]] : index to i64
@@ -2235,7 +2238,8 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:               [[COND_CAST_VAL:%.+]] = krnl.load [[COND_CAST]][] : memref<i1>
   // CHECK:               krnl.store [[COND_CAST_VAL]], [[COND_GLOBAL]][] : memref<i1>
   // CHECK:               [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK:               krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> [[Y_COPY_IV:%.+]] = 0 to 1){
+  // CHECK:               krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> %arg4 = 0 to 1){
+  // CHECK:                 [[Y_COPY_IV:%.+]] = krnl.get_induction_var_value([[Y_COPY_LOOP]]) : (!krnl.loop) -> index
   // CHECK:                 [[Y_SCAN_VAL:%.+]] = krnl.load [[Y_CURR_CAST]]{{.}}[[Y_COPY_IV]]{{.}} : memref<1xi64>
   // CHECK:                 krnl.store [[Y_SCAN_VAL]], [[Y]]{{.}}[[Y_COPY_IV]]{{.}} : memref<1xi64>
   // CHECK:               }

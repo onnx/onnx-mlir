@@ -3424,6 +3424,7 @@ func @test_loop_tiny_yolo() -> tensor<?xi32> {
 
 // CHECK-LABEL:  func @test_loop_tiny_yolo
 // CHECK-SAME:   () -> memref<?xi32> {
+// CHECK-DAG:       [[ZERO:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<7> : tensor<i64>} : () -> memref<i64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<true> : tensor<i1>} : () -> memref<i1>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<i32>} : () -> memref<i32>
@@ -3436,10 +3437,11 @@ func @test_loop_tiny_yolo() -> tensor<?xi32> {
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() : memref<i1>
 // CHECK-DAG:       [[LOAD_VAR_1_MEM_:%.+]] = krnl.load [[VAR_1_]][] : memref<i1>
 // CHECK:           krnl.store [[LOAD_VAR_1_MEM_]], [[RES_2_]][] : memref<i1>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK-DAG:       [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
+// CHECK:           [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
 // CHECK:           [[VAR_12_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_1_]] : i64 to index
-// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[VAR_12_]]){
+// CHECK:           [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> %arg0 = [[ZERO]] to [[VAR_12_]]){
+// CHECK:             [[I_0_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
 // CHECK:             [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i1>
 // CHECK:             scf.if [[LOAD_RES_2_MEM_]] {
 // CHECK-DAG:           [[VAR_14_:%.+]] = arith.index_cast [[I_0_]] : index to i64
