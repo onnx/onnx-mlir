@@ -257,21 +257,22 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             shape, firstElement.getType().cast<MemRefType>().getElementType());
         auto alloc = create.mem.alignedAlloc(flatType, allocParams);
         // copy the value
-        krnl::BuildKrnlLoop loop(rewriter, loc, 1);
-        loop.createDefineOp();
-        loop.pushBounds(0, maxTripCount);
-        loop.createIterateOp();
-        auto afterCopyLoop = rewriter.saveInsertionPoint();
-        rewriter.setInsertionPointToStart(loop.getIterateBlock());
-        // Wrap with KrnlRegionOp because emitCopy uses the result of SeqExtract
-        // for loop bound.
-        KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-        rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
-        Value origIV = loop.getInductionVar(0);
-        auto src = rewriter.create<KrnlSeqExtractOp>(
-            loc, seqElementType, output, origIV);
-        emitCopy(rewriter, loc, src, alloc, {origIV});
-        rewriter.restoreInsertionPoint(afterCopyLoop);
+        KrnlBuilder createKrnl(rewriter, loc);
+        ValueRange loopDef = createKrnl.defineLoops(1);
+        SmallVector<IndexExpr, 4> ubs;
+        MemRefBoundsIndexCapture bounds(maxTripCount);
+        bounds.getDimList(ubs);
+        createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)}, ubs,
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              // Wrap with KrnlRegionOp because emitCopy uses the result of
+              // SeqExtract for loop bound.
+              KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+              rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+              Value origIV = loopInd[0];
+              auto src = rewriter.create<KrnlSeqExtractOp>(
+                  loc, seqElementType, output, origIV);
+              emitCopy(rewriter, loc, src, alloc, {origIV});
+            });
         newOutputs.emplace_back(alloc);
       } else {
         newOutputs.emplace_back(output);
