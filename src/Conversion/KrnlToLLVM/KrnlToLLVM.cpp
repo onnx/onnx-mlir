@@ -1639,6 +1639,12 @@ std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
   patterns.insert<KrnlPrintTensorEndOpLowering>(ctx);
 }
 
+  //Debug Support operations
+  patterns.insert<KrnlPrintTensorElementOpLowering>(ctx);
+  patterns.insert<KrnlPrintTensorStartOpLowering>(ctx);
+  patterns.insert<KrnlPrintTensorEndOpLowering>(ctx);
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL + Standard + Vector + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//

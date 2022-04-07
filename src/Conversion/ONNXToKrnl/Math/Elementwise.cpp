@@ -13,7 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+<<<<<<< HEAD
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
+=======
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include <iostream>
+>>>>>>> 565271e80ce0f2b58623eb443163c0e7f9a8f1c2
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;

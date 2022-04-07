@@ -5167,6 +5167,28 @@ LogicalResult ONNXSubgraphOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX type related code
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXCustomOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXPrintTensorsOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SubgraphOp
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSubgraphOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXSubgraphOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // return
+  // llvm::cast<ConcreteOp>(tablegen_opaque_val)).inferShapes(shapeInferenceFunc);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 

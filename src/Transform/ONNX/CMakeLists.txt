@@ -40,6 +40,16 @@ add_onnx_mlir_library(OMShapeInference
   MLIRPass
   )
 
+
+add_onnx_mlir_library(OMOutlineOperations
+  OutlineOperatorsPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  MLIRRewrite
+  )
+  
 add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXPass.cpp
 

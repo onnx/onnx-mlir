@@ -57,6 +57,78 @@ static llvm::Optional<std::string> getEnvVar(std::string name) {
   return llvm::None;
 }
 
+// This definition is here rather than in main.cpp because otherwise it's not
+// found probably should be pulled out to a more common location
+// TODO: Find a respectable home for the wain
+
+// the option is used in this file, so defined here
+llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
+    llvm::cl::desc(
+        "call onnx vesion converter to convert ONNX model to current version"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> preserveLocations("preserveLocations",
+    llvm::cl::desc("emit location data:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> printIR("printIR",
+    llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
+    llvm::cl::desc(
+        "dont delete the bitcode files (optimized and unoptimized):"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
+    llvm::cl::desc("dont delete the MLIR files (input and llvm):"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
+    llvm::cl::desc("use types and shapes from ONNX model"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
+    llvm::cl::desc(
+        "invoke extra onnx transform pass(shape infernce, constant and etc.)"),
+    llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> outlineONNXOps("outlineONNXOps",
+    llvm::cl::desc("outline all ONNX operators"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> outlineListedOps("outlineListedOps",
+    llvm::cl::desc(
+        "List of ONNX ops to outline,\n"
+        "The format of \"value\" is a comma seperated list of operation names. "),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> outlineFN("outlineFN",
+    llvm::cl::desc(
+        "File name where list of ONNX ops to outline can be found,\n"
+        "The format of the file is one operation name per line.xs"),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> shapeInformation("shapeInformation",
+    llvm::cl::desc(
+        "Custom shapes for the inputs of the ONNX model, e.g. setting static "
+        "shapes for dynamic inputs.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices starting from "
+        "0, and\n"
+        "\"D1, D2, ...\" are dimension sizes (positive integers of -1 for "
+        "unknown dimensions)"),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
+    llvm::cl::value_desc("<llvm target triple>"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
+    llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
+
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
@@ -544,8 +616,89 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
+<<<<<<< HEAD
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+=======
+void addONNXToMLIRPasses(mlir::PassManager &pm) {
+  // This is a transition from previous static passes to full dynamic passes
+  // Static passes are kept and the dynamic pass is added as IF-THEN
+  // with the static iteration.
+  // The reasons are
+  // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
+  //    static pass, but the dynamic pipeline will be viewed as one. MLIR
+  //    may have solution that I am not aware of yet.
+  // 2. Easy to compare two approaches.
+  // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
+  // this function.
+
+  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+  pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createShapeInferencePass());
+  if (outlineONNXOps || (outlineFN !="") || (outlineListedOps !="")) {
+    std::cout << "adding outline pass: outlineListedOps="<< outlineListedOps << std::endl;
+    pm.addPass(mlir::createOutlineOperatorsPass(outlineONNXOps, outlineFN, outlineListedOps));
+  }
+  // There are more opportunities for const propagation once all tensors have
+  // inferred shapes.
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+
+  if (onnxOpTransformThreshold > 0) {
+    // Dynamic iterate in ONNXOpTransformPass
+    pm.addPass(mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+  } else {
+    // Statically add extra passes
+    for (int i = 0; i < repeatOnnxTransform; i++) {
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createShapeInferencePass());
+      pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    }
+  }
+
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
+}
+
+void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
+  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false));
+  // An additional pass of canonicalization is helpful because lowering
+  // from ONNX dialect to Standard dialect exposes additional canonicalization
+  // opportunities.
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  // Emit buffer dealloc.
+  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  if (!disableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
+void addKrnlToAffinePasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
+  // Fuse loops in Affine dialect.
+  //  pm.addPass(mlir::createLoopFusionPass());
+}
+
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
+  pm.addPass(mlir::createLowerAffinePass());
+  pm.addPass(mlir::createLowerToCFGPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+}
+
+void processInputFile(string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module, std::string *errorMessage) {
+>>>>>>> 565271e80ce0f2b58623eb443163c0e7f9a8f1c2
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   std::string extension =

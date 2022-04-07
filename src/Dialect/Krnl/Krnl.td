@@ -1046,6 +1046,47 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
 
+def KrnlPrintTensorStartOp : Op<Krnl_Dialect, "printTensorStart"> {
+  let summary = "Indicate the start of a tensor to be printed";
+  let description = [{
+    Indicate the start of printout for a Tensor. The rank and dimensionality are
+    given, and can be used when formatting subsequent elements. A code indicating the element type is also given.
+  }];
+
+  let arguments = (ins  I64Attr:$rank, Variadic<Index>:$bounds);
+  //let arguments = (ins I64Attr:$elType, I64Attr:$rank, I64ArrayAttr:$bounds);
+  
+  //let builders = [ OpBuilder<(ins "int ": $elType, "int ": $rank, "ArrayRef<Value>": $bounds)> ];
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlPrintTensorEndOp : Op<Krnl_Dialect, "printTensorEnd"> {
+  let summary = "Indicate the end of a tensor to be printed";
+  let description = [{
+    Indicate the end of printout for a Tensor.
+  }];
+
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlPrintTensorElementOp : Op<Krnl_Dialect, "printTensorElement"> {
+  let summary = "Krnl print tensor element scalar operation";
+  let description = [{
+    Krnl print tensor element scalar operation. There should be enough
+    of these operations between a KrnlPrintTensorStart and a KrnlPrintTensorEnd
+    to satisfy the rank and dimensionalities specified in the starting operation.
+  }];
+
+  let arguments = (ins I64Attr:$elType, AnyFloat:$in);
+
+  let parser = ?;
+  let printer = ?;
+}
+
 def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
