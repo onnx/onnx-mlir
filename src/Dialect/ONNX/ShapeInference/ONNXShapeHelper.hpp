@@ -594,4 +594,15 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
 
+// Shape for Flatten.
+struct ONNXFlattenOpShapeHelper
+    : public ONNXOpShapeHelper<mlir::ONNXFlattenOp> {
+  ONNXFlattenOpShapeHelper(mlir::ONNXFlattenOp *newOp);
+  ONNXFlattenOpShapeHelper(mlir::ONNXFlattenOp *newOp,
+      mlir::OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  mlir::LogicalResult computeShape(mlir::ONNXFlattenOpAdaptor operandAdaptor);
+};
+
 } // namespace onnx_mlir

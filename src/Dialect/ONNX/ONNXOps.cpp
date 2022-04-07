@@ -2860,7 +2860,7 @@ LogicalResult ONNXConcatOp::verify() {
 LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // The check of constraints is kept
-  // However,  current check hanldes dynamic dim only for the concat dim
+  // However, current check handles dynamic dim only for the concat dim
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().isa<RankedTensorType>())
@@ -2948,67 +2948,38 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXFlattenOp::verify() {
-
-  if (!hasShapeAndRank(input())) {
+  if (!hasShapeAndRank(input()))
+    // Won't be able to do any checking at this stage.
     return success();
-  }
-  auto inTy = input().getType().dyn_cast<ShapedType>();
-  if (!inTy) {
-    return success();
-  }
 
-  int64_t axisValue = axis();
-  auto inputShape = inTy.getShape();
+  auto inputType = input().getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
+  int64_t axisValue = axis();
 
-  if (axisValue < -1 * inputRank || axisValue > inputRank) {
-    return emitOpError("ONNXFlattenOP: axis() value is out of range");
-  }
+  // axis attribute must be in the range [-r,r], where r = rank(input).
+  if (axisValue < -inputRank || axisValue > inputRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisValue,
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank));
 
   return success();
 }
 
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = input().getType().dyn_cast_or_null<RankedTensorType>();
-  if (!inTy) {
+  if (!input().getType().isa<RankedTensorType>())
     return success();
-  }
 
-  int64_t axisValue = axis();
-  auto inputShape = inTy.getShape();
-  int64_t inputRank = inputShape.size();
+  ONNXFlattenOpShapeHelper shapeHelper(this);
+  ONNXFlattenOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Flatten parameters successfully");
 
-  SmallVector<int64_t, 2> dims;
-
-  // Negative axis is counting dimension from back
-  if (axisValue < 0)
-    axisValue = inputRank + axisValue;
-
-  // Determine the size of the first dimension of output
-  int64_t firstDim = 1;
-  for (auto i = 0; i < axisValue; i++) {
-    if (inputShape[i] == -1) {
-      firstDim = -1;
-      break;
-    }
-    firstDim *= inputShape[i];
-  }
-  dims.emplace_back(firstDim);
-
-  // Determine the size of the second dimension of output
-  int64_t secondDim = 1;
-  for (auto i = axisValue; i < inputRank; i++) {
-    if (inputShape[i] == -1) {
-      secondDim = -1;
-      break;
-    }
-    secondDim *= inputShape[i];
-  }
-  dims.emplace_back(secondDim);
-
-  // Set the type of output
-  getResult().setType(RankedTensorType::get(dims, inTy.getElementType()));
+  SmallVector<int64_t, 2> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
 }
