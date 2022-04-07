@@ -12,19 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <map>
-#include <stdio.h>
-
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/Utils.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Sequence.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
@@ -33,8 +22,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir::zlow;
@@ -48,11 +35,11 @@ namespace zhigh {
 
 /// A list of layouts associated with newly allocated MemRefs.
 /// When lowering an operation, its output Tensor (e.g.
-/// `tensor<1x3x5x7x!zhigh.nhwc<f16>>`) will be converted to a Memref (e.g.
-/// `memref<1x3x5x7xf16, #map>`), and we lost the layout `nhwc`.
-/// Thus, make sure to put the new MemRef and its associated layout into this
-/// map, so that we can obtain the layout for the MemRef later when lowering
-/// other ops.
+/// `tensor<1x3x5x7xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>`) will be
+/// converted to a Memref (e.g. `memref<1x3x5x7xf16, #map>`), and we lost the
+/// layout `NHWC`. Thus, make sure to put the new MemRef and its associated
+/// layout into this map, so that we can obtain the layout for the MemRef later
+/// when lowering other ops.
 llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
 mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
 void storeLayout(mlir::Value val, mlir::StringAttr layout) {
@@ -74,7 +61,7 @@ Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
   RankedTensorType tensorType =
       RankedTensorType::get(shape, rewriter.getF32Type(),
           ZTensorEncodingAttr::get(op->getContext(), layout));
-  ZMemRefType zMemRefType = convertZTensorToMemRefType(rewriter, tensorType);
+  ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
 
   // Insert alloc and dealloc.
   Value alloc =
@@ -206,7 +193,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     RankedTensorType tensorType =
         RankedTensorType::get(shape, rewriter.getF32Type(),
             ZTensorEncodingAttr::get(op->getContext(), layout));
-    ZMemRefType zMemRefType = convertZTensorToMemRefType(rewriter, tensorType);
+    ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
     MemRefType resType =
         normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
             /*numSymbolicOperands=*/0);
@@ -256,9 +243,10 @@ Value insertShapeMemRefI64(
 }
 
 /// Get the corresponding MemRefType and layout of a given ZTensorType.
-ZMemRefType convertZTensorToMemRefType(OpBuilder b, Type type) {
+ZMemRefType convertZTensorToMemRefType(Type type) {
   ZMemRefType resZMemRefType;
   if (type.isa<TensorType>()) {
+    OpBuilder b(type.getContext());
     RankedTensorType tensorType = type.dyn_cast<RankedTensorType>();
     assert(tensorType && "expected only ranked shapes");
     ArrayRef<int64_t> shape = tensorType.getShape();
@@ -504,7 +492,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);
@@ -543,7 +531,7 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
@@ -581,7 +569,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
@@ -613,7 +601,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);
@@ -649,7 +637,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Normalize MemRefType to get a static shape.
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
@@ -745,7 +733,7 @@ struct ZHighToZLowBinaryOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(inputA);
@@ -804,7 +792,7 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);
@@ -840,7 +828,7 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);
@@ -882,7 +870,7 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);
@@ -930,7 +918,7 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
 
     // Convert type.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, pool2dOp.getResult().getType());
+        convertZTensorToMemRefType(pool2dOp.getResult().getType());
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
@@ -973,7 +961,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     Value alloc = insertAllocAndDeallocZMemRef(
         zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
@@ -999,7 +987,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
     // Prepare optional bias.
     Value bias = operandAdaptor.B();
-    if (isNoneType(bias)) {
+    if (bias.getType().isa<NoneType>()) {
       MemRefBoundsIndexCapture resBounds(alloc);
       SmallVector<IndexExpr, 2> biasDims;
       ZTensorEncodingAttr::DataLayout biasLayout;
@@ -1058,9 +1046,9 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
 
     // Convert type.
     ZMemRefType hnZMemRefType =
-        convertZTensorToMemRefType(rewriter, lstmOp.getResults()[0].getType());
+        convertZTensorToMemRefType(lstmOp.getResults()[0].getType());
     ZMemRefType cfZMemRefType =
-        convertZTensorToMemRefType(rewriter, lstmOp.getResults()[1].getType());
+        convertZTensorToMemRefType(lstmOp.getResults()[1].getType());
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
@@ -1146,7 +1134,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 
     // Convert type.
     ZMemRefType hnZMemRefType =
-        convertZTensorToMemRefType(rewriter, gruOp.getResult().getType());
+        convertZTensorToMemRefType(gruOp.getResult().getType());
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
@@ -1223,7 +1211,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
 
     // Convert type.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, conv2dOp.getResult().getType());
+        convertZTensorToMemRefType(conv2dOp.getResult().getType());
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
@@ -1268,7 +1256,7 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(rewriter, *op->result_type_begin());
+        convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
     MemRefBoundsIndexCapture inputBounds(input);

@@ -32,7 +32,7 @@ struct ZMemRefType {
 };
 
 /// Get the corresponding MemRefType and layout of a given ZTensorType.
-ZMemRefType convertZTensorToMemRefType(mlir::OpBuilder b, mlir::Type type);
+ZMemRefType convertZTensorToMemRefType(mlir::Type type);
 
 /// Emit instructions to allocate a buffer to store original dimensions.
 mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
@@ -50,6 +50,7 @@ mlir::Value insertAllocAndDeallocZMemRef(ZMemRefType zType,
     mlir::ArrayRef<IndexExpr> dims, mlir::Operation *op,
     mlir::PatternRewriter &rewriter, int64_t alignment);
 
+/// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
 

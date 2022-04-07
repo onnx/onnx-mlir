@@ -25,7 +25,6 @@
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 #include <memory>
 
@@ -113,12 +112,11 @@ void NNPAAccelerator::initPasses(int optLevel) const {
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");
-  if (tensorType.cast<RankedTensorType>()
+  if (tensorType.cast<mlir::RankedTensorType>()
           .getEncoding()
           .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>()) {
-    mlir::OpBuilder builder(tensorType.getContext());
     onnx_mlir::zhigh::ZMemRefType zMemRefType =
-        onnx_mlir::zhigh::convertZTensorToMemRefType(builder, tensorType);
+        onnx_mlir::zhigh::convertZTensorToMemRefType(tensorType);
     return zMemRefType.value;
   }
   return nullptr;

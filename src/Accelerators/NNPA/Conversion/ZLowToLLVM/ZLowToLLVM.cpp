@@ -12,33 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
-#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
-#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
-#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Target/LLVMIR/ModuleTranslation.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/IR/DataLayout.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
-#include "src/Dialect/Krnl/KrnlTypes.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
@@ -95,7 +74,7 @@ API APIFor<ZLowSigmoidOp>() {
   return API::ZDNN_SIGMOID;
 }
 
-class ZLowStickLowering : public ConvertToLLVMPattern {
+class ZLowStickLowering : public mlir::ConvertToLLVMPattern {
 public:
   explicit ZLowStickLowering(MLIRContext *context, LLVMTypeConverter &lowering_,
       ApiRegistry apiRegistry)

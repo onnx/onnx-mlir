@@ -20,7 +20,10 @@
 
 namespace onnx_mlir {
 namespace zlow {
+
+/// Populate all conversion patterns for ZLow Ops.
 void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx);
+
 } // namespace zlow
 } // namespace onnx_mlir
