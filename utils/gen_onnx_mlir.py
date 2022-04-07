@@ -305,6 +305,8 @@ OpsWithVerifier = [
     'DepthToSpace',
     'Expand',
     'Flatten',
+    'Gather',
+    'GatherElements',
     'Hardmax',
     'InstanceNormalization',
     'Mod',

@@ -14,14 +14,16 @@
 
 #include "src/Support/Diagnostic.hpp"
 
+using namespace mlir;
+
 namespace onnx_mlir {
 
 template <typename T>
-mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
+LogicalResult Diagnostic::attributeOutOfRange(Operation &op,
     const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
-  llvm::Twine msg(op.getName().getStringRef() + " ");
+  Twine msg(op.getName().getStringRef() + " ");
   return emitError(op.getLoc(), msg.concat("'" + attrName + "'")
                                     .concat(" value is ")
                                     .concat(std::to_string(attrVal))
@@ -32,9 +34,27 @@ mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
                                     .concat("]"));
 };
 
+template <typename T>
+mlir::LogicalResult Diagnostic::inputsMustHaveSameRank(Operation &op,
+    const llvm::Twine &inputName1, T rank1, const llvm::Twine &inputName2,
+    T rank2) {
+  static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
+
+  llvm::Twine msg(op.getName().getStringRef() + " ");
+  return emitError(
+      op.getLoc(), msg.concat("'" + inputName1 + "'")
+                       .concat(" has rank ")
+                       .concat(std::to_string(rank1))
+                       .concat(", '" + inputName2 + "'")
+                       .concat(" has rank ")
+                       .concat(std::to_string(rank2))
+                       .concat(". The two inputs must have the same rank."));
+}
+
 // Template instantiations - keep at the end of the file.
 template mlir::LogicalResult Diagnostic::attributeOutOfRange(
-    mlir::Operation &op, const llvm::Twine &attrName, int64_t attrVal,
-    Range<int64_t> validRange);
+    Operation &, const Twine &, int64_t, Range<int64_t>);
+template mlir::LogicalResult Diagnostic::inputsMustHaveSameRank(
+    Operation &, const Twine &, int64_t, const Twine &, int64_t);
 
 } // namespace onnx_mlir
