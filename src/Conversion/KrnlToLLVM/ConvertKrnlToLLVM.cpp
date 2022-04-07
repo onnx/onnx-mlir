@@ -493,11 +493,6 @@ struct ConvertKrnlToLLVMPass
     return "Lower the Krnl Affine and Std dialects to LLVM.";
   }
 
-  ConvertKrnlToLLVMPass() {
-    // Init accelarators.
-    onnx_mlir::accel::initAccelerators();
-  }
-
   void runOnOperation() final;
 };
 

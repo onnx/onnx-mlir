@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ZLowToLLVM.cpp - Lowering from ZLow to LLVM ---------------===//
+//===---------- ZLowToLLVM.hpp - Lowering from ZLow to LLVM ---------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //

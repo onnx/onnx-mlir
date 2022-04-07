@@ -127,7 +127,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       addONNXToKrnlPasses(pm, optLevel);
       // Normalize MemRefs.
       pm.addPass(mlir::memref::createNormalizeMemRefsPass());
-      // ZLow canonicalization.
+      // Optimizations at ZLow.
+      pm.addPass(zlow::createZLowRewritePass());
       pm.addPass(mlir::createCanonicalizerPass());
       // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
