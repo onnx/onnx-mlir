@@ -226,7 +226,7 @@ ZHighDialect::ZHighDialect(MLIRContext *ctx)
     : Dialect(getDialectNamespace(), ctx, TypeID::get<ZHighDialect>()) {
   addAttributes<
 #define GET_ATTRDEF_LIST
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
       >();
   addOperations<
 #define GET_OP_LIST
@@ -890,4 +890,4 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
 
 #define GET_ATTRDEF_CLASSES
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
