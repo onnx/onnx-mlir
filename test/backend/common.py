@@ -114,6 +114,7 @@ def compile_model(model, emit):
     command_list.append(target[emit])
     command_list.append(model_name)
     command_list.append('-O3')
+    command_list.append('--maccel=NNPA')
     command_list.append("-o=" + exec_base)
 
     # Call frontend to process model_name.onnx, bit code will be generated.
