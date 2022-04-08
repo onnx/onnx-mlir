@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMZHighOps
   OMZHighIncGen
   OMONNXZHighCombineIncGen
   OMShapeInferenceOpInterfaceIncGen
+  libzdnn
 
   LINK_LIBS PUBLIC
   OMONNXOps # Use ONNXShapeHelper 

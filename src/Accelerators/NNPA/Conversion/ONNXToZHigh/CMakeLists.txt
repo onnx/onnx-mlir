@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToZHigh
 
   DEPENDS
   OMONNXONNXToZHighIncGen
+  libzdnn
 
   LINK_LIBS PUBLIC
   OMONNXToKrnl
@@ -25,6 +26,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
 
   DEPENDS
   OMONNXRewriteONNXForZHighIncGen
+  libzdnn
   
   LINK_LIBS PUBLIC
   OMONNXToKrnl
