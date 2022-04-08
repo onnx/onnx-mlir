@@ -33,7 +33,7 @@ function(setup_zdnn version)
     INSTALL_COMMAND ""
     )
 
-  add_custom_target(libzdnn
+  add_custom_target(libzdnn ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${ZDNN_LIBDIR}/libzdnn.a ${NNPA_LIBRARY_PATH}/libzdnn.a
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
