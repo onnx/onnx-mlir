@@ -44,7 +44,6 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
   int64_t splitNum = isLSTM ? 4 : 3;
   RankedTensorType weightType = weight.getType().cast<RankedTensorType>();
   Type elementType = weightType.getElementType();
-  NNXOps.
   ArrayRef<int64_t> weightShape = weightType.getShape();
   int64_t direction = weightShape[0];
   int64_t hiddenSize = weightShape[1] / splitNum;
