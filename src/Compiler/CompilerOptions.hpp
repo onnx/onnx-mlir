@@ -25,9 +25,6 @@ extern const std::string OnnxMlirEnvOptionName;
 namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
-extern llvm::cl::opt<std::string> inputFilename;
-extern llvm::cl::opt<std::string> outputBaseName;
-extern llvm::cl::opt<onnx_mlir::EmissionTargetType> emissionTarget;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::opt<bool> invokeOnnxVersionConverter;
 extern llvm::cl::opt<bool> preserveLocations;

@@ -11,6 +11,9 @@ add_onnx_mlir_library(OMONNXToZHigh
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
 
 add_onnx_mlir_rewriter(RewriteONNXForZHigh)
@@ -26,4 +29,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )

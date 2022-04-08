@@ -19,4 +19,7 @@ add_onnx_mlir_library(OMZHighOps
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
   MLIRIR
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )

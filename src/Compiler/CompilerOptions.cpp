@@ -25,33 +25,6 @@ llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
 // the option is used in this file, so defined here
-llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
-    llvm::cl::desc("<input file>"), llvm::cl::init("-"),
-    llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<std::string> outputBaseName("o",
-    llvm::cl::desc("Base path for output files, extensions will be added."),
-    llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
-
-llvm::cl::opt<EmissionTargetType> emissionTarget(
-    llvm::cl::desc("Choose target to emit:"),
-    llvm::cl::values(
-        clEnumVal(EmitONNXBasic,
-            "Ingest ONNX and emit the basic ONNX operations without "
-            "inferred shapes."),
-        clEnumVal(
-            EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
-        clEnumVal(EmitMLIR,
-            "Lower the input to MLIR built-in transformation dialect."),
-        clEnumVal(
-            EmitLLVMIR, "Lower the input to LLVM IR (LLVM MLIR dialect)."),
-        clEnumVal(EmitObj, "Compile the input into a object file."),
-        clEnumVal(
-            EmitLib, "Compile the input into a shared library (default)."),
-        clEnumVal(EmitJNI, "Compile the input into a jar file.")),
-    llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
-
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
     llvm::cl::desc(
         "call onnx version converter to convert ONNX model to current version"),
