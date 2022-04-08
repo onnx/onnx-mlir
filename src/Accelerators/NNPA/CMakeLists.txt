@@ -42,6 +42,8 @@ add_onnx_mlir_library(NNPAAccel
   NNPACompilerUtils
   Accelerator
   OMZHighOps
+  OMZHighToZLow
   OMZLowOps
+  OMZLowToLLVM
   )
 
