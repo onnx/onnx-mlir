@@ -39,7 +39,7 @@ function(setup_zdnn version)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${ZDNN_TOPDIR}/zdnn/zdnn.h ${NNPA_INCLUDE_PATH}/zdnn.h
     DEPENDS zdnn
-    BYPRODUCTS ${NNPA_LIBRARY_PATH}/libzdnn.a ${NNPA_INCLUDE_PATH}/zdnn.h
+    #BYPRODUCTS ${NNPA_LIBRARY_PATH}/libzdnn.a ${NNPA_INCLUDE_PATH}/zdnn.h
     )
 
   install(FILES ${NNPA_LIBRARY_PATH}/libzdnn.a DESTINATION lib)
