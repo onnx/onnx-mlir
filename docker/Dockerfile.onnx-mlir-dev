@@ -30,8 +30,13 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Build onnx-mlir and run tests
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
+# Dev image is built with NNPA acclerator (currently on s390x only)
+    && BUILD_NNPA=${BUILD_NNPA:-$([ "$(uname -m)" = "s390x" ] && echo NNPA || \
+                                  [ "$(uname -m)" = "x86_64" ] &&  echo || \
+                                  [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
     && MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
-       cmake .. \
+       cmake -DCMAKE_BUILD_TYPE=Debug \
+             -DACCELERATORS_TO_BUILD=${BUILD_NNPA} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
 # Dev image is built without SIMD, placeholder for easy SIMD enablement
