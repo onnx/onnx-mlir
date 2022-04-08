@@ -36,9 +36,7 @@ function(add_numerical_unittest test_name)
   # are compiled with -O3. TODO: make that a runtime env variable.
   add_test(NAME ${test_name} COMMAND ${test_name} -O3 --maccel=NNPA WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT TEST_ATOL=0.01)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT TEST_RTOL=0.05)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT LD_PRELOAD=${ZDNN_LIB})
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;LD_PRELOAD=${ZDNN_LIB}")
 
   if (WIN32)
     # On Windows, we need a .def file to specify the export functions from a DLL.
