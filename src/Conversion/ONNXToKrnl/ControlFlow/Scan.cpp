@@ -101,8 +101,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto *loopBodyBlock = loop.getIterateBlock();
-      auto &loopBodyRegion = *loopBodyBlock->getParent();
+      Block *loopBodyBlock = loop.getIterateBlock();
+      Region &loopBodyRegion = *loopBodyBlock->getParent();
 
       // Split the insertion block into two, where the second block
       // `postInsertBlock` contains only the terminator operation, insert scan

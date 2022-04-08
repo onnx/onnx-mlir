@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
-// ----
-
 /// onnx.Erf lowering to krnl.erf.
 func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Erf"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -10,11 +8,12 @@ func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL erf_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ERF:%.+]]  = "krnl.erf"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ERF]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ERF]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
 /// onnx.Acos lowering to krnl.acos.
@@ -25,11 +24,12 @@ func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL acos_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.acos"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
  
@@ -41,11 +41,12 @@ func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL acosh_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.acosh"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
  
@@ -57,11 +58,12 @@ func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL asin_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.asin"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
  
@@ -73,11 +75,12 @@ func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL asinh_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.asinh"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
 /// onnx.Atan lowering to krnl.atan.
@@ -88,11 +91,12 @@ func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL atan_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.atan"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
   
 
@@ -104,11 +108,12 @@ func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL atanh_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.atanh"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
  
@@ -120,10 +125,11 @@ func @tan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // CHECK-LABEL tan_function
 // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: krnl.define_loops 2
+// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
 // CHECK: krnl.iterate
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
+// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
+// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: [[ACOS:%.+]]  = "krnl.tan"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][%arg1, %arg2] : memref<10x10xf32>
+// CHECK: {{.*}}store [[ACOS]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
