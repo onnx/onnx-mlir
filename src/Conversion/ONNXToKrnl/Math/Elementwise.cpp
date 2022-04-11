@@ -977,14 +977,14 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             LogicalResult res = shapeHelper.GetAccessExprs(
                 operands[0], 0, outputAccessExprs, lhsAccessExprs);
-            assert(succeeded(res));
+            assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.GetAccessExprs(
                 operands[1], 1, outputAccessExprs, rhsAccessExprs);
-            assert(succeeded(res));
+            assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
             // Apply the element-wise function.
@@ -1065,7 +1065,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 4> oprdAccessExprs;
             LogicalResult res = shapeHelper.GetAccessExprs(
                 operands[0], 0, outputAccessExprs, oprdAccessExprs);
-            assert(succeeded(res));
+            assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
             // Iterate over the remaining operands.
@@ -1074,7 +1074,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.GetAccessExprs(
                   operands[i], i, outputAccessExprs, oprdAccessExprs);
-              assert(succeeded(res));
+              assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
               accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
@@ -1128,6 +1128,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputRank = outputMemRefType.getRank();
 
+    ONNXWhereOpAdaptor operandAdaptor(operands);
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
@@ -1158,24 +1159,26 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
             // Load the condition value.
             SmallVector<IndexExpr, 4> condAccessExprs;
-            LogicalResult res = shapeHelper.GetAccessExprs(
-                operands[0], 0, outputAccessExprs, condAccessExprs);
-            assert(succeeded(res));
-            Value cond = createKrnl.loadIE(operands[0], condAccessExprs);
+            LogicalResult res =
+                shapeHelper.GetAccessExprs(operandAdaptor.condition(), 0,
+                    outputAccessExprs, condAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value cond =
+                createKrnl.loadIE(operandAdaptor.condition(), condAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             res = shapeHelper.GetAccessExprs(
-                operands[1], 1, outputAccessExprs, lhsAccessExprs);
-            assert(succeeded(res));
-            Value lhs = createKrnl.loadIE(operands[1], lhsAccessExprs);
+                operandAdaptor.X(), 1, outputAccessExprs, lhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value lhs = createKrnl.loadIE(operandAdaptor.X(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.GetAccessExprs(
-                operands[2], 2, outputAccessExprs, rhsAccessExprs);
-            assert(succeeded(res));
-            Value rhs = createKrnl.loadIE(operands[2], rhsAccessExprs);
+                operandAdaptor.Y(), 2, outputAccessExprs, rhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value rhs = createKrnl.loadIE(operandAdaptor.Y(), rhsAccessExprs);
 
             // Return lhs if cond is true else rhs.
             Value result =
@@ -1186,13 +1189,13 @@ struct ONNXWhereOpLowering : public ConversionPattern {
           });
     } else {
       // Load the condition value.
-      Value cond = createKrnl.load(operands[0]);
+      Value cond = createKrnl.load(operandAdaptor.condition());
 
       // Load the first value.
-      Value lhs = createKrnl.load(operands[1]);
+      Value lhs = createKrnl.load(operandAdaptor.X());
 
       // Load the second value.
-      Value rhs = createKrnl.load(operands[2]);
+      Value rhs = createKrnl.load(operandAdaptor.Y());
 
       // Return lhs if cond is true else rhs.
       Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);

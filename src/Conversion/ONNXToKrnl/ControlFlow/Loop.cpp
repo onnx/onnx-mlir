@@ -101,7 +101,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                    outputs.begin() + loopOpAdapter.v_initial().size()))
             params.emplace_back(value);
 
-          auto &loopBodyEntryBlock = loopBody.front();
+          Block &loopBodyEntryBlock = loopBody.front();
           BlockAndValueMapping mapper;
           for (unsigned i = 0, e = params.size(); i != e; ++i) {
             // Verify that the types of the provided values match the function
@@ -115,8 +115,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // was built. ToDo: code could be simplified if not built on top of
           // the previous code
 
-          auto &thenRegion = ifOp.getThenRegion();
-          auto &thenBlock = thenRegion.front();
+          Region &thenRegion = ifOp.getThenRegion();
+          Block &thenBlock = thenRegion.front();
 
           // Split the insertion block into two, where the second block
           // `postInsertBlock` contains only the terminator operation, insert
@@ -131,9 +131,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
           auto newBlocks = llvm::make_range(std::next(thenBlock.getIterator()),
               postInsertBlock->getIterator());
-          auto &loopBodyBlock = *newBlocks.begin();
+          Block &loopBodyBlock = *newBlocks.begin();
 
-          auto loopBodyTerminator = loopBodyBlock.getTerminator();
+          Operation *loopBodyTerminator = loopBodyBlock.getTerminator();
 
           // Within inlined blocks, substitute reference to block arguments with
           // values produced by the lowered loop operation bootstrapping IR.
@@ -160,7 +160,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           SmallVector<Value, 4> bodyOutputs(
               resultsRange.begin(), resultsRange.end());
           for (unsigned i = 0; i < bodyOutputs.size(); i++) {
-            auto output = bodyOutputs[i];
+            Value output = bodyOutputs[i];
             assert((output.getType().isa<TensorType>() ||
                        output.getType().isa<MemRefType>()) &&
                    "Expecting loop body function output to consist of "
@@ -188,7 +188,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               outputs.end());
           for (auto scanIntermediateToFinal :
               llvm::zip(scanIntermediate, scanOutputs)) {
-            auto elementType = std::get<1>(scanIntermediateToFinal)
+            Type elementType = std::get<1>(scanIntermediateToFinal)
                                    .getType()
                                    .cast<MemRefType>()
                                    .getElementType();
