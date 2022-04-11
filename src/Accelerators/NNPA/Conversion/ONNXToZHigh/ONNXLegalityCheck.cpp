@@ -498,8 +498,13 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   auto bShape1 = gemmOp.transB() ? bShape[0] : bShape[1];
   // Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
-  if (hasC && (cShape[0] != -1) && (bShape1 != -1) && (cShape[0] != bShape1))
-    return false;
+  if (hasC) {
+    // Cannot check broadcasting at compile time.
+    if (cShape[0] == -1)
+      return false;
+    if (cShape[0] != bShape1)
+      return false;
+  }
   return true;
 }
 
