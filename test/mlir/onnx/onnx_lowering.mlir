@@ -2640,9 +2640,9 @@ func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
 // CHECK-DAG:       [[VAR_c0_16_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_14_:%.+]] = arith.cmpi slt, [[VAR_12_]], [[VAR_c0_16_]] : index
 // CHECK:           [[VAR_15_:%.+]] = arith.select [[VAR_14_]], [[VAR_13_]], [[VAR_12_]] : index
-// CHECK-DAG:       [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_15_]]{{.}} : memref<2xmemref<?x4x5xf32>>
-// CHECK-DAG:       [[VAR_c0_17_:%.+]] = arith.constant 0 : index
+// CHECK:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_15_]]{{.}} : memref<2xmemref<?x4x5xf32>>
 // CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_c0_17_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_17_:%.+]] = memref.dim [[LOAD_RES_2_MEM_]], [[VAR_c0_17_]] : memref<?x4x5xf32>
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index

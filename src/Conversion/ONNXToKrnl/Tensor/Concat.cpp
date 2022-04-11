@@ -48,7 +48,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     unsigned int rank = resultShape.size();
 
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 

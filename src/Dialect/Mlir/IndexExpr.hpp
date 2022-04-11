@@ -189,7 +189,7 @@ Dim variable.
 
     SmallVector<int64_t, 4> outputDims;
     IndexExpr::getShape(
-        shapeHelper.dimsForOutput(0), outputDims);
+        shapeHelper.dimsForOutput(), outputDims);
     getResult().setType(RankedTensorType::get(outputDims, elementType));
 
 In this code, we convert the IndexExpressions back to integer dims (with >=0 for
@@ -206,7 +206,7 @@ compile time sizes, -1 for runtime sizes).
 
     outputLoops(rewriter, loc, outputRank);
       outputLoops.createDefineOp();
-      outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
+      outputLoops.pushAllBounds(shapeHelper.dimsForOutput());
       outputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
