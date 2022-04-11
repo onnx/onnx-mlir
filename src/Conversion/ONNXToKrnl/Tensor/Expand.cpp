@@ -57,7 +57,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
           getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
           LogicalResult res = shapeHelper.GetAccessExprs(
               input, 0, outputLoopIndices, lhsAccessExprs);
-          assert(succeeded(res));
+          assert(succeeded(res) && "Could not compute access indices");
           Value val = createKrnl.loadIE(input, lhsAccessExprs);
           createKrnl.store(val, alloc, outputLoopInd);
         });
