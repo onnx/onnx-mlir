@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-all-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // COM: Check the lowering of an zlow operation when its shape includes constant dims.
 // COM: In this case, the constant values will be passed directly to

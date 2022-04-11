@@ -19,6 +19,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   RuntimeAPI.cpp
 
   LINK_LIBS PUBLIC
+  Accelerator
   OMSupport
   MLIRAffineToStandard
   MLIRMathToLLVM
