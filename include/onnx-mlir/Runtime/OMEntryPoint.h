@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "onnx-mlir/Compiler/OMCompilerMacros.h"
+
 #ifdef __cplusplus
 #pragma once
 
@@ -30,7 +32,8 @@ extern "C" {
  * @return an array of strings. The array ends with NULL. For example:
  * ["run_add", "run_sub", NULL].
  */
-const char *const *omQueryEntryPoints(int64_t *numOfEntryPoints);
+OM_EXTERNAL_VISIBILITY const char *const *omQueryEntryPoints(
+    int64_t *numOfEntryPoints);
 
 #ifdef __cplusplus
 }

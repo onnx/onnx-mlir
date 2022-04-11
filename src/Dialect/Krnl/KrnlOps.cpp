@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
@@ -185,7 +186,7 @@ ParseResult KrnlDefineLoopsOp::parse(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    KrnlIterateOperandPack operandPack, ValueRange iterArgs,
+    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgs,
     function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
@@ -231,7 +232,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     origLoops.emplace_back(org);
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  krnl::KrnlIterateOperandPack pack(builder, origLoops, optLoops);
   for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushOperandBound(lbs[i]);
     pack.pushOperandBound(ubs[i]);
@@ -250,7 +251,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     origLoops.emplace_back(org);
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  krnl::KrnlIterateOperandPack pack(builder, origLoops, optLoops);
   for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushIndexExprBound(lbs[i], /*isLb*/ true);
     pack.pushIndexExprBound(ubs[i], /*isLb*/ false);
@@ -286,10 +287,10 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
     printer << " -> ";
     printer.printOperand(var);
     printer << " = ";
-    onnx_mlir::printBound(
+    krnl::printBound(
         (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", printer);
     printer << " to ";
-    onnx_mlir::printBound(
+    krnl::printBound(
         (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", printer);
     delimiter = ", ";
   }
@@ -302,7 +303,7 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
 ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
   auto context = builder.getContext();
-  onnx_mlir::KrnlDialectOperandParser operandParser(parser);
+  onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
 
   // Parse optimized loops:
   SmallVector<OpAsmParser::OperandType, 4> optimizedLoopRefs;
@@ -447,6 +448,23 @@ LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
   return success();
+}
+
+void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
+    function_ref<void(OpBuilder &, Location)> bodyBuilderFn) {
+
+  Region *bodyRegion = result.addRegion();
+  auto *body = new Block();
+  llvm::SmallVector<Type, 4> body_args;
+  llvm::SmallVector<Location, 4> body_arg_locs;
+  body->addArguments(body_args, body_arg_locs);
+  bodyRegion->push_back(body);
+
+  if (bodyBuilderFn) {
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(body);
+    bodyBuilderFn(builder, result.location);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -821,6 +839,29 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
   return success();
+}
+
+void KrnlSeqExtractOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(
+      MemoryEffects::Read::get(), seq(), SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), output(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+      SideEffects::DefaultResource::get());
+}
+
+Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
+  auto loc = alloc.getLoc();
+  MultiDialectBuilder<MemRefBuilder> create(builder, loc);
+  return create.mem.dealloc(alloc).getOperation();
+}
+
+Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
 }
 
 } // namespace mlir

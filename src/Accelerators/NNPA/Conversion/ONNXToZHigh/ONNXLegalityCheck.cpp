@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
@@ -188,20 +189,20 @@ StringRef getStrPaddingType(OP op) {
         return StringRef();
 
       // Compute pad values according to zDNN.
-      LiteralIndexExpr zero(0);
-      LiteralIndexExpr two(2);
+      LiteralIndexExpr zeroIE(0);
+      LiteralIndexExpr twoIE(2);
       IndexExpr padH =
           (ho - 1) * shapeHelper.strides[0] + shapeHelper.kernelShape[0] - hi;
       IndexExpr padW =
           (wo - 1) * shapeHelper.strides[1] + shapeHelper.kernelShape[1] - wi;
-      IndexExpr pH = IndexExpr::max(padH, zero);
-      IndexExpr pW = IndexExpr::max(padW, zero);
+      IndexExpr pH = IndexExpr::max(padH, zeroIE);
+      IndexExpr pW = IndexExpr::max(padW, zeroIE);
       if (!pH.isLiteral() || !pW.isLiteral())
         return StringRef();
 
-      IndexExpr pHTop = pH.floorDiv(two);
+      IndexExpr pHTop = pH.floorDiv(twoIE);
       IndexExpr pHBottom = pH - pHTop;
-      IndexExpr pWLeft = pW.floorDiv(two);
+      IndexExpr pWLeft = pW.floorDiv(twoIE);
       IndexExpr pWRight = pW - pWLeft;
 
       // Compare ONNX pads and zDNN pads.

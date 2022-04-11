@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.cpp - Index expression---------------------=== //
 //
-// copyright 2020 The IBM Research Authors.
+// copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/IndexExprDetail.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -31,6 +31,8 @@
 #define DEBUG_TYPE "index_expr"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // IndexExprScope constructors.
@@ -1672,3 +1674,5 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   for (unsigned int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }
+
+} // namespace onnx_mlir

@@ -5,7 +5,7 @@
 //===---------------IndexExprDetail.hpp - Index expression details---------===
 ////
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/IndexExprDetail.hpp"
+#include "src/Dialect/Mlir/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -25,6 +25,8 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
@@ -359,3 +361,5 @@ Value IndexExprImpl::getValue() {
   }
   return value;
 }
+
+} // namespace onnx_mlir

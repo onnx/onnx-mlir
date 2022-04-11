@@ -14,13 +14,15 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <ctime>
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXRandomNormalOpLowering : public ConversionPattern {
   ONNXRandomNormalOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -72,3 +74,5 @@ void populateLoweringONNXRandomNormalOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRandomNormalOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

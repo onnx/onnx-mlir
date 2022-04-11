@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -27,8 +28,8 @@
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace mlir {
 

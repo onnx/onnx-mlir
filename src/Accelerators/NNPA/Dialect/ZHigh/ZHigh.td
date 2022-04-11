@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===-- ZHighOps.td -- ZHigh Dialect Operation Definitions -*- tablegen ----==//
+//===----- ZHigh.td -- ZHigh Dialect Operation Definitions -*- tablegen ----==//
 //
 // Copyright 2019-2020 The IBM Research Authors
 //

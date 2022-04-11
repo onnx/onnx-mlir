@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXOneHotOpLowering : public ConversionPattern {
   ONNXOneHotOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -32,10 +34,10 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     Value values = operandAdaptor.values();
 
     ONNXOneHotOpShapeHelper shapeHelper(&oneHotOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     int64_t axis = shapeHelper.axis;
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -45,14 +47,14 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
 
     // Load off/on vals found in values memref.
     KrnlBuilder createKrnl(rewriter, loc);
-    LiteralIndexExpr zero(0), one(1);
-    Value offVal = createKrnl.loadIE(values, zero);
-    Value onVal = createKrnl.loadIE(values, one);
+    LiteralIndexExpr minusOneIE(-1), zeroIE(0), oneIE(1);
+    Value offVal = createKrnl.loadIE(values, zeroIE);
+    Value onVal = createKrnl.loadIE(values, oneIE);
 
     // Iterate over all of the inputs.
     MemRefBoundsIndexCapture indicesBounds(indices);
     int64_t indicesRank = indicesBounds.getRank();
-    SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zero);
+    SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zeroIE);
     SmallVector<IndexExpr, 4> indicesUbs;
     indicesBounds.getDimList(indicesUbs);
     ValueRange indicesLoopDef = createKrnl.defineLoops(indicesRank);
@@ -70,23 +72,22 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
           // Because valid input is from [-depth...depth-1], we must add depth
           // to input values that are negative. This will define inputIndex.
           IndexExpr inputNegVal = input + depth;
-          IndexExpr isNeg = input < zero;
+          IndexExpr isNeg = input < zeroIE;
           IndexExpr inputIndex = IndexExpr::select(isNeg, inputNegVal, input);
           // Now compute in inputIndex is still out of bound, in which case all
           // values are off.
-          IndexExpr isTooSmall = inputIndex < zero;
+          IndexExpr isTooSmall = inputIndex < zeroIE;
           IndexExpr isTooBig = inputIndex >= depth;
           IndexExpr outOfBound = isTooSmall | isTooBig;
           // Define here the index that has the on Value. If out of bound, put
           // -1 here as this value will never occur.
           IndexExpr onValueIndex =
-              IndexExpr::select(outOfBound, LiteralIndexExpr(-1), inputIndex);
+              IndexExpr::select(outOfBound, minusOneIE, inputIndex);
           Value onValueIndexVal = onValueIndex.getValue();
           // Now we have the index that is on, iterate over the depth values
           // along axis, and set the right one to the value on.
           ValueRange depthLoopDef = createKrnl.defineLoops(1);
-          createKrnl.iterateIE(depthLoopDef, depthLoopDef,
-              {LiteralIndexExpr(0)}, {depth},
+          createKrnl.iterateIE(depthLoopDef, depthLoopDef, {zeroIE}, {depth},
               [&](KrnlBuilder createBuilder, ValueRange depthLoopInd) {
                 MathBuilder createMath(createKrnl);
                 Value onCond = createMath.eq(depthLoopInd[0], onValueIndexVal);
@@ -116,3 +117,5 @@ void populateLoweringONNXOneHotOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXOneHotOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

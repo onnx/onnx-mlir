@@ -16,7 +16,7 @@
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
-include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 #endif // OP_BASE
 

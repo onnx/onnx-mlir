@@ -22,11 +22,14 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
+
 namespace {
 
 // Handling of static memory pool on a block-basis in each function. For each

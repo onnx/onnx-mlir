@@ -21,7 +21,7 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace onnx_mlir {
 namespace zhigh {
@@ -40,7 +40,7 @@ namespace zhigh {
 // base class for ZHigh here.
 //===----------------------------------------------------------------------===//
 
-using DimsExpr = llvm::SmallVector<mlir::IndexExpr, 4>;
+using DimsExpr = llvm::SmallVector<onnx_mlir::IndexExpr, 4>;
 
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
@@ -64,13 +64,13 @@ struct ZHighOpShapeHelper {
   // Constructor for shape inference. Reuse scope if given, otherwise create one
   // now and free it in destructor.
   ZHighOpShapeHelper(
-      OP *newOp, int numResults, mlir::IndexExprScope *inScope = nullptr);
+      OP *newOp, int numResults, onnx_mlir::IndexExprScope *inScope = nullptr);
   // Constructor when code can be generated. Reuse scope if given, otherwise
   // create one now and free it in destructor.
   ZHighOpShapeHelper(OP *newOp, int numResults, mlir::OpBuilder *rewriter,
-      mlir::ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      mlir::ArrayValueIndexCapture::LoadVal fLoadVal,
-      mlir::IndexExprScope *inScope = nullptr);
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      onnx_mlir::IndexExprScope *inScope = nullptr);
   ~ZHighOpShapeHelper() {
     if (ownScope)
       delete scope;
@@ -95,13 +95,13 @@ struct ZHighOpShapeHelper {
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `computeShape` function.
   OP *op;
-  mlir::IndexExprScope *scope;
+  onnx_mlir::IndexExprScope *scope;
 
 protected:
   // Function to get a dense value from an attribute.
-  mlir::ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
+  ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
   // Function to load a value from an array.
-  mlir::ArrayValueIndexCapture::LoadVal fLoadVal;
+  ArrayValueIndexCapture::LoadVal fLoadVal;
 
 private:
   llvm::SmallVector<DimsExpr, 1> outputsDims;

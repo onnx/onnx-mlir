@@ -81,7 +81,6 @@ DECLARE_DATA_LAYOUT_STR(ZDNN_FICO)
 DECLARE_DATA_LAYOUT_STR(ZDNN_HWCK)
 DECLARE_DATA_LAYOUT_STR(ZDNN_BIDIR_ZRH)
 DECLARE_DATA_LAYOUT_STR(ZDNN_BIDIR_FICO)
-static const char *UNDEFINED_STR = "UNDEFINED";
 
 #define DECLARE_DATA_FORMAT_STR(a) static const char *DATA_FORMAT_STR_##a = #a;
 
@@ -185,10 +184,10 @@ const char *get_data_layout_str(zdnn_data_layouts layout) {
     CASE_RTN_STR(ZDNN_HWCK);
     CASE_RTN_STR(ZDNN_BIDIR_ZRH);
     CASE_RTN_STR(ZDNN_BIDIR_FICO);
-  default:
-    return UNDEFINED_STR;
   }
 #undef CASE_RTN_STR
+
+  llvm_unreachable("Invalid data layout");
 }
 
 const char *get_data_format_str(zdnn_data_formats format) {
@@ -200,10 +199,10 @@ const char *get_data_format_str(zdnn_data_formats format) {
   switch (format) {
     CASE_RTN_STR(ZDNN_FORMAT_4DFEATURE);
     CASE_RTN_STR(ZDNN_FORMAT_4DKERNEL);
-  default:
-    return UNDEFINED_STR;
   }
 #undef CASE_RTN_STR
+
+  llvm_unreachable("Invalid data format");
 }
 
 short get_data_type_size(zdnn_data_types type) {
@@ -217,10 +216,10 @@ short get_data_type_size(zdnn_data_types type) {
     CASE_RTN_SIZE(FP16, 2);
     CASE_RTN_SIZE(FP32, 4);
     CASE_RTN_SIZE(ZDNN_DLFLOAT16, 2);
-  default:
-    return 0;
   }
 #undef CASE_RTN_SIZE
+
+  llvm_unreachable("Invalid data type");
 } // End - Functions from third_party/zdnn-lib/zdnn/get.c
 
 // Functions from third_party/zdnn-lib/zdnn/malloc4k.c
@@ -284,9 +283,6 @@ uint64_t get_num_elements(const zdnn_ztensor *ztensor, elements_mode mode) {
     // For example: 2D gets dim2 and dim1. 3D gets dim3, dim2, and dim1.
     i = ZDNN_MAX_DIMS -
         get_data_layout_dims(ztensor->pre_transformed_desc->layout);
-    break;
-  default:
-    return 0;
     break;
   }
 
@@ -403,9 +399,6 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
       return ZDNN_INVALID_LAYOUT;
     }
     break;
-  default:
-    // unrecognized
-    return ZDNN_INVALID_FORMAT;
   }
 
   // for right now only ZDNN_DLFLOAT16 is valid

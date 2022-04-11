@@ -30,7 +30,6 @@
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -175,7 +174,7 @@ private:
             krnlGlobalOp.value().getValue());
     }
 
-    //  LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
+    LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
     return global;
   }
 
@@ -222,13 +221,6 @@ private:
 
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-
-    int64_t numStrings = denseAttr.getValues<StringRef>().size();
-    if (numStrings == 1) {
-      StringRef str = *denseAttr.getValues<StringRef>().begin();
-      return krnl::getOrCreateGlobalString(
-          str, loc, builder, module, getTypeConverter());
-    }
 
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.

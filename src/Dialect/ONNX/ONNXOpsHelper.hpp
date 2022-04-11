@@ -20,41 +20,11 @@
 #include "mlir/IR/Value.h"
 
 #include "onnx/onnx_pb.h"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-namespace mlir {
-
-//====-------------------------- ONNX Builder ---------------------------===//
-
-struct OnnxBuilder : DialectBuilder {
-  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
-
-  Value add(Value A, Value B) const;
-  Value sub(Value A, Value B) const;
-  Value mul(Value A, Value B) const;
-  Value div(Value A, Value B) const;
-  Value matmul(Type Y, Value A, Value B) const;
-
-  Value reshape(Type outputType, Value input, Value shape) const;
-  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
-
-  Value constant(Attribute denseAttr) const;
-};
-
-// Recursive class specialized for OnnxBuilder refereed to as onnx.
-template <class... Ts>
-struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
-      : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
-      : MultiDialectBuilder<Ts...>(db), onnx(db) {}
-  OnnxBuilder onnx;
-};
-
-} // namespace mlir
+namespace onnx_mlir {
 
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
@@ -77,8 +47,8 @@ mlir::AffineMap getConvDimMap(mlir::Builder &builder, bool ceilMode);
 /// IndexExprs to compute the start and end indices of the convolution/pooling
 /// window.
 ///
-/// The conv/pooling window can be smaller than the kernel when slicing it over
-/// the border edges. Thus, we will compute the start and end indices for
+/// The conv/pooling window can be smaller than the kernel when slicing it
+/// over the border edges. Thus, we will compute the start and end indices for
 /// each window dimension as follows.
 ///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
 ///   startH = max(firstValidH, ho * sH - ptH)
@@ -92,8 +62,8 @@ mlir::AffineMap getConvDimMap(mlir::Builder &builder, bool ceilMode);
 ///   kernelOffset = min(0, ho * sH - ptH)
 ///
 /// How to derive 'firstValidH':
-///   When dilation is non-unit, the first valid pixel to apply conv/pooling on
-///   will not be the 0-th pixel, but rather the smallest integer n to make
+///   When dilation is non-unit, the first valid pixel to apply conv/pooling
+///   on will not be the 0-th pixel, but rather the smallest integer n to make
 ///   '-pH + n * dH' greater than or equal to 0, where pH and dH are pad
 ///   and dilation along axis H. We derive what is this smallest n:
 ///   -pH + n * dH >= 0
@@ -103,13 +73,13 @@ mlir::AffineMap getConvDimMap(mlir::Builder &builder, bool ceilMode);
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
 /// This function returns {startH, endH, kernelOffset}.
-std::vector<mlir::IndexExpr> getIndexExprsForConvWindow(
-    llvm::SmallVectorImpl<mlir::IndexExpr> &inputExprs, bool ceilMode,
+std::vector<onnx_mlir::IndexExpr> getIndexExprsForConvWindow(
+    llvm::SmallVectorImpl<onnx_mlir::IndexExpr> &inputExprs, bool ceilMode,
     bool isDilated);
 
-/// The conv/pooling window can be smaller than the kernel when slicing it over
-/// the border edges. This function returns an AffineMap to compute the size of
-/// one edge of the window.
+/// The conv/pooling window can be smaller than the kernel when slicing it
+/// over the border edges. This function returns an AffineMap to compute the
+/// size of one edge of the window.
 mlir::AffineMap getWindowAffineMap(
     mlir::Builder &builder, bool ceilMode, bool isDilated);
 
@@ -119,8 +89,8 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
-// type, using ONNX operations only.
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+// lambda type, using ONNX operations only.
 mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
     mlir::Value value);
 
@@ -221,3 +191,5 @@ RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+
+} // namespace onnx_mlir

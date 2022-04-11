@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
     SmallVectorImpl<IndexExpr> &Lbs, SmallVectorImpl<IndexExpr> &Ubs,
     ValueRange outerIndices, Value input, Value alloc, Value sumOp, Value maxOp,
@@ -126,6 +128,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
   KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
+  LiteralIndexExpr zeroIE(0);
 
   // Coerce the input into a 2-D tensor. `axis` will be the coercing
   // point. This coercing follows the softmax definition in ONNX:
@@ -141,7 +144,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
 
     // Common information to create nested loops.
     int64_t numberOfLoops = rank;
-    SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
     SmallVector<IndexExpr, 4> Ubs;
     inputBounds.getDimList(Ubs);
 
@@ -150,7 +153,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
   } else {
     // Define outer loops.
     ValueRange outerLoops = createKrnl.defineLoops(axis);
-    SmallVector<IndexExpr, 4> outerLbs(axis, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> outerLbs(axis, zeroIE);
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(inputBounds.getDim(i));
@@ -164,7 +167,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
 
           // Common information to create inner nested loops.
           int64_t numberOfLoops = rank - axis;
-          SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+          SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
           SmallVector<IndexExpr, 4> Ubs;
           for (int i = axis; i < rank; ++i)
             Ubs.emplace_back(inputBounds.getDim(i));
@@ -184,6 +187,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
   KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
+  LiteralIndexExpr zeroIE(0);
 
   // In opset version 13, The "axis" attribute indicates the dimension along
   // which Softmax will be performed. No need to coerce the dimensions after
@@ -191,7 +195,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
 
   // Outer loops iterate over all dimensions except axis.
   ValueRange outerLoops = createKrnl.defineLoops(rank - 1);
-  SmallVector<IndexExpr, 4> outerLbs(rank - 1, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> outerLbs(rank - 1, zeroIE);
   SmallVector<IndexExpr, 4> outerUbs;
   for (int i = 0; i < rank; ++i)
     if (i != axis)
@@ -208,7 +212,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
 
         // Common information to create inner nested loops for axis only.
         int64_t numberOfLoops = 1;
-        SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+        SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
         SmallVector<IndexExpr, 4> Ubs(numberOfLoops, inputBounds.getDim(axis));
 
         // Emit the inner loops.
@@ -284,3 +288,5 @@ void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSoftmaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

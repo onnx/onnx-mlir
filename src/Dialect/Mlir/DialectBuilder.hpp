@@ -1,4 +1,4 @@
-//===---- MLIRDialectBuilder.hpp - Helper functions for MLIR dialects -----===//
+//===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
-#define ONNX_AND_MLIR_DIALECT_BUILDER_H
+#pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -20,24 +19,24 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 
-#include "IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
-namespace mlir {
+namespace onnx_mlir {
 
 struct DialectBuilder {
-  DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
+  DialectBuilder(mlir::OpBuilder &b, mlir::Location loc) : b(b), loc(loc) {}
   DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
   virtual ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
   DialectBuilder &&operator=(const DialectBuilder &&) = delete;
 
-  OpBuilder &getBuilder() const { return b; }
-  Location getLoc() const { return loc; }
+  mlir::OpBuilder &getBuilder() const { return b; }
+  mlir::Location getLoc() const { return loc; }
 
 protected:
-  OpBuilder &b;
-  Location loc;
+  mlir::OpBuilder &b;
+  mlir::Location loc;
 };
 
 //===----------------------------------------------------------------------===//
@@ -59,56 +58,59 @@ protected:
 //===----------------------------------------------------------------------===//
 
 struct MathBuilder final : DialectBuilder {
-  MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  MathBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value andi(Value lhs, Value rhs) const;
-  Value ori(Value lhs, Value rhs) const;
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
 
-  Value add(Value lhs, Value rhs) const;
-  Value sub(Value lhs, Value rhs) const;
-  Value mul(Value lhs, Value rhs) const;
-  Value div(Value lhs, Value rhs) const;
-  Value exp(Value val) const;
-  Value exp2(Value val) const;
-  Value log2(Value val) const;
-  Value sqrt(Value val) const;
-  Value pow(Value base, Value exp) const;
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value exp(mlir::Value val) const;
+  mlir::Value exp2(mlir::Value val) const;
+  mlir::Value log2(mlir::Value val) const;
+  mlir::Value sqrt(mlir::Value val) const;
+  mlir::Value pow(mlir::Value base, mlir::Value exp) const;
 
-  Value select(Value cmp, Value lhs, Value rhs) const;
-  Value sgt(Value lhs, Value rhs) const;
-  Value sge(Value lhs, Value rhs) const;
-  Value slt(Value lhs, Value rhs) const;
-  Value sle(Value lhs, Value rhs) const;
-  Value eq(Value lhs, Value rhs) const;
-  Value neq(Value lhs, Value rhs) const;
-  Value min(Value lhs, Value rhs) const;
-  Value max(Value lhs, Value rhs) const;
+  mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value min(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value max(mlir::Value lhs, mlir::Value rhs) const;
 
-  Value constant(Type type, double val) const;
-  Value constantIndex(int64_t val) const;
+  mlir::Value constant(mlir::Type type, double val) const;
+  mlir::Value constantIndex(int64_t val) const;
 
   /// Emit a negative infinity constant of a specific type. Supported types:
   /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
   /// negative of the positive infinity. In case of Integer, emit the minimum
-  /// value.
-  Value negativeInf(Type type) const;
+  /// mlir::Value.
+  mlir::Value negativeInf(mlir::Type type) const;
 
   /// Emit a positive infinity constant of a specific type. Supported types:
   /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Integer, emit the
-  /// maximum value.
-  Value positiveInf(Type type) const;
+  /// maximum mlir::Value.
+  mlir::Value positiveInf(mlir::Type type) const;
 
   // Cast handle bool/int/float/index elementary types. Do not convert
   // signed/index to unsigned.
-  Value cast(Type destType, Value val) const;
-  Value castToIndex(Value val) const;
+  mlir::Value cast(mlir::Type destType, mlir::Value val) const;
+  mlir::Value castToIndex(mlir::Value val) const;
 
 private:
-  Value createArithCmp(Value lhs, Value rhs, arith::CmpIPredicate pred) const;
-  Value createArithCmp(Value lhs, Value rhs, arith::CmpFPredicate pred) const;
-  Value castToSignless(Value source, int64_t width) const;
-  Value castToUnsigned(Value source, int64_t width) const;
+  mlir::Value createArithCmp(
+      mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpIPredicate pred) const;
+  mlir::Value createArithCmp(
+      mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpFPredicate pred) const;
+  mlir::Value castToSignless(mlir::Value source, int64_t width) const;
+  mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -116,26 +118,31 @@ private:
 //===----------------------------------------------------------------------===//
 
 struct MemRefBuilder final : DialectBuilder {
-  MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
   MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  memref::AllocOp alloc(MemRefType type) const;
-  memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols) const;
-  memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1) const;
-  memref::AllocOp alignedAlloc(
-      MemRefType type, ValueRange dynSymbols, int64_t align = -1) const;
+  mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
+  mlir::memref::AllocOp alloc(
+      mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
+  mlir::memref::AllocOp alignedAlloc(
+      mlir::MemRefType type, int64_t align = -1) const;
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
+      mlir::ValueRange dynSymbols, int64_t align = -1) const;
 
-  memref::AllocaOp alloca(MemRefType type) const;
-  memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1) const;
+  mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
+  mlir::memref::AllocaOp alignedAlloca(
+      mlir::MemRefType type, int64_t align = -1) const;
 
-  memref::DeallocOp dealloc(Value val) const;
+  mlir::memref::DeallocOp dealloc(mlir::Value val) const;
 
-  memref::CastOp cast(Value input, MemRefType outputType) const;
+  mlir::memref::CastOp cast(
+      mlir::Value input, mlir::MemRefType outputType) const;
 
-  Value reinterpretCast(
-      Value input, SmallVectorImpl<IndexExpr> &outputDims) const;
-  Value dim(Value val, int64_t index) const;
-  Value dim(Value val, Value index) const;
+  mlir::Value reinterpretCast(
+      mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+  mlir::Value dim(mlir::Value val, int64_t index) const;
+  mlir::Value dim(mlir::Value val, mlir::Value index) const;
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
@@ -147,13 +154,14 @@ static constexpr int64_t gDefaultAllocAlign = 16;
 //===----------------------------------------------------------------------===//
 
 struct SCFBuilder final : DialectBuilder {
-  SCFBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  SCFBuilder(mlir::OpBuilder &b, mlir::Location loc) : DialectBuilder(b, loc) {}
   SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   /// Create an if then with optional else. Construct does not generate a result
   /// (unlike some scf::if) and introduces the yields automatically.
-  void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
-      function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
+  void ifThenElse(mlir::Value cond,
+      mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
+      mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
   void yield() const;
 };
@@ -163,24 +171,35 @@ struct SCFBuilder final : DialectBuilder {
 //===----------------------------------------------------------------------===//
 
 struct VectorBuilder final : DialectBuilder {
-  VectorBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  VectorBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
   VectorBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value load(VectorType vecType, Value memref, ValueRange indices = {}) const;
-  void store(Value val, Value memref, ValueRange indices = {}) const;
+  // Get the machine SIMD vector length for the given elementary type.
+  // This can help guide certain optimizations.
+  int64_t getMachineVectorLength(const mlir::Type &elementType) const;
+  int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
+  int64_t getMachineVectorLength(mlir::Value vecValue) const;
 
-  Value broadcast(VectorType vecType, Value val) const;
-  Value shuffle(Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const;
-  Value fma(Value lhs, Value rhs, Value acc) const;
+  mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
+      mlir::ValueRange indices = {}) const;
+  void store(
+      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
 
-  // Composite functions
-  Value mergeLow(Value lhs, Value rhs, int64_t step);
-  Value mergeHigh(Value lhs, Value rhs, int64_t step);
-  Value multiReduction(SmallVectorImpl<Value> &vecArray); // Only 4x4 as of now.
+  mlir::Value broadcast(mlir::VectorType vecType, mlir::Value val) const;
+  mlir::Value shuffle(mlir::Value lhs, mlir::Value rhs,
+      llvm::SmallVectorImpl<int64_t> &mask) const;
+  mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
+
+  // Composite functions.
+  mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
+  mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
+  void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
+      llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
 private:
-  bool isPowerOf2(uint64_t num);
-  uint64_t vector1DLength(Value vec);
+  bool isPowerOf2(uint64_t num) const;
+  uint64_t getLengthOf1DVector(mlir::Value vec) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -189,43 +208,52 @@ private:
 
 template <class LOAD_OP, class STORE_OP>
 struct GenericAffineBuilder final : DialectBuilder {
-  GenericAffineBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  GenericAffineBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
   GenericAffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value load(Value memref, ValueRange indices = {}) const;
-  void store(Value val, Value memref, ValueRange indices = {}) const;
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  void store(
+      mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
 
   void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      function_ref<void(GenericAffineBuilder &, Value)> builderFn) const;
-
-  void forIE(SmallVectorImpl<IndexExpr> &lbs, SmallVectorImpl<IndexExpr> &ubs,
-      SmallVectorImpl<int64_t> &steps,
-      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn) const;
+      mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
+      const;
+  void forIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
+      llvm::SmallVectorImpl<IndexExpr> &ubs,
+      llvm::SmallVectorImpl<int64_t> &steps,
+      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+          builderFn) const;
 
   // This if then else construct has no arguments to the blocks.
-  void ifThenElse(IndexExprScope &scope, SmallVectorImpl<IndexExpr> &conditions,
-      function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-      function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const;
+  void ifThenElse(IndexExprScope &scope,
+      llvm::SmallVectorImpl<IndexExpr> &conditions,
+      mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
+      mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
+      const;
 
   void yield() const;
 
 private:
   // Support for multiple forIE loops.
-  void recursionForIE(SmallVectorImpl<IndexExpr> &lbs,
-      SmallVectorImpl<IndexExpr> &ubs, SmallVectorImpl<int64_t> &steps,
-      SmallVectorImpl<Value> &loopIndices,
-      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn) const;
+  void recursionForIE(llvm::SmallVectorImpl<IndexExpr> &lbs,
+      llvm::SmallVectorImpl<IndexExpr> &ubs,
+      llvm::SmallVectorImpl<int64_t> &steps,
+      llvm::SmallVectorImpl<mlir::Value> &loopIndices,
+      mlir::function_ref<void(GenericAffineBuilder &, mlir::ValueRange)>
+          builderFn) const;
 
   // Support for adding blocks.
-  void appendToBlock(
-      Block *block, function_ref<void(ValueRange)> builderFn) const;
+  void appendToBlock(mlir::Block *block,
+      mlir::function_ref<void(mlir::ValueRange)> builderFn) const;
 };
 
 // Affine builder uses affine load and store for memory operations. A later
 // definition of AffineBuilderKrnlMem will use Krnl load and store for memory
 // operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
 // dialect into the affine dialect.
-using AffineBuilder = GenericAffineBuilder<AffineLoadOp, AffineStoreOp>;
+using AffineBuilder =
+    GenericAffineBuilder<mlir::AffineLoadOp, mlir::AffineStoreOp>;
 
 //===----------------------------------------------------------------------===//
 // Multi Dialect Builder
@@ -265,14 +293,14 @@ using AffineBuilder = GenericAffineBuilder<AffineLoadOp, AffineStoreOp>;
 // Anchor class.
 template <class... Ts>
 struct MultiDialectBuilder {
-  MultiDialectBuilder(OpBuilder &b, Location loc) {}
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc) {}
   MultiDialectBuilder(DialectBuilder &db) {}
 };
 
 // Recursive class specialized for MathBuilder refereed to as math.
 template <class... Ts>
 struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), math(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), math(db) {}
@@ -282,7 +310,7 @@ struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // Recursive class specialized for MemRefBuilder refereed to as mem.
 template <class... Ts>
 struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), mem(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), mem(db) {}
@@ -292,7 +320,7 @@ struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // Recursive class specialized for AffineBuilder refereed to as affine.
 template <class... Ts>
 struct MultiDialectBuilder<AffineBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), affine(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), affine(db) {}
@@ -302,7 +330,7 @@ struct MultiDialectBuilder<AffineBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // Recursive class specialized for SCFBuilder refereed to as scf.
 template <class... Ts>
 struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), scf(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), scf(db) {}
@@ -312,7 +340,7 @@ struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // Recursive class specialized for VectorBuilder refereed to as scf.
 template <class... Ts>
 struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), vec(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), vec(db) {}
@@ -320,7 +348,6 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
-#include "MLIRDialectBuilder.hpp.inc"
+#include "DialectBuilder.hpp.inc"
 
-} // namespace mlir
-#endif
+} // namespace onnx_mlir

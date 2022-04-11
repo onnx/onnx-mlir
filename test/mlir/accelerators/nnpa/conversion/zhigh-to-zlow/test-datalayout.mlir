@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-zhigh-to-zlow --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func @should_lower_to_zlow_1d(%arg0: tensor<7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "1D"} : (tensor<7xf32>) -> tensor<*xf32>

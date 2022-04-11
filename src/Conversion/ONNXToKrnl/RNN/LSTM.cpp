@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct LstmState {
   // returned states.
@@ -614,3 +616,5 @@ void populateLoweringONNXLSTMOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack,
       LstmWeightPack, LstmBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -295,6 +295,8 @@ OpsWithCanonicalizer = [
 # Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
     'AveragePool',
+    'ArgMax',
+    'ArgMin',
     'CategoryMapper',    
     'Compress',
     'Concat',

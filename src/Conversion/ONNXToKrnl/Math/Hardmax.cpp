@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
@@ -146,3 +149,5 @@ void populateLoweringONNXHardmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXHardmaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

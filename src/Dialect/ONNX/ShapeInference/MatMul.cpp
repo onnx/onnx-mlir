@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp)
     : ONNXOpShapeHelper<ONNXMatMulOp>(
           newOp, newOp->getOperation()->getNumResults()),
@@ -46,10 +50,10 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
   // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the
   // rightmost positions, prepended by 1s to fit the paddedRankSize. (1,1,1...
   // 1, aDim[0]...aDim[aRank-1])
-  LiteralIndexExpr one(1);
+  LiteralIndexExpr oneIE(1);
   int aOffset = paddedRank - ABounds.getRank();
   for (int i = 0; i < aOffset; ++i) {
-    aDims[i] = one;
+    aDims[i] = oneIE;
     aPadDims[i] = true;
   }
   for (unsigned int i = 0; i < ABounds.getRank(); ++i) {
@@ -62,12 +66,12 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
   int bOffset = paddedRank - BBounds.getRank();
   if (BBounds.getRank() == 1) {
-    bDims[paddedRank - 1] = one;
+    bDims[paddedRank - 1] = oneIE;
     bPadDims[paddedRank - 1] = true;
     bOffset--;
   }
   for (int i = 0; i < bOffset; ++i) {
-    bDims[i] = one;
+    bDims[i] = oneIE;
     bPadDims[i] = true;
   }
   for (unsigned int i = 0; i < BBounds.getRank(); ++i) {
@@ -129,9 +133,11 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     outputDims.emplace_back(bDims[bM]);
   // For the case where both aRank == bRank == 1
   if (ABounds.getRank() == 1 && BBounds.getRank() == 1) {
-    outputDims.emplace_back(one);
+    outputDims.emplace_back(oneIE);
   }
   // Save the final result.
   dimsForOutput(0) = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

@@ -14,9 +14,11 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 /// Compute the intersection-over-union (IOU) score between two boxes.
 /// IOU tells us how much two boxes are overlapped.
@@ -165,22 +167,22 @@ static Value tryToUnflip(
   IndexExpr ss = bbBounds.getDim(1); // spatial size.
   SmallVector<IndexExpr, 4> ubs;
   bbBounds.getDimList(ubs);
-  LiteralIndexExpr zero(0), one(1), two(2), three(3);
+  LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
       /*insertDealloc=*/false);
 
   ValueRange loopDef = createKrnl.defineLoops(2);
-  createKrnl.iterateIE(loopDef, loopDef, {zero, zero}, {bs, ss},
+  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
         DimIndexExpr b(loopInd[0]), s(loopInd[1]);
         // Load a bounding box.
-        Value y_min = createKrnl.loadIE(boundingBoxes, {b, s, zero});
-        Value x_min = createKrnl.loadIE(boundingBoxes, {b, s, one});
-        Value y_max = createKrnl.loadIE(boundingBoxes, {b, s, two});
-        Value x_max = createKrnl.loadIE(boundingBoxes, {b, s, three});
+        Value y_min = createKrnl.loadIE(boundingBoxes, {b, s, zeroIE});
+        Value x_min = createKrnl.loadIE(boundingBoxes, {b, s, oneIE});
+        Value y_max = createKrnl.loadIE(boundingBoxes, {b, s, twoIE});
+        Value x_max = createKrnl.loadIE(boundingBoxes, {b, s, threeIE});
 
         // Flip x.
         Value gtX = createMath.sgt(x_min, x_max);
@@ -193,10 +195,10 @@ static Value tryToUnflip(
         Value newYMax = createMath.select(gtY, y_min, y_max);
 
         // Update the bounding box.
-        createKrnl.storeIE(newYMin, resMemRef, {b, s, zero});
-        createKrnl.storeIE(newXMin, resMemRef, {b, s, one});
-        createKrnl.storeIE(newYMax, resMemRef, {b, s, two});
-        createKrnl.storeIE(newXMax, resMemRef, {b, s, three});
+        createKrnl.storeIE(newYMin, resMemRef, {b, s, zeroIE});
+        createKrnl.storeIE(newXMin, resMemRef, {b, s, oneIE});
+        createKrnl.storeIE(newYMax, resMemRef, {b, s, twoIE});
+        createKrnl.storeIE(newXMax, resMemRef, {b, s, threeIE});
       });
   return resMemRef;
 }
@@ -799,3 +801,5 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // # if __name__ == "__main__":
 // #     main()
 // clang-format on
+
+} // namespace onnx_mlir

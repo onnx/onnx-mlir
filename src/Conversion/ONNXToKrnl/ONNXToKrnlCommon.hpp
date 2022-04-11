@@ -31,16 +31,16 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-
-using namespace mlir;
 
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
@@ -50,6 +50,8 @@ extern bool ONNXToKrnl_gEmitDealloc;
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
 // operations.
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct OnnxToKrnlBuilder : public OnnxBuilder {
   OnnxToKrnlBuilder(OpBuilder &b, Location loc) : OnnxBuilder(b, loc) {}
@@ -109,7 +111,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimensions are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index);
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index);
 
 // Function that emits the define_loop operation to define `numLoops`
 // number of krnl loops, and fill `loop` with the newly defined loops.
@@ -400,3 +402,5 @@ Location ONNXLoc(Operation *op) {
 /// Default value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue);
+
+} // namespace onnx_mlir

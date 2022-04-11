@@ -60,7 +60,7 @@ Value getSqrtResultBatchNormA(
 //===----------------------------------------------------------------------===//
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.inc"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {

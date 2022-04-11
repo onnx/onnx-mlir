@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
     ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
@@ -28,9 +30,10 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
   Value data = operandAdaptor.data();
 
   ShapeHelper shapeHelper(&squeezeOp, &rewriter,
-      getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
+      krnl::getDenseElementAttributeFromKrnlValue,
+      krnl::loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed));
+  assert(succeeded(shapecomputed) && "Could not compute output shape");
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.
   Value newView = emitMemRefReinterpretCastOp(
@@ -72,3 +75,5 @@ void populateLoweringONNXSqueezeV11OpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSqueezeV11OpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

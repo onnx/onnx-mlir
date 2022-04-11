@@ -15,6 +15,10 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXCategoryMapperOpShapeHelper::ONNXCategoryMapperOpShapeHelper(
     ONNXCategoryMapperOp *newOp)
     : ONNXOpShapeHelper<ONNXCategoryMapperOp>(
@@ -41,3 +45,5 @@ LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
 
   return success();
 }
+
+} // namespace onnx_mlir

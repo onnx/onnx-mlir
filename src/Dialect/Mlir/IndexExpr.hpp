@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,7 +28,7 @@ During Shape inference, no code is generated; the IndexExpr will only be used to
 either determine the actual constant size or a Questionmark (signifying unknown
 at compile time).
 
-During lowering, code can be generated, and if fact it must, to fill in the
+During lowering, code can be generated, and in fact it must, to fill in the
 information that might be missing at compile time. The same IndexExpression
 computation are actually used to determine the sizes, indices, and access
 functions. Because AffineExpr have several advantages over more generic Value
@@ -269,7 +269,7 @@ inference part as no code may be generated during such phases.
 #include <functional>
 #include <string>
 
-namespace mlir {
+namespace onnx_mlir {
 
 struct DialectBuilder;
 
@@ -319,12 +319,12 @@ class IndexExprScope {
 public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot geneate code at this time) and location.
-  IndexExprScope(OpBuilder *rewriter, Location loc);
+  IndexExprScope(mlir::OpBuilder *rewriter, mlir::Location loc);
   IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope(OpBuilder *rewriter, IndexExprScope *enclosingScope);
+  IndexExprScope(mlir::OpBuilder *rewriter, IndexExprScope *enclosingScope);
   IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   virtual ~IndexExprScope();
@@ -337,15 +337,15 @@ public:
 
   // Public getters.
   static IndexExprScope &getCurrentScope();
-  OpBuilder &getRewriter() const;
-  OpBuilder *getRewriterPtr() const;
-  Location getLoc() const { return loc; }
+  mlir::OpBuilder &getRewriter() const;
+  mlir::OpBuilder *getRewriterPtr() const;
+  mlir::Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 
   // Queries and getters.
   bool isCurrentScope() const;
   bool isEnclosingScope() const;
-  void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
+  void getDimAndSymbolList(llvm::SmallVectorImpl<mlir::Value> &list) const;
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
@@ -362,22 +362,23 @@ private:
   void addIndexExprImpl(IndexExprImpl *obj);
 
   // Support functions for AffineExpr.
-  int indexInList(SmallVectorImpl<Value> const &list, Value const &value) const;
-  int addDim(Value const value);
-  int addSymbol(Value const value);
+  int indexInList(llvm::SmallVectorImpl<mlir::Value> const &list,
+      mlir::Value const &value) const;
+  int addDim(mlir::Value const value);
+  int addSymbol(mlir::Value const value);
 
   // Dim and symbol mapping from index to value.
-  SmallVector<Value, 4> dims;
-  SmallVector<Value, 4> symbols;
+  llvm::SmallVector<mlir::Value, 4> dims;
+  llvm::SmallVector<mlir::Value, 4> symbols;
   // Rewriter, null when during shape inference; otherwise used to create ops.
-  OpBuilder *rewriter;
+  mlir::OpBuilder *rewriter;
   // Location for ops rewriting.
-  Location loc;
+  mlir::Location loc;
   // Parent scope (used when creating a child scope).
   IndexExprScope *parentScope;
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon scope destruction.
-  SmallVector<IndexExprImpl *, 20> container;
+  llvm::SmallVector<IndexExprImpl *, 20> container;
 };
 
 //===----------------------------------------------------------------------===//
@@ -439,25 +440,26 @@ public:
   bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
   // All element in list are literals.
-  static bool isLiteral(SmallVectorImpl<IndexExpr> &list);
+  static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
-  OpBuilder &getRewriter() const { return getScope().getRewriter(); }
-  Location getLoc() const { return getScope().getLoc(); }
+  mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
+  mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
-  AffineExpr getAffineExpr() const;
+  mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
-      AffineMap &map, SmallVectorImpl<Value> &operands) const;
-  Value getValue() const;
+      mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
+  mlir::Value getValue() const;
 
   // Helpers for list of IndexExpressions
-  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-      SmallVectorImpl<int64_t> &intDimList);
-  static void getValues(
-      ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList);
-  static void getOpOrFoldResults(SmallVectorImpl<IndexExpr> &indexExprList,
-      SmallVectorImpl<OpFoldResult> &resList);
+  static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+      llvm::SmallVectorImpl<int64_t> &intDimList);
+  static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
+      llvm::SmallVectorImpl<mlir::Value> &valueList);
+  static void getOpOrFoldResults(
+      llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+      llvm::SmallVectorImpl<mlir::OpFoldResult> &resList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
@@ -516,20 +518,20 @@ public:
   IndexExpr selectOrSelf(IndexExpr const compare, int64_t const trueVal) const;
 
   // Return min or max of a list of IndexExpr.
-  static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr min(llvm::SmallVectorImpl<IndexExpr> &vals);
   static IndexExpr min(IndexExpr const first, IndexExpr const second);
   static IndexExpr min(IndexExpr const first, int64_t const second);
-  static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr max(llvm::SmallVectorImpl<IndexExpr> &vals);
   static IndexExpr max(IndexExpr const first, IndexExpr const second);
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
-  bool retrieveAffineMinMax(
-      bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
+  bool retrieveAffineMinMax(bool &isMin,
+      llvm::SmallVectorImpl<mlir::Value> &vals, mlir::AffineMap &map) const;
 
   // Debug (enable running with --debug-only=index_expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
-      const std::string &msg, const SmallVectorImpl<IndexExpr> &list);
+      const std::string &msg, const llvm::SmallVectorImpl<IndexExpr> &list);
 
 protected:
   // Private queries.
@@ -546,16 +548,16 @@ protected:
   using F2 = std::function<IndexExpr(IndexExpr const, IndexExpr const)>;
   using F2Self = std::function<IndexExpr(IndexExpr, IndexExpr const)>;
   using Flist =
-      std::function<IndexExpr(IndexExpr, SmallVectorImpl<IndexExpr> &)>;
+      std::function<IndexExpr(IndexExpr, llvm::SmallVectorImpl<IndexExpr> &)>;
   using F3 = std::function<IndexExpr(
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
       bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
   IndexExpr compareOp(
-      arith::CmpIPredicate comparePred, IndexExpr const b) const;
-  static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
-      Flist affineRed, F2Self valueRed);
+      mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
+  static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
+      F2Self litRed, Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.
   IndexExprImpl *indexExprObj = nullptr;
 };
@@ -600,7 +602,7 @@ private:
 class NonAffineIndexExpr : public IndexExpr {
 public:
   NonAffineIndexExpr() = default;
-  NonAffineIndexExpr(Value const value);
+  NonAffineIndexExpr(mlir::Value const value);
   NonAffineIndexExpr(IndexExpr const &o);
   NonAffineIndexExpr(UndefinedIndexExpr const &o);
   NonAffineIndexExpr(LiteralIndexExpr const &o);
@@ -645,7 +647,7 @@ class PredicateIndexExpr : public IndexExpr {
 public:
   PredicateIndexExpr() = default;
   PredicateIndexExpr(bool const value); // Make a predicate constant value.
-  PredicateIndexExpr(Value const value);
+  PredicateIndexExpr(mlir::Value const value);
   PredicateIndexExpr(IndexExpr const &o);
   PredicateIndexExpr(UndefinedIndexExpr const &o);
   PredicateIndexExpr(LiteralIndexExpr const &o);
@@ -669,7 +671,7 @@ private:
 class AffineIndexExpr : public IndexExpr {
 public:
   AffineIndexExpr() = default;
-  AffineIndexExpr(AffineExpr const value);
+  AffineIndexExpr(mlir::AffineExpr const value);
   AffineIndexExpr(IndexExpr const &o);
   AffineIndexExpr(UndefinedIndexExpr const &o);
   AffineIndexExpr(LiteralIndexExpr const &o);
@@ -693,7 +695,7 @@ private:
 class DimIndexExpr : public IndexExpr {
 public:
   DimIndexExpr() = default;
-  DimIndexExpr(Value const value);
+  DimIndexExpr(mlir::Value const value);
   DimIndexExpr(IndexExpr const &o);
   DimIndexExpr(UndefinedIndexExpr const &o);
   DimIndexExpr(LiteralIndexExpr const &o);
@@ -717,7 +719,7 @@ private:
 class SymbolIndexExpr : public IndexExpr {
 public:
   SymbolIndexExpr() = default;
-  SymbolIndexExpr(Value const value);
+  SymbolIndexExpr(mlir::Value const value);
   SymbolIndexExpr(IndexExpr const &o);
   SymbolIndexExpr(UndefinedIndexExpr const &o);
   SymbolIndexExpr(LiteralIndexExpr const &o);
@@ -766,17 +768,17 @@ public:
   // GetDenseVal locate a DenseElementAttr by looking at the definition of the
   // array value. Return null if this definition is not generating a dense
   // array.
-  using GetDenseVal = std::function<DenseElementsAttr(Value array)>;
+  using GetDenseVal = std::function<mlir::DenseElementsAttr(mlir::Value array)>;
   // LoadVal will load the value at array[i] where array is a single dimensional
   // array.
-  using LoadVal = std::function<Value(
-      OpBuilder &rewriter, Location loc, Value array, int64_t index)>;
+  using LoadVal = std::function<mlir::Value(mlir::OpBuilder &rewriter,
+      mlir::Location loc, mlir::Value array, int64_t index)>;
 
   // Constructor when there is no default value.
   ArrayValueIndexCapture(
-      Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+      mlir::Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
   // Constructor in the presence of a default value when none is found.
-  ArrayValueIndexCapture(Value array, int64_t defaultLiteral,
+  ArrayValueIndexCapture(mlir::Value array, int64_t defaultLiteral,
       GetDenseVal fGetDenseVal, LoadVal fLoadVal);
   ArrayValueIndexCapture() = delete;
 
@@ -784,12 +786,12 @@ public:
   IndexExpr getSymbol(uint64_t i);
   // Return true when it could successfully read num symbols; otherwise return
   // false and an empty list.
-  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  bool getSymbolList(int num, llvm::SmallVectorImpl<IndexExpr> &symbolList);
   // Same as above. Assume array is a 1D shape typed; we use its size as num.
-  bool getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
+  bool getSymbolList(llvm::SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  Value array;
+  mlir::Value array;
   int64_t defaultLiteral;
   bool hasDefault;
   GetDenseVal fGetDenseArrayAttr;
@@ -799,15 +801,15 @@ private:
 // Capture array of values given by attributes.
 class ArrayAttributeIndexCapture {
 public:
-  ArrayAttributeIndexCapture(ArrayAttr array);
-  ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
+  ArrayAttributeIndexCapture(mlir::ArrayAttr array);
+  ArrayAttributeIndexCapture(mlir::ArrayAttr array, int64_t defaultLiteral);
   ArrayAttributeIndexCapture() = delete;
 
   IndexExpr getLiteral(uint64_t i);
   uint64_t size() { return arraySize; }
 
 private:
-  ArrayAttr array;
+  mlir::ArrayAttr array;
   uint64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
@@ -819,7 +821,7 @@ private:
 class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture();
-  MemRefBoundsIndexCapture(Value tensorOrMemref);
+  MemRefBoundsIndexCapture(mlir::Value tensorOrMemref);
 
   uint64_t getRank() { return memRank; }
   bool isLiteral(int64_t i);
@@ -828,17 +830,17 @@ public:
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);
-  void getLiteralList(SmallVectorImpl<IndexExpr> &literalList);
-  void getDimList(SmallVectorImpl<IndexExpr> &dimList);
-  void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
+  void getLiteralList(llvm::SmallVectorImpl<IndexExpr> &literalList);
+  void getDimList(llvm::SmallVectorImpl<IndexExpr> &dimList);
+  void getSymbolList(llvm::SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   template <class INDEX>
   IndexExpr get(uint64_t i);
   template <class INDEX>
-  void getList(SmallVectorImpl<IndexExpr> &dimList);
+  void getList(llvm::SmallVectorImpl<IndexExpr> &dimList);
 
-  Value tensorOrMemref;
+  mlir::Value tensorOrMemref;
   uint64_t memRank;
 };
 
@@ -847,8 +849,8 @@ private:
 //===----------------------------------------------------------------------===//
 
 template <class INDEXEXPR>
-void getIndexExprList(
-    ArrayRef<BlockArgument> inputList, SmallVectorImpl<IndexExpr> &outputList) {
+void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
@@ -856,18 +858,18 @@ void getIndexExprList(
 
 template <class INDEXEXPR>
 void getIndexExprList(
-    ValueRange range, SmallVectorImpl<IndexExpr> &outputList) {
+    mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : range)
     outputList.emplace_back(INDEXEXPR(item));
 }
 
 template <class INDEXEXPR>
-void getIndexExprList(SmallVectorImpl<IndexExpr> &inputList,
-    SmallVectorImpl<IndexExpr> &outputList) {
+void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
 
-} // namespace mlir
+} // namespace onnx_mlir

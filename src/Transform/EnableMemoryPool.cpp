@@ -19,16 +19,18 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
-bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
+static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;

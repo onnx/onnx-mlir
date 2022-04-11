@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct GruState {
   // returned states.
@@ -620,3 +622,5 @@ void populateLoweringONNXGRUOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXGRUOp, GruState, GruActivationPack,
       GruWeightPack, GruBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

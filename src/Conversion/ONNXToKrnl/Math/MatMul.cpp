@@ -15,14 +15,18 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+
+#define DEBUG_TYPE "matmul"
+static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 using namespace mlir;
 
-#define DEBUG_TYPE "matmul"
+namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(
@@ -178,29 +182,42 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     });
   }
 
-  void computeTileSizeForMatVectProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
-      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
-      int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatVectProduct(int64_t mVL, DimIndexExpr dimI,
+      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
+      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
 
     // Default values.
-    // Right can only tile by 4.
-    iRegTile = 4; // SIMD dim during multi-reduction.
+    // Right can only tile i and k by (possibly distinct) multiple of mVL.
+    iRegTile = 2 * mVL; // SIMD dim during multi-reduction.
     jRegTile = 1;
-    kRegTile = 4; // SIMD dim during multiplication.
-
-    if (dimI.isLiteral()) {
-      int64_t constI = dimI.getLiteral();
-      if (constI < iRegTile) {
-        simdize = false;
-        // Not enough data, can only support i/k reg tile of 4.
-      }
-    }
+    kRegTile = 16 * mVL; // SIMD dim during multiplication.
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
-      if (constK < kRegTile) {
-        simdize = false;
+      // Register tile in the I Dim is really for the reduction. The
+      // computations will be further tiled to a multiple of mVL inside
+      // krnl.matmul.
+      kRegTile = (constK / mVL) * mVL; // largest multiple
+      if (kRegTile > 64 * mVL) {
+        kRegTile = 64 * mVL;
+        LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: cap tiling k\n"; });
+      } else if (kRegTile < mVL) {
         // Not enough data, can only support i/k reg tile of 4.
+        LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
+        simdize = false;
+        kRegTile = 1;
+      }
+    }
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = (constI / mVL) * mVL; // largest multiple
+        if (iRegTile < mVL) {
+          // Not enough data, can only support i/k reg tile of 4.
+          LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
+          simdize = false;
+          iRegTile = 1;
+        }
       }
     }
     LLVM_DEBUG({
@@ -209,16 +226,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     });
   }
 
-  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
-  // Implementation here uses the efficient 1d tiling plus kernel substitution.
+  // Handle the cases with 2x2 matrices both for A, B, and C without
+  // broadcast. Implementation here uses the efficient 1d tiling plus kernel
+  // substitution.
   void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
+        create(rewriter, loc);
     Value zero = create.math.constantIndex(0);
     Value I = create.mem.dim(C, 0);
     Value J = create.mem.dim(C, 1);
@@ -231,13 +249,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
     int64_t iRegTile, jRegTile, kRegTile;
-    bool isMatVectorProduct = dimJ.isLiteral() && dimJ.getLiteral() == 1;
-    if (isMatVectorProduct)
+    bool isMatVectorProduct =
+        !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct) {
+      int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
-    else
+          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    } else {
       computeTileSizeForMatMatProduct(
           dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    }
 
     // I, J, K loop.
     ValueRange origLoop = create.krnl.defineLoops(3);
@@ -271,10 +292,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -306,3 +327,5 @@ void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir

@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXBatchNormalizationInferenceModeOpLowering
     : public ConversionPattern {
   ONNXBatchNormalizationInferenceModeOpLowering(
@@ -71,7 +73,8 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
-      KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
+      // TODO use new KrnlDialectBuilder.
+      krnl::KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       KrnlIterateOp cIterateOp = create.krnl.iterate(cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
@@ -95,7 +98,8 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     for (size_t i = 0; i < axes.size(); ++i)
       packLoops.emplace_back(originalLoops[axes[i]]);
 
-    KrnlIterateOperandPack pack(rewriter, packLoops);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack pack(rewriter, packLoops);
     for (size_t i = 0; i < axes.size(); ++i)
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
 
@@ -286,3 +290,5 @@ void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

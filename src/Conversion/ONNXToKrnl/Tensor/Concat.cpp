@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public ConversionPattern {
   ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -30,11 +33,11 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     auto axis = concatOp.axis();
     unsigned int inputNum = operands.size();
@@ -50,36 +53,36 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     // Creates loops, one for each input.
+    KrnlBuilder createKrnl(rewriter, loc);
     for (unsigned int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
-      BuildKrnlLoop inputLoops(rewriter, loc, rank);
-      inputLoops.createDefineOp();
-      for (unsigned int r = 0; r < rank; ++r)
-        inputLoops.pushBounds(0, operands[i], r);
-      inputLoops.createIterateOp();
-      rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
-
-      // Indices for the read and write.
-      SmallVector<Value, 4> readIndices;
-      SmallVector<Value, 4> writeIndices;
-      for (unsigned int r = 0; r < rank; ++r) {
-        readIndices.emplace_back(inputLoops.getInductionVar(r));
-        if (r != axis || i == 0)
-          writeIndices.emplace_back(inputLoops.getInductionVar(r));
-        else {
-          IndexExprScope IEScope(&rewriter, loc);
-          IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
-          for (unsigned int j = 0; j < i; j++) {
-            MemRefBoundsIndexCapture operandJBounds(operands[j]);
-            writeOffset = writeOffset + operandJBounds.getDim(r);
-          }
-          writeIndices.emplace_back(writeOffset.getValue());
-        }
-      }
-      // Insert copy.
-      Value loadData = create.krnl.load(operands[i], readIndices);
-      create.krnl.store(loadData, alloc, writeIndices);
+      ValueRange loopDef = createKrnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture bounds(operands[i]);
+      SmallVector<IndexExpr, 4> ubs;
+      bounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            // Indices for the read and write.
+            SmallVector<Value, 4> readIndices, writeIndices;
+            for (unsigned int r = 0; r < rank; ++r) {
+              if (r != axis || i == 0)
+                writeIndices.emplace_back(loopInd[r]);
+              else {
+                IndexExprScope IEScope(&rewriter, loc);
+                IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
+                for (unsigned int j = 0; j < i; j++) {
+                  MemRefBoundsIndexCapture operandJBounds(operands[j]);
+                  writeOffset = writeOffset + operandJBounds.getDim(r);
+                }
+                writeIndices.emplace_back(writeOffset.getValue());
+              }
+            }
+            // Insert copy.
+            Value loadData = createKrnl.load(operands[i], loopInd);
+            createKrnl.store(loadData, alloc, writeIndices);
+          });
     }
     rewriter.replaceOp(op, alloc);
     return success();
@@ -90,3 +93,5 @@ void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

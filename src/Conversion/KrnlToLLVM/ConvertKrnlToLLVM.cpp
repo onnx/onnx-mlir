@@ -46,6 +46,7 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
@@ -519,6 +520,13 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
+  // Conversion target for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->conversionTargetKrnlToLLVM(target);
+  }
+
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
@@ -547,6 +555,13 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       outputOMTensorOwnerships,
       /*singleEntryPoint=*/entryPointNames.size() == 1);
 
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);
+  }
+
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   if (failed(
@@ -574,6 +589,8 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlPrintTensorOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlVectorTypeCastOpPattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlRandomNormalOpPattern(typeConverter, patterns, ctx);

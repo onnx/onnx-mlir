@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXConstantOpLowering : public ConversionPattern {
   ONNXConstantOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -30,12 +32,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
       return emitError(loc, "Only support dense values at this time");
 
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
-
-    // Shape based computations.
-    auto shape = memRefType.getShape();
-    int64_t numElements = 1;
-    for (size_t i = 0; i < shape.size(); ++i)
-      numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
@@ -53,3 +49,5 @@ void populateLoweringONNXConstantOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

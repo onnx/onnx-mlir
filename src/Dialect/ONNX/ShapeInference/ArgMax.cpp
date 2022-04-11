@@ -4,11 +4,20 @@
 
 //===---------- ArgMax.cpp - Shape Inference for ArgMax Op ----------------===//
 //
+// Copyright 2020-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
 // This file implements shape inference for the ONNX ArgMax Operator.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
     : ONNXOpShapeHelper<ONNXArgMaxOp>(
@@ -26,14 +35,13 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
   // Get info about input data operand.
   Value data = operandAdaptor.data();
   int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-
-  // axis is a required attribute and should have default value of 0.
   int64_t axisValue = op->axis();
 
-  // Accepted axis range is [-r, r-1] where r = rank(data).
-  if (axisValue < -1 * (int64_t)dataRank || axisValue >= (int64_t)dataRank) {
-    return op->emitError("ArgMax axis value out of bound");
-  }
+  // axis attribute must be in the range [-r,r-1], where r = rank(data).
+  if (axisValue < -dataRank || axisValue >= dataRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
+        "axis", axisValue,
+        onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   if (axisValue < 0) {
     axisValue = dataRank + axisValue;
@@ -44,30 +52,26 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
 
   // keepdims is a required attribute and should have default value of 1.
   int64_t keepdims = op->keepdims();
-  bool isKeepdims = (keepdims == 1) ? true : false;
+  bool isKeepdims = (keepdims == 1);
 
   // Compute outputDims
   DimsExpr outputDims;
   MemRefBoundsIndexCapture dataBounds(data);
-  int reducedRank = isKeepdims ? dataRank : dataRank - 1;
+  int64_t reducedRank = isKeepdims ? dataRank : dataRank - 1;
   outputDims.resize(reducedRank);
-  for (auto i = 0; i < reducedRank; i++) {
+  for (int64_t i = 0; i < reducedRank; i++) {
     DimIndexExpr dimOutput;
-    if (isKeepdims) {
-      if (i != axisValue)
-        dimOutput = dataBounds.getDim(i);
-      else
-        dimOutput = LiteralIndexExpr(1);
-    } else {
-      if (i < axisValue)
-        dimOutput = dataBounds.getDim(i);
-      else
-        dimOutput = dataBounds.getDim(i + 1);
-    }
+    if (isKeepdims)
+      dimOutput = (i != axisValue) ? dataBounds.getDim(i) : LiteralIndexExpr(1);
+    else
+      dimOutput =
+          (i < axisValue) ? dataBounds.getDim(i) : dataBounds.getDim(i + 1);
     outputDims[i] = dimOutput;
   }
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

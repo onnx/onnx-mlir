@@ -14,15 +14,14 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
 
 /// Compute the normalized trip count of a loop as:
 ///   trip = min(UB - GI, block);
-mlir::IndexExpr trip(
-    mlir::IndexExpr UB, mlir::IndexExpr block, mlir::IndexExpr GI);
+IndexExpr trip(IndexExpr UB, IndexExpr block, IndexExpr GI);
 
 } // namespace krnl
 } // namespace onnx_mlir

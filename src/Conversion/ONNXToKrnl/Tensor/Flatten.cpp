@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
@@ -89,7 +91,8 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     ValueRange indices;
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inputRank);
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (size_t i = 0; i < inputRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -171,3 +174,5 @@ void populateLoweringONNXFlattenOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXFlattenOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
