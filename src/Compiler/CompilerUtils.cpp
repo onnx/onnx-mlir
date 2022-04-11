@@ -40,13 +40,16 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
-#if defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&            \
+static const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+static const std::string OnnxMlirVersionString =
+#ifdef ONNX_MLIR_VENDOR
+    ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
+#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
     defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
-static const std::string OnnxMlirVersion =
-    "onnx-mlir version 1.0.0 (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
-    " " LLVM_REPOSITORY " " LLVM_REVISION ")";
+    OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
+                      ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
 #else
-const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+    OnnxMlirVersion;
 #endif
 
 namespace {
@@ -283,7 +286,8 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Emit the onnx-mlir version as llvm.ident metadata.
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
+  llvm::Metadata *identNode[] = {
+      llvm::MDString::get(ctx, OnnxMlirVersionString)};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   // Annotate functions to be accessible from DLL on Windows.
