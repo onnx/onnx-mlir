@@ -86,9 +86,6 @@ if (EXISTS ${LIBSTDCXX_LIB})
   set(LD_PRELOADS ${LIBSTDCXX_LIB}:${LD_PRELOADS})
 endif()
 
-set(ZDNN_LIBRARY_DIR $ENV{ZDNN_LIBRARY_DIR})
-set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
-
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
 # C/C++ and JNI tests run in parallel so they must use a different
@@ -96,7 +93,7 @@ set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
 add_custom_target(check-onnx-backend
   COMMAND
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/cpp
-    LD_PRELOAD=${ZDNN_LIB} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
