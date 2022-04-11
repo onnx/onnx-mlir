@@ -628,7 +628,7 @@ def replaceONNXLSTMPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
@@ -663,7 +663,7 @@ def replaceONNXLSTMPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
@@ -705,7 +705,7 @@ def replaceONNXLSTMPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
@@ -740,7 +740,7 @@ def replaceONNXLSTMPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
@@ -788,7 +788,7 @@ def replaceONNXGRUPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -820,7 +820,7 @@ def replaceONNXGRUPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -860,7 +860,7 @@ def replaceONNXGRUPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
@@ -892,7 +892,7 @@ def replaceONNXGRUPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;

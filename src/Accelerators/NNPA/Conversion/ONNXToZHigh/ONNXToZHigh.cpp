@@ -100,11 +100,12 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, ArrayRef<int64_t> shapeX, StringAttr direction) {
+    Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
   if (isNoneType(resYh) || isNoneType(val))
     return noneValue;
 
+  ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
   Value minusOne =
       rewriter
@@ -141,32 +142,25 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value start = directionStr.equals_insensitive("forward") ? minusOne : zero;
     Value end = directionStr.equals_insensitive("forward") ? intMax : one;
 
-    SmallVector<int64_t> sliceShape({1, D, B, H});
-    Type sliceType = RankedTensorType::get(sliceShape, elementType);
+    Type sliceType = RankedTensorType::get({1, D, B, H}, elementType);
     ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
         loc, sliceType, val, start, end, axis, step);
     ret = rewriter.create<ONNXSqueezeV11Op>(
         loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
   } else if (directionStr.equals_insensitive("bidirectional")) {
-    SmallVector<int64_t> splitShape({T, 1, B, H});
-    Type splitType = RankedTensorType::get(splitShape, elementType);
+    Type splitType = RankedTensorType::get({T, 1, B, H}, elementType);
     SmallVector<Type> splitTypes = {splitType, splitType};
-    int64_t splitAxis = 1;
     ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
-        loc, splitTypes, val, splitAxis, nullptr);
-    SmallVector<int64_t> sliceShape({1, 1, B, H});
-    Type sliceType = RankedTensorType::get(sliceShape, elementType);
+        loc, splitTypes, val, /*splitAxis=*/1, nullptr);
+    Type sliceType = RankedTensorType::get({1, 1, B, H}, elementType);
     Value fwdLastSlice = rewriter.create<ONNXSliceOp>(
         loc, sliceType, splitOp.getResults()[0], minusOne, intMax, axis, step);
     Value bkwFirstSlice = rewriter.create<ONNXSliceOp>(
         loc, sliceType, splitOp.getResults()[1], zero, one, axis, step);
-    SmallVector<int64_t> concatShape({1, D, B, H});
-    Type concatType = RankedTensorType::get(concatShape, elementType);
-    int64_t concatAxis = 1;
-    Value concatOp = rewriter.create<ONNXConcatOp>(
-        loc, concatType, ValueRange({fwdLastSlice, bkwFirstSlice}), concatAxis);
-    SmallVector<int64_t> squeezeShape({D, B, H});
-    Type squeezeType = RankedTensorType::get(squeezeShape, elementType);
+    Type concatType = RankedTensorType::get({1, D, B, H}, elementType);
+    Value concatOp = rewriter.create<ONNXConcatOp>(loc, concatType,
+        ValueRange({fwdLastSlice, bkwFirstSlice}), /*concatAxis=*/1);
+    Type squeezeType = RankedTensorType::get({D, B, H}, elementType);
     ret = rewriter.create<ONNXSqueezeV11Op>(
         loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
   } else {
@@ -181,7 +175,7 @@ Value getLSTMGRUGetYc(
   if (isNoneType(resYc))
     return noneValue;
 
-  auto unstickOp =
+  zhigh::ZHighUnstickOp unstickOp =
       rewriter.create<zhigh::ZHighUnstickOp>(loc, val.getType(), val);
   return rewriter.create<ONNXSqueezeV11Op>(
       loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));

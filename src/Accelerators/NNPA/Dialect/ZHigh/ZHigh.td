@@ -424,7 +424,7 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
             		   "::mlir::Value":$hidden_weights, "::mlir::Value":$hidden_bias,
                    "::mlir::IntegerAttr":$hidden_size, "::mlir::StringAttr":$direction,
                    "::mlir::IntegerAttr":$return_all_steps,
-                   "StringAttr":$prev_layer), [{
+                   "::mlir::StringAttr":$prev_layer), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, resType,
@@ -469,7 +469,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
                    "::mlir::Value":$input_bias, "::mlir::Value":$hidden_weights,
                    "::mlir::Value":$hidden_bias, "::mlir::IntegerAttr":$hidden_size,
                    "::mlir::StringAttr":$direction, "::mlir::IntegerAttr":$return_all_steps,
-                   "StringAttr":$prev_layer), [{
+                   "::mlir::StringAttr":$prev_layer), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType,
