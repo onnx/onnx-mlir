@@ -1017,15 +1017,6 @@ LogicalResult ONNXSequenceInsertOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
-// ConcatFromSequenceOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXConcatFromSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // SequenceAtOp
 //===----------------------------------------------------------------------===//
 
@@ -2810,15 +2801,47 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConcatOp::verify() {
-  ONNXConcatOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    if (!hasShapeAndRank(operand)) {
-      // Won't be able to do any checking at this stage.
-      return success();
+// Verify that all input tensors of the supplied operator have the expected
+// rank, and that all the operands have the same dimensions except for an
+// excluded dimension.
+static LogicalResult verifySameShape(
+    Operation &op, ValueRange operands, const int64_t excludedDim) {
+  assert(llvm::all_of(operands, [](const Value &operand) {
+    return operand.getType().isa<RankedTensorType>();
+  }) && "Expecting all operands to be ranked tensors");
+
+  auto type = operands.front().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> expectedShape = type.getShape();
+  int64_t expectedRank = expectedShape.size();
+  assert(excludedDim >= 0 && excludedDim < expectedRank &&
+         "excludedDim must be in the range [0, expectedRank-1]");
+
+  for (Value operand : operands) {
+    ArrayRef<int64_t> operandShape =
+        operand.getType().cast<RankedTensorType>().getShape();
+    int64_t operandRank = operandShape.size();
+    if (operandRank != expectedRank)
+      return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+          op, operand, operandRank, expectedRank);
+
+    for (int64_t dim = 0; dim < expectedRank; ++dim) {
+      if (dim == excludedDim)
+        continue;
+      if (operandShape[dim] != -1 && expectedShape[dim] != -1 &&
+          operandShape[dim] != expectedShape[dim])
+        return onnx_mlir::Diagnostic::operandHasUnexpectedDimensionValue(
+            op, operand, dim, operandShape[dim], expectedShape[dim]);
     }
   }
+
+  return success();
+}
+
+LogicalResult ONNXConcatOp::verify() {
+  ONNXConcatOpAdaptor operandAdaptor(*this);
+  for (const auto &operand : operandAdaptor.getOperands())
+    if (!hasShapeAndRank(operand))
+      return success(); // Won't be able to do any checking at this stage.
 
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
@@ -2835,26 +2858,10 @@ LogicalResult ONNXConcatOp::verify() {
   if (axisIndex < 0)
     axisIndex += commonRank;
 
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    ArrayRef<int64_t> currShape =
-        operand.getType().cast<RankedTensorType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitOpError("Concat inputs must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex)
-        continue;
-      if (currShape[j] != -1 && commonShape[j] != -1 &&
-          currShape[j] != commonShape[j]) {
-        return emitOpError(
-                   "Concat input dimensions must be all identical, "
-                   "except for dimension on the axis of the "
-                   "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << operand.getType() << " instead.";
-      }
-    }
-  }
-
-  return success();
+  // All input tensors must have the same shape, except for the dimension size
+  // of the axis to concatenate on.
+  return verifySameShape(
+      *getOperation(), operandAdaptor.getOperands(), axisIndex);
 }
 
 LogicalResult ONNXConcatOp::inferShapes(
@@ -2892,6 +2899,46 @@ LogicalResult ONNXConcatOp::inferShapes(
       RankedTensorType::get(outputDims, commonType.getElementType()));
 
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ConcatFromSequence
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXConcatFromSequenceOp::verify() {
+  ONNXConcatFromSequenceOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.input_sequence()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  Value inputSequence = operandAdaptor.input_sequence();
+  assert(inputSequence.getType().isa<SeqType>() &&
+         "Incorrect type for a sequence");
+  auto seqType = inputSequence.getType().cast<SeqType>();
+  auto elemType = seqType.getElementType().cast<RankedTensorType>();
+  int64_t rank = elemType.getShape().size();
+  int64_t axisIndex = axis();
+  int64_t newAxisIndex = new_axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  // When `new_axis` is 1, accepted range is [-r-1,r].
+  if (newAxisIndex == 1) {
+    if (axisIndex < (-rank - 1) || axisIndex > rank)
+      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+          "axis", axisIndex,
+          onnx_mlir::Diagnostic::Range<int64_t>(-rank - 1, rank));
+  } else {
+    if (axisIndex < -rank || axisIndex >= rank)
+      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+          "axis", axisIndex,
+          onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
+  }
+
+  return success();
+}
+
+LogicalResult ONNXConcatFromSequenceOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3145,6 +3192,29 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // DequantizeLinear
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDequantizeLinearOp::verify() {
+  ONNXDequantizeLinearOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.x()))
+    return success(); // Too early to verify.
+
+  auto x = operandAdaptor.x();
+  int64_t xRank = x.getType().cast<ShapedType>().getRank();
+  Optional<int64_t> optionalAxis = axis();
+
+  if (optionalAxis.hasValue()) {
+    // axis attribute must be in the range [-r,r-1], where r = rank(input).
+    int64_t axis = optionalAxis.getValue();
+    if (axis < -xRank || axis >= xRank)
+      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+          "axis", axis,
+          onnx_mlir::Diagnostic::Range<int64_t>(-xRank, xRank - 1));
+  }
+
+  // TODO: check other input constraints.
+
+  return success();
+}
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -3751,8 +3821,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
       return emitOpError("Scale should have a rank of one");
     if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
         scaleShape[0] != inputShape[1])
-      return emitOpError(
-          "Scale should have same dimension as the second dimension of input");
+      return emitOpError("Scale should have same dimension as the second "
+                         "dimension of input");
     if (scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
@@ -4161,8 +4231,8 @@ LogicalResult ONNXOneHotOp::verify() {
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
     int64_t axisValue = axis();
-    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
-    // (after last).
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to
+    // 3 (after last).
     if (axisValue < 0)
       axisValue += indicesRank + 1;
     if (!(axisValue >= 0 && axisValue <= indicesRank))

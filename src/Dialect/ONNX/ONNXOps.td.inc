@@ -737,6 +737,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
@@ -1092,6 +1093,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return {7};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDetOp:ONNX_Op<"Det",

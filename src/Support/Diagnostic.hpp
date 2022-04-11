@@ -39,10 +39,22 @@ public:
     }
   };
 
-  /// Verifies whether an attribute value is outside the supplied range.
+  /// Diagnostic message for attribute value outside of a supplied range.
   template <typename T>
   static mlir::LogicalResult attributeOutOfRange(mlir::Operation &op,
       const llvm::Twine &attrName, T attrVal, Range<T> validRange);
+
+  /// Diagnostic message for operand with unexpected rank.
+  static mlir::LogicalResult operandHasUnexpectedRank(mlir::Operation &op,
+      mlir::Value &operand, uint64_t operandRank, uint64_t expectedRank);
+
+  /// Diagnostic message for operand with unexpected dimension value.
+  static mlir::LogicalResult operandHasUnexpectedDimensionValue(
+      mlir::Operation &op, mlir::Value &operand, uint64_t operandDimension,
+      uint64_t dimensionValue, uint64_t expectedDimension);
+
+  /// Return the name of the given value.
+  static std::string getName(mlir::Value &v);
 };
 
 } // namespace onnx_mlir
