@@ -489,10 +489,6 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   if ((aShape.size() != 2) || (bShape.size() != 2) ||
       (hasC && (cShape.size() != 1)))
     return false;
-  // Shape must be static.
-  if (!aType.hasStaticShape() || !bType.hasStaticShape() ||
-      (hasC && !cType.hasStaticShape()))
-    return false;
 
   ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
   if ((gemmOp.alpha().convertToFloat() != 1.0) ||
@@ -502,7 +498,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   auto bShape1 = gemmOp.transB() ? bShape[0] : bShape[1];
   // Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
-  if (hasC && (cShape[0] != bShape1))
+  if (hasC && (cShape[0] != -1) && (bShape1 != -1) && (cShape[0] != bShape1))
     return false;
   return true;
 }
