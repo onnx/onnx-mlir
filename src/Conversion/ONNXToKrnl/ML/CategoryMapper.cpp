@@ -85,7 +85,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
         rewriter, op->getLoc());

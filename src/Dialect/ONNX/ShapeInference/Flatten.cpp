@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXFlattenOpShapeHelper::ONNXFlattenOpShapeHelper(ONNXFlattenOp *newOp)
-    : ONNXOpShapeHelper<ONNXFlattenOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXFlattenOpShapeHelper::ONNXFlattenOpShapeHelper(ONNXFlattenOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXFlattenOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXFlattenOpShapeHelper::computeShape(
     ONNXFlattenOpAdaptor operandAdaptor) {
   // Get info about input operand.

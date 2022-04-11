@@ -42,7 +42,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getRank();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Iterate over the output values.
     KrnlBuilder createKrnl(rewriter, loc);
@@ -50,14 +50,14 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
     createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
-        shapeHelper.dimsForOutput(0),
+        shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           IndexExprScope outputScope(createKrnl, shapeHelper.scope);
           SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
           getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
           LogicalResult res = shapeHelper.GetAccessExprs(
               input, 0, outputLoopIndices, lhsAccessExprs);
-          assert(succeeded(res));
+          assert(succeeded(res) && "Could not compute access indices");
           Value val = createKrnl.loadIE(input, lhsAccessExprs);
           createKrnl.store(val, alloc, outputLoopInd);
         });

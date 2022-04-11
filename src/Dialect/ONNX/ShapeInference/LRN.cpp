@@ -14,17 +14,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp)
-    : ONNXOpShapeHelper<ONNXLRNOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXLRNOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXLRNOpShapeHelper::computeShape(
     ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -39,7 +28,7 @@ LogicalResult ONNXLRNOpShapeHelper::computeShape(
   }
 
   // Set type for the first output.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
 

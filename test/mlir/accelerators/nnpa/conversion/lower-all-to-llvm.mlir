@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-all-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // -----
 

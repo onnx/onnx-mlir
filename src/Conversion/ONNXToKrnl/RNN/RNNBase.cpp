@@ -87,65 +87,66 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
   Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
 
   int nLoops = 2;
-  krnl::BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  if (direction == FORWARD || direction == BIDIRECTIONAL)
-    initializationLoops.createDefineAndIterateOp(forwardHt);
-  else
-    initializationLoops.createDefineAndIterateOp(reverseHt);
-  auto ipInitializationLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
-  {
-    KrnlBuilder createKrnl(rewriter, loc);
-    SmallVector<Value, 4> IVs;
-    IVs.emplace_back(initializationLoops.getInductionVar(0));
-    IVs.emplace_back(initializationLoops.getInductionVar(1));
+  IndexExprScope childScope(&rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
+  ValueRange loopDef = createKrnl.defineLoops(nLoops);
+  SmallVector<IndexExpr, 4> lbs(nLoops, LiteralIndexExpr(0));
+  MemRefBoundsIndexCapture bounds(
+      (direction == FORWARD || direction == BIDIRECTIONAL) ? forwardHt
+                                                           : reverseHt);
+  SmallVector<IndexExpr, 4> ubs;
+  bounds.getDimList(ubs);
+  createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        SmallVector<Value, 4> IVs;
+        IVs.emplace_back(loopInd[0]);
+        IVs.emplace_back(loopInd[1]);
 
-    if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      SmallVector<Value, 4> initialIVs;
-      initialIVs.emplace_back(zeroIndex);
-      initialIVs.emplace_back(initializationLoops.getInductionVar(0));
-      initialIVs.emplace_back(initializationLoops.getInductionVar(1));
-      if (isNoneType(initialH))
-        createKrnl.store(zero, forwardHt, IVs);
-      else {
-        Value h = createKrnl.load(initialH, initialIVs);
-        createKrnl.store(h, forwardHt, IVs);
-      }
-      if (!onlyHidden) {
-        if (isNoneType(initialC))
-          createKrnl.store(zero, forwardCt, IVs);
-        else {
-          Value c = createKrnl.load(initialC, initialIVs);
-          createKrnl.store(c, forwardCt, IVs);
+        if (direction == FORWARD || direction == BIDIRECTIONAL) {
+          SmallVector<Value, 4> initialIVs;
+          initialIVs.emplace_back(zeroIndex);
+          initialIVs.emplace_back(loopInd[0]);
+          initialIVs.emplace_back(loopInd[1]);
+          if (isNoneType(initialH))
+            createKrnl.store(zero, forwardHt, IVs);
+          else {
+            Value h = createKrnl.load(initialH, initialIVs);
+            createKrnl.store(h, forwardHt, IVs);
+          }
+          if (!onlyHidden) {
+            if (isNoneType(initialC))
+              createKrnl.store(zero, forwardCt, IVs);
+            else {
+              Value c = createKrnl.load(initialC, initialIVs);
+              createKrnl.store(c, forwardCt, IVs);
+            }
+          }
         }
-      }
-    }
 
-    if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      SmallVector<Value, 4> initialIVs;
-      if (direction == REVERSE)
-        initialIVs.emplace_back(zeroIndex);
-      else
-        initialIVs.emplace_back(oneIndex);
-      initialIVs.emplace_back(initializationLoops.getInductionVar(0));
-      initialIVs.emplace_back(initializationLoops.getInductionVar(1));
-      if (isNoneType(initialH))
-        createKrnl.store(zero, reverseHt, IVs);
-      else {
-        Value h = createKrnl.load(initialH, initialIVs);
-        createKrnl.store(h, reverseHt, IVs);
-      }
-      if (!onlyHidden) {
-        if (isNoneType(initialC))
-          createKrnl.store(zero, reverseCt, IVs);
-        else {
-          Value c = createKrnl.load(initialC, initialIVs);
-          createKrnl.store(c, reverseCt, IVs);
+        if (direction == REVERSE || direction == BIDIRECTIONAL) {
+          SmallVector<Value, 4> initialIVs;
+          if (direction == REVERSE)
+            initialIVs.emplace_back(zeroIndex);
+          else
+            initialIVs.emplace_back(oneIndex);
+          initialIVs.emplace_back(loopInd[0]);
+          initialIVs.emplace_back(loopInd[1]);
+          if (isNoneType(initialH))
+            createKrnl.store(zero, reverseHt, IVs);
+          else {
+            Value h = createKrnl.load(initialH, initialIVs);
+            createKrnl.store(h, reverseHt, IVs);
+          }
+          if (!onlyHidden) {
+            if (isNoneType(initialC))
+              createKrnl.store(zero, reverseCt, IVs);
+            else {
+              Value c = createKrnl.load(initialC, initialIVs);
+              createKrnl.store(c, reverseCt, IVs);
+            }
+          }
         }
-      }
-    }
-  }
-  rewriter.restoreInsertionPoint(ipInitializationLoops);
+      });
 }
 
 /// Insert Allocate and Deallocate for the hidden or cell output.

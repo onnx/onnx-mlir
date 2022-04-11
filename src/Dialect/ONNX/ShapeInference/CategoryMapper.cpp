@@ -19,19 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXCategoryMapperOpShapeHelper::ONNXCategoryMapperOpShapeHelper(
-    ONNXCategoryMapperOp *newOp)
-    : ONNXOpShapeHelper<ONNXCategoryMapperOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXCategoryMapperOpShapeHelper::ONNXCategoryMapperOpShapeHelper(
-    ONNXCategoryMapperOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXCategoryMapperOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
     ONNXCategoryMapperOpAdaptor operandAdaptor) {
   Value X = operandAdaptor.X();
