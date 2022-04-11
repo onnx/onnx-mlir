@@ -74,7 +74,7 @@ public:
 /// Include the auto-generated header file containing the declarations of the
 /// ZHigh operations.
 #define GET_ATTRDEF_CLASSES
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.hpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.hpp.inc"
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"
