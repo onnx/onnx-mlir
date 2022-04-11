@@ -19,8 +19,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXTypes.cpp
   Rewrite.cpp
 
-  ShapeInference/ArgMax.cpp
-  ShapeInference/ArgMin.cpp  
+  ShapeInference/ArgMinMax.cpp
   ShapeInference/AveragePool.cpp
   ShapeInference/CategoryMapper.cpp  
   ShapeInference/Clip.cpp  
