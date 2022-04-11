@@ -1,4 +1,5 @@
-// RUN: onnx-mlir -v %s -o %T/check_verbosity 2>&1 |  FileCheck %s
+// RUN: rm -rf %t && mkdir %t
+// RUN: onnx-mlir -v %s -o %t/check_verbosity 2>&1 |  FileCheck %s
 
 // REQUIRES: system-linux
 // CHECK:      opt {{.*}} -o {{.*}}check_verbosity.bc

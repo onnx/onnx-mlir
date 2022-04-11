@@ -1,6 +1,7 @@
-// RUN: onnx-mlir -Xopt --data-sections -v %s -o %T/check_passthrough_options 2>&1 | FileCheck --check-prefix=OPT %s
-// RUN: onnx-mlir -Xllc --data-sections -v %s -o %T/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLC %s
-// RUN: onnx-mlir -mllvm --data-sections -v %s -o %T/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLVM %s
+// RUN: rm -rf %t && mkdir %t
+// RUN: onnx-mlir -Xopt --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=OPT %s
+// RUN: onnx-mlir -Xllc --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLC %s
+// RUN: onnx-mlir -mllvm --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLVM %s
 
 // OPT:       opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc
 // OPT-NOT:   llc{{.*}} --data-sections {{.*}}
