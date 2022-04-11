@@ -63,6 +63,20 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, A.getType().cast<ShapedType>().getElementType());
 }
 
+std::vector<Value> transposeVariadicInput(PatternRewriter &rewriter,
+    Location loc, ValueRange inputs, ArrayAttr permAttr) {
+  std::vector<Value> transposedInputs;
+  for (uint64_t i = 0; i < inputs.size(); ++i) {
+    Value inp = inputs[i];
+    Type elementType = inp.getType().cast<ShapedType>().getElementType();
+    ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
+        loc, UnrankedTensorType::get(elementType), inp, permAttr);
+    (void)transposeOp.inferShapes([](Region &region) {});
+    transposedInputs.emplace_back(transposeOp.getResult());
+  }
+  return transposedInputs;
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
@@ -96,6 +110,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
+  result.insert<SwapTransposeConcat>(context);
 }
 
 /// on the ONNXReshapeOp.
@@ -166,7 +181,7 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
   results.insert<GlobalMaxPoolPattern>(context);
 }
 
-/// on the ONNXSizeOp.
+/// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConstantOpNormalizationPattern1>(context);

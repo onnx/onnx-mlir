@@ -174,6 +174,10 @@ class RankXMinusRankYIs<int diff>: Constraint<
           " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
     "X' rank is greater than Y's rank dif units">;
 
+def TransposeVariadicInput: NativeCodeCall<
+  "transposeVariadicInput($_builder, $_loc, $0, $1)"
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -308,6 +312,28 @@ def RemoveIdentityTransposePattern:  Pat<
   (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
+
+def GetIndexOfAxisInPerm: NativeCodeCall<
+"[](PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {"#
+"  IntegerAttr result;"#
+"  for (uint64_t i = 0; i < permAttr.getValue().size(); ++i) {"#
+"    if (permAttr.getValue()[i].cast<IntegerAttr>().getValue().getSExtValue()"#
+"        == axis.getValue().getSExtValue())" #
+"      return rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), i);"#
+"  }"#
+"  return result;"#
+"}($_builder, $0, $1)"
+>;
+
+// Do transpose on concat's inputs instead of output because of the following
+// reasons:
+//   - the inputs can be produced in parallel (if the compiler supports).
+//   - tranpose ops are propagated together, which enables transpose fusion.
+def SwapTransposeConcat: Pat<
+  (ONNXTransposeOp:$res (ONNXConcatOp $inputs, $axis), $perm),
+  (ONNXConcatOp (TransposeVariadicInput $inputs, $perm),
+                (GetIndexOfAxisInPerm $perm, $axis))
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXReshapeOp
