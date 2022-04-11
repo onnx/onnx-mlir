@@ -46,7 +46,7 @@ public:
 
   /// Diagnostic message for operand with unexpected rank.
   static mlir::LogicalResult operandHasUnexpectedRank(mlir::Operation &op,
-      mlir::Value &operand, uint64_t operandRank, uint64_t expectedRank);
+      mlir::Value &operand, uint64_t operandRank, mlir::StringRef expectedRank);
 
   /// Diagnostic message for operand with unexpected dimension value.
   static mlir::LogicalResult operandHasUnexpectedDimensionValue(

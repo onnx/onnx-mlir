@@ -2583,6 +2583,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",

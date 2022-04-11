@@ -309,6 +309,7 @@ OpsWithVerifier = [
     'Flatten',
     'Hardmax',
     'InstanceNormalization',
+    'LogSoftmax',
     'Mod',
     'NonMaxSuppression',
     'OneHot',

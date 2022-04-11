@@ -2822,7 +2822,7 @@ static LogicalResult verifySameShape(
     int64_t operandRank = operandShape.size();
     if (operandRank != expectedRank)
       return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
-          op, operand, operandRank, expectedRank);
+          op, operand, operandRank, std::to_string(expectedRank));
 
     for (int64_t dim = 0; dim < expectedRank; ++dim) {
       if (dim == excludedDim)
@@ -2861,7 +2861,7 @@ LogicalResult ONNXConcatOp::verify() {
   // All input tensors must have the same shape, except for the dimension size
   // of the axis to concatenate on.
   return verifySameShape(
-      *getOperation(), operandAdaptor.getOperands(), axisIndex);
+      *this->getOperation(), operandAdaptor.getOperands(), axisIndex);
 }
 
 LogicalResult ONNXConcatOp::inferShapes(
@@ -4068,6 +4068,28 @@ LogicalResult ONNXLRNOp::inferShapes(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXLogSoftmax
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXLogSoftmaxOp::verify() {
+  ONNXLogSoftmaxOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.input()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  Value input = operandAdaptor.input();
+  int64_t inputRank = input.getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(input).
+  if (axisIndex < -inputRank || axisIndex >= inputRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+
+  return success();
+}
+
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -4682,53 +4704,74 @@ mlir::Operation::result_range ONNXScanOp::scan_outputs() {
   return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXScatter
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXScatterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXScatterElements
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
-  // Get operands.
-  mlir::Value data = operandAdaptor.data();
-  mlir::Value indices = operandAdaptor.indices();
-  mlir::Value updates = operandAdaptor.updates();
+  for (const auto &operand : operandAdaptor.getOperands())
+    if (!hasShapeAndRank(operand))
+      return success(); // Won't be able to do any checking at this stage.
 
-  // Won't be able to do any checking at this stage.
-  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
-      !hasShapeAndRank(updates))
-    return success();
+  Value data = operandAdaptor.data();
+  Value indices = operandAdaptor.indices();
+  Value updates = operandAdaptor.updates();
+  int64_t dataRank = data.getType().cast<ShapedType>().getRank();
+  int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+  int64_t updatesRank = updates.getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = axis();
 
-  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
-  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
-  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
-  int64_t axis = this->axis();
+  // input operands rank must be >= 1.
+  if (dataRank < 1)
+    return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+        *this->getOperation(), data, dataRank, ">= 1");
+  if (indicesRank < 1)
+    return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+        *this->getOperation(), indices, indicesRank, ">= 1");
+  if (updatesRank < 1)
+    return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+        *this->getOperation(), updates, updatesRank, ">= 1");
 
-  if (data_rank < 1)
-    return emitOpError("data rank should >= 1");
-  if (indices_rank < 1)
-    return emitOpError("indices rank should >= 1");
-  if (updates_rank < 1)
-    return emitOpError("updates rank rank should >= 1");
-  if (data_rank != indices_rank || data_rank != updates_rank ||
-      indices_rank != updates_rank) {
-    return emitOpError("data, indices, updates rank should equal");
-  }
+  // input operands rank must be the same.
+  auto expectedRank = std::to_string(dataRank);
+  if (indicesRank != dataRank)
+    return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+        *this->getOperation(), indices, indicesRank, expectedRank);
+  if (updatesRank != dataRank)
+    return onnx_mlir::Diagnostic::operandHasUnexpectedRank(
+        *this->getOperation(), updates, updatesRank, expectedRank);
 
-  if (axis >= data_rank || axis < 0)
-    return emitOpError("axis value out of bound");
+  // axis attribute must be in the range [-r,r-1], where r = rank(data).
+  if (axisIndex < -dataRank || axisIndex >= dataRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   return success();
 }
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<mlir::RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>())
     return success();
 
   getResult().setType(data().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXScatterNDOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScatterNDOp::verify() {
   ONNXScatterNDOpAdaptor operandAdaptor(*this);

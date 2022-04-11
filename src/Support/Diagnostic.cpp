@@ -35,13 +35,13 @@ LogicalResult Diagnostic::attributeOutOfRange(Operation &op,
 }
 
 LogicalResult Diagnostic::operandHasUnexpectedRank(Operation &op,
-    Value &operand, uint64_t operandRank, uint64_t expectedRank) {
+    Value &operand, uint64_t operandRank, StringRef expectedRank) {
   llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
-                                    .concat(" must have rank ")
-                                    .concat(std::to_string(expectedRank))
-                                    .concat(" instead of ")
-                                    .concat(std::to_string(operandRank)));
+                                    .concat(" has rank ")
+                                    .concat(std::to_string(operandRank))
+                                    .concat(", rank should be ")
+                                    .concat(expectedRank));
 }
 
 LogicalResult Diagnostic::operandHasUnexpectedDimensionValue(Operation &op,
