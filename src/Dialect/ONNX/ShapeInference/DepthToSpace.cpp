@@ -14,19 +14,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXDepthToSpaceOpShapeHelper::ONNXDepthToSpaceOpShapeHelper(
-    ONNXDepthToSpaceOp *newOp)
-    : ONNXOpShapeHelper<ONNXDepthToSpaceOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXDepthToSpaceOpShapeHelper::ONNXDepthToSpaceOpShapeHelper(
-    ONNXDepthToSpaceOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXDepthToSpaceOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
     ONNXDepthToSpaceOpAdaptor operandAdaptor) {
   // Get info about input data operand and blocksize.
@@ -56,7 +43,7 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
   outputDims[3] = W * blocksize;
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
 
