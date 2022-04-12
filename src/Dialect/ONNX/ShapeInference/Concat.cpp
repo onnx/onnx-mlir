@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp)
-    : ONNXOpShapeHelper<ONNXConcatOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXConcatOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXConcatOpShapeHelper::computeShape(
     ONNXConcatOpAdaptor operandAdaptor) {
   unsigned numInputs = op->getNumOperands();
@@ -64,7 +53,7 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
     outputDims[i] =
         (i == axisIndex) ? cumulativeAxisSize : firstInputBounds.getDim(i);
 
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
 
