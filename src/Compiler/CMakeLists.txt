@@ -35,7 +35,7 @@ add_onnx_mlir_library(CompilerOptions
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
-  
+
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
@@ -53,7 +53,7 @@ add_onnx_mlir_library(CompilerPasses
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
-  
+
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
@@ -68,6 +68,8 @@ add_onnx_mlir_library(CompilerPasses
 add_onnx_mlir_library(CompilerUtils
   CompilerUtils.cpp
 
+  EXCLUDE_FROM_OM_LIBS
+
   DEPENDS
   ExternalUtil
   MLIRIR
@@ -75,7 +77,7 @@ add_onnx_mlir_library(CompilerUtils
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
-  
+
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
