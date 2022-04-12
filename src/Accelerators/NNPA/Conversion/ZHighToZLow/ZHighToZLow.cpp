@@ -421,9 +421,6 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
              (b.getAffineDimExpr(e1) +
                  pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
-#if 1
-        h = h * 2;
-#endif
         c = b.getAffineDimExpr(e2).floorDiv(constExpr32);
         res32 = b.getAffineDimExpr(e2) % constExpr32;
         res64 = (b.getAffineDimExpr(e1) +
