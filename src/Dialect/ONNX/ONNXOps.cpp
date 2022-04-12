@@ -4627,10 +4627,9 @@ mlir::Operation::result_range ONNXScanOp::scan_outputs() {
   return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
 
-LogicalResult ONNXScatterOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
+//===----------------------------------------------------------------------===//
+// ONNXScatterElements
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
