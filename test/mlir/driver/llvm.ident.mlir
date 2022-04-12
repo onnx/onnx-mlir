@@ -1,6 +1,7 @@
 // RUN: onnx-mlir --preserveBitcode %s -o %t
 // RUN: llvm-dis %t.bc -o %t.ll
 // RUN: cat %t.ll | FileCheck %s
+// XFAIL: onnx-mlir-vendor
 
 // CHECK: !llvm.ident = !{![[MD:[0-9]*]]}
 // CHECK: ![[MD]] = !{!"onnx-mlir version 1.0.0 ({{.*}}/onnx-mlir{{.*}} {{[a-zA-Z0-9]+}}, {{.*}}/llvm-project{{.*}} {{[a-zA-Z0-9]+}})"}
