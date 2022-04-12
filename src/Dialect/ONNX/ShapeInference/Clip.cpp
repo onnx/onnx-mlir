@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXClipOpShapeHelper::ONNXClipOpShapeHelper(ONNXClipOp *newOp)
-    : ONNXOpShapeHelper<ONNXClipOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXClipOpShapeHelper::ONNXClipOpShapeHelper(ONNXClipOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXClipOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXClipOpShapeHelper::computeShape(
     ONNXClipOpAdaptor operandAdaptor) {
   Value input = operandAdaptor.input();

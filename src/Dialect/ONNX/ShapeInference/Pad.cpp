@@ -14,17 +14,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp)
+ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(
+    ONNXPadOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXPadOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       pads() {}
 
 ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXPadOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       pads() {}
 
 LogicalResult ONNXPadOpShapeHelper::computeShape(
@@ -68,7 +69,7 @@ LogicalResult ONNXPadOpShapeHelper::computeShape(
   }
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }

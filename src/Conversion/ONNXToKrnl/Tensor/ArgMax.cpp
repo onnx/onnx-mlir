@@ -66,7 +66,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
 
     // Insert alloc and dealloc
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Constant Value
     auto minusOne = emitConstantOp(rewriter, loc, reducedElementType, -1);
