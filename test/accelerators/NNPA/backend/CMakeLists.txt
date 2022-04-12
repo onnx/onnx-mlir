@@ -29,8 +29,8 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/common.py
-  INPUT ${ONNX_BACKENDTEST_SRC_DIR}/common.py  
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/common_nnpa.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/common_nnpa.py
   )
 
 configure_file(
