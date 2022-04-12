@@ -14,16 +14,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(
+    ONNXConvOp *newOp, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
-          newOp, true /*hasFilter*/, false /*hasCeil*/) {}
+          newOp, true /*hasFilter*/, false /*hasCeil*/, inScope) {}
 
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(newOp,
           true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
-          fLoadVal) {}
+          fLoadVal, inScope) {}
 
 LogicalResult ONNXConvOpShapeHelper::computeShape(
     ONNXConvOpAdaptor operandAdaptor) {

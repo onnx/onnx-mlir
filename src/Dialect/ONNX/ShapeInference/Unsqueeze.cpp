@@ -43,21 +43,10 @@ LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
       outputDims.emplace_back(dataBounds.getDim(j++));
 
   // Save the final result.
-  shapeHelper->dimsForOutput(0) = outputDims;
+  shapeHelper->dimsForOutput() = outputDims;
 
   return success();
 }
-
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
 
 LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape(
     ONNXUnsqueezeOpAdaptor operandAdaptor) {
@@ -72,19 +61,6 @@ LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape(
 
   return ONNXUnsqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
-
-ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
-    ONNXUnsqueezeV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
-    ONNXUnsqueezeV11Op *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
 
 LogicalResult ONNXUnsqueezeV11OpShapeHelper::computeShape(
     ONNXUnsqueezeV11OpAdaptor operandAdaptor) {
