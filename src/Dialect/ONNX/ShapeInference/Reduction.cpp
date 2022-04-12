@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXReduceSumOpShapeHelper::ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp)
-    : ONNXOpShapeHelper<ONNXReduceSumOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXReduceSumOpShapeHelper::ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXReduceSumOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXReduceSumOpShapeHelper::computeShape(
     ONNXReduceSumOpAdaptor operandAdaptor) {
   Value axes = operandAdaptor.axes();

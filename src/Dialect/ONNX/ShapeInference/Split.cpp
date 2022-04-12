@@ -77,17 +77,6 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
   return success();
 }
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXSplitOpShapeHelper::computeShape(
     ONNXSplitOpAdaptor operandAdaptor) {
 
@@ -107,17 +96,6 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape(
 
   return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
-
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
 
 LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
     ONNXSplitV11OpAdaptor operandAdaptor) {

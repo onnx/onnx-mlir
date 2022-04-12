@@ -15,17 +15,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXTransposeOpShapeHelper::computeShape(
     ONNXTransposeOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -56,7 +45,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape(
   }
 
   // Set type for the first output.
-  dimsForOutput(0) = transposedDims;
+  dimsForOutput() = transposedDims;
   return success();
 }
 

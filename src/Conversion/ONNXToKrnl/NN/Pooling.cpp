@@ -238,7 +238,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     // input = Pool(output)
     //
@@ -326,164 +326,164 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //   for c in range(C):
     //     for ho in range(HO):
     //       for wo in range(WO):
-    krnl::BuildKrnlLoop outputLoops(rewriter, loc, outputShape.size());
-    outputLoops.createDefineAndIterateOp(alloc);
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange calcLoopDef = createKrnl.defineLoops(outputShape.size());
+    SmallVector<IndexExpr, 4> lbs(outputShape.size(), LiteralIndexExpr(0));
+    MemRefBoundsIndexCapture allocBounds(alloc);
+    SmallVector<IndexExpr, 4> ubs;
+    allocBounds.getDimList(ubs);
+    createKrnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          // 2. Emit the body of the output loop nest, which applies a pooling
+          // window to a region in the input, producing one output pixel.
+          SmallVector<IndexExpr, 4> outputIndices;
+          for (unsigned int i = 0; i < outputShape.size(); ++i)
+            outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
 
-    auto ipMainRegion = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-    {
-      // 2. Emit the body of the output loop nest, which applies a pooling
-      // window to a region in the input, producing one output pixel.
-      SmallVector<IndexExpr, 4> outputIndices;
-      for (unsigned int i = 0; i < outputShape.size(); ++i)
-        outputIndices.emplace_back(
-            DimIndexExpr(outputLoops.getInductionVar(i)));
+          // 2.1 Emit: output[n][c][ho][wo] = identity
+          // Create a local reduction value for output[n][c][ho][wo].
+          // Single scalar, no need for default alignment.
+          Value reductionVal = create.mem.alloca(
+              MemRefType::get({}, memRefType.getElementType()));
+          createKrnl.store(identity, reductionVal);
 
-      // 2.1 Emit: output[n][c][ho][wo] = identity
-      // Create a local reduction value for output[n][c][ho][wo].
-      // Single scalar, no need for default alignment.
-      Value reductionVal =
-          create.mem.alloca(MemRefType::get({}, memRefType.getElementType()));
-      create.krnl.store(identity, reductionVal);
+          // 2.2 Emit affine maps which express the lower and upper bounds for
+          // the pooling window's dimensions. The pooling window can be
+          // smaller than the kernel when slicing it over the border edges.
+          // Thus, we will compute the start and end indices for each
+          // dimension as follows.
+          //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+          //   startH = max(firstValidH, ho * sH - ptH)
+          //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+          //   hDim = round(float(endH - startH) / float(dH))
 
-      // 2.2 Emit affine maps which express the lower and upper bounds for the
-      // pooling window's dimensions.
-      // The pooling window can be smaller than the kernel when slicing it over
-      // the border edges. Thus, we will compute the start and end indices for
-      // each dimension as follows.
-      //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
-      //   startH = max(firstValidH, ho * sH - ptH)
-      //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
-      //   hDim = round(float(endH - startH) / float(dH))
-
-      // Prepare induction variables.
-      SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
-      {
-        MemRefBoundsIndexCapture inputBounds(inputOperand);
-        for (int i = 0; i < kernelShapeSize; ++i) {
-          int j = i + kernelOffset;
-          SmallVector<IndexExpr, 4> ic;
-          // d0, output
-          ic.emplace_back(outputIndices[j]);
-          // s0, input dim
-          ic.emplace_back(inputBounds.getDim(j));
-          // s1, kernel dim
-          ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
-          // s2, pad dim
-          ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
-          // s3, stride dim
-          ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
-          // s4, dilation dim
-          ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
-          IVExprs.emplace_back(ic);
-        }
-      }
-
-      // Compute the start and end position of the conv window.
-      //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
-      //   startH = max(firstValidH, ho * sH - ptH)
-      //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
-      SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
-      for (int i = 0; i < kernelShapeSize; ++i) {
-        std::vector<IndexExpr> exprs =
-            getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
-        windowStartExprs.emplace_back(exprs[0]);
-        windowEndExprs.emplace_back(exprs[1]);
-      }
-
-      // Compute the size of the full conv window.
-      //   hDim = round(float(endH - startH) / float(dH))
-      //   wDim = round(float(endW - startW) / float(dW))
-      SmallVector<Value, 4> fullWindowSize;
-      for (int i = 0; i < kernelShapeSize; ++i) {
-        Value dim = create.math.sub(
-            windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
-        if (isDilated) {
-          Value one = create.math.constantIndex(1);
-          Value numerator = create.math.add(dim, one);
-          Value denominator = IVExprs[i][5].getValue(); // dilations[i]
-          dim = create.math.div(numerator, denominator);
-          if (ceilMode) {
-            auto remainder =
-                rewriter.create<arith::RemSIOp>(loc, numerator, denominator);
-            Value zero = create.math.constantIndex(0);
-            Value isZero = create.math.eq(remainder, zero);
-            Value dimPlusOne = create.math.add(dim, one);
-            dim = create.math.select(isZero, dim, dimPlusOne);
-          }
-        }
-        fullWindowSize.emplace_back(dim);
-      }
-
-      // 2.3 Define pooling loops.
-      //  for hp in range(hDim):
-      //    for wp in range(wDim):
-      //      hi = hp * dH + startH
-      //      wi = wp * dW + startW
-      //      output[n][c][ho][wo] =
-      //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-      krnl::BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
-      poolingLoops.createDefineOp();
-      // Push bounds.
-      AffineMap windowSizeMap =
-          getWindowAffineMap(rewriter, ceilMode, isDilated);
-      for (int i = 0; i < kernelShapeSize; ++i) {
-        // Affine map's operands.
-        SmallVector<Value, 4> operands;
-        for (IndexExpr expr : IVExprs[i])
-          operands.emplace_back(expr.getValue());
-        poolingLoops.pushBounds(0, windowSizeMap, operands);
-      }
-      // Create a krnl iterate.
-      poolingLoops.createIterateOp();
-
-      auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
-      {
-        // 2.4 Emit the body of the pooling loop nest.
-        // Prepare indices to access a pixel in the input.
-        SmallVector<IndexExpr, 4> inputIndices;
-        { // Construct inputIndices
-          for (int i = 0; i < kernelOffset; ++i)
-            inputIndices.emplace_back(outputIndices[i]);
-          for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
-            int j = i - kernelOffset;
-            DimIndexExpr hp(poolingLoops.getInductionVar(j));
-            IndexExpr startH = windowStartExprs[j];
-            if (isDilated) {
-              // hi = hp * dH + startH
-              IndexExpr dH = IVExprs[j][5];
-              inputIndices.emplace_back(hp * dH + startH);
-            } else {
-              // hi = hp + startH
-              inputIndices.emplace_back(hp + startH);
+          // Prepare induction variables.
+          SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
+          {
+            MemRefBoundsIndexCapture inputBounds(inputOperand);
+            for (int i = 0; i < kernelShapeSize; ++i) {
+              int j = i + kernelOffset;
+              SmallVector<IndexExpr, 4> ic;
+              // d0, output
+              ic.emplace_back(outputIndices[j]);
+              // s0, input dim
+              ic.emplace_back(inputBounds.getDim(j));
+              // s1, kernel dim
+              ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
+              // s2, pad dim
+              ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
+              // s3, stride dim
+              ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
+              // s4, dilation dim
+              ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
+              IVExprs.emplace_back(ic);
             }
           }
-        }
 
-        // Apply pooling operation.
-        //      output[n][c][ho][wo] =
-        //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = create.krnl.loadIE(inputOperand, inputIndices);
-        Value loadPartialOutput = create.krnl.load(reductionVal);
-        Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
-            outputElementType, {loadPartialOutput, loadInput});
-        create.krnl.store(output, reductionVal);
-      }
-      rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-      Value output = create.krnl.load(reductionVal);
-      create.krnl.storeIE(output, alloc, outputIndices);
+          // Compute the start and end position of the conv window.
+          //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+          //   startH = max(firstValidH, ho * sH - ptH)
+          //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+          SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
+          for (int i = 0; i < kernelShapeSize; ++i) {
+            std::vector<IndexExpr> exprs =
+                getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
+            windowStartExprs.emplace_back(exprs[0]);
+            windowEndExprs.emplace_back(exprs[1]);
+          }
 
-      // 2.5 Post-processing for the pooling window, e.g. taking average.
-      SmallVector<Value, 4> outputIndicesInValue;
-      for (IndexExpr expr : outputIndices)
-        outputIndicesInValue.emplace_back(expr.getValue());
-      postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
-          outputIndicesInValue, shapeHelper.kernelShape, fullWindowSize);
-    }
+          // Compute the size of the full conv window.
+          //   hDim = round(float(endH - startH) / float(dH))
+          //   wDim = round(float(endW - startW) / float(dW))
+          SmallVector<Value, 4> fullWindowSize;
+          for (int i = 0; i < kernelShapeSize; ++i) {
+            Value dim = create.math.sub(
+                windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
+            if (isDilated) {
+              Value one = create.math.constantIndex(1);
+              Value numerator = create.math.add(dim, one);
+              Value denominator = IVExprs[i][5].getValue(); // dilations[i]
+              dim = create.math.div(numerator, denominator);
+              if (ceilMode) {
+                auto remainder = rewriter.create<arith::RemSIOp>(
+                    loc, numerator, denominator);
+                Value zero = create.math.constantIndex(0);
+                Value isZero = create.math.eq(remainder, zero);
+                Value dimPlusOne = create.math.add(dim, one);
+                dim = create.math.select(isZero, dim, dimPlusOne);
+              }
+            }
+            fullWindowSize.emplace_back(dim);
+          }
 
-    // Go back to the main region.
-    rewriter.restoreInsertionPoint(ipMainRegion);
+          // 2.3 Define pooling loops.
+          //  for hp in range(hDim):
+          //    for wp in range(wDim):
+          //      hi = hp * dH + startH
+          //      wi = wp * dW + startW
+          //      output[n][c][ho][wo] =
+          //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi,
+          //        wi]);
+          krnl::BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
+          poolingLoops.createDefineOp();
+          // Push bounds.
+          AffineMap windowSizeMap =
+              getWindowAffineMap(rewriter, ceilMode, isDilated);
+          for (int i = 0; i < kernelShapeSize; ++i) {
+            // Affine map's operands.
+            SmallVector<Value, 4> operands;
+            for (IndexExpr expr : IVExprs[i])
+              operands.emplace_back(expr.getValue());
+            poolingLoops.pushBounds(0, windowSizeMap, operands);
+          }
+          // Create a krnl iterate.
+          poolingLoops.createIterateOp();
+
+          auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
+          rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
+          {
+            // 2.4 Emit the body of the pooling loop nest.
+            // Prepare indices to access a pixel in the input.
+            SmallVector<IndexExpr, 4> inputIndices;
+            { // Construct inputIndices
+              for (int i = 0; i < kernelOffset; ++i)
+                inputIndices.emplace_back(outputIndices[i]);
+              for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
+                int j = i - kernelOffset;
+                DimIndexExpr hp(poolingLoops.getInductionVar(j));
+                IndexExpr startH = windowStartExprs[j];
+                if (isDilated) {
+                  // hi = hp * dH + startH
+                  IndexExpr dH = IVExprs[j][5];
+                  inputIndices.emplace_back(hp * dH + startH);
+                } else {
+                  // hi = hp + startH
+                  inputIndices.emplace_back(hp + startH);
+                }
+              }
+            }
+
+            // Apply pooling operation.
+            //      output[n][c][ho][wo] =
+            //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi,
+            //        wi]);
+            Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
+            Value loadPartialOutput = createKrnl.load(reductionVal);
+            Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
+                outputElementType, {loadPartialOutput, loadInput});
+            createKrnl.store(output, reductionVal);
+          }
+          rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+          Value output = createKrnl.load(reductionVal);
+          createKrnl.storeIE(output, alloc, outputIndices);
+
+          // 2.5 Post-processing for the pooling window, e.g. taking average.
+          SmallVector<Value, 4> outputIndicesInValue;
+          for (IndexExpr expr : outputIndices)
+            outputIndicesInValue.emplace_back(expr.getValue());
+          postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
+              outputIndicesInValue, shapeHelper.kernelShape, fullWindowSize);
+        });
 
     rewriter.replaceOp(op, alloc);
 

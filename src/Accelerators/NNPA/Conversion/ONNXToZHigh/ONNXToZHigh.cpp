@@ -220,7 +220,7 @@ SmallVector<int64_t, 2> getArrayStrides(OP op) {
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.inc"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXONNXToZHigh.inc"
 
 // Enhance 'replaceONNXSumOpPatternRecursion' to allow operating recursively.
 struct ONNXSumOpPatternEnhancedRecursion

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-zhigh-to-zlow --canonicalize %s -split-input-file | FileCheck %s 
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s 
 
 func @conv_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, %arg2: tensor<1xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
   %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, tensor<1xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32>

@@ -66,76 +66,69 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
 
     // Insert alloc and dealloc
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Constant Value
     auto minusOne = emitConstantOp(rewriter, loc, reducedElementType, -1);
     auto zero = emitConstantOp(rewriter, loc, reducedElementType, 0);
     auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // 1. Krnl loops to initialize the result.
-    krnl::BuildKrnlLoop initLoops(rewriter, loc, reducedRank);
-    initLoops.createDefineOp();
-    initLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    initLoops.createIterateOp();
-    auto initLoopBody = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(initLoops.getIterateBlock());
-
-    // Handle the operation:
-    SmallVector<Value, 4> loopIVs;
-    for (auto arg : initLoops.getAllInductionVar()) {
-      loopIVs.push_back(arg);
-    }
-
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    create.krnl.store(minusOne, alloc, loopIVs);
-
-    rewriter.restoreInsertionPoint(initLoopBody);
+    ValueRange initLoopDef = createKrnl.defineLoops(reducedRank);
+    SmallVector<IndexExpr, 4> initLbs(reducedRank, LiteralIndexExpr(0));
+    createKrnl.iterateIE(initLoopDef, initLoopDef, initLbs,
+        shapeHelper.dimsForOutput(0),
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          createKrnl.store(minusOne, alloc, loopInd);
+        });
 
     // 2. Krnl loop to calculate argmax.
-    krnl::BuildKrnlLoop calcLoops(rewriter, loc, dataRank);
-    calcLoops.createDefineOp();
-    for (int i = 0; i < dataRank; ++i)
-      calcLoops.pushBounds(0, data, i);
-    calcLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(calcLoops.getIterateBlock());
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    ValueRange calcLoopDef = createKrnl.defineLoops(dataRank);
+    SmallVector<IndexExpr, 4> lbs(dataRank, LiteralIndexExpr(0));
+    MemRefBoundsIndexCapture dataBounds(data);
+    SmallVector<IndexExpr, 4> ubs;
+    dataBounds.getDimList(ubs);
+    createKrnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          // Handle the operation:
+          SmallVector<Value, 4> inLoopIVs, outLoopIVs, maxLoopIVs;
 
-    // Handle the operation:
-    SmallVector<Value, 4> inLoopIVs, outLoopIVs, maxLoopIVs;
+          for (int i = 0; i < dataRank; ++i)
+            inLoopIVs.push_back(loopInd[i]);
 
-    for (int i = 0; i < dataRank; ++i)
-      inLoopIVs.push_back(calcLoops.getInductionVar(i));
+          for (int i = 0; i < reducedRank; ++i) {
+            if (outInDimMap.find(i) != outInDimMap.end())
+              outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
+            else
+              outLoopIVs.push_back(zeroIndex);
+          }
 
-    for (int i = 0; i < reducedRank; ++i) {
-      if (outInDimMap.find(i) != outInDimMap.end())
-        outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
-      else
-        outLoopIVs.push_back(zeroIndex);
-    }
+          Value next = createKrnl.load(data, inLoopIVs);
+          Value idx = createKrnl.load(alloc, outLoopIVs);
 
-    Value next = create.krnl.load(data, inLoopIVs);
-    Value idx = create.krnl.load(alloc, outLoopIVs);
+          // if index is less than 0, we should set 0 as initial position
+          Value lessThanZero = create.math.slt(idx, zero);
+          idx = create.math.select(lessThanZero, zero, idx);
 
-    // if index is less than 0, we should set 0 as initial position
-    Value lessThanZero = create.math.slt(idx, zero);
-    idx = create.math.select(lessThanZero, zero, idx);
+          // induction variables of current max value
+          for (int i = 0; i < dataRank; ++i) {
+            if (i != axis)
+              maxLoopIVs.push_back(loopInd[i]);
+            else
+              maxLoopIVs.push_back(rewriter.create<arith::IndexCastOp>(
+                  loc, rewriter.getIndexType(), idx));
+          }
+          Value maxVal = createKrnl.load(data, maxLoopIVs);
 
-    // induction variables of current max value
-    for (int i = 0; i < dataRank; ++i) {
-      if (i != axis)
-        maxLoopIVs.push_back(calcLoops.getInductionVar(i));
-      else
-        maxLoopIVs.push_back(rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), idx));
-    }
-    Value maxVal = create.krnl.load(data, maxLoopIVs);
-
-    // if next value is larger than current max value, update index
-    Value greaterThanMax = create.math.sgt(next, maxVal);
-    Value pos = rewriter.create<arith::IndexCastOp>(
-        loc, rewriter.getIntegerType(64), inLoopIVs[axis]);
-    idx = create.math.select(greaterThanMax, pos, idx);
-    create.krnl.store(idx, alloc, outLoopIVs);
+          // if next value is larger than current max value, update index
+          Value greaterThanMax = create.math.sgt(next, maxVal);
+          Value pos = rewriter.create<arith::IndexCastOp>(
+              loc, rewriter.getIntegerType(64), inLoopIVs[axis]);
+          idx = create.math.select(greaterThanMax, pos, idx);
+          createKrnl.store(idx, alloc, outLoopIVs);
+        });
 
     rewriter.replaceOp(op, alloc);
     return success();

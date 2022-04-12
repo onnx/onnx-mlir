@@ -2,37 +2,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ArgMax.cpp - Shape Inference for ArgMax Op ----------------===//
+//===---------- ArgMinMax.cpp - Shape Inference for ArgMax Op -------------===//
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements shape inference for the ONNX ArgMax Operator.
+// This file implements shape inference for the ONNX ArgMin & ArgMax operators.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
+#include <type_traits>
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+template <typename OpShapeHelper, typename OpAdaptor>
+static LogicalResult computeShape(
+    OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
+  static_assert(
+      (std::is_same<OpShapeHelper, ONNXArgMinOpShapeHelper>::value &&
+          std::is_same<OpAdaptor, ONNXArgMinOpAdaptor>::value) ||
+          (std::is_same<OpShapeHelper, ONNXArgMaxOpShapeHelper>::value &&
+              std::is_same<OpAdaptor, ONNXArgMaxOpAdaptor>::value),
+      "Unexpected template types");
 
-ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
-LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
-    ONNXArgMaxOpAdaptor operandAdaptor) {
   // Get info about input data operand.
+  auto *op = shapeHelper.op;
   Value data = operandAdaptor.data();
   int64_t dataRank = data.getType().cast<ShapedType>().getRank();
   int64_t axisValue = op->axis();
@@ -70,8 +69,18 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
   }
 
   // Save the final result.
-  dimsForOutput() = outputDims;
+  shapeHelper.dimsForOutput() = outputDims;
   return success();
+}
+
+LogicalResult ONNXArgMinOpShapeHelper::computeShape(
+    ONNXArgMinOpAdaptor operandAdaptor) {
+  return onnx_mlir::computeShape(*this, operandAdaptor);
+}
+
+LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
+    ONNXArgMaxOpAdaptor operandAdaptor) {
+  return onnx_mlir::computeShape(*this, operandAdaptor);
 }
 
 } // namespace onnx_mlir

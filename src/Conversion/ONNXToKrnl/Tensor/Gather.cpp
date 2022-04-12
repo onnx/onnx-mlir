@@ -39,13 +39,13 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Save axis and rank info.
     int64_t axisLit = gatherOp.axis();
     int64_t dataRank = shapeHelper.dataDims.size();
     int64_t indicesRank = shapeHelper.indicesDims.size();
-    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+    int64_t outputRank = shapeHelper.dimsForOutput().size();
 
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;
@@ -68,7 +68,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(0),
+    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(&rewriter, loc);
