@@ -9,51 +9,63 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include <utility>
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(
-    ONNXShapeOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXShapeOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope) {}
-
-ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXShapeOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope) {}
-
-LogicalResult ONNXShapeOpShapeHelper::computeShape(
-    ONNXShapeOpAdaptor operandAdaptor) {
-
-  // Get info about input data operand.
+// Compute a slice of the input tensor's shape. The slice starts from axis 0.
+// The axes upto the last one will be included. Negative axes indicate counting
+// back from the last axis.
+static std::pair<int64_t, int64_t> getDataShapeBounds(
+    ONNXShapeOpAdaptor &operandAdaptor) {
   Value data = operandAdaptor.data();
   MemRefBoundsIndexCapture dataBounds(data);
   int64_t dataRank = dataBounds.getRank();
 
-  // To be initalized from op (opset > 13)
-  int64_t start = 0;
-  int64_t end = dataRank; // Default value if option not defined.
+  // Compute the normalized start/end. Negative value means counting
+  // dimensions from the back.
+  int64_t normalizedStart = 0;
+  int64_t normalizedEnd = dataRank;
 
-  // Handle negative values.
-  if (start < 0)
-    start = start + dataRank;
-  if (end < 0)
-    end = end + dataRank;
-  if (start < 0 || start > dataRank)
+  if (normalizedStart < 0)
+    normalizedStart += dataRank;
+  if (normalizedEnd < 0)
+    normalizedEnd += dataRank;
+
+  return std::make_pair(normalizedStart, normalizedEnd);
+}
+
+LogicalResult ONNXShapeOpShapeHelper::computeShape(
+    ONNXShapeOpAdaptor operandAdaptor) {
+  Value data = operandAdaptor.data();
+  MemRefBoundsIndexCapture dataBounds(data);
+  int64_t dataRank = dataBounds.getRank();
+  std::pair<int64_t, int64_t> bounds = getDataShapeBounds(operandAdaptor);
+
+  if (bounds.first < 0 || bounds.first > dataRank)
     return op->emitError("start value is out of bound");
-  if (end < 0 || end > dataRank)
+  if (bounds.second < 0 || bounds.second > dataRank)
     return op->emitError("end value is out of bound");
 
-  // Save actual values in selected data
-  for (int64_t i = start; i < end; ++i)
-    selectedData.emplace_back(dataBounds.getDim(i));
   // Output is the actual number of values (1D)
-  dimsForOutput(0).emplace_back(LiteralIndexExpr(selectedData.size()));
+  dimsForOutput().emplace_back(LiteralIndexExpr(bounds.second - bounds.first));
   return success();
+}
+
+// Compute the data selected by the Shape operator.
+DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
+  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
+  std::pair<int64_t, int64_t> bounds = getDataShapeBounds(operandAdaptor);
+  assert(bounds.first >= 0 && bounds.first <= bounds.second &&
+         bounds.second <= (int64_t)dataBounds.getRank() && "Unexpected bounds");
+
+  DimsExpr selectedData;
+  for (int64_t i = bounds.first; i < bounds.second; ++i)
+    selectedData.emplace_back(dataBounds.getDim(i));
+
+  return selectedData;
 }
 
 } // namespace onnx_mlir

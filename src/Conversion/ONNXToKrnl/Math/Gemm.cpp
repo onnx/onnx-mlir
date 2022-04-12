@@ -53,8 +53,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange outerLoopDef{loopDef[0], loopDef[1]};
     ValueRange innerLoopDef{loopDef[2]};
     SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
-    IndexExpr outerUb0 = shapeHelper.dimsForOutput(0)[0];
-    IndexExpr outerUb1 = shapeHelper.dimsForOutput(0)[1];
+    IndexExpr outerUb0 = shapeHelper.dimsForOutput()[0];
+    IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
@@ -325,7 +325,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.dimsForOutput(0), (int64_t)BUFFER_ALIGN);
+        loc, shapeHelper.dimsForOutput(), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();

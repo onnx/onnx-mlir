@@ -14,17 +14,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp)
+ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
+    ONNXGatherOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXGatherOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       dataDims(), indicesDims(), positiveConstantIndices(false) {}
 
 ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXGatherOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       dataDims(), indicesDims(), positiveConstantIndices(false) {}
 
 LogicalResult ONNXGatherOpShapeHelper::computeShape(
@@ -74,9 +75,9 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
   for (int i = 0; i < dataRank; ++i) {
     if (i == axisIndex)
       for (IndexExpr d : indicesDims)
-        dimsForOutput(0).emplace_back(d);
+        dimsForOutput().emplace_back(d);
     else
-      dimsForOutput(0).emplace_back(dataDims[i]);
+      dimsForOutput().emplace_back(dataDims[i]);
   }
 
   return success();
