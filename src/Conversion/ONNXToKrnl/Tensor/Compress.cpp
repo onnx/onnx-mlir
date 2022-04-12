@@ -91,7 +91,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     // Perform the copy depending on the conditions.
     // We will store the current index to write into the output array in

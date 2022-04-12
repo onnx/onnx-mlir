@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------LRN.cpp - Lowering LRN Op----------------------=== //
+//===-------------------- LRN.cpp - Lowering LRN Op -----------------------===//
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //

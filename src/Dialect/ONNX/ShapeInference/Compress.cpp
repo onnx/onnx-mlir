@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp)
-    : ONNXOpShapeHelper<ONNXCompressOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXCompressOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXCompressOpShapeHelper::computeShape(
     ONNXCompressOpAdaptor operandAdaptor) {
   // Check that input and condition are ranked.
