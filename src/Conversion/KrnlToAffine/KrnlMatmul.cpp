@@ -30,7 +30,6 @@
 static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {

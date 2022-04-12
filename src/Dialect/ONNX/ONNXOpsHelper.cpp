@@ -21,6 +21,8 @@
 // Identity affine
 using namespace mlir;
 
+namespace onnx_mlir {
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
@@ -599,3 +601,5 @@ mlir::Type convertONNXTypeToMLIRType(
 
   llvm_unreachable("Unsupported data type encountered.");
 }
+
+} // namespace onnx_mlir

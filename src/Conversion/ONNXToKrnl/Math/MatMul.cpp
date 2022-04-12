@@ -21,10 +21,12 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-using namespace mlir;
-
 #define DEBUG_TYPE "matmul"
 static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(
@@ -41,14 +43,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Define loops and bounds.
     KrnlBuilder createKrnl(rewriter, loc);
-    int outerLoopNum = shapeHelper.dimsForOutput(0).size();
+    int outerLoopNum = shapeHelper.dimsForOutput().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = createKrnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
-      loopUbs.emplace_back(shapeHelper.dimsForOutput(0)[i]);
+      loopUbs.emplace_back(shapeHelper.dimsForOutput()[i]);
       outerLoops.emplace_back(loopDef[i]);
     }
     int aRank = shapeHelper.aDims.size();
@@ -290,8 +292,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -299,7 +301,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -325,3 +327,5 @@ void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir

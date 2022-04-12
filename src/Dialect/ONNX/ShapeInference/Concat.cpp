@@ -13,27 +13,26 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
 
-ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp)
-    : ONNXOpShapeHelper<ONNXConcatOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXConcatOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXConcatOpShapeHelper::computeShape(
     ONNXConcatOpAdaptor operandAdaptor) {
-
   unsigned numInputs = op->getNumOperands();
   Value firstInput = operandAdaptor.inputs().front();
   ArrayRef<int64_t> commonShape =
       firstInput.getType().cast<ShapedType>().getShape();
-  size_t commonRank = commonShape.size();
+  int64_t commonRank = commonShape.size();
   int64_t axisIndex = op->axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  if (axisIndex < -commonRank || axisIndex >= commonRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
 
   // Negative axis means values are counted from the opposite side.
   // TOFIX should be in normalization pass
@@ -54,6 +53,8 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
     outputDims[i] =
         (i == axisIndex) ? cumulativeAxisSize : firstInputBounds.getDim(i);
 
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

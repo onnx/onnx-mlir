@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------------------ KrnlOps.td - MLIR Operations ---------*- tablegen -===//
+//===--------------------- Krnl.td - MLIR Operations ---------*- tablegen -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -122,7 +122,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let skipDefaultBuilders = 1;
   let builders = [
     // Main builder.
-    OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
+    OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "llvm::None">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
@@ -133,7 +133,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
-      CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
+      CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
   ];
@@ -204,6 +204,25 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
     This operation does _not_ have a custom syntax. However, krnl control
     operations omit the terminator in their custom syntax for brevity.
   }];
+}
+
+def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
+    AffineScope]> {
+  let summary = "Affine Region for Krnl";
+  let description = [{
+    This Op has AffineScope trait and is used to limit the scope of affine.for.
+    Otherwise, the affine.for might be illegal if a symbol is not defined at
+    the top of function, which has the AffineScope trait. 
+  }];
+
+  let regions = (region SizedRegion<1>:$bodyRegion);
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    // Main builder.
+    OpBuilder<(ins 
+      CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
+  ];
 }
 
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {

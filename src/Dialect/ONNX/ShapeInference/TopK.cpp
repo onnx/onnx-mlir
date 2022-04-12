@@ -10,16 +10,9 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXTopKOpShapeHelper::ONNXTopKOpShapeHelper(ONNXTopKOp *newOp)
-    : ONNXOpShapeHelper<ONNXTopKOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXTopKOpShapeHelper::ONNXTopKOpShapeHelper(ONNXTopKOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTopKOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXTopKOpShapeHelper::computeShape(
     ONNXTopKOpAdaptor operandAdaptor) {
@@ -57,6 +50,8 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape(
 
   // There are two outputs: one for values and one for indices.
   // But they have the same shape. Thus, return one output dims is enough.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

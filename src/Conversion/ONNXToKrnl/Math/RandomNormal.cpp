@@ -22,6 +22,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXRandomNormalOpLowering : public ConversionPattern {
   ONNXRandomNormalOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -72,3 +74,5 @@ void populateLoweringONNXRandomNormalOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRandomNormalOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
