@@ -734,8 +734,8 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
       if (outputDim != ceil((float)inputDim / stride))
         return false;
     } else { // VALID_PADDING
-      // inputDim must be > kernelDim.
-      if (inputDim <= kernelDim)
+      // inputDim must be >= kernelDim.
+      if (inputDim < kernelDim)
         return false;
       // height_out restriction.
       if (outputDim != ceil((float)(inputDim - kernelDim + 1) / stride))
