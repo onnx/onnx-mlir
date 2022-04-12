@@ -43,6 +43,13 @@ public:
   template <typename T>
   static mlir::LogicalResult attributeOutOfRange(mlir::Operation &op,
       const llvm::Twine &attrName, T attrVal, Range<T> validRange);
+
+  /// Diagnostic message for operand with unexpected rank.
+  static mlir::LogicalResult operandHasUnexpectedRank(mlir::Operation &op,
+      mlir::Value &operand, uint64_t operandRank, mlir::StringRef expectedRank);
+
+  /// Return the name of the given value.
+  static std::string getName(mlir::Value &v);
 };
 
 } // namespace onnx_mlir
