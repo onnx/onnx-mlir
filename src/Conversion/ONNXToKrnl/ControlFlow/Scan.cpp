@@ -101,8 +101,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto *loopBodyBlock = loop.getIterateBlock();
-      auto &loopBodyRegion = *loopBodyBlock->getParent();
+      Block *loopBodyBlock = loop.getIterateBlock();
+      Region &loopBodyRegion = *loopBodyBlock->getParent();
 
       // Split the insertion block into two, where the second block
       // `postInsertBlock` contains only the terminator operation, insert scan
@@ -292,24 +292,28 @@ struct ONNXScanOpLowering : public ConversionPattern {
     OpBuilder::InsertionGuard insertGuard(builder);
 
     auto srcTy = src.getType().cast<MemRefType>();
-    SmallVector<Value, 4> readIV;
-    if (srcTy.getRank() > 0) {
-      krnl::BuildKrnlLoop loop(builder, loc, srcTy.getRank());
-      loop.createDefineOp();
-      for (int i = 0; i < srcTy.getRank(); i++)
-        loop.pushBounds(0, src, i);
-      loop.createIterateOp();
-      builder.setInsertionPointToStart(loop.getIterateBlock());
-      auto loopIVs = loop.getAllInductionVar();
-      readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
-    }
-
-    SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
-    writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-
     KrnlBuilder createKrnl(builder, loc);
-    Value val = createKrnl.load(src, readIV);
-    createKrnl.store(val, dest, writeIV);
+    if (srcTy.getRank() > 0) {
+      IndexExprScope childScope(&builder, loc);
+      ValueRange loopDef = createKrnl.defineLoops(srcTy.getRank());
+      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      MemRefBoundsIndexCapture bounds(src);
+      for (int i = 0; i < srcTy.getRank(); i++)
+        ubs.emplace_back(bounds.getDim(i));
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            SmallVector<Value, 4> writeIV(
+                writePrefix.begin(), writePrefix.end());
+            writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());
+
+            Value val = createKrnl.load(src, loopInd);
+            createKrnl.store(val, dest, writeIV);
+          });
+    } else {
+      Value val = createKrnl.load(src);
+      createKrnl.store(val, dest, writePrefix);
+    }
   }
 
   static void emitCopyFromTensorSlice(OpBuilder &builder, const Location &loc,
@@ -318,23 +322,27 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
-    SmallVector<Value, 4> writeIV;
-    if ((size_t)srcTy.getRank() > readIV.size()) {
-      krnl::BuildKrnlLoop loop(
-          builder, loc, srcTy.getRank() - readPrefix.size());
-      loop.createDefineOp();
-      for (int i = readIV.size(); i < srcTy.getRank(); i++)
-        loop.pushBounds(0, src, i);
-      loop.createIterateOp();
-      builder.setInsertionPointToStart(loop.getIterateBlock());
-      auto IVs = loop.getAllInductionVar();
-      writeIV.insert(writeIV.end(), IVs.begin(), IVs.end());
-      readIV.insert(readIV.end(), writeIV.begin(), writeIV.end());
-    }
-
     KrnlBuilder createKrnl(builder, loc);
-    Value val = createKrnl.load(src, readIV);
-    createKrnl.store(val, dest, writeIV);
+    if ((size_t)srcTy.getRank() > readIV.size()) {
+      IndexExprScope childScope(&builder, loc);
+      ValueRange loopDef =
+          createKrnl.defineLoops(srcTy.getRank() - readPrefix.size());
+      SmallVector<IndexExpr, 4> lbs(
+          srcTy.getRank() - readPrefix.size(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      MemRefBoundsIndexCapture bounds(src);
+      for (int i = readIV.size(); i < srcTy.getRank(); i++)
+        ubs.emplace_back(bounds.getDim(i));
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            readIV.insert(readIV.end(), loopInd.begin(), loopInd.end());
+            Value val = createKrnl.load(src, readIV);
+            createKrnl.store(val, dest, loopInd);
+          });
+    } else {
+      Value val = createKrnl.load(src, readIV);
+      createKrnl.store(val, dest);
+    }
   }
 };
 

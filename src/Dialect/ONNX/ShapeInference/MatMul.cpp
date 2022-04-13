@@ -14,17 +14,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp)
+ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
+    ONNXMatMulOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXMatMulOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       aDims(), bDims(), aPadDims(), bPadDims() {}
 
 ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXMatMulOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       aDims(), bDims(), aPadDims(), bPadDims() {}
 
 LogicalResult ONNXMatMulOpShapeHelper::computeShape(
@@ -136,7 +137,7 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     outputDims.emplace_back(oneIE);
   }
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
 
