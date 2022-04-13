@@ -119,7 +119,7 @@ bool GRULibBuilder::build() {
 }
 
 bool GRULibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;

@@ -533,9 +533,9 @@ static std::mt19937 omRandomGenerator(0);
 
 // When called, a single seed will be used, either from the given seed or from
 // another random number generator.
-unsigned int omDefineSeed(unsigned int seed, unsigned int ignoreSeed) {
+unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue) {
   /* Define our onw seed when requested. */
-  if (ignoreSeed) {
+  if (!hasSeedValue) {
     std::random_device rd;
     seed = rd();
   }

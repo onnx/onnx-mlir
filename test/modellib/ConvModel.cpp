@@ -120,7 +120,7 @@ bool Conv2DLibBuilder::build() {
 }
 
 bool Conv2DLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;

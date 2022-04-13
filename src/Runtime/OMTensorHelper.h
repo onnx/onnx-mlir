@@ -89,11 +89,12 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
  * is nonnull; otherwise the input seedValue is used.
  *
  * @param seed input seed.
- * @param ignoreSeed when nonzero, ths function define its own random seed.
+ * @param hasSeedValue when nonzero, this function uses the provided seed. 
+ * Otherwise, this function defines its own random seed.
  * @return return the seed that was used.
  *
  */
-unsigned int omDefineSeed(unsigned int seed, unsigned int ignoreSeed);
+unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue);
 
 /**
  * OMTensor creator with data sizes, element type and random data

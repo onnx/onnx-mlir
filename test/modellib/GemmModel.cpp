@@ -80,7 +80,7 @@ bool GemmLibBuilder::build() {
 }
 
 bool GemmLibBuilder::prepareInputs() {
-  const int num = 3;
+  constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
@@ -92,7 +92,7 @@ bool GemmLibBuilder::prepareInputs() {
 }
 
 bool GemmLibBuilder::prepareInputs(float dataRange) {
-  const int num = 3;
+  constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;

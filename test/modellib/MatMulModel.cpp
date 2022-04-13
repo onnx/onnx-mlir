@@ -57,7 +57,7 @@ bool MatMul2DLibBuilder::build() {
 }
 
 bool MatMul2DLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
@@ -68,7 +68,7 @@ bool MatMul2DLibBuilder::prepareInputs() {
 }
 
 bool MatMul2DLibBuilder::prepareInputs(float dataRange) {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;

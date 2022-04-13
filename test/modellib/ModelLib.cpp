@@ -75,19 +75,19 @@ std::string ModelLibBuilder::getSharedLibName(
 }
 
 void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
-  bool ignoreSeed = true;
+  bool hasSeedValue = false;
   unsigned int seed = 0;
   if (const char *envVal = std::getenv(envVar.c_str())) {
     std::string seedStr(envVal);
     seed = (unsigned int)std::stoul(seedStr, nullptr);
-    ignoreSeed = false;
+    hasSeedValue = true;
     std::cout
         << "Model will use the random number generator seed provided by \""
         << envVar << "=" << seed << "\"\n";
   }
-  seed = omDefineSeed(seed, ignoreSeed);
-  if (ignoreSeed) {
-    // We used a random seed, print that seed to that we may reproduce the
+  seed = omDefineSeed(seed, hasSeedValue);
+  if (!hasSeedValue) {
+    // We used a random seed; print that seed to that we may reproduce the
     // experiment.
     std::cout << "Model can reuse the current seed by exporting \"" << envVar
               << "=" << seed << "\"\n";
