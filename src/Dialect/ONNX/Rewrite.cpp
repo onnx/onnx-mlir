@@ -63,6 +63,36 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, A.getType().cast<ShapedType>().getElementType());
 }
 
+// Check if there is at most one unknown dimension in a value's type.
+bool hasAtMostOneUnknownDim(Value v) {
+  if (!onnx_mlir::hasShapeAndRank(v))
+    return false;
+  ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
+  return (llvm::count_if(dims, [](int64_t d) { return d == -1; }) <= 1);
+}
+
+// Check that permutation does not change the order of dimensions except those
+// of size 1.
+bool hasNoOrderChangeExceptDimOne(Value v, ArrayAttr permAttr) {
+  if (!onnx_mlir::hasShapeAndRank(v))
+    return false;
+  ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
+  SmallVector<int64_t> originalAxes;
+  for (uint64_t axis = 0; axis < dims.size(); ++axis)
+    if (dims[axis] != 1)
+      originalAxes.emplace_back(axis);
+
+  SmallVector<int64_t> permutedAxes;
+  for (Attribute val : permAttr.getValue()) {
+    IntegerAttr attr = val.cast<IntegerAttr>();
+    assert(attr && "Element in ArrayAttr is not IntegerAttr");
+    int64_t axis = attr.getValue().getSExtValue();
+    if (dims[axis] != 1)
+      permutedAxes.emplace_back(axis);
+  }
+  return (originalAxes == permutedAxes);
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
@@ -96,6 +126,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
+  result.insert<ReplaceTransposeByReshapePattern>(context);
 }
 
 /// on the ONNXReshapeOp.

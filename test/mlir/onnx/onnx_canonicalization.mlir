@@ -169,6 +169,18 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
 
 // -----
 
+// Check the replacement of transpose by reshape because of the dimension order unchanged.
+// CHECK-LABEL: test_transpose_replaced_by_reshape
+func @test_transpose_replaced_by_reshape(%arg0: tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32>
+  return %0 : tensor<?x384x1x1xf32>
+  // CHECK: [[SHAPE:%.+]] = "onnx.Constant"() {value = dense<[-1, 384, 1, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Reshape"(%arg0, [[SHAPE]]) : (tensor<?x1x1x384xf32>, tensor<4xi64>) -> tensor<?x384x1x1xf32>
+  // CHECK: return [[RES]] : tensor<?x384x1x1xf32>
+}
+
+// -----
+
 // Check the removal of identity reshapes.
 // CHECK-LABEL: func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {

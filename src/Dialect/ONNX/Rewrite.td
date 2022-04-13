@@ -309,6 +309,24 @@ def RemoveIdentityTransposePattern:  Pat<
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 
+def AtMostOneUnknownDim: Constraint<
+  CPred<"hasAtMostOneUnknownDim($_self)">,
+  "A values has at most one unknown dimension"
+>;
+
+def NoOrderChangeExceptDimOne: Constraint<
+  CPred<"hasNoOrderChangeExceptDimOne($0, $1)">,
+  "Permuation does not change the order of dimensions except those with size 1"
+>;
+
+def ReplaceTransposeByReshapePattern: Pat<
+  // Transpose but the order of dimensions (except those of size 1) does not change.
+  (ONNXTransposeOp:$res $v, $p),
+  // Replaced by Reshape for better performance since Reshape is just a view.
+  (ONNXReshapeOp $v, (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res))),
+  [(AtMostOneUnknownDim:$v), (NoOrderChangeExceptDimOne $v, $p)]
+>;
+
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXReshapeOp
 //===----------------------------------------------------------------------===//
