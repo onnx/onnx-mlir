@@ -317,12 +317,19 @@ def GetIndexOfAxisInPerm: NativeCodeCall<
   "getIndexOfAxisInPerm($_builder, $0, $1)"
 >;
 
+def ProducedByTransposeOp: Constraint<
+  CPred<"areProducedByTransposeOp($_self)">,
+  "all values are produced by ONNXTransposeOp"
+>;
+
 // Do transpose on concat's inputs instead of output in order to propagate
-// tranpose ops together, which allows more chance for tranpose fusion.
+// tranpose operations together, which allows more chance for tranpose fusion.
+// Do this only when all inputs are produced by tranpose operations.
 def SwapTransposeConcat: Pat<
   (ONNXTransposeOp:$res (ONNXConcatOp $inputs, $axis), $perm),
   (ONNXConcatOp (TransposeVariadicInput $inputs, $perm),
-                (GetIndexOfAxisInPerm $perm, $axis))
+                (GetIndexOfAxisInPerm $perm, $axis)),
+  [(ProducedByTransposeOp:$inputs)]
 >;
 
 //===----------------------------------------------------------------------===//
