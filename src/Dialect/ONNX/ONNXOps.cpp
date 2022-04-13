@@ -106,6 +106,24 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   return success();
 }
 
+// Handle shape inference for binary operators.
+template <class OP, class ADAPTOR>
+static LogicalResult inferShapeForBinaryOps(
+    OP *op, Type elementType = nullptr) {
+  ADAPTOR operandAdaptor(*op);
+  for (const auto &operand : operandAdaptor.getOperands())
+    if (!hasShapeAndRank(operand))
+      return success();
+
+  auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
+  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
+    auto nextTy = op->getOperand(i).getType().template cast<ShapedType>();
+    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
+  }
+  op->getResult().setType(resultTy);
+  return success();
+}
+
 #define NOT_IMPLEMENTED_MESSAGE                                                \
   (getOperationName() +                                                        \
       ": is not supported at this time. Please open an issue on "              \
@@ -1269,13 +1287,7 @@ LogicalResult ONNXPowOp::verify() {
 }
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  RankedTensorType lhsTy = X().getType().cast<RankedTensorType>();
-  RankedTensorType rhsTy = Y().getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXPowOp, ONNXPowOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1285,13 +1297,7 @@ LogicalResult ONNXPowOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXAddOp, ONNXAddOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1301,13 +1307,7 @@ LogicalResult ONNXAddOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXMulOp, ONNXMulOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1317,13 +1317,7 @@ LogicalResult ONNXMulOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXDivOp, ONNXDivOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1333,13 +1327,7 @@ LogicalResult ONNXDivOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXSubOp, ONNXSubOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1349,13 +1337,7 @@ LogicalResult ONNXSubOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAndOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXAndOp, ONNXAndOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1365,13 +1347,7 @@ LogicalResult ONNXAndOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXOrOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXOrOp, ONNXOrOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1381,13 +1357,7 @@ LogicalResult ONNXOrOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXXorOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXXorOp, ONNXXorOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1397,17 +1367,7 @@ LogicalResult ONNXXorOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (unsigned int i = 1; i < getNumOperands(); ++i) {
-    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
-    resultTy = getBroadcastedType(resultTy, nextTy);
-  }
-  getResult().setType(resultTy);
-  return success();
+  return inferShapeForBinaryOps<ONNXSumOp, ONNXSumOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1417,17 +1377,7 @@ LogicalResult ONNXSumOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (unsigned int i = 1; i < getNumOperands(); ++i) {
-    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
-    resultTy = getBroadcastedType(resultTy, nextTy);
-  }
-  getResult().setType(resultTy);
-  return success();
+  return inferShapeForBinaryOps<ONNXMaxOp, ONNXMaxOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1437,17 +1387,7 @@ LogicalResult ONNXMaxOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (unsigned int i = 1; i < getNumOperands(); ++i) {
-    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
-    resultTy = getBroadcastedType(resultTy, nextTy);
-  }
-  getResult().setType(resultTy);
-  return success();
+  return inferShapeForBinaryOps<ONNXMinOp, ONNXMinOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3653,14 +3593,9 @@ LogicalResult ONNXLessOp::inferShapes(
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
-  return success();
+  Builder b(getContext());
+  return inferShapeForBinaryOps<ONNXLessOrEqualOp, ONNXLessOrEqualOpAdaptor>(
+      this, b.getI1Type());
 }
 
 // Operations for which shape inference has not been implemented yet
@@ -3907,14 +3842,9 @@ LogicalResult ONNXDetOp::inferShapes(
 
 LogicalResult ONNXEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
-  return success();
+  Builder b(getContext());
+  return inferShapeForBinaryOps<ONNXEqualOp, ONNXEqualOpAdaptor>(
+      this, b.getI1Type());
 }
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
@@ -3940,26 +3870,16 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
-  return success();
+  Builder b(getContext());
+  return inferShapeForBinaryOps<ONNXGreaterOp, ONNXGreaterOpAdaptor>(
+      this, b.getI1Type());
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
-  return success();
+  Builder b(getContext());
+  return inferShapeForBinaryOps<ONNXGreaterOrEqualOp,
+      ONNXGreaterOrEqualOpAdaptor>(this, b.getI1Type());
 }
 
 LogicalResult ONNXHardmaxOp::verify() {
@@ -4050,17 +3970,7 @@ LogicalResult ONNXMaxUnpoolOp::inferShapes(
 
 LogicalResult ONNXMeanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (unsigned int i = 1; i < getNumOperands(); ++i) {
-    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
-    resultTy = getBroadcastedType(resultTy, nextTy);
-  }
-  getResult().setType(resultTy);
-  return success();
+  return inferShapeForBinaryOps<ONNXMeanOp, ONNXMeanOpAdaptor>(this);
 }
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
@@ -4085,13 +3995,7 @@ LogicalResult ONNXModOp::verify() {
 
 LogicalResult ONNXModOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return success();
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  return success();
+  return inferShapeForBinaryOps<ONNXModOp, ONNXModOpAdaptor>(this);
 }
 
 LogicalResult ONNXMultinomialOp::inferShapes(
@@ -4846,19 +4750,12 @@ LogicalResult ONNXUpsampleOp::inferShapes(
 
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type resultElementType =
-      getOperand(1).getType().cast<RankedTensorType>().getElementType();
-  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (unsigned int i = 1; i < getNumOperands(); ++i) {
-    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
-    resultTy = getBroadcastedType(resultTy, nextTy, resultElementType);
-  }
-  getResult().setType(resultTy);
-  return success();
+  if (!hasShapeAndRank(X()))
+    return success();
+
+  Type resultElementType = X().getType().cast<ShapedType>().getElementType();
+  return inferShapeForBinaryOps<ONNXWhereOp, ONNXWhereOpAdaptor>(
+      this, resultElementType);
 }
 
 LogicalResult ONNXArrayFeatureExtractorOp::inferShapes(
