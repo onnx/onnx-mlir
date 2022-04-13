@@ -91,7 +91,7 @@ endif()
 
 set(ZDNN_LIBRARY_DIR $ENV{ZDNN_LIBRARY_DIR})
 set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
-# Gemm, Global Average Pool, Global Max Pool, GRU, Log, LogSoftmax, LSTM, Matmul, Max, MaxPoolSingleOut, Min, Mul, ReduceMean, Relu, Softmax, Sub, Sum
+
 set(TEST_ABS "test_abs_cpu")
 set(TEST_ADD "test_add_cpu test_add_bcast_cpu")
 set(TEST_AVGPOOL "test_averagepool_1d_default_cpu test_averagepool_2d_ceil_cpu test_averagepool_2d_default_cpu test_averagepool_2d_pads_count_include_pad_cpu test_averagepool_2d_pads_cpu test_averagepool_2d_precomputed_pads_count_include_pad_cpu test_averagepool_2d_precomputed_pads_cpu test_averagepool_2d_precomputed_same_upper_cpu test_averagepool_2d_precomputed_strides_cpu test_averagepool_2d_same_lower_cpu test_averagepool_2d_same_upper_cpu test_averagepool_2d_strides_cpu test_averagepool_3d_default_cpu")
@@ -103,25 +103,22 @@ set(TEST_GEMM "test_gemm_all_attributes_cpu test_gemm_alpha_cpu test_gemm_beta_c
 set(TEST_GAVGPOOL "test_globalaveragepool_precomputed_cpu test_globalmaxpool_cpu test_globalmaxpool_precomputed_cpu")
 set(TEST_GRU "test_gru_defaults_cpu test_gru_seq_length_cpu test_gru_with_initial_bias_cpu")
 set(TEST_LOG "test_log_example_cpu test_log_cpu")
-set(TEST_LOGSOFTMAX "test_logsoftmax_axis_2_cpu test_logsoftmax_example_1_cpu test_logsoftmax_negative_axis_cpu")
-# set(TEST_LOGSOFTMAX "test_logsoftmax_axis_2_cpu test_logsoftmax_example_1_cpu test_logsoftmax_negative_axis_cpu test_logsoftmax_large_number_cpu")
+set(TEST_LOGSOFTMAX "test_logsoftmax_axis_2_cpu test_logsoftmax_example_1_cpu test_logsoftmax_negative_axis_cpu test_logsoftmax_large_number_cpu")
 set(TEST_LSTM "test_lstm_defaults_cpu test_lstm_with_initial_bias_cpu test_lstm_with_peepholes_cpu")
 set(TEST_MATMUL "test_matmul_2d_cpu test_matmul_3d_cpu test_matmul_4d_cpu")
 set(TEST_MAX "test_max_example_cpu test_max_one_input_cpu test_max_two_inputs_cpu test_max_float32_cpu test_max_float64_cpu test_max_int8_cpu test_max_int16_cpu test_max_int32_cpu test_max_int64_cpu")
-set(TEST_MAXPOOL "test_maxpool_2d_ceil_cpu test_maxpool_2d_default_cpu test_maxpool_2d_dilations_cpu test_maxpool_2d_pads_cpu test_maxpool_2d_precomputed_pads_cpu test_maxpool_2d_precomputed_same_upper_cpu test_maxpool_2d_precomputed_strides_cpu test_maxpool_2d_same_lower_cpu test_maxpool_2d_same_upper_cpu test_maxpool_2d_strides_cpu test_maxpool_3d_default_cpu")
-# set(TEST_MAXPOOL "test_maxpool_1d_default_cpu test_maxpool_2d_ceil_cpu test_maxpool_2d_default_cpu test_maxpool_2d_dilations_cpu test_maxpool_2d_pads_cpu test_maxpool_2d_precomputed_pads_cpu test_maxpool_2d_precomputed_same_upper_cpu test_maxpool_2d_precomputed_strides_cpu test_maxpool_2d_same_lower_cpu test_maxpool_2d_same_upper_cpu test_maxpool_2d_strides_cpu test_maxpool_3d_default_cpu")
+
+set(TEST_MAXPOOL "test_maxpool_1d_default_cpu test_maxpool_2d_ceil_cpu test_maxpool_2d_default_cpu test_maxpool_2d_dilations_cpu test_maxpool_2d_pads_cpu test_maxpool_2d_precomputed_pads_cpu test_maxpool_2d_precomputed_same_upper_cpu test_maxpool_2d_precomputed_strides_cpu test_maxpool_2d_same_lower_cpu test_maxpool_2d_same_upper_cpu test_maxpool_2d_strides_cpu test_maxpool_3d_default_cpu")
 set(TEST_MIN "test_min_example_cpu test_min_one_input_cpu test_min_two_inputs_cpu test_min_float32_cpu test_min_float64_cpu test_min_int8_cpu test_min_int16_cpu test_min_int32_cpu test_min_int64_cpu")
 set(TEST_MUL "test_mul_cpu test_mul_bcast_cpu test_mul_example_cpu")
 set(TEST_REDUCEMEAN "test_reduce_mean_default_axes_keepdims_example_cpu test_reduce_mean_default_axes_keepdims_random_cpu test_reduce_mean_do_not_keepdims_example_cpu test_reduce_mean_do_not_keepdims_random_cpu test_reduce_mean_keepdims_example_cpu test_reduce_mean_keepdims_random_cpu test_reduce_mean_negative_axes_keepdims_example_cpu test_reduce_mean_negative_axes_keepdims_random_cpu")
 set(TEST_RELU "test_relu_cpu")
-set(TEST_SOFTMAX "test_softmax_axis_0_cpu test_softmax_axis_1_cpu test_softmax_axis_2_cpu test_softmax_default_axis_cpu test_softmax_example_cpu")
-# set(TEST_SOFTMAX "test_softmax_axis_0_cpu test_softmax_axis_1_cpu test_softmax_axis_2_cpu test_softmax_default_axis_cpu test_softmax_example_cpu test_softmax_large_number_cpu")
+set(TEST_SOFTMAX "test_softmax_axis_0_cpu test_softmax_axis_1_cpu test_softmax_axis_2_cpu test_softmax_default_axis_cpu test_softmax_example_cpu test_softmax_large_number_cpu")
 set(TEST_SUB "test_sub_cpu test_sub_bcast_cpu test_sub_example_cpu test_sum_example_cpu")
 set(TEST_SUM "test_sum_one_input_cpu test_sum_two_inputs_cpu")
 set(TEST_MODELS "test_densenet121_cpu test_inception_v1_cpu test_resnet50_cpu test_shufflenet_cpu test_squeezenet_cpu test_vgg19_cpu")
 
-set(NNPA_TESTS "${TEST_ABS} ${TEST_ADD} ${TEST_AVGPOOL} ${TEST_BNORM} ${TEST_CONV} ${TEST_DIV} ${TEST_EXP} ${TEST_GEMM} ${TEST_GAVGPOOL} ${TEST_GRU} ${TEST_LOG} ${TEST_LOGSOFTMAX} ${TEST_LSTM} ${TEST_MATMUL} ${TEST_MAX} ${TEST_MAXPOOL} ${TEST_MIN} ${TEST_MUL} ${TEST_REDUCEMEAN} ${TEST_RELU} ${TEST_SOFTMAX} ${TEST_SUB} ${TEST_SUM}")
-# set(NNPA_TESTS "${TEST_ABS} ${TEST_ADD} ${TEST_AVGPOOL} ${TEST_BNORM} ${TEST_CONV} ${TEST_DIV} ${TEST_EXP} ${TEST_GEMM} ${TEST_GAVGPOOL} ${TEST_GRU} ${TEST_LOG} ${TEST_LOGSOFTMAX} ${TEST_LSTM} ${TEST_MATMUL} ${TEST_MAX} ${TEST_MAXPOOL} ${TEST_MIN} ${TEST_MUL} ${TEST_REDUCEMEAN} ${TEST_RELU} ${TEST_SOFTMAX} ${TEST_SUB} ${TEST_SUM} ${TEST_MODELS}")
+set(NNPA_TESTS "${TEST_ABS} ${TEST_ADD} ${TEST_AVGPOOL} ${TEST_BNORM} ${TEST_CONV} ${TEST_DIV} ${TEST_EXP} ${TEST_GEMM} ${TEST_GAVGPOOL} ${TEST_GRU} ${TEST_LOG} ${TEST_LOGSOFTMAX} ${TEST_LSTM} ${TEST_MATMUL} ${TEST_MAX} ${TEST_MAXPOOL} ${TEST_MIN} ${TEST_MUL} ${TEST_REDUCEMEAN} ${TEST_RELU} ${TEST_SOFTMAX} ${TEST_SUB} ${TEST_SUM} ${TEST_MODELS}")
 
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
