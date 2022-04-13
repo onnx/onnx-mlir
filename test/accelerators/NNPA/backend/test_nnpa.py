@@ -32,7 +32,7 @@ import unittest
 from onnx.backend.test import BackendTest
 
 import inspect
-from inference_backend_nnpa import (
+from inference_backend import (
     InferenceBackend,
     get_test_models,
 )
