@@ -82,8 +82,3 @@ add_numerical_unittest(TestGRU-NNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
-
-add_numerical_unittest(TestLoop-NNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLoop.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
