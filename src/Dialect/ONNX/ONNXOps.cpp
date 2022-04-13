@@ -4676,10 +4676,9 @@ mlir::Operation::result_range ONNXScanOp::scan_outputs() {
   return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
 
-LogicalResult ONNXScatterOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
+//===----------------------------------------------------------------------===//
+// ONNXScatterElements
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
@@ -5079,7 +5078,6 @@ LogicalResult ONNXZipMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-// New Ops from onnx1.8.1
 #define NOT_IMPLEMENTED_INFERSHAPE(T)                                          \
   LogicalResult T::inferShapes(                                                \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
@@ -5089,20 +5087,21 @@ LogicalResult ONNXZipMapOp::inferShapes(
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXScatterOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
 
 //===----------------------------------------------------------------------===//
 // Loop
