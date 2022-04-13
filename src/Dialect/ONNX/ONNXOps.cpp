@@ -2983,20 +2983,11 @@ LogicalResult ONNXFlattenOp::verify() {
 
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
-  ONNXFlattenOpShapeHelper shapeHelper(this);
-  ONNXFlattenOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan Flatten parameters successfully");
-
-  SmallVector<int64_t, 2> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-  return success();
+  return shapeHelperInferShapes<ONNXFlattenOpShapeHelper, ONNXFlattenOp,
+      ONNXFlattenOpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
