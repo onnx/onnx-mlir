@@ -28,7 +28,6 @@
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
@@ -101,6 +100,7 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
     pm.addNestedPass<FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
+  pm.addNestedPass<FuncOp>(krnl::createLowerKrnlRegionPass());
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
 
   pm.addNestedPass<FuncOp>(krnl::createConvertSeqToMemrefPass());

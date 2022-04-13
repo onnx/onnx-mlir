@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXReverseSequenceOpLowering : public ConversionPattern {
   ONNXReverseSequenceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -30,22 +32,22 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXReverseSequenceOpShapeHelper shapeHelper(&reverseSequenceOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Save axis and rank info.
     int64_t batchAxis = reverseSequenceOp.batch_axis();
     int64_t timeAxis = reverseSequenceOp.time_axis();
 
     MemRefBoundsIndexCapture dataBounds(operandAdaptor.input());
-    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+    int64_t outputRank = shapeHelper.dimsForOutput().size();
     LiteralIndexExpr oneIE(1);
 
     /*
@@ -123,3 +125,5 @@ void populateLoweringONNXReverseSequenceOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXReverseSequenceOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

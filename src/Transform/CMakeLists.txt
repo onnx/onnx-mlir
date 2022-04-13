@@ -50,3 +50,11 @@ add_onnx_mlir_library(OMLowerKrnlShape
   OMSupport
   MLIRTransformUtils
   )
+
+add_onnx_mlir_library(OMLowerKrnlRegion
+  LowerKrnlRegion.cpp
+
+  LINK_LIBS PUBLIC
+  OMSupport
+  MLIRTransformUtils
+  )

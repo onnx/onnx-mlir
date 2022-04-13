@@ -29,6 +29,8 @@ static constexpr int BUFFER_ALIGN = 128;
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(
@@ -51,8 +53,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange outerLoopDef{loopDef[0], loopDef[1]};
     ValueRange innerLoopDef{loopDef[2]};
     SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
-    IndexExpr outerUb0 = shapeHelper.dimsForOutput(0)[0];
-    IndexExpr outerUb1 = shapeHelper.dimsForOutput(0)[1];
+    IndexExpr outerUb0 = shapeHelper.dimsForOutput()[0];
+    IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
@@ -314,8 +316,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -323,7 +325,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.dimsForOutput(0), (int64_t)BUFFER_ALIGN);
+        loc, shapeHelper.dimsForOutput(), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -383,3 +385,5 @@ void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
       typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir

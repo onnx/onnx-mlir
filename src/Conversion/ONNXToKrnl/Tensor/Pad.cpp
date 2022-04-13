@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXPadOpLowering : public ConversionPattern {
   ONNXPadOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -36,8 +38,8 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXPadOpShapeHelper shapeHelper(&padOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -45,7 +47,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
     auto resMemRefType = convertToMemRefType(*op->result_type_begin());
     auto resElementType = resMemRefType.getElementType();
     Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Bounds.
     MemRefBoundsIndexCapture dataBounds(data);
@@ -137,3 +139,5 @@ void populateLoweringONNXPadOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXPadOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

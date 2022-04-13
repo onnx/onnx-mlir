@@ -10,17 +10,22 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp)
+using namespace mlir;
+
+namespace onnx_mlir {
+
+ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(
+    ONNXSliceOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXSliceOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       starts(), ends(), steps() {}
 
 ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXSliceOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       starts(), ends(), steps() {}
 
 LogicalResult ONNXSliceOpShapeHelper::computeShape(
@@ -140,7 +145,9 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
   }
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }
+
+} // namespace onnx_mlir

@@ -15,16 +15,9 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp)
-    : ONNXOpShapeHelper<ONNXCompressOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXCompressOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXCompressOpShapeHelper::computeShape(
     ONNXCompressOpAdaptor operandAdaptor) {
@@ -81,3 +74,5 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

@@ -31,6 +31,7 @@ add_onnx_mlir_library(CompilerOptions
 
   DEPENDS
   ExternalUtil
+  AcceleratorsInc
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -63,6 +64,11 @@ add_onnx_mlir_library(CompilerPasses
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   )
+
+if (ONNX_MLIR_VENDOR)
+  set_source_files_properties(CompilerUtils.cpp
+    PROPERTIES COMPILE_DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR} \"")
+endif()
 
 add_onnx_mlir_library(CompilerUtils
   CompilerUtils.cpp

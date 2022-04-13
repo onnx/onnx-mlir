@@ -14,12 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
-using namespace onnx_mlir;
-
 bool ONNXToKrnl_gEmitDealloc = false;
+
+namespace onnx_mlir {
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
@@ -314,7 +315,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index) {
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
@@ -349,7 +350,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -372,7 +373,7 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -411,7 +412,7 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -454,7 +455,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   for (auto permVal : permAttr.getValue())
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -606,6 +607,15 @@ KrnlTypeConverter::KrnlTypeConverter() {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
+    // Acccelators may have special versions of TensorType. Call the conversions
+    // of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      if (!accel->isActive())
+        continue;
+      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
+      if (memRefType)
+        return memRefType;
+    }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });
 
@@ -645,3 +655,5 @@ KrnlTypeConverter::KrnlTypeConverter() {
         .getResult(0);
   });
 }
+
+} // namespace onnx_mlir
