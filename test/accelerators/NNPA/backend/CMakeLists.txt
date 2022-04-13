@@ -29,8 +29,8 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/common_nnpa.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/common_nnpa.py
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/common.py
+  INPUT ${ONNX_BACKENDTEST_SRC_DIR}/common.py
   )
 
 configure_file(
@@ -99,7 +99,7 @@ set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
 add_custom_target(check-onnx-backend-nnpa
   COMMAND
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/cpp
-    LD_PRELOAD=${ZDNN_LIB} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    LD_PRELOAD=${ZDNN_LIB} TEST_MACCEL=NNPA ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test_nnpa.py
     ${FILE_GENERATE_DIR}/test_config.py

@@ -21,7 +21,7 @@ from onnx.backend.base import Device, DeviceType, Backend
 from onnx import numpy_helper
 import variables
 from variables import *
-from common_nnpa import compile_model
+from common import compile_model
 
 
 def get_test_models():
