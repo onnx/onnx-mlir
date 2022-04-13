@@ -39,7 +39,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
 struct OMTensor {

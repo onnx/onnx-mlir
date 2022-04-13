@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- OMTensorHelper.h - OMTensor Helper Func header -----------===//
+//===---------- OMTensorHelper.hpp - OMTensor Helper Func header ----------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -14,8 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_OMTENSORHELPER_H
-#define ONNX_MLIR_OMTENSORHELPER_H
+#pragma once
 
 /* Helper function to compute cartisian product */
 static inline std::vector<std::vector<int64_t>> CartProduct(
@@ -89,7 +88,7 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
  * is nonnull; otherwise the input seedValue is used.
  *
  * @param seed input seed.
- * @param hasSeedValue when nonzero, this function uses the provided seed. 
+ * @param hasSeedValue when nonzero, this function uses the provided seed.
  * Otherwise, this function defines its own random seed.
  * @return return the seed that was used.
  *
@@ -173,5 +172,3 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt);
 template <typename T>
 bool omTensorAreTwoOmtsClose(
     const OMTensor *a, const OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
-
-#endif // ONNX_MLIR_OMTENSORHELPER_H

@@ -7,7 +7,7 @@
 #include "llvm/Support/FileSystem.h"
 
 #include "include/OnnxMlirRuntime.h"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestGRU_main_graph");
