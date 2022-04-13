@@ -130,7 +130,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
-  result.insert<SwapTransposeConcat>(context);
+  result.insert<SwapTransposeConcatPattern>(context);
 }
 
 /// on the ONNXReshapeOp.
