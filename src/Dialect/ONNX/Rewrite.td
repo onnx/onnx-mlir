@@ -323,8 +323,8 @@ def ProducedByTransposeOp: Constraint<
 >;
 
 // Do transpose on concat's inputs instead of output in order to propagate
-// tranpose operations together, which allows more chance for tranpose fusion.
-// Do this only when all inputs are produced by tranpose operations.
+// transpose operations together, which allows more chance for transpose fusion.
+// Do this only when all inputs are produced by transpose operations.
 def SwapTransposeConcat: Pat<
   (ONNXTransposeOp:$res (ONNXConcatOp $inputs, $axis), $perm),
   (ONNXConcatOp (TransposeVariadicInput $inputs, $perm),

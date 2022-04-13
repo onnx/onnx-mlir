@@ -169,10 +169,10 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
 
 // -----
 
-// Check the fusion of tranposes when tranposes at the output side are moved
-// to the input side. This is only done when there are tranposes at the input side.
-// CHECK-LABEL: func @test_tranpose_concat_reversed
-func @test_tranpose_concat_reversed(%arg0: tensor<?x5x5x1xf32>, %arg1: tensor<?x5x5x2xf32>) -> tensor<?x5x5x3xf32> {
+// Check the fusion of transposes when transposes at the output side are moved
+// to the input side. This is only done when there are transposes at the input side.
+// CHECK-LABEL: func @test_transpose_concat_reversed
+func @test_transpose_concat_reversed(%arg0: tensor<?x5x5x1xf32>, %arg1: tensor<?x5x5x2xf32>) -> tensor<?x5x5x3xf32> {
     %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<?x5x5x1xf32>) -> tensor<?x1x5x5xf32>
     %1 = "onnx.Transpose"(%arg1) {perm = [0, 3, 1, 2]} : (tensor<?x5x5x2xf32>) -> tensor<?x2x5x5xf32>
     %2 = "onnx.Concat"(%0, %1) {axis = 1 : si64} : (tensor<?x1x5x5xf32>, tensor<?x2x5x5xf32>) -> tensor<?x3x5x5xf32>
