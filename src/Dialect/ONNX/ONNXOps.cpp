@@ -106,14 +106,15 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   return success();
 }
 
-// Handle shape inference for binary operators.
+// Handle shape inference for numpy style broadcasting operators.
 template <class OP, class ADAPTOR>
-static LogicalResult inferShapeForBinaryOps(
+static LogicalResult inferShapeForBroadcastingOps(
     OP *op, Type elementType = nullptr) {
+  assert(op && "Expecting a non-null pointer");
   ADAPTOR operandAdaptor(*op);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success();
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // cannot infer when the operands shape is not yet known.
 
   auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
   for (unsigned i = 1; i < op->getNumOperands(); ++i) {
@@ -1287,7 +1288,7 @@ LogicalResult ONNXPowOp::verify() {
 }
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXPowOp, ONNXPowOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXPowOp, ONNXPowOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1297,7 +1298,7 @@ LogicalResult ONNXPowOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXAddOp, ONNXAddOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXAddOp, ONNXAddOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1307,7 +1308,7 @@ LogicalResult ONNXAddOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXMulOp, ONNXMulOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXMulOp, ONNXMulOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1317,7 +1318,7 @@ LogicalResult ONNXMulOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXDivOp, ONNXDivOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXDivOp, ONNXDivOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1327,7 +1328,7 @@ LogicalResult ONNXDivOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXSubOp, ONNXSubOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXSubOp, ONNXSubOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1337,7 +1338,7 @@ LogicalResult ONNXSubOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAndOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXAndOp, ONNXAndOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXAndOp, ONNXAndOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1347,7 +1348,7 @@ LogicalResult ONNXAndOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXOrOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXOrOp, ONNXOrOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXOrOp, ONNXOrOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1357,7 +1358,7 @@ LogicalResult ONNXOrOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXXorOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXXorOp, ONNXXorOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXXorOp, ONNXXorOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1367,7 +1368,7 @@ LogicalResult ONNXXorOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXSumOp, ONNXSumOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXSumOp, ONNXSumOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1377,7 +1378,7 @@ LogicalResult ONNXSumOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXMaxOp, ONNXMaxOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXMaxOp, ONNXMaxOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1387,7 +1388,7 @@ LogicalResult ONNXMaxOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXMinOp, ONNXMinOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXMinOp, ONNXMinOpAdaptor>(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3594,8 +3595,8 @@ LogicalResult ONNXLessOp::inferShapes(
 LogicalResult ONNXLessOrEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Builder b(getContext());
-  return inferShapeForBinaryOps<ONNXLessOrEqualOp, ONNXLessOrEqualOpAdaptor>(
-      this, b.getI1Type());
+  return inferShapeForBroadcastingOps<ONNXLessOrEqualOp,
+      ONNXLessOrEqualOpAdaptor>(this, b.getI1Type());
 }
 
 // Operations for which shape inference has not been implemented yet
@@ -3843,7 +3844,7 @@ LogicalResult ONNXDetOp::inferShapes(
 LogicalResult ONNXEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Builder b(getContext());
-  return inferShapeForBinaryOps<ONNXEqualOp, ONNXEqualOpAdaptor>(
+  return inferShapeForBroadcastingOps<ONNXEqualOp, ONNXEqualOpAdaptor>(
       this, b.getI1Type());
 }
 
@@ -3871,14 +3872,14 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Builder b(getContext());
-  return inferShapeForBinaryOps<ONNXGreaterOp, ONNXGreaterOpAdaptor>(
+  return inferShapeForBroadcastingOps<ONNXGreaterOp, ONNXGreaterOpAdaptor>(
       this, b.getI1Type());
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Builder b(getContext());
-  return inferShapeForBinaryOps<ONNXGreaterOrEqualOp,
+  return inferShapeForBroadcastingOps<ONNXGreaterOrEqualOp,
       ONNXGreaterOrEqualOpAdaptor>(this, b.getI1Type());
 }
 
@@ -3970,7 +3971,7 @@ LogicalResult ONNXMaxUnpoolOp::inferShapes(
 
 LogicalResult ONNXMeanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXMeanOp, ONNXMeanOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXMeanOp, ONNXMeanOpAdaptor>(this);
 }
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
@@ -3995,7 +3996,7 @@ LogicalResult ONNXModOp::verify() {
 
 LogicalResult ONNXModOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBinaryOps<ONNXModOp, ONNXModOpAdaptor>(this);
+  return inferShapeForBroadcastingOps<ONNXModOp, ONNXModOpAdaptor>(this);
 }
 
 LogicalResult ONNXMultinomialOp::inferShapes(
@@ -4754,7 +4755,7 @@ LogicalResult ONNXWhereOp::inferShapes(
     return success();
 
   Type resultElementType = X().getType().cast<ShapedType>().getElementType();
-  return inferShapeForBinaryOps<ONNXWhereOp, ONNXWhereOpAdaptor>(
+  return inferShapeForBroadcastingOps<ONNXWhereOp, ONNXWhereOpAdaptor>(
       this, resultElementType);
 }
 
