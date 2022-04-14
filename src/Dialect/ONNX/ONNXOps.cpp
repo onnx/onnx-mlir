@@ -627,8 +627,8 @@ LogicalResult ONNXArgMaxOp::verify() {
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex < -rank || axisIndex >= rank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
@@ -670,8 +670,8 @@ LogicalResult ONNXArgMinOp::verify() {
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex >= rank || axisIndex < -rank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
@@ -2784,8 +2784,8 @@ LogicalResult ONNXConcatOp::verify() {
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   if (axisIndex < -commonRank || axisIndex >= commonRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
 
   if (axisIndex < 0)
@@ -3741,8 +3741,8 @@ LogicalResult ONNXCompressOp::verify() {
     // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
     int64_t axis = optionalAxis.getValue();
     if (axis < -inputRank || axis >= inputRank)
-      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-          "axis", axis,
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
 
@@ -4538,34 +4538,36 @@ mlir::Operation::result_range ONNXScanOp::scan_outputs() {
 
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
-  // Get operands.
-  mlir::Value data = operandAdaptor.data();
-  mlir::Value indices = operandAdaptor.indices();
-  mlir::Value updates = operandAdaptor.updates();
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
-  // Won't be able to do any checking at this stage.
-  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
-      !hasShapeAndRank(updates))
-    return success();
-
-  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
-  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
-  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  // Get operands and attributes.
+  Value data = operandAdaptor.data();
+  Value indices = operandAdaptor.indices();
+  Value updates = operandAdaptor.updates();
+  int64_t dataRank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indicesRank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updatesRank = updates.getType().cast<mlir::ShapedType>().getRank();
   int64_t axis = this->axis();
 
-  if (data_rank < 1)
-    return emitOpError("data rank should >= 1");
-  if (indices_rank < 1)
-    return emitOpError("indices rank should >= 1");
-  if (updates_rank < 1)
-    return emitOpError("updates rank rank should >= 1");
-  if (data_rank != indices_rank || data_rank != updates_rank ||
-      indices_rank != updates_rank) {
-    return emitOpError("data, indices, updates rank should equal");
-  }
+  // All inputs must have the same rank, and the rank must be strictly greater
+  // than zero.
+  if (dataRank < 1)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), data, dataRank, "> 0");
+  if (indicesRank != dataRank)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), indices, indicesRank, std::to_string(dataRank));
+  if (updatesRank != dataRank)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), updates, updatesRank, std::to_string(dataRank));
 
-  if (axis >= data_rank || axis < 0)
-    return emitOpError("axis value out of bound");
+  // axis attribute must be in the range [-r,r-1], where r = rank(data).
+  if (axis < -dataRank || axis >= dataRank)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axis,
+        onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   return success();
 }
