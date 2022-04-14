@@ -169,19 +169,6 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
 
 // -----
 
-// Check the replacement of transpose by reshape when the order of the dimensions
-// (except those of size 1) is unchanged.
-// CHECK-LABEL: test_transpose_replaced_by_reshape
-func @test_transpose_replaced_by_reshape(%arg0: tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32> {
-  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32>
-  return %0 : tensor<?x384x1x1xf32>
-  // CHECK: [[SHAPE:%.+]] = "onnx.Constant"() {value = dense<[-1, 384, 1, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
-  // CHECK: [[RES:%.+]] = "onnx.Reshape"(%arg0, [[SHAPE]]) : (tensor<?x1x1x384xf32>, tensor<4xi64>) -> tensor<?x384x1x1xf32>
-  // CHECK: return [[RES]] : tensor<?x384x1x1xf32>
-}
-
-// -----
-
 // Check the fusion of transposes when transposes at the output side are moved
 // to the input side. This is only done when there are transposes at the input side.
 // CHECK-LABEL: func @test_transpose_concat_reversed
@@ -191,6 +178,7 @@ func @test_transpose_concat_reversed(%arg0: tensor<?x5x5x1xf32>, %arg1: tensor<?
     %2 = "onnx.Concat"(%0, %1) {axis = 1 : si64} : (tensor<?x1x5x5xf32>, tensor<?x2x5x5xf32>) -> tensor<?x3x5x5xf32>
     %3 = "onnx.Transpose"(%2) {perm = [0, 2, 3, 1]} : (tensor<?x3x5x5xf32>) -> tensor<?x5x5x3xf32>
     return %3 : tensor<?x5x5x3xf32>
+
     // CHECK-NEXT: "onnx.Concat"(%arg0, %arg1) {axis = 3 : si64} : (tensor<?x5x5x1xf32>, tensor<?x5x5x2xf32>) -> tensor<?x5x5x3xf32>
     // CHECK-NOT: "onnx.Transpose"
 }

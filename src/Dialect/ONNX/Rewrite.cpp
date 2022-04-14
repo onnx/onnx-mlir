@@ -63,35 +63,6 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, A.getType().cast<ShapedType>().getElementType());
 }
 
-// Check if there is at most one unknown dimension in a value's type.
-bool hasAtMostOneUnknownDim(Value v) {
-  if (!onnx_mlir::hasShapeAndRank(v))
-    return false;
-  ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
-  return (llvm::count_if(dims, [](int64_t d) { return d == -1; }) <= 1);
-}
-
-// Check that permutation does not change the order of dimensions except those
-// of size 1.
-bool hasNoOrderChangeExceptDimOne(Value v, ArrayAttr permAttr) {
-  if (!onnx_mlir::hasShapeAndRank(v))
-    return false;
-  ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
-  SmallVector<int64_t, 4> originalAxes;
-  for (uint64_t axis = 0; axis < dims.size(); ++axis)
-    if (dims[axis] != 1)
-      originalAxes.emplace_back(axis);
-
-  SmallVector<int64_t, 4> permutedAxes;
-  for (Attribute val : permAttr.getValue()) {
-    assert(val.isa<IntegerAttr>() && "Element in ArrayAttr is not IntegerAttr");
-    int64_t axis = val.cast<IntegerAttr>().getValue().getSExtValue();
-    if (dims[axis] != 1)
-      permutedAxes.emplace_back(axis);
-  }
-  return (originalAxes == permutedAxes);
-}
-
 // Get the index of the axis value in the given permutation array.
 IntegerAttr getIndexOfAxisInPerm(
     PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
@@ -122,11 +93,8 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
 
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
-  return llvm::all_of(values, [](Value v) {
-    return (isa<ONNXTransposeOp>(v.getDefiningOp()) ||
-            isa<ONNXReshapeOp>(v.getDefiningOp()) ||
-            isa<ONNXConstantOp>(v.getDefiningOp()));
-  });
+  return llvm::all_of(
+      values, [](Value v) { return isa<ONNXTransposeOp>(v.getDefiningOp()); });
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
@@ -162,7 +130,6 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
-  result.insert<ReplaceTransposeByReshapePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
 }
 
