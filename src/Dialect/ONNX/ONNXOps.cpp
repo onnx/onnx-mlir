@@ -1118,9 +1118,9 @@ LogicalResult ONNXSequenceLengthOp::inferShapes(
 LogicalResult ONNXPReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXPReluOpAdaptor operandAdaptor(*this);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success();
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success();
 
   auto xShape = X().getType().cast<ShapedType>().getShape();
   auto slopeShape = slope().getType().cast<ShapedType>().getShape();
