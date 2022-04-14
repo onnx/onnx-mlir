@@ -46,6 +46,28 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // If the order of the dimensions whose value is not 1 does not change after
+    // transpose, it is safe to lower transpose to a view op.
+    ArrayRef<int64_t> dims = memRefType.getShape();
+    SmallVector<int64_t, 4> originalAxes;
+    for (uint64_t axis = 0; axis < dims.size(); ++axis)
+      if (dims[axis] != 1)
+        originalAxes.emplace_back(axis);
+    SmallVector<int64_t, 4> permutedAxes;
+    for (uint64_t i = 0; i < rank; ++i) {
+      int64_t axis = ArrayAttrIntVal(permAttr, i);
+      if (dims[axis] != 1)
+        permutedAxes.emplace_back(axis);
+    }
+    if (originalAxes == permutedAxes) {
+      // It is safe to lower to a view op.
+      MemRefBuilder createMemRef(rewriter, loc);
+      Value view =
+          createMemRef.reinterpretCast(data, shapeHelper.dimsForOutput());
+      rewriter.replaceOp(op, view);
+      return success();
+    }
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
