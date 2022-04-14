@@ -60,6 +60,9 @@ set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
+set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
+  "Vendor-specific text for showing with version information.")
+
 include(CTest)
 include(ExternalProject)
 include(MLIR.cmake)
