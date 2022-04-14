@@ -19,7 +19,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-LogicalResult Diagnostic::attributeOutOfRange(Operation &op,
+LogicalResult Diagnostic::emitAttributeOutOfRangeError(Operation &op,
     const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
@@ -35,7 +35,7 @@ LogicalResult Diagnostic::attributeOutOfRange(Operation &op,
 };
 
 template <typename T>
-mlir::LogicalResult Diagnostic::inputsMustHaveSameRank(Operation &op,
+mlir::LogicalResult Diagnostic::emitInputsMustHaveSameRankError(Operation &op,
     const llvm::Twine &inputName1, T rank1, const llvm::Twine &inputName2,
     T rank2) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
@@ -52,9 +52,9 @@ mlir::LogicalResult Diagnostic::inputsMustHaveSameRank(Operation &op,
 }
 
 // Template instantiations - keep at the end of the file.
-template mlir::LogicalResult Diagnostic::attributeOutOfRange(
+template mlir::LogicalResult Diagnostic::emitAttributeOutOfRangeError(
     Operation &, const Twine &, int64_t, Range<int64_t>);
-template mlir::LogicalResult Diagnostic::inputsMustHaveSameRank(
+template mlir::LogicalResult Diagnostic::emitInputsMustHaveSameRankError(
     Operation &, const Twine &, int64_t, const Twine &, int64_t);
 
 } // namespace onnx_mlir

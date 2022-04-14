@@ -42,8 +42,8 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   if (axisIndex < -dataRank || axisIndex > dataRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *op->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   // Convert a negative axis to a positive axis.

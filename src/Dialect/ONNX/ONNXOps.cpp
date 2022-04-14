@@ -608,8 +608,8 @@ LogicalResult ONNXArgMaxOp::verify() {
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex < -rank || axisIndex >= rank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
@@ -651,8 +651,8 @@ LogicalResult ONNXArgMinOp::verify() {
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex >= rank || axisIndex < -rank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
@@ -2843,8 +2843,8 @@ LogicalResult ONNXConcatOp::verify() {
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   if (axisIndex < -commonRank || axisIndex >= commonRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisIndex,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
 
   if (axisIndex < 0)
@@ -2974,8 +2974,8 @@ LogicalResult ONNXFlattenOp::verify() {
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisValue,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisValue,
         onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank));
 
   return success();
@@ -3327,8 +3327,8 @@ LogicalResult ONNXGatherOp::verify() {
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   if (axisValue < -dataRank || axisValue >= dataRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisValue,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisValue,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   return success();
@@ -3371,15 +3371,15 @@ LogicalResult ONNXGatherElementsOp::verify() {
 
   // data and indices must have the same rank.
   if (dataRank != indicesRank)
-    return onnx_mlir::Diagnostic::inputsMustHaveSameRank(
+    return onnx_mlir::Diagnostic::emitInputsMustHaveSameRankError(
         *this->getOperation(), "data", dataRank, "indices", indicesRank);
 
   if (optionalAxis.hasValue()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(data).
     int64_t axisValue = optionalAxis.getValue();
     if (axisValue < -dataRank || axisValue >= dataRank)
-      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-          "axis", axisValue,
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axisValue,
           onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
   }
 
@@ -3833,8 +3833,8 @@ LogicalResult ONNXCompressOp::verify() {
     // axis attribute must be in the range [-r,r-1], where r = rank(input).
     int64_t axis = optionalAxis.getValue();
     if (axis < -inputRank || axis >= inputRank)
-      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-          "axis", axis,
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
 
@@ -4000,8 +4000,8 @@ LogicalResult ONNXHardmaxOp::verify() {
   int64_t axisValue = axis();
   int64_t inputRank = input.getType().cast<ShapedType>().getRank();
   if (axisValue < -inputRank || axisValue >= inputRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisValue,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisValue,
         onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   return success();
@@ -4015,8 +4015,8 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
-        "axis", axisValue,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisValue,
         onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   getResult().setType(inputType);
