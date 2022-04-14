@@ -169,7 +169,8 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
 
 // -----
 
-// Check the replacement of transpose by reshape because of the dimension order unchanged.
+// Check the replacement of transpose by reshape when the order of the dimensions
+// (except those of size 1) is unchanged.
 // CHECK-LABEL: test_transpose_replaced_by_reshape
 func @test_transpose_replaced_by_reshape(%arg0: tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<?x1x1x384xf32>) -> tensor<?x384x1x1xf32>

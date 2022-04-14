@@ -77,16 +77,15 @@ bool hasNoOrderChangeExceptDimOne(Value v, ArrayAttr permAttr) {
   if (!onnx_mlir::hasShapeAndRank(v))
     return false;
   ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
-  SmallVector<int64_t> originalAxes;
+  SmallVector<int64_t, 4> originalAxes;
   for (uint64_t axis = 0; axis < dims.size(); ++axis)
     if (dims[axis] != 1)
       originalAxes.emplace_back(axis);
 
-  SmallVector<int64_t> permutedAxes;
+  SmallVector<int64_t, 4> permutedAxes;
   for (Attribute val : permAttr.getValue()) {
-    IntegerAttr attr = val.cast<IntegerAttr>();
-    assert(attr && "Element in ArrayAttr is not IntegerAttr");
-    int64_t axis = attr.getValue().getSExtValue();
+    assert(val.isa<IntegerAttr>() && "Element in ArrayAttr is not IntegerAttr");
+    int64_t axis = val.cast<IntegerAttr>().getValue().getSExtValue();
     if (dims[axis] != 1)
       permutedAxes.emplace_back(axis);
   }
