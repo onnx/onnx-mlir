@@ -682,7 +682,8 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
          "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
 
   // dilations not supported. Only default one is accepted.
-  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
+  if (llvm::any_of(shapeHelper.dilations,
+          [](int64_t val) { return val != 1; }))
     return false;
 
   return checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
