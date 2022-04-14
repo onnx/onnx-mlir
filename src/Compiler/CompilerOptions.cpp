@@ -17,6 +17,7 @@
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Support/OMOptions.hpp"
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -123,16 +124,6 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::OptionCategory OMPassOptions("ONNX-MLIR Pass Options",
-    "These are options to provide fine control on passes");
-
-llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("Specify onnx ops to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all ops. \n"
-                   "\"op1 op2 ...\" for the specified ops."),
-    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
-
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
         "Enable memory bundling related optimizations (default=false)\n"
@@ -145,10 +136,6 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
         "If set to 0, onnxOpTransformPass will be disabled, and\n"
         "static iteration will be used"),
     llvm::cl::init(3), llvm::cl::cat(OMPassOptions));
-
-llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
-    llvm::cl::desc("Report diagnostic info for op transform passes."),
-    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register

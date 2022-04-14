@@ -28,11 +28,11 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -41,6 +41,10 @@
 using namespace mlir;
 
 namespace {
+
+llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
+    llvm::cl::desc("Report diagnostic info for op transform passes."),
+    llvm::cl::init(false), llvm::cl::cat(onnx_mlir::OMPassOptions));
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
@@ -142,7 +146,7 @@ void ONNXOpTransformPass::runOnOperation() {
         << "iterations. "
         << "You may set a higher threshold with command option";
   }
-  if (onnx_mlir::onnxOpTransformReport) {
+  if (onnxOpTransformReport) {
     llvm::outs() << "ONNXOpTransform iterated " << onnxOpTransformThreshold - n
                  << " times, converged "
                  << ((currentTag == previousTag) ? "true" : "false") << "\n";

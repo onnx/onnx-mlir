@@ -19,3 +19,10 @@ add_onnx_mlir_library(OMSupport
   LINK_LIBS PUBLIC
   OMKrnlOps
   )
+
+add_onnx_mlir_library(OMOptions
+  OMOptions.cpp
+
+  LINK_LIBS PUBLIC
+  LLVMSupport
+  )

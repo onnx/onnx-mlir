@@ -22,11 +22,11 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -55,6 +55,13 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
         clEnumVal(
             InstrumentReportMemory, "instrument runtime reports memory usage")),
     llvm::cl::cat(onnx_mlir::OMPassOptions));
+
+llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
+    llvm::cl::desc("Specify onnx ops to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"
+                   "\"ALL\" for all ops. \n"
+                   "\"op1 op2 ...\" for the specified ops."),
+    llvm::cl::init(""), llvm::cl::cat(onnx_mlir::OMPassOptions));
 
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>> {
@@ -85,10 +92,9 @@ public:
   };
 
   void runOnOperation() override {
-    if (onnx_mlir::instrumentONNXOps == "" ||
-        onnx_mlir::instrumentONNXOps == "NONE")
+    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
       return;
-    init(onnx_mlir::instrumentONNXOps);
+    init(instrumentONNXOps);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {

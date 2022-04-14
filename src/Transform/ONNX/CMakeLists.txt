@@ -44,9 +44,9 @@ add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXPass.cpp
 
   LINK_LIBS PUBLIC
-  CompilerOptions
   OMONNXOps
   OMKrnlOps
+  OMOptions
   MLIRPass
   )
 
@@ -54,11 +54,11 @@ add_onnx_mlir_library(OMOpTransform
   ONNXOpTransformPass.cpp
 
   LINK_LIBS PUBLIC
-  CompilerOptions
   OMONNXOps
-  MLIRPass
   OMONNXRewrite
+  OMOptions
   OMShapeInference
+  MLIRPass
   MLIRTransforms
   )
 
