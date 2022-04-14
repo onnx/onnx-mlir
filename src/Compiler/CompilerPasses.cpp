@@ -68,6 +68,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
+  // Eliminate common sub-expressions before lowering to Krnl.
+  pm.addPass(mlir::createCSEPass());
+  // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass());
@@ -85,6 +88,9 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
+  // Eliminate common sub-expressions before lowering to LLVM.
+  pm.addPass(mlir::createCSEPass());
+
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
