@@ -3475,3 +3475,20 @@ func @test_loop_tiny_yolo() -> tensor<?xi32> {
 // CHECK:           return [[RES_1_]] : memref<?xi32>
 // CHECK:         }
 }
+
+// -----
+
+// Check lowering transpose to a view op when the order of the dimensions whose
+// value is not 1 is unchanged.
+func @test_transpose_lowered_to_a_view_op(%arg0: tensor<?x1x1x384xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<?x1x1x384xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL:  func @test_transpose_lowered_to_a_view_op
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x1x384xf32>) -> memref<?x384x1x1xf32> {
+  // CHECK:           [[VAR_c0_:%.+]] = arith.constant 0 : index
+  // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x1x1x384xf32>
+  // CHECK:           [[VAR_1_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 384, 1, 1], strides: [384, 1, 1, 1] : memref<?x1x1x384xf32> to memref<?x384x1x1xf32>
+  // CHECK:           return [[VAR_1_]] : memref<?x384x1x1xf32>
+  // CHECK:         }
+}
+
