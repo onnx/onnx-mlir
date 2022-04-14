@@ -174,6 +174,10 @@ class RankXMinusRankYIs<int diff>: Constraint<
           " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
     "X' rank is greater than Y's rank dif units">;
 
+def TransposeVariadicInput: NativeCodeCall<
+  "transposeVariadicInput($_builder, $_loc, $0, $1)"
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -308,6 +312,25 @@ def RemoveIdentityTransposePattern:  Pat<
   (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
+
+def GetIndexOfAxisInPerm: NativeCodeCall<
+  "getIndexOfAxisInPerm($_builder, $0, $1)"
+>;
+
+def ProducedByTransposeOp: Constraint<
+  CPred<"areProducedByTransposeOp($_self)">,
+  "all values are produced by ONNXTransposeOp"
+>;
+
+// Do transpose on concat's inputs instead of output in order to propagate
+// transpose operations together, which allows more chance for transpose fusion.
+// Do this only when all inputs are produced by transpose operations.
+def SwapTransposeConcatPattern: Pat<
+  (ONNXTransposeOp:$res (ONNXConcatOp $inputs, $axis), $perm),
+  (ONNXConcatOp (TransposeVariadicInput $inputs, $perm),
+                (GetIndexOfAxisInPerm $perm, $axis)),
+  [(ProducedByTransposeOp:$inputs)]
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXReshapeOp
