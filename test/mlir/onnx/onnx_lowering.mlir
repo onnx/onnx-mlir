@@ -428,7 +428,7 @@ func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<
   "std.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_reshape_constant_dealloc
-  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<1x10xf32>
+  // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10], strides: [10, 1] : memref<10x1xf32> to memref<1x10xf32> 
   // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [2, 5], strides: [5, 1] : memref<1x10xf32> to memref<2x5xf32>
   // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<1x10xf32>
   // CHECK:       return [[VAR_3_]] : memref<2x5xf32>
@@ -1017,7 +1017,7 @@ func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tenso
   // CHECK-LABEL: func private @test_unsqueeze_squeeze_dealloc
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
   // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
-  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x1x1x10xf32>
+  // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast [[VAR_3_]] to offset: [0], sizes: [20, 1, 1, 10], strides: [10, 10, 10, 1] : memref<20x1x10x1xf32> to memref<20x1x1x10xf32>
   // CHECK:       [[VAR_5_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
   // CHECK:       return [[VAR_5_]] : memref<20x10xf32>
 }
@@ -1034,7 +1034,7 @@ func private @test_unsqueezev11_squeezev11_dealloc(%arg0 : tensor<10x20xf32>) ->
   // CHECK-LABEL: func private @test_unsqueezev11_squeezev11_dealloc
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
   // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
-  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x1x1x10xf32>
+  // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast [[VAR_3_]] to offset: [0], sizes: [20, 1, 1, 10], strides: [10, 10, 10, 1] : memref<20x1x10x1xf32> to memref<20x1x1x10xf32>
   // CHECK:       [[VAR_5_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
   // CHECK:       return [[VAR_5_]] : memref<20x10xf32>
 }
@@ -1464,8 +1464,8 @@ func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*
   "std.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_dealloc
-  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<16x1x32x1x64xf32>
-// CHECK-DAG:     [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
+  // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 1, 32, 1, 64], strides: [2048, 2048, 64, 64, 1] : memref<16x32x1x1x64xf32> to memref<16x1x32x1x64xf32>
+  // CHECK-DAG:   [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
   // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
   // CHECK:       return [[VAR_2_]] : memref<16x32x64xf32>
 }
@@ -1478,8 +1478,8 @@ func private @test_squeezev11_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tenso
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeezev11_dealloc
-  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<16x1x32x1x64xf32>
-// CHECK-DAG:     [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
+  // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 1, 32, 1, 64], strides: [2048, 2048, 64, 64, 1] : memref<16x32x1x1x64xf32> to memref<16x1x32x1x64xf32>
+  // CHECK-DAG:   [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
   // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
   // CHECK:       return [[VAR_2_]] : memref<16x32x64xf32>
 }
