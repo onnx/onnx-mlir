@@ -651,7 +651,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
     return success();
 
   // ONNX spec specifies the reduced type as an int64
-  Type elementType = IntegerType::get(getContext(), 64);
+  auto elementType = IntegerType::get(getContext(), 64);
   return shapeHelperInferShapes<ONNXArgMinOpShapeHelper, ONNXArgMinOp,
       ONNXArgMinOpAdaptor>(this, elementType);
 }
