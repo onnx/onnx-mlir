@@ -8,10 +8,9 @@ file(GENERATE
   INPUT ${ONNX_BACKENDTEST_SRC_DIR}/conftest.py
   )
 
-# Only test_nnpa.py is different from original CPU tests.
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_nnpa.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_nnpa.py
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
+  INPUT ${ONNX_BACKENDTEST_SRC_DIR}/test.py
   )
 
 file(GENERATE
@@ -131,45 +130,45 @@ set(NNPA_TESTS_ENVS LD_PRELOAD=${ZDNN_LIB} TEST_MACCEL=NNPA TEST_CASE_BY_USER=${
 add_custom_target(check-onnx-backend-nnpa
   COMMAND
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/cpp
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
    )
 
 add_custom_target(check-onnx-backend-nnpa-dynamic
   COMMAND
     TEST_DYNAMIC=true
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
 add_custom_target(check-onnx-backend-nnpa-constant
   COMMAND
     TEST_CONSTANT=true
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
 add_custom_target(check-onnx-backend-nnpa-signature
   COMMAND
     TEST_SIGNATURE=true
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
 add_custom_target(check-onnx-backend-nnpa-compilerlib
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${FILE_GENERATE_DIR}/test_nnpa.py
+    ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config_compilerlib.py
    )
 
@@ -198,27 +197,27 @@ if (ONNX_MLIR_ENABLE_JNI)
     COMMAND
       ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/jni
        TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
-      ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${FILE_GENERATE_DIR}/test.py
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
   add_custom_target(check-onnx-backend-nnpa-dynamic-jni
     COMMAND
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
-      ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${FILE_GENERATE_DIR}/test.py
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
   add_custom_target(check-onnx-backend-nnpa-constant-jni
     COMMAND
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
-      ${FILE_GENERATE_DIR}/test_nnpa.py
+      ${FILE_GENERATE_DIR}/test.py
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
