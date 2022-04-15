@@ -93,7 +93,8 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
     return false;
 
   // Check if kernelShape is literal. Only static value is supported.
-  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
+  if (llvm::any_of(shapeHelper.kernelShape,
+          [](IndexExpr val) { return !val.isLiteral(); }))
     return false;
 
   // Check parameter restrictions for maxpool2d/avgpool2d for each axis only
