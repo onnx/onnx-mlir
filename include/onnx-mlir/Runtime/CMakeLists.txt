@@ -7,3 +7,5 @@ install(FILES OMTensor.h DESTINATION include/onnx-mlir/Runtime)
 install(FILES OMTensorList.h DESTINATION include/onnx-mlir/Runtime)
 install(FILES OnnxDataType.h DESTINATION include/onnx-mlir/Runtime)
 install(FILES OnnxDataTypeMetaData.inc DESTINATION include/onnx-mlir/Runtime)
+install(FILES OMAccelerator.h DESTINATION include/onnx-mlir/Runtime)
+# TODO OMAccelerator.h includes "src/Accelerators/Accelerators.inc" which should also be copied.

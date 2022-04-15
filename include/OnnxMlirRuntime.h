@@ -22,6 +22,7 @@
 #include <stdint.h>
 #endif
 
+#include <onnx-mlir/Runtime/OMAccelerator.h>
 #include <onnx-mlir/Runtime/OMEntryPoint.h>
 #include <onnx-mlir/Runtime/OMInstrument.h>
 #include <onnx-mlir/Runtime/OMSignature.h>
