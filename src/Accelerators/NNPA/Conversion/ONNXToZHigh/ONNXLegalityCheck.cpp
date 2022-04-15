@@ -93,8 +93,7 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
     return false;
 
   // Check if kernelShape is literal. Only static value is supported.
-  if (llvm::any_of(shapeHelper.kernelShape,
-          [](IndexExpr val) { return !val.isLiteral(); }))
+  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
     return false;
 
   // Check parameter restrictions for maxpool2d/avgpool2d for each axis only
@@ -681,13 +680,16 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
          "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
 
-  // dilations not supported. Only default one is accepted.
-  if (llvm::any_of(shapeHelper.dilations, [](int64_t val) { return val != 1; }))
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.o_Y()))
     return false;
 
-  return checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-      op, op.o_Y());
+  // dilations not supported. Only default one is accepted.
+  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
+    return false;
+
+  return true;
 }
 
 /// Check legality for ONNXAveragePool.
@@ -782,7 +784,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
     return false;
 
   // Do not support non-default dilations.
-  if (llvm::any_of(shapeHelper.dilations, [](int64_t val) { return val != 1; }))
+  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
     return false;
 
   // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
