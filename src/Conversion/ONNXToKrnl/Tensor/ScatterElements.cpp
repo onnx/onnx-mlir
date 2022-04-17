@@ -14,11 +14,21 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+// Returns true if all the indices are known to be positive and false otherwise.
+static bool indicesArePositiveConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      getDenseElementAttributeFromONNXValue(indices);
+  if (!valueAttribute)
+    return false;
+
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](IntegerAttr val) { return val.getInt() >= 0; });
+}
 
 struct ONNXScatterElementsOpLowering : public ConversionPattern {
   ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -42,10 +52,14 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     assert(updatesRank == dataRank && indicesRank == dataRank &&
            "All input tenstors must have the same rank");
 
+    // Determine whether all indices are positive constants.
+    bool indicesArePositives = indicesArePositiveConstants(indices);
+
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
 
-    // Insert an allocation and deallocation for the result of this operation.
+    // Insert an allocation and deallocation for the result of this
+    // operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();
     assert(outputRank == dataRank && "Output rank not equal to data rank");
@@ -53,10 +67,10 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     IndexExprScope indexScope(createKrnl);
     MemRefBoundsIndexCapture dataBounds(data);
-    DimsExpr outputDims;
-    dataBounds.getDimList(outputDims);
+    DimsExpr dataDims;
+    dataBounds.getDimList(dataDims);
     Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDims);
+        rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy the data array into the output array.
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
@@ -74,7 +88,7 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
-          IndexExprScope innerLoopScope(&rewriter, loc);
+          IndexExprScope innerLoopScope(createKrnl);
 
           // Access function for updates and indices.
           SmallVector<IndexExpr, 4> accessFct;
@@ -82,12 +96,19 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
 
           Value updateVal = createKrnl.loadIE(updates, accessFct);
           Value indexVal = createKrnl.loadIE(indices, accessFct);
+          IndexExpr index = NonAffineIndexExpr(indexVal);
+
+          // When index may be negative, add axis dim to it.
+          if (!indicesArePositives) {
+            LiteralIndexExpr zero(0);
+            SymbolIndexExpr axisDim(dataDims[axis]);
+            index = index.selectOrSelf(index < zero, index + axisDim);
+          }
 
           // Access function for the output.
           SmallVector<IndexExpr, 4> outputAccessFct;
           for (int i = 0; i < dataRank; ++i)
-            outputAccessFct.emplace_back(
-                (i == axis) ? NonAffineIndexExpr(indexVal) : accessFct[i]);
+            outputAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
 
           // Scatter updateVal into the output tensor.
           createKrnl.storeIE(updateVal, output, outputAccessFct);
