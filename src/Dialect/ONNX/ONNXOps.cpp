@@ -70,7 +70,7 @@ void ONNXDialect::initialize() {
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
-
+  assert(op && "Expecting a non-null pointer");
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
@@ -88,7 +88,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 // Handle shapes for operations with multiple outputs.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
-
+  assert(op && "Expecting a non-null pointer");
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
@@ -123,6 +123,13 @@ static LogicalResult inferShapeForBroadcastingOps(
   }
   op->getResult().setType(resultTy);
   return success();
+}
+
+// Determine whether all operands of a given operator have shape and rank.
+template <typename ADAPTOR>
+bool allOperandsHaveShapeAndRank(ADAPTOR &operandAdaptor) {
+  return llvm::all_of(operandAdaptor.getOperands(),
+      [](const Value &op) { return hasShapeAndRank(op); });
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
@@ -616,13 +623,11 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMaxOp::verify() {
-  if (!hasShapeAndRank(data()))
-    // Won't be able to do any checking at this stage.
-    return success();
+  ONNXArgMaxOpAdaptor operandAdaptor(*this);
+  if (!allOperandsHaveShapeAndRank<ONNXArgMaxOpAdaptor>(operandAdaptor))
+    return success(); // Won't be able to do any checking at this stage.
 
-  auto type = data().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = shape.size();
+  int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
@@ -660,12 +665,10 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
 LogicalResult ONNXArgMinOp::verify() {
   ONNXArgMinOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](Value op) { return !hasShapeAndRank(op); }))
+  if (!allOperandsHaveShapeAndRank<ONNXArgMinOpAdaptor>(operandAdaptor))
     return success(); // Won't be able to do any checking at this stage.
 
-  auto type = data().getType().cast<ShapedType>();
-  int64_t rank = type.getShape().size();
+  int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
@@ -2768,16 +2771,11 @@ LogicalResult ONNXConstantOp::inferShapes(
 
 LogicalResult ONNXConcatOp::verify() {
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    if (!hasShapeAndRank(operand)) {
-      // Won't be able to do any checking at this stage.
-      return success();
-    }
-  }
+  if (!allOperandsHaveShapeAndRank<ONNXConcatOpAdaptor>(operandAdaptor))
+    return success(); // Won't be able to do any checking at this stage.
 
   auto commonType =
-      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+      operandAdaptor.getOperands().front().getType().cast<ShapedType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = axis();
@@ -2791,9 +2789,9 @@ LogicalResult ONNXConcatOp::verify() {
   if (axisIndex < 0)
     axisIndex += commonRank;
 
-  for (const auto &operand : operandAdaptor.getOperands()) {
+  for (const Value &operand : operandAdaptor.getOperands()) {
     ArrayRef<int64_t> currShape =
-        operand.getType().cast<RankedTensorType>().getShape();
+        operand.getType().cast<ShapedType>().getShape();
     if ((int64_t)currShape.size() != commonRank)
       return emitOpError("Concat inputs must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
@@ -3729,10 +3727,9 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
-
-  if (!hasShapeAndRank(input()))
-    // Too early to verify.
-    return success();
+  ONNXCompressOpAdaptor operandAdaptor(*this);
+  if (!allOperandsHaveShapeAndRank(operandAdaptor))
+    return success(); // Won't be able to do any checking at this stage.
 
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
@@ -3745,11 +3742,6 @@ LogicalResult ONNXCompressOp::verify() {
           "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
-
-  // Check condition.
-  if (!hasShapeAndRank(condition()))
-    // Too early to verify.
-    return success();
 
   int64_t condRank = condition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
