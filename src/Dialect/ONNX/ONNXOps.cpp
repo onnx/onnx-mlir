@@ -69,35 +69,36 @@ void ONNXDialect::initialize() {
 
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
-static LogicalResult shapeHelperInferShapes(OP *op, Type elementType) {
-  SHAPE_HELPER shapeHelper(op);
-
-  ADAPTOR operandAdaptor(*op);
+static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
+  SHAPE_HELPER shapeHelper(&op);
+  ADAPTOR operandAdaptor(op);
   if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return op->emitError("Failed to scan " + OP::getOperationName() +
-                         " parameters successfully");
+    return op.emitError("Failed to scan " + OP::getOperationName() +
+                        " parameters successfully");
+
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-  op->getResult().setType(RankedTensorType::get(outputDims, elementType));
+  op.getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
 
 // Handle shapes for operations with multiple outputs.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 static LogicalResult shapeHelperInferMultipleShapes(
-    OP *op, TypeRange elementTypes) {
-  SHAPE_HELPER shapeHelper(op);
+    OP &op, TypeRange elementTypes) {
+  assert(elementTypes.size() == op.getNumResults() &&
+         "Incorrect elementTypes size");
 
-  ADAPTOR operandAdaptor(*op);
+  SHAPE_HELPER shapeHelper(&op);
+  ADAPTOR operandAdaptor(op);
   if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return op->emitError("Failed to scan " + OP::getOperationName() +
-                         " parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-  for (unsigned int i = 0; i < op->getNumResults(); ++i) {
+    return op.emitError("Failed to scan " + OP::getOperationName() +
+                        " parameters successfully");
+
+  for (unsigned i = 0; i < op.getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
     IndexExpr::getShape(shapeHelper.dimsForOutput(i), outputDims);
-    op->getResults()[i].setType(
+    op.getResults()[i].setType(
         RankedTensorType::get(outputDims, elementTypes[i]));
   }
   return success();
@@ -638,7 +639,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
   // ONNX spec specifies the reduced type as an int64
   auto elementType = IntegerType::get(getContext(), 64);
   return shapeHelperInferShapes<ONNXArgMaxOpShapeHelper, ONNXArgMaxOp,
-      ONNXArgMaxOpAdaptor>(this, elementType);
+      ONNXArgMaxOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -672,7 +673,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
   // ONNX spec specifies the reduced type as an int64
   auto elementType = IntegerType::get(getContext(), 64);
   return shapeHelperInferShapes<ONNXArgMinOpShapeHelper, ONNXArgMinOp,
-      ONNXArgMinOpAdaptor>(this, elementType);
+      ONNXArgMinOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1406,7 +1407,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
 
   auto elementType = A().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
-      ONNXMatMulOpAdaptor>(this, elementType);
+      ONNXMatMulOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1553,7 +1554,7 @@ LogicalResult ONNXGemmOp::inferShapes(
 
   auto elementType = A().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXGemmOpShapeHelper, ONNXGemmOp,
-      ONNXGemmOpAdaptor>(this, elementType);
+      ONNXGemmOpAdaptor>(*this, elementType);
 }
 
 /// BatchNormalizationInferenceModeOp
@@ -1635,7 +1636,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXReshapeOpShapeHelper, ONNXReshapeOp,
-      ONNXReshapeOpAdaptor>(this, elementType);
+      ONNXReshapeOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1650,7 +1651,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXTransposeOpShapeHelper, ONNXTransposeOp,
-      ONNXTransposeOpAdaptor>(this, elementType);
+      ONNXTransposeOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1989,7 +1990,7 @@ LogicalResult ONNXConvOp::inferShapes(
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
-      ONNXConvOpAdaptor>(this, elementType);
+      ONNXConvOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2284,7 +2285,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXAveragePoolOpShapeHelper, ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor>(this, elementType);
+      ONNXAveragePoolOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2339,7 +2340,8 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXMaxPoolSingleOutOpShapeHelper,
-      ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>(this, elementType);
+      ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>(
+      *this, elementType);
 }
 
 // Helper function to infer shapes of global pool operations.
@@ -2408,7 +2410,7 @@ LogicalResult ONNXPadOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXPadOpShapeHelper, ONNXPadOp,
-      ONNXPadOpAdaptor>(this, elementType);
+      ONNXPadOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2486,7 +2488,7 @@ LogicalResult ONNXUnsqueezeOpInferShapesCommon(Op *op,
     updateUnsqueezeOpNegativeAxis(op, axes);
   }
 
-  return shapeHelperInferShapes<ShapeHelper, Op, Adaptor>(op, elementType);
+  return shapeHelperInferShapes<ShapeHelper, Op, Adaptor>(*op, elementType);
 }
 
 LogicalResult ONNXUnsqueezeOp::inferShapes(
@@ -2554,7 +2556,7 @@ LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
     updateSqueezeOpNegativeAxis(op, axes);
   }
 
-  return shapeHelperInferShapes<ShapeHelper, Op, Adaptor>(op, elementType);
+  return shapeHelperInferShapes<ShapeHelper, Op, Adaptor>(*op, elementType);
 }
 
 // Helper function to return an ArrayAttr from an input shape
@@ -2764,7 +2766,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   }
 
   return shapeHelperInferShapes<ONNXConcatOpShapeHelper, ONNXConcatOp,
-      ONNXConcatOpAdaptor>(this, commonType.getElementType());
+      ONNXConcatOpAdaptor>(*this, commonType.getElementType());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2805,10 +2807,10 @@ LogicalResult ONNXSplitOp::inferShapes(
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  SmallVector<Type> elementTypes(inputType.getRank(), elementType);
+  SmallVector<Type> elementTypes(getNumResults(), elementType);
 
   return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
-      ONNXSplitOpAdaptor>(this, elementTypes);
+      ONNXSplitOpAdaptor>(*this, elementTypes);
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(
@@ -2821,7 +2823,7 @@ LogicalResult ONNXSplitV11Op::inferShapes(
   SmallVector<Type> elementTypes(inputType.getRank(), elementType);
 
   return shapeHelperInferMultipleShapes<ONNXSplitV11OpShapeHelper,
-      ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(this, elementTypes);
+      ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(*this, elementTypes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3166,7 +3168,7 @@ LogicalResult ONNXShapeOp::inferShapes(
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   auto elementType = IntegerType::get(getContext(), 64);
   return shapeHelperInferShapes<ONNXShapeOpShapeHelper, ONNXShapeOp,
-      ONNXShapeOpAdaptor>(this, elementType);
+      ONNXShapeOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3203,7 +3205,7 @@ LogicalResult ONNXTileOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
-      ONNXTileOpAdaptor>(this, elementType);
+      ONNXTileOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3220,7 +3222,7 @@ LogicalResult ONNXGatherOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
-      ONNXGatherOpAdaptor>(this, elementType);
+      ONNXGatherOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3361,7 +3363,7 @@ LogicalResult ONNXSliceOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXSliceOpShapeHelper, ONNXSliceOp,
-      ONNXSliceOpAdaptor>(this, elementType);
+      ONNXSliceOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3390,7 +3392,7 @@ LogicalResult ONNXExpandOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXExpandOpShapeHelper, ONNXExpandOp,
-      ONNXExpandOpAdaptor>(this, elementType);
+      ONNXExpandOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3670,7 +3672,7 @@ LogicalResult ONNXCompressOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXCompressOpShapeHelper, ONNXCompressOp,
-      ONNXCompressOpAdaptor>(this, elementType);
+      ONNXCompressOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXCumSumOp::inferShapes(
@@ -3719,7 +3721,7 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXDepthToSpaceOpShapeHelper,
-      ONNXDepthToSpaceOp, ONNXDepthToSpaceOpAdaptor>(this, elementType);
+      ONNXDepthToSpaceOp, ONNXDepthToSpaceOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXDetOp::inferShapes(
@@ -3810,7 +3812,7 @@ LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXLRNOpShapeHelper, ONNXLRNOp,
-      ONNXLRNOpAdaptor>(this, elementType);
+      ONNXLRNOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
@@ -4001,7 +4003,7 @@ LogicalResult ONNXOneHotOp::inferShapes(
 
   auto elementType = values().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXOneHotOpShapeHelper, ONNXOneHotOp,
-      ONNXOneHotOpAdaptor>(this, elementType);
+      ONNXOneHotOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
@@ -4189,7 +4191,7 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXReverseSequenceOpShapeHelper,
-      ONNXReverseSequenceOp, ONNXReverseSequenceOpAdaptor>(this, elementType);
+      ONNXReverseSequenceOp, ONNXReverseSequenceOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXReverseSequenceOp::verify() {
@@ -4260,7 +4262,7 @@ LogicalResult ONNXRoiAlignOp::inferShapes(
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXRoiAlignOpShapeHelper, ONNXRoiAlignOp,
-      ONNXRoiAlignOpAdaptor>(this, elementType);
+      ONNXRoiAlignOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXRoiAlignOp::verify() {
@@ -4524,7 +4526,7 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXSpaceToDepthOpShapeHelper,
-      ONNXSpaceToDepthOp, ONNXSpaceToDepthOpAdaptor>(this, elementType);
+      ONNXSpaceToDepthOp, ONNXSpaceToDepthOpAdaptor>(*this, elementType);
 }
 
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
@@ -4581,7 +4583,7 @@ LogicalResult ONNXTopKOp::inferShapes(
   Builder b(getContext());
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferMultipleShapes<ONNXTopKOpShapeHelper, ONNXTopKOp,
-      ONNXTopKOpAdaptor>(this, {elementType, b.getI64Type()});
+      ONNXTopKOpAdaptor>(*this, {elementType, b.getI64Type()});
 }
 
 LogicalResult ONNXUniqueOp::inferShapes(
@@ -4669,7 +4671,7 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
 
   return shapeHelperInferShapes<ONNXCategoryMapperOpShapeHelper,
       ONNXCategoryMapperOp, ONNXCategoryMapperOpAdaptor>(
-      this, outputElementType);
+      *this, outputElementType);
 }
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(
