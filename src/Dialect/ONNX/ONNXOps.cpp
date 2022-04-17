@@ -640,17 +640,17 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMinOp::verify() {
-  // Won't be able to do any further verification at this stage.
-  if (!hasShapeAndRank(data()))
-    return success();
+  ONNXArgMinOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](Value op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
-  auto type = data().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = shape.size();
+  auto type = data().getType().cast<ShapedType>();
+  int64_t rank = type.getShape().size();
   int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
-  if (axisIndex >= rank || axisIndex < -rank)
+  if (axisIndex < -rank || axisIndex >= rank)
     return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
         "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
@@ -3793,7 +3793,7 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
-  // Look up input.
+
   if (!hasShapeAndRank(input()))
     // Too early to verify.
     return success();
