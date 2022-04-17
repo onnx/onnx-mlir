@@ -18,7 +18,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace mlir;
@@ -120,7 +120,7 @@ bool Conv2DLibBuilder::build() {
 }
 
 bool Conv2DLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
