@@ -4581,7 +4581,7 @@ LogicalResult ONNXScatterElementsOp::verify() {
             getDenseElementAttributeFromONNXValue(indices)) {
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
-        if (-dataDimAtAxis >= index && index < dataDimAtAxis)
+        if (index >= -dataDimAtAxis && index < dataDimAtAxis)
           continue;
 
         return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
