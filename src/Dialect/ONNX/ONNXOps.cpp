@@ -2820,7 +2820,7 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  SmallVector<Type> elementTypes(inputType.getRank(), elementType);
+  SmallVector<Type> elementTypes(getNumResults(), elementType);
 
   return shapeHelperInferMultipleShapes<ONNXSplitV11OpShapeHelper,
       ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(*this, elementTypes);
