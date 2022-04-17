@@ -23,10 +23,10 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
-  return matmul.build() && matmul.compileAndLoad() && matmul.prepareInputs() &&
-         matmul.run() && matmul.verifyOutputs();
+  return matmul.build() && matmul.compileAndLoad() &&
+         matmul.prepareInputs() && matmul.run() &&
+         matmul.verifyOutputs();
 }
-
 } // namespace test
 } // namespace onnx_mlir
 
@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
