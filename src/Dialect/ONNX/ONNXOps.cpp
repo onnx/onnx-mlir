@@ -4546,9 +4546,12 @@ LogicalResult ONNXScatterElementsOp::verify() {
   Value data = operandAdaptor.data();
   Value indices = operandAdaptor.indices();
   Value updates = operandAdaptor.updates();
-  int64_t dataRank = data.getType().cast<mlir::ShapedType>().getRank();
-  int64_t indicesRank = indices.getType().cast<mlir::ShapedType>().getRank();
-  int64_t updatesRank = updates.getType().cast<mlir::ShapedType>().getRank();
+  auto dataType = data.getType().cast<ShapedType>();
+  auto indicesType = indices.getType().cast<ShapedType>();
+  auto updatesType = updates.getType().cast<ShapedType>();
+  int64_t dataRank = dataType.getRank();
+  int64_t indicesRank = indicesType.getRank();
+  int64_t updatesRank = updatesType.getRank();
   int64_t axis = this->axis();
 
   // All inputs must have the same rank, and the rank must be strictly greater
@@ -4568,6 +4571,26 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axis,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+
+  // All index values in 'indices' are expected to be within bounds [-s, s-1]
+  // along axis of size s.
+  ArrayRef<int64_t> dataShape = dataType.getShape();
+  const int64_t dataDimAtAxis = dataShape[axis];
+  if (dataDimAtAxis >= 0) {
+    if (DenseElementsAttr valueAttribute =
+            getDenseElementAttributeFromONNXValue(indices)) {
+      for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
+        int64_t index = value.getInt();
+        if (-dataDimAtAxis >= index && index < dataDimAtAxis)
+          continue;
+
+        return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+            *this->getOperation(), "indices", index,
+            onnx_mlir::Diagnostic::Range<int64_t>(
+                -dataDimAtAxis, dataDimAtAxis - 1));
+      }
+    }
+  }
 
   return success();
 }
