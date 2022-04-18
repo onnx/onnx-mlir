@@ -1114,7 +1114,7 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
         initial_c, operandAdaptor.input_weights(), input_bias,
         operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, allocCfOutput, lstmOp.directionAttr(),
-        lstmOp.return_all_stepsAttr(), lstmOp.prev_layerAttr());
+        lstmOp.return_all_stepsAttr(), rewriter.getStringAttr("none"));
     std::vector<Value> outputs = {allocHnOutput, allocCfOutput};
     rewriter.replaceOp(op, outputs);
     return success();
@@ -1193,7 +1193,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
         operandAdaptor.input_weights(), input_bias,
         operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
-        gruOp.prev_layerAttr());
+        rewriter.getStringAttr("none"));
     rewriter.replaceOp(op, allocHnOutput);
     return success();
   }
