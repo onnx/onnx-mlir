@@ -9,9 +9,19 @@ COMMAND "${CMAKE_CTEST_COMMAND}" -L perf --output-on-failure -C $<CONFIG> --forc
   USES_TERMINAL
   DEPENDS perf
   )
+
 set_target_properties(check-onnx-perf PROPERTIES FOLDER "Perf")
 # Exclude the target from the default VS build
 set_target_properties(check-onnx-perf PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+
+add_custom_target(check-onnx-perf-benchmark
+COMMENT "Running performance benchmarking tool. Add Ops to runall via OpsWithPerformanceBenchmarks array in ParseBenchmarks.py"
+COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ParseBenchmarks.py --runall
+  DEPENDS perf
+  )
+
+set_target_properties(check-onnx-perf-compare PROPERTIES FOLDER "Perf")
+set_target_properties(check-onnx-perf-compare PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
 # add_perf_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
