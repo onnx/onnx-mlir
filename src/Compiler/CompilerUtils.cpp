@@ -499,8 +499,8 @@ std::string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(
-      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
+  return genSharedLib(outputBaseName, {}, {modelObjPath},
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -529,7 +529,7 @@ void compileModuleToJniJar(
 
   std::string modelSharedLibPath = genSharedLib(jniLibBase,
       {"-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"jniruntime", "cruntime"}, {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -634,6 +634,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
   } break;
   case EmitLib: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
     std::string sharedLib =
         compileModuleToSharedLibrary(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
@@ -642,6 +643,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } break;
   case EmitJNI: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
