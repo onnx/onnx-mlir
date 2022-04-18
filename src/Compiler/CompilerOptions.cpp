@@ -150,6 +150,14 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
+// Configuration states associated with certain options.
+// For example, when maccel is specified, NNPA can register
+// dependent libdnn.
+// This is just a simple string to vector map currently.
+// If it gets more complicated in the future, it can be
+// replaced by a class of its own.
+std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
@@ -286,6 +294,32 @@ int setCompilerOptions(const CompilerOptionList &list) {
       return rc;
   }
   return 0;
+}
+
+// Get the string vector associated with the specified key
+std::vector<std::string> getCompilerConfig(std::string k) {
+  return CompilerConfigMap[k];
+}
+
+// Add strings in a vector to the string vector associated
+// with the specified key
+void addCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+  std::vector<std::string> w;
+
+  std::set_union(u.begin(), u.end(), v.begin(), v.end(), std::back_inserter(w));
+  CompilerConfigMap[k] = w;
+}
+
+// Delete strings in a vector from the string vector associated
+// with the specified key
+void delCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+
+  u.erase(remove_if(begin(u), end(u),
+              [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
+      end(u));
+  CompilerConfigMap[k] = u;
 }
 
 } // namespace onnx_mlir
