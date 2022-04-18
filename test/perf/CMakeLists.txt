@@ -20,8 +20,8 @@ COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/ParseBenchmarks.py --ru
   DEPENDS perf
   )
 
-set_target_properties(check-onnx-perf-compare PROPERTIES FOLDER "Perf")
-set_target_properties(check-onnx-perf-compare PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+set_target_properties(check-onnx-perf-benchmark PROPERTIES FOLDER "Perf")
+set_target_properties(check-onnx-perf-benchmark PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
 # add_perf_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
