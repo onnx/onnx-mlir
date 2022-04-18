@@ -399,6 +399,11 @@ custom_builder_broadcast_ops_list = [
     'Sub',
     'Xor',
 ]
+broadcast_to_bool_list = [
+    'Equal',
+    'Greater',
+    'Less',
+]
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
@@ -983,17 +988,25 @@ def gen_op_def(schema, with_version = False):
             # Get output type from first operand's type.
             first_operand_name = list(ins.items())[0][0]
             build_type_name = ''
+            bool_type = "$_builder.getI1Type()"
+            oTy = "nullptr"
+            if opName in broadcast_to_bool_list:
+              oTy = bool_type
             if opName in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
                 s += indent + 'auto lhsTy = {}.getType();\n'. \
                     format(first_operand_name)
                 s += indent + 'auto rhsTy = {}.getType();\n'. \
                     format(second_operand_name)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto oTy = {};\n'.format(oTy)
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<ShapedType>().getElementType();\n';
+                if opName in broadcast_to_bool_list:
+                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
+                else:
+                    s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
+                        '.getType().cast<ShapedType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
                 build_type_name = 'elementType'
@@ -1017,11 +1030,15 @@ def gen_op_def(schema, with_version = False):
             if opName in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
                 s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto oTy = {};\n'.format(oTy)
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                s += indent + indent + 'elementType = operands[0]' + \
-                    '.getType().cast<ShapedType>().getElementType();\n';
+                if opName in broadcast_to_bool_list:
+                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
+                else:
+                    s += indent + indent + 'elementType = operands[0]' + \
+                        '.getType().cast<ShapedType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
             else:
