@@ -16,7 +16,9 @@
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
+#include <map>
 #include <string>
+#include <vector>
 
 extern const std::string OnnxMlirEnvOptionName;
 
@@ -68,11 +70,20 @@ std::string getLLVMOption();
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
+#define CCM_SHARED_LIB_DEPS "sharedLibDeps"
+extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+
 // Return 0 on success. These functions are not thread-safe and should be called
 // by a single program thread.
 int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
 int setCompilerOptions(const CompilerOptionList &list);
 
 std::string getCompilerOption(const onnx_mlir::OptionKind kind);
+
+// The add and del functions are not thread-safe and should only be
+// called from one thread.
+std::vector<std::string> getCompilerConfig(std::string k);
+void addCompilerConfig(std::string k, std::vector<std::string> v);
+void delCompilerConfig(std::string k, std::vector<std::string> v);
 
 } // namespace onnx_mlir
