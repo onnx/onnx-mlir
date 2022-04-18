@@ -682,13 +682,16 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
          "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
 
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.o_Y()))
+    return false;
+
   // dilations not supported. Only default one is accepted.
   if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
     return false;
 
-  return checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-      op, op.o_Y());
+  return true;
 }
 
 /// Check legality for ONNXAveragePool.
