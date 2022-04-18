@@ -28,8 +28,8 @@ namespace {
 namespace onnx_mlir {
 namespace zlow {
 
-/// Register optimization patterns as "canonicalization" patterns
-/// on the ZHighStickOp.
+/// Register optimization patterns as "canonicalization" patterns on the
+/// ZLowDummyOp.
 void ZLowDummyOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RemoveDummyOpPattern>(context);

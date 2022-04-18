@@ -34,8 +34,7 @@ namespace zlow {
 /// into
 /// ```mlir
 ///     %input1_1 = zlow.dummy(%input1)
-///     %input1_2 = zlow.dummy(%input1)
-///     zlow.op(%input1_1, %input1_2, $input2)
+///     zlow.op(%input1, %input1_1, $input2)
 /// in order to avoid multiple dereferencing uses in a single ops which has not
 /// yet been supported by MLIR normalize-memrefs pass. Otherwise, it fails to
 /// normalize memrefs in `zlow.op`.
