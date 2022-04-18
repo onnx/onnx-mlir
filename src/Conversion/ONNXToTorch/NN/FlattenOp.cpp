@@ -81,69 +81,55 @@ public:
     ONNXFlattenOp op1 = llvm::dyn_cast<ONNXFlattenOp>(op);
     ONNXFlattenOpAdaptor adaptor(operands);
 
-    Value input = adaptor.input();
-    auto inputTy = input.getType().cast<MemRefType>();
-    auto inputShape = inputTy.getShape();
-    int inputRank = inputShape.size();
-    auto axisValue = op1.axis(); // ::mlir::IntegerAttr
-    if (axisValue < 0)
-      axisValue = inputRank + axisValue;
+    Value input = op1.input();
+    auto axisValue = op1.axis();       // ::mlir::IntegerAttr
 
-    llvm::outs() << "input from Flatten Op:   "
-                 << "\n"
-                 << input << "\n"
-                 << "\n";
-    llvm::outs() << "axisValue from Flatten Op:   "
-                 << "\n"
-                 << axisValue << "\n"
-                 << "\n";
+    auto inputShape = input.getType().cast<ShapedType>().getShape();
+    int64_t inputRank = inputShape.size();
 
     TensorType op_tensor_type = op1.getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
+                    op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    int64_t startDim = -1;
-    int64_t endDim = -1;
-    if (startDim < 0)
-      startDim += inputRank;
-    if (endDim < 0)
-      endDim += inputRank;
+    TensorType input_tensor_type  = input.getType().cast<TensorType>();
+    auto inputTy = Torch::ValueTensorType::get(context, input_tensor_type.getShape(),
+                    input_tensor_type.getElementType());
+    auto itt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
+                    inputTy, input);
+
+    // flatten the region upto axis-1.
+    int64_t startDim = 0;
+    int64_t endDim = axisValue - 1;
     auto ty = IntegerType::get(op1.getContext(), 64);
     auto f0 = IntegerAttr::get(ty, (startDim));
     Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-
     auto f1 = IntegerAttr::get(ty, (endDim));
     Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+    llvm::outs() << "input Value:   " << "\n" << itt << "\n" << "\n";
+    llvm::outs() << "startDim1 Value:   " << "\n" << p0v << "\n" << "\n";
+    llvm::outs() << "endDim1 Value:   " << "\n" << p1v << "\n" << "\n";
+    Value atenflaten1 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
+                    resultTy, itt, p0v, p1v);
+    llvm::outs() << "Aten Flatten1 Op:   " << "\n" << atenflaten1 << "\n" << "\n";
 
-    auto axisVal = IntegerAttr::get(ty, (axisValue));
-    Value p2v = rewriter.create<ConstantIntOp>(loc, axisVal);
+    // flatten the region from axis upwards.
+    startDim = axisValue;
+    endDim = inputRank;
+    auto f2 = IntegerAttr::get(ty, (startDim));
+    Value p2v = rewriter.create<ConstantIntOp>(loc, f2);
+    auto f3 = IntegerAttr::get(ty, (endDim));
+    Value p3v = rewriter.create<ConstantIntOp>(loc, f3);
+    llvm::outs() << "startDim2 Value:   " << "\n" << p2v << "\n" << "\n";
+    llvm::outs() << "endDim2 Value:   " << "\n" << p3v << "\n" << "\n";
+    Value atenflaten2 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
+                    resultTy, atenflaten1, p2v, p3v);
 
-    Value atenleakyrelu =
-        rewriter.create<AtenFlattenUsingIntsOp>(loc, resultTy, p2v, p0v, p1v);
-
-    Value result = atenleakyrelu;
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
-        op, op->getResult(0).getType(), result);
+    Value result = atenflaten2;
+    llvm::outs() << "AtenFlatten Op created" << "\n" << "\n";
+    llvm::outs() << "Aten Flatten Op:   " << "\n" << atenflaten2 << "\n" << "\n";
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
+                    resultTy, result);
     return success();
-#if 0
-    TensorType x_tensor_type  = x.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
-
-    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(), 
-		    x_tensor_type.getElementType());
-    auto xtt      = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x); 
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), 
-		    op_tensor_type.getElementType());
-
-    Value atenleakyrelu = rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v); 
-
-    llvm::outs() << "ATENRELU CREATED is " << atenleakyrelu << "\n"; 
-    Value result = atenleakyrelu; 
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
-    return success();
-#endif
   }
 };
 

@@ -205,15 +205,21 @@ public:
     auto three = 3;
     auto zero = 0;
 
-    auto b0 = IntegerAttr::get(by, false);
-    Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
+    auto f00 = IntegerAttr::get(by, zero);
+    auto f0 = f00;
+    Value f0v = rewriter.create<ConstantBoolOp>(loc,false);
 
     Value ceiling_mode_val;
-    if (ceiling_mode_attr)
-      ceiling_mode_val =
-          rewriter.create<ConstantBoolOp>(loc, ceiling_mode_attr);
+    if (ceiling_mode_attr) {
+      if (ceiling_mode == 0)
+        ceiling_mode_val =
+            rewriter.create<ConstantBoolOp>(loc, false);
+      else
+	ceiling_mode_val =
+            rewriter.create<ConstantBoolOp>(loc, true);
+    }
     else
-      ceiling_mode_val = b0v;
+      ceiling_mode_val = f0v;
 
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),

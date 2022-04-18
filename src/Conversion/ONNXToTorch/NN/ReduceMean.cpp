@@ -119,9 +119,7 @@ public:
                  << "\n";
 
     Value atenmultensorOp =
-        rewriter.create<AtenMulTensorOp>(loc, resultTy, dtt, axesShapeList);
-    // Value atenmultensorOp = rewriter.create<AtenMulTensorOp>(loc, resultTy,
-    // axesShapeList, keepdimVal);
+        rewriter.create<AtenMeanOp>(loc, resultTy, dtt, keepdimVal);
     llvm::outs() << "AtenMulTensorOp operation creation"
                  << "\n"
                  << atenmultensorOp << "\n"

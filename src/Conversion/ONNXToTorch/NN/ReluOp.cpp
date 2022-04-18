@@ -110,8 +110,8 @@ public:
                  << "\n";
     Value result = atenrelu;
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
-        op, op->getResult(0).getType(), result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
+		    resultTy, result);
     return success();
   }
 };

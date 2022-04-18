@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- Conv2D.cpp - Lowering Convolution Op
-//-------------------===//
+//===---- Gemm.cpp - Lowering Convolution Op ----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -49,6 +48,54 @@
 #ifdef _WIN32
 #include <io.h>
 #endif
+
+/*
+ * ONNX Gemm operation
+
+ * “General Matrix multiplication:” “https://en.wikipedia.org/wiki/
+ * Basic_Linear_Algebra_Subprograms#Level_3” “” “A’ = transpose(A) if 
+ * transA else A” “” “B’ = transpose(B) if transB else B” “” “Compute 
+ * Y = alpha * A’ * B’ + beta * C, where input tensor A has shape (M, K) 
+ * or (K, M),” “input tensor B has shape (K, N) or (N, K), input tensor C 
+ * is broadcastable to shape (M, N),” “and output tensor Y has shape (M, N). 
+ * A will be transposed before doing the” “computation if attribute transA 
+ * is non-zero, same for B and transB.
+ *
+ * Attributes:
+ * Attribute	    MLIR Type	           Description
+    alpha	::mlir::FloatAttr	32-bit float attribute
+    beta	::mlir::FloatAttr	32-bit float attribute
+    transA	::mlir::IntegerAttr	64-bit signed integer attribute
+    transB	::mlir::IntegerAttr	64-bit signed integer attribute
+
+ * Operands:
+ * Operand Description
+ * A tensor of 16-bit float values or tensor of 32-bit float values or tensor
+ * of 64-bit float values or tensor of 32-bit unsigned integer values or 
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values.
+ *
+ * B tensor of 16-bit float values or tensor of 32-bit float values or tensor
+ * of 64-bit float values or tensor of 32-bit unsigned integer values or 
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type 
+ * values or memref of any type values.
+ *
+ * C tensor of 16-bit float values or tensor of 32-bit float values or tensor 
+ * of 64-bit float values or tensor of 32-bit unsigned integer values or 
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values or none type.
+ *
+ * Results:
+ * Result Description
+ * Y tensor of 16-bit float values or tensor of 32-bit float values or tensor 
+ * of 64-bit float values or tensor of 32-bit unsigned integer values or 
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values or none type
+ */
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -107,11 +154,11 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
         loc, cTy, c);
 
     auto neg_slope = alpha.getValue();
-    auto f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
+    auto f3 = FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
     Value alpha3v = rewriter.create<ConstantFloatOp>(loc, f3);
 
     neg_slope = beta.getValue();
-    f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
+    f3 = FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
     Value beta3v = rewriter.create<ConstantFloatOp>(loc, f3);
 
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
@@ -142,7 +189,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
 
     // Compute Y = alpha * A’ * B’ + beta * C
     // Scalar multiplication with alpha(alpha * A’) and beta(beta * C) values.
-    Value alphaMulResult, betaMulResult;
+    Value alphaMulResult = NULL, betaMulResult = NULL;
     if (alpha)
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, resultTy, transposeAVal, alpha3v);
@@ -165,6 +212,9 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     if (alphaMulResult)
       bmmValue = rewriter.create<AtenBmmOp>(
           loc, resultTy, alphaMulResult, transposeBVal);
+    else
+      bmmValue = rewriter.create<AtenBmmOp>(
+          loc, resultTy, transposeAVal, transposeBVal);
 
     llvm::outs() << "bmmValue operation creation"
                  << "\n"
@@ -173,10 +223,12 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
 
     // Addition ((alpha * A’ * B’) + (beta * C))
     Value addValue;
-    if (bmmValue)
+    if (betaMulResult)
       addValue =
-          rewriter.create<AtenSumOp>(loc, resultTy, bmmValue, betaMulResult);
-
+          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue, betaMulResult, f1v);
+    else
+      addValue =
+          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue, transposeBVal, f1v);
     llvm::outs() << "Gemm operation creation"
                  << "\n"
                  << addValue << "\n"

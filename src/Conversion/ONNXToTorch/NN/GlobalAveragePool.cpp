@@ -72,9 +72,9 @@ public:
     Value x = op1.X(); // ONNX operands
 
     auto ty = IntegerType::get(op1.getContext(), 64);
-
-    auto one = 1;
-    auto f1 = IntegerAttr::get(ty, one);
+    auto inputShape = x.getType().cast<ShapedType>().getShape();
+    int64_t inputRank = inputShape.size();
+    auto f1 = IntegerAttr::get(ty, inputRank);
     Value f1v = rewriter.create<ConstantIntOp>(loc, f1);
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
