@@ -448,7 +448,7 @@ private:
         ++numInputs;
       }
     }
-    
+
     for (const auto &internal : graph.value_info()) {
       AddValueInfo(internal);
     }
