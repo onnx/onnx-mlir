@@ -14,11 +14,14 @@
 
 #include "src/Support/Diagnostic.hpp"
 
+using namespace mlir;
+
 namespace onnx_mlir {
 
 template <typename T>
-mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
-    const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
+mlir::LogicalResult Diagnostic::emitAttributeOutOfRangeError(
+    mlir::Operation &op, const llvm::Twine &attrName, T attrVal,
+    Range<T> validRange) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
   llvm::Twine msg(op.getName().getStringRef() + " ");
@@ -32,8 +35,25 @@ mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
                                     .concat("]"));
 };
 
+LogicalResult Diagnostic::emitOperandHasUnexpectedRankError(Operation &op,
+    Value &operand, uint64_t operandRank, StringRef expectedRank) {
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
+  return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
+                                    .concat(" has rank ")
+                                    .concat(std::to_string(operandRank))
+                                    .concat(", rank should be ")
+                                    .concat(expectedRank));
+}
+
+std::string Diagnostic::getName(Value &v) {
+  std::string str;
+  llvm::raw_string_ostream os(str);
+  v.print(os);
+  return str;
+}
+
 // Template instantiations - keep at the end of the file.
-template mlir::LogicalResult Diagnostic::attributeOutOfRange(
+template mlir::LogicalResult Diagnostic::emitAttributeOutOfRangeError(
     mlir::Operation &op, const llvm::Twine &attrName, int64_t attrVal,
     Range<int64_t> validRange);
 
