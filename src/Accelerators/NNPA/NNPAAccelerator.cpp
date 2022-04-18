@@ -97,6 +97,10 @@ void NNPAAccelerator::initPasses(int optLevel) const {
     return onnx_mlir::zlow::createZLowRewritePass();
   });
 
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowDummyOpForMultiDerefPass();
+  });
+
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
 
