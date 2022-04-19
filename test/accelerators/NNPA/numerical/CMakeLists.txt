@@ -39,7 +39,7 @@ function(add_numerical_unittest test_name)
   # are compiled with -O3. TODO: make that a runtime env variable.
   add_test(NAME ${test_name} COMMAND ${test_name} -O3 --maccel=NNPA WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;LD_PRELOAD=${ZDNN_LIB}")
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -51,7 +51,6 @@ llvm_update_compile_flags(rapidcheck)
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
-# set(TEST_LINK_LIBS rapidcheck ModelLib ${ZDNN_LIBRARY_DIR}/libzdnn.so)
 
 add_numerical_unittest(TestConv-NNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp

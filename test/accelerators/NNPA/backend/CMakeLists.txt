@@ -121,7 +121,7 @@ set(TEST_MODELS "test_densenet121_cpu test_inception_v1_cpu test_resnet50_cpu te
 
 set(NNPA_TESTS "${TEST_ABS} ${TEST_ADD} ${TEST_AVGPOOL} ${TEST_BNORM} ${TEST_CONV} ${TEST_DIV} ${TEST_EXP} ${TEST_GEMM} ${TEST_GAVGPOOL} ${TEST_GRU} ${TEST_LOG} ${TEST_LOGSOFTMAX} ${TEST_LSTM} ${TEST_MATMUL} ${TEST_MAX} ${TEST_MAXPOOL} ${TEST_MIN} ${TEST_MUL} ${TEST_REDUCEMEAN} ${TEST_RELU} ${TEST_SOFTMAX} ${TEST_SUB} ${TEST_SUM} ${TEST_MODELS}")
 
-set(NNPA_TESTS_ENVS LD_PRELOAD=${ZDNN_LIB} TEST_MACCEL=NNPA TEST_CASE_BY_USER=${NNPA_TESTS})
+set(NNPA_TESTS_ENVS TEST_MACCEL=NNPA TEST_CASE_BY_USER=${NNPA_TESTS})
 
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
