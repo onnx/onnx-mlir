@@ -12,4 +12,4 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OMIndexLookup.inc"
+#include "OMAccelerator.inc"
