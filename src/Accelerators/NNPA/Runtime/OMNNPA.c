@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// Onnx MLIR NNPA Accelerator Runtime 
+// Onnx MLIR NNPA Accelerator Runtime
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,10 +18,10 @@
 extern "C" {
 #endif
 
-void InitAccelNNPA() {
-  zdnn_init();
-}
+// Required name: InitAccelX where X=NNPA here.
+void InitAccelNNPA() { zdnn_init(); }
 
+// Required name: ShutdownAccelX where X=NNPA here.
 void ShutdownAccelNNPA() {}
 
 #ifdef __cplusplus
