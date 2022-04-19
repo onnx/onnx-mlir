@@ -43,9 +43,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     unsigned int inputNum = operands.size();
 
     // Alloc and dealloc.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType.isa<MemRefType>() && "Type must be MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto resultShape = outputMemRefType.getShape();
     unsigned int rank = resultShape.size();
 

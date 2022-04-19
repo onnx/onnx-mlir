@@ -49,7 +49,6 @@ public:
     bool affineIndices =
         !llvm::any_of(indices, [](Value v) { return !isValidDim(v); });
 
-    op->dump();
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineLoadOp>(op, memref, indices);
     else
