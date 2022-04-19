@@ -148,3 +148,6 @@ void populateLoweringONNXToTorchConcatOpPattern(
 
 void populateLoweringONNXToTorchAbsOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchSqrtOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);

@@ -34,6 +34,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/SoftmaxOp.cpp
   NN/ConcatOp.cpp
   NN/AbsOp.cpp
+  NN/SqrtOp.cpp
   #NN/CommonUtils.cpp
   #NN/Normalization.cpp
   #NN/Pooling.cpp
@@ -45,21 +46,21 @@ add_onnx_mlir_library(OMONNXToTorch
   #RNN/RNNBase.cpp
   #Tensor/ArgMax.cpp
   #Tensor/Concat.cpp
-  #Tensor/Compress.cpp  
+  #Tensor/Compress.cpp
   #Tensor/Constant.cpp
   #Tensor/ConstantOfShape.cpp
   #Tensor/DepthToSpace.cpp
   #Tensor/Expand.cpp
   #Tensor/Flatten.cpp
-  #Tensor/Gather.cpp 
+  #Tensor/Gather.cpp
   #Tensor/Identity.cpp
   #Tensor/NonZero.cpp
-  #Tensor/OneHot.cpp  
+  #Tensor/OneHot.cpp
   #Tensor/Pad.cpp
   #Tensor/Squeeze.cpp
   #Tensor/Split.cpp
   #Tensor/Shape.cpp
-  #Tensor/Size.cpp 
+  #Tensor/Size.cpp
   #Tensor/Slice.cpp
   #Tensor/SpaceToDepth.cpp
   #Tensor/Reshape.cpp
@@ -110,7 +111,7 @@ add_onnx_mlir_library(ONNXToAtenTypesTransform
 
 
 add_onnx_mlir_library(ONNXToAtenConv2DOpTransform
-  NN/Conv22DOpTransformToTorchPass.cpp 
+  NN/Conv22DOpTransformToTorchPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
