@@ -386,24 +386,23 @@ custom_builder_unranked_ops_list = [
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
 # TODO: handle variadic ops omitted here: Max, Min, Min, Sum.
-custom_builder_broadcast_ops_list = [
+custom_builder_broadcast_to_same_type_ops_list = [
     'Add',
     'And',
     'Div',
-    'Equal',
-    'Greater',
-    'Less',
     'Mul',
     'Or',
     'Pow',
     'Sub',
     'Xor',
 ]
-broadcast_to_bool_list = [
+custom_builder_broadcast_to_bool_ops_list = [
     'Equal',
     'Greater',
     'Less',
 ]
+custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_list + \
+    custom_builder_broadcast_to_bool_ops_list
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
@@ -990,7 +989,7 @@ def gen_op_def(schema, with_version = False):
             build_type_name = ''
             bool_type = "$_builder.getI1Type()"
             oTy = "nullptr"
-            if opName in broadcast_to_bool_list:
+            if opName in custom_builder_broadcast_to_bool_ops_list:
               oTy = bool_type
             if opName in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
@@ -1002,7 +1001,7 @@ def gen_op_def(schema, with_version = False):
                 s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in broadcast_to_bool_list:
+                if opName in custom_builder_broadcast_to_bool_ops_list:
                     s += indent + indent + 'elementType = {};\n'.format(bool_type)
                 else:
                     s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
@@ -1034,7 +1033,7 @@ def gen_op_def(schema, with_version = False):
                 s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in broadcast_to_bool_list:
+                if opName in custom_builder_broadcast_to_bool_ops_list:
                     s += indent + indent + 'elementType = {};\n'.format(bool_type)
                 else:
                     s += indent + indent + 'elementType = operands[0]' + \
