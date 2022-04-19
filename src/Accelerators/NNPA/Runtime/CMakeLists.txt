@@ -2,7 +2,7 @@
 
 # TODO: statically link to libcruntime.a
 
-add_onnx_mlir_library(OMRuntimeNNPA STATIC
+add_onnx_mlir_library(RuntimeNNPA STATIC
   OMNNPA.c
 
   EXCLUDE_FROM_OM_LIBS
@@ -13,7 +13,7 @@ add_onnx_mlir_library(OMRuntimeNNPA STATIC
   INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
-set_target_properties(OMRuntimeNNPA
+set_target_properties(RuntimeNNPA
   PROPERTIES
   LANGUAGE C
   POSITION_INDEPENDENT_CODE TRUE
