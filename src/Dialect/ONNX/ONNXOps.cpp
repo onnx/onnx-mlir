@@ -3994,9 +3994,19 @@ LogicalResult ONNXIsInfOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+// IsNaNOp
+//===------------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXIsNaNOp. This method is required by the
+/// shape inference interface.
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand(0).getType().isa<RankedTensorType>())
+    return success();
+  // get the input
+  // interate through the elements of input
+  // use isnan on each element and place result in an output tensor
+  // return output tensor
+  return success();
 }
 
 LogicalResult ONNXLRNOp::inferShapes(
