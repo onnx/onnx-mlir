@@ -57,12 +57,11 @@ bool haveNoPadsWhenStickified(
   });
 }
 
-SmallVector<Value, 4> stickifyVariadicInputs(PatternRewriter &rewriter,
-    Location loc, ValueRange values, StringAttr layoutAttr) {
+SmallVector<Value, 4> getStickifiedInputs(
+    PatternRewriter &rewriter, Location loc, ValueRange values) {
   SmallVector<Value, 4> stickfiedValues;
   for (Value v : values)
-    stickfiedValues.emplace_back(
-        rewriter.create<onnx_mlir::zhigh::ZHighStickOp>(loc, v, layoutAttr));
+    stickfiedValues.emplace_back(v.getDefiningOp()->getOperands()[0]);
   return stickfiedValues;
 }
 

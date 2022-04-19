@@ -86,8 +86,8 @@ def HaveNoPadsWhenStickified: Constraint<
   "there are no pads along the given axis when stickifying values by using the given layout"
 >;
 
-def StickifyVariadicInputs: NativeCodeCall<
-  "stickifyVariadicInputs($_builder, $_loc, $0, $1)"
+def GetStickifiedInputs: NativeCodeCall<
+  "getStickifiedInputs($_builder, $_loc, $0)"
 >;
 
 // The pattern
@@ -105,7 +105,7 @@ def StickifyVariadicInputs: NativeCodeCall<
 // Note: Support NHWC layout only at this moment.
 def ReplaceONNXConcatByZHighConcatPattern: Pat<
   (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
-  (ZHighConcatOp (StickifyVariadicInputs $inputs, $layout), $axis),
+  (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
   [(ProducedByUnstickOp $inputs, $layout),
    (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
 >;
