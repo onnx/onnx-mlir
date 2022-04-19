@@ -14,17 +14,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXRoiAlignOpShapeHelper::ONNXRoiAlignOpShapeHelper(ONNXRoiAlignOp *newOp)
+ONNXRoiAlignOpShapeHelper::ONNXRoiAlignOpShapeHelper(
+    ONNXRoiAlignOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXRoiAlignOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       xDims(), batchIndicesDims() {}
 
 ONNXRoiAlignOpShapeHelper::ONNXRoiAlignOpShapeHelper(ONNXRoiAlignOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXRoiAlignOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       xDims(), batchIndicesDims() {}
 
 LogicalResult ONNXRoiAlignOpShapeHelper::computeShape(
@@ -47,7 +48,7 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape(
       LiteralIndexExpr(height), LiteralIndexExpr(width)};
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }

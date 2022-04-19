@@ -63,6 +63,40 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, A.getType().cast<ShapedType>().getElementType());
 }
 
+// Get the index of the axis value in the given permutation array.
+IntegerAttr getIndexOfAxisInPerm(
+    PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
+  IntegerAttr result;
+  for (uint64_t i = 0; i < permAttr.getValue().size(); ++i) {
+    IntegerAttr attr = permAttr.getValue()[i].cast<IntegerAttr>();
+    assert(attr && "Element in ArrayAttr is not IntegerAttr");
+    if (attr.getValue().getSExtValue() == axis.getValue().getSExtValue())
+      return rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), i);
+  }
+  return result;
+}
+
+// Transpose a variadic input using a permutation array.
+SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
+    Location loc, ValueRange inputs, ArrayAttr permAttr) {
+  SmallVector<Value, 4> transposedInputs;
+  for (Value inp : inputs) {
+    ShapedType inpType = inp.getType().cast<ShapedType>();
+    assert(inpType && "Type is not ShapedType");
+    ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
+        loc, UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
+    (void)transposeOp.inferShapes([](Region &region) {});
+    transposedInputs.emplace_back(transposeOp.getResult());
+  }
+  return transposedInputs;
+}
+
+// Check if all values are produced by ONNXTransposeOp.
+bool areProducedByTransposeOp(ValueRange values) {
+  return llvm::all_of(
+      values, [](Value v) { return isa<ONNXTransposeOp>(v.getDefiningOp()); });
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
@@ -96,6 +130,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
+  result.insert<SwapTransposeConcatPattern>(context);
 }
 
 /// on the ONNXReshapeOp.
@@ -166,7 +201,7 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
   results.insert<GlobalMaxPoolPattern>(context);
 }
 
-/// on the ONNXSizeOp.
+/// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConstantOpNormalizationPattern1>(context);

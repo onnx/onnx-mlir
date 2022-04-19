@@ -28,7 +28,6 @@
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
@@ -68,7 +67,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createSymbolDCEPass());
 }
 
-void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
+void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE) {
+  if (enableCSE)
+    // Eliminate common sub-expressions before lowering to Krnl.
+    // TODO: enable this by default when we make sure it works flawlessly.
+    pm.addPass(mlir::createCSEPass());
+  // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass());
@@ -85,7 +89,11 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(onnx_mlir::krnl::createConvertKrnlToAffinePass());
 }
 
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
+  if (enableCSE)
+    // Eliminate common sub-expressions before lowering to Krnl.
+    // TODO: enable this by default when we make sure it works flawlessly.
+    pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 

@@ -92,37 +92,18 @@ void addONNXToZHighPasses(
   if (isBE)
     pm.addNestedPass<FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
+  // Remove common sub-expressions.
+  pm.addPass(mlir::createCSEPass());
 }
 
-void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
-  // Add instrumentation for ZHigh Ops
-  pm.addNestedPass<FuncOp>(onnx_mlir::zhigh::createInstrumentZHighPass());
-  pm.addPass(onnx_mlir::zhigh::createZHighToZLowPass(optLevel));
-  pm.addNestedPass<FuncOp>(onnx_mlir::createLowerKrnlShapePass());
-  pm.addNestedPass<FuncOp>(onnx_mlir::createDisconnectKrnlDimFromAllocPass());
+void normalizeMemRefsPasses(mlir::PassManager &pm) {
+  // Introduce DummyOps for multiple dereferencing uses in a single op.
+  // This is a bypass to avoid calling normalize-memrefs on a single op with
+  // multiple dereferencing uses because normalize-memrefs does not support.
+  pm.addPass(zlow::createZLowDummyOpForMultiDerefPass());
+  // Normalize MemRefs.
   pm.addPass(mlir::memref::createNormalizeMemRefsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-}
-
-void addAllToLLVMPasses(mlir::PassManager &pm) {
-  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
-  pm.addPass(mlir::createLowerAffinePass());
-
-  // Use MLIR buffer deallocation pass to emit buffer deallocs.
-  // Currently this has to be done *after* lowering the affine dialect because
-  // operations in that dialect do not conform to the requirements explained in
-  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<FuncOp>(mlir::bufferization::createBufferDeallocationPass());
-  if (enableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
-  }
-
-  pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
-  pm.addPass(onnx_mlir::zlow::createZLowToLLVMPass());
-  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  // This is needed for removing dummy ops.
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
@@ -143,9 +124,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Add instrumentation for remaining Onnx Ops
-      if (instrumentZHighOps != "" && instrumentZHighOps != "NONE")
-        pm.addNestedPass<FuncOp>(createInstrumentONNXPass());
+      // Add instrumentation for ZHigh Ops
+      pm.addNestedPass<FuncOp>(zhigh::createInstrumentZHighPass());
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
@@ -157,21 +137,27 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
-      addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
-      pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
+      addONNXToKrnlPasses(pm, optLevel);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
+        // Normalize MemRefs.
+        normalizeMemRefsPasses(pm);
+        // Optimizations at ZLow.
+        pm.addPass(zlow::createZLowRewritePass());
+        pm.addPass(mlir::createCanonicalizerPass());
+        // Constant folding for std.alloc.
+        pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
     }
   }
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addAllToLLVMPasses(pm);
+    addKrnlToLLVMPasses(pm);
 }
 
 } // namespace onnx_mlir

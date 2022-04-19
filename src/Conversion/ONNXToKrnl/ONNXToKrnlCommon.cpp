@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
@@ -605,6 +606,15 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (tensorType.getElementType().isa<ONNXStringType>()) {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
+    }
+    // Acccelators may have special versions of TensorType. Call the conversions
+    // of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      if (!accel->isActive())
+        continue;
+      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
+      if (memRefType)
+        return memRefType;
     }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });

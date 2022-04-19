@@ -23,7 +23,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "Dialect/ZHigh/ZHighCombine.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ONNXZHighCombine.inc"
 } // end anonymous namespace
 
 namespace onnx_mlir {

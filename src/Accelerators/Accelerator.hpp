@@ -14,11 +14,14 @@
 
 #pragma once
 
-#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "src/Accelerators/Accelerators.inc"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Accelerators/Accelerators.inc"
 
 // Define the macros used to generate various accelerators artifacts (via the
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
@@ -39,8 +42,8 @@ public:
   /// Kinds of accelerators.
   enum class Kind {
     // clang-format off
-    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM) 
-    NONE
+    NONE,
+    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM)
     // clang-format on
   };
 
@@ -56,6 +59,10 @@ public:
   /// Returns whether the accelerator is active.
   virtual bool isActive() const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir driver
+  //===--------------------------------------------------------------------===//
+
   /// Load the MLIR dialects necessary to generate code for an accelerator.
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
 
@@ -64,12 +71,46 @@ public:
       mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir-opt driver
+  //===--------------------------------------------------------------------===//
+
   /// Register the MLIR dialects required to support an accelerator.
   virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
 
   /// Initialize the transformation passes required to generate code for an
   /// accelerator.
   virtual void initPasses(int optLevel) const = 0;
+
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-to-krnl pass
+  //===--------------------------------------------------------------------===//
+
+  /// Convert TensorType to MemRefType.
+  /// Acccelators may have special versions of TensorType. If not, override this
+  /// method and return nullptr.
+  virtual mlir::MemRefType convertTensorTypeToMemRefType(
+      const mlir::TensorType tensorType) const = 0;
+
+  /// Define conversion target to be used with ONNXToKrnl.
+  virtual void conversionTargetONNXToKrnl(
+      mlir::ConversionTarget &target) const = 0;
+
+  /// Define rewrite patterns to be used with ONNXToKrnl.
+  virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
+      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
+
+  //===--------------------------------------------------------------------===//
+  // Hooks for krnl-to-llvm pass
+  //===--------------------------------------------------------------------===//
+
+  /// Define conversion target to be used with KrnlToLLVM.
+  virtual void conversionTargetKrnlToLLVM(
+      mlir::ConversionTarget &target) const = 0;
+
+  /// Define rewrite patterns to be used with KrnlToLLVM.
+  virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
+      mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
 protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;
