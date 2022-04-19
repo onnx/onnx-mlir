@@ -33,6 +33,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
 #include "zdnn.h"
 
 using namespace mlir;
@@ -873,6 +874,94 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type resType = RankedTensorType::get(
       outputDims, inputType.getElementType(), inputType.getEncoding());
+  getResult().setType(resType);
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ConcatOp
+
+static LogicalResult verify(ZHighConcatOp op) {
+  ZHighConcatOpAdaptor operandAdaptor(op);
+  // Check all inputs.
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    if (!hasRankedType(operand)) {
+      // Won't be able to do any checking at this stage.
+      return success();
+    }
+  }
+
+  auto commonType =
+      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = op.axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  if (axisIndex < -commonRank || axisIndex >= commonRank)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(*op, "axis",
+        axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
+
+  if (axisIndex < 0)
+    axisIndex += commonRank;
+
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> currShape =
+        operand.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)currShape.size() != commonRank)
+      return op.emitError("Concat inputs must all have the same rank");
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex)
+        continue;
+      if (currShape[j] != -1 && commonShape[j] != -1 &&
+          currShape[j] != commonShape[j]) {
+        return op.emitError(
+                   "Concat input dimensions must be all identical, "
+                   "except for dimension on the axis of the "
+                   "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operand.getType() << " instead.";
+      }
+    }
+  }
+
+  return success();
+}
+
+LogicalResult ZHighConcatOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // The check of constraints is kept
+  // However, current check handles dynamic dim only for the concat dim
+  int inputNum = getNumOperands();
+  for (int i = 0; i < inputNum; ++i) {
+    if (!hasRankedType(getOperand(i)))
+      return success();
+  }
+  // Checking value of axis parameter.
+  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
+  auto commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = axis();
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = commonRank + axisIndex;
+    // Tong Chen:
+    // TOFIX: attribute modification should be into canonicalization
+    // I did not move the code into ShapeHelper
+    auto builder = mlir::Builder(getContext());
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  ZHighConcatOpAdaptor operandAdaptor(*this);
+  ZHighConcatOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Tile parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  Type resType = RankedTensorType::get(
+      outputDims, commonType.getElementType(), commonType.getEncoding());
   getResult().setType(resType);
 
   return success();
