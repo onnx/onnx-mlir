@@ -13,34 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
-
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
-
-
-#include "mlir/Transforms/DialectConversion.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 
 #ifdef _WIN32
 #include <io.h>
