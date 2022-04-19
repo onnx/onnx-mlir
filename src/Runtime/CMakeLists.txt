@@ -18,7 +18,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMTensorList.c
   OnnxDataType.c
 
-  DEPENDS 
+  DEPENDS
   AcceleratorsInc
 
   EXCLUDE_FROM_OM_LIBS

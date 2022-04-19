@@ -22,14 +22,14 @@
 #define DEFINE_OM_ACCEL_IS_INIT_VARIABLE(name) long OMIsInitAccel##name = 0;
 
 // Declare internal function that performs the initialization and shutdown.
-#define DECLARE_OM_ACCEL_INIT_INTERNAL_FUNCTION(name)                             \
+#define DECLARE_OM_ACCEL_INIT_INTERNAL_FUNCTION(name)                          \
   extern void InitAccel##name();
-#define DECLARE_OM_ACCEL_SHUTDOWN_INTERNAL_FUNCTION(name)                         \
+#define DECLARE_OM_ACCEL_SHUTDOWN_INTERNAL_FUNCTION(name)                      \
   extern void ShutdownAccel##name();
 
 // Define function that performs the serialization of the initialization as well
 // as set the OMIsInitAccel##name to true.
-#define DEFINE_OM_ACCEL_INIT_FUNCTION(name)                                       \
+#define DEFINE_OM_ACCEL_INIT_FUNCTION(name)                                    \
   void OMInitAccel##name() {                                                   \
     if (!OMIsInitAccel##name) {                                                \
       /* Grab outer mutex. */                                                  \
@@ -50,7 +50,7 @@
 
 // Define function that performs the serialization of the shutdown as well
 // as set the OMIsInitAccel##name to false.
-#define DEFINE_OM_ACCEL_SHUTDOWN_FUNCTION(name)                                   \
+#define DEFINE_OM_ACCEL_SHUTDOWN_FUNCTION(name)                                \
   void OMShutdownAccel##name() {                                               \
     if (OMIsInitAccel##name) {                                                 \
       /* Grab outer mutex. */                                                  \
