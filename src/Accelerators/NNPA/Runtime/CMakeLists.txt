@@ -13,7 +13,7 @@ add_onnx_mlir_library(OMRuntimeNNPA STATIC
   INCLUDE_DIRS PRIVATE
   ${ONNX_MLIR_SRC_ROOT}/include
   )
-set_target_properties(OMNNPA
+set_target_properties(OMRuntimeNNPA
   PROPERTIES
   LANGUAGE C
   POSITION_INDEPENDENT_CODE TRUE
