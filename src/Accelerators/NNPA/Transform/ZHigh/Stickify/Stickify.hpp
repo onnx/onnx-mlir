@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 

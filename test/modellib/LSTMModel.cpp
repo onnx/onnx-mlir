@@ -17,7 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace mlir;
@@ -129,7 +129,7 @@ bool LSTMLibBuilder::build() {
 }
 
 bool LSTMLibBuilder::prepareInputs() {
-  const int num = 3;
+  constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;

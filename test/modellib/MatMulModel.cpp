@@ -17,7 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace mlir;
@@ -57,12 +57,23 @@ bool MatMul2DLibBuilder::build() {
 }
 
 bool MatMul2DLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({I, K});
   list[1] = omTensorCreateWithRandomData<float>({K, J});
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1];
+}
+
+bool MatMul2DLibBuilder::prepareInputs(float dataRange) {
+  constexpr int num = 2;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>({I, K}, -dataRange, dataRange);
+  list[1] = omTensorCreateWithRandomData<float>({K, J}, -dataRange, dataRange);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
