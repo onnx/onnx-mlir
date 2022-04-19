@@ -130,6 +130,10 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       // Optimizations at ZLow.
       pm.addPass(zlow::createZLowRewritePass());
       pm.addPass(mlir::createCanonicalizerPass());
+      // Optimizations at ZLow.
+      // This pass should be final pass to update Zlow
+      pm.addPass(zlow::createZLowRewriteFinalPass());
+      pm.addPass(mlir::createCanonicalizerPass());
       // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
 

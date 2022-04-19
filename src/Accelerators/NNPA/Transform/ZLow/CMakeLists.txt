@@ -9,3 +9,13 @@ add_onnx_mlir_library(OMZLowRewrite
   MLIRViewLikeInterface
   OMZLowOps
   )
+
+add_onnx_mlir_library(OMZLowFinalPassRewrite
+  ZLowFinalPassRewrite.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  MLIRViewLikeInterface
+  OMZLowOps
+  )
