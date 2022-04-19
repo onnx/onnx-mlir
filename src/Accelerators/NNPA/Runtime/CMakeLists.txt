@@ -5,7 +5,7 @@
 add_onnx_mlir_library(OMRuntimeNNPA STATIC
   OMNNPA.c
 
-  #EXCLUDE_FROM_OM_LIBS
+  EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
   libzdnn
