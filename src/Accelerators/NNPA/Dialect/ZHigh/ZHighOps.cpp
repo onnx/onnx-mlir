@@ -33,7 +33,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 using namespace mlir;
 

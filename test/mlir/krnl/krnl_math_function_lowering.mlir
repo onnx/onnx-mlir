@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
-// ----
+// -----
 
 /// Test lowering of krnl.erf to LLVM math function call.
 func @test_krnl_erf_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
@@ -23,6 +23,8 @@ func @test_krnl_erf_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ERF_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
 
+// -----
+
 /// Test lowering of krnl.acos to LLVM math function call.
 func @test_krnl_acos_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
@@ -44,7 +46,9 @@ func @test_krnl_acos_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
 
-/// Test lowering of krnl.acos to LLVM math function call.
+// -----
+
+/// Test lowering of krnl.acosh to LLVM math function call.
 func @test_krnl_acosh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %1:2 = krnl.define_loops 2
@@ -64,6 +68,8 @@ func @test_krnl_acosh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @acoshf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
+
+// -----
 
 /// Test lowering of krnl.asin to LLVM math function call.
 func @test_krnl_asin_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
@@ -86,6 +92,8 @@ func @test_krnl_asin_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
 
+// -----
+
 /// Test lowering of krnl.asinh to LLVM math function call.
 func @test_krnl_asinh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
@@ -106,6 +114,8 @@ func @test_krnl_asinh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @asinhf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
+
+// -----
 
 /// Test lowering of krnl.atan to LLVM math function call.
 func @test_krnl_atan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
@@ -128,6 +138,8 @@ func @test_krnl_atan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
 
+// -----
+
 func @test_krnl_atanh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %1:2 = krnl.define_loops 2
@@ -148,6 +160,8 @@ func @test_krnl_atanh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
 
+// -----
+
 func @test_krnl_tan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %1:2 = krnl.define_loops 2
@@ -167,3 +181,4 @@ func @test_krnl_tan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @tanf([[SCALAR_IN]]) : (f32) -> f32
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<f32>
+
