@@ -48,6 +48,7 @@ NNPAAccelerator *NNPAAccelerator::getInstance() {
 NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
   acceleratorTargets.push_back(this);
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"zdnn"});
 };
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }

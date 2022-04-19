@@ -14,9 +14,13 @@ add_onnx_mlir_library(OMZHighOps
   OMZHighIncGen
   OMONNXZHighCombineIncGen
   OMShapeInferenceOpInterfaceIncGen
+  libzdnn
 
   LINK_LIBS PUBLIC
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
   MLIRIR
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
