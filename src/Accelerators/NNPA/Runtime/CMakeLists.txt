@@ -11,7 +11,7 @@ add_onnx_mlir_library(OMRuntimeNNPA STATIC
   libzdnn
 
   INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/include
+  ${NNPA_INCLUDE_PATH}
   )
 set_target_properties(OMRuntimeNNPA
   PROPERTIES
