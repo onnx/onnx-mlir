@@ -46,7 +46,8 @@
       }                                                                        \
       /* Release outer mutex. */                                               \
       pthread_mutex_unlock(&OMOuterMutexForInitShutdown);                      \
-    }
+    }                                                                          \
+  }
 
 // Define function that performs the serialization of the shutdown as well
 // as set the OMIsInitAccel##name to false.
@@ -67,7 +68,8 @@
       }                                                                        \
       /* Release outer mutex. */                                               \
       pthread_mutex_unlock(&OMOuterMutexForInitShutdown);                      \
-    }
+    }                                                                          \
+  }
 
 #ifdef __cplusplus
 extern "C" {
