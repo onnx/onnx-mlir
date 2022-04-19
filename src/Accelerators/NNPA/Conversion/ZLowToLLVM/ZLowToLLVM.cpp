@@ -12,33 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
-#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
-#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
-#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Target/LLVMIR/ModuleTranslation.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/IR/DataLayout.h"
 
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
-#include "src/Dialect/Krnl/KrnlTypes.hpp"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -94,7 +74,7 @@ API APIFor<ZLowSigmoidOp>() {
   return API::ZDNN_SIGMOID;
 }
 
-class ZLowStickLowering : public ConvertToLLVMPattern {
+class ZLowStickLowering : public mlir::ConvertToLLVMPattern {
 public:
   explicit ZLowStickLowering(MLIRContext *context, LLVMTypeConverter &lowering_,
       ApiRegistry apiRegistry)
@@ -1508,75 +1488,9 @@ private:
   ApiRegistry apiRegistry;
 };
 
-//===----------------------------------------------------------------------===//
-// ZLow dialect lowering to LLVM.
-//===----------------------------------------------------------------------===//
-
-namespace {
-struct ZLowToLLVMLoweringPass
-    : public PassWrapper<ZLowToLLVMLoweringPass, OperationPass<ModuleOp>> {
-
-  StringRef getArgument() const override { return "convert-all-to-llvm"; }
-
-  StringRef getDescription() const override {
-    return "Lower all ops including zlow ops to LLVM.";
-  }
-
-  void runOnOperation() final;
-};
-} // end anonymous namespace
-
-void ZLowToLLVMLoweringPass::runOnOperation() {
-  ModuleOp module = getOperation();
-  const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
-  LowerToLLVMOptions options(
-      &getContext(), dataLayoutAnalysis.getAtOrAbove(module));
-  options.emitCWrappers = true;
-
-  // Define the target for this lowering i.e. the LLVM dialect.
-  ConversionTarget target(getContext());
-  target.addLegalDialect<LLVM::LLVMDialect>();
-  target.addLegalOp<ModuleOp>();
-  target.addLegalOp<UnrealizedConversionCastOp>();
-
-  // Convert types to legal types for the LLVM dialect.
-  LLVMTypeConverter typeConverter(&getContext(), options);
-
-  // Determine, for each output, whether it is a constant or not.
-  SmallVector<bool, 4> outputOMTensorOwnerships;
-  onnx_mlir::krnl::determineOwnershipForOutputOMTensors(
-      module, outputOMTensorOwnerships);
-
-  // Record entry point names and their input/output signatures.
-  // This info is used to generate global signature functions.
-  SmallVector<std::string, 1> entryPointNames, inSignatures, outSignatures;
-  onnx_mlir::krnl::recordEntryPointSignatures(
-      module, entryPointNames, inSignatures, outSignatures);
-
-  typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
-    Type elementType = type.getElementType();
-    if (!elementType.isa<krnl::StringType>())
-      return llvm::None;
-
-    elementType =
-        elementType.cast<krnl::StringType>().getLLVMType(type.getContext());
-    return typeConverter.convertType(
-        MemRefType::get(type.getShape(), elementType));
-  });
-
-  typeConverter.addConversion([&](krnl::StringType type) -> Type {
-    return typeConverter.convertType(type.getLLVMType(type.getContext()));
-  });
-
-  // We have a combination of `zlow`, `krnl`, `affine`, and `std` operations. We
-  // lower in stages until all the code is in the LLVM dialect.
-  RewritePatternSet patterns(&getContext());
-  onnx_mlir::krnl::populateAffineAndKrnlToLLVMConversion(patterns,
-      typeConverter, &getContext(), outputOMTensorOwnerships,
-      /*singleEntryPoint=*/entryPointNames.size() == 1);
-
-  // ZLow to LLVM.
-  auto apiRegistry = RegisterAllApis(&getContext());
+void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
+    mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) {
+  auto apiRegistry = RegisterAllApis(ctx);
   // clang-format off
   patterns.insert<
       ZLowStickLowering,
@@ -1593,7 +1507,7 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,
       ZLowBatchNormLowering
-    >(&getContext(), typeConverter, apiRegistry);
+    >(ctx, typeConverter, apiRegistry);
   patterns.insert<
       // Elementwise operations
       ZLowBinaryElementwiseOpLowering<ZLowAddOp>,
@@ -1612,26 +1526,8 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
       // Other operations
       ZLowPool2DLowering<ZLowAvgPool2DOp>,
       ZLowPool2DLowering<ZLowMaxPool2DOp>
-    >(&getContext(), typeConverter, apiRegistry);
+    >(ctx, typeConverter, apiRegistry);
   // clang-format on
-
-  // We want to completely lower to LLVM, so we use a `FullConversion`. This
-  // ensures that only legal operations will remain after the conversion.
-  if (failed(
-          applyFullConversion(getOperation(), target, std::move(patterns)))) {
-    signalPassFailure();
-  }
-
-  // Generate signature functions.
-  if (entryPointNames.size() >= 1)
-    onnx_mlir::krnl::genSignatureFunction(
-        module, entryPointNames, inSignatures, outSignatures);
-}
-
-/// Create the pass for lowering `zlow`, `krnl`, `affine` and `std` dialects
-/// to LLVM.
-std::unique_ptr<mlir::Pass> createZLowToLLVMPass() {
-  return std::make_unique<ZLowToLLVMLoweringPass>();
 }
 
 } // namespace zlow

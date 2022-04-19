@@ -15,7 +15,7 @@
 #define ZHIGH_COMBINE
 
 #ifndef OP_BASE
-include "ZHighOps.td"
+include "ZHigh.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:

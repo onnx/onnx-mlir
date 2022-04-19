@@ -16,6 +16,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -90,6 +91,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
@@ -238,6 +240,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
   }
 
+  // Conversion target for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->conversionTargetONNXToKrnl(target);
+  }
+
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
@@ -263,6 +272,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToKrnlConversionPattern(
       patterns, krnlTypeConverter, &getContext(), enableTiling);
+
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
+  }
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

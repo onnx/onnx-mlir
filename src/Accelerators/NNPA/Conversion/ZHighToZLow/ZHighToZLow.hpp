@@ -31,23 +31,8 @@ struct ZMemRefType {
   mlir::StringAttr layout;
 };
 
-/// A list of layouts associated with newly allocated MemRefs.
-/// When lowering an operation, its output Tensor (e.g.
-/// `tensor<1x3x5x7x!zhigh.nhwc<f16>>`) will be converted to a Memref (e.g.
-/// `memref<1x3x5x7xf16, #map>`), and we lost the layout `nhwc`.
-/// Thus, make sure to put the new MemRef and its associated layout into this
-/// map, so that we can obtain the layout for the MemRef later when lowering
-/// other ops.
-llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
-
-mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
-
-void storeLayout(mlir::Value val, mlir::StringAttr layout) {
-  stickedLayouts[val] = layout;
-}
-
 /// Get the corresponding MemRefType and layout of a given ZTensorType.
-ZMemRefType convertZTensorToMemRefType(mlir::OpBuilder b, mlir::Type type);
+ZMemRefType convertZTensorToMemRefType(mlir::Type type);
 
 /// Emit instructions to allocate a buffer to store original dimensions.
 mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
@@ -64,6 +49,10 @@ mlir::Value insertAllocAndDeallocZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
 mlir::Value insertAllocAndDeallocZMemRef(ZMemRefType zType,
     mlir::ArrayRef<IndexExpr> dims, mlir::Operation *op,
     mlir::PatternRewriter &rewriter, int64_t alignment);
+
+/// Populate all conversion patterns for ZHigh Ops.
+void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
 
 } // namespace zhigh
 } // namespace onnx_mlir
