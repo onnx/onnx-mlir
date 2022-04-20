@@ -394,13 +394,11 @@ struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T> {
 };
 
 template <typename T>
- struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
+struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
   static T impl(T val) {
-    if (val < 0) {
+    if (val < 0)
       return 0;
-    } else {
-      return val;
-    }
+    return val;
   }
  };
 
