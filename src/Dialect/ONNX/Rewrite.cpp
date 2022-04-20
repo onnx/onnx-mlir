@@ -93,8 +93,11 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
 
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
-  return llvm::all_of(
-      values, [](Value v) { return isa<ONNXTransposeOp>(v.getDefiningOp()); });
+  return llvm::all_of(values, [](Value v) {
+    if (v.dyn_cast<BlockArgument>())
+      return false;
+    return isa<ONNXTransposeOp>(v.getDefiningOp());
+  });
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
