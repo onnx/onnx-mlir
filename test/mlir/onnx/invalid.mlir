@@ -64,6 +64,7 @@ func @test_concat_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 1 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
+
 // -----
 
 func @test_constantofshape_verifier_1(%arg0: tensor<2x2xi64>) -> tensor<2x2xi64> {
@@ -166,3 +167,6 @@ func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf3
 func @test_sequence_empty() -> none {
   // expected-error @+1 {{SequenceEmpty dtype() does not match the output type}}
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xi32>>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  return %2 : none
+}
