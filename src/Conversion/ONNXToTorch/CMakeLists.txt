@@ -35,6 +35,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ConcatOp.cpp
   NN/AbsOp.cpp
   NN/SqrtOp.cpp
+  NN/SinOp.cpp
   #NN/CommonUtils.cpp
   #NN/Normalization.cpp
   #NN/Pooling.cpp
