@@ -37,8 +37,8 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   // rank(input).
   if (optionalAxis.hasValue() && (optionalAxis.getValue() < -inputRank ||
                                      optionalAxis.getValue() >= inputRank))
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
-        "axis", optionalAxis.getValue(),
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *op->getOperation(), "axis", optionalAxis.getValue(),
         onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   // Get the dimension derived from the condition. Assume in shape helper that
