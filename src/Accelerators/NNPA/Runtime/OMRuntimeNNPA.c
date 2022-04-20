@@ -20,6 +20,29 @@
 extern "C" {
 #endif
 
+/* Interface for device init and shutdown.
+ *
+ * Testing if the code is initalized or not should be done prior to any zdnn
+ * computations. This test can be performed in the run_main_graph() without
+ * grabbing a lock, as follows:
+ *
+ * if (!OMIsInitAccelNNPA) OMInitAccelNNPA();
+ *
+ * OMInitAccelNNPA() is thread save, and is guaranteed to set
+ * OMIsInitAccelNNPA=1 once any other threads are guaranteed to see the full
+ * effects of the zdnn_init(). Because Z has a release consistency memory
+ * subsystem, we need a hard memory fence between zdnn_init() and
+ * OMIsInitAccelNNPA=1. Because we are sticking to posix thread library here,
+ * the easiest way to express a fence is to add an additional lock (the inner
+ * mutex) as pthread_mutex_unlock() guarantees a fence in it (for release
+ * consistency architectures).
+ *
+ * For the OMShutdownAccelNNPA(), we simply set the OMIsInitAccelNNPA flag to
+ * zero as there is currently no zdnn shutdown call. If one were added, then we
+ * would follow the same code pattern as in the init function.
+ * 
+ */
+
 // Define variable that tracks whether an accelerator is initialized or not.
 // Initial value is uninitialized.
 // Name must be OMIsInitAccelX where X=NNPA.
