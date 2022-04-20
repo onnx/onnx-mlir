@@ -4497,26 +4497,37 @@ LogicalResult ONNXScatterNDOp::verify() {
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), indices, indicesRank, "> 0");
 
+  ArrayRef<int64_t> dataShape = dataType.getShape();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+  ArrayRef<int64_t> updatesShape = updatesType.getShape();
+  int64_t indicesLastDim = indicesShape[indicesRank - 1];
+
   // The rank of 'updates' must be equal to:
   //    rank(data) + rank(indices) - indices.shape[-1] - 1.
-  ArrayRef<int64_t> indicesShape = indicesType.getShape();
-  int64_t indicesLastDim = indicesShape[indicesRank - 1];
-  int64_t expectedUpdatesRank = dataRank + indicesRank - indicesLastDim - 1;
-  if (updatesRank != expectedUpdatesRank)
-    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
-        *this->getOperation(), updates, updatesRank,
-        std::to_string(expectedUpdatesRank));
+  if (indicesLastDim > 0) {
+    int64_t expectedUpdatesRank = dataRank + indicesRank - indicesLastDim - 1;
+    if (updatesRank != expectedUpdatesRank)
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), updates, updatesRank,
+          std::to_string(expectedUpdatesRank));
 
-  // The last dimension of the 'indices' shape can be at most equal to the rank
-  // of 'data'.
-  if (indicesLastDim > dataRank)
-    return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
-        *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
-        "<= " + std::to_string(dataRank));
+    // The last dimension of the 'indices' shape can be at most equal to the
+    // rank of 'data'.
+    if (indicesLastDim > dataRank)
+      return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+          *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
+          "<= " + std::to_string(dataRank));
+  }
+
+  // The constraints check following this point requires the input tensors shape
+  // dimensions to be known, if they aren't delay the checks.
+  if (llvm::any_of(indicesShape, [](int64_t idx) { return (idx < 0); }))
+    return success();
+  if (llvm::any_of(updatesShape, [](int64_t idx) { return (idx < 0); }))
+    return success();
 
   // Let q = rank(indices). The first (q-1) dimensions of the 'updates' shape
   // must match the first (q-1) dimensions of the 'indices' shape.
-  ArrayRef<int64_t> updatesShape = updatesType.getShape();
   for (int64_t i = 0; i < indicesRank - 1; ++i) {
     assert(i < updatesRank && "i is out of bounds");
     if (updatesShape[i] != indicesShape[i])
@@ -4525,9 +4536,11 @@ LogicalResult ONNXScatterNDOp::verify() {
           std::to_string(indicesShape[i]));
   }
 
+  if (llvm::any_of(dataShape, [](int64_t idx) { return (idx < 0); }))
+    return success();
+
   // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that
   // updates.shape[q:] matches data.shape[k:r-1].
-  ArrayRef<int64_t> dataShape = dataType.getShape();
   for (int64_t i = indicesLastDim, j = indicesRank - 1; i < dataRank;
        ++i, ++j) {
     assert(j < updatesRank && "j is out of bounds");

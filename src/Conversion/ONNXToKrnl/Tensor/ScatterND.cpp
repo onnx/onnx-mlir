@@ -36,21 +36,12 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     auto dataType = data.getType().cast<ShapedType>();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto updatesType = updates.getType().cast<ShapedType>();
-    ArrayRef<int64_t> dataShape = dataType.getShape();
-    ArrayRef<int64_t> indicesShape = indicesType.getShape();
-    ArrayRef<int64_t> updatesShape = updatesType.getShape();
-
     int64_t dataRank = dataType.getRank();
     int64_t updatesRank = updatesType.getRank();
     int64_t indicesRank = indicesType.getRank();
-    int64_t indicesLastDim = indicesShape[indicesRank - 1];
 
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
-    assert(updatesRank == dataRank + indicesRank - indicesLastDim - 1 &&
-           "Updates rank is incorrect");
-    assert(indicesLastDim <= dataRank &&
-           "The last dim in indices cannot be greater than rank(data)");
 
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -91,13 +82,6 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
           DimsExpr indicesAccessFct;
           getIndexExprList<DimIndexExpr>(loopInd, indicesAccessFct);
           indicesAccessFct.truncate(indicesRank - 1);
-          // TODO:  last index
-          //          for (unsigned i = 0; i < indicesShape[indicesRank - 1];
-          //          ++i) indicesAccessFct.emplace_back();
-
-          //          Value indexVal = createKrnl.loadIE(indices,
-          //          indicesAccessFct);
-          //        IndexExpr index = NonAffineIndexExpr(indexVal);
 
           // Access function for the output. Let r=rank(data), q=rank(indices).
           // The first indices.shape[-1] indexes are given by looking up the
