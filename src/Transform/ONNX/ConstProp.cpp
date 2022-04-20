@@ -394,9 +394,15 @@ struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T> {
 };
 
 template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
-  static T impl(T val) { if(val < 0){return 0;} else {return val;} }
-};
+ struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
+  static T impl(T val) {
+    if (val < 0) {
+      return 0;
+    } else {
+      return val;
+    }
+  }
+ };
 
 template <typename OP, typename T>
 T ComputeConstPropElementwiseUnary(T val) {
