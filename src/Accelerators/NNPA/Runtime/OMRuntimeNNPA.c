@@ -40,7 +40,6 @@ extern "C" {
  * For the OMShutdownAccelNNPA(), we simply set the OMIsInitAccelNNPA flag to
  * zero as there is currently no zdnn shutdown call. If one were added, then we
  * would follow the same code pattern as in the init function.
- * 
  */
 
 // Define variable that tracks whether an accelerator is initialized or not.
