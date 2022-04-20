@@ -4497,7 +4497,8 @@ LogicalResult ONNXScatterNDOp::verify() {
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), indices, indicesRank, "> 0");
 
-  // Enforce constraint on the rank of 'updates'.
+  // The rank of 'updates' must be equal to:
+  //    rank(data) + rank(indices) - indices.shape[-1] - 1.
   ArrayRef<int64_t> indicesShape = indicesType.getShape();
   int64_t indicesLastDim = indicesShape[indicesRank - 1];
   int64_t expectedUpdatesRank = dataRank + indicesRank - indicesLastDim - 1;
@@ -4506,21 +4507,35 @@ LogicalResult ONNXScatterNDOp::verify() {
         *this->getOperation(), updates, updatesRank,
         std::to_string(expectedUpdatesRank));
 
-  // The last dimension of 'indices' shape can be a value at most the rank of
-  // data.
+  // The last dimension of the 'indices' shape can be at most equal to the rank
+  // of 'data'.
   if (indicesLastDim > dataRank)
     return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
         *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
         "<= " + std::to_string(dataRank));
 
-  // Let q = rank(indices). The first (q-1) dimensions of shape of 'updates'
-  // must match the first (q-1) dimensions of shape of 'indices'.
+  // Let q = rank(indices). The first (q-1) dimensions of the 'updates' shape
+  // must match the first (q-1) dimensions of the 'indices' shape.
   ArrayRef<int64_t> updatesShape = updatesType.getShape();
-  for (int64_t i = 0; i < indicesRank - 1; ++i)
+  for (int64_t i = 0; i < indicesRank - 1; ++i) {
+    assert(i < updatesRank && "i is out of bounds");
     if (updatesShape[i] != indicesShape[i])
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
           *this->getOperation(), updates, i, updatesShape[i],
           std::to_string(indicesShape[i]));
+  }
+
+  // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that
+  // updates.shape[q:] matches data.shape[k:r-1].
+  ArrayRef<int64_t> dataShape = dataType.getShape();
+  for (int64_t i = indicesLastDim, j = indicesRank - 1; i < dataRank;
+       ++i, ++j) {
+    assert(j < updatesRank && "j is out of bounds");
+    if (updatesShape[j] != dataShape[i])
+      return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+          *this->getOperation(), updates, j, updatesShape[j],
+          std::to_string(dataShape[i]));
+  }
 
   return success();
 }

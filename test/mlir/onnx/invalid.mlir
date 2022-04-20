@@ -200,10 +200,19 @@ func @test_scatterND_verifier_4(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x5x
 
 // -----
 
-// COM: Let q = rank(indices. The first (q-1) dimensions of updates.shape must match the first (q-1) dimensions of indices.shape.
+// COM: Let q = rank(indices). The first (q-1) dimensions of updates.shape must match the first (q-1) dimensions of indices.shape.
 func @test_scatterND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x2xi64>, %arg2 : tensor<1x2x3xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.ScatterND: operand '<block argument> of type 'tensor<1x2x3xf32>' at index: 2' has dimension at index 0 with value 1, value should be 2}}
   %1 = "onnx.ScatterND"(%arg0, %arg1, %arg2) {axis = 4 : si64} : (tensor<1x2x3x4xf32>, tensor<2x2xi64>, tensor<1x2x3xf32>)  -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+// COM: Let r = rank(data), q = rank(indices), and k = indices.shape[-1] --> updates.shape[q:] must match data.shape[k:r-1].
+func @test_scatterND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x2xi64>, %arg2 : tensor<2x3x3xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.ScatterND: operand '<block argument> of type 'tensor<2x3x3xf32>' at index: 2' has dimension at index 2 with value 3, value should be 4}}
+  %1 = "onnx.ScatterND"(%arg0, %arg1, %arg2) {axis = 4 : si64} : (tensor<1x2x3x4xf32>, tensor<2x2xi64>, tensor<2x3x3xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
