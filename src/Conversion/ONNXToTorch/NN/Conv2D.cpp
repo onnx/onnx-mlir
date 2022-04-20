@@ -2,16 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- Conv2D.cpp - Lowering Convolution Op
-//-------------------===//
+//===- Conv2D.cpp - Lowering Convolution Op -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file lowers the ONNX Convolution Operators to Torch dialect.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
@@ -50,6 +49,33 @@
 #include <io.h>
 #endif
 
+/* 
+ * ONNX Conv operation
+ * “The convolution operator consumes an input tensor and a filter, 
+ * and” “computes the output.
+ *
+ * Attributes:
+   * 	Attribute	    MLIR Type		    Description
+   *	auto_pad	::mlir::StringAttr	string attribute
+   * 	dilations	::mlir::ArrayAttr	64-bit integer array
+   *	group		::mlir::IntegerAttr	64-bit signed integer
+   *	kernel_shape	::mlir::ArrayAttr	64-bit integer array
+   *	pads		::mlir::ArrayAttr	64-bit integer array
+   *	strides		::mlir::ArrayAttr	64-bit integer array   
+
+ *Operands:
+   * Operand Description
+     *	X tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values
+     *	W tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values
+     *	B tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values or none type
+ *Results:
+   *Result Description
+     *	Y tensor of 16-bit/32-bit/64-bit float values or memref 
+     *	  of any type values or none type
+ */
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;

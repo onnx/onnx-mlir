@@ -2,17 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- MaxPoolSingleOutOpTransformToTorchPass.cpp - ONNX Op Transform
-//------------------===//
+//===- MaxPoolSingleOutOp.cpp - ONNX Op Transform -===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// =================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
@@ -59,60 +58,23 @@ using namespace mlir::torch::Torch;
 /**
  * ONNX MaxPool operation
  *
- * MaxPool consumes an input tensor X and applies max pooling across the tensor
- *according to kernel sizes, stride sizes, and pad lengths. max pooling
- *consisting of computing the max on all values of a subset of the input tensor
- *according to the kernel size and downsampling the data into the output tensor
- *Y for further processing.
+ * “ONNX MaxPool operation with a single output.
+ * ” “See ONNXMaxPoolOp for a full description of the MaxPool semantics.”
  *
- * Where is this used?
- * max pooling is applied after convolution op.
+ * Attributes:
+ * 	auto_pad	::mlir::StringAttr	string attribute
+ *	ceil_mode	::mlir::IntegerAttr	64-bit signed integer attribute
+ *	dilations	::mlir::ArrayAttr	64-bit integer array attribute
+ *	kernel_shape	::mlir::ArrayAttr	64-bit integer array attribute
+ *	pads		::mlir::ArrayAttr	64-bit integer array attribute
+ *	storage_order	::mlir::IntegerAttr	64-bit signed integer attribute
+ *	strides		::mlir::ArrayAttr	64-bit integer array attribute
  *
- * Operands :
- * X		tensor of 16-bit/32-bit/64-bit float values or memref of any
- *type values Input data tensor from the previous operator; dimensions for image
- *case are (N x C x H x W), where N is the batch size, C is the number of
- *channels, and H and W are the height and the width of the data. For non image
- *case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is
- *		the batch size. Optionally, if dimension denotation is in
- *effect, the operation expects the input data tensor to arrive with the
- *dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE
- *...]. Output   :
+ * Operands:
+ * X	memref of any type values or tensor of any type values
  *
- * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any
- *type values or none type Output data tensor from average or max pooling across
- *the input tensor. Dimensions will vary based on various kernel, stride, and
- *pad sizes. Floor value of the dimension is used differentiable
- *
- * Attributes
- * auto_pad 		string attribute DEPRECATED
- * ceiling_mode 	int (default is 0), Whether to use ceil or floor
- *(default) to compute the output shape.
- *
- * dilations 		list of ints, 64-bit integer array attribute
- * 			Dilation value along each spatial axis of filter. If not
- *present, the dilation defaults to 1 along each spatial axis.
- *
- * kernel_shape 	list of ints (required) : 64-bit integer array attribute
- *              	The size of the kernel along each axis.
- *
- * pads 		list of ints, 64-bit integer array attribute
- * storage_order        int (default is 0)
- *			The storage order of the tensor. 0 is row major, and 1
- *is column major. strides 		list of ints 64-bit integer array
- *attribute Stride along each spatial axis
- *
- * Validation
- * ----------
- * /scripts/docker/build_with_docker.py --external-build --build-dir build
- *--command
- *"build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
- *--EmitONNXIR --debug --run-torch-pass
- *./third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_maxpool_2d_pads/model.onnx
- *
- * Limitations
- * -----------
- * The atribute values have been used in the below code are to be corrected.
+ * Results:
+ * o_Y	memref of any type values or tensor of any type values
  *
  */
 
@@ -148,36 +110,14 @@ public:
 
     auto ty = IntegerType::get(op1.getContext(), 64);
     auto by = IntegerType::get(op1.getContext(), 1);
-    /*
-    if (pads) {
-      auto translatepadsAttrList = setUpSymmetricPadding(pads, ty);
-      for (auto padAttr : translatepadsAttrList) {
-        Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
-        translatepadsList.push_back(p1v);
-      }
-      }*/
 
     std::vector<Value> translatepadsList =
         createPadsArrayAttribute(pads, ty, loc, rewriter);
+    // reading the dilation values.
     std::vector<Value> dilationonnxList =
         createArrayAttribute(dilations, ty, loc, rewriter, 1);
     std::vector<Value> kernalshapeonnxList;
     std::vector<Value> stridesonnxList;
-
-    // reading the dilation values.
-    /*
-    if (dilations) {
-      for (unsigned int i = 0; i < dilations.size(); i++) {
-        auto f1 = IntegerAttr::get(ty,
-            (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-        dilationonnxList.push_back(p1v);
-      }
-    } else {
-      auto c1 = IntegerAttr::get(ty, 1);
-      Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
-      dilationonnxList = {p1v, p1v};
-      }*/
 
     // reading the kernal_shape values.
     if (kernal_shape) {

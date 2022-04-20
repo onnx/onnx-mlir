@@ -225,10 +225,12 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     Value addValue;
     if (betaMulResult)
       addValue =
-          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue, betaMulResult, f1v);
+          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue,
+			  betaMulResult, f1v);
     else
       addValue =
-          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue, transposeBVal, f1v);
+          rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue,
+			  transposeBVal, f1v);
     llvm::outs() << "Gemm operation creation"
                  << "\n"
                  << addValue << "\n"
@@ -237,7 +239,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     Value result = addValue;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType(), result);
+        op, resultTy, result);
 
     return success();
   }

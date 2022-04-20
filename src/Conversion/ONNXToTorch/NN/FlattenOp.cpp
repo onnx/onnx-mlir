@@ -6,12 +6,12 @@
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// ===================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===-------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -55,15 +55,35 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 /**
+ * Flattens input by reshaping it into a one-dimensional tensor. 
+ * If start_dim or end_dim are passed, only dimensions starting with start_dim 
+ * and ending with end_dim are flattened. 
+ * The order of elements in input is unchanged.
  *
  * Attributes
- * axis    i64-bit signed integer attribute
+ *    axis    	::mlir::IntegerAttr 	i64-bit signed integer attribute
  *
- * /scripts/docker/build_with_docker.py --external-build --build-dir build
- * --command
- * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
- * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
+ * Operands:
+ *    input     tensor of 8-bit/16-bit/32-bit unsigned integer values or 
+ *    		tensor of 64-bit unsigned integer values or 
+ *    		tensor of 8-bit/16-bit/32-bit/64-bit signless integer values
+ *    		tensor of bfloat16 type values or tensor of 16-bit float values 
+ *    		tensor of 32-bit float values or tensor of 64-bit float values 
+ *    		tensor of string type values or tensor of 1-bit signless 
+ *    		integer values or tensor of complex type with 32-bit float 
+ *    		elements values or tensor of complex type with 64-bit float 
+ *    		elements values or memref of any type values
+ *
+ * Results:
+ *    output     tensor of 8-bit/16-bit/32-bit unsigned integer values or
+ *              tensor of 64-bit unsigned integer values or
+ *              tensor of 8-bit/16-bit/32-bit/64-bit signless integer values
+ *              tensor of bfloat16 type values or tensor of 16-bit float values
+ *              tensor of 32-bit float values or tensor of 64-bit float values
+ *              tensor of string type values or tensor of 1-bit signless
+ *              integer values or tensor of complex type with 32-bit float
+ *              elements values or tensor of complex type with 64-bit float
+ *              elements values or memref of any type values
  *
  */
 
@@ -87,7 +107,7 @@ public:
     auto inputShape = input.getType().cast<ShapedType>().getShape();
     int64_t inputRank = inputShape.size();
 
-    TensorType op_tensor_type = op1.getType().cast<TensorType>();
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
                     op_tensor_type.getShape(), op_tensor_type.getElementType());
 
@@ -96,21 +116,25 @@ public:
                     input_tensor_type.getElementType());
     auto itt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
                     inputTy, input);
-
-    // flatten the region upto axis-1.
-    int64_t startDim = 0;
-    int64_t endDim = axisValue - 1;
     auto ty = IntegerType::get(op1.getContext(), 64);
-    auto f0 = IntegerAttr::get(ty, (startDim));
-    Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-    auto f1 = IntegerAttr::get(ty, (endDim));
-    Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-    llvm::outs() << "input Value:   " << "\n" << itt << "\n" << "\n";
-    llvm::outs() << "startDim1 Value:   " << "\n" << p0v << "\n" << "\n";
-    llvm::outs() << "endDim1 Value:   " << "\n" << p1v << "\n" << "\n";
-    Value atenflaten1 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
+    int64_t startDim;
+    int64_t endDim;
+    Value atenflaten1 = itt;
+    if (axisValue != 0) {
+      // flatten the region upto axis-1.
+      startDim = 0;
+      endDim = axisValue - 1;
+      auto f0 = IntegerAttr::get(ty, (startDim));
+      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+      auto f1 = IntegerAttr::get(ty, (endDim));
+      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+      llvm::outs() << "input Value:   " << "\n" << itt << "\n" << "\n";
+      llvm::outs() << "startDim1 Value:   " << "\n" << p0v << "\n" << "\n";
+      llvm::outs() << "endDim1 Value:   " << "\n" << p1v << "\n" << "\n";
+      atenflaten1 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
                     resultTy, itt, p0v, p1v);
-    llvm::outs() << "Aten Flatten1 Op:   " << "\n" << atenflaten1 << "\n" << "\n";
+      llvm::outs() << "Aten Flatten1 Op:   " << "\n" << atenflaten1 << "\n" << "\n";
+    }
 
     // flatten the region from axis upwards.
     startDim = axisValue;
@@ -123,8 +147,8 @@ public:
     llvm::outs() << "endDim2 Value:   " << "\n" << p3v << "\n" << "\n";
     Value atenflaten2 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
                     resultTy, atenflaten1, p2v, p3v);
-
     Value result = atenflaten2;
+    
     llvm::outs() << "AtenFlatten Op created" << "\n" << "\n";
     llvm::outs() << "Aten Flatten Op:   " << "\n" << atenflaten2 << "\n" << "\n";
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,

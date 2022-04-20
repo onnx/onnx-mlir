@@ -58,6 +58,7 @@ using namespace mlir::torch::Torch;
  *
  * Creates the constant tensor.
  *
+ * Operands : None.
  *
  * Validation
  * ----------
@@ -71,6 +72,7 @@ using namespace mlir::torch::Torch;
  * -----------
  * uses literal.
  *
+ * TODO: Not handling String attribute in the ConstOp.
  */
 class ONNXConstOpToTorchLowering : public ConversionPattern {
 public:
@@ -87,12 +89,13 @@ public:
 
     auto value_attr = op1.valueAttr(); // ::mlir::Attribute
 
-    //      Steps
-    //	1) Extract float attributes array from ONNX and compare with the Netron
-    // file, 	2) Find the shape of this array in step 1, 	3) Create the
-    // result
-    // type, 	4) Create the torch tensor of shape as in 2, 	5) Create the
-    // torch op and replace it.
+    // Steps
+    // 1) Extract float attributes array from ONNX and compare with 
+    //      the Netron file,
+    // 2) Find the shape of this array in step 1,
+    // 3) Create the result type,
+    // 4) Create the torch tensor of shape as in 2,
+    // 5) Create the torch op and replace it.
 
     llvm::outs() << "CONSTFLOATOP operation creation value_attr type: "
                  << value_attr.getType() << "\n"

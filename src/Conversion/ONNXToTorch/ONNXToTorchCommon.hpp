@@ -2,17 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToTorchCommon.hpp - ONNX dialects to Torch lowering
-//--------===//
+//====- ONNXToTorchCommon.hpp - ONNX dialects to Torch lowering -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file contains common code shared by the functions performing the
 // lowering to the KRNL dialect.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #pragma once
 
@@ -75,11 +74,11 @@ using namespace mlir::torch::Torch;
 // allocated memrefs or not during the conversion of ONNX to Krnl.
 // extern bool ONNXToKrnl_gEmitDealloc;
 
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 // Type conversion from Onnx types to Krnl types:
 //   - from Tensor type to the Standard dialect MemRef type
 //   - from onnx.StringType to krnl.StringType
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 class TorchTypeConverter : public TypeConverter {
 public:
@@ -105,9 +104,9 @@ public:
   }
 };
 
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 // `NN` directory methods:
 void populateLoweringONNXToTorchConvOpPattern(

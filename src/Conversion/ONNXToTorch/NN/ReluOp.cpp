@@ -58,9 +58,17 @@ using namespace mlir::torch::Torch;
  *
  * ONNX Relu operation
  *
+ * “Relu takes one input data (Tensor) and produces one output data" "
+ * (Tensor) where the rectified linear function, y = max(0, x), is applied 
+ * to" "the tensor elementwise."
+ *
  * Operands :
- * X            tensor of 16-bit/32-bit/64-bit float values or memref of any
- * type values
+ *    X    tensor of 16-bit/32-bit/64-bit float values or memref of any 
+ *         type values
+ *
+ * Results:
+ *    Y	   tensor of 16-bit/32-bit/64-bit float values or tensor of 
+ *         bfloat16 type values or memref of any type values
  *
  * Validation
  * ----------
@@ -68,7 +76,8 @@ using namespace mlir::torch::Torch;
  * --command
  * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx"
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
+ * test_relu/model.onnx"
  *
  */
 
