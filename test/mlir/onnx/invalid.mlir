@@ -159,3 +159,7 @@ func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf3
 
 func @test_sequence_empty() -> none {
   // expected-error @+1 {{SequenceEmpty dtype() does not match the output type}}
+  %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xi32>>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  return %2 : none
+}
