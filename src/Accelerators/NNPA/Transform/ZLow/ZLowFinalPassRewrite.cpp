@@ -69,7 +69,7 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : lstmInput.getUsers()) {
-      char *opName = (char *) user->getName().getStringRef().data();
+      char *opName = (char *)user->getName().getStringRef().data();
       if (!strcmp(opName, "zlow.lstm")) {
         ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
         if (userLstmOp != lstmOp) {
@@ -116,7 +116,7 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : gruInput.getUsers()) {
-      char *opName = (char *) user->getName().getStringRef().data();
+      char *opName = (char *)user->getName().getStringRef().data();
       if (!strcmp(opName, "zlow.gru")) {
         ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
         if (userGruOp != gruOp) {
