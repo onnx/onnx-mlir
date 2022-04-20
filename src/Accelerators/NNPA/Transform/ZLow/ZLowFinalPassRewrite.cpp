@@ -62,42 +62,46 @@ public:
   LogicalResult matchAndRewrite(
       ZLowLSTMOp lstmOp, PatternRewriter &rewriter) const override {
     Value lstmInput = lstmOp.input();
+    StringRef prevLayer = lstmOp.prev_layer();
+    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+      return failure();
 
     // Search for LSTM/GRU op that generates the input argument.
-    // There is only one LSTM/GRU op per buffer, so stop searching when we get
-    // one.
-    ZLowLSTMOp prevLstmOp();
-    ZLowGRUOp prevGruOp();
-    StringRef directionAttr;
+    StringRef directionAttr = "";
     for (Operation *user : lstmInput.getUsers()) {
-      ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
-      if (userLstmOp) { // the user op is LSTM op
-        directionAttr = userLstmOp.direction();
-        break;
+      char *opName = (char *) user->getName().getStringRef().data();
+      if (!strcmp(opName, "zlow.lstm")) {
+        ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
+        if (userLstmOp != lstmOp) {
+          directionAttr = userLstmOp.direction();
+          break;
+        }
       }
-      ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
-      if (!userGruOp) { // the user op is not GRU op
-        directionAttr = userGruOp.direction();
+      if (!strcmp(opName, "zlow.gru")) {
+        directionAttr = llvm::dyn_cast<ZLowGRUOp>(user).direction();
         break;
       }
     }
-    if (directionAttr.empty())
-      return failure();
-    StringAttr prevLayerAttr = rewriter.getStringAttr(
-        !strcmp(directionAttr.data(), "bidirectional") ? "bidir" : "uni");
+    StringAttr prevLayerAttr;
+    if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
+      prevLayerAttr = rewriter.getStringAttr("none");
+    } else if (!strcmp(directionAttr.data(), "bidirectional")) {
+      prevLayerAttr = rewriter.getStringAttr("bidir");
+    } else {
+      prevLayerAttr = rewriter.getStringAttr("uni");
+    }
     // Emit a ZLow operation.
-    rewriter.create<ZLowLSTMOp>(lstmOp.getLoc(),
-        lstmOp.input(), lstmOp.h0(), lstmOp.c0(),
-        lstmOp.input_weights(), lstmOp.input_bias(), lstmOp.hidden_weights(),
-        lstmOp.hidden_bias(), lstmOp.work_area(), lstmOp.shape(),
-        lstmOp.hn_output(), lstmOp.cf_output(), lstmOp.directionAttr(),
-        lstmOp.return_all_stepsAttr(), prevLayerAttr);
+    rewriter.create<ZLowLSTMOp>(lstmOp.getLoc(), lstmOp.input(), lstmOp.h0(),
+        lstmOp.c0(), lstmOp.input_weights(), lstmOp.input_bias(),
+        lstmOp.hidden_weights(), lstmOp.hidden_bias(), lstmOp.work_area(),
+        lstmOp.shape(), lstmOp.hn_output(), lstmOp.cf_output(),
+        lstmOp.directionAttr(), lstmOp.return_all_stepsAttr(), prevLayerAttr);
     rewriter.eraseOp(lstmOp);
 
     return success();
   }
 };
-  
+
 class SetPrevLayerInGRUOpPattern : public OpRewritePattern<ZLowGRUOp> {
 public:
   using OpRewritePattern<ZLowGRUOp>::OpRewritePattern;
@@ -105,36 +109,40 @@ public:
   LogicalResult matchAndRewrite(
       ZLowGRUOp gruOp, PatternRewriter &rewriter) const override {
     Value gruInput = gruOp.input();
+    StringRef prevLayer = gruOp.prev_layer();
+    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+      return failure();
 
     // Search for LSTM/GRU op that generates the input argument.
-    // There is only one LSTM/GRU op per buffer, so stop searching when we get
-    // one.
-    ZLowLSTMOp prevLstmOp();
-    ZLowGRUOp prevGruOp();
-    StringRef directionAttr;
+    StringRef directionAttr = "";
     for (Operation *user : gruInput.getUsers()) {
-      ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
-      if (userLstmOp) { // the user op is LSTM op
-        directionAttr = userLstmOp.direction();
-        break;
+      char *opName = (char *) user->getName().getStringRef().data();
+      if (!strcmp(opName, "zlow.gru")) {
+        ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
+        if (userGruOp != gruOp) {
+          directionAttr = userGruOp.direction();
+          break;
+        }
       }
-      ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
-      if (!userGruOp) { // the user op is not GRU op
-        directionAttr = userGruOp.direction();
+      if (!strcmp(opName, "zlow.lstm")) {
+        directionAttr = llvm::dyn_cast<ZLowLSTMOp>(user).direction();
         break;
       }
     }
-    if (directionAttr.empty())
-      return failure();
-    StringAttr prevLayerAttr = rewriter.getStringAttr(
-        !strcmp(directionAttr.data(), "bidirectional") ? "bidir" : "uni");
+    StringAttr prevLayerAttr;
+    if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
+      prevLayerAttr = rewriter.getStringAttr("none");
+    } else if (!strcmp(directionAttr.data(), "bidirectional")) {
+      prevLayerAttr = rewriter.getStringAttr("bidir");
+    } else {
+      prevLayerAttr = rewriter.getStringAttr("uni");
+    }
     // Emit a ZLow operation.
-    rewriter.create<ZLowGRUOp>(gruOp.getLoc(),
-        gruOp.input(), gruOp.h0(),
+    rewriter.create<ZLowGRUOp>(gruOp.getLoc(), gruOp.input(), gruOp.h0(),
         gruOp.input_weights(), gruOp.input_bias(), gruOp.hidden_weights(),
         gruOp.hidden_bias(), gruOp.work_area(), gruOp.shape(),
-        gruOp.hn_output(), gruOp.directionAttr(),
-        gruOp.return_all_stepsAttr(), prevLayerAttr);
+        gruOp.hn_output(), gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
+        prevLayerAttr);
     rewriter.eraseOp(gruOp);
 
     return success();
@@ -150,7 +158,9 @@ class ZLowRewriteFinalPass
 public:
   StringRef getArgument() const override { return "zlow-rewrite-final"; }
 
-  StringRef getDescription() const override { return "Rewrite ZLow Ops. at final"; }
+  StringRef getDescription() const override {
+    return "Rewrite ZLow Ops. at final";
+  }
 
   void runOnOperation() override {
     Operation *function = getOperation();
