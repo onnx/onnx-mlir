@@ -69,11 +69,11 @@ execute_process(
   ERROR_QUIET
 )
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
-  message(STATUS "  Parallel backend tests    : ON")
+  message(STATUS "Parallel backend tests   : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
   set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
 else()
-  message(STATUS "  Parallel backend tests    : OFF (install pytest-xdist to enable)")
+  message(STATUS "Parallel backend tests   : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()
@@ -154,8 +154,8 @@ add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 
 if (ONNX_MLIR_ENABLE_JNI)
-  message(STATUS "  JNI backend tests         : ON")
-  message(STATUS "  JSONITER_JAR              : ${JSONITER_JAR}")
+  message(STATUS "JNI backend tests        : ON")
+  message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
   add_custom_target(check-onnx-backend-jni
     COMMAND
       ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/jni

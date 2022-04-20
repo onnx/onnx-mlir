@@ -92,6 +92,19 @@ void addONNXToZHighPasses(
   if (isBE)
     pm.addNestedPass<FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
+  // Remove common sub-expressions.
+  pm.addPass(mlir::createCSEPass());
+}
+
+void normalizeMemRefsPasses(mlir::PassManager &pm) {
+  // Introduce DummyOps for multiple dereferencing uses in a single op.
+  // This is a bypass to avoid calling normalize-memrefs on a single op with
+  // multiple dereferencing uses because normalize-memrefs does not support.
+  pm.addPass(zlow::createZLowDummyOpForMultiDerefPass());
+  // Normalize MemRefs.
+  pm.addPass(mlir::memref::createNormalizeMemRefsPass());
+  // This is needed for removing dummy ops.
+  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
@@ -130,8 +143,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       // Optimizations at ZLow.
       pm.addPass(zlow::createZLowRewritePass());
       pm.addPass(mlir::createCanonicalizerPass());
-      // Optimizations at ZLow.
-      // This pass should be final pass to update Zlow
+      // Optimizations at ZLow, that should be final pass to update Zlow
       pm.addPass(zlow::createZLowRewriteFinalPass());
       pm.addPass(mlir::createCanonicalizerPass());
       // Constant folding for std.alloc.
@@ -142,6 +154,13 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
+        // Normalize MemRefs.
+        normalizeMemRefsPasses(pm);
+        // Optimizations at ZLow.
+        pm.addPass(zlow::createZLowRewritePass());
+        pm.addPass(mlir::createCanonicalizerPass());
+        // Constant folding for std.alloc.
+        pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
     }
   }
