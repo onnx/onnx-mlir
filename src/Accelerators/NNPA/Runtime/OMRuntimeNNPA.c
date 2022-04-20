@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <pthread.h>
+
 #include "zdnn.h"
 
 #ifdef __cplusplus
@@ -57,8 +59,10 @@ void OMInitAccelNNPA() {
 // Name must be OMShutdownAccelX where X=NNPA.
 
 void OMShutdownAccelNNPA() {
-  if (OMIsInitAccelNNPA) { /* Grab outer mutex. */
+  if (OMIsInitAccelNNPA) {
+    /* Grab outer mutex. */
     pthread_mutex_lock(&OMOuterMutexForInitShutdownNNPA);
+    /* Nothing to unitnitialize, so skip inner mutex. */
     OMIsInitAccelNNPA = 0;
     /* Release outer mutex. */
     pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
