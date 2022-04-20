@@ -44,7 +44,7 @@ parser.add_argument("--check-operation-version",
 args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
-current_onnx_version = "1.9.0"
+current_onnx_version = "1.11.0"
 # check the version of onnx package being used
 if (not check_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
