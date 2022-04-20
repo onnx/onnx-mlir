@@ -400,7 +400,7 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
       return 0;
     return val;
   }
- };
+};
 
 template <typename OP, typename T>
 T ComputeConstPropElementwiseUnary(T val) {
