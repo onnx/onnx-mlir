@@ -3,7 +3,7 @@
 # TODO: statically link to libcruntime.a
 
 add_onnx_mlir_library(RuntimeNNPA STATIC
-  OMNNPA.c
+  OMRuntimeNNPA.c
 
   EXCLUDE_FROM_OM_LIBS
 
