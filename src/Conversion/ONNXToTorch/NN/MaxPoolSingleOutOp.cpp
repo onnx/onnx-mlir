@@ -62,13 +62,13 @@ using namespace mlir::torch::Torch;
  * ” “See ONNXMaxPoolOp for a full description of the MaxPool semantics.”
  *
  * Attributes:
- * 	auto_pad	::mlir::StringAttr	string attribute
- *	ceil_mode	::mlir::IntegerAttr	64-bit signed integer attribute
- *	dilations	::mlir::ArrayAttr	64-bit integer array attribute
- *	kernel_shape	::mlir::ArrayAttr	64-bit integer array attribute
- *	pads		::mlir::ArrayAttr	64-bit integer array attribute
- *	storage_order	::mlir::IntegerAttr	64-bit signed integer attribute
- *	strides		::mlir::ArrayAttr	64-bit integer array attribute
+ *  auto_pad	::mlir::StringAttr	string attribute
+ *  ceil_mode	::mlir::IntegerAttr	64-bit signed integer attribute
+ *  dilations	::mlir::ArrayAttr	64-bit integer array attribute
+ *  kernel_shape	::mlir::ArrayAttr	64-bit integer array attribute
+ *  pads		::mlir::ArrayAttr	64-bit integer array attribute
+ *  storage_order	::mlir::IntegerAttr	64-bit signed integer attribute
+ * strides		::mlir::ArrayAttr	64-bit integer array attribute
  *
  * Operands:
  * X	memref of any type values or tensor of any type values

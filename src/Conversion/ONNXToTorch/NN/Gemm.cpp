@@ -6,11 +6,11 @@
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file lowers the ONNX Convolution Operators to Torch dialect.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
@@ -70,31 +70,26 @@
 
  * Operands:
  * Operand Description
- * A tensor of 16-bit float values or tensor of 32-bit float values or tensor
- * of 64-bit float values or tensor of 32-bit unsigned integer values or 
- * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
- * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
- * values or memref of any type values.
+ *   A   tensor of 16-bit/32-bit/64-bit float values or 
+ *       tensor of 32-bit/64-bit unsigned integer values or 
+ *       tensor of 32-bit/64-bit signless integer values or 
+ *       tensor of bfloat16 type values or memref of any type values.
  *
- * B tensor of 16-bit float values or tensor of 32-bit float values or tensor
- * of 64-bit float values or tensor of 32-bit unsigned integer values or 
- * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
- * values or tensor of 64-bit signless integer values or tensor of bfloat16 type 
- * values or memref of any type values.
+ *   B   tensor of 16-bit/32-bit/64-bit float values or
+ *       tensor of 32-bit/64-bit unsigned integer values or
+ *       tensor of 32-bit/64-bit signless integer values or
+ *       tensor of bfloat16 type values or memref of any type values.
  *
- * C tensor of 16-bit float values or tensor of 32-bit float values or tensor 
- * of 64-bit float values or tensor of 32-bit unsigned integer values or 
- * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
- * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
- * values or memref of any type values or none type.
- *
+ *   C   tensor of 16-bit/32-bit/64-bit float values or
+ *       tensor of 32-bit/64-bit unsigned integer values or
+ *       tensor of 32-bit/64-bit signless integer values or
+ *       tensor of bfloat16 type values or memref of any type values.
  * Results:
  * Result Description
- * Y tensor of 16-bit float values or tensor of 32-bit float values or tensor 
- * of 64-bit float values or tensor of 32-bit unsigned integer values or 
- * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
- * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
- * values or memref of any type values or none type
+ *   Y   tensor of 16-bit/32-bit/64-bit float values or                     
+ *       tensor of 32-bit/64-bit unsigned integer values or                 
+ *       tensor of 32-bit/64-bit signless integer values or                 
+ *       tensor of bfloat16 type values or memref of any type values.
  */
 
 using namespace mlir;
@@ -154,7 +149,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
         loc, cTy, c);
 
     auto neg_slope = alpha.getValue();
-    auto f3 = FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
+    auto f3 = 
+	FloatAttr::get(rewriter.getF64Type(), neg_slope.convertToFloat());
     Value alpha3v = rewriter.create<ConstantFloatOp>(loc, f3);
 
     neg_slope = beta.getValue();
@@ -188,7 +184,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
                  << "\n";
 
     // Compute Y = alpha * A’ * B’ + beta * C
-    // Scalar multiplication with alpha(alpha * A’) and beta(beta * C) values.
+    // Scalar multiplication with alpha(alpha * A’) 
+    // and beta(beta * C) values.
     Value alphaMulResult = NULL, betaMulResult = NULL;
     if (alpha)
       alphaMulResult = rewriter.create<AtenMulScalarOp>(

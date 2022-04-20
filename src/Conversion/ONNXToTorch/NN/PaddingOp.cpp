@@ -7,12 +7,12 @@
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -65,20 +65,22 @@ using namespace mlir::torch::TorchConversion;
  * padding is typically used just before/after convolution operation
  *
  * Operands :
- * X		tensor of 16-bit/32-bit/64-bit float values or memref of any
- *type values Input data tensor from the previous operator; dimensions for image
- *case are (N x C x H x W), where N is the batch size, C is the number of
- *channels, and H and W are the height and the width of the data. For non image
- *case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is
+ *   X  tensor of 16-bit/32-bit/64-bit float values or 
+ *   memref of any type values Input data tensor from the previous operator; 
+ *   dimensions for image case are (N x C x H x W), where N is the 
+ *   batch size, C is the number of channels, and H and W are the 
+ *   height and the width of the data. For non image case, the dimensions 
+ *   are in the form of (N x C x D1 x D2 ... Dn), where N is
  *		the batch size. Optionally, if dimension denotation is in
- *effect, the operation expects the input data tensor to arrive with the
- *dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE
- *...]. Output   :
+ *   effect, the operation expects the input data tensor to arrive with the
+ *   dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, 
+ *   DATA_FEATURE ...]. Output   :
  *
- * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any
- *type values or none type Output data tensor from average or max pooling across
- *the input tensor. Dimensions will vary based on various kernel, stride, and
- *pad sizes. Floor value of the dimension is used differentiable
+ *   Y    tensor of 16-bit/32-bit/64-bit float values or memref of any
+ *	  type values or none type Output data tensor from average or 
+ *	  max pooling across the input tensor. Dimensions will vary based 
+ *	  on various kernel, stride, and pad sizes. 
+ *	  Floor value of the dimension is used differentiable
  *
  * Validation
  * ----------
@@ -86,7 +88,8 @@ using namespace mlir::torch::TorchConversion;
  *--command
  *"build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  *--EmitONNXIR --debug --run-torch-pass
- * /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
+ * /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/
+ * backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
  *
  */
 

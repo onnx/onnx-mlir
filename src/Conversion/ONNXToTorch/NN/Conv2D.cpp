@@ -166,7 +166,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     auto groupValue = group.getAPSInt();
     auto strides_AR = strides.getValue();
-    ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
+    ::mlir::ArrayAttr stridesArrayAttr = 
+	    mlir::ArrayAttr::get(context, strides);
 
     std::vector<Value> translatepadsList =
         createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
@@ -211,7 +212,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
     TensorType w_tensor_type = w.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    TensorType op_tensor_type = 
+	    op->getResult(0).getType().cast<TensorType>();
 
     auto xTy = Torch::ValueTensorType::get(
         context, x_tensor_type.getShape(), x_tensor_type.getElementType());
@@ -268,8 +270,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
                  << f1v << "\n"
                  << "\n";
 
-    Value atenconv2d = rewriter.create<AtenConv2dOp>(
-        loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
+    Value atenconv2d = rewriter.create<AtenConv2dOp>( loc, resultTy, 
+		 xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
     llvm::outs() << "AtenConv2d operation creation "
                  << "\n"

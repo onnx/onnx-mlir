@@ -2,16 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- GlobalAveragePool.cpp - ONNX Op Transform ------------------===//
+//===---- GlobalAveragePool.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -54,6 +54,22 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
+/*
+ * ONNX GlobalAveragePool operation
+ *
+ * “GlobalAveragePool consumes an input tensor X and applies average 
+ * pooling across” “ the values in the same channel. 
+ * This is equivalent to AveragePool with kernel size” “ equal to the 
+ * spatial dimension of input tensor.”
+ *
+ * Operands:
+ *  X	tensor of 16-bit/32-bit/64-bit float values or memref of any 
+ *      type values
+ * Results:
+ *  Y	tensor of 16-bit/32-bit/64-bit float values or memref of any 
+ *      type values
+ *
+ */ 
 struct ONNXGlobalAveragePoolOpToTorchLowering : public ConversionPattern {
 public:
   ONNXGlobalAveragePoolOpToTorchLowering(
@@ -64,7 +80,8 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
-    ONNXGlobalAveragePoolOp op1 = llvm::dyn_cast<ONNXGlobalAveragePoolOp>(op);
+    ONNXGlobalAveragePoolOp op1 = 
+	    llvm::dyn_cast<ONNXGlobalAveragePoolOp>(op);
     ONNXGlobalAveragePoolOpAdaptor adapter(op1);
     mlir::MLIRContext *context = op1.getContext();
     Location loc = op1.getLoc();
@@ -78,7 +95,8 @@ public:
     Value f1v = rewriter.create<ConstantIntOp>(loc, f1);
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    TensorType op_tensor_type = 
+	    op->getResult(0).getType().cast<TensorType>();
 
     auto xTy = Torch::ValueTensorType::get(
         context, x_tensor_type.getShape(), x_tensor_type.getElementType());

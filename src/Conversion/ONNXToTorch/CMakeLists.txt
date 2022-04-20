@@ -10,14 +10,10 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/LeakyReluOp.cpp
   NN/MaxPoolSingleOutOp.cpp
   NN/PaddingOp.cpp
-  NN/FlattenOp.cpp
   NN/ReluOp.cpp
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
-  NN/SoftmaxOp.cpp
-  NN/ConcatOp.cpp
-  NN/AbsOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper

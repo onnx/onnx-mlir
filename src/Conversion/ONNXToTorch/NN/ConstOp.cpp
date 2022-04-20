@@ -6,12 +6,12 @@
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// =================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -66,7 +66,8 @@ using namespace mlir::torch::Torch;
  * --command
  * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_constant/model.onnx"
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
+ * test_constant/model.onnx"
  *
  * Limitations
  * -----------
@@ -78,7 +79,7 @@ class ONNXConstOpToTorchLowering : public ConversionPattern {
 public:
   ONNXConstOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+          typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
