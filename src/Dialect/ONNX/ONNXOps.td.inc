@@ -1797,6 +1797,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",

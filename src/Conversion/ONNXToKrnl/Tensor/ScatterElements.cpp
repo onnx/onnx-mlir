@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// Returns true if all the indices are known to be positive and false otherwise.
-static bool indicesArePositiveConstants(Value indices) {
-  DenseElementsAttr valueAttribute =
-      getDenseElementAttributeFromONNXValue(indices);
-  if (!valueAttribute)
-    return false;
-
-  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
-      [](IntegerAttr val) { return val.getInt() >= 0; });
-}
-
 struct ONNXScatterElementsOpLowering : public ConversionPattern {
   ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
