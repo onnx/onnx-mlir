@@ -116,7 +116,8 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets 
   // for this lowering.
   target.addLegalDialect<Torch::TorchDialect>();
-  target.addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
+  target
+      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
 
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
