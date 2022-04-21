@@ -3213,10 +3213,9 @@ LogicalResult ONNXTileOp::inferShapes(
 
 LogicalResult ONNXGatherOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
-    return success();
-  if (!indices().getType().isa<RankedTensorType>())
+  // Cannot infer the shape of the output if the inputs shape is not yet known.
+  if (llvm::any_of(
+          this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
     return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
@@ -4461,7 +4460,8 @@ LogicalResult ONNXScatterElementsOp::verify() {
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<mlir::ShapedType>())
+  // Cannot infer the shape of the output if the input shape is not yet known.
+  if (!hasShapeAndRank(data()))
     return success();
 
   getResult().setType(data().getType());
@@ -4555,7 +4555,8 @@ LogicalResult ONNXScatterNDOp::verify() {
 
 LogicalResult ONNXScatterNDOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<mlir::ShapedType>())
+  // Cannot infer the shape of the output if the input shape is not yet known.
+  if (!hasShapeAndRank(data()))
     return success();
 
   getResult().setType(data().getType());
