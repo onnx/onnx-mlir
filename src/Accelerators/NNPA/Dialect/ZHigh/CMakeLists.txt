@@ -16,6 +16,9 @@ add_onnx_mlir_library(OMZHighOps
   OMShapeInferenceOpInterfaceIncGen
   libzdnn
 
+  LINK_LIBS PRIVATE
+  Diagnostic
+
   LINK_LIBS PUBLIC
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
