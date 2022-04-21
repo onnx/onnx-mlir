@@ -80,33 +80,22 @@ int main(int argc, char *argv[]) {
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
-        for (int64_t h = 2; h < 5; h++) {
-          // Static dimensions.
-          // forward
-          assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h));
-          // reverse
-          assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h));
-          // bidirectional
-          assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h));
+        for (int64_t h = 2; h < 5; h++)
+          for (int64_t dyns = 0; dyns < 2; dyns++)
+            for (int64_t dynb = 0; dynb < 2; dynb++)
+              for (int64_t noneh = 0; noneh < 2; noneh++)
+                for (int64_t nonec = 0; nonec < 2; nonec++)
+                  for (int64_t nonep = 0; nonep < 2; nonep++) {
+                    // forward
+                    assert(isOMLSTMTheSameAsNaiveImplFor(
+                        1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
+                    // reverse
+                    assert(isOMLSTMTheSameAsNaiveImplFor(
+                        -1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
+                    // bidirectional
+                    assert(isOMLSTMTheSameAsNaiveImplFor(
+                        2, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
+                  }
 
-          // Dynamic dimensions for sequence, batch size.
-          // forward
-          assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h, true, true));
-          // reverse
-          assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h, true, true));
-          // bidirectional
-          assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h, true, true));
-
-          // Static dimensions (initial_h, initial_c and p are not specified)
-          // forward
-          assert(isOMLSTMTheSameAsNaiveImplFor(
-              1, s, b, i, h, false, false, true, true, true));
-          // reverse
-          assert(isOMLSTMTheSameAsNaiveImplFor(
-              -1, s, b, i, h, false, false, true, true, true));
-          // bidirectional
-          assert(isOMLSTMTheSameAsNaiveImplFor(
-              2, s, b, i, h, false, false, true, true, true));
-        }
   return 0;
 }
