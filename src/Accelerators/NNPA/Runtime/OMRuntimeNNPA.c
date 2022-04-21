@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- OMNNPA.c ---------------------------===//
+//===-------------------------- OMRuntimeNNPA.c ---------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -24,13 +24,42 @@ extern "C" {
 
 /* Interface for device init and shutdown.
  *
- * Testing if the code is initalized or not should be done prior to any zdnn
- * computations. This test can be performed in the run_main_graph() without
- * grabbing a lock, as follows:
+ * For devices that requires initialization before execution, we suggest the
+ * following interface. Assuming a device named X.
+ *
+ * 1. Define a variable OMIsInitAccelX initialized to zero. It should be safe
+ *    to read this variable outside of a lock. Setting this value to one is done
+ *    within OMInitAccelX and setting this value to zero is done within the
+ *    OMShutdownAccelX.
+ * 2. Define a function OMInitAccelX that initialize the device only once, and
+ *    once it is initialized, set the OMIsInitAccelX value to 1. This function
+ *    must be thread safe.
+ * 3. Optionally define a function OMShutdownAccelX that shut down the device
+ *    only once. This function is thread safe. Additional restrictions exist
+ *    on this function, namely that it can only be called when provably no
+ *    threads are using the accelerator. Failure to do so may result in
+ *    incorrect result and/or execution failure.
+ * 4. For models that use accelerator X, the compiler must insert a test of the
+ *    type below before any use of accelerator's X functionality.
+ *
+ *    if (!OMIsInitAccelX) OMInitAccelX().
+ *
+ * 5.  Accelerators that requires a given level of support (e.g. the graph was
+ *     compiled with code that requires level V), one may define a additional
+ *     init function OMInitCompatibleAccelNNPA which passes the minimum level
+ *     V as parameter. After initializing the function, the device is tested
+ *     to see if it support level V. If not, an error is generated and the
+ *     program abort.
+ */
+
+/* Init and shutdown for NNPA device.
+ *
+ * This test can be performed in the run_main_graph() without grabbing a lock,
+ * as follows:
  *
  * if (!OMIsInitAccelNNPA) OMInitAccelNNPA();
  *
- * OMInitAccelNNPA() is thread save, and is guaranteed to set
+ * OMInitAccelNNPA() is thread safe, and is guaranteed to set
  * OMIsInitAccelNNPA=1 once any other threads are guaranteed to see the full
  * effects of the zdnn_init(). Because Z has a release consistency memory
  * subsystem, we need a hard memory fence between zdnn_init() and
@@ -94,8 +123,7 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
       pthread_mutex_unlock(&OMInnerMutexForInitShutdownNNPA);
       /* Check if version is compatible */
       isCompatible = zdnn_is_version_runnable((uint32_t)versionNum);
-      if (isCompatible)
-        OMIsInitAccelNNPA = 1;
+      OMIsInitAccelNNPA = 1;
     } /* Release outer mutex. */
     pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
     /* If not compatible, generate an error here */
