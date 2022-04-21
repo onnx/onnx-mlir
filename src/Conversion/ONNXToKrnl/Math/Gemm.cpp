@@ -50,8 +50,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Create all the loops at once (outerloops followed by inner loop).
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(3);
-    ValueRange outerLoopDef{loopDef[0], loopDef[1]};
-    ValueRange innerLoopDef{loopDef[2]};
+    SmallVector<Value, 2> outerLoopDef{loopDef[0], loopDef[1]};
+    SmallVector<Value, 1> innerLoopDef{loopDef[2]};
     SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
     IndexExpr outerUb0 = shapeHelper.dimsForOutput()[0];
     IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];

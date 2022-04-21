@@ -32,6 +32,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm);
 
 void addZHighToZLowPasses(mlir::PassManager &pm);
 
+void normalizeMemRefsPasses(mlir::PassManager &pm);
+
 void addAllToLLVMPasses(mlir::PassManager &pm);
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
