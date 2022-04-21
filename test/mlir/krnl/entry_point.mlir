@@ -232,7 +232,7 @@ module {
 
 // -----
 
-// COM: Generate calls for initializing accelerators.
+// COM: Generate calls that initialize accelerators.
 module attributes {"onnx-mlir.accels" = ["Pseudo", "NNPA"]} {
   func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>

@@ -86,6 +86,7 @@ public:
 
     // Emit code to initialize accelerators by calling OMInitAccelX where X is
     // the accelerator name.
+    // OMInitAccelX's signature is `void ()`.
     if (Attribute maccelAttr =
             module->getAttrOfType<::mlir::Attribute>("onnx-mlir.accels")) {
       assert(
@@ -360,6 +361,7 @@ private:
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
     std::string funcName = "OMInitAccel" + accelName.str();
     // Insert the declaration if it is not already present.
+    // OMInitAccelX's signature is `void ()`.
     auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
     MLIRContext *ctx = rewriter.getContext();
     if (!func) {
