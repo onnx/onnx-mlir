@@ -24,8 +24,7 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
   return matmul.build() && matmul.compileAndLoad() &&
-         matmul.prepareInputs() && matmul.run() &&
-         matmul.verifyOutputs();
+         matmul.prepareInputs(100.0) && matmul.run() && matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir
@@ -43,6 +42,14 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   bool success;
 
+#if 1
+  printf("RapidCheck one size only.\n");
+  success = rc::check("Matrix-mat Matmul implementation correctness",
+      []() { RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(4, 8, 4)); });
+  if (!success)
+    return 1;
+  return 0;
+#endif
   printf("RapidCheck Matrix-Vector test case generation.\n");
   success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(4, 50);

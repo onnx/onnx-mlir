@@ -521,6 +521,7 @@ private:
                 Value vb = create.vec.load(vecType, B, bAccess);
                 // TTmpC() = vector_fma(va, vb, TTmpC());
                 Value tmpVal = createAffine.load(TmpC, tmpCAccess);
+                // FMA.
                 Value res = create.vec.fma(va, vb, tmpVal);
                 createAffine.store(res, TmpC, tmpCAccess);
               });

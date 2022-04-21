@@ -192,7 +192,7 @@ public:
       const float alphaVal, const float betaVal);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRange); // Optionally set random number range.
   bool verifyOutputs() final;
 
 private:
@@ -209,7 +209,7 @@ public:
       const std::string &modelName, const int I, const int J, const int K);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRange); // Optionally set random number range.
   bool verifyOutputs() final;
 
 private:
