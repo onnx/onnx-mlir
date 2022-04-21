@@ -84,6 +84,23 @@ public:
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
 
+    // Emit code to initialize accelerators by calling OMInitAccelX where X is
+    // the accelerator name.
+    if (Attribute maccelAttr =
+            module->getAttrOfType<::mlir::Attribute>("onnx-mlir.accels")) {
+      assert(
+          maccelAttr.isa<ArrayAttr>() && "onnx-mlir.accels must be ArrayAttr");
+      ArrayAttr accels = maccelAttr.cast<ArrayAttr>();
+      for (uint64_t i = 0; i < accels.size(); ++i) {
+        assert(accels[i].isa<StringAttr>() && "Attribute must be StringAttr");
+        StringRef accelName =
+            accels.getValue()[i].cast<StringAttr>().getValue();
+        FlatSymbolRefAttr funcRef =
+            getOrInsertOMInitAccel(rewriter, module, accelName);
+        rewriter.create<LLVM::CallOp>(loc, TypeRange(), funcRef, ValueRange());
+      }
+    }
+
     // Based on the static entry point type signature, unpack dynamic memory
     // refs to corresponding static memory refs.
     auto wrappedStaticEntryPointFuncName =
@@ -337,6 +354,21 @@ private:
                   /*isVarArg=*/false));
     }
     return SymbolRefAttr::get(ctx, "malloc");
+  }
+
+  FlatSymbolRefAttr getOrInsertOMInitAccel(
+      PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
+    std::string funcName = "OMInitAccel" + accelName.str();
+    // Insert the declaration if it is not already present.
+    auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
+    MLIRContext *ctx = rewriter.getContext();
+    if (!func) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+      func = rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName,
+          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx), {}));
+    }
+    return SymbolRefAttr::get(ctx, funcName);
   }
 };
 

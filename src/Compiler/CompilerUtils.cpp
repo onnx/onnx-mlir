@@ -741,6 +741,17 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
+  // Set the module target accelerators.
+  if (!maccel.empty()) {
+    SmallVector<Attribute, 1> accels;
+    for (onnx_mlir::accel::Accelerator::Kind kind : maccel) {
+      StringRef accelName = onnx_mlir::accel::Accelerator::getName(kind);
+      assert(!accelName.empty() && "Accelerator name does not exist");
+      accels.emplace_back(StringAttr::get(&context, accelName));
+    }
+    moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accels));
+  }
+
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
     module.release();
@@ -763,12 +774,14 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
+  // Initialize accelerator(s) if required.
+  if (!maccel.empty())
+    onnx_mlir::accel::initAccelerators();
+
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  // Initialize accelerator(s) if required.
   if (!maccel.empty()) {
-    onnx_mlir::accel::initAccelerators();
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       if (!accel->isActive())
         continue;

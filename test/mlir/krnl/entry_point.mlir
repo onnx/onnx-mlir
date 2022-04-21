@@ -229,3 +229,18 @@ module {
 // CHECK:           llvm.return [[VAR_20_2_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Generate calls for initializing accelerators.
+module attributes {"onnx-mlir.accels" = ["Pseudo", "NNPA"]} {
+  func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
+    return %arg0 : memref<10xf32>
+  }
+  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
+// CHECK: llvm.func @OMInitAccelNNPA()
+// CHECK: llvm.func @OMInitAccelPseudo()
+// CHECK-LABEL: llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
+// CHECK-NEXT:  llvm.call @OMInitAccelPseudo() : () -> ()
+// CHECK-NEXT:  llvm.call @OMInitAccelNNPA() : () -> ()
+}

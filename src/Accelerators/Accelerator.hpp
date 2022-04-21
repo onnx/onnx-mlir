@@ -31,6 +31,10 @@
 #define INVOKE_ACCEL_INIT_FUNCTION(name) create##name();
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
+#define GET_ACCEL_NAME(name)                                                   \
+  case accel::Accelerator::Kind::name:                                         \
+    return llvm::StringRef(#name);                                             \
+    break;
 
 namespace onnx_mlir {
 namespace accel {
@@ -55,6 +59,15 @@ public:
 
   /// Returns the set of accelerators available.
   static const llvm::SmallVectorImpl<Accelerator *> &getAccelerators();
+
+  /// Returns the accelerator name of the give kind.
+  static const llvm::StringRef getName(Kind kind) {
+    switch (kind) {
+      APPLY_TO_ACCELERATORS(GET_ACCEL_NAME)
+    default:
+      return llvm::StringRef();
+    }
+  }
 
   /// Returns whether the accelerator is active.
   virtual bool isActive() const = 0;
