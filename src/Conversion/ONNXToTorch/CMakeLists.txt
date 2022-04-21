@@ -10,7 +10,7 @@ add_onnx_mlir_library(OMONNXToTorch
   #ControlFlow/Scan.cpp
   #Math/CumSum.cpp
   #Math/Clip.cpp
-  #Math/Elementwise.cpp
+  NN/ElementwiseOp.cpp
   #Math/Gemm.cpp
   #Math/Hardmax.cpp
   #Math/LRN.cpp

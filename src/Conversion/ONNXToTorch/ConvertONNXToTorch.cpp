@@ -45,7 +45,8 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConcatOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchAbsOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchSqrtOpPattern(patterns, typeConverter, ctx, enableTiling);
+  // populateLoweringONNXToTorchSqrtOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//
