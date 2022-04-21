@@ -13,35 +13,34 @@
 //
 //===-----------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <set>
+
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
+#include "mlir/Transforms/DialectConversion.h"
 
+#include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
@@ -67,10 +66,12 @@ using namespace mlir::torch::Torch;
  *        tensor of 32-bit/64-bit signless integer values or
  *        tensor of 16-bit/32-bit/64-bit float values or
  *        tensor of bfloat16 type values or memref of any type values
+ *  Map this A operand with input parameter in torch side.
  *    B   tensor of 32-bit/64-bit unsigned integer values or
  *        tensor of 32-bit/64-bit signless integer values or
  *        tensor of 16-bit/32-bit/64-bit float values or
  *        tensor of bfloat16 type values or memref of any type values
+ *  Map this B operand with other parameter in torch side.
  *
  * Results:
  *   C    tensor of 32-bit/64-bit unsigned integer values or
@@ -107,12 +108,12 @@ public:
 
     auto aTy = Torch::ValueTensorType::get(
         context, a_tensor_type.getShape(), a_tensor_type.getElementType());
-    auto att = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, aTy, a);
+    auto att = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
+	    (loc, aTy, a);
     auto bTy = Torch::ValueTensorType::get(context,
 		b_tensor_type.getShape(), b_tensor_type.getElementType());
-    auto btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, bTy, b);
+    auto btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
+	    (loc, bTy, b);
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
         op_tensor_type.getShape(), op_tensor_type.getElementType());
     Value atenaddresult =

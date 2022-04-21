@@ -13,35 +13,34 @@
 //
 //===-------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <set>
+
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
+#include "mlir/Transforms/DialectConversion.h"
 
+#include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
@@ -62,22 +61,26 @@ using namespace mlir::torch::Torch;
  *
  * Attributes
  *    axis    	::mlir::IntegerAttr 	i64-bit signed integer attribute
+ *    In torch side, Calculate Start dim and End dim using this 
+ *    axis attribute value.
  *
  * Operands:
  *    input     tensor of 8-bit/16-bit/32-bit unsigned integer values or
  *    		tensor of 64-bit unsigned integer values or
- *    		tensor of 8-bit/16-bit/32-bit/64-bit signless integer values
+ *    	       	tensor of 8-bit/16-bit/32-bit/64-bit signless integer 
+ *    	       	values or
  *    		tensor of bfloat16 type or tensor of 16-bit float values
  *    		tensor of 32-bit float or tensor of 64-bit float values
  *    		tensor of string type values or tensor of 1-bit signless 
  *    		integer values or tensor of complex type with 32-bit float
  *    		elements values or tensor of complex type with 64-bit float
  *    		elements values or memref of any type values
- *
+ *    Map this input operand into input parameter in torch side.
  * Results:
  *    output     tensor of 8-bit/16-bit/32-bit unsigned integer values or
  *              tensor of 64-bit unsigned integer values or
- *              tensor of 8-bit/16-bit/32-bit/64-bit signless integer values
+ *              tensor of 8-bit/16-bit/32-bit/64-bit signless integer 
+ *              values or
  *              tensor of bfloat16 type or tensor of 16-bit float values
  *              tensor of 32-bit float or tensor of 64-bit float values
  *              tensor of string type values or tensor of 1-bit signless
@@ -166,7 +169,7 @@ public:
   }
 };
 
-void populateLoweringONNXToTorchFlattenOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+void populateLoweringONNXToTorchFlattenOpPattern(RewritePatternSet 
+    &patterns, TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXFlattenOpToTorchLowering>(typeConverter, ctx);
 }
