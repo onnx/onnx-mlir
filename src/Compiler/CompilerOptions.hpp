@@ -25,7 +25,6 @@ extern const std::string OnnxMlirEnvOptionName;
 namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
-extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::opt<bool> invokeOnnxVersionConverter;
 extern llvm::cl::opt<bool> preserveLocations;
 extern llvm::cl::opt<bool> printIR;
@@ -45,8 +44,8 @@ extern llvm::cl::opt<std::string> Xopt;
 extern llvm::cl::opt<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
 
-extern llvm::cl::OptionCategory OMPassOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
+extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
