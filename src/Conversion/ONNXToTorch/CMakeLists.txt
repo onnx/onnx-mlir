@@ -4,6 +4,33 @@
 add_onnx_mlir_library(OMONNXToTorch
   ConvertONNXToTorch.cpp
   ONNXToTorchCommon.cpp
+  NN/CommonUtils.cpp
+  NN/Conv2D.cpp
+  NN/ConstOp.cpp
+  NN/LeakyReluOp.cpp
+  NN/MaxPoolSingleOutOp.cpp
+  NN/PaddingOp.cpp
+  NN/ReluOp.cpp
+  NN/GlobalAveragePool.cpp
+  NN/ReduceMean.cpp
+  NN/Gemm.cpp
+
+  LINK_LIBS PUBLIC
+  OMConstPropHelper
+  OMONNXOps
+  OMSupport
+  MLIRStandardOpsTransforms
+  OMONNXRewrite
+  OMShapeInference
+  MLIRIR
+  MLIRPass
+  MLIRTransforms
+  TorchMLIRTorchDialect
+  TorchMLIRTorchUtils
+  TorchMLIRInitAll
+  TorchMLIRTorchConversionDialect
+  TorchMLIRTorchPasses
+  MLIRMemRefTransforms
   #PerfectHash.cpp
   #ControlFlow/Loop.cpp
   #ControlFlow/Scan.cpp
@@ -20,11 +47,6 @@ add_onnx_mlir_library(OMONNXToTorch
   #Math/Softmax.cpp
   #Math/TopK.cpp
   #ML/CategoryMapper.cpp
-  NN/Conv2D.cpp
-  NN/ConstOp.cpp
-  NN/LeakyReluOp.cpp
-  NN/MaxPoolSingleOutOp.cpp
-  NN/PaddingOp.cpp
   #NN/Normalization.cpp
   #NN/Pooling.cpp
   #ObjectDetection/NonMaxSuppression.cpp
@@ -60,47 +82,10 @@ add_onnx_mlir_library(OMONNXToTorch
   #Tensor/Resize.cpp
   #Tensor/ReverseSequence.cpp
   #ConvertONNXToTorch.cpp
-  LINK_LIBS PUBLIC
-  OMConstPropHelper
-  OMONNXOps
-  OMSupport
-  MLIRStandardOpsTransforms
-  OMONNXRewrite
-  OMShapeInference
-  MLIRIR
-  MLIRPass
-  MLIRTransforms
-  TorchMLIRTorchDialect
-  TorchMLIRTorchUtils
-  TorchMLIRInitAll
-  TorchMLIRTorchConversionDialect
-  TorchMLIRTorchPasses
-  MLIRMemRefTransforms
-
   )
 
 add_onnx_mlir_library(ONNXToAtenTypesTransform
   TypesTransformToTorchPass.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMSupport
-  OMONNXRewrite
-  OMShapeInference
-  MLIRIR
-  MLIRPass
-  MLIRTransforms
-  TorchMLIRTorchDialect
-  TorchMLIRTorchUtils
-  TorchMLIRInitAll
-  TorchMLIRTorchConversionDialect
-  TorchMLIRTorchPasses
-  MLIRMemRefTransforms
-  )
-
-
-add_onnx_mlir_library(ONNXToAtenConv2DOpTransform
-  NN/Conv22DOpTransformToTorchPass.cpp 
 
   LINK_LIBS PUBLIC
   OMONNXOps

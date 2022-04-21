@@ -63,7 +63,7 @@ std::unique_ptr<Pass> createLowerToKrnlPass(
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<Pass> createLowerToTorchPass();
 std::unique_ptr<Pass> createLowerToTorchPass(int optLevel);
-  
+
 /// Pass for ONNX to Aten Types Transform
 std::unique_ptr<Pass> createONNXToAtenTypesTransformPass();
 std::unique_ptr<Pass> createONNXToAtenFinalizeTypesTransformPass();
