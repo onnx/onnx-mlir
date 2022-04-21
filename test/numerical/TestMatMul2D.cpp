@@ -42,14 +42,6 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   bool success;
 
-#if 1
-  printf("RapidCheck one size only.\n");
-  success = rc::check("Matrix-mat Matmul implementation correctness",
-      []() { RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(4, 8, 4)); });
-  if (!success)
-    return 1;
-  return 0;
-#endif
   printf("RapidCheck Matrix-Vector test case generation.\n");
   success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(4, 50);
