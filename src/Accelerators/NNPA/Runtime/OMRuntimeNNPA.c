@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "zdnn.h"
 
@@ -57,7 +59,6 @@ pthread_mutex_t OMInnerMutexForInitShutdownNNPA = PTHREAD_MUTEX_INITIALIZER;
 // Define function that performs the serialization of the initialization as well
 // as set the OMIsInitAccelNNPA to true.
 // Name must be OMInitAccelX where X=NNPA.
-
 void OMInitAccelNNPA() {
   if (!OMIsInitAccelNNPA) {
     /* Grab outer mutex. */
@@ -76,10 +77,41 @@ void OMInitAccelNNPA() {
   }
 }
 
+// Perform the same test and also check that the NNPA version that the program
+// was compiled for is compatible with the actual NNPA hardware.
+void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
+  if (!OMIsInitAccelNNPA) {
+    int isCompatible = 1;
+    /* Grab outer mutex. */
+    pthread_mutex_lock(&OMOuterMutexForInitShutdownNNPA);
+    /* Test again in the mutex to see if accelerator is not initialized. */
+    if (!OMIsInitAccelNNPA) {
+      /* Still unitinitialized, get inner mutex to fence init code. */
+      pthread_mutex_lock(&OMInnerMutexForInitShutdownNNPA);
+      /* Actual init. */
+      zdnn_init();
+      /* Release inner mutex, and then set accelerator to initialized. */
+      pthread_mutex_unlock(&OMInnerMutexForInitShutdownNNPA);
+      /* Check if version is compatible */
+      isCompatible = zdnn_is_version_runnable((uint32_t)versionNum);
+      if (isCompatible)
+        OMIsInitAccelNNPA = 1;
+    } /* Release outer mutex. */
+    pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
+    /* If not compatible, generate an error here */
+    if (!isCompatible) {
+      fprintf(stderr,
+          "Attempting to initialize zdnn with version num %llu, which is "
+          "not compatible with current NNPA hardware\n",
+          versionNum);
+      exit(1);
+    }
+  }
+}
+
 // Define function that performs the serialization of the shutdown as well
 // as set the OMIsInitAccelNNPA to false.
 // Name must be OMShutdownAccelX where X=NNPA.
-
 void OMShutdownAccelNNPA() {
   if (OMIsInitAccelNNPA) {
     /* Grab outer mutex. */
