@@ -85,7 +85,7 @@ static void BM_GRU_LINEAR_BEFORE_RESET(benchmark::State &state) {
   int H = state.range(4);
 
   onnx_mlir::test::GRULibBuilder gru(modelName, D, S, B, I, H,
-      /*linearBeforeReset=*/true,
+      /*layout=*/false, /*linearBeforeReset=*/true,
       /*isDynamicS=*/false, /*isDynamicB=*/false);
   assert(gru.build() && gru.compileAndLoad(opts) && gru.prepareInputs() &&
          "failed gru");
@@ -109,7 +109,7 @@ static void BM_GRU_LINEAR_AFTER_RESET(benchmark::State &state) {
   int H = state.range(4);
 
   onnx_mlir::test::GRULibBuilder gru(modelName, D, S, B, I, H,
-      /*linearBeforeReset=*/false,
+      /*layout=*/false, /*linearBeforeReset=*/false,
       /*isDynamicS=*/false, /*isDynamicB=*/false);
   assert(gru.build() && gru.compileAndLoad(opts) && gru.prepareInputs() &&
          "failed gru");

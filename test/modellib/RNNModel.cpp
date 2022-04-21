@@ -83,6 +83,9 @@ bool RNNLibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
+  auto layout =
+    IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, 0, /*isSigned=*/true));
   auto activationsAttr = builder.getStrArrayAttr({"Tanh", "Tanh"});
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
@@ -98,7 +101,8 @@ bool RNNLibBuilder::build() {
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/activationsAttr, /*clip=*/FloatAttr(),
-      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
+      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
+      /*layout=*/layout);
 
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);

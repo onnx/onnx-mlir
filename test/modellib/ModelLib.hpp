@@ -273,8 +273,8 @@ private:
 class GRULibBuilder : public ModelLibBuilder {
 public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
-      const int B, const int I, const int H, const int linearBeforeReset,
-      const bool isDynamicS, const bool isDynamicB);
+      const int B, const int I, const int H, const int layout,
+      const int linearBeforeReset, const bool isDynamicS, const bool isDynamicB);
   ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -282,7 +282,7 @@ public:
 
 private:
   // Data that defines model.
-  const int direction, S, B, I, H, linearBeforeReset, isDynamicS, isDynamicB;
+  const int direction, S, B, I, H, layout, linearBeforeReset, isDynamicS, isDynamicB;
   // Computed parameters.
   int D;
   llvm::SmallVector<int64_t, 3> xShape, hShape;

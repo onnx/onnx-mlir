@@ -29,10 +29,10 @@ namespace test {
 static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
 GRULibBuilder::GRULibBuilder(const std::string &modelName, const int direction,
-    const int S, const int B, const int I, const int H,
+    const int S, const int B, const int I, const int H, const int layout,
     const int linearBeforeReset, const bool isDynamicS, const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
-      linearBeforeReset(linearBeforeReset), isDynamicS(isDynamicS),
+      layout(layout), linearBeforeReset(linearBeforeReset), isDynamicS(isDynamicS),
       isDynamicB(isDynamicB), xShape(), hShape(), wOmt(nullptr), rOmt(nullptr),
       bOmt(nullptr) {}
 
@@ -88,6 +88,9 @@ bool GRULibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
+  auto layoutAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, layout, /*isSigned=*/true));
   auto linearBeforeResetAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, linearBeforeReset, /*isSigned=*/true));
@@ -106,6 +109,7 @@ bool GRULibBuilder::build() {
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
+      /*layout=*/layoutAttr,
       /*linear_before_reset=*/linearBeforeResetAttr);
 
   gruOp.getResults()[0].setType(yType);

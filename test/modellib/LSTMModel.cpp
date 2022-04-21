@@ -94,6 +94,9 @@ bool LSTMLibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
+  auto layout =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, 0, /*isSigned=*/true));
   auto inputForgetAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, 0, /*isSigned=*/true));
@@ -115,7 +118,7 @@ bool LSTMLibBuilder::build() {
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*input_forget=*/inputForgetAttr);
+      /*layout=*/layout, /*input_forget=*/inputForgetAttr);
 
   lstmOp.getResults()[0].setType(yType);
   lstmOp.getResults()[1].setType(yHType);

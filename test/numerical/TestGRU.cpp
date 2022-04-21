@@ -21,10 +21,10 @@ namespace test {
 // naive implementation of GRU for a specific set of GRU
 // parameters/configuration.
 bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
-    const int I, const int H, const int linearBeforeReset,
+    const int I, const int H, const int layout, const int linearBeforeReset,
     bool isDynamicS = false, bool isDynamicB = false) {
 
-  GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H,
+  GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H, layout,
       linearBeforeReset, isDynamicS, isDynamicB);
   return gru.build() && gru.compileAndLoad() && gru.prepareInputs() &&
          gru.run() && gru.verifyOutputs();
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     const auto isDynB = *rc::gen::element(0, 1);
 
     RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
-        D, S, B, I, H, L, isDynS == 0, isDynB == 0));
+        D, S, B, I, H, /*layout=*/ 0, L, isDynS == 0, isDynB == 0));
   });
   if (!success)
     return 1;
@@ -79,19 +79,19 @@ int main(int argc, char *argv[]) {
           for (int64_t l = 0; l < 2; l++) {
             // Static dimensions.
             // forward
-            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l));
+            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, 0, l));
             // reverse
-            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l));
+            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, 0, l));
             // bidirectional
-            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l));
+            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, 0, l));
 
             // Dynamic dimensions for sequence, batch size.
             // forward
-            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true, true));
+            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, 0, l, true, true));
             // reverse
-            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true, true));
+            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, 0, l, true, true));
             // bidirectional
-            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
+            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, 0, l, true, true));
           }
   return 0;
 }
