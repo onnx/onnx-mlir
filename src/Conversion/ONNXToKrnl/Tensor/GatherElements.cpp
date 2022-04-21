@@ -57,25 +57,25 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
 
-    KrnlBuilder createKrnl(rewriter, loc);
-    IndexExprScope indexScope(createKrnl);
-    MemRefBoundsIndexCapture dataBounds(data);
-    DimsExpr dataDims;
+    MemRefBoundsIndexCapture dataBounds(data), indicesBounds(indices);
+    DimsExpr dataDims, indicesDims;
     dataBounds.getDimList(dataDims);
+    indicesBounds.getDimList(indicesDims);
 
     // Gather elements from the 'data' tensor, store them into the output.
     //   index = indices[i][j]...[n]
     //   output[i][j]...[n] = data[i][j]..[index]..[n] (index used at axis dim.)
     //
-    ValueRange loopDef = createKrnl.defineLoops(dataRank);
-    DimsExpr lbs(dataRank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(loopDef, loopDef, lbs, dataDims,
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange loopDef = createKrnl.defineLoops(indicesRank);
+    DimsExpr lbs(indicesRank, LiteralIndexExpr(0));
+    createKrnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
 
           // Access function for indices and output.
-          SmallVector<IndexExpr, 4> accessFct;
+          DimsExpr accessFct;
           getIndexExprList<DimIndexExpr>(loopInd, accessFct);
 
           // Compute index = indices[i][j]...[n]
@@ -90,8 +90,8 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
           }
 
           // Access function for the 'data' tensor.
-          SmallVector<IndexExpr, 4> dataAccessFct;
-          for (int i = 0; i < dataRank; ++i)
+          DimsExpr dataAccessFct;
+          for (int64_t i = 0; i < dataRank; ++i)
             dataAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
 
           // Gather values from the 'data' tensor and save them.
