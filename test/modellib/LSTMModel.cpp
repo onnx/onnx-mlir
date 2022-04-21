@@ -82,15 +82,8 @@ bool LSTMLibBuilder::build() {
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
-  Value hVal, cVal;
-  if (isNoneH)
-    hVal = noneVal;
-  else
-    hVal = entryBlock.getArgument(1);
-  if (isNoneC)
-    cVal = noneVal;
-  else
-    cVal = entryBlock.getArgument(2);
+  auto hVal = (isNoneH) ? noneVal : entryBlock.getArgument(1);
+  auto cVal = (isNoneC) ? noneVal : entryBlock.getArgument(2);
   auto sVal = noneVal;
 
   StringAttr directionAttr;
@@ -110,21 +103,12 @@ bool LSTMLibBuilder::build() {
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
   bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
+  pOmt = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(pShape), 0.0, (isNoneP) ? 0.0 : 1.0);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
-  Value pConstant;
-  if (isNoneP) {
-    // Set zero in all elements for verifyOutput()
-    // and pass none value to ONNX LSTM
-    pOmt =
-        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 0);
-    pConstant = noneVal;
-  } else {
-    pOmt =
-        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1);
-    pConstant = buildONNXConstantOp(pOmt, pType);
-  }
+  auto pConstant = (isNoneP) ? noneVal : buildONNXConstantOp(pOmt, pType);
 
   auto lstmOp = builder.create<ONNXLSTMOp>(loc,
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
@@ -154,10 +138,10 @@ bool LSTMLibBuilder::prepareInputs() {
     return false;
   list[0] =
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
-  list[1] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
-  list[2] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0.0, 1.0);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(hShape), 0.0, (isNoneH) ? 0.0 : 1.0);
+  list[2] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(cShape), 0.0, (isNoneC) ? 0.0 : 1.0);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
 }
@@ -186,17 +170,8 @@ bool LSTMLibBuilder::verifyOutputs() {
   OMTensor *peepholes = pOmt;
   // Get inputs and outputs.
   OMTensor *input = omTensorListGetOmtByIndex(inputs, 0);
-  OMTensor *initialH, *initialC;
-  if (isNoneH)
-    initialH =
-        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 0);
-  else
-    initialH = omTensorListGetOmtByIndex(inputs, 1);
-  if (isNoneC)
-    initialC =
-        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 0);
-  else
-    initialC = omTensorListGetOmtByIndex(inputs, 2);
+  OMTensor *initialH = omTensorListGetOmtByIndex(inputs, 1);
+  OMTensor *initialC = omTensorListGetOmtByIndex(inputs, 2);
   OMTensor *lstmY = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *lstmYh = omTensorListGetOmtByIndex(outputs, 1);
   OMTensor *lstmYc = omTensorListGetOmtByIndex(outputs, 2);
