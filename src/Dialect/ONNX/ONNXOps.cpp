@@ -936,6 +936,17 @@ LogicalResult ONNXSeluOp::inferShapes(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// HardSwish
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXHardSwishOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXHardSwishOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
 // Sequence related operations
 // The general form for seq is seq<tensor<*xT>>
 // Tensors will be add to or removed from a seq dynamically.
@@ -4752,6 +4763,12 @@ LogicalResult ONNXTreeEnsembleClassifierOp::inferShapes(
 LogicalResult ONNXTreeEnsembleRegressorOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXTriluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand(0).getType());
+  return success();
 }
 
 LogicalResult ONNXZipMapOp::inferShapes(
