@@ -77,8 +77,8 @@ void OMInitAccelNNPA() {
   }
 }
 
-// Perform the same test and also check that the NNPA version that the program
-// was compiled for is compatible with the actual NNPA hardware.
+// Perform the same initialization and also check that the NNPA version that the
+// program was compiled for is compatible with the actual NNPA hardware.
 void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
   if (!OMIsInitAccelNNPA) {
     int isCompatible = 1;
