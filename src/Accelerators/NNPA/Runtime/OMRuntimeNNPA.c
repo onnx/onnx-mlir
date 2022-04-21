@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -44,12 +45,14 @@ extern "C" {
  *
  *    if (!OMIsInitAccelX) OMInitAccelX().
  *
- * 5.  Accelerators that requires a given level of support (e.g. the graph was
- *     compiled with code that requires level V), one may define a additional
- *     init function OMInitCompatibleAccelNNPA which passes the minimum level
- *     V as parameter. After initializing the function, the device is tested
- *     to see if it support level V. If not, an error is generated and the
- *     program abort.
+ *    Calling OMInitAccelX() unconditionally is also appropriate.
+ *
+ * 5. Accelerators that requires a given level of support (e.g. the graph was
+ *    compiled with code that requires level V), one may define a additional
+ *    init function OMInitCompatibleAccelNNPA which passes the minimum level
+ *    V as parameter. After initializing the function, the device is tested
+ *    to see if it support level V. If not, an error is generated and the
+ *    program abort.
  */
 
 /* Init and shutdown for NNPA device.
