@@ -30,10 +30,12 @@ static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
 LSTMLibBuilder::LSTMLibBuilder(const std::string &modelName,
     const int direction, const int S, const int B, const int I, const int H,
-    const bool isDynamicS, const bool isDynamicB)
+    const bool isDynamicS, const bool isDynamicB, const bool isNoneH,
+    const bool isNoneC, const bool isNoneP)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
-      isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(), hShape(),
-      cShape(), wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
+      isDynamicS(isDynamicS), isDynamicB(isDynamicB), isNoneH(isNoneH),
+      isNoneC(isNoneC), isNoneP(isNoneP), xShape(), hShape(), cShape(),
+      wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
 
 LSTMLibBuilder::~LSTMLibBuilder() {
   omTensorDestroy(wOmt);
@@ -80,8 +82,15 @@ bool LSTMLibBuilder::build() {
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
-  auto hVal = entryBlock.getArgument(1);
-  auto cVal = entryBlock.getArgument(2);
+  Value hVal, cVal;
+  if (isNoneH)
+    hVal = noneVal;
+  else
+    hVal = entryBlock.getArgument(1);
+  if (isNoneC)
+    cVal = noneVal;
+  else
+    cVal = entryBlock.getArgument(2);
   auto sVal = noneVal;
 
   StringAttr directionAttr;
@@ -101,11 +110,21 @@ bool LSTMLibBuilder::build() {
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
   bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
-  pOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
-  auto pConstant = buildONNXConstantOp(pOmt, pType);
+  Value pConstant;
+  if (isNoneP) {
+    // Set zero in all elements for verifyOutput()
+    // and pass none value to ONNX LSTM
+    pOmt =
+        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 0);
+    pConstant = noneVal;
+  } else {
+    pOmt =
+        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1);
+    pConstant = buildONNXConstantOp(pOmt, pType);
+  }
 
   auto lstmOp = builder.create<ONNXLSTMOp>(loc,
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
@@ -167,8 +186,17 @@ bool LSTMLibBuilder::verifyOutputs() {
   OMTensor *peepholes = pOmt;
   // Get inputs and outputs.
   OMTensor *input = omTensorListGetOmtByIndex(inputs, 0);
-  OMTensor *initialH = omTensorListGetOmtByIndex(inputs, 1);
-  OMTensor *initialC = omTensorListGetOmtByIndex(inputs, 2);
+  OMTensor *initialH, *initialC;
+  if (isNoneH)
+    initialH =
+        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 0);
+  else
+    initialH = omTensorListGetOmtByIndex(inputs, 1);
+  if (isNoneC)
+    initialC =
+        omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 0);
+  else
+    initialC = omTensorListGetOmtByIndex(inputs, 2);
   OMTensor *lstmY = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *lstmYh = omTensorListGetOmtByIndex(outputs, 1);
   OMTensor *lstmYc = omTensorListGetOmtByIndex(outputs, 2);
