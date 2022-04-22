@@ -24,7 +24,8 @@ namespace onnx_mlir {
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
-std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold);
+std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
+    int threshold, bool report);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
@@ -39,6 +40,8 @@ std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 
 /// Pass for instrument the Onnx ops
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
+    llvm::StringRef ops, int actions);
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
