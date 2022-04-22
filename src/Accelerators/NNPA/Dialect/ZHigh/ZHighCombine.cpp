@@ -26,9 +26,24 @@ using namespace mlir;
 namespace {
 
 // Check if all values are produced by ZHighUnstickOp.
-bool areProducedByUnstickOp(ValueRange values, StringAttr layoutAttr) {
-  return llvm::all_of(values, [&layoutAttr](Value v) {
-    return isa<onnx_mlir::zhigh::ZHighUnstickOp>(v.getDefiningOp());
+bool areProducedByUnstickOp(ValueRange values) {
+  return llvm::all_of(values, [](Value v) {
+    using namespace onnx_mlir::zhigh;
+    // Block argument.
+    if (v.dyn_cast<BlockArgument>())
+      return false;
+    // Are produced by ZHighUnstickOp.
+    if (isa<ZHighUnstickOp>(v.getDefiningOp())) {
+      // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the
+      // same stickification scheme.
+      Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
+      ZTensorEncodingAttr::DataLayout layout =
+          getZTensorLayout(stickifiedVal.getType());
+      if (layout == ZTensorEncodingAttr::DataLayout::_4D ||
+          layout == ZTensorEncodingAttr::DataLayout::NHWC)
+        return true;
+    }
+    return false;
   });
 }
 
@@ -38,8 +53,10 @@ bool haveNoPadsWhenStickified(
     ValueRange values, StringAttr layoutAttr, IntegerAttr axisAttr) {
   if (!layoutAttr)
     return false;
-  // Only support LAYOUT_NHWC at this moment.
-  if (!layoutAttr.getValue().equals_insensitive(onnx_mlir::LAYOUT_NHWC))
+  // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
+  // stickification scheme.
+  if (!(layoutAttr.getValue().equals_insensitive(onnx_mlir::LAYOUT_NHWC) ||
+          layoutAttr.getValue().equals_insensitive(onnx_mlir::LAYOUT_4D)))
     return false;
   // Only support C dimension at this moment.
   if (axisAttr.getValue().getSExtValue() != 3)
