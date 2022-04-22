@@ -68,7 +68,7 @@ add_numerical_unittest(TestGemm-NNPA
   )
 
 add_numerical_unittest(TestLSTM-NNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
+  TestLSTM-NNPA.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
