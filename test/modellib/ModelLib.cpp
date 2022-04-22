@@ -135,10 +135,10 @@ bool ModelLibBuilder::areCloseFloat(
   if (!res || !ref)
     return false;
   // Because of floating point impact of using FMA instead of multiply followed
-  // by an add,the default RTOL is increased from 1e-5 to 5e-5. This bound has
+  // by an add, the default RTOL is increased from 1e-1 to 1e-4. This bound has
   // been shown to hold for random values in the range +- 1.0, to
   // +-100,000,000.0.
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 5e-5;
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-4;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
