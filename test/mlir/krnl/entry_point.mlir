@@ -233,14 +233,16 @@ module {
 // -----
 
 // COM: Generate calls that initialize accelerators.
-module attributes {"onnx-mlir.accels" = ["Pseudo", "NNPA"]} {
+module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
   func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
   "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
-// CHECK: llvm.func @OMInitAccelNNPA()
-// CHECK: llvm.func @OMInitAccelPseudo()
+// CHECK: llvm.func @OMInitCompatibleAccelNNPA(i64)
+// CHECK: llvm.func @OMInitCompatibleAccelPseudo(i64)
 // CHECK-LABEL: llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
-// CHECK-NEXT:  llvm.call @OMInitAccelPseudo() : () -> ()
-// CHECK-NEXT:  llvm.call @OMInitAccelNNPA() : () -> ()
+// CHECK-NEXT: [[VERSION_NUMBER_1:%.+]] = llvm.mlir.constant(65537 : i64) : i64
+// CHECK-NEXT: llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER_1]]) : (i64) -> ()
+// CHECK-NEXT: [[VERSION_NUMBER_2:%.+]] = llvm.mlir.constant(65536 : i64) : i64
+// CHECK-NEXT: llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER_2]]) : (i64) -> ()
 }

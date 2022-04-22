@@ -27,14 +27,10 @@
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
 // generated file Accelerators.inc).
 #define CREATE_ACCEL_ENUM(name) name,
-#define DECLARE_ACCEL_INIT_FUNCTION(name) extern void create##name();
-#define INVOKE_ACCEL_INIT_FUNCTION(name) create##name();
+#define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
+#define INVOKE_ACCEL_INIT_FUNCTION(name) create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
-#define GET_ACCEL_NAME(name)                                                   \
-  case accel::Accelerator::Kind::name:                                         \
-    return llvm::StringRef(#name);                                             \
-    break;
 
 namespace onnx_mlir {
 namespace accel {
@@ -60,17 +56,18 @@ public:
   /// Returns the set of accelerators available.
   static const llvm::SmallVectorImpl<Accelerator *> &getAccelerators();
 
-  /// Returns the accelerator name of the give kind.
-  static const llvm::StringRef getName(Kind kind) {
-    switch (kind) {
-      APPLY_TO_ACCELERATORS(GET_ACCEL_NAME)
-    default:
-      return llvm::StringRef();
-    }
-  }
+  /// Getter for the name of this accelerator.
+  std::string getName() { return name; }
+
+  /// Setter for the name of this accelerator.
+  void setName(std::string _name) { name = _name; }
 
   /// Returns whether the accelerator is active.
   virtual bool isActive() const = 0;
+
+  /// Returns the version number of the accelerator library.
+  /// Version number format: 0x[major][minor][patch]
+  virtual uint64_t getVersionNumber() const = 0;
 
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir driver
@@ -129,6 +126,10 @@ protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;
   /// Kind of accelerator.
   Kind kind;
+
+private:
+  /// Name of accelerator.
+  std::string name = "";
 };
 
 } // namespace accel

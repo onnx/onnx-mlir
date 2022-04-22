@@ -42,6 +42,7 @@ add_onnx_mlir_library(NNPAAccel
   ${NNPA_ONNX_MLIR_SRC_ROOT}
   ${NNPA_SRC_ROOT}
   ${NNPA_BIN_ROOT}
+  ${NNPA_INCLUDE_PATH}
   
   LINK_LIBS PUBLIC
   onnx

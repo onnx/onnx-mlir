@@ -44,6 +44,7 @@ public:
   static bool classof(const NNPAAccelerator *) { return true; }
 
   bool isActive() const final;
+  uint64_t getVersionNumber() const final;
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const final;
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::PassManager &pm,
