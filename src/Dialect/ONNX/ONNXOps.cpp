@@ -31,6 +31,7 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
+#include <algorithm>
 #include <string>
 
 using namespace mlir;
@@ -3224,6 +3225,107 @@ LogicalResult ONNXGatherOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// GatherND
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGatherNDOp::verify() {
+  ONNXGatherNDOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
+
+  // Get operands and attributes.
+  Value data = operandAdaptor.data();
+  Value indices = operandAdaptor.indices();
+  auto dataType = data.getType().cast<ShapedType>();
+  auto indicesType = indices.getType().cast<ShapedType>();
+  int64_t dataRank = dataType.getRank();
+  int64_t indicesRank = indicesType.getRank();
+  int64_t batchDims = batch_dims();
+
+  // 'data' and 'indices' must have rank strictly greater than zero.
+  if (dataRank < 1)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), data, dataRank, "> 0");
+  if (indicesRank < 1)
+    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+        *this->getOperation(), indices, indicesRank, "> 0");
+
+  ArrayRef<int64_t> dataShape = dataType.getShape();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+  int64_t indicesLastDim = indicesShape[indicesRank - 1];
+
+  // The value batchDims must be smaller than the minimum of rank(data) and
+  // rank(indices).
+  int64_t maxBatchDims = std::min(dataRank, indicesRank);
+  if (batchDims >= maxBatchDims)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "batch_dims", batchDims,
+        onnx_mlir::Diagnostic::Range<int64_t>(0, maxBatchDims - 1));
+
+  //  llvm::errs() << "dataRank = " << dataRank << "\n";
+  //  llvm::errs() << "batchDims = " << batchDims << "\n";
+  //  llvm::errs() << "indicesLastDim = " << indicesLastDim << "\n";
+
+  // Let r = rank(data). The last dimension of 'indices' must be in the range
+  // [1, r-batchDims].
+  if (indicesLastDim < 1)
+    return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+        *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
+        ">= 1");
+  if (indicesLastDim > dataRank - batchDims)
+    return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+        *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
+        "<= " + std::to_string(dataRank - batchDims));
+
+  // The first 'batchDims' dimensions of the 'indices' tensor must be equal.
+  if (indicesShape[batchDims - 1] > 0)
+    for (int64_t i = 0; i < batchDims - 1; ++i)
+      if (indicesShape[i] != indicesShape[batchDims - 1])
+        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+            *this->getOperation(), indices, i, indicesShape[i],
+            std::to_string(indicesShape[batchDims - 1]));
+
+  // All values in 'indices' are expected to satisfy the inequality:
+  //   -data.shape[i] <= indices[...,i] <= (data.shape[i]-1)].
+  for (int64_t i = 0; i < indicesRank; ++i) {
+    int64_t dataDimAtAxis = dataShape[i];
+    if (dataDimAtAxis < 0)
+      continue;
+
+    if (DenseElementsAttr valueAttribute =
+            getDenseElementAttributeFromONNXValue(indices))
+      for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
+        static int n = 0;
+        int64_t index = value.getInt();
+
+        if (index < -dataDimAtAxis || index > dataDimAtAxis - 1)
+          return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+              *this->getOperation(), "indices[" + std::to_string(n) + "]",
+              index,
+              onnx_mlir::Diagnostic::Range<int64_t>(
+                  -dataDimAtAxis, dataDimAtAxis - 1));
+        n++;
+      }
+  }
+
+  return success();
+}
+
+LogicalResult ONNXGatherNDOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer the shape of the output if the inputs shape is not yet known.
+  if (llvm::any_of(
+          this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
+    return success();
+
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  // TODO  return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
+  //     ONNXGatherOpAdaptor>(*this, elementType);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ConstantOfShape
 //===----------------------------------------------------------------------===//
 
@@ -3746,11 +3848,6 @@ LogicalResult ONNXFloorOp::inferShapes(
 }
 
 LogicalResult ONNXGatherElementsOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXGatherNDOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }

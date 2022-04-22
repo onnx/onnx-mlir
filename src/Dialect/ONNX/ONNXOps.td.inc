@@ -1910,6 +1910,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
