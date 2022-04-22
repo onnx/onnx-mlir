@@ -31,12 +31,18 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
 
     assert(unaryOp && "Expecting op to have type ONNXSqrt");
 
+    // auto elementType = type1.cast<MemRefType>().getElementType();
+    // RankedTensorType ty1 =
+    //     RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
+
     Location loc = unaryOp.getLoc();
-    Value x = operands[0];
+    Value x = unaryOp.X();
+    Value y = operands[0];
     mlir::MLIRContext *context =  unaryOp.getContext();
 
-    TensorType x_tensor_type = x.getType().cast<TensorType>();
-    TensorType op_tensor_type = unaryOp.getResult().getType().template cast<TensorType>();
+    TensorType x_tensor_type = x.getType().template dyn_cast<TensorType>();
+    auto y_tensor_type = y.getType().template dyn_cast<MemRefType>();
+    TensorType op_tensor_type = unaryOp.getResult().getType().template dyn_cast<TensorType>();
 
     auto xTy = Torch::ValueTensorType::get(context,
                                            x_tensor_type.getShape(),
@@ -96,7 +102,7 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
-      ONNXToTorchElementwiseUnaryOpLowering<ONNXSinOp, AtenSinOp>,
+      // ONNXToTorchElementwiseUnaryOpLowering<ONNXSinOp, AtenSinOp>,
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
   //     // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
