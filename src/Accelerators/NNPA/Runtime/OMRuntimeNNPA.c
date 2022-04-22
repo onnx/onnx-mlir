@@ -12,7 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Include pthreads (need special treatment on Zos).
+#ifdef __MVS__
+#define _OPEN_THREADS
+#endif
 #include <pthread.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
