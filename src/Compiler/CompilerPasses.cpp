@@ -53,7 +53,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(
+        onnxOpTransformThreshold, onnxOpTransformReport));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
@@ -75,7 +76,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE) {
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass(
+      instrumentONNXOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
