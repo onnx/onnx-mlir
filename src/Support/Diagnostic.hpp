@@ -49,6 +49,11 @@ public:
       mlir::Operation &op, mlir::Value &operand, uint64_t operandRank,
       mlir::StringRef expectedRank);
 
+  /// Diagnostic message for dimension with unexpected value.
+  static mlir::LogicalResult emitDimensionHasUnexpectedValueError(
+      mlir::Operation &op, mlir::Value &operand, int64_t index, int64_t value,
+      mlir::StringRef expectedValue);
+
   /// Return the name of the given value.
   static std::string getName(mlir::Value &v);
 };
