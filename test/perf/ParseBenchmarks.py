@@ -14,7 +14,7 @@
 # files (each should contain the same op)
 #
 # <metric> is a performance metric produced by Google Benchmark. Metrics include but are not limited to:
-# iterations, real_time, cpu_time, bytes_per_second, items_per_second
+# iterations, real_time, cpu_time, bytes_per_second, items_per_second, FLOP, FLOPS
 #
 # Further, there are two options:
 #
@@ -99,7 +99,7 @@ def print_usage(error_message):
         "--readrun <filename> <op> <metric>\n"
         "--compare <filename> <filename> <metric>\n\n"
         "<metric> is a performance metric produced by Google Benchmark. Metrics include but are not limited to:\n"
-        "iterations, real_time, cpu_time, bytes_per_second, items_per_second\n\n"
+        "iterations, real_time, cpu_time, bytes_per_second, items_per_second, FLOP, FLOPS\n\n"
         "Options:\n"
         "--verbose\n--max-relative-slowdown <percent value>\n"
     )
@@ -256,6 +256,8 @@ def ExtractFileOutput(filename):
 
     # Truncating hardware info in first lines of file
     OutputLines = ("name," + open(filename, "r").read().split("name,", 1)[1]).splitlines()
+
+    OutputLines[0] = OutputLines[0].replace('\"', '')
     
     # Merging lines back together for use by other functions
     RawBenchmarkOutput = ""
@@ -333,6 +335,8 @@ def CompareOutput(output1, output2, metric, MaxRelativeSlowdown):
                         ExceededLimit += 1
                     
                     ComparisonOutput += "\n"
+                else:
+                    print_usage("Metric <" + metric + "> not found or not applicable. See below.")
 
     if (ExceededLimit > 1):
         global SlowdownLimitExceeded
