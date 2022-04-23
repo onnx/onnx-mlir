@@ -13,6 +13,8 @@
 # --compare <op> <op> <metric>: Compare performance benchmarks written to file for both specified 
 # files (each should contain the same op)
 #
+# <metric> is a performance metric produced by Google Benchmark. Metrics include but are not limited to:
+# iterations, real_time, cpu_time, bytes_per_second, items_per_second
 #
 # Further, there are two options:
 #
@@ -96,6 +98,8 @@ def print_usage(error_message):
         "--runall\n"
         "--readrun <filename> <op> <metric>\n"
         "--compare <filename> <filename> <metric>\n\n"
+        "<metric> is a performance metric produced by Google Benchmark. Metrics include but are not limited to:\n"
+        "iterations, real_time, cpu_time, bytes_per_second, items_per_second\n\n"
         "Options:\n"
         "--verbose\n--max-relative-slowdown <percent value>\n"
     )
@@ -250,14 +254,8 @@ def CompareFileAndFile(filename1, filename2):
 # output in the same format and shape as when run fresh
 def ExtractFileOutput(filename):
 
-    OutputLines = open(filename, "r").read().splitlines()
-
     # Truncating hardware info in first lines of file
-    for line in OutputLines:
-        if (line[5:] == "name,"):
-            break
-        else:
-            OutputLines.pop(0)
+    OutputLines = ("name," + open(filename, "r").read().split("name,", 1)[1]).splitlines()
     
     # Merging lines back together for use by other functions
     RawBenchmarkOutput = ""
@@ -313,8 +311,14 @@ def CompareOutput(output1, output2, metric, MaxRelativeSlowdown):
                     Value2        = (float)(OutputDict2[metric]) if (OutputDict2[metric]) else 0
                     Difference    = round(Value2 - Value1, 2)
                     DifferenceStr = str(Difference)
-                    Pct           = round((Difference / Value1) * 100, 2)
-                    PctStr        = str(Pct)
+                    Pct = 0
+                    if (Value1 != 0):
+                        Pct = round((Difference / Value1) * 100, 2)
+                    elif (Difference != 0):
+                        Pct = 100.0
+                    else:
+                        Pct = 0.0
+                    PctStr = str(Pct)
 
                     if (metric in ["cpu_time", "real_time"]):
                         TimeUnit = OutputDict1["time_unit"]
@@ -342,7 +346,7 @@ def CompareOutput(output1, output2, metric, MaxRelativeSlowdown):
 def ReadCSVOutput(result):
 
     OutputDicts = []
-    
+
     OutputLines = result.splitlines()
 
     # Get list of identifiers for result (name, iterations, cpu time, etc.)
