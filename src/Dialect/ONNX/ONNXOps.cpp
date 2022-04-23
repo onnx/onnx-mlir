@@ -3176,13 +3176,9 @@ LogicalResult ONNXTileOp::inferShapes(
 
 LogicalResult ONNXGatherOp::verify() {
   ONNXGatherOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    if (!hasShapeAndRank(operand)) {
-      // Won't be able to do any checking at this stage.
-      return success();
-    }
-  }
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
   auto dataType = operandAdaptor.data().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> dataShape = dataType.getShape();
@@ -3216,13 +3212,9 @@ LogicalResult ONNXGatherOp::inferShapes(
 
 LogicalResult ONNXGatherElementsOp::verify() {
   ONNXGatherElementsOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    if (!hasShapeAndRank(operand)) {
-      // Won't be able to do any checking at this stage.
-      return success();
-    }
-  }
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
   auto dataType = operandAdaptor.data().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> dataShape = dataType.getShape();

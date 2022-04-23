@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "src/Support/Diagnostic.hpp"
 
 using namespace mlir;
 
@@ -39,12 +38,7 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
   indicesBounds.getDimList(indicesDims);
   int64_t axisIndex = op->axis();
   int64_t dataRank = dataDims.size();
-
-  // axis attribute must be in the range [-r,r-1], where r = rank(data).
-  if (axisIndex < -dataRank || axisIndex > dataRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *op->getOperation(), "axis", axisIndex,
-        onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+  assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid dataRank");
 
   // Convert a negative axis to a positive axis.
   if (axisIndex < 0) {

@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "src/Support/Diagnostic.hpp"
 
 using namespace mlir;
 
@@ -26,21 +25,16 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
   auto inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
-  int64_t axisValue = op->axis();
-
-  // axis attribute must be in the range [-r,r], where r = rank(input).
-  if (axisValue < -inputRank || axisValue > inputRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *op->getOperation(), "axis", axisValue,
-        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+  int64_t axis = op->axis();
+  assert(axis >= -inputRank && axis < inputRank && "Invalid inputRank");
 
   // Negative axis means values are counted from the opposite side.
-  if (axisValue < 0)
-    axisValue += inputRank;
+  if (axis < 0)
+    axis += inputRank;
 
   // Compute outputDims.
   DimsExpr outputDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
-  for (int64_t i = 0; i < axisValue; ++i) {
+  for (int64_t i = 0; i < axis; ++i) {
     if (inputShape[i] == -1) {
       outputDims[0] = QuestionmarkIndexExpr();
       break;
@@ -48,7 +42,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
     outputDims[0] = outputDims[0] * LiteralIndexExpr(inputShape[i]);
   }
 
-  for (int64_t i = axisValue; i < inputRank; ++i) {
+  for (int64_t i = axis; i < inputRank; ++i) {
     if (inputShape[i] == -1) {
       outputDims[1] = QuestionmarkIndexExpr();
       break;
