@@ -101,12 +101,26 @@ func @averagepool_should_lower_to_zhigh_same_upper(%arg0: tensor<1x3x32x32xf32>)
 }
 
 // -----
-// CHECK-LABEL:  func @test_pool_not_lowered_3d
-func @test_pool_not_lowered_3d(%arg0: tensor<1x3x32x32x32xf32>) -> (tensor<1x3x31x31x31xf32>, tensor<1x3x31x31x31xf32>) {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", dilations = [1, 1, 1], kernel_shape = [2, 2, 2], pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]} : (tensor<1x3x32x32x32xf32>) -> tensor<1x3x31x31x31xf32>
+// COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
+// CHECK-LABEL:  func @test_pool_not_lowered_pool1d
+func @test_pool_not_lowered_pool1d(%arg0: tensor<1x3x32xf32>) -> (tensor<1x3x31xf32>, tensor<1x3x31xf32>) {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [2]} : (tensor<1x3x32xf32>) -> tensor<1x3x31xf32>
   // CHECK: "onnx.MaxPoolSingleOut"
 
-  %1 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2, 2], pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]} : (tensor<1x3x32x32x32xf32>) -> tensor<1x3x31x31x31xf32>
+  %1 = "onnx.AveragePool"(%arg0) {kernel_shape = [2]} : (tensor<1x3x32xf32>) -> tensor<1x3x31xf32>
+  // CHECK: "onnx.AveragePool"
+
+  return %0, %1 : tensor<1x3x31xf32>, tensor<1x3x31xf32>
+}
+
+// -----
+// COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
+// CHECK-LABEL:  func @test_pool_not_lowered_pool3d
+func @test_pool_not_lowered_pool3d(%arg0: tensor<1x3x32x32x32xf32>) -> (tensor<1x3x31x31x31xf32>, tensor<1x3x31x31x31xf32>) {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [2, 2, 2]} : (tensor<1x3x32x32x32xf32>) -> tensor<1x3x31x31x31xf32>
+  // CHECK: "onnx.MaxPoolSingleOut"
+
+  %1 = "onnx.AveragePool"(%arg0) {kernel_shape = [2, 2, 2]} : (tensor<1x3x32x32x32xf32>) -> tensor<1x3x31x31x31xf32>
   // CHECK: "onnx.AveragePool"
 
   return %0, %1 : tensor<1x3x31x31x31xf32>, tensor<1x3x31x31x31xf32>

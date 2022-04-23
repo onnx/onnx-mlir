@@ -50,6 +50,19 @@ public:
   static mlir::LogicalResult emitInputsMustHaveSameRankError(
       mlir::Operation &op, const llvm::Twine &inputName1, T rank1,
       const llvm::Twine &inputName2, T rank2);
+
+  /// Diagnostic message for operand with unexpected rank.
+  static mlir::LogicalResult emitOperandHasUnexpectedRankError(
+      mlir::Operation &op, mlir::Value &operand, uint64_t operandRank,
+      mlir::StringRef expectedRank);
+
+  /// Diagnostic message for dimension with unexpected value.
+  static mlir::LogicalResult emitDimensionHasUnexpectedValueError(
+      mlir::Operation &op, mlir::Value &operand, int64_t index, int64_t value,
+      mlir::StringRef expectedValue);
+
+  /// Return the name of the given value.
+  static std::string getName(mlir::Value &v);
 };
 
 } // namespace onnx_mlir
