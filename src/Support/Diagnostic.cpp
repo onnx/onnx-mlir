@@ -19,7 +19,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
+LogicalResult Diagnostic::emitAttributeOutOfRangeError(Operation &op,
     const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
@@ -34,7 +34,7 @@ mlir::LogicalResult Diagnostic::attributeOutOfRange(mlir::Operation &op,
                                     .concat("]"));
 }
 
-LogicalResult Diagnostic::operandHasUnexpectedRank(Operation &op,
+LogicalResult Diagnostic::emitOperandHasUnexpectedRankError(Operation &op,
     Value &operand, uint64_t operandRank, StringRef expectedRank) {
   llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
@@ -42,6 +42,18 @@ LogicalResult Diagnostic::operandHasUnexpectedRank(Operation &op,
                                     .concat(std::to_string(operandRank))
                                     .concat(", rank should be ")
                                     .concat(expectedRank));
+}
+
+LogicalResult Diagnostic::emitDimensionHasUnexpectedValueError(Operation &op,
+    Value &operand, int64_t index, int64_t value, StringRef expectedValue) {
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
+  return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
+                                    .concat(" has dimension at index ")
+                                    .concat(std::to_string(index))
+                                    .concat(" with value ")
+                                    .concat(std::to_string(value))
+                                    .concat(", value should be ")
+                                    .concat(expectedValue));
 }
 
 std::string Diagnostic::getName(Value &v) {
@@ -52,8 +64,7 @@ std::string Diagnostic::getName(Value &v) {
 }
 
 // Template instantiations - keep at the end of the file.
-template mlir::LogicalResult Diagnostic::attributeOutOfRange(
-    mlir::Operation &op, const llvm::Twine &attrName, int64_t attrVal,
-    Range<int64_t> validRange);
+template LogicalResult Diagnostic::emitAttributeOutOfRangeError(Operation &op,
+    const llvm::Twine &attrName, int64_t attrVal, Range<int64_t> validRange);
 
 } // namespace onnx_mlir

@@ -16,6 +16,7 @@
 
 #ifndef OP_BASE
 include "ZHigh.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -73,6 +74,40 @@ def StickUnstickRemovalPattern : Pat<
   (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
   (replaceWithValue $arg),
   [(SameLayout $arg, $stick)]
+>;
+
+def ProducedByUnstickOp: Constraint<
+  CPred<"areProducedByUnstickOp($0, $1)">,
+  "all values are produced by ZHighUnstickOp with the same layout"
+>;
+
+def HaveNoPadsWhenStickified: Constraint<
+  CPred<"haveNoPadsWhenStickified($0, $1, $2)">,
+  "there are no pads along the given axis when stickifying values by using the given layout"
+>;
+
+def GetStickifiedInputs: NativeCodeCall<
+  "getStickifiedInputs($_builder, $_loc, $0)"
+>;
+
+// The pattern
+//   zhigh.Stick (onnx.Concat (zhigh.Unstick (%X1), zhigh.Unstick (%X2)) { axis })
+// can be replaced by
+//   zhigh.Concat (%X1, %X2) { axis }
+// where `zhigh.Concat` is an operation that concatenates stickified tensors.
+//
+// Constraints:
+//   - The stickified tensors does not have pads on the concatenation axis.
+//
+// `zhigh.Concat` is used instead of `onnx.Concat` because `onnx.Concat` cannot 
+// allocate a 4K-aligned buffer for the output stickified tensor.
+//
+// Note: Support NHWC layout only at this moment.
+def ReplaceONNXConcatByZHighConcatPattern: Pat<
+  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
+  (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
+  [(ProducedByUnstickOp $inputs, $layout),
+   (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
 >;
 
 // Since sigmoid is an element-wise op and does not depend on layout, we change

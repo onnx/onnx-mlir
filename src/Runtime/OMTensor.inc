@@ -39,7 +39,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
 struct OMTensor {
@@ -270,8 +270,9 @@ OMTensor *omTensorCreateEmpty(
   OMTensor *tensor;
   void *dataPtr;
   if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
-      NULL) || ((tensor = omTensorCreateWithOwnership(dataPtr, shape, rank,
-      dtype, /*owning=*/true)) == NULL)) {
+          NULL) ||
+      ((tensor = omTensorCreateWithOwnership(
+            dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL
     return NULL;
   }
@@ -526,14 +527,33 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   return omt;
 }
 
+// Static variables used by omDefineSeed and omTensorCreateWithRandomData.
+static unsigned int omUseOneSeed = 0;
+static std::mt19937 omRandomGenerator(0);
+
+// When called, a single seed will be used, either from the given seed or from
+// another random number generator.
+unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue) {
+  /* Define our onw seed when requested. */
+  if (!hasSeedValue) {
+    std::random_device rd;
+    seed = rd();
+  }
+  omUseOneSeed = 1;
+  omRandomGenerator.seed(seed);
+  return seed;
+}
+
 /* OMTensor creator with data shape, element type and random data */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
     const std::vector<int64_t> &shape, T lbound, T ubound) {
-  // Will be used to obtain a seed for the random number engine
-  std::random_device rd;
-  // Standard mersenne_twister_engine seeded with rd()
-  std::mt19937 gen(rd());
+  if (!omUseOneSeed) {
+    // Will be used to obtain a seed for the random number engine.
+    std::random_device rd;
+    // Standard mersenne_twister_engine seeded with rd()
+    omRandomGenerator.seed(rd());
+  }
   std::uniform_real_distribution<> dis(lbound, ubound);
 
   auto omt = omTensorCreateWithShape<T>(shape);
@@ -542,7 +562,7 @@ OMTensor *omTensorCreateWithRandomData(
 
   std::generate((T *)omt->_alignedPtr,
       (T *)omt->_alignedPtr + getNumElems(omt->_shape, omt->_rank),
-      [&]() { return dis(gen); });
+      [&]() { return dis(omRandomGenerator); });
   return omt;
 }
 

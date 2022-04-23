@@ -38,8 +38,8 @@ static LogicalResult computeShape(
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   if (axisValue < -dataRank || axisValue >= dataRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
-        "axis", axisValue,
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *op->getOperation(), "axis", axisValue,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
 
   if (axisValue < 0) {
