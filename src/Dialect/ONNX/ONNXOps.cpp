@@ -2830,8 +2830,8 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXFlattenOp::verify() {
+  // Cannot verify constraints if the input shape is not yet known.
   if (!hasShapeAndRank(input()))
-    // Won't be able to do any checking at this stage.
     return success();
 
   auto inputType = input().getType().cast<ShapedType>();
@@ -2850,11 +2850,13 @@ LogicalResult ONNXFlattenOp::verify() {
 
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer the output shape if the input shape is not yet known.
   if (!hasShapeAndRank(input()))
     return success();
 
+  auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXFlattenOpShapeHelper, ONNXFlattenOp,
-      ONNXFlattenOpAdaptor>(this, input());
+      ONNXFlattenOpAdaptor>(*this, elementType);
 }
 
 //===----------------------------------------------------------------------===//
