@@ -123,32 +123,48 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::OptionCategory OMPassOptions("ONNX-MLIR Pass Options",
-    "These are options to provide fine control on passes");
-
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
     llvm::cl::desc("Specify onnx ops to be instrumented\n"
                    "\"NONE\" or \"\" for no instrument\n"
                    "\"ALL\" for all ops. \n"
                    "\"op1 op2 ...\" for the specified ops."),
-    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::bits<InstrumentActions> instrumentControlBits(
+    llvm::cl::desc("Specify what instrumentation actions at runtime:"),
+    llvm::cl::values(
+        clEnumVal(InstrumentBeforeOp, "insert instrument before op"),
+        clEnumVal(InstrumentAfterOp, "insert instrument after op"),
+        clEnumVal(
+            InstrumentReportTime, "instrument runtime reports time usage"),
+        clEnumVal(
+            InstrumentReportMemory, "instrument runtime reports memory usage")),
+    llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
         "Enable memory bundling related optimizations (default=false)\n"
         "Set to 'false' if you experience significant compile time."),
-    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
     llvm::cl::desc(
         "Max iteration for dynamic op transform passes (default=3).\n"
         "If set to 0, onnxOpTransformPass will be disabled, and\n"
         "static iteration will be used"),
-    llvm::cl::init(3), llvm::cl::cat(OMPassOptions));
+    llvm::cl::init(3), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
-    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+// Configuration states associated with certain options.
+// For example, when maccel is specified, NNPA can register
+// dependent libdnn.
+// This is just a simple string to vector map currently.
+// If it gets more complicated in the future, it can be
+// replaced by a class of its own.
+std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
@@ -286,6 +302,32 @@ int setCompilerOptions(const CompilerOptionList &list) {
       return rc;
   }
   return 0;
+}
+
+// Get the string vector associated with the specified key
+std::vector<std::string> getCompilerConfig(std::string k) {
+  return CompilerConfigMap[k];
+}
+
+// Add strings in a vector to the string vector associated
+// with the specified key
+void addCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+  std::vector<std::string> w;
+
+  std::set_union(u.begin(), u.end(), v.begin(), v.end(), std::back_inserter(w));
+  CompilerConfigMap[k] = w;
+}
+
+// Delete strings in a vector from the string vector associated
+// with the specified key
+void delCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+
+  u.erase(remove_if(begin(u), end(u),
+              [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
+      end(u));
+  CompilerConfigMap[k] = u;
 }
 
 } // namespace onnx_mlir

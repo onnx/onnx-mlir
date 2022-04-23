@@ -41,17 +41,18 @@ public:
 
   /// Diagnostic message for attribute value outside of a supplied range.
   template <typename T>
-  static mlir::LogicalResult attributeOutOfRange(mlir::Operation &op,
+  static mlir::LogicalResult emitAttributeOutOfRangeError(mlir::Operation &op,
       const llvm::Twine &attrName, T attrVal, Range<T> validRange);
 
   /// Diagnostic message for operand with unexpected rank.
-  static mlir::LogicalResult operandHasUnexpectedRank(mlir::Operation &op,
-      mlir::Value &operand, uint64_t operandRank, mlir::StringRef expectedRank);
+  static mlir::LogicalResult emitOperandHasUnexpectedRankError(
+      mlir::Operation &op, mlir::Value &operand, uint64_t operandRank,
+      mlir::StringRef expectedRank);
 
-  /// Diagnostic message for operand with unexpected dimension value.
-  static mlir::LogicalResult operandHasUnexpectedDimensionValue(
-      mlir::Operation &op, mlir::Value &operand, uint64_t operandDimension,
-      uint64_t dimensionValue, uint64_t expectedDimension);
+  /// Diagnostic message for dimension with unexpected value.
+  static mlir::LogicalResult emitDimensionHasUnexpectedValueError(
+      mlir::Operation &op, mlir::Value &operand, int64_t index, int64_t value,
+      mlir::StringRef expectedValue);
 
   /// Return the name of the given value.
   static std::string getName(mlir::Value &v);

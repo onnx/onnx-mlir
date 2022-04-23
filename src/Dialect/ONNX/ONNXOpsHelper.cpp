@@ -231,12 +231,13 @@ bool isFromNone(Value v) {
 //===----------------------------------------------------------------------===//
 // Get a broadcasted type for RankedTensorType and MemRefType.
 //===----------------------------------------------------------------------===//
-Type getBroadcastedRankedType(Type type1, Type type2) {
+Type getBroadcastedRankedType(Type type1, Type type2, Type elementType) {
   if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
-    return OpTrait::util::getBroadcastedType(type1, type2);
+    return OpTrait::util::getBroadcastedType(type1, type2, elementType);
   if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
     // Construct RankedTensorType(s).
-    Type elementType = type1.cast<MemRefType>().getElementType();
+    if (!elementType)
+      elementType = type1.cast<MemRefType>().getElementType();
     RankedTensorType ty1 =
         RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
     RankedTensorType ty2 =

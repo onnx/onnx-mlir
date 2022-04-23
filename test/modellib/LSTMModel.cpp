@@ -17,7 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace mlir;
@@ -30,10 +30,12 @@ static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
 LSTMLibBuilder::LSTMLibBuilder(const std::string &modelName,
     const int direction, const int S, const int B, const int I, const int H,
-    const bool isDynamicS, const bool isDynamicB)
+    const bool isDynamicS, const bool isDynamicB, const bool isNoneH,
+    const bool isNoneC, const bool isNoneP)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
-      isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(), hShape(),
-      cShape(), wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
+      isDynamicS(isDynamicS), isDynamicB(isDynamicB), isNoneH(isNoneH),
+      isNoneC(isNoneC), isNoneP(isNoneP), xShape(), hShape(), cShape(),
+      wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
 
 LSTMLibBuilder::~LSTMLibBuilder() {
   omTensorDestroy(wOmt);
@@ -80,8 +82,8 @@ bool LSTMLibBuilder::build() {
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
-  auto hVal = entryBlock.getArgument(1);
-  auto cVal = entryBlock.getArgument(2);
+  auto hVal = (isNoneH) ? noneVal : entryBlock.getArgument(1);
+  auto cVal = (isNoneC) ? noneVal : entryBlock.getArgument(2);
   auto sVal = noneVal;
 
   StringAttr directionAttr;
@@ -101,11 +103,12 @@ bool LSTMLibBuilder::build() {
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
   bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
-  pOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1);
+  pOmt = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(pShape), 0.0, (isNoneP) ? 0.0 : 1.0);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
-  auto pConstant = buildONNXConstantOp(pOmt, pType);
+  auto pConstant = (isNoneP) ? noneVal : buildONNXConstantOp(pOmt, pType);
 
   auto lstmOp = builder.create<ONNXLSTMOp>(loc,
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
@@ -129,16 +132,16 @@ bool LSTMLibBuilder::build() {
 }
 
 bool LSTMLibBuilder::prepareInputs() {
-  const int num = 3;
+  constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] =
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
-  list[1] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
-  list[2] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0.0, 1.0);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(hShape), 0.0, (isNoneH) ? 0.0 : 1.0);
+  list[2] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(cShape), 0.0, (isNoneC) ? 0.0 : 1.0);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
 }
