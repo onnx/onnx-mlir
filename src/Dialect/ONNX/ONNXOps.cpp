@@ -122,13 +122,6 @@ static LogicalResult inferShapeForBroadcastingOps(
   return success();
 }
 
-// Determine whether all operands of a given operator have shape and rank.
-template <typename ADAPTOR>
-bool allOperandsHaveShapeAndRank(ADAPTOR &operandAdaptor) {
-  return llvm::all_of(operandAdaptor.getOperands(),
-      [](const Value &op) { return hasShapeAndRank(op); });
-}
-
 #define NOT_IMPLEMENTED_MESSAGE                                                \
   (getOperationName() +                                                        \
       ": is not supported at this time. Please open an issue on "              \
@@ -621,7 +614,8 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 
 LogicalResult ONNXArgMaxOp::verify() {
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (!allOperandsHaveShapeAndRank<ONNXArgMaxOpAdaptor>(operandAdaptor))
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success(); // Won't be able to do any checking at this stage.
 
   int64_t rank = data().getType().cast<ShapedType>().getRank();
@@ -653,7 +647,8 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
 LogicalResult ONNXArgMinOp::verify() {
   ONNXArgMinOpAdaptor operandAdaptor(*this);
-  if (!allOperandsHaveShapeAndRank<ONNXArgMinOpAdaptor>(operandAdaptor))
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success(); // Won't be able to do any checking at this stage.
 
   int64_t rank = data().getType().cast<ShapedType>().getRank();
@@ -2698,7 +2693,8 @@ LogicalResult ONNXConstantOp::inferShapes(
 
 LogicalResult ONNXConcatOp::verify() {
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  if (!allOperandsHaveShapeAndRank<ONNXConcatOpAdaptor>(operandAdaptor))
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success(); // Won't be able to do any checking at this stage.
 
   auto commonType =
@@ -2800,9 +2796,9 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXSplitOp::verify() {
   ONNXSplitOpAdaptor operandAdaptor(*this);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success(); // Won't be able to do any checking at this stage.
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
   auto inputType = operandAdaptor.input().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -2820,8 +2816,9 @@ LogicalResult ONNXSplitOp::verify() {
 
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand(0).getType().cast<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+  // Cannot infer the output shape if the input shape isn't known yet.
+  if (!hasShapeAndRank(input()))
+    return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
@@ -2833,8 +2830,9 @@ LogicalResult ONNXSplitOp::inferShapes(
 
 LogicalResult ONNXSplitV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().cast<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+  // Cannot infer the output shape if the input shape isn't known yet.
+  if (!hasShapeAndRank(input()))
+    return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
@@ -2850,11 +2848,11 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
 LogicalResult ONNXSplitToSequenceOp::verify() {
   ONNXSplitToSequenceOpAdaptor operandAdaptor(*this);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success(); // Won't be able to do any checking at this stage.
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
-  auto inputType = operandAdaptor.input().getType().cast<RankedTensorType>();
+  auto inputType = operandAdaptor.input().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
   int64_t axisIndex = axis();
@@ -3637,8 +3635,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
     if (bShape.size() != 1)
       return emitOpError("Bias should have a rank of one");
     if (bShape[0] >= 0 && inputShape[1] >= 0 && bShape[0] != inputShape[1])
-      return emitOpError("Bias should have same dimension as the second "
-                         "dimension of input");
+      return emitOpError(
+          "Bias should have same dimension as the second dimension of input");
     if (bType.getElementType() != inputElementType)
       return emitOpError("Bias should have same element type as input");
   }
@@ -3652,8 +3650,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
       return emitOpError("Scale should have a rank of one");
     if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
         scaleShape[0] != inputShape[1])
-      return emitOpError("Scale should have same dimension as the second "
-                         "dimension of input");
+      return emitOpError(
+          "Scale should have same dimension as the second dimension of input");
     if (scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
@@ -3680,7 +3678,8 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 
 LogicalResult ONNXCompressOp::verify() {
   ONNXCompressOpAdaptor operandAdaptor(*this);
-  if (!allOperandsHaveShapeAndRank(operandAdaptor))
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success(); // Won't be able to do any checking at this stage.
 
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
@@ -3907,8 +3906,8 @@ LogicalResult ONNXModOp::verify() {
   else
     return emitOpError("Input type must be TensorType or MemRefType");
 
-  // Verify that when the input type is floating point, then `fmod`
-  // attribute must be set to 1.
+  // Verify that when the input type is floating point, then `fmod` attribute
+  // must be set to 1.
   if (elementType.isa<FloatType>() && (fmod() != 1))
     return emitOpError("fmod must be 1 when the input type is floating point");
 
@@ -4002,8 +4001,8 @@ LogicalResult ONNXOneHotOp::verify() {
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
     int64_t axisValue = axis();
-    // Unusually, with a rank of 3, acceptable values are 0 (before first)
-    // to 3 (after last).
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
     if (axisValue < 0)
       axisValue += indicesRank + 1;
     if (!(axisValue >= 0 && axisValue <= indicesRank))
@@ -4682,9 +4681,9 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
 
 LogicalResult ONNXTopKOp::verify() {
   ONNXTopKOpAdaptor operandAdaptor(*this);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success(); // Won't be able to do any checking at this stage.
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // Won't be able to do any checking at this stage.
 
   Value X = operandAdaptor.X();
   int64_t Xrank = X.getType().cast<ShapedType>().getRank();
@@ -4708,9 +4707,9 @@ LogicalResult ONNXTopKOp::verify() {
 
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !K().getType().isa<RankedTensorType>())
+  // Cannot infer the output shape if the operands shape isn't known yet.
+  if (llvm::any_of(this->getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
   Builder b(getContext());
