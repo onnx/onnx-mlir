@@ -613,12 +613,12 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMaxOp::verify() {
-  if (!hasShapeAndRank(data()))
-    return success(); // Won't be able to do any checking at this stage.
+  ONNXArgMaxOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success();
 
-  auto type = data().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = shape.size();
+  int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
@@ -646,17 +646,16 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMinOp::verify() {
-  // Won't be able to do any further verification at this stage.
-  if (!hasShapeAndRank(data()))
+  ONNXArgMinOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-  auto type = data().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = shape.size();
+  int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
-  if (axisIndex >= rank || axisIndex < -rank)
+  if (axisIndex < -rank || axisIndex >= rank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
@@ -2683,51 +2682,15 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
-// Verify that all input tensors of the supplied operator have the expected
-// rank, and that all the operands have the same dimensions except for an
-// excluded dimension.
-static LogicalResult verifySameShape(
-    Operation &op, ValueRange operands, const int64_t excludedDim) {
-  assert(llvm::all_of(operands, [](const Value &operand) {
-    return operand.getType().isa<RankedTensorType>();
-  }) && "Expecting all operands to be ranked tensors");
-
-  auto type = operands.front().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> expectedShape = type.getShape();
-  int64_t expectedRank = expectedShape.size();
-  assert(excludedDim >= 0 && excludedDim < expectedRank &&
-         "excludedDim must be in the range [0, expectedRank-1]");
-
-  for (Value operand : operands) {
-    ArrayRef<int64_t> operandShape =
-        operand.getType().cast<RankedTensorType>().getShape();
-    int64_t operandRank = operandShape.size();
-    if (operandRank != expectedRank)
-      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
-          op, operand, operandRank, std::to_string(expectedRank));
-
-    for (int64_t dim = 0; dim < expectedRank; ++dim) {
-      if (dim == excludedDim)
-        continue;
-      if (operandShape[dim] != -1 && expectedShape[dim] != -1 &&
-          operandShape[dim] != expectedShape[dim])
-        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(op,
-            operand, dim, operandShape[dim],
-            std::to_string(expectedShape[dim]));
-    }
-  }
-
-  return success();
-}
-
 LogicalResult ONNXConcatOp::verify() {
+  // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  for (const auto &operand : operandAdaptor.getOperands())
-    if (!hasShapeAndRank(operand))
-      return success(); // Won't be able to do any checking at this stage.
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success();
 
   auto commonType =
-      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+      operandAdaptor.getOperands().front().getType().cast<ShapedType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = axis();
@@ -2743,8 +2706,27 @@ LogicalResult ONNXConcatOp::verify() {
 
   // All input tensors must have the same shape, except for the dimension size
   // of the axis to concatenate on.
-  return verifySameShape(
-      *this->getOperation(), operandAdaptor.getOperands(), axisIndex);
+  for (Value operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> operandShape =
+        operand.getType().cast<ShapedType>().getShape();
+    int64_t operandRank = operandShape.size();
+    if (operandRank != commonRank)
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), operand, operandRank,
+          std::to_string(commonRank));
+
+    for (int64_t dim = 0; dim < commonRank; ++dim) {
+      if (dim == axisIndex)
+        continue;
+      if (operandShape[dim] != -1 && commonShape[dim] != -1 &&
+          operandShape[dim] != commonShape[dim])
+        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+            *this->getOperation(), operand, dim, operandShape[dim],
+            std::to_string(commonShape[dim]));
+    }
+  }
+
+  return success();
 }
 
 LogicalResult ONNXConcatOp::inferShapes(
@@ -3702,9 +3684,10 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
-  // Look up input.
-  if (!hasShapeAndRank(input()))
-    // Too early to verify.
+  // Cannot check constraints if the shape of the inputs is not yet knwon.
+  ONNXCompressOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
@@ -3718,11 +3701,6 @@ LogicalResult ONNXCompressOp::verify() {
           *this->getOperation(), "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
-
-  // Check condition.
-  if (!hasShapeAndRank(condition()))
-    // Too early to verify.
-    return success();
 
   int64_t condRank = condition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
