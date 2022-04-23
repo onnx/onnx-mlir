@@ -20,14 +20,11 @@
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-
-#define DEBUG_TYPE "shape_inference"
 
 using namespace mlir;
 
@@ -113,8 +110,6 @@ public:
         continue;
 
       if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
-        LLVM_DEBUG(
-            llvm::dbgs() << DEBUG_TYPE << ": op " << op.getName() << "\n");
         // Verify the operation before attempting to infer the shape of the
         // produced output(s).
         Optional<RegisteredOperationName> registeredInfo =
@@ -133,9 +128,6 @@ public:
   }
 
   static LogicalResult runShapeInferenceOn(FuncOp f) {
-    LLVM_DEBUG(
-        llvm::dbgs() << DEBUG_TYPE << ": function " << f.getName() << "\n");
-
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     auto &funcBody = f.getBody();
