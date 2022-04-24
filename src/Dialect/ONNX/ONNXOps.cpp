@@ -2771,7 +2771,7 @@ LogicalResult ONNXConcatFromSequenceOp::verify() {
   assert(inputSequence.getType().isa<SeqType>() &&
          "Incorrect type for a sequence");
   auto seqType = inputSequence.getType().cast<SeqType>();
-  auto elemType = seqType.getElementType().cast<RankedTensorType>();
+  auto elemType = seqType.getElementType().cast<ShapedType>();
   int64_t rank = elemType.getShape().size();
   int64_t axisIndex = axis();
   int64_t newAxisIndex = new_axis();
@@ -3063,8 +3063,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   if (!hasShapeAndRank(operandAdaptor.x()))
     return success(); // Too early to verify.
 
-  auto x = operandAdaptor.x();
-  int64_t xRank = x.getType().cast<ShapedType>().getRank();
+  int64_t xRank = operandAdaptor.x().getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
 
   if (optionalAxis.hasValue()) {
@@ -3657,8 +3656,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
       return emitOpError("Scale should have a rank of one");
     if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
         scaleShape[0] != inputShape[1])
-      return emitOpError("Scale should have same dimension as the second "
-                         "dimension of input");
+      return emitOpError(
+          "Scale should have same dimension as the second dimension of input");
     if (scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
@@ -3704,18 +3703,18 @@ LogicalResult ONNXCompressOp::verify() {
 
   int64_t condRank = condition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
-    return emitOpError("condition's rank must be one");
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "condition", condRank,
+        onnx_mlir::Diagnostic::Range<int64_t>(1, 1));
 
   return success();
 }
 
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Check input type.
-  if (!input().getType().isa<RankedTensorType>()) {
-    // Won't be able to do any checking at this stage.
+  // Cannot infer the output shape if the input shape is not yet knwon.
+  if (!hasShapeAndRank(input()))
     return success();
-  }
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXCompressOpShapeHelper, ONNXCompressOp,
@@ -3871,8 +3870,8 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
   if (!hasShapeAndRank(operandAdaptor.input()))
     return success(); // Won't be able to do any checking at this stage.
 
-  Value input = operandAdaptor.input();
-  int64_t inputRank = input.getType().cast<ShapedType>().getRank();
+  int64_t inputRank =
+      operandAdaptor.input().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
@@ -4031,8 +4030,8 @@ LogicalResult ONNXOneHotOp::verify() {
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
     int64_t axisValue = axis();
-    // Unusually, with a rank of 3, acceptable values are 0 (before first) to
-    // 3 (after last).
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
     if (axisValue < 0)
       axisValue += indicesRank + 1;
     if (!(axisValue >= 0 && axisValue <= indicesRank))
