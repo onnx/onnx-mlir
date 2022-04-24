@@ -125,9 +125,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
     if (resizeOp.mode() != "nearest") {
-      Value resizeCall =
-          rewriter.create<KrnlCallOp>(loc, alloc, op, operands, true);
-      rewriter.replaceOp(op, resizeCall);
+      rewriter.create<KrnlCallOp>(loc, alloc, op, operands, true);
+      rewriter.replaceOp(op, alloc);
       return success();
     }
 

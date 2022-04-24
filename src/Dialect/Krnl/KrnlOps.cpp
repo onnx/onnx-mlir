@@ -98,16 +98,14 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
   if (!copyAttrs) {
-    build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
-        operands);
+    build(builder, odsState, funcNameAttr, resultVal, operands);
   } else {
     std::vector<NamedAttribute> attributes;
     attributes.emplace_back(namedAttr);
     for (auto namedAttr : op->getAttrs()) {
       attributes.emplace_back(namedAttr);
     }
-    build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
-        attributes);
+    build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
   }
 }
 
@@ -121,6 +119,17 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   std::string funcNameStr = name + "_" + typeToString(elementType);
 
   build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+}
+
+void KrnlCallOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  for (auto parameter : parameters()) {
+    effects.emplace_back(MemoryEffects::Read::get(), parameter,
+        SideEffects::DefaultResource::get());
+  }
+  effects.emplace_back(MemoryEffects::Write::get(), result(),
+      SideEffects::DefaultResource::get());
 }
 
 //===----------------------------------------------------------------------===//
