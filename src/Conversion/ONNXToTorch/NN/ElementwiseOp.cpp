@@ -130,7 +130,7 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXExpOp, AtenExpOp>,
-      ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXLogOp, AtenLogIntOp>,
+      ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXLogOp, AtenLogOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
       ONNXToTorchElementwiseUnaryOpLowering<ONNXSinOp, AtenSinOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
