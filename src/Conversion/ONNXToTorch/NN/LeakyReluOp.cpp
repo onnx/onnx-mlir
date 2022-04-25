@@ -6,12 +6,12 @@
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -58,25 +58,29 @@ using namespace mlir::torch::Torch;
  *
  * ONNX LeakyRelu operation
  *
- * “LeakyRelu takes input data (Tensor) and an argument alpha, and produces one"
- * "output data (Tensor) where the function `f(x) = alpha * x for x < 0`,"
- * "`f(x) = x for x >= 0`, is applied to the data tensor elementwise."
+ * “LeakyRelu takes input data (Tensor) and an argument alpha, 
+ * and produces one" "output data (Tensor) where the function 
+ * `f(x) = alpha * x for x < 0`,""`f(x) = x for x >= 0`, is applied to 
+ * the data tensor elementwise."
  *
  * Operands :
- * X            tensor of 16-bit/32-bit/64-bit float values or memref of any
- * type values Output   : Y            tensor of 16-bit/32-bit/64-bit float
- * values or memref of any type values
+ *   X   tensor of 16-bit/32-bit/64-bit float values or memref of any
+ *       type values Output: Y tensor of 16-bit/32-bit/64-bit float
+ *       values or memref of any type values
  *
  * Attributes
  * alpha    32-bit float attribute
  *
+ * Result:
+ *   Y	tensor of 16-bit/32-bit/64-bit float values or memref of any type values
  * Validation
  * ----------
  * /scripts/docker/build_with_docker.py --external-build --build-dir build
  * --command
  * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
+ * test_leakyrelu/model.onnx"
  *
  */
 
@@ -98,11 +102,13 @@ public:
 
     auto alpha = adapter.alphaAttr();  // mlir::FloatAttr
     auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get(/*alpha.getType()*/ mlir::FloatType::getF64(op->getContext()), neg_slope.convertToFloat());
+    auto f3 = FloatAttr::get( mlir::FloatType::getF64(op->getContext()), 
+		    neg_slope.convertToFloat());
     Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    TensorType op_tensor_type = 
+	    op->getResult(0).getType().cast<TensorType>();
 
     auto xTy = Torch::ValueTensorType::get(
         context, x_tensor_type.getShape(), x_tensor_type.getElementType());

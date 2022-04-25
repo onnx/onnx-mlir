@@ -2,23 +2,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====----- ONNXToTorchCommon.cpp - ONNX dialects to Torch lowering
-//---------===//
+//====- ONNXToTorchCommon.cpp - ONNX dialects to Torch lowering -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file contains common code shared by the functions performing the
 // lowering to the Torch dialect.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 // Type conversion from Onnx types to Torch types.
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 TorchTypeConverter::TorchTypeConverter() {
   // The order of type conversion is important: later ones are tried earlier.
@@ -34,7 +33,8 @@ TorchTypeConverter::TorchTypeConverter() {
       Type elementType = Torch::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
-    return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+    return MemRefType::get(tensorType.getShape(), 
+		    tensorType.getElementType());
   });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,

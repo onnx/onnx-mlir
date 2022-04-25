@@ -70,7 +70,7 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
   if (onnxArrayAttr) {
     for (unsigned int i = 0; i < onnxArrayAttr.size(); i++) {
       auto f1 = IntegerAttr::get(ty,
-          (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       operandArrayValues.push_back(p1v);
     }

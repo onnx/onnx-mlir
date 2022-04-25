@@ -51,6 +51,32 @@
 #include <io.h>
 #endif
 
+ /*
+  * ONNX ReduceMean operation
+  *
+  * “Computes the mean of the input tensor’s element along the provided axes. 
+  * The resulted” “tensor has the same rank as the input if keepdims equal 1. 
+  * If keepdims equal 0, then” “the resulted tensor have the reduced 
+  * dimension pruned.” “” “The above behavior is similar to numpy, with the 
+  * exception that numpy default keepdims to” “False instead of True.”
+  *
+  * Attributes:
+  *   axes	::mlir::ArrayAttr	64-bit integer array attribute
+  *  keepdims	::mlir::IntegerAttr	64-bit signed integer attribute
+  *
+  *  Operands:
+  *  data	tensor of 32-bit/64-bit unsigned integer values or 
+  *  		tensor of 32-bit/64-bit signless integer values or 
+  *  		tensor of 16-bit/32-bit/64-bit float values or 
+  *  		tensor of bfloat16 type values or memref of any type values.
+  *
+  *  Results:
+  *  reduced	tensor of 32-bit/64-bit unsigned integer values or 
+  *  		tensor of 32-bit/64-bit signless integer values or 
+  *  		tensor of 16-bit/32-bit/64-bit float values or tensor 
+  *  		of bfloat16 type values or memref of any type values
+  */
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;

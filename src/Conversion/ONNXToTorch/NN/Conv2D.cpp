@@ -2,16 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- Conv2D.cpp - Lowering Convolution Op
-//-------------------===//
+//===- Conv2D.cpp - Lowering Convolution Op -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
-// =============================================================================
+// ========================================================================
 //
 // This file lowers the ONNX Convolution Operators to Torch dialect.
 //
-//===----------------------------------------------------------------------===//
+//===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
@@ -50,6 +49,33 @@
 #include <io.h>
 #endif
 
+/* 
+ * ONNX Conv operation
+ * “The convolution operator consumes an input tensor and a filter, 
+ * and” “computes the output.
+ *
+ * Attributes:
+   * 	Attribute	    MLIR Type		    Description
+   *	auto_pad	::mlir::StringAttr	string attribute
+   * 	dilations	::mlir::ArrayAttr	64-bit integer array
+   *	group		::mlir::IntegerAttr	64-bit signed integer
+   *	kernel_shape	::mlir::ArrayAttr	64-bit integer array
+   *	pads		::mlir::ArrayAttr	64-bit integer array
+   *	strides		::mlir::ArrayAttr	64-bit integer array   
+
+ *Operands:
+   * Operand Description
+     *	X tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values
+     *	W tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values
+     *	B tensor of 16-bit/32-bit/64-bit float values or memref 
+	    of any type values or none type
+ *Results:
+   *Result Description
+     *	Y tensor of 16-bit/32-bit/64-bit float values or memref 
+     *	  of any type values or none type
+ */
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -140,7 +166,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     auto groupValue = group.getAPSInt();
     auto strides_AR = strides.getValue();
-    ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
+    ::mlir::ArrayAttr stridesArrayAttr = 
+	    mlir::ArrayAttr::get(context, strides);
 
     std::vector<Value> translatepadsList =
         createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
@@ -185,7 +212,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
     TensorType w_tensor_type = w.getType().cast<TensorType>();
-    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+    TensorType op_tensor_type = 
+	    op->getResult(0).getType().cast<TensorType>();
 
     auto xTy = Torch::ValueTensorType::get(
         context, x_tensor_type.getShape(), x_tensor_type.getElementType());
@@ -242,8 +270,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
                  << f1v << "\n"
                  << "\n";
 
-    Value atenconv2d = rewriter.create<AtenConv2dOp>(
-        loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
+    Value atenconv2d = rewriter.create<AtenConv2dOp>( loc, resultTy, 
+		 xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
     llvm::outs() << "AtenConv2d operation creation "
                  << "\n"

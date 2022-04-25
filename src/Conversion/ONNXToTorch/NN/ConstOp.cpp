@@ -6,12 +6,12 @@
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
-// =============================================================================
+// =================================================================
 //
 // This file implements a combined pass that dynamically invoke several
 // transformation on ONNX ops.
 //
-//===----------------------------------------------------------------------===//
+//===------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -58,6 +58,7 @@ using namespace mlir::torch::Torch;
  *
  * Creates the constant tensor.
  *
+ * Operands : None.
  *
  * Validation
  * ----------
@@ -65,18 +66,20 @@ using namespace mlir::torch::Torch;
  * --command
  * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_constant/model.onnx"
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
+ * test_constant/model.onnx"
  *
  * Limitations
  * -----------
  * uses literal.
  *
+ * TODO: Not handling String attribute in the ConstOp.
  */
 class ONNXConstOpToTorchLowering : public ConversionPattern {
 public:
   ONNXConstOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+          typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -87,12 +90,13 @@ public:
 
     auto value_attr = op1.valueAttr(); // ::mlir::Attribute
 
-    //      Steps
-    //	1) Extract float attributes array from ONNX and compare with the Netron
-    // file, 	2) Find the shape of this array in step 1, 	3) Create the
-    // result
-    // type, 	4) Create the torch tensor of shape as in 2, 	5) Create the
-    // torch op and replace it.
+    // Steps
+    // 1) Extract float attributes array from ONNX and compare with 
+    //      the Netron file,
+    // 2) Find the shape of this array in step 1,
+    // 3) Create the result type,
+    // 4) Create the torch tensor of shape as in 2,
+    // 5) Create the torch op and replace it.
 
     llvm::outs() << "CONSTFLOATOP operation creation value_attr type: "
                  << value_attr.getType() << "\n"
