@@ -6,8 +6,7 @@ set(ONNX_NUMERICALTEST_BIN_DIR ${ONNX_MLIR_BIN_ROOT}/test/numerical)
 add_custom_target(numerical-nnpa)
 set_target_properties(numerical-nnpa PROPERTIES FOLDER "Tests")
 
-set(ZDNN_LIBRARY_DIR $ENV{ZDNN_LIBRARY_DIR})
-set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
+set(ZDNN_LIB "${ONNX_MLIR_BIN_ROOT}/src/Accelerators/NNPA/zDNN/src/zdnn/zdnn/lib/libzdnn.so")
 
 add_custom_target(check-onnx-numerical-nnpa
   COMMENT "Running the ONNX-MLIR numerical regression tests for NNPA"
@@ -39,7 +38,7 @@ function(add_numerical_unittest test_name)
   # are compiled with -O3. TODO: make that a runtime env variable.
   add_test(NAME ${test_name} COMMAND ${test_name} -O3 --maccel=NNPA WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05")
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05};LD_PRELOAD=${ZDNN_LIB}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
