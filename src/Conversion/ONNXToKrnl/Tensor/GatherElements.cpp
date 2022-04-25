@@ -45,14 +45,14 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     Value indices = operandAdaptor.indices();
     int64_t axis = gatherElementsOp.axis();
-    int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
+    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
     int64_t outputRank = outputMemRefType.getShape().size();
     assert(indicesRank == dataRank && "Input tensors must have the same rank");
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
-    // Determine whether all indices are positive constants.
-    bool indicesArePositives = indicesArePositiveConstants(indices);
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
@@ -82,8 +82,7 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
           Value indexVal = createKrnl.loadIE(indices, accessFct);
           IndexExpr index = NonAffineIndexExpr(indexVal);
 
-          // When index may be negative, add axis dim to it.
-          if (!indicesArePositives) {
+          if (indicesMayBeNegative) {
             LiteralIndexExpr zero(0);
             SymbolIndexExpr axisDim(dataDims[axis]);
             index = index.selectOrSelf(index < zero, index + axisDim);

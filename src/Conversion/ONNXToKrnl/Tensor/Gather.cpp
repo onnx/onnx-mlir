@@ -45,11 +45,11 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     Value indices = operandAdaptor.indices();
     int64_t axisLit = gatherOp.axis();
-    int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
+    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
 
-    // Determine whether all indices are positive constants.
-    bool indicesArePositives = indicesArePositiveConstants(indices);
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
@@ -96,7 +96,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           // Loaded value is an index that is not affine
           IndexExpr index = NonAffineIndexExpr(indexVal);
           // When index may be negative, add axis Dim to it.
-          if (!indicesArePositives)
+          if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]

@@ -75,9 +75,9 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
 
-/// Check if the value is a KrnlGlobalOp with a dense attribute of positive
-/// constants.
-bool indicesArePositiveConstants(Value indices);
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices);
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
