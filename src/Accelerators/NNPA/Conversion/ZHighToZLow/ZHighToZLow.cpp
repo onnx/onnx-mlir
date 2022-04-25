@@ -1194,7 +1194,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
         operandAdaptor.input_weights(), input_bias,
         operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
-        rewriter.getStringAttr("none"));
+        rewriter.getStringAttr("not_set"));
     rewriter.replaceOp(op, allocHnOutput);
     return success();
   }
