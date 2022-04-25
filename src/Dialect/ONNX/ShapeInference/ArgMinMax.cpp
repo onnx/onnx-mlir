@@ -37,11 +37,9 @@ static LogicalResult computeShape(
   int64_t axisValue = op->axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
-  if (axisValue < -dataRank || axisValue >= dataRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *op->getOperation(), "axis", axisValue,
-        onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+  assert(-dataRank <= axisValue && axisValue < dataRank && "axis out of range");
 
+  // Negative axis means values are counted from the opposite side.
   if (axisValue < 0) {
     axisValue = dataRank + axisValue;
     auto builder = mlir::Builder(op->getContext());
