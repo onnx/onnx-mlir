@@ -3241,7 +3241,7 @@ LogicalResult ONNXGatherNDOp::verify() {
   auto indicesType = indices.getType().cast<ShapedType>();
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
-  int64_t batchDims = batch_dims();
+  int64_t b = batch_dims();
 
   // 'data' and 'indices' must have rank strictly greater than zero.
   if (dataRank < 1)
@@ -3255,36 +3255,34 @@ LogicalResult ONNXGatherNDOp::verify() {
   ArrayRef<int64_t> indicesShape = indicesType.getShape();
   int64_t indicesLastDim = indicesShape[indicesRank - 1];
 
-  // The value batchDims must be smaller than the minimum of rank(data) and
-  // rank(indices).
-  int64_t maxBatchDims = std::min(dataRank, indicesRank);
-  if (batchDims >= maxBatchDims)
+  // b must be smaller than min(rank(data), rank(indices).
+  int64_t minDataAndIndicesRank = std::min(dataRank, indicesRank);
+  if (b >= minDataAndIndicesRank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *this->getOperation(), "batch_dims", batchDims,
-        onnx_mlir::Diagnostic::Range<int64_t>(0, maxBatchDims - 1));
+        *this->getOperation(), "batch_dims", b,
+        onnx_mlir::Diagnostic::Range<int64_t>(0, minDataAndIndicesRank - 1));
 
-  //  llvm::errs() << "dataRank = " << dataRank << "\n";
-  //  llvm::errs() << "batchDims = " << batchDims << "\n";
-  //  llvm::errs() << "indicesLastDim = " << indicesLastDim << "\n";
+  // The first b dimensions of the shape of 'indices' and 'data' must be equal.
+  for (int64_t i = 0; i < b; ++i) {
+    int64_t dataDim = dataShape[i];
+    int64_t indicesDim = indicesShape[i];
+    if (indicesDim < 0 || dataDim < 0)
+      continue;
+    if (indicesDim != dataDim)
+      return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+          *this->getOperation(), indices, i, indicesShape[i],
+          std::to_string(dataShape[i]));
+  }
 
-  // Let r = rank(data). The last dimension of 'indices' must be in the range
-  // [1, r-batchDims].
+  // Let r = rank(data), indices.shape[-1] must be in the range [1, r-b].
   if (indicesLastDim < 1)
     return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
         *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
         ">= 1");
-  if (indicesLastDim > dataRank - batchDims)
+  if (indicesLastDim > dataRank - b)
     return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
         *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
-        "<= " + std::to_string(dataRank - batchDims));
-
-  // The first 'batchDims' dimensions of the 'indices' tensor must be equal.
-  if (indicesShape[batchDims - 1] > 0)
-    for (int64_t i = 0; i < batchDims - 1; ++i)
-      if (indicesShape[i] != indicesShape[batchDims - 1])
-        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
-            *this->getOperation(), indices, i, indicesShape[i],
-            std::to_string(indicesShape[batchDims - 1]));
+        "<= " + std::to_string(dataRank - b));
 
   // All values in 'indices' are expected to satisfy the inequality:
   //   -data.shape[i] <= indices[...,i] <= (data.shape[i]-1)].
@@ -3298,7 +3296,6 @@ LogicalResult ONNXGatherNDOp::verify() {
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         static int n = 0;
         int64_t index = value.getInt();
-
         if (index < -dataDimAtAxis || index > dataDimAtAxis - 1)
           return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
               *this->getOperation(), "indices[" + std::to_string(n) + "]",
@@ -3320,8 +3317,8 @@ LogicalResult ONNXGatherNDOp::inferShapes(
     return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  // TODO  return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
-  //     ONNXGatherOpAdaptor>(*this, elementType);
+  return shapeHelperInferShapes<ONNXGatherNDOpShapeHelper, ONNXGatherNDOp,
+      ONNXGatherNDOpAdaptor>(*this, elementType);
   return success();
 }
 

@@ -135,19 +135,19 @@ func @test_gatherND_verifier_3(%arg0 : tensor<1x2x3xf32>, %arg1 : tensor<2x2x2x2
 
 // -----
 
-// COM: The last dimension of 'indices' must be a value in the range [1, rank(data)-batch_dims].
-func @test_gatherND_verifier_4(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<1x4xi64>) -> tensor<*xf32> {
-  // expected-error @+1 {{onnx.GatherND: operand '<block argument> of type 'tensor<1x4xi64>' at index: 1' has dimension at index 1 with value 4, value should be <= 3}}
-  %1 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 1 : si64} : (tensor<1x2x3x4xf32>, tensor<1x4xi64>)  -> tensor<*xf32>
+// COM: The first 'batchDims' dimensions of the shape of the 'indices' and 'data' tensors must be equal.
+func @test_gatherND_verifier_4(%arg0 : tensor<2x2x3x4xf32>, %arg1 : tensor<2x3x2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherND: operand '<block argument> of type 'tensor<2x3x2xi64>' at index: 1' has dimension at index 1 with value 3, value should be 2}}
+  %1 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 2 : si64} : (tensor<2x2x3x4xf32>, tensor<2x3x2xi64>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
 // -----
 
-// COM: The first 'batchDims' dimensions of the 'indices' tensor must be equal.
-func @test_gatherND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x3x2xi64>) -> tensor<*xf32> {
-  // expected-error @+1 {{onnx.GatherND: operand '<block argument> of type 'tensor<2x3x2xi64>' at index: 1' has dimension at index 0 with value 2, value should be 3}}
-  %1 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 2 : si64} : (tensor<1x2x3x4xf32>, tensor<2x3x2xi64>)  -> tensor<*xf32>
+// COM: The last dimension of the 'indices' shape must be a value in the range [1, rank(data)-batch_dims].
+func @test_gatherND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<1x4xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherND: operand '<block argument> of type 'tensor<1x4xi64>' at index: 1' has dimension at index 1 with value 4, value should be <= 3}}
+  %1 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 1 : si64} : (tensor<1x2x3x4xf32>, tensor<1x4xi64>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -158,7 +158,7 @@ func @test_gatherND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<2x3x2
 func @test_gatherND_verifier_6(%arg0 : tensor<3x4x4x4xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.GatherND 'indices[0]' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3,2,2]> : tensor<3xi64>} : () -> tensor<3x3x2xi64>
-  %1 = "onnx.GatherND"(%arg0, %indices) {batch_dims = 2 : si64} : (tensor<3x4x4x4xf32>, tensor<3x3x2xi64>)  -> tensor<*xf32>
+  %1 = "onnx.GatherND"(%arg0, %indices) : (tensor<3x4x4x4xf32>, tensor<3x3x2xi64>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
