@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file lowers Sqrt op from Onnx to torch
+// This file lowers most unary operators from torch to onnx using a template
 //
 //===----------------------------------------------------------------------===//
 
@@ -53,7 +53,6 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
                  << xtt << "\n"
                  << "\n";
 
-    // y = x^0.5
     Value atenUnary = rewriter.create<TorchUnaryOp>(loc, resultTy, xtt);
 
     llvm::outs() << "Unary CREATED is "
@@ -101,7 +100,6 @@ struct ONNXToTorchElementwiseUnaryOpLowering2 : public ConversionPattern {
                  << xtt << "\n"
                  << "\n";
 
-    // y = x^0.5
     Value atenUnary = rewriter.create<TorchUnaryOp>(loc, resultTy, xtt);
 
     llvm::outs() << "Unary CREATED is "
