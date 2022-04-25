@@ -36,8 +36,11 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
-    // Output type:
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    if (!convertedType || !convertedType.isa<MemRefType>())
+      return op->emitError("Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();

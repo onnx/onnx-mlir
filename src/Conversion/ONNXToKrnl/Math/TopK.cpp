@@ -33,8 +33,13 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     // Builders.
     KrnlBuilder createKrnl(rewriter, loc);
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    if (!convertedType || !convertedType.isa<MemRefType>())
+      return op->emitError("Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+
     // Common types.
-    MemRefType resMemRefType = convertToMemRefType(*op->result_type_begin());
     Type i64Type = rewriter.getI64Type();
 
     // Op's Attributes.

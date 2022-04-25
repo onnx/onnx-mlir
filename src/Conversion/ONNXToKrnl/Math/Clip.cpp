@@ -32,7 +32,12 @@ struct ONNXClipOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXClipOp clipOp = cast<ONNXClipOp>(op);
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    if (!convertedType || !convertedType.isa<MemRefType>())
+      return op->emitError("Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     ONNXClipOpAdaptor operandAdaptor(operands);
     ONNXClipOpShapeHelper shapeHelper(&clipOp, &rewriter,

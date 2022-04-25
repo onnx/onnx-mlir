@@ -297,8 +297,13 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    if (!convertedType || !convertedType.isa<MemRefType>())
+      return op->emitError("Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
