@@ -32,7 +32,6 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
       patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConstOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
       patterns, typeConverter, ctx);
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
