@@ -30,7 +30,7 @@ bool areProducedByUnstickOp(ValueRange values) {
   return llvm::all_of(values, [](Value v) {
     using namespace onnx_mlir::zhigh;
     // Block argument.
-    if (v.dyn_cast<BlockArgument>())
+    if (v.isa<BlockArgument>())
       return false;
     // Are produced by ZHighUnstickOp.
     if (isa<ZHighUnstickOp>(v.getDefiningOp())) {
@@ -39,9 +39,8 @@ bool areProducedByUnstickOp(ValueRange values) {
       Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
       ZTensorEncodingAttr::DataLayout layout =
           getZTensorLayout(stickifiedVal.getType());
-      if (layout == ZTensorEncodingAttr::DataLayout::_4D ||
-          layout == ZTensorEncodingAttr::DataLayout::NHWC)
-        return true;
+      return (layout == ZTensorEncodingAttr::DataLayout::_4D ||
+              layout == ZTensorEncodingAttr::DataLayout::NHWC);
     }
     return false;
   });
