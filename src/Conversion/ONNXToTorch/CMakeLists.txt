@@ -27,15 +27,11 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/MaxPoolSingleOutOp.cpp
   NN/PaddingOp.cpp
   NN/FlattenOp.cpp
-  NN/ReluOp.cpp
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
   NN/SoftmaxOp.cpp
   NN/ConcatOp.cpp
-  NN/AbsOp.cpp
-  NN/SqrtOp.cpp
-  NN/SinOp.cpp
   #NN/CommonUtils.cpp
   #NN/Normalization.cpp
   #NN/Pooling.cpp
