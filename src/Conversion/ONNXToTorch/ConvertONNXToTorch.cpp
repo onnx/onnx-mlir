@@ -37,15 +37,12 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
       patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConstOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
-  // populateLoweringONNXToTorchReluOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
       patterns, typeConverter, ctx);
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConcatOpPattern(patterns, typeConverter, ctx);
-  // populateLoweringONNXToTorchAbsOpPattern(patterns, typeConverter, ctx);
-  // populateLoweringONNXToTorchSqrtOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
 }
 
