@@ -151,5 +151,5 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
       // ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXRoundOp>,
       ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXSigmoidOp, AtenSigmoidOp>,
       // ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXSoftplusOp>,
-      ONNXToTorchElementwiseUnaryOpLowering2<ONNXSqrtOp, AtenSqrtOp>>(typeConverter, ctx);
+      ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXSqrtOp, AtenSqrtOp>>(typeConverter, ctx);
 }
