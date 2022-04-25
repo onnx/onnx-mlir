@@ -29,39 +29,37 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXUnaryOp unaryOp = llvm::dyn_cast_or_null<ONNXUnaryOp>(op);
 
-    assert(unaryOp && "Expecting op to have type ONNXSqrt");
+    assert(unaryOp && "Expecting op to have a strong type");
 
     Location loc = unaryOp.getLoc();
-    Value x = unaryOp.input();
+    Value operand = unaryOp.input();
     mlir::MLIRContext *context =  unaryOp.getContext();
 
-    auto x_tensor_type = x.getType().template dyn_cast<TensorType>();
-    TensorType op_tensor_type = unaryOp.getResult().getType().template dyn_cast<TensorType>();
+    auto operandTensorType = operand.getType().template dyn_cast<TensorType>();
+    TensorType resultTensorType = unaryOp.getResult().getType().template dyn_cast<TensorType>();
 
-    auto xTy = Torch::ValueTensorType::get(context,
-                                           x_tensor_type.getShape(),
-                                           x_tensor_type.getElementType());
+    auto operandType = Torch::ValueTensorType::get(context,
+                                           operandTensorType.getShape(),
+                                           operandTensorType.getElementType());
 
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, xTy, x);
+    auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, operandType, operand);
 
-    auto resultTy = Torch::ValueTensorType::get(context,
-                                                op_tensor_type.getShape(),
-                                                op_tensor_type.getElementType());
+    auto resultType = Torch::ValueTensorType::get(context,
+                                                resultTensorType.getShape(),
+                                                resultTensorType.getElementType());
 
     llvm::outs() << "Unary input is "
-                 << xtt << "\n"
+                 << operandTensor
                  << "\n";
 
-    Value atenUnary = rewriter.create<TorchUnaryOp>(loc, resultTy, xtt);
+    Value result = rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
 
     llvm::outs() << "Unary CREATED is "
-                 << atenUnary << "\n"
+                 << result
                  << "\n";
 
-    Value result = atenUnary;
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultTy, result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
     return success();
   }
@@ -79,36 +77,34 @@ struct ONNXToTorchElementwiseUnaryOpLowering2 : public ConversionPattern {
     assert(unaryOp && "Expecting op to have type ONNXSqrt");
 
     Location loc = unaryOp.getLoc();
-    Value x = unaryOp.X();
+    Value operand = unaryOp.X();
     mlir::MLIRContext *context =  unaryOp.getContext();
 
-    auto x_tensor_type = x.getType().template dyn_cast<TensorType>();
-    TensorType op_tensor_type = unaryOp.getResult().getType().template dyn_cast<TensorType>();
+    auto operandTensorType = operand.getType().template dyn_cast<TensorType>();
+    TensorType resultTensorType = unaryOp.getResult().getType().template dyn_cast<TensorType>();
 
-    auto xTy = Torch::ValueTensorType::get(context,
-                                           x_tensor_type.getShape(),
-                                           x_tensor_type.getElementType());
+    auto operandType = Torch::ValueTensorType::get(context,
+                                           operandTensorType.getShape(),
+                                           operandTensorType.getElementType());
 
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, xTy, x);
+    auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, operandType, operand);
 
-    auto resultTy = Torch::ValueTensorType::get(context,
-                                                op_tensor_type.getShape(),
-                                                op_tensor_type.getElementType());
+    auto resultType = Torch::ValueTensorType::get(context,
+                                                resultTensorType.getShape(),
+                                                resultTensorType.getElementType());
 
     llvm::outs() << "Unary input is "
-                 << xtt << "\n"
+                 << operandTensor
                  << "\n";
 
-    Value atenUnary = rewriter.create<TorchUnaryOp>(loc, resultTy, xtt);
+    Value result = rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
 
     llvm::outs() << "Unary CREATED is "
-                 << atenUnary << "\n"
+                 << result
                  << "\n";
 
-    Value result = atenUnary;
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultTy, result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
     return success();
   }
@@ -118,7 +114,7 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<
 ////////////////////////////////////////////////////////////////////////////////
-// Arg input
+// First operand is `input`
 ////////////////////////////////////////////////////////////////////////////////
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
@@ -139,7 +135,7 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
 
 ////////////////////////////////////////////////////////////////////////////////
-// Arg X
+// First operand is `X`
 ////////////////////////////////////////////////////////////////////////////////
       ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXAbsOp, AtenAbsOp>,
       // ONNXToTorchElementwiseUnaryOpLowering2<mlir::ONNXCeilOp>,
