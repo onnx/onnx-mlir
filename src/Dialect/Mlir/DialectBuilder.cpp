@@ -632,7 +632,13 @@ void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
+// hi alex
+#if 1
+  MathBuilder math(b, loc);
+  return math.add(math.mul(lhs, rhs), acc);
+#else
   return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+#endif
 }
 
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {

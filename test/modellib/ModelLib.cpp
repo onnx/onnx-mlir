@@ -138,7 +138,7 @@ bool ModelLibBuilder::areCloseFloat(
   // by an add, the default RTOL is increased from 1e-1 to 1e-4. This bound has
   // been shown to hold for random values in the range +- 1.0, to
   // +-100,000,000.0.
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-4;
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5; // hi alex
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
