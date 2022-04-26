@@ -555,7 +555,10 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
 // Template instantiation for getScalarValue
 
 template double getScalarValue<double>(ONNXConstantOp constantOp, Type type);
+template float getScalarValue<float>(ONNXConstantOp constantOp, Type type);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
+template int32_t getScalarValue<int32_t>(ONNXConstantOp constantOp, Type type);
+template int16_t getScalarValue<int16_t>(ONNXConstantOp constantOp, Type type);
 
 // Convert type to MLIR type.
 // A complete list of types can be found in:
