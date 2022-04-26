@@ -94,7 +94,7 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
   return llvm::all_of(values, [](Value v) {
-    if (v.dyn_cast<BlockArgument>())
+    if (v.isa<BlockArgument>())
       return false;
     return isa<ONNXTransposeOp>(v.getDefiningOp());
   });
