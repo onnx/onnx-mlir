@@ -111,6 +111,18 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
+
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
+}
+
 /// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
