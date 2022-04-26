@@ -2796,13 +2796,12 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXSplitOp::verify() {
   ONNXSplitOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  Value input = operandAdaptor.input();
+  if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 
-  auto inputType = operandAdaptor.input().getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-  int64_t inputRank = inputShape.size();
+  auto inputType = input.getType().cast<ShapedType>();
+  int64_t inputRank = inputType.getShape().size();
   int64_t axisIndex = axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
@@ -2848,13 +2847,12 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
 LogicalResult ONNXSplitToSequenceOp::verify() {
   ONNXSplitToSequenceOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  Value input = operandAdaptor.input();
+  if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 
-  auto inputType = operandAdaptor.input().getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-  int64_t inputRank = inputShape.size();
+  auto inputType = input.getType().cast<ShapedType>();
+  int64_t inputRank = inputType.getShape().size();
   int64_t axisIndex = axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
@@ -4746,22 +4744,22 @@ LogicalResult ONNXTopKOp::verify() {
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success(); // Won't be able to do any checking at this stage.
 
-  Value X = operandAdaptor.X();
-  int64_t Xrank = X.getType().cast<ShapedType>().getRank();
-  int64_t axis = this->axis();
-
-  // axis attribute must be in the range [-r,r-1], where r = rank(X).
-  if (axis < -Xrank || axis >= Xrank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *this->getOperation(), "axis", axis,
-        onnx_mlir::Diagnostic::Range<int64_t>(-Xrank, Xrank - 1));
-
   // K's rank must be zero or one.
   Value K = operandAdaptor.K();
   int64_t KRank = K.getType().cast<ShapedType>().getRank();
   if (KRank > 1)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), K, KRank, "< 2");
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(X).
+  Value X = operandAdaptor.X();
+  int64_t Xrank = X.getType().cast<ShapedType>().getRank();
+  int64_t axis = this->axis();
+
+  if (axis < -Xrank || axis >= Xrank)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axis,
+        onnx_mlir::Diagnostic::Range<int64_t>(-Xrank, Xrank - 1));
 
   return success();
 }
@@ -4784,6 +4782,16 @@ LogicalResult ONNXTopKOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUniqueOp::verify() {
+  Optional<int64_t> optionalSorted = sorted();
+  if (optionalSorted.hasValue()) {
+    // optional sorted attribute must be zero or one.
+    int64_t sorted = optionalSorted.getValue();
+    if (sorted < 0 || sorted > 1)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "sorted", sorted,
+          onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
+  }
+
   ONNXUniqueOpAdaptor operandAdaptor(*this);
   Value X = operandAdaptor.X();
   if (!hasShapeAndRank(X))
@@ -4791,7 +4799,6 @@ LogicalResult ONNXUniqueOp::verify() {
 
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
-  Optional<int64_t> optionalSorted = sorted();
 
   if (optionalAxis.hasValue()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(X).
@@ -4800,15 +4807,6 @@ LogicalResult ONNXUniqueOp::verify() {
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-XRank, XRank - 1));
-  }
-
-  if (optionalSorted.hasValue()) {
-    // optional sorted attribute must be zero or one.
-    int64_t sorted = optionalSorted.getValue();
-    if (sorted < 0 || sorted > 1)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "sorted", sorted,
-          onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
   }
 
   return success();
