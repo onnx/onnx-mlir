@@ -596,9 +596,9 @@ def ZHighConcatOp:ZHigh_Op<"Concat", [NoSideEffect,
     "to concatenate on. Users must ensure that it is safe to concatenate"
     "stickified tensors for the given axis."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[ZTensor_NHWC, AnyMemRef]>>:$inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>>:$inputs,
                        SI64Attr:$axis);
-  let results = (outs AnyTypeOf<[ZTensor_NHWC, AnyMemRef]>:$concat_result);
+  let results = (outs AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>:$concat_result);
   let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
 }
 
