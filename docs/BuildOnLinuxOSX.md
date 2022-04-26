@@ -48,7 +48,8 @@ To build ONNX-MLIR, use the following commands:
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 # MLIR_DIR must be set with cmake option now
-mkdir onnx-mlir/build && cd onnx-mlir/build
+mkdir -p onnx-mlir/build && cd onnx-mlir/build
+ls -l $(pwd)/llvm-project/build/lib/cmake/mlir
 if [[ -z "$pythonLocation" ]]; then
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
