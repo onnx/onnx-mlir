@@ -619,8 +619,7 @@ def replaceONNXLSTMPattern1 : Pattern<
       $hidden_bias,                                      // hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -654,8 +653,7 @@ def replaceONNXLSTMPattern2 : Pattern<
       $b,                                                // nontype hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -696,8 +694,7 @@ def replaceONNXLSTMPattern3 : Pattern<
       $hidden_bias,                                      // hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -731,8 +728,7 @@ def replaceONNXLSTMPattern4 : Pattern<
       $b,                                                // nontype hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -779,8 +775,7 @@ def replaceONNXGRUPattern1 : Pattern<
       $hidden_bias,                                      // hiden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
   
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -811,8 +806,7 @@ def replaceONNXGRUPattern2 : Pattern<
       $b,                                                 // nontype hidden bias
       $hidden_size,                                       // hidden_size
       $direction,                                         // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),    // return_all_steps
-      (GetStrAttr<"none">)),                              // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
 
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -851,8 +845,7 @@ def replaceONNXGRUPattern3 : Pattern<
       $hidden_bias,                                      // hiden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
-      (GetStrAttr<"none">)),                             // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
   
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -883,8 +876,7 @@ def replaceONNXGRUPattern4 : Pattern<
       $b,                                                 // nontype hidden bias
       $hidden_size,                                       // hidden_size
       $direction,                                         // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),    // return_all_steps
-      (GetStrAttr<"none">)),                              // prev_layer
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
 
    //
    // Post-process to generate three return values of ONNXGRUOp

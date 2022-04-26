@@ -232,7 +232,7 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$cf_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
-                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
+                       DefaultValuedStrAttr<StrAttr, "not_set">:$prev_layer);
 }
 
 def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
@@ -261,7 +261,7 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$hn_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
-                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
+                       DefaultValuedStrAttr<StrAttr, "not_set">:$prev_layer);
 }
 
 def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
