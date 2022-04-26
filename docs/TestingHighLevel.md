@@ -38,7 +38,7 @@ To run the lit ONNX-MLIR tests, use the following command:
 ```shell
 cmake --build . --config Release --target check-onnx-lit
 ```
-or simply invoke the `check-onnx-lit` target for `ninja` or `make` in the build directory.
+Or simply invoke the `check-onnx-lit` target for `ninja` or `make` in the build directory.
 
 To run the numerical ONNX-MLIR tests, use the following command:
 
@@ -46,7 +46,7 @@ To run the numerical ONNX-MLIR tests, use the following command:
 ```shell
 cmake --build . --config Release --target check-onnx-numerical
 ```
-or simply invoke the `check-onnx-numerical` target for `ninja` or `make` in the build directory.
+Or simply invoke the `check-onnx-numerical` target for `ninja` or `make` in the build directory.
 
 To run the doc ONNX-MLIR tests, use the following command after installing third_party ONNX shown below. Details to first install the third_party ONNX project are detailed [here](BuildONNX.md). Note that it is key to install the ONNX project's version listed in our third_party subdirectory, as ONNX-MLIR may be behind the latest version from the ONNX standard.
 
@@ -54,7 +54,7 @@ To run the doc ONNX-MLIR tests, use the following command after installing third
 ```shell
 cmake --build . --config Release --target check-docs
 ```
-or simply invoke the `check-docs` target for `ninja` or `make` in the build directory.
+Or simply invoke the `check-docs` target for `ninja` or `make` in the build directory.
 
 # Summary of LLVM and ONNX-MLIR Environment Variables
 
