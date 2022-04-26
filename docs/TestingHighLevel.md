@@ -36,7 +36,7 @@ To run the lit ONNX-MLIR tests, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/check-onnx-mlir.cmd", "skip-ref": 1})
 ```shell
-cmake --build . --config Release --target check-onnx-lit
+call cmake --build . --config Release --target check-onnx-lit
 ```
 Or simply invoke the `check-onnx-lit` target for `ninja` or `make` in the build directory.
 
@@ -44,7 +44,7 @@ To run the numerical ONNX-MLIR tests, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/check-onnx-numerical.cmd", "skip-ref": 1})
 ```shell
-cmake --build . --config Release --target check-onnx-numerical
+call cmake --build . --config Release --target check-onnx-numerical
 ```
 Or simply invoke the `check-onnx-numerical` target for `ninja` or `make` in the build directory.
 
@@ -52,7 +52,7 @@ To run the doc ONNX-MLIR tests, use the following command after installing third
 
 [same-as-file]: <> ({"ref": "utils/check-docs.cmd", "skip-ref": 1})
 ```shell
-cmake --build . --config Release --target check-docs
+call cmake --build . --config Release --target check-docs
 ```
 Or simply invoke the `check-docs` target for `ninja` or `make` in the build directory.
 
