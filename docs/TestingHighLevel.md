@@ -8,7 +8,7 @@ If you have issues during the first `onnx-mlir` build, you may need to check the
 
 If you have used the source directory successfully for a while, you may experience difficulties to rebuild `onnx-mlir` after merging the latest changes from the `main` branch.
 
-Below is a couple of steps you may perform. If any of them apply, my recommendation is to remove the `onnx-mlir/build` subdirectory and rebuild from scratch using the `cmake` commands.
+Below is a couple of steps you may perform. If any of them apply, mit is recommended to remove the `onnx-mlir/build` subdirectory and rebuild from scratch using the `cmake` commands.
 
 ### 1) Checking the right commit of the llvm-project
 
@@ -24,7 +24,7 @@ If they don't match, please update the llvm project to the required level.
 
 Typically, when we update the ONNX op level, it results in new software in the `third_party/onnx` subdirectory. Failing to update that code results typically in compiler failures related to ONNX dialect code.
 
-I find it easier to simply remove the `third_party` directory and then reinstalling the code using `git submodule update --init --recursive`.
+It is easier to simply remove the `third_party` directory and then reinstalling the code using `git submodule update --init --recursive`.
 
 ### 3) Dialect update
 
