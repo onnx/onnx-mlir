@@ -14,17 +14,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXTopKOpShapeHelper::ONNXTopKOpShapeHelper(ONNXTopKOp *newOp)
-    : ONNXOpShapeHelper<ONNXTopKOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXTopKOpShapeHelper::ONNXTopKOpShapeHelper(ONNXTopKOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTopKOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXTopKOpShapeHelper::computeShape(
     ONNXTopKOpAdaptor operandAdaptor) {
   DimsExpr outputDims;
@@ -59,9 +48,9 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape(
       outputDims.emplace_back(XBounds.getDim(i));
   }
 
-  // There are two outputs: one for values and one for indices.
-  // But they have the same shape. Thus, return one output dims is enough.
   dimsForOutput(0) = outputDims;
+  dimsForOutput(1) = outputDims;
+
   return success();
 }
 

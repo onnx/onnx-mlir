@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------Gather.cpp - Lowering Gather Op----------------------=== //
+//===---------------- Gather.cpp - Lowering Gather Op ---------------------===//
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -27,8 +27,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXGatherOpAdaptor operandAdaptor(operands);
-    ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
-    auto loc = op->getLoc();
+    ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+    Location loc = op->getLoc();
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
@@ -39,20 +39,30 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
-    // Save axis and rank info.
+    // Operands and attributes.
+    Value data = operandAdaptor.data();
+    Value indices = operandAdaptor.indices();
     int64_t axisLit = gatherOp.axis();
-    int64_t dataRank = shapeHelper.dataDims.size();
-    int64_t indicesRank = shapeHelper.indicesDims.size();
-    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
+    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
 
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
+
+    // Negative value means counting dimensions from the back.
+    axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
+
+    int64_t outputRank = shapeHelper.dimsForOutput().size();
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
     LiteralIndexExpr zeroIE(0);
-    LiteralIndexExpr axis(axisLit);
+    MemRefBoundsIndexCapture dataBounds(data);
+    DimsExpr dataDims;
+    dataBounds.getDimList(dataDims);
 
     /*
       The pattern that we are using is that of numpy.take.
@@ -67,12 +77,12 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(0),
+    DimsExpr lbs(outputRank, zeroIE);
+    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
-          IndexExprScope innerLoopScope(&rewriter, loc);
-          SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);
+          IndexExprScope innerLoopScope(createKrnl);
+          SymbolIndexExpr axisDim(dataDims[axisLit]);
 
           // compute the loop indices for the output
           SmallVector<IndexExpr, 4> outputAccessFct;
@@ -82,12 +92,11 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           SmallVector<IndexExpr, 4> indicesAccessFct;
           for (int j = 0; j < indicesRank; ++j)
             indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
-          Value indexVal =
-              createKrnl.loadIE(operandAdaptor.indices(), indicesAccessFct);
+          Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
           // Loaded value is an index that is not affine
           IndexExpr index = NonAffineIndexExpr(indexVal);
           // When index may be negative, add axis Dim to it.
-          if (!shapeHelper.positiveConstantIndices)
+          if (indicesMayBeNegative)
             index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]
@@ -100,10 +109,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           // Then add kks.
           for (int k = axisLit + 1; k < dataRank; ++k)
             dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
-          Value data = createKrnl.loadIE(operandAdaptor.data(), dataAccessFct);
+          Value dataVal = createKrnl.loadIE(data, dataAccessFct);
 
           // Save data into output
-          createKrnl.storeIE(data, alloc, outputAccessFct);
+          createKrnl.storeIE(dataVal, alloc, outputAccessFct);
         });
     rewriter.replaceOp(op, alloc);
     return success();

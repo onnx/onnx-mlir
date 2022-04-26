@@ -43,8 +43,10 @@ add_onnx_mlir_library(OMShapeInference
 add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXPass.cpp
 
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
   LINK_LIBS PUBLIC
-  CompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass
@@ -54,7 +56,6 @@ add_onnx_mlir_library(OMOpTransform
   ONNXOpTransformPass.cpp
 
   LINK_LIBS PUBLIC
-  CompilerOptions
   OMONNXOps
   MLIRPass
   OMONNXRewrite

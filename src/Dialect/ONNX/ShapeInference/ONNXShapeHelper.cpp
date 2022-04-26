@@ -191,7 +191,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     }
   }
   // Set the final output.
-  ONNXOpShapeHelper<OP>::dimsForOutput(0) = dimsExpr;
+  ONNXOpShapeHelper<OP>::dimsForOutput() = dimsExpr;
   return success();
 }
 
@@ -395,7 +395,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 #endif
 
   // Set type for the first output.
-  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput(0) = outputDims;
+  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput() = outputDims;
   return success();
 }
 
@@ -405,6 +405,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 //===----------------------------------------------------------------------===//
 
 template struct ONNXOpShapeHelper<ONNXArgMaxOp>;
+template struct ONNXOpShapeHelper<ONNXArgMinOp>;
 template struct ONNXOpShapeHelper<ONNXAveragePoolOp>;
 template struct ONNXOpShapeHelper<ONNXCategoryMapperOp>;
 template struct ONNXOpShapeHelper<ONNXClipOp>;
@@ -413,7 +414,9 @@ template struct ONNXOpShapeHelper<ONNXConcatOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
 template struct ONNXOpShapeHelper<ONNXDepthToSpaceOp>;
 template struct ONNXOpShapeHelper<ONNXExpandOp>;
+template struct ONNXOpShapeHelper<ONNXFlattenOp>;
 template struct ONNXOpShapeHelper<ONNXGatherOp>;
+template struct ONNXOpShapeHelper<ONNXGatherElementsOp>;
 template struct ONNXOpShapeHelper<ONNXGemmOp>;
 template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;

@@ -15,16 +15,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp)
+ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(
+    ONNXOneHotOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXOneHotOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+          newOp, newOp->getOperation()->getNumResults(), inScope) {}
 
 ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXOneHotOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+          fLoadVal, inScope) {}
 
 LogicalResult ONNXOneHotOpShapeHelper::computeShape(
     ONNXOneHotOpAdaptor operandAdaptor) {
@@ -74,7 +75,7 @@ LogicalResult ONNXOneHotOpShapeHelper::computeShape(
   }
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }

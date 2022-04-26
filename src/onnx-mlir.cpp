@@ -22,11 +22,11 @@ int main(int argc, char *argv[]) {
   mlir::MLIRContext context;
   registerDialects(context);
 
-  llvm::cl::opt<string> inputFilename(llvm::cl::Positional,
+  llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
       llvm::cl::cat(OnnxMlirOptions));
 
-  llvm::cl::opt<string> outputBaseName("o",
+  llvm::cl::opt<std::string> outputBaseName("o",
       llvm::cl::desc("Base path for output files, extensions will be added."),
       llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
       llvm::cl::ValueRequired);

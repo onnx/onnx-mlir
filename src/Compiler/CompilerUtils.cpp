@@ -40,14 +40,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
-#if defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&            \
-    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
-static const std::string OnnxMlirVersion =
-    "onnx-mlir version 1.0.0 (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
-    " " LLVM_REPOSITORY " " LLVM_REVISION ")";
-#else
-const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
-#endif
 
 namespace {
 
@@ -159,6 +151,20 @@ static std::string getToolPath(std::string tool) {
     return p;
   else
     return std::string();
+}
+
+static std::string getOnnxMlirFullVersion() {
+  const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+  return
+#ifdef ONNX_MLIR_VENDOR
+      ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
+#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
+    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
+      OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
+                        ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
+#else
+      OnnxMlirVersion;
+#endif
 }
 
 // Helper struct to make command construction and execution easy & readable.
@@ -283,7 +289,8 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Emit the onnx-mlir version as llvm.ident metadata.
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
+  llvm::Metadata *identNode[] = {
+      llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   // Annotate functions to be accessible from DLL on Windows.
@@ -492,8 +499,8 @@ std::string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(
-      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
+  return genSharedLib(outputBaseName, {}, {modelObjPath},
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -522,7 +529,7 @@ void compileModuleToJniJar(
 
   std::string modelSharedLibPath = genSharedLib(jniLibBase,
       {"-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"jniruntime", "cruntime"}, {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -627,6 +634,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
   } break;
   case EmitLib: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
     std::string sharedLib =
         compileModuleToSharedLibrary(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
@@ -635,6 +643,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } break;
   case EmitJNI: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");

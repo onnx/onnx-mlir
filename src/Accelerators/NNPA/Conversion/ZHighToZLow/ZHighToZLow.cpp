@@ -22,6 +22,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir::zlow;
@@ -1275,6 +1276,76 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
   }
 };
 
+struct ZHighToZLowConcatOpLowering : public ConversionPattern {
+  ZHighToZLowConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighConcatOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    // Gather info.
+    auto loc = op->getLoc();
+
+    ZHighConcatOpAdaptor operandAdaptor(operands);
+    ZHighConcatOp concatOp = llvm::cast<ZHighConcatOp>(op);
+    ZHighConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
+
+    auto axis = concatOp.axis();
+    unsigned int inputNum = operands.size();
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.dimsForOutput(), op, rewriter);
+
+    unsigned int rank = zMemRefType.value.getRank();
+    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+
+    // Creates loops, one for each input.
+    KrnlBuilder createKrnl(rewriter, loc);
+    for (unsigned int i = 0; i < inputNum; ++i) {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      // Create loop.
+      ValueRange loopDef = createKrnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture bounds(operands[i]);
+      SmallVector<IndexExpr, 4> ubs;
+      bounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            // Indices for the read and write.
+            SmallVector<Value, 4> readIndices, writeIndices;
+            for (unsigned int r = 0; r < rank; ++r) {
+              if (r != axis || i == 0)
+                writeIndices.emplace_back(loopInd[r]);
+              else {
+                IndexExprScope IEScope(&rewriter, loc);
+                IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
+                for (unsigned int j = 0; j < i; j++) {
+                  MemRefBoundsIndexCapture operandJBounds(operands[j]);
+                  writeOffset = writeOffset + operandJBounds.getDim(r);
+                }
+                writeIndices.emplace_back(writeOffset.getValue());
+              }
+            }
+            // Insert copy.
+            Value loadData = createKrnl.load(operands[i], loopInd);
+            createKrnl.store(loadData, alloc, writeIndices);
+          });
+    }
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
@@ -1305,6 +1376,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
       ZHighMaxPool2DOpAdaptor, ZLowMaxPool2DOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp,
       ZHighAvgPool2DOpAdaptor, ZLowAvgPool2DOp>>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowConcatOpLowering>(typeConverter, ctx);
 }
 
 } // namespace zhigh

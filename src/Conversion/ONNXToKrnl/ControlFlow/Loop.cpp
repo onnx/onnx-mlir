@@ -258,10 +258,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         // copy the value
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
-        SmallVector<IndexExpr, 4> ubs;
-        MemRefBoundsIndexCapture bounds(maxTripCount);
-        bounds.getDimList(ubs);
-        createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)}, ubs,
+        createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
             [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               // Wrap with KrnlRegionOp because emitCopy uses the result of
               // SeqExtract for loop bound.

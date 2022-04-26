@@ -14,16 +14,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp)
-    : ONNXOpBroadcastedShapeHelper<ONNXExpandOp>(newOp), expandOp(newOp) {}
-
-ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpBroadcastedShapeHelper<ONNXExpandOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal),
-      expandOp(newOp) {}
-
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
   // Get info about input operands.
@@ -36,8 +26,8 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     return op->emitError("expected shape parameter to be defined");
   if (shapeType.getShape()[0] == -1)
     return op->emitError("expected size of shape parameter to be defined");
-  if (mlir::ONNXShapeOp shapeOp =
-          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDefOp)) {
+
+  if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
     assert(shapeOp.data().getType().isa<ShapedType>() && "expected");
     // Consider a first case where the expand.shape is produced by a shape op.
     // Infer its shape and use it as the requested shape.
@@ -55,24 +45,29 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
+
+    // Compute the data selected by the Shape operator.
+    DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
+
     // Now that we have the shape's actual computation in
-    if (failed(ONNXOpBroadcastedShapeHelper::computeShape(
-            {input}, shapeOpShapeHelper.selectedData)))
+    if (failed(
+            ONNXOpBroadcastedShapeHelper::computeShape({input}, selectedData)))
       return op->emitError("failed to broadcast");
 
-  } else {
-    assert(shape.getType().isa<ShapedType>());
-    SmallVector<IndexExpr, 4> constVals;
-    ArrayValueIndexCapture arrayCapture(shape, fGetDenseVal, fLoadVal);
-    if (!arrayCapture.getSymbolList(constVals)) {
-      return op->emitError(
-          "Shape argument of Expand is the output of an unexpected "
-          "operation. Supported operations are: onnx.Constant and "
-          "onnx.Shape");
-    }
-    if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
-      return op->emitError("failed to broadcast");
+    return success();
   }
+
+  assert(shape.getType().isa<ShapedType>() && "Expecting a shaped type");
+  SmallVector<IndexExpr, 4> constVals;
+  ArrayValueIndexCapture arrayCapture(shape, fGetDenseVal, fLoadVal);
+  if (!arrayCapture.getSymbolList(constVals))
+    return op->emitError(
+        "Shape argument of Expand is the output of an unexpected "
+        "operation. Supported operations are: onnx.Constant and "
+        "onnx.Shape");
+
+  if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
+    return op->emitError("failed to broadcast");
 
   return success();
 }
