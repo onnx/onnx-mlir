@@ -69,12 +69,9 @@ extern "C" {
  *
  * OMInitAccelNNPA() is thread safe, and is guaranteed to set
  * OMIsInitAccelNNPA=1 once any other threads are guaranteed to see the full
- * effects of the zdnn_init(). Because Z has a release consistency memory
- * subsystem, we need a hard memory fence between zdnn_init() and
- * OMIsInitAccelNNPA=1. Because we are sticking to posix thread library here,
- * the easiest way to express a fence is to add an additional lock (the inner
- * mutex) as pthread_mutex_unlock() guarantees a fence in it (for release
- * consistency architectures).
+ * effects of the zdnn_init(). Because Z does not has a release consistency
+ * memory subsystem, we don't need a hard memory fence between zdnn_init() and
+ * OMIsInitAccelNNPA=1.
  *
  * For the OMShutdownAccelNNPA(), we simply set the OMIsInitAccelNNPA flag to
  * zero as there is currently no zdnn shutdown call. If one were added, then we
@@ -86,31 +83,24 @@ extern "C" {
 // Name must be OMIsInitAccelX where X=NNPA.
 long OMIsInitAccelNNPA = 0;
 
-// Mutex definitions for init and shutdown serialization. A common set is used
-// for all accelerators. Inner mutex is used to implement a fence around the
-// init/shutdown code, to make sure that all side effects from such operations
-// are completed prior to switching the globally readable OMIsInitAccelNNPA.
-pthread_mutex_t OMOuterMutexForInitShutdownNNPA = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t OMInnerMutexForInitShutdownNNPA = PTHREAD_MUTEX_INITIALIZER;
+// Mutex definitions for init and shutdown serialization.
+pthread_mutex_t OMMutexForInitShutdownNNPA = PTHREAD_MUTEX_INITIALIZER;
 
 // Define function that performs the serialization of the initialization as well
 // as set the OMIsInitAccelNNPA to true.
 // Name must be OMInitAccelX where X=NNPA.
 void OMInitAccelNNPA() {
   if (!OMIsInitAccelNNPA) {
-    /* Grab outer mutex. */
-    pthread_mutex_lock(&OMOuterMutexForInitShutdownNNPA);
+    /* Grab mutex. */
+    pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
-      /* Still unitinitialized, get inner mutex to fence init code. */
-      pthread_mutex_lock(&OMInnerMutexForInitShutdownNNPA);
-      /* Actual init. */
+      /* Still unitinitialized, actual init. */
       zdnn_init();
-      /* Release inner mutex, and then set accelerator to initialized. */
-      pthread_mutex_unlock(&OMInnerMutexForInitShutdownNNPA);
+      /* No need for a fence due to strong consistency. */
       OMIsInitAccelNNPA = 1;
-    } /* Release outer mutex. */
-    pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
+    } /* Release mutex. */
+    pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
   }
 }
 
@@ -119,21 +109,19 @@ void OMInitAccelNNPA() {
 void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
   if (!OMIsInitAccelNNPA) {
     int isCompatible = 1;
-    /* Grab outer mutex. */
-    pthread_mutex_lock(&OMOuterMutexForInitShutdownNNPA);
+    /* Grab mutex. */
+    pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
-      /* Still unitinitialized, get inner mutex to fence init code. */
-      pthread_mutex_lock(&OMInnerMutexForInitShutdownNNPA);
-      /* Actual init. */
+      /* Still unitinitialized, actual init. */
       zdnn_init();
-      /* Release inner mutex, and then set accelerator to initialized. */
-      pthread_mutex_unlock(&OMInnerMutexForInitShutdownNNPA);
       /* Check if version is compatible */
       isCompatible = zdnn_is_version_runnable((uint32_t)versionNum);
+      /* No need for a fence due to strong consistency. */
       OMIsInitAccelNNPA = 1;
-    } /* Release outer mutex. */
-    pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
+    }
+    /* Release mutex. */
+    pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
     /* If not compatible, generate an error here */
     if (!isCompatible) {
       fprintf(stderr,
@@ -146,16 +134,17 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
 }
 
 // Define function that performs the serialization of the shutdown as well
-// as set the OMIsInitAccelNNPA to false.
-// Name must be OMShutdownAccelX where X=NNPA.
+// as set the OMIsInitAccelNNPA to false. This function can only be called when
+// all evaluation on the NNPA are known to have completed. Name must be
+// OMShutdownAccelX where X=NNPA.
 void OMShutdownAccelNNPA() {
   if (OMIsInitAccelNNPA) {
-    /* Grab outer mutex. */
-    pthread_mutex_lock(&OMOuterMutexForInitShutdownNNPA);
-    /* Nothing to unitnitialize, so skip inner mutex. */
+    /* Grab mutex. */
+    pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
+    /* Nothing to unitnitialize. */
     OMIsInitAccelNNPA = 0;
-    /* Release outer mutex. */
-    pthread_mutex_unlock(&OMOuterMutexForInitShutdownNNPA);
+    /* Release mutex. */
+    pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
   }
 }
 
