@@ -1,0 +1,14 @@
+//RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
+module {
+  func @main_graph(%arg0: tensor<2x3x7x5xf32>) -> tensor<2x4x5x3xf32> attributes {input_names = ["input"], output_names = ["5"]} {
+    %0 = "onnx.Constant"() {value = dense<"0x0AA3343D6B3B36BEB06FA73C4FBAE7BDC9CC193E0F0E583D8C4230BDBDE2CD3DFB10103EA119893D0AD638BE2485183C174EFE3DD557653DF26A883D73BD29BE4DCE04BE33BD993CBD5312BD72D8063D50BA343E303EB5BDA1F20D3E0E8F033CDFDD86BD21F495BDA1E200BD7D42DDBC13FE1CBEE2EE273E4C7DFC3D381B46BD633DEB3D74AD6D3DE9F31EBE5D7D14BE3A2A1ABE462E05BED9A6A73D90B8B33DA9E3333EE739AD3D289E143DE7699EBC625522BD6B10783DB9E3A7BD809844BED9F6E9BDABE7313E6B78553C6C20053EC4945ABD02CAC23DC7CFBA3D2D55E23D9514A3BA918089BD7453BA3DF893363C6701FBBDC0D8B3BD13FC313E00947B3CA772313ED3D6F33D2FAF053DC4845ABD59E2F5BD6201063ED22A30BE7C1144BDDCEBEC3DF23117BE9F077DBA865B193ECFFBFCBDE37A17BDE2A9363D52B62FBD92AE39BE697B6CBDC4EAD3BDE3DF1FBEE62A393EA28B3CBE2989CEBB635A3BBEF0B6ACBDF759BB3D056C093DC7F2393E6B81E23D7CCFEFBDD03B123EBE1457BB7158023C0635013DD6E306BE2E9D9B3D8A2EF53DFDB1243D632F07BD1A672BBD6678CFBDD69B3FBE1051E7BD1A5219BE"> : tensor<4x3x3x3xf32>} : () -> tensor<4x3x3x3xf32>
+    %1 = "onnx.Constant"() {value = dense<[-0.130966514, -0.14502807, -0.00976897869, 0.126693457]> : tensor<4xf32>} : () -> tensor<4xf32>
+    %2 = "onnx.Conv"(%arg0, %0, %1) {dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_0", pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<2x3x7x5xf32>, tensor<4x3x3x3xf32>, tensor<4xf32>) -> tensor<2x4x5x3xf32>
+    %3 = "onnx.Constant"() {onnx_node_name = "Constant_1", value = dense<1.000000e+00> : tensor<f32>} : () -> tensor<f32>
+//CHECK: torch.vtensor.literal(dense<1.000000e+00> : tensor<f32>) : !torch.vtensor<[],f32>
+    //CHECK: [[OUT^ ]*]] = torch.constant.int 1
+    %4 = "onnx.Add"(%2, %3) {onnx_node_name = "Add_2"} : (tensor<2x4x5x3xf32>, tensor<f32>) -> tensor<2x4x5x3xf32>
+//CHECK: torch.aten.add.Tensor %8, %9, [[OUT:%[^ ]*]] : !torch.vtensor<[2,4,5,3],f32>, !torch.vtensor<[],f32>, !torch.int -> !torch.vtensor<[2,4,5,3],f32>
+    return %4 : tensor<2x4x5x3xf32>
+  }
+}

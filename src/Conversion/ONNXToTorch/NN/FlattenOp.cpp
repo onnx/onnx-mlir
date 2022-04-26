@@ -13,37 +13,7 @@
 //
 //===-------------------------------------------------------------===//
 
-#include <fstream>
-#include <iostream>
-#include <set>
-
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "mlir/Transforms/DialectConversion.h"
-
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
-
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -90,6 +60,19 @@ using namespace mlir::torch::Torch;
  *
  */
 
+static Value createAtenFlattenOp(ConversionPatternRewriter &rewriter, 
+	Location loc, Value result, ValueTensorType resultType,
+	int64_t start_dim, int64_t end_dim, ONNXFlattenOp op1) {
+  auto ty = IntegerType::get(op1.getContext(), 64);
+  auto startDimInt = IntegerAttr::get(ty, (start_dim));
+  Value startDimConstInt = 
+	  rewriter.create<ConstantIntOp>(loc, startDimInt);
+  auto endDimInt = IntegerAttr::get(ty, (end_dim));
+  Value endDimConstInt = rewriter.create<ConstantIntOp>(loc, endDimInt);
+  return rewriter.create<AtenFlattenUsingIntsOp>(loc,
+                    resultType, result, startDimConstInt, endDimConstInt);
+}
+
 class ONNXFlattenOpToTorchLowering : public ConversionPattern {
 public:
   ONNXFlattenOpToTorchLowering(TypeConverter &typeConverter,
@@ -103,7 +86,6 @@ public:
     Location loc = op->getLoc();
     mlir::MLIRContext *context = op->getContext();
     ONNXFlattenOp op1 = llvm::dyn_cast<ONNXFlattenOp>(op);
-    ONNXFlattenOpAdaptor adaptor(operands);
 
     Value input = op1.input();
     auto axisValue = op1.axis();       // ::mlir::IntegerAttr
@@ -111,58 +93,36 @@ public:
     auto inputShape = input.getType().cast<ShapedType>().getShape();
     int64_t inputRank = inputShape.size();
 
-    TensorType op_tensor_type =
+    TensorType resultTensorType =
 	    op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-               op_tensor_type.getShape(), op_tensor_type.getElementType());
+          resultTensorType.getShape(), resultTensorType.getElementType());
 
-    TensorType input_tensor_type  = input.getType().cast<TensorType>();
+    TensorType inputTensorType  = input.getType().cast<TensorType>();
     auto inputTy =
-	 Torch::ValueTensorType::get(context, input_tensor_type.getShape(),
-                    input_tensor_type.getElementType());
-    auto itt  =
+	 Torch::ValueTensorType::get(context, inputTensorType.getShape(),
+                    inputTensorType.getElementType());
+    auto inputTensor =
 	  rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
                     inputTy, input);
-    auto ty = IntegerType::get(op1.getContext(), 64);
-    int64_t startDim;
-    int64_t endDim;
-    Value atenflaten1 = itt;
-    if (axisValue != 0) {
+    Value result = inputTensor;
+
+    if (axisValue < 0)
+      return op->emitError("negative axis not supported");
+    
+    if (axisValue > 1) {
       // flatten the region upto axis-1.
-      startDim = 0;
-      endDim = axisValue - 1;
-      auto f0 = IntegerAttr::get(ty, (startDim));
-      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-      auto f1 = IntegerAttr::get(ty, (endDim));
-      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-      llvm::outs() << "input Value:   "
-	      << "\n" << itt << "\n" << "\n";
-      llvm::outs() << "startDim1 Value:   "
-	      << "\n" << p0v << "\n" << "\n";
-      llvm::outs() << "endDim1 Value:   "
-	      << "\n" << p1v << "\n" << "\n";
-      atenflaten1 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
-                    resultTy, itt, p0v, p1v);
+      result = createAtenFlattenOp (rewriter, loc, result, resultTy, 0, 
+		      axisValue - 1, op1);
       llvm::outs() << "Aten Flatten1 Op:   "
-	      << "\n" << atenflaten1 << "\n" << "\n";
+	      << "\n" << result << "\n" << "\n";
     }
 
     // flatten the region from axis upwards.
-    startDim = axisValue;
-    endDim = inputRank;
-    auto f2 = IntegerAttr::get(ty, (startDim));
-    Value p2v = rewriter.create<ConstantIntOp>(loc, f2);
-    auto f3 = IntegerAttr::get(ty, (endDim));
-    Value p3v = rewriter.create<ConstantIntOp>(loc, f3);
-    llvm::outs() << "startDim2 Value:   " << "\n" << p2v << "\n" << "\n";
-    llvm::outs() << "endDim2 Value:   " << "\n" << p3v << "\n" << "\n";
-    Value atenflaten2 = rewriter.create<AtenFlattenUsingIntsOp>(loc,
-                    resultTy, atenflaten1, p2v, p3v);
-    Value result = atenflaten2;
-    
-    llvm::outs() << "AtenFlatten Op created" << "\n" << "\n";
-    llvm::outs() << "Aten Flatten Op:   "
-	    << "\n" << atenflaten2 << "\n" << "\n";
+    result = createAtenFlattenOp (rewriter, loc, result, resultTy,
+		    axisValue, inputRank, op1);
+    llvm::outs() << "AtenFlatten Op created" << "\n"
+	    << "\n" << result << "\n" << "\n";
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
                     resultTy, result);
     return success();

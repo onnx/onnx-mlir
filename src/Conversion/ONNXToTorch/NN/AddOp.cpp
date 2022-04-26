@@ -13,37 +13,7 @@
 //
 //===-----------------------------------------------------------------===//
 
-#include <fstream>
-#include <iostream>
-#include <set>
-
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "mlir/Transforms/DialectConversion.h"
-
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
-
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -93,34 +63,35 @@ public:
     Location loc = op->getLoc();
     mlir::MLIRContext *context = op->getContext();
     ONNXAddOp op1 = llvm::dyn_cast<ONNXAddOp>(op);
-    ONNXAddOpAdaptor adapter(op1);
 
     auto a = op1.A();
     auto b = op1.B();
-    TensorType a_tensor_type = a.getType().cast<TensorType>();
-    TensorType b_tensor_type = b.getType().cast<TensorType>();
-    TensorType op_tensor_type =
+    TensorType aTensorType = a.getType().cast<TensorType>();
+    TensorType bTensorType = b.getType().cast<TensorType>();
+    TensorType resultTensorType =
 	    op->getResult(0).getType().cast<TensorType>();
     auto ty = IntegerType::get(op1.getContext(), 64);
     auto one = 1;
-    auto f1 = IntegerAttr::get(ty, one);
-    Value f1v = rewriter.create<ConstantIntOp>(loc, f1);
-
+    auto oneIntAttr = IntegerAttr::get(ty, one);
+    Value alphaDefaultValue = 
+	rewriter.create<ConstantIntOp>(loc, oneIntAttr);
     auto aTy = Torch::ValueTensorType::get(
-        context, a_tensor_type.getShape(), a_tensor_type.getElementType());
-    auto att = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
-	    (loc, aTy, a);
+	context, aTensorType.getShape(), aTensorType.getElementType());
+    auto aTensor = 
+	rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
+	(loc, aTy, a);
     auto bTy = Torch::ValueTensorType::get(context,
-		b_tensor_type.getShape(), b_tensor_type.getElementType());
-    auto btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
-	    (loc, bTy, b);
+	bTensorType.getShape(), bTensorType.getElementType());
+    auto bTensor =
+	rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>
+	(loc, bTy, b);
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
-    Value atenaddresult =
-        rewriter.create<AtenAddTensorOp>(loc, resultTy, att, btt, f1v);
+        resultTensorType.getShape(), resultTensorType.getElementType());
+    Value result =
+        rewriter.create<AtenAddTensorOp>(loc, resultTy, aTensor, bTensor,
+			alphaDefaultValue);
 
-    llvm::outs() << "ATENADDOP CREATED is " << atenaddresult << "\n";
-    Value result = atenaddresult;
+    llvm::outs() << "ATENADDOP CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
