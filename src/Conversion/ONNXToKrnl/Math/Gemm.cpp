@@ -323,8 +323,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.

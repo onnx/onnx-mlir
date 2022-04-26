@@ -880,8 +880,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -947,8 +947,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     Type outputElementType = outputMemRefType.getElementType();
     uint64_t outputRank = outputMemRefType.getRank();
@@ -1038,8 +1038,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     Type outputElementType = outputMemRefType.getElementType();
     uint64_t outputRank = outputMemRefType.getRank();
@@ -1142,8 +1142,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     uint64_t outputRank = outputMemRefType.getRank();
 

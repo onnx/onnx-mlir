@@ -150,8 +150,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     MemRefType memRefInType = input.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    if (!convertedType || !convertedType.isa<MemRefType>())
-      return op->emitError("Failed to convert type to MemRefType");
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
     MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
