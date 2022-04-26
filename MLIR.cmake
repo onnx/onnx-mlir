@@ -3,13 +3,9 @@
 # Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
 # won't change accordingly.
 unset(LLVM_DIR CACHE)
-if (DEFINED ENV{MLIR_DIR})
-  set(MLIR_DIR $ENV{MLIR_DIR} CACHE PATH "Path to directory containing MLIRConfig.cmake" FORCE)
-elseif (NOT DEFINED MLIR_DIR)
+if (NOT DEFINED MLIR_DIR)
   message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-    "Either set the environmental variable MLIR_DIR, e.g.,\n"
-    "    MLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir cmake ..\n"
-    "or set the cmake option MLIR_DIR, e.g.,\n"
+    "Set the cmake option MLIR_DIR, e.g.,\n"
     "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
     )
 endif()
