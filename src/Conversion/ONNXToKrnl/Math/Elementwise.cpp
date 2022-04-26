@@ -1071,7 +1071,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (int i = 0; i < outputRank; ++i)
+            for (uint64_t i = 0; i < outputRank; ++i)
               outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
             // Fold over operands for each of their scalar values.

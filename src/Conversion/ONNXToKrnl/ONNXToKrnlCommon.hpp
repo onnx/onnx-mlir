@@ -78,9 +78,6 @@ bool hasAllConstantDimensions(MemRefType type);
 /// Check is all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
-MemRefType convertToMemRefType(Type type);
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand = nullptr,

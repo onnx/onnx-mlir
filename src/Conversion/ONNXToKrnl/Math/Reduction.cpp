@@ -381,7 +381,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     auto input = operands[0];
     auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
@@ -422,8 +426,13 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
+      // Convert the mask type to MemRefType.
+      Type convertedMaskType = typeConverter->convertType(maskType);
+      assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
       maskVal = insertAllocAndDealloc(
-          convertToMemRefType(maskType), loc, rewriter, insertDealloc);
+          maskTypeInMemRefType, loc, rewriter, insertDealloc);
       falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
       trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);

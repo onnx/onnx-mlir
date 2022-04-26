@@ -111,41 +111,6 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
-/// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
-MemRefType convertToMemRefType(Type type) {
-  // Convert the element type of the (tensor or memref) to a valid Krnl type.
-  auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<ONNXStringType>())
-      return krnl::StringType::get(elemType.getContext());
-    return elemType;
-  };
-
-  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    MemRefType memRefType = MemRefType::get(
-        tensorType.getShape(), convertElemType(tensorType.getElementType()));
-    return memRefType;
-  }
-
-  if (auto seqType = type.dyn_cast_or_null<SeqType>()) {
-    ShapedType seqElementType = seqType.getElementType();
-    Type seqElementMemRefType =
-        seqElementType.hasRank()
-            ? (Type)convertToMemRefType(seqElementType)
-            : (Type)UnrankedMemRefType::get(seqElementType.getElementType(), 0);
-    SmallVector<int64_t, 1> dims;
-    dims.emplace_back(seqType.getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType memRefType = MemRefType::get(shape, seqElementMemRefType);
-    return memRefType;
-  }
-
-  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
-  auto memRefType = type.cast<MemRefType>();
-  return MemRefType::get(
-      memRefType.getShape(), convertElemType(memRefType.getElementType()));
-}
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
