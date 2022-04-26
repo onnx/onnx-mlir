@@ -14,7 +14,7 @@ Below is a couple of steps you may perform. If any of them apply, my recommendat
 
 If the latest `onnx-mlir` `main` branch has moved to a newer commit level of the `llvm-project`, the build process will typically experience multiple compiler failures related to LLVM and MLIR code.
 
-Level required is found in the first code box of this page: (Building ONNX-MLIR)[BuildOnLinuxOSX.md#mlir].
+Level required is found in the first code box of the [Building ONNX-MLIR](BuildOnLinuxOSX.md#mlir) page next to the `git checkout` command.
 
 Level used in the code is found by executing a `git log` in the `llvm-project` subdirectory.
 
