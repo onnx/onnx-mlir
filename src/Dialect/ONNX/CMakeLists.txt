@@ -29,6 +29,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/DepthToSpace.cpp
   ShapeInference/Expand.cpp
   ShapeInference/Gather.cpp
+  ShapeInference/GatherElements.cpp  
   ShapeInference/Gemm.cpp
   ShapeInference/LRN.cpp
   ShapeInference/MatMul.cpp

@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (DEFINED ENV{MLIR_DIR})
-  set(MLIR_DIR $ENV{MLIR_DIR} CACHE PATH "Path to directory containing MLIRConfig.cmake")
-elseif (NOT DEFINED MLIR_DIR)
+# Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
+# won't change accordingly.
+unset(LLVM_DIR CACHE)
+if (NOT DEFINED MLIR_DIR)
   message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-          "Please set the env variable MLIR_DIR or the corresponding cmake configuration option.")
+    "Set the cmake option MLIR_DIR, e.g.,\n"
+    "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
+    )
 endif()
 
 find_package(MLIR REQUIRED CONFIG)
