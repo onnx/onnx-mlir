@@ -44,7 +44,7 @@ if args.no_convert :
 
 # Opset version supported by current onnx-mlir
 # Should be consistent with gen_onnx_mlir.py
-current_onnx_mlir_support_version=13
+current_onnx_mlir_support_version=16
 
 converted_model = version_converter.convert_version(
         original_model, current_onnx_mlir_support_version)

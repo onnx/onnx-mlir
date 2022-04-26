@@ -35,11 +35,10 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
-  if (optionalAxis.hasValue() && (optionalAxis.getValue() < -inputRank ||
-                                     optionalAxis.getValue() >= inputRank))
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
-        "axis", optionalAxis.getValue(),
-        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+  assert(
+      (!optionalAxis.hasValue() || (-inputRank <= optionalAxis.getValue() &&
+                                       optionalAxis.getValue() < inputRank)) &&
+      "axis out of range");
 
   // Get the dimension derived from the condition. Assume in shape helper that
   // it is only going to be a question mark. ONNX to Krnl lowering will compute

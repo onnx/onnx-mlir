@@ -42,8 +42,8 @@ public:
   /// Kinds of accelerators.
   enum class Kind {
     // clang-format off
-    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM) 
-    NONE
+    NONE,
+    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM)
     // clang-format on
   };
 
