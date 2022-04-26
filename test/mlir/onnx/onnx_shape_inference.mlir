@@ -1564,7 +1564,7 @@ func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2xi64>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_gather_negative_axis
-  // CHECK: [[RES:%.+]] = "onnx.Gather"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Gather"(%arg0, %arg1) {axis = -1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
   // CHECK: return [[RES]] : tensor<3x1x2xf32>
 }
 

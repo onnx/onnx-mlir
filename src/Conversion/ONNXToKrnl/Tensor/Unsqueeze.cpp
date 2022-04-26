@@ -25,8 +25,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   Adaptor operandAdaptor(operands);
   Op unsqueezeOp = dyn_cast_or_null<Op>(op);
 
-  auto loc = op->getLoc();
-  auto memRefType = convertToMemRefType(*op->result_type_begin());
+  Location loc = op->getLoc();
   Value data = operandAdaptor.data();
 
   ShapeHelper shapeHelper(&unsqueezeOp, &rewriter,
@@ -37,7 +36,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.
   Value newView = emitMemRefReinterpretCastOp(
-      rewriter, loc, data, memRefType, shapeHelper.dimsForOutput());
+      rewriter, loc, data, shapeHelper.dimsForOutput());
   rewriter.replaceOp(op, newView);
   return success();
 }

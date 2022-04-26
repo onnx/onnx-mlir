@@ -72,11 +72,12 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check is all dimensions are known at compile time.
-bool hasAllConstantDimensions(MemRefType type);
-
-/// Check is all operands are scalar values at compile time.
+/// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
+
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices);
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
@@ -147,10 +148,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims);
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
@@ -320,6 +320,8 @@ void populateLoweringONNXUnsqueezeV11OpPattern(
 void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

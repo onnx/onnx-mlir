@@ -111,6 +111,18 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
+
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
+}
+
 /// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
@@ -476,10 +488,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
   MemRefBuilder createMemRef(rewriter, loc);
   return createMemRef.reinterpretCast(data, outputDims);
 }
