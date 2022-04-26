@@ -26,9 +26,14 @@ function(setup_zdnn version)
     #
     # Set MAKEFLAGS to remove -j option passed down from the top
     # level make which produces a warning about jobserver unavailable.
-    BUILD_COMMAND sh -c "MAKEFLAGS=--no-print-directory \
-                         make -j$(nproc) -C zdnn lib/libzdnn.so && \
-                         ar -rc ${ZDNN_LIBDIR}/libzdnn.a ${ZDNN_OBJDIR}/*.o"
+    #
+    # Run make -q first to skip build if libzdnn.so is already
+    # up to date.
+    BUILD_COMMAND sh -c "export MAKEFLAGS=--no-print-directory && \
+                         make -q -C zdnn lib/libzdnn.so && true || \
+                         (MAKEFLAGS=--no-print-directory \
+                          make -j$(nproc) -C zdnn lib/libzdnn.so && \
+                          ar -rc ${ZDNN_LIBDIR}/libzdnn.a ${ZDNN_OBJDIR}/*.o)"
 
     INSTALL_COMMAND ""
     )

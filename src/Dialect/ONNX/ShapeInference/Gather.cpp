@@ -30,6 +30,7 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
 
   int64_t dataRank = dataDims.size();
   int64_t axisIndex = op->axis();
+  assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid axisIndex");
 
   // Negative value means counting dimensions from the back.
   axisIndex = (axisIndex < 0) ? axisIndex + dataRank : axisIndex;
