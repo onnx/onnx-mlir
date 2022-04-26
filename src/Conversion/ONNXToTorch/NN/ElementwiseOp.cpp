@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
 using namespace mlir;
@@ -35,19 +36,11 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
     Value operand = unaryOp.getOperand();
     mlir::MLIRContext *context =  unaryOp.getContext();
 
-    auto operandTensorType = operand.getType().template dyn_cast<TensorType>();
-    TensorType resultTensorType = unaryOp.getResult().getType().template dyn_cast<TensorType>();
-
-    auto operandType = Torch::ValueTensorType::get(context,
-                                           operandTensorType.getShape(),
-                                           operandTensorType.getElementType());
+    auto operandType = toTorchType(context, operand.getType());
+    auto resultType = toTorchType(context, unaryOp.getResult().getType());
 
     auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, operandType, operand);
-
-    auto resultType = Torch::ValueTensorType::get(context,
-                                                resultTensorType.getShape(),
-                                                resultTensorType.getElementType());
 
     llvm::outs() << "Unary input is "
                  << operandTensor
