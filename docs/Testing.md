@@ -255,6 +255,20 @@ preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
 your model, input and output mlir files will be preserved, as well as
 unoptimized and optimized bytecode files as well as a few additional binaries.
 
+In case of failures, both RapidCheck (infrastructure used for numerical testing) and the onnx models allow a user to re-run a test with the same values. When running a test, you may get the following output.
+```
+Model will use the random number generator seed provided by "TEST_SEED=1440995966"
+RapidCheck Matrix-Vector test case generation.
+Using configuration: seed=4778673019411245358
+```
+
+By recording the seed values in the following two environment variables:
+```
+export RC_PARAMS="seed=4778673019411245358"
+export TEST_SEED=1440995966
+```
+you can force, respectively, the random seeds used in RapidCheck and the random seeds used to populate the ONNX input vectors to be the same. Set only the first one (`RC_PARAMS`) and you will see the same test configurations being run but with different input values. Set both and you will see the same configuration and the same input being used for a completely identical run.
+
 ### Enable SIMD instructions
 
 On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
