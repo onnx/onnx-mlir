@@ -228,6 +228,8 @@ DECLARE_SHAPE_HELPER(ONNXCompressOp)
 DECLARE_SHAPE_HELPER(ONNXConcatOp)
 DECLARE_SHAPE_HELPER(ONNXDepthToSpaceOp)
 DECLARE_SHAPE_HELPER(ONNXFlattenOp)
+DECLARE_SHAPE_HELPER(ONNXGatherOp)
+DECLARE_SHAPE_HELPER(ONNXGatherElementsOp)
 DECLARE_SHAPE_HELPER(ONNXLRNOp)
 DECLARE_SHAPE_HELPER(ONNXReduceSumOp)
 DECLARE_SHAPE_HELPER(ONNXReshapeOp)
@@ -295,21 +297,6 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXMatMulOp> {
       bDims; // Dim after applying padding.
   llvm::BitVector aPadDims,
       bPadDims; // When true, that dim was padded.
-};
-
-// Shape for Gather.
-struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXGatherOp> {
-  ONNXGatherOpShapeHelper(
-      mlir::ONNXGatherOp *newOp, IndexExprScope *inScope = nullptr);
-  ONNXGatherOpShapeHelper(mlir::ONNXGatherOp *newOp, mlir::OpBuilder *rewriter,
-      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal,
-      IndexExprScope *inScope = nullptr);
-  mlir::LogicalResult computeShape(mlir::ONNXGatherOpAdaptor operandAdaptor);
-  // Additional data for GatherOp.
-  llvm::SmallVector<IndexExpr, 4> dataDims, indicesDims;
-  bool positiveConstantIndices; // True when all indices are
-                                // positive consants.
 };
 
 // Shape for PadOp.

@@ -4,6 +4,10 @@
 
 //===------------ Gather.cpp - Shape Inference for Gather Op --------------===//
 //
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
 // This file implements shape inference for the ONNX Gather Operator.
 //
 //===----------------------------------------------------------------------===//
@@ -14,56 +18,22 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
-    ONNXGatherOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXGatherOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope),
-      dataDims(), indicesDims(), positiveConstantIndices(false) {}
-
-ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXGatherOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope),
-      dataDims(), indicesDims(), positiveConstantIndices(false) {}
-
 LogicalResult ONNXGatherOpShapeHelper::computeShape(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Read data and indices shapes as dim indices.
   MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
   MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
+  DimsExpr dataDims, indicesDims;
   dataBounds.getDimList(dataDims);
   indicesBounds.getDimList(indicesDims);
-  int64_t axisIndex = op->axis();
+
   int64_t dataRank = dataDims.size();
-  assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid dataRank");
+  int64_t axisIndex = op->axis();
+  assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid axisIndex");
 
-  // Convert a negative axis to a positive axis.
-  if (axisIndex < 0) {
-    axisIndex += dataRank;
-    auto builder = mlir::Builder(op->getContext());
-    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-
-  // If 'indices' is a constant tensor, check whether its values are valid.
-  if (dataDims[axisIndex].isLiteral()) {
-    auto valueAttribute = fGetDenseVal(operandAdaptor.indices());
-    if (valueAttribute) {
-      int64_t dataDimAtAxis = dataDims[axisIndex].getLiteral();
-      positiveConstantIndices = true;
-      for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-        auto index = value.cast<IntegerAttr>().getInt();
-        if (index < -dataDimAtAxis || index >= dataDimAtAxis)
-          return op->emitError("Indices tensor contains an out-of-bound index");
-        if (index < 0)
-          // TODO: make the negative consant number positive.
-          positiveConstantIndices = false;
-      }
-    }
-  }
+  // Negative value means counting dimensions from the back.
+  axisIndex = (axisIndex < 0) ? axisIndex + dataRank : axisIndex;
 
   // Output has rank of 'indicesRank + (dataRank - 1).
   // Output shape is constructed from 'input' by:
