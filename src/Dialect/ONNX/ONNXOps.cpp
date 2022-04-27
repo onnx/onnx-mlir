@@ -4739,27 +4739,26 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTopKOp::verify() {
-  ONNXTopKOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
-
-  // K's rank must be zero or one.
   Value K = operandAdaptor.K();
-  int64_t KRank = K.getType().cast<ShapedType>().getRank();
-  if (KRank > 1)
-    return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
-        *this->getOperation(), K, KRank, "< 2");
+  if (hasShapeAndRank(K)) {
+    // K's rank must be zero or one.
+    int64_t KRank = K.getType().cast<ShapedType>().getRank();
+    if (KRank > 1)
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), K, KRank, "< 2");
+  }
 
   // axis attribute must be in the range [-r,r-1], where r = rank(X).
   Value X = operandAdaptor.X();
-  int64_t Xrank = X.getType().cast<ShapedType>().getRank();
-  int64_t axis = this->axis();
+  if (hasShapeAndRank(X)) {
+    int64_t Xrank = X.getType().cast<ShapedType>().getRank();
+    int64_t axis = this->axis();
 
-  if (axis < -Xrank || axis >= Xrank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *this->getOperation(), "axis", axis,
-        onnx_mlir::Diagnostic::Range<int64_t>(-Xrank, Xrank - 1));
+    if (axis < -Xrank || axis >= Xrank)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axis,
+          onnx_mlir::Diagnostic::Range<int64_t>(-Xrank, Xrank - 1));
+  }
 
   return success();
 }
