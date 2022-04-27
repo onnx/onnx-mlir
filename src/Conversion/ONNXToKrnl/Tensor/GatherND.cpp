@@ -92,6 +92,12 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
         emitMemRefReinterpretCastOp(rewriter, loc, data, newDataShape);
     LLVM_DEBUG(llvm::dbgs() << "reshapedData: " << reshapedData << "\n");
 
+    // Allocate the output buffer.
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value outputDataBuffer = createMemRef.alloc(
+        MemRefType::get({BDS.getLiteral() * IDS.getLiteral()},
+            outputMemRefType.getElementType()));
+
     // for (i,j) in (0..reshapedIndices.shape[0]), 0..reshapedIndices.shape[1])
     // {
     //   idx = tuple(reshapedIndices[i][j])
@@ -100,15 +106,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     // output.reshape(outputShape)
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(2);
-    MemRefBoundsIndexCapture reshapedIndicesBounds(reshapedIndices);
-    DimsExpr lbs(2, LiteralIndexExpr(0)), ubs;
-    reshapedIndicesBounds.getDimList(ubs);
-    ubs.truncate(2);
-
-    MemRefBuilder createMemRef(rewriter, loc);
-    Value outputDataBuffer = createMemRef.alloc(MemRefType::get(
-        {reshapedIndicesBounds.getShape(0) * reshapedIndicesBounds.getShape(1)},
-        outputMemRefType.getElementType()));
+    DimsExpr lbs(2, LiteralIndexExpr(0)), ubs = {BDS, IDS};
 
     createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -127,9 +125,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
           reshapedDataAccessFct.emplace_back(ind);
 
           // The last index of the access function for 'reshapedIndices' is
-          // given by the value of of indices.shape[-1].
-          // The loaded values from 'reshapedIndices' are the indices for
-          // 'reshapedData'.
+          // given by the values of indices.shape[-1].
+          // The loaded values from 'reshapedIndices' are the next set of
+          // indices to use when dereferencing 'reshapedData'.
           for (unsigned i = 0; i < indicesLastDim; ++i) {
             IndexExpr ind = LiteralIndexExpr(i);
             reshapedIndicesAccessFct.emplace_back(ind);
@@ -140,20 +138,52 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
             reshapedDataAccessFct.emplace_back(index);
           }
 
-          // The `reshapedDataAccessFct` yields a slice, add the remaining
-          // indices to the access function.
-          if (indicesLastDim < dataRank - b)
-            assert(false && "TODO");
+          if (indicesLastDim == dataRank - b) {
+            // When indices.shape[-1] is equal to (rank(data) - b) the
+            // `reshapedDataAccessFct` computed so far has the same number of
+            // indices as the rank of 'reshapedData'.
+            assert(reshapedDataAccessFct.size() == newDataShape.size() &&
+                   "Access function should have the same rank as reshapedData");
 
-          // Gather values from the 'data' tensor and save them.
-          Value val = createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
-          IndexExpr storeIE =
-              SymbolIndexExpr(loopInd[0]) *
-                  LiteralIndexExpr(reshapedIndicesBounds.getShape(1)) +
-              SymbolIndexExpr(loopInd[1]);
-          createKrnl.storeIE(val, outputDataBuffer, storeIE);
+            // Gather value from the 'data' tensor and store it into
+            // 'outputDataBuffer'.
+            Value val = createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
+            IndexExpr storeIE = SymbolIndexExpr(loopInd[0]) *
+                                    LiteralIndexExpr(IDS.getLiteral()) +
+                                SymbolIndexExpr(loopInd[1]);
+            createKrnl.storeIE(val, outputDataBuffer, storeIE);
+          } else {
+            assert((indicesLastDim < dataRank - b) &&
+                   "Expecting indices.shape[-1] to be smaller than "
+                   "rank(indices) - b");
+
+            // When indices.shape[-1] is less than (rank(data) - b) the
+            // `reshapedDataAccessFct` computed so far yields a slice which
+            // needs to be inserted into the output buffer.
+            int64_t rank = indicesRank - b - 1;
+            llvm::errs() << "rank =  " << rank << "\n";
+            for (int64_t i = 0; i < rank; ++i) {
+              IndexExpr ind = LiteralIndexExpr(i);
+              reshapedDataAccessFct.emplace_back(ind);
+              assert(
+                  reshapedDataAccessFct.size() == newDataShape.size() &&
+                  "Access function should have the same rank as reshapedData");
+
+              // Gather value from the 'data' tensor and store it into
+              // 'outputDataBuffer'.
+              Value val =
+                  createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
+              reshapedDataAccessFct.pop_back();
+
+              IndexExpr storeIE = SymbolIndexExpr(loopInd[0]) *
+                                      LiteralIndexExpr(IDS.getLiteral()) +
+                                  SymbolIndexExpr(loopInd[1]);
+              createKrnl.storeIE(val, outputDataBuffer, storeIE);
+            }
+          }
         });
 
+    // Finally reshape 'outputDataBuffer' to the shape of the output.
     DimsExpr newOutputShape;
     for (int64_t dim : outputShape) {
       LiteralIndexExpr outputDim(dim);
