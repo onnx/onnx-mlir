@@ -1,13 +1,12 @@
-// RUN: rm -rf %t && mkdir %t
-// RUN: onnx-mlir -Xopt --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=OPT %s
-// RUN: onnx-mlir -Xllc --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLC %s
-// RUN: onnx-mlir -mllvm --data-sections -v %s -o %t/check_passthrough_options 2>&1 | FileCheck --check-prefix=LLVM %s
+// RUN: onnx-mlir -Xopt --data-sections -v %s -o %t 2>&1 | FileCheck --check-prefix=OPT %s
+// RUN: onnx-mlir -Xllc --data-sections -v %s -o %t 2>&1 | FileCheck --check-prefix=LLC %s
+// RUN: onnx-mlir -mllvm --data-sections -v %s -o %t 2>&1 | FileCheck --check-prefix=LLVM %s
 
-// OPT:       opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc
+// OPT:       opt{{.*}} --data-sections -o {{.*}}check_passthrough_options{{.*}}.bc
 // OPT-NOT:   llc{{.*}} --data-sections {{.*}}
-// LLC-NOT:   opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc
+// LLC-NOT:   opt{{.*}} --data-sections -o {{.*}}check_passthrough_options{{.*}}.bc
 // LLC:       llc{{.*}} --data-sections {{.*}}
-// LLVM:      opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc
+// LLVM:      opt{{.*}} --data-sections -o {{.*}}check_passthrough_options{{.*}}.bc
 // LLVM-NEXT: llc{{.*}} --data-sections {{.*}}
 module {
   func @main_graph(%arg0: tensor<1x1xf32>, %arg1: tensor<1x1xf32>) -> tensor<1x1xf32> {
