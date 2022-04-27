@@ -87,7 +87,11 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     // Frequently used MemRefType.
     Value X = operandAdaptor.X();
     MemRefType xMemRefType = X.getType().cast<MemRefType>();
-    MemRefType resMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
     int64_t xRank = xMemRefType.getRank();
 
     // Frequently used element types.

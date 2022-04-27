@@ -40,8 +40,10 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // - scan output (all intermediate values returned from body func
     // concatenated together).
     SmallVector<Value, 4> outputs;
-    allocateMemoryForVFinal(loc, rewriter, op, scanOpAdapter, outputs);
-    allocateMemoryForScanOutput(loc, rewriter, op, scanOpAdapter, outputs);
+    allocateMemoryForVFinal(
+        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
+    allocateMemoryForScanOutput(
+        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by scan body function invocation in a scope accessible
@@ -85,7 +87,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
         auto opScanInput = std::get<0>(opAndBodyScanInput);
         auto bodyScanInput = std::get<1>(opAndBodyScanInput);
         auto bodyScanInputMemRef = allocateMemoryForBodyScanInput(
-            scanOp->getLoc(), rewriter, bodyScanInput.getType());
+            scanOp->getLoc(), rewriter, typeConverter, bodyScanInput.getType());
         emitCopyFromTensorSlice(
             rewriter, scanOp->getLoc(), opScanInput, bodyScanInputMemRef, {iv});
         params.emplace_back(bodyScanInputMemRef);
@@ -194,17 +196,23 @@ struct ONNXScanOpLowering : public ConversionPattern {
   }
 
   static void allocateMemoryForVFinal(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXScanOpAdaptor scanOpAdapter, SmallVectorImpl<mlir::Value> &outputs) {
+      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair : llvm::zip(scanOp.v_initial(), scanOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
+      // Convert vFinal's type to MemRefType.
+      Type convertedType = typeConverter->convertType(vFinal.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use
       // their initial value tensors as reference when allocating memory.
-      auto memRefType = convertToMemRefType(vFinal.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))
@@ -217,16 +225,22 @@ struct ONNXScanOpLowering : public ConversionPattern {
   }
 
   static void allocateMemoryForScanOutput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXScanOpAdaptor scanOpAdapter, SmallVectorImpl<mlir::Value> &outputs) {
+      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
+      // Convert opScanOutput's type to MemRefType.
+      Type convertedType = typeConverter->convertType(opScanOutput.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the scan outputs. There're no good "reference"
       // shape for scan outputs. So if the scan outputs do not have constant
       // dimensions in all except the leading dimensions, we simply give up.
       // The leading dimension is simply the number of iterations executed,
       // which is easier to obtain.
-      auto memRefType = convertToMemRefType(opScanOutput.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
 
@@ -261,13 +275,19 @@ struct ONNXScanOpLowering : public ConversionPattern {
   }
 
   static mlir::Value allocateMemoryForBodyScanInput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, mlir::Type bodyScanInputTy) {
+      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      mlir::Type bodyScanInputTy) {
+    // Convert type to MemRefType.
+    Type convertedType = typeConverter->convertType(bodyScanInputTy);
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Allocate memory for the scan outputs. There're no good "reference"
     // shape for scan outputs. So if the scan outputs do not have constant
     // dimensions in all except the leading dimensions, we simply give up. The
     // leading dimension is simply the number of iterations executed, which is
     // easier to obtain.
-    auto memRefType = convertToMemRefType(bodyScanInputTy);
     Value alloc;
     assert(hasAllConstantDimensions(memRefType) &&
            "Body scan input must have constant shape.");
