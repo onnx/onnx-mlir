@@ -21,7 +21,8 @@ namespace onnx_mlir {
 
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
-    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
+    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter,
+    TypeConverter *typeConverter) {
   Adaptor operandAdaptor(operands);
   Op unsqueezeOp = dyn_cast_or_null<Op>(op);
 
@@ -49,7 +50,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeOpAdaptor,
-        ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(op, operands, rewriter);
+        ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(
+        op, operands, rewriter, typeConverter);
   }
 };
 
@@ -62,7 +64,7 @@ struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeV11OpAdaptor,
         ONNXUnsqueezeV11Op, ONNXUnsqueezeV11OpShapeHelper>(
-        op, operands, rewriter);
+        op, operands, rewriter, typeConverter);
   }
 };
 

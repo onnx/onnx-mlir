@@ -44,17 +44,21 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     Value indices = operandAdaptor.indices();
     int64_t b = gatherNDOp.batch_dims();
-
     auto indicesType = indices.getType().cast<ShapedType>();
     auto dataType = data.getType().cast<ShapedType>();
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
     ArrayRef<int64_t> dataShape = dataType.getShape();
-    ArrayRef<int64_t> outputShape = outputMemRefType.getShape();
     int64_t dataRank = dataShape.size();
     int64_t indicesRank = indicesShape.size();
-    int64_t outputRank = outputShape.size();
     int64_t indicesLastDim = indicesShape[indicesRank - 1];
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    ArrayRef<int64_t> outputShape = outputMemRefType.getShape();
+    int64_t outputRank = outputShape.size();
 
     // Ensure the operation containts are satisfied.
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
@@ -69,10 +73,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
 
     // Reshape 'indices' to the 3D shape:
     //   [batchDimSize, indicesDimsSize, indices.shape[-1]].
-    OnnxToKrnlBuilder create(rewriter, loc);
-    int64_t batchDimsSize = std::accumulate(indicesShape.begin(),
+    const int64_t batchDimsSize = std::accumulate(indicesShape.begin(),
         indicesShape.begin() + b, 1, std::multiplies<int64_t>());
-    int64_t indicesDimsSize = std::accumulate(indicesShape.begin(),
+    const int64_t indicesDimsSize = std::accumulate(indicesShape.begin(),
         indicesShape.end(), 1, std::multiplies<int64_t>());
     LiteralIndexExpr BDS(batchDimsSize),
         IDS(indicesDimsSize / (batchDimsSize * indicesLastDim)),

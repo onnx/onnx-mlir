@@ -79,9 +79,6 @@ bool hasAllScalarValues(ArrayRef<Value> values);
 /// integer constants.
 bool indicesAreNonNegativeConstants(Value indices);
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
-MemRefType convertToMemRefType(Type type);
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand = nullptr,

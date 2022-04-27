@@ -21,7 +21,7 @@ func @test_depth_to_space_default(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x16
 
 func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
   // expected-error @+1 {{onnx.ArgMax 'axis' value is 4, accepted range is [-4, 3]}}
-  %1 = "onnx.ArgMax"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>
+  %1 = "onnx.ArgMax"(%arg0) {axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>
   "std.return"(%1) : (tensor<*xi64>) -> ()
 }
 
@@ -29,7 +29,7 @@ func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
 
 func @test_argmin_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
   // expected-error @+1 {{onnx.ArgMin 'axis' value is 4, accepted range is [-4, 3]}}
-  %1 = "onnx.ArgMin"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>  
+  %1 = "onnx.ArgMin"(%arg0) {axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>  
   "std.return"(%1) : (tensor<*xi64>) -> ()
 }
 
@@ -37,7 +37,7 @@ func @test_argmin_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
 
 func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x1x32xi1>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Compress 'axis' value is 4, accepted range is [-4, 3]}}
-  %1 = "onnx.Compress"(%arg0, %arg1) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi1>)  -> tensor<*xf32>  
+  %1 = "onnx.Compress"(%arg0, %arg1) {axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi1>)  -> tensor<*xf32>  
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -45,7 +45,7 @@ func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x
 
 func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat 'axis' value is 4, accepted range is [-4, 3]}}
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -53,7 +53,7 @@ func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x
 
 func @test_concat_verifier_2(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{Concat inputs must all have the same rank}}  
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x32xf32>)  -> tensor<*xf32>
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -61,7 +61,7 @@ func @test_concat_verifier_2(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x
 
 func @test_concat_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{Concat input dimensions must be all identical, except for dimension on the axis of the concatenation. Expected something compatible with: 'tensor<5x5x1x32xf32>' but got 'tensor<5x5x3x32xf32>' instead.}}  
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 1 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -101,8 +101,40 @@ func @test_constantofshape_verifier_4() -> tensor<2xi64> {
 // -----
 
 func @test_flatten_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{ONNXFlattenOP: axis() value is out of range}}
-  %1 = "onnx.Flatten"(%arg0) { axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  // expected-error @+1 {{onnx.Flatten 'axis' value is 5, accepted range is [-4, 4]}}
+  %1 = "onnx.Flatten"(%arg0) {axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_verifier_1(%data: tensor<2x2xf32>, %indices: tensor<2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.Gather 'axis' value is -3, accepted range is [-2, 1]}}
+  %1 = "onnx.Gather"(%data, %indices) {axis = -3 : si64 } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tensor<2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<2xi64>' at index: 1' has rank 1, rank should be 2}}
+  %1 = "onnx.GatherElements"(%data, %indices) { } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gatherElements_verifier_2(%data: tensor<2x2xf32>, %indices: tensor<2x2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements 'axis' value is 2, accepted range is [-2, 1]}}
+  %1 = "onnx.GatherElements"(%data, %indices) {axis = 2 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_hardmax_verifier_1(%arg0: tensor<2x2xf32>) -> tensor<*xf32> {
+   // expected-error @+1 {{onnx.Hardmax 'axis' value is 3, accepted range is [-2, 1]}}
+   %1 = "onnx.Hardmax"(%arg0) {axis = 3: si64} : (tensor<2x2xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -312,4 +344,52 @@ func @test_sequence_empty() -> none {
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xi32>>
   %2 = "onnx.NoValue"() {value} : () -> none
   return %2 : none
+}
+
+// -----
+
+func @test_split_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -> tensor<*xi64> {
+  // expected-error @+1 {{onnx.Split 'axis' value is 2, accepted range is [-2, 1]}}
+  %1 = "onnx.Split"(%arg0, %arg1) {axis = 2 : si64} : (tensor<2x2xi64>, tensor<2xi64>) -> tensor<*xi64>
+  "std.return"(%1) : (tensor<*xi64>) -> ()
+}
+
+// -----
+
+func @test_splitToSequence_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>> {
+  // expected-error @+1 {{onnx.SplitToSequence 'axis' value is -3, accepted range is [-2, 1]}}
+  %1 = "onnx.SplitToSequence"(%arg0, %arg1) {axis = -3 : si64} : (tensor<2x2xi64>, tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>>
+  "std.return"(%1) : (!onnx.Seq<tensor<*xi64>>) -> ()
+}
+
+// -----
+
+func @test_topK_verifier_1(%arg0: tensor<3x4xi64>, %arg1: tensor<1xi64>) -> (tensor<*xf32>, tensor<*xi64>) {
+  // expected-error @+1 {{onnx.TopK 'axis' value is 2, accepted range is [-2, 1]}}
+  %1, %2 = "onnx.TopK"(%arg0, %arg1) {axis = 2 : si64, largest = 1 : si64, sorted = 1 : si64} : (tensor<3x4xi64>, tensor<1xi64>) -> (tensor<*xf32>, tensor<*xi64>)
+  "std.return"(%1,%2) : (tensor<*xf32>, tensor<*xi64>) -> ()
+}
+
+// -----
+
+func @test_topK_verifier_2(%arg0: tensor<3x4xi64>, %arg1: tensor<1x1xi64>) -> (tensor<*xf32>, tensor<*xi64>) {
+  // expected-error @+1 {{onnx.TopK: operand '<block argument> of type 'tensor<1x1xi64>' at index: 1' has rank 2, rank should be < 2}} 
+  %1, %2 = "onnx.TopK"(%arg0, %arg1) {axis = 1 : si64, largest = 1 : si64, sorted = 1 : si64} : (tensor<3x4xi64>, tensor<1x1xi64>) -> (tensor<*xf32>, tensor<*xi64>)
+  "std.return"(%1,%2) : (tensor<*xf32>, tensor<*xi64>) -> ()
+}
+
+// -----
+
+func @test_unique_verifier_1(%arg0: tensor<3x4xi64>) -> (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>) {
+  // expected-error @+1 {{onnx.Unique 'axis' value is 2, accepted range is [-2, 1]}}  
+  %1,%2,%3,%4 = "onnx.Unique"(%arg0) {axis = 2 : si64, sorted = 1 : si64} : (tensor<3x4xi64>) -> (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  "std.return"(%1,%2,%3,%4) : (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>) -> ()
+}
+
+// -----
+
+func @test_unique_verifier_2(%arg0: tensor<3x4xi64>) -> (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>) {
+  // expected-error @+1 {{onnx.Unique 'sorted' value is 2, accepted range is [0, 1]}}  
+  %1,%2,%3,%4 = "onnx.Unique"(%arg0) {axis = 0 : si64, sorted = 2 : si64} : (tensor<3x4xi64>) -> (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  "std.return"(%1,%2,%3,%4) : (tensor<*xf32>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>) -> ()
 }

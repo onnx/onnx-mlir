@@ -17,6 +17,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/Twine.h"
+#include <type_traits>
 
 namespace onnx_mlir {
 
@@ -43,6 +44,12 @@ public:
   template <typename T>
   static mlir::LogicalResult emitAttributeOutOfRangeError(mlir::Operation &op,
       const llvm::Twine &attrName, T attrVal, Range<T> validRange);
+
+  /// Verifies whether 2 inputs have the same rank.
+  template <typename T>
+  static mlir::LogicalResult emitInputsMustHaveSameRankError(
+      mlir::Operation &op, const llvm::Twine &inputName1, T rank1,
+      const llvm::Twine &inputName2, T rank2);
 
   /// Diagnostic message for operand with unexpected rank.
   static mlir::LogicalResult emitOperandHasUnexpectedRankError(
