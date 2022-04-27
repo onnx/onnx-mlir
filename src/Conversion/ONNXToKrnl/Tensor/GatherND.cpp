@@ -76,7 +76,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
         indicesShape.end(), 1, std::multiplies<int64_t>());
     LiteralIndexExpr BDS(batchDimsSize),
         IDS(indicesDimsSize / (batchDimsSize * indicesLastDim)),
-        ILD(indicesShape[indicesRank - 1]);
+        ILD(indicesLastDim);
     DimsExpr newIndicesShape = {BDS, IDS, ILD};
     Value reshapedIndices =
         emitMemRefReinterpretCastOp(rewriter, loc, indices, newIndicesShape);
@@ -130,7 +130,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
           // given by the value of of indices.shape[-1].
           // The loaded values from 'reshapedIndices' are the indices for
           // 'reshapedData'.
-          for (unsigned i = 0; i < indicesShape[indicesRank - 1]; ++i) {
+          for (unsigned i = 0; i < indicesLastDim; ++i) {
             IndexExpr ind = LiteralIndexExpr(i);
             reshapedIndicesAccessFct.emplace_back(ind);
             Value indexVal =
@@ -139,6 +139,11 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
             IndexExpr index = NonAffineIndexExpr(indexVal);
             reshapedDataAccessFct.emplace_back(index);
           }
+
+          // The `reshapedDataAccessFct` yields a slice, add the remaining
+          // indices to the access function.
+          if (indicesLastDim < dataRank - b)
+            assert(false && "TODO");
 
           // Gather values from the 'data' tensor and save them.
           Value val = createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
