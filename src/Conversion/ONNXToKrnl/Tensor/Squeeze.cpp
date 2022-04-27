@@ -21,13 +21,19 @@ namespace onnx_mlir {
 
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
-    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
+    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter,
+    TypeConverter *typeConverter) {
   Adaptor operandAdaptor(operands);
   Op squeezeOp = dyn_cast_or_null<Op>(op);
 
   auto loc = op->getLoc();
-  auto memRefType = convertToMemRefType(*op->result_type_begin());
   Value data = operandAdaptor.data();
+
+  // Convert the output type to MemRefType.
+  Type convertedType = typeConverter->convertType(*op->result_type_begin());
+  assert(convertedType && convertedType.isa<MemRefType>() &&
+         "Failed to convert type to MemRefType");
+  MemRefType memRefType = convertedType.cast<MemRefType>();
 
   ShapeHelper shapeHelper(&squeezeOp, &rewriter,
       krnl::getDenseElementAttributeFromKrnlValue,
@@ -50,7 +56,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSqueezeOpLoweringCommon<ONNXSqueezeOpAdaptor, ONNXSqueezeOp,
-        ONNXSqueezeOpShapeHelper>(op, operands, rewriter);
+        ONNXSqueezeOpShapeHelper>(op, operands, rewriter, typeConverter);
   }
 };
 
@@ -62,7 +68,8 @@ struct ONNXSqueezeV11OpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSqueezeOpLoweringCommon<ONNXSqueezeV11OpAdaptor,
-        ONNXSqueezeV11Op, ONNXSqueezeV11OpShapeHelper>(op, operands, rewriter);
+        ONNXSqueezeV11Op, ONNXSqueezeV11OpShapeHelper>(
+        op, operands, rewriter, typeConverter);
   }
 };
 
