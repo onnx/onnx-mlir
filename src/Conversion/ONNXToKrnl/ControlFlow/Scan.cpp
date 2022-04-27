@@ -204,7 +204,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
-      // Convert type to MemRefType.
+      // Convert vFinal's type to MemRefType.
       Type convertedType = typeConverter->convertType(vFinal.getType());
       assert(convertedType && convertedType.isa<MemRefType>() &&
              "Failed to convert type to MemRefType");
