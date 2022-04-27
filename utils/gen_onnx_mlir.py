@@ -309,7 +309,10 @@ OpsWithVerifier = [
     'SequenceEmpty',
     'SequenceInsert',
     'SpaceToDepth',
+    'Split',
+    'SplitToSequence',
     'TopK',
+    'Unique'
 ]
 
 OpsWithHelpers = {

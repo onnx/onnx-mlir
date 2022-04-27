@@ -5839,6 +5839,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
@@ -5897,6 +5898,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -6415,6 +6417,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return {20,4,4,4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",

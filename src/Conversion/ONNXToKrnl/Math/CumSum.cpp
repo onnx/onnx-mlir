@@ -97,8 +97,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Common information.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
     Type i64Ty = rewriter.getI64Type();
     Type f32Ty = rewriter.getF32Type();
