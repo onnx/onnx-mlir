@@ -4738,6 +4738,8 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTopKOp::verify() {
+  ONNXTopKOpAdaptor operandAdaptor(*this);
+
   Value K = operandAdaptor.K();
   if (hasShapeAndRank(K)) {
     // K's rank must be zero or one.
