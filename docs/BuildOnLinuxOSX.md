@@ -90,3 +90,7 @@ make: *** [Makefile:146: all] Error 2.
 ```
 
 The suggested workaround until jsoniter is fixed is as follows: install maven (e.g. `brew install maven`) and run `alias nproc="sysctl -n hw.logicalcpu"` in your shell.
+
+### Trouble shooting build issues
+
+Check this [page](TestingHighLevel.md) for helpful hints.
