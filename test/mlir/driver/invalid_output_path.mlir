@@ -10,7 +10,7 @@
 // RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/abc.. 2>&1 | FileCheck --check-prefix=VALID %s
 // RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/..abc.. 2>&1 | FileCheck --check-prefix=VALID %s
 
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t\ 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t\\ 2>&1 | FileCheck --check-prefix=INVALID %s
 // RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/ 2>&1 | FileCheck --check-prefix=INVALID %s
 // RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/. 2>&1 | FileCheck --check-prefix=INVALID %s
 // RUN: onnx-mlir %t/invalid_output_path.mlir -v -o . 2>&1 | FileCheck --check-prefix=INVALID %s
