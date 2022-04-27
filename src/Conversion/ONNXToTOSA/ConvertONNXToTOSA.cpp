@@ -12,10 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
-#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -41,22 +40,22 @@ template <>
 LogicalResult ConvertOnnxOp<ONNXReluOp>::matchAndRewrite(ONNXReluOp op,
     OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const {
   Value input = adaptor.X();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().dyn_cast<TensorType>();
 
-  // Maps to tosa.clamp which has both int and fp limits.
-  int64_t clampMin = 0;
-  Value clampIn = input;
   if (!inputTy)
     return op.emitError("Only Tensor types supported in TOSA");
 
-  // Rescale the clampIn for quantized types. TBD
-
-  if (!inputTy.getElementType().isa<mlir::FloatType>()) {
+  if (!inputTy.getElementType().isa<FloatType>()) {
     return op.emitError(
         "Only floating-point datatype legalization currently supported");
   }
+
+  // Rescale the clampIn for quantized types. TBD
+  // Maps to tosa.clamp which has both int and fp limits.
+  Value clampIn = input;
+
   rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), clampIn,
-      rewriter.getI64IntegerAttr(clampMin),
+      rewriter.getI64IntegerAttr(0),
       rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
       rewriter.getF32FloatAttr(0.0f),
       rewriter.getF32FloatAttr(std::numeric_limits<float>::max()));
@@ -80,15 +79,14 @@ struct FrontendToTosaLoweringPass
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
-  auto func = getOperation();
-  RewritePatternSet patterns(func.getContext());
   MLIRContext *context = &getContext();
+  RewritePatternSet patterns(context);
   ConversionTarget target(*context);
 
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) { return type; });
 
-  target.addLegalDialect<tosa::TosaDialect, StandardOpsDialect>();
+  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
 
 #define INSERT_ONNXOP_PATTERN(OnnxOp)                                          \
   target.addIllegalOp<OnnxOp>();                                               \
@@ -98,7 +96,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   if (failed(
           applyPartialConversion(getOperation(), target, std::move(patterns))))
-    return signalPassFailure();
+    signalPassFailure();
 }
 
 std::unique_ptr<Pass> createConvertONNXToTOSAPass() {
