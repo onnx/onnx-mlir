@@ -23,7 +23,7 @@ LogicalResult Diagnostic::emitAttributeOutOfRangeError(Operation &op,
     const llvm::Twine &attrName, T attrVal, Range<T> validRange) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
-  Twine msg(op.getName().getStringRef() + ": ");
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(op.getLoc(), msg.concat("'" + attrName + "'")
                                     .concat(" value is ")
                                     .concat(std::to_string(attrVal))
@@ -40,7 +40,7 @@ LogicalResult Diagnostic::emitInputsMustHaveSameRankError(Operation &op,
     T rank2) {
   static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
 
-  Twine msg(op.getName().getStringRef() + ": ");
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(
       op.getLoc(), msg.concat("'" + inputName1 + "'")
                        .concat(" has rank ")
@@ -53,7 +53,7 @@ LogicalResult Diagnostic::emitInputsMustHaveSameRankError(Operation &op,
 
 LogicalResult Diagnostic::emitOperandHasUnexpectedRankError(Operation &op,
     Value &operand, uint64_t operandRank, StringRef expectedRank) {
-  Twine msg(op.getName().getStringRef() + ": ");
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
                                     .concat(" has rank ")
                                     .concat(std::to_string(operandRank))
@@ -63,7 +63,7 @@ LogicalResult Diagnostic::emitOperandHasUnexpectedRankError(Operation &op,
 
 LogicalResult Diagnostic::emitDimensionHasUnexpectedValueError(Operation &op,
     Value &operand, int64_t index, int64_t value, StringRef expectedValue) {
-  Twine msg(op.getName().getStringRef() + ": ");
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
   return emitError(op.getLoc(), msg.concat("operand '" + getName(operand) + "'")
                                     .concat(" has dimension at index ")
                                     .concat(std::to_string(index))
@@ -82,8 +82,8 @@ std::string Diagnostic::getName(Value &v) {
 
 // Template instantiations - keep at the end of the file.
 template LogicalResult Diagnostic::emitAttributeOutOfRangeError(
-    Operation &, const Twine &, int64_t, Range<int64_t>);
+    Operation &, const llvm::Twine &, int64_t, Range<int64_t>);
 template LogicalResult Diagnostic::emitInputsMustHaveSameRankError(
-    Operation &, const Twine &, int64_t, const Twine &, int64_t);
+    Operation &, const llvm::Twine &, int64_t, const llvm::Twine &, int64_t);
 
 } // namespace onnx_mlir
