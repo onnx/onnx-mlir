@@ -230,7 +230,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
-      // Convert type to MemRefType.
+      // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());
       assert(convertedType && convertedType.isa<MemRefType>() &&
              "Failed to convert type to MemRefType");

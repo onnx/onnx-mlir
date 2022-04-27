@@ -72,11 +72,12 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check is all dimensions are known at compile time.
-bool hasAllConstantDimensions(MemRefType type);
-
-/// Check is all operands are scalar values at compile time.
+/// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
+
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
@@ -317,6 +318,8 @@ void populateLoweringONNXUnsqueezeV11OpPattern(
 void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadConstantValuePadOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

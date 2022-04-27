@@ -111,6 +111,18 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
+
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,

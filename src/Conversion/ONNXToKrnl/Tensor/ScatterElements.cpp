@@ -19,17 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// Returns true if all the indices are known to be positive and false otherwise.
-static bool indicesArePositiveConstants(Value indices) {
-  DenseElementsAttr valueAttribute =
-      getDenseElementAttributeFromONNXValue(indices);
-  if (!valueAttribute)
-    return false;
-
-  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
-      [](IntegerAttr val) { return val.getInt() >= 0; });
-}
-
 struct ONNXScatterElementsOpLowering : public ConversionPattern {
   ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -46,14 +35,14 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     Value updates = operandAdaptor.updates();
     Value indices = operandAdaptor.indices();
     int64_t axis = scatterElements.axis();
-    int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-    int64_t updatesRank = updates.getType().cast<ShapedType>().getRank();
-    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
+    int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
+    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
     assert(updatesRank == dataRank && indicesRank == dataRank &&
            "All input tenstors must have the same rank");
 
-    // Determine whether all indices are positive constants.
-    bool indicesArePositives = indicesArePositiveConstants(indices);
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
@@ -102,7 +91,7 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
           IndexExpr index = NonAffineIndexExpr(indexVal);
 
           // When index may be negative, add axis dim to it.
-          if (!indicesArePositives) {
+          if (indicesMayBeNegative) {
             LiteralIndexExpr zero(0);
             SymbolIndexExpr axisDim(dataDims[axis]);
             index = index.selectOrSelf(index < zero, index + axisDim);
