@@ -72,7 +72,9 @@ int main(int argc, char *argv[]) {
   // such as ".", "..", "./", "/.", etc.
   bool b = false;
   if (outputBaseName == "" ||
-      (b = std::regex_match(outputBaseName, std::regex("(.*/)*\\.*$")))) {
+      (b = std::regex_match(
+           outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
+           std::regex("[\.]*$")))) {
     if (b)
       printf("Invalid -o option value %s ignored.\n", outputBaseName.c_str());
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
