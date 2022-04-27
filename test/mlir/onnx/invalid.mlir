@@ -125,8 +125,73 @@ func @test_constantofshape_verifier_4() -> tensor<2xi64> {
 // -----
 
 func @test_flatten_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{ONNXFlattenOP: axis() value is out of range}}
-  %1 = "onnx.Flatten"(%arg0) { axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  // expected-error @+1 {{onnx.Flatten: 'axis' value is 5, accepted range is [-4, 4]}}
+  %1 = "onnx.Flatten"(%arg0) {axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_verifier_1(%data: tensor<2x2xf32>, %indices: tensor<2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.Gather: 'axis' value is -3, accepted range is [-2, 1]}}
+  %1 = "onnx.Gather"(%data, %indices) {axis = -3 : si64 } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tensor<2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<2xi64>' at index: 1' has rank 1, rank should be 2}}
+  %1 = "onnx.GatherElements"(%data, %indices) { } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gatherElements_verifier_2(%data: tensor<2x2xf32>, %indices: tensor<2x2xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: 'axis' value is 2, accepted range is [-2, 1]}}
+  %1 = "onnx.GatherElements"(%data, %indices) {axis = 2 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_hardmax_verifier_1(%arg0: tensor<2x2xf32>) -> tensor<*xf32> {
+   // expected-error @+1 {{onnx.Hardmax: 'axis' value is 3, accepted range is [-2, 1]}}
+   %1 = "onnx.Hardmax"(%arg0) {axis = 3: si64} : (tensor<2x2xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_elements_verifier_1(%arg0 : tensor<f32>, %arg1 : tensor<5xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<f32>' at index: 0' has rank 0, rank should be > 0}}  
+  %1 = "onnx.GatherElements"(%arg0, %arg1) {axis = 4 : si64} : (tensor<f32>, tensor<5xi64>)  -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_elements_verifier_2(%arg0 : tensor<5xf32>, %arg1 : tensor<5x3xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<5x3xi64>' at index: 1' has rank 2, rank should be 1}}
+  %1 = "onnx.GatherElements"(%arg0, %arg1) {axis = 4 : si64} : (tensor<5xf32>, tensor<5x3xi64>)  -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_elements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x1x32xi64>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.GatherElements: 'axis' value is 4, accepted range is [-4, 3]}}
+  %1 = "onnx.GatherElements"(%arg0, %arg1) {axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi64>)  -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func @test_gather_elements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+  // expected-error @+2 {{onnx.GatherElements: 'indices' value is 3, accepted range is [-3, 2]}}
+  %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.GatherElements"(%arg0, %indices) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -179,7 +244,7 @@ func @test_pow_verifier_1(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> ten
 
 // -----
 
-func @test_scatterelements_verifier_1(%arg0 : tensor<f32>, %arg1 : tensor<5xi64>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
+func @test_scatter_elements_verifier_1(%arg0 : tensor<f32>, %arg1 : tensor<5xi64>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.ScatterElements: operand '<block argument> of type 'tensor<f32>' at index: 0' has rank 0, rank should be > 0}}  
   %1 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 4 : si64} : (tensor<f32>, tensor<5xi64>, tensor<5xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
@@ -187,7 +252,7 @@ func @test_scatterelements_verifier_1(%arg0 : tensor<f32>, %arg1 : tensor<5xi64>
 
 // -----
 
-func @test_scatterelements_verifier_2(%arg0 : tensor<5xf32>, %arg1 : tensor<5x3xi64>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
+func @test_scatter_elements_verifier_2(%arg0 : tensor<5xf32>, %arg1 : tensor<5x3xi64>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.ScatterElements: operand '<block argument> of type 'tensor<5x3xi64>' at index: 1' has rank 2, rank should be 1}}
   %1 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 4 : si64} : (tensor<5xf32>, tensor<5x3xi64>, tensor<5xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()

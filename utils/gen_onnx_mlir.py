@@ -291,6 +291,8 @@ OpsWithVerifier = [
     'DequantizeLinear',
     'Expand',
     'Flatten',
+    'Gather',
+    'GatherElements',
     'Hardmax',
     'InstanceNormalization',
     'LogSoftmax',

@@ -99,7 +99,9 @@ bool MatMul2DLibBuilder::verifyOutputs() {
       }
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
 
 } // namespace test
