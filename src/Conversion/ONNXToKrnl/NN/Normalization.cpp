@@ -35,7 +35,12 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     Value epsilon = create.math.constant(memRefType.getElementType(),
         cast<ONNXBatchNormalizationInferenceModeOp>(op)
             .epsilon()
@@ -152,7 +157,11 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
     Value epsilon = create.math.constant(elementType,
         cast<ONNXInstanceNormalizationOp>(op).epsilon().convertToDouble());
