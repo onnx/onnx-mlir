@@ -38,7 +38,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     auto outputMemRefShape = outputMemRefType.getShape();
     auto elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();

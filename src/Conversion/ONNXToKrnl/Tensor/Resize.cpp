@@ -35,7 +35,12 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.X();
     Value scales = operandAdaptor.scales();
     Value sizes = operandAdaptor.sizes();
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     int64_t rank = memRefType.getShape().size();
 
     // Check implementation constraints
