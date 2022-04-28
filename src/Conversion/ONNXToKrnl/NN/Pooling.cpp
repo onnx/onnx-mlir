@@ -221,9 +221,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Type information about the input and result of this operation.
     Value inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputShape = memRefType.getShape();
-    auto outputElementType = memRefType.getElementType();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    ArrayRef<int64_t> outputShape = memRefType.getShape();
+    Type outputElementType = memRefType.getElementType();
 
     // Kernel offset in the input shape.
     int kernelShapeSize = shapeHelper.kernelShape.size();

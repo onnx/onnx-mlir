@@ -448,14 +448,15 @@ private:
         ++numInputs;
       }
     }
+
+    for (const auto &internal : graph.value_info()) {
+      AddValueInfo(internal);
+    }
+
     for (const auto &output : graph.output()) {
       // Output tensor may be in input list
       AddValueInfo(output, true);
       outputNames.push_back(output.name());
-    }
-
-    for (const auto &internal : graph.value_info()) {
-      AddValueInfo(internal);
     }
 
     entryBlock->addArguments(argTypes,

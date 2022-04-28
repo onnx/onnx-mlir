@@ -36,8 +36,13 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     int64_t outputRank = outputMemRefType.getShape().size();
+
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());

@@ -34,8 +34,11 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     auto permAttr = transposeOp.perm();
 
-    // Basic information.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     uint64_t rank = memRefType.getShape().size();
 
     // Get a shape helper.

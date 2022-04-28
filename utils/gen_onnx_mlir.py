@@ -289,6 +289,8 @@ OpsWithVerifier = [
     'DepthToSpace',
     'Expand',
     'Flatten',
+    'Gather',
+    'GatherElements',
     'Hardmax',
     'InstanceNormalization',
     'Mod',
@@ -304,7 +306,10 @@ OpsWithVerifier = [
     'SequenceEmpty',
     'SequenceInsert',
     'SpaceToDepth',
+    'Split',
+    'SplitToSequence',
     'TopK',
+    'Unique'
 ]
 
 OpsWithHelpers = {

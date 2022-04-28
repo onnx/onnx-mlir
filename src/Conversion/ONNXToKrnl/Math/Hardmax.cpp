@@ -89,7 +89,12 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     ONNXHardmaxOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     auto elementType = memRefType.getElementType();
     Value zero = create.math.constantIndex(0);
 

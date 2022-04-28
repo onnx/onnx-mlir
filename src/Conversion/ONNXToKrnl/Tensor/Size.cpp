@@ -35,7 +35,12 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
     Value resultOperand = sizeOp.size();
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     Value alloc =
         (hasAllConstantDimensions(memRefType))
