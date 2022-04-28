@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     // Whether initial value of the cell(initial_c) is specified.
     const auto isNoneC = *rc::gen::element(0, 1);
     // Whether the weight tensor for peepholes(P) is specified.
-    // zDNN does not support peephole
+    // Set none for peephole since zDNN does not support peephole
     const auto isNoneP = 1;
 
     RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0,
@@ -80,6 +80,7 @@ int main(int argc, char *argv[]) {
     return 1;
 
   // Exhaustive test case generation.
+  // Set none for peephole
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
