@@ -205,6 +205,14 @@ std::string getTargetCPUOption() {
   return (mcpu != "") ? "--mcpu=" + mcpu : "";
 }
 
+// Accel.
+void setTargetAccel(accel::Accelerator::Kind accel) {
+  // LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel\"" << accel << "\"\n");
+  // maccel = accel; // cl::list, which can be cast to an ArrayRef<>
+}
+
+std::string getTargetAccel() { return "--maccel=NONE"; }
+
 // Optimization level.
 void setOptLevel(const OptLevel level) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
@@ -283,6 +291,8 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetArchOption();
   case OptionKind::TargetCPU:
     return getTargetCPUOption();
+  case OptionKind::TargetAccel:
+    return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
   case OptionKind::OPTFlag:

@@ -31,6 +31,7 @@
 #define INVOKE_ACCEL_INIT_FUNCTION(name) create##name();
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
+#define ACCEL_CL_ENUM_TO_STRING(name) \
 
 namespace onnx_mlir {
 namespace accel {

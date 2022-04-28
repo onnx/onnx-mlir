@@ -56,6 +56,8 @@ void setTargetArch(const std::string &arch);
 std::string getTargetArchOption();
 void setTargetCPU(const std::string &cpu);
 std::string getTargetCPUOption();
+void setTargetAccel(accel::Accelerator::Kind accel);
+std::string getTargetAccel();
 void setOptLevel(const onnx_mlir::OptLevel level);
 std::string getOptimizationLevelOption();
 void setXoptOption(const std::string &flag);
