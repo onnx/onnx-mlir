@@ -116,7 +116,7 @@ def obtain_all_model_paths():
     model_paths = model_paths.split('\n')
     # Remove empty paths and prune '._' in a path.
     model_paths = [path[2:] for path in model_paths if path]
-    model_names = [path.split('/')[-1].split('.')[-3] for path in model_paths]
+    model_names = [path.split('/')[-1][:-len(".tag.gz")] for path in model_paths] # remove .tag.gz
     deprecated_names = set(model_names).intersection(deprecated_models)
 
     log_l1('\n')
@@ -190,10 +190,10 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
     passed = False
 
     # Ignore deprecated models.
-    model_name = model_path.split('/')[-1].split('.')[-3]
+    model_name = model_path.split('/')[-1][:-len(".tag.gz")] # remove .tag.gz
     if model_name in deprecated_models:
         log_l1("This model {} is deprecated. Quiting ...".format(model_name))
-        return passed
+        return passed, model_name
 
     # pull the model.
     log_l1('Downloading {}'.format(model_path))
@@ -211,7 +211,7 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
         execute_commands(MV_CMD + ['{}.pt'.format(model_path), model_path])
         execute_commands(CHECKOUT_CMD + [model_path])
 
-    return passed
+    return passed, model_name
 
 
 def main():
@@ -274,10 +274,8 @@ def main():
     # Report the results.
     print(len(results), "models tested:", ', '.join(models_to_run))
     print('\n')
-    print(
-        results.count(True), "models passed:", ', '.join([
-            models_to_run[i] for i in range(len(models_to_run)) if results[i]
-        ]))
+    passed_results = [r[1] for r in results if r[0]]
+    print(len(passed_results), "models passed:", ', '.join(passed_results))
 
 
 if __name__ == "__main__":
