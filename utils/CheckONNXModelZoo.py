@@ -17,7 +17,6 @@ import argparse
 import subprocess
 import tempfile
 import difflib
-from joblib import Parallel, delayed
 """
 Note:
     - This script must be invoked from the root folder of https://github.com/onnx/models.
@@ -28,7 +27,7 @@ Example:
     $ git clone https://github.com/onnx/models
     $ cd models
     $ ln -s /onnx_mlir/utils/CheckONNXModelZoo.py
-    $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -njobs=8 -mcpu=z14
+    $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -mcpu=z14
 """
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -116,7 +115,9 @@ def obtain_all_model_paths():
     model_paths = model_paths.split('\n')
     # Remove empty paths and prune '._' in a path.
     model_paths = [path[2:] for path in model_paths if path]
-    model_names = [path.split('/')[-1][:-len(".tag.gz")] for path in model_paths] # remove .tag.gz
+    model_names = [
+        path.split('/')[-1][:-len(".tag.gz")] for path in model_paths
+    ]  # remove .tag.gz
     deprecated_names = set(model_names).intersection(deprecated_models)
 
     log_l1('\n')
@@ -190,7 +191,7 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
     passed = False
 
     # Ignore deprecated models.
-    model_name = model_path.split('/')[-1][:-len(".tag.gz")] # remove .tag.gz
+    model_name = model_path.split('/')[-1][:-len(".tag.gz")]  # remove .tag.gz
     if model_name in deprecated_models:
         log_l1("This model {} is deprecated. Quiting ...".format(model_name))
         return passed, model_name
@@ -230,12 +231,6 @@ def main():
                         action='store_true',
                         help="keep the downloaded model")
     parser.add_argument('-mcpu', help="mcpu")
-    parser.add_argument('-njobs',
-                        type=int,
-                        default=1,
-                        help="The number of processes in parallel."
-                        " The large -njobs is, the more disk space is needed"
-                        " for downloaded onnx models")
     args = parser.parse_args()
 
     # Collect all model paths in the model zoo
@@ -267,9 +262,10 @@ def main():
         target_model_paths += [m for m in all_model_paths if name in m]
 
     # Start processing the models.
-    results = Parallel(n_jobs=args.njobs, verbose=1)(
-        delayed(pull_and_check_model)(path, args.mcpu, args.k)
-        for path in target_model_paths)
+    results = [
+        pull_and_check_model(path, args.mcpu, args.k)
+        for path in target_model_paths
+    ]
 
     # Report the results.
     print(len(results), "models tested:", ', '.join(models_to_run))
