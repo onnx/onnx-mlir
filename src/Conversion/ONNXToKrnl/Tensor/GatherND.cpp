@@ -95,6 +95,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
         indicesShape.begin() + b, 1, std::multiplies<int64_t>());
     const int64_t indicesDimsSize = std::accumulate(indicesShape.begin(),
         indicesShape.end(), 1, std::multiplies<int64_t>());
+    assert(batchDimsSize >= 0 && "batchDimsSize must be non-negative");
+    assert(indicesDimsSize >= 0 && "indicesDimsSize must be non-negative");
+
     LiteralIndexExpr BDS(batchDimsSize),
         IDS(indicesDimsSize / (batchDimsSize * indicesLastDim)),
         ILD(indicesLastDim);
@@ -106,6 +109,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     // Reshape 'data' to shape [batchDimSize, data.shape[b:]]
     DimsExpr newDataShape = {BDS};
     for (int64_t i = b; i < dataRank; ++i) {
+      assert(dataShape[i] > 0 && "Cannot support data with dynamic dimensions");
       LiteralIndexExpr dataDim(dataShape[i]);
       newDataShape.emplace_back(dataDim);
     }
@@ -195,7 +199,6 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
             // Gather value from the 'data' tensor and store it into
             // 'outputDataBuffer'.
             Value val = createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
-
             Value storeIndexVal = createKrnl.load(storeIndex);
             createKrnl.store(val, outputDataBuffer, storeIndexVal);
 

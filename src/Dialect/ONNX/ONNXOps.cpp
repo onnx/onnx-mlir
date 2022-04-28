@@ -3369,7 +3369,7 @@ LogicalResult ONNXGatherNDOp::verify() {
   }
 
   // Let r = rank(data), indices.shape[-1] must be in the range [1, r-b].
-  if (indicesLastDim < 1)
+  if (indicesLastDim == 0)
     return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
         *this->getOperation(), indices, indicesRank - 1, indicesLastDim,
         ">= 1");
@@ -3409,6 +3409,16 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   if (llvm::any_of(
           this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
     return success();
+
+  // The output rank is given by:
+  //   rank(output) = rank(indices) + rank(data) - indices_shape[-1] - 1 - b.
+  // Therefore 'indices.shape[-1]' must be known in order to compute the output
+  // shape.
+  ArrayRef<int64_t> indicesShape =
+      indices().getType().cast<ShapedType>().getShape();
+  int64_t indicesRank = indicesShape.size();
+  if (indicesShape[indicesRank - 1] < 0)
+    return success(); // cannot infer the oputput shape yet.
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXGatherNDOpShapeHelper, ONNXGatherNDOp,
