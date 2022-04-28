@@ -50,10 +50,6 @@ else:
     test_to_enable = get_test_models()
 
     # Backend Test
-    # TODO: Currently only default rtol and atol can be used.
-    #       To set arbitrary values, we need to modify `BackendTest`
-    #       of onnx.backend.test.
-    # backend_test = BackendTest(InferenceBackend, __name__, rtol=0.05, atol=0.01)
     backend_test = BackendTest(InferenceBackend, __name__)
 
     # Extract name of all test cases.

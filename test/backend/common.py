@@ -109,8 +109,6 @@ def compile_model(model, emit):
         command_list.append("--march=" + args.march)
     if args.mtriple:
         command_list.append("--mtriple=" + args.mtriple)
-    if args.maccel:
-        command_list.append("--maccel=" + args.maccel)
     if args.converter or name in variables.test_need_converter:
         command_list.append("--invokeOnnxVersionConverter=true")
     command_list.append(target[emit])

@@ -122,12 +122,6 @@ def get_args_from_env():
         help="target a specific architecture, passed to the compiler",
     )
     parser.add_argument(
-        "--maccel",
-        type=str,
-        default=os.getenv("TEST_MACCEL", ""),
-        help="target a specific accelerator, passed to the compiler",
-    )
-    parser.add_argument(
         "--converter",
         action="store_true",
         default=(strtobool(INVOKECONVERTER) if INVOKECONVERTER else False),
