@@ -72,11 +72,6 @@ add_numerical_unittest(TestLSTM-NNPA
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestRNN-NNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestRNN.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
 add_numerical_unittest(TestGRU-NNPA
   TestGRU-NNPA.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
