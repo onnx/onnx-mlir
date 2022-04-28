@@ -1,4 +1,3 @@
-
 // RUN: onnx-mlir --preserveLocations --printIR %s |  FileCheck %s --check-prefix=PRESENT
 // RUN: onnx-mlir --printIR %s | FileCheck %s --check-prefix=ABSENT
 
