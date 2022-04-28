@@ -63,8 +63,8 @@ FIND_MODEL_PATHS_CMD = ['find', '.', '-type', 'f', '-name', '*.tar.gz']
 PULL_CMD = ['git', 'lfs', 'pull', '--exclude=\"\"']
 # git lfs pointer --file = "${onnx_model}" > ${onnx_model}.pt
 CLEAN_CMD = ['git', 'lfs', 'pointer']
-# git checkout file_path
-CHECKOUT_CMD = ['git', 'checkout']
+# git checkout -f main
+CHECKOUT_CMD = ['git', 'checkout', '-f', 'main']
 # tar -xzvf file.tar.gz
 UNTAR_CMD = ['tar', '-xzvf']
 RM_CMD = ['rm']
@@ -116,7 +116,9 @@ def obtain_all_model_paths():
     model_paths = model_paths.split('\n')
     # Remove empty paths and prune '._' in a path.
     model_paths = [path[2:] for path in model_paths if path]
-    model_names = [path.split('/')[-1][:-len(".tag.gz")] for path in model_paths] # remove .tag.gz
+    model_names = [
+        path.split('/')[-1][:-len(".tag.gz")] for path in model_paths
+    ]  # remove .tag.gz
     deprecated_names = set(model_names).intersection(deprecated_models)
 
     log_l1('\n')
@@ -190,7 +192,7 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
     passed = False
 
     # Ignore deprecated models.
-    model_name = model_path.split('/')[-1][:-len(".tag.gz")] # remove .tag.gz
+    model_name = model_path.split('/')[-1][:-len(".tag.gz")]  # remove .tag.gz
     if model_name in deprecated_models:
         log_l1("This model {} is deprecated. Quiting ...".format(model_name))
         return passed, model_name
@@ -209,7 +211,7 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
         execute_commands_to_file(clean_cmd, '{}.pt'.format(model_path))
         execute_commands(RM_CMD + [model_path])
         execute_commands(MV_CMD + ['{}.pt'.format(model_path), model_path])
-        execute_commands(CHECKOUT_CMD + [model_path])
+        execute_commands(CHECKOUT_CMD)
 
     return passed, model_name
 
