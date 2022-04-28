@@ -1,3 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### RunONNXModel.py #########################################
+#
+# Copyright 2019-2022 The IBM Research Authors.
+#
+################################################################################
+#
+# This script is to run and debug an onnx model.
+
+################################################################################
+
 import os
 import sys
 import argparse
