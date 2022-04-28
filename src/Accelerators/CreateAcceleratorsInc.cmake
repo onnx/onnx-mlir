@@ -3,6 +3,8 @@
 # We need to do this in a stand-alone cmake script because there's no
 # cross-platform way to append to a file through add_custom_command.
 
+# The VA_ARGS macro is to accomodate cases where no additional parameters
+# are given.
 file(WRITE "${INC_FILE}.tmp" "#define VA_ARGS(...) , ##__VA_ARGS__ \n")
 file(APPEND "${INC_FILE}.tmp" "#define APPLY_TO_ACCELERATORS(MACRO, ...) \\\n")
 

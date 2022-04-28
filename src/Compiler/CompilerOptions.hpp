@@ -56,7 +56,10 @@ void setTargetArch(const std::string &arch);
 std::string getTargetArchOption();
 void setTargetCPU(const std::string &cpu);
 std::string getTargetCPUOption();
-void setTargetAccel(accel::Accelerator::Kind accel);
+// SetTargetAccel reset accelerator list on empty string, otherwise add. Return
+// nonzero on error.
+int setTargetAccel(const std::string &str);
+void setTargetAccel(const accel::Accelerator::Kind accel);
 std::string getTargetAccel();
 void setOptLevel(const onnx_mlir::OptLevel level);
 std::string getOptimizationLevelOption();
@@ -75,7 +78,8 @@ using CompilerOptionList =
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Return 0 on success. These functions are not thread-safe and should be called
-// by a single program thread.
+// by a single program thread. Empty string for kind=TargetAccel reset
+// accelerator list.
 int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
 int setCompilerOptions(const CompilerOptionList &list);
 
