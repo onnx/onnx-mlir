@@ -51,10 +51,11 @@ llvm_update_compile_flags(rapidcheck)
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-add_numerical_unittest(TestConv-NNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+# TODO: Support tests for Conv
+# add_numerical_unittest(TestConv-NNPA
+#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
 
 add_numerical_unittest(TestMatMul2D-NNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
