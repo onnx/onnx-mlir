@@ -572,7 +572,8 @@ private:
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
-      int expectedNumResults, const std::vector<NamedAttribute> &attributes) {
+      int expectedNumResults, const std::vector<NamedAttribute> &attributes,
+      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -620,6 +621,9 @@ private:
           auto elementType = buildTypeFromIndex(outputMap[j]);
           auto outType = UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
+        } else if (!givenOutputTypes.empty()) {
+          outputTypes.emplace_back(
+              UnrankedTensorType::get(givenOutputTypes[i]));
         } else {
           outputTypes.emplace_back(builder_.getNoneType());
         }
@@ -694,6 +698,27 @@ private:
     auto attributes = ImportNodeAttributes(node);
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults, attributes);
+  }
+
+  // The output type of CategoryMapper needs special handling
+  // If the input is I64, the output is string.
+  // If the input is string, the output is I64.
+  void ImportCategoryMapper(const onnx::NodeProto &node) {
+    std::vector<Value> inputs;
+    int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
+    int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    std::vector<Type> outputTypes;
+    auto inputType = inputs[0].getType().cast<TensorType>();
+    if (inputType.getElementType().isInteger(64)) {
+      outputTypes.emplace_back(
+          mlir::ONNXStringType::get(builder_.getContext()));
+    } else {
+      outputTypes.emplace_back(builder_.getIntegerType(64));
+    }
+    buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
+        expectedNumOperands, expectedNumResults, attributes, outputTypes);
   }
 
   std::vector<NamedAttribute> ImportCastAttributes(

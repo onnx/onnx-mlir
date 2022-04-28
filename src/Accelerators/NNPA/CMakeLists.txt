@@ -32,6 +32,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
   add_subdirectory(Support)
   add_subdirectory(Transform)
   add_subdirectory(Compiler)
+  add_subdirectory(Runtime)
 
   add_onnx_mlir_library(NNPAAccel
     NNPAAccelerator.cpp
