@@ -248,6 +248,7 @@ special_attr_types = dict([("Cast.to", 'type')])
 # Special operation importing handlers.
 special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("CategoryMapper", "ImportCategoryMapper"),
     ("Dropout", "ImportNodeDropout"),
     ("Cast", "ImportNodeCast"),
     ("MaxPool", "ImportNodeMaxPool"),
@@ -306,7 +307,10 @@ OpsWithVerifier = [
     'SequenceEmpty',
     'SequenceInsert',
     'SpaceToDepth',
+    'Split',
+    'SplitToSequence',
     'TopK',
+    'Unique'
 ]
 
 OpsWithHelpers = {
