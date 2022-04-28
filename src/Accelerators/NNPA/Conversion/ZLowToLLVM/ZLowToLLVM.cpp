@@ -329,13 +329,13 @@ public:
     // hidden size
     auto H = dims[4];
 
-    const char *prevLayerStr = operandAdaptor.prev_layer().data();
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).prev_layer();
     int64_t prevLayer = 0;
-    if (!strcmp(prevLayerStr, "none")) {
+    if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
-    } else if (!strcmp(prevLayerStr, "uni")) {
+    } else if (prevLayerStr.equals_insensitive("uni")) {
       prevLayer = PREV_LAYER_UNI;
-    } else if (!strcmp(prevLayerStr, "bidir")) {
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
       prevLayer = PREV_LAYER_BIDIR;
     }
     assert((prevLayer > 0) && "invalid prev_layer attribute in zlow.LSTM");
