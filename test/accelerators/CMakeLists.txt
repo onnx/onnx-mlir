@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
+if (ONNX_MLIR_ACCELERATORS)
+  foreach(t ${ONNX_MLIR_ACCELERATORS})
     add_subdirectory(${t})
   endforeach(t)
-endif(ACCELERATORS_TO_BUILD)
+endif(ONNX_MLIR_ACCELERATORS)
