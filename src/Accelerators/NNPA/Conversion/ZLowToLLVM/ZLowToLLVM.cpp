@@ -330,7 +330,7 @@ public:
     auto H = dims[4];
 
     StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).prev_layer();
-    int64_t prevLayer = 0;
+    int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
     } else if (prevLayerStr.equals_insensitive("uni")) {
@@ -338,7 +338,7 @@ public:
     } else if (prevLayerStr.equals_insensitive("bidir")) {
       prevLayer = PREV_LAYER_BIDIR;
     }
-    assert((prevLayer > 0) && "invalid prev_layer attribute in zlow.LSTM");
+    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.LSTM");
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
