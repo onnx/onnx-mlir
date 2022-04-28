@@ -161,10 +161,10 @@ static inline void printElement(
     printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_FLOAT:
-    printf("%g", ((float *)dataPtr)[elemOffset]);
+    printf("%f", ((float *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_DOUBLE:
-    printf("%g", ((double *)dataPtr)[elemOffset]);
+    printf("%f", ((double *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_STRING:
     printf("%s", ((const char **)dataPtr)[elemOffset]);
@@ -423,63 +423,71 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   printf("\trank = %lld\n", (long long)rank);
   printf("\tdataType = %s\n", getDataTypeName(dataType));
   printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
+  printf("\tshape: ");
+  for (int64_t i = 0; i < rank; i++)
+    printf("[%lld]", (long long)shape[i]);
+  printf("\n");
   printf("\tstrides: ");
   for (int64_t i = 0; i < rank; i++)
     printf("[%lld]", (long long)strides[i]);
   printf("\n");
 
-  printf("\tdata: ([");
+#define START_LOOP(IV, LB, UB)                                                 \
+  printf("[");                                                                 \
+  for (int64_t IV = LB; IV < UB; ++IV) {                                       \
+    if (IV)                                                                    \
+      printf(", ");
+
+#define CLOSE_LOOP(IV)                                                         \
+  }                                                                            \
+  printf("]");
+
+  printf("\tdata: (");
   switch (rank) {
   case 1:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      int64_t indexes[] = {i};
-      int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-      printElement(dataPtr, elemOffset, dataType);
-    }
+    START_LOOP(i, 0, shape[0])
+    int64_t indexes[] = {i};
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+    printElement(dataPtr, elemOffset, dataType);
+    CLOSE_LOOP(I)
     break;
   case 2:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      printf("[");
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        if (j)
-          printf(", ");
-        int64_t indexes[] = {i, j};
-        int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-        printElement(dataPtr, elemOffset, dataType);
-      }
-      printf("]");
-    }
+    START_LOOP(i, 0, shape[0])
+    START_LOOP(j, 0, shape[1])
+    int64_t indexes[] = {i, j};
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+    printElement(dataPtr, elemOffset, dataType);
+    CLOSE_LOOP(i)
+    CLOSE_LOOP(j)
     break;
   case 3:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      printf("[");
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        if (j)
-          printf(", ");
-        printf("[");
-        for (int64_t k = 0; k < shape[2]; ++k) {
-          if (k)
-            printf(", ");
-          int64_t indexes[] = {i, j, k};
-          int64_t elemOffset =
-              computeElemOffset(tensor->_strides, indexes, rank);
-          printElement(dataPtr, elemOffset, dataType);
-        }
-        printf("]");
-      }
-      printf("]");
-    }
+    START_LOOP(i, 0, shape[0])
+    START_LOOP(j, 0, shape[1])
+    START_LOOP(k, 0, shape[2])
+    int64_t indexes[] = {i, j, k};
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+    printElement(dataPtr, elemOffset, dataType);
+    CLOSE_LOOP(i)
+    CLOSE_LOOP(j)
+    CLOSE_LOOP(k)
+    break;
+  case 4:
+    START_LOOP(i, 0, shape[0])
+    START_LOOP(j, 0, shape[1])
+    START_LOOP(k, 0, shape[2])
+    START_LOOP(l, 0, shape[3])
+    int64_t indexes[] = {i, j, k, l};
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+    printElement(dataPtr, elemOffset, dataType);
+    CLOSE_LOOP(i)
+    CLOSE_LOOP(j)
+    CLOSE_LOOP(k)
+    CLOSE_LOOP(l)
     break;
   default:
     assert(false && "not implemented");
   }
-  printf("])\n");
+  printf(")\n");
 }
 
 #ifdef __cplusplus
@@ -657,8 +665,8 @@ inline bool omTensorAreTwoOmtsClose(
       eqAllclose.begin(), eqAllclose.end(), [&](T eq) { return eq >= 0; });
 
   if (!satisfied) {
-    // Figure out where and what went wrong, this can be slow; but hopefully we
-    // don't need this often.
+    // Figure out where and what went wrong, this can be slow; but hopefully
+    // we don't need this often.
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);
