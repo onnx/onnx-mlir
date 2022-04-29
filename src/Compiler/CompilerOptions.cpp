@@ -222,7 +222,7 @@ static accel::Accelerator::Kind getAccelKindFromString(
 // Return 0 on success, nonzero on error.
 int setTargetAccel(const std::string &str) {
   // Empty string means reset maccel.
-  if (str.empty()) {
+  if (str.compare(std::string("RESET")) == 0) {
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel to empty\n");
     maccel.clear();
     return 0;
@@ -243,27 +243,11 @@ void setTargetAccel(const accel::Accelerator::Kind accel) {
   maccel.push_back(accel);
 }
 
-#if 0 // hi alex
-std::string getTargetAccel() {
-  std::string str;
-  for (accel::Accelerator::Kind accel : maccel) {
-    if (!str.empty())
-      str.append(" ");
-    str.append("--maccel=");
-    std::stringstream ss;
-    ss << accel;
-    str.append(ss.str());
-  }
-  if (str.empty())
-    str = "--maccel=NONE";
-  return str;
-}
-#else
 std::string getTargetAccel() {
   std::stringstream ss;
   int accelCount = 0;
   for (accel::Accelerator::Kind accel : maccel) {
-    if (!accelCount++)
+    if (accelCount++)
       ss << " ";
     ss << "--maccel=" << accel;
   }
@@ -271,7 +255,6 @@ std::string getTargetAccel() {
     ss << "--maccel=NONE";
   return ss.str();
 }
-#endif
 
 // Optimization level.
 void setOptLevel(const OptLevel level) {
@@ -324,7 +307,8 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     setTargetCPU(val);
     break;
   case OptionKind::TargetAccel:
-    setTargetAccel(val);
+    if (setTargetAccel(val) != 0)
+      return 1;
     break;
   case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());

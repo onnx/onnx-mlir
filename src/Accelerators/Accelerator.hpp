@@ -34,7 +34,7 @@
 #define ACCEL_CL_ENUM_FROM_STRING(name, str) \
   if (str.compare(std::string(#name))==0) return accel::Accelerator::Kind::name;
 #define ACCEL_CL_ENUM_TO_STRING(name, map) \
-  map[#name] = #name;
+  map[accel::Accelerator::Kind::name] = #name;
 
 namespace onnx_mlir {
 namespace accel {

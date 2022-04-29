@@ -56,8 +56,7 @@ void setTargetArch(const std::string &arch);
 std::string getTargetArchOption();
 void setTargetCPU(const std::string &cpu);
 std::string getTargetCPUOption();
-// SetTargetAccel reset accelerator list on empty string, otherwise add. Return
-// nonzero on error.
+// SetTargetAccel add given accleator to the list, reset when str="RESET".
 int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);
 std::string getTargetAccel();

@@ -23,9 +23,8 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
-  return matmul.build() && matmul.compileAndLoad() &&
-         matmul.prepareInputs() && matmul.run() &&
-         matmul.verifyOutputs();
+  return matmul.build() && matmul.compileAndLoad() && matmul.prepareInputs() &&
+         matmul.run() && matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir
@@ -41,8 +40,15 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
-  bool success;
+  int rc = 0; // hi alex
+  rc += setCompilerOption(OptionKind::TargetAccel, "NONE");
+  rc += setCompilerOption(OptionKind::TargetAccel, "RESET");
+  rc += setCompilerOption(OptionKind::TargetAccel, "NONE");
+  rc += setCompilerOption(OptionKind::TargetAccel, "RESET");
+  std::cout << "Target options (" << rc << "): \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
+  bool success;
   printf("RapidCheck Matrix-Vector test case generation.\n");
   success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(4, 50);
