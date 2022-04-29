@@ -47,6 +47,7 @@ set(ONNX_MLIR_TEST_DEPENDS
   count
   not
   split-file
+  llvm-dis
   )
 
 add_lit_testsuite(check-onnx-lit
