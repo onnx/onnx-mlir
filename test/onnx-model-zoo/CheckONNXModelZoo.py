@@ -7,8 +7,7 @@
 ################################################################################
 #
 # This script is used to check models in https://github.com/onnx/models.
-# It automatically downloads all models from onnx/models, compiles, runs, and
-# verifies the models.
+#
 ################################################################################
 
 import os
@@ -21,13 +20,14 @@ from joblib import Parallel, delayed
 """
 Note:
     - This script must be invoked from the root folder of https://github.com/onnx/models.
-    - This script requires git-lfs to download models. Please follow the instruction here to install git-lfs: https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage 
     - Environment variable ONNX_MLIR_HOME is needed to find onnx-mlir.
+    - By default, the script checks all models in the model zoo.
+    - Use `-m model_name` to check one model, or directly edit `models_to_run` to check a list of selected models.
 
 Example:
     $ git clone https://github.com/onnx/models
     $ cd models
-    $ ln -s /onnx_mlir/utils/CheckONNXModelZoo.py
+    $ ln -s /onnx_mlir/utils/CheckONNXModelZoo.py CheckONNXModelZoo.py
     $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -njobs=8 -mcpu=z14
 """
 
@@ -110,13 +110,20 @@ deprecated_models = {
     "emotion-ferplus-2",
 }
 
+# States
+NO_TEST = 0
+TEST_FAILED = 1
+TEST_PASSED = 2
+
 
 def obtain_all_model_paths():
     _, model_paths = execute_commands(FIND_MODEL_PATHS_CMD)
     model_paths = model_paths.split('\n')
     # Remove empty paths and prune '._' in a path.
     model_paths = [path[2:] for path in model_paths if path]
-    model_names = [path.split('/')[-1][:-len(".tag.gz")] for path in model_paths] # remove .tag.gz
+    model_names = [
+        path.split('/')[-1][:-len(".tag.gz")] for path in model_paths
+    ]  # remove .tag.gz
     deprecated_names = set(model_names).intersection(deprecated_models)
 
     log_l1('\n')
@@ -132,8 +139,8 @@ def obtain_all_model_paths():
     return model_names, model_paths
 
 
-def check_model(model_path, model_name, mcpu):
-    passed = False
+def check_model(model_path, model_name, compile_args):
+    passed = NO_TEST
     with tempfile.TemporaryDirectory() as tmpdir:
         # untar
         log_l1('Extracting the .tag.gz to {}'.format(tmpdir))
@@ -151,8 +158,8 @@ def check_model(model_path, model_name, mcpu):
 
         # Check .onnx file.
         if (len(onnx_files) == 0):
-            log_l1("There is no .onnx file for this model. Quiting ...")
-            return passed
+            log_l1("There is no .onnx file for this model. Ignored.")
+            return NO_TEST
         onnx_file = onnx_files.split('\n')[0]
 
         # Check data sets.
@@ -174,36 +181,39 @@ def check_model(model_path, model_name, mcpu):
 
         # compile, run and verify.
         log_l1("Checking the model {} ...".format(model_name))
-        compile_args = '--compile_args=-O3'
-        if (mcpu):
-            compile_args += ' --mcpu=' + mcpu
-        options = [compile_args]
+        compile_options = "--compile_args=" + (compile_args
+                                               if compile_args else "-O3")
+        options = [compile_options]
         if has_data_sets:
             options += ['--verify=ref']
             options += ['--data_folder={}'.format(data_set)]
-        passed, msg = execute_commands(RUN_ONNX_MODEL + [onnx_file] + options)
+        ok, msg = execute_commands(RUN_ONNX_MODEL + [onnx_file] + options)
+        state = TEST_PASSED if ok else TEST_FAILED
         log_l1(msg)
-    return passed
+    return state
 
 
-def pull_and_check_model(model_path, mcpu, keep_model=False):
-    passed = False
+def pull_and_check_model(model_path, compile_args, pull_models, keep_model):
+    state = NO_TEST
 
     # Ignore deprecated models.
-    model_name = model_path.split('/')[-1][:-len(".tag.gz")] # remove .tag.gz
+    model_name = model_path.split('/')[-1][:-len(".tag.gz")]  # remove .tag.gz
     if model_name in deprecated_models:
-        log_l1("This model {} is deprecated. Quiting ...".format(model_name))
-        return passed, model_name
+        log_l1("The model {} is deprecated. Ignored.".format(model_name))
+        return state, model_name
 
     # pull the model.
-    log_l1('Downloading {}'.format(model_path))
-    pull_cmd = PULL_CMD + ['--include={}'.format(model_path)]
-    execute_commands(pull_cmd)
+    if pull_models:
+        log_l1('Downloading {}'.format(model_path))
+        pull_cmd = PULL_CMD + ['--include={}'.format(model_path)]
+        ok, _ = execute_commands(pull_cmd)
+        if not ok:
+            log_l1("Failed to pull the model {}. Ignored.".format(model_name))
 
     # check the model.
-    passed = check_model(model_path, model_name, mcpu)
+    state = check_model(model_path, model_name, compile_args)
 
-    if not keep_model:
+    if pull_models and (not keep_model):
         # remove the model to save the storage space.
         clean_cmd = CLEAN_CMD + ['--file={}'.format(model_path)]
         execute_commands_to_file(clean_cmd, '{}.pt'.format(model_path))
@@ -211,31 +221,48 @@ def pull_and_check_model(model_path, mcpu, keep_model=False):
         execute_commands(MV_CMD + ['{}.pt'.format(model_path), model_path])
         execute_commands(CHECKOUT_CMD + [model_path])
 
-    return passed, model_name
+    return state, model_name
 
 
 def main():
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '-s',
+    parser.add_argument(
+        '-m',
+        '-model',
         metavar='model_name',
-        help="only process a single model in the ONNX model zoo."
+        help="Only process a single model in the ONNX model zoo."
         " Passing the name of the model, e.g. mnist-8."
         " Use -p to know model names.")
-    group.add_argument('-p',
-                       action='store_true',
-                       help="only print model paths in the model zoo.")
-    parser.add_argument('-k',
+    parser.add_argument('-p',
+                        '-print_model_paths',
                         action='store_true',
-                        help="keep the downloaded model")
-    parser.add_argument('-mcpu', help="mcpu")
-    parser.add_argument('-njobs',
-                        type=int,
-                        default=1,
-                        help="The number of processes in parallel."
-                        " The large -njobs is, the more disk space is needed"
-                        " for downloaded onnx models")
+                        help="Only print model paths in the model zoo.")
+    parser.add_argument('-k',
+                        '-keep_pulled_models',
+                        action='store_true',
+                        help="Keep the pulled models")
+    parser.add_argument('-a',
+                        '-assertion',
+                        action='store_true',
+                        help="Raise assertion if there are failed models")
+    parser.add_argument(
+        '-compile_args',
+        help="Options passing to onnx-mlir to compile a model.")
+    parallel_group = parser.add_mutually_exclusive_group()
+    parallel_group.add_argument(
+        '-njobs',
+        type=int,
+        default=1,
+        help="The number of processes in parallel."
+        " The large -njobs is, the more disk space is needed"
+        " for downloaded onnx models. Default 1.")
+    parallel_group.add_argument(
+        '-pull_models',
+        action='store_true',
+        help="Pull models from the remote git repository."
+        " This requires git-lfs. Please follow the instruction here to install"
+        " git-lfs: https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage."
+    )
     args = parser.parse_args()
 
     # Collect all model paths in the model zoo
@@ -252,14 +279,14 @@ def main():
     # If we would like to run with models of interest only, set models_to_run.
     # models_to_run = ['mnist-8', 'yolov4', 'resnet50-v2-7']
 
-    if (args.s):
-        models_to_run = [args.s]
+    if (args.m):
+        models_to_run = [args.m]
 
     target_model_paths = []
     for name in models_to_run:
         if name not in all_model_names:
             print(
-                "Model", args.s,
+                "Model", args.m,
                 "not found. Do you mean one of the following? ",
                 difflib.get_close_matches(name, all_model_names,
                                           len(all_model_names)))
@@ -267,15 +294,26 @@ def main():
         target_model_paths += [m for m in all_model_paths if name in m]
 
     # Start processing the models.
-    results = Parallel(n_jobs=args.njobs, verbose=1)(
-        delayed(pull_and_check_model)(path, args.mcpu, args.k)
-        for path in target_model_paths)
+    results = Parallel(n_jobs=args.njobs,
+                       verbose=1)(delayed(pull_and_check_model)(
+                           path, args.compile_args, args.pull_models, args.k)
+                                  for path in target_model_paths)
 
     # Report the results.
-    print(len(results), "models tested:", ', '.join(models_to_run))
-    print('\n')
-    passed_results = [r[1] for r in results if r[0]]
-    print(len(passed_results), "models passed:", ', '.join(passed_results))
+    tested_models = [r[1] for r in results if r[0] != NO_TEST]
+    print("{} models tested: {}\n".format(len(tested_models),
+                                          ', '.join(tested_models)))
+    passed_models = [r[1] for r in results if r[0] == TEST_PASSED]
+    print("{} models passed: {}\n".format(len(passed_models),
+                                          ', '.join(passed_models)))
+    if len(passed_models) != len(tested_models):
+        failed_models = [r[1] for r in results if r[0] == TEST_FAILED]
+        msg = "{} model failed: {}\n".format(len(failed_models),
+                                             ', '.join(failed_models))
+        if args.assertion:
+            raise AssertionError(msg)
+        else:
+            print(msg)
 
 
 if __name__ == "__main__":
