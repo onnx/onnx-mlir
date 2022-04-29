@@ -40,11 +40,6 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
-  int rc = 0; // hi alex
-  rc += setCompilerOption(OptionKind::TargetAccel, "NONE");
-  rc += setCompilerOption(OptionKind::TargetAccel, "RESET");
-  rc += setCompilerOption(OptionKind::TargetAccel, "NONE");
-  rc += setCompilerOption(OptionKind::TargetAccel, "RESET");
   std::cout << "Target options (" << rc << "): \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
