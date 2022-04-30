@@ -168,7 +168,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
-def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [
+def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
   let summary = "Krnl load from a seq";
