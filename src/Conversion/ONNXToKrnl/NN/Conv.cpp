@@ -75,6 +75,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
+    MemRefBuilder createMemRef(createKrnl);
+    // Create a local reduction value.
+    MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
+    // Single scalar, no need for default alignment.
+    Value reductionVal = createMemRef.alloca(tmpType);
+
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Compute the Channel In Indices.
@@ -101,12 +107,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
               outputSpacialLbs, outputSpacialUbs,
               [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
                 IndexExprScope outputSpacialScope(createKrnl);
-                MemRefBuilder createMemRef(createKrnl);
-                // Create a local reduction value and set to zero.
-                MemRefType tmpType =
-                    MemRefType::get({}, memRefType.getElementType());
-                // Single scalar, no need for default alignment.
-                Value reductionVal = createMemRef.alloca(tmpType);
+                // Reset reduction value to zero.
                 createKrnl.store(fZero, reductionVal);
 
                 // Bounds for reduction loops.
