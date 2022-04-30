@@ -395,8 +395,9 @@ def main():
                 if mismatched_elements == 0:
                     print("  correct.\n".format(args.atol, args.rtol))
                 else:
-                    print("  mismatched elements {}/{}.\n".format(
-                        mismatched_elements, total_elements))
+                    raise AssertionError(
+                        "  mismatched elements {}/{}.\n".format(
+                            mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':

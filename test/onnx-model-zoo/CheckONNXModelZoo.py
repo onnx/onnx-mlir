@@ -20,6 +20,7 @@ from joblib import Parallel, delayed
 """
 Note:
     - This script must be invoked from the root folder of https://github.com/onnx/models.
+    - This script will call RunONNXModel.py. Make sure to put RunONNXModel.py and this script in the same folder.
     - Environment variable ONNX_MLIR_HOME is needed to find onnx-mlir.
     - By default, the script checks all models in the model zoo.
     - Use `-m model_name` to check one model, or directly edit `models_to_run` to check a list of selected models.
@@ -27,7 +28,8 @@ Note:
 Example:
     $ git clone https://github.com/onnx/models
     $ cd models
-    $ ln -s /onnx_mlir/utils/CheckONNXModelZoo.py CheckONNXModelZoo.py
+    $ ln -s /onnx_mlir/test/onnx-model/zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
+    $ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
     $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -njobs=8 -mcpu=z14
 """
 
@@ -70,7 +72,7 @@ UNTAR_CMD = ['tar', '-xzvf']
 RM_CMD = ['rm']
 MV_CMD = ['mv']
 # Compile, run and verify an onnx model.
-RUN_ONNX_MODEL = ['python', '/home/tungld/dl/onnx-mlir/utils/RunONNXModel.py']
+RUN_ONNX_MODEL = ['python', 'RunONNXModel.py']
 
 
 def execute_commands(cmds):
