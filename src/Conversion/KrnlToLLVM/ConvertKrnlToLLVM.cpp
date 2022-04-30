@@ -582,6 +582,7 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
+  krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlEntryPointOpPattern(
       typeConverter, patterns, ctx, outputOMTensorOwnerships, singleEntryPoint);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
