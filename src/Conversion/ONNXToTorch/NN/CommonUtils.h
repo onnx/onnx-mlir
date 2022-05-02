@@ -54,3 +54,4 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
     Type ty, Location loc, ConversionPatternRewriter &rewriter,
     int default_val = 0);
+Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);

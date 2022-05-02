@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
+  NN/SoftmaxOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
