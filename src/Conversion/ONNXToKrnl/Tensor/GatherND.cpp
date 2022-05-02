@@ -31,6 +31,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
   // When true causes injection of print stmts in the generated code.
   static constexpr bool emitPrintStmts = false;
 
+  // Debug function used to emit code to print the supplied 'indices'.
   static void printIndices(
       StringRef title, const DimsExpr &indices, KrnlBuilder &createKrnl) {
     llvm::Twine msg(title + ": (");
@@ -103,7 +104,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
         ILD(indicesLastDim);
     DimsExpr newIndicesShape = {BDS, IDS, ILD};
     Value reshapedIndices =
-        emitMemRefReinterpretCastOp(rewriter, loc, indices, newIndicesShape);
+        create.mem.reinterpretCast(indices, newIndicesShape);
     LLVM_DEBUG(llvm::dbgs() << "reshapedIndices: " << reshapedIndices << "\n");
 
     // Reshape 'data' to shape [batchDimSize, data.shape[b:]]
@@ -114,8 +115,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
       newDataShape.emplace_back(dataDim);
     }
     int64_t reshapedDataRank = newDataShape.size();
-    Value reshapedData =
-        emitMemRefReinterpretCastOp(rewriter, loc, data, newDataShape);
+    Value reshapedData = create.mem.reinterpretCast(data, newDataShape);
     LLVM_DEBUG(llvm::dbgs() << "reshapedData: " << reshapedData << "\n");
 
     // Allocate a 1D output buffer.
@@ -251,8 +251,8 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
       newOutputShape.emplace_back(outputDim);
     }
 
-    Value reshapedOutput = emitMemRefReinterpretCastOp(
-        rewriter, loc, outputDataBuffer, newOutputShape);
+    Value reshapedOutput =
+        create.mem.reinterpretCast(outputDataBuffer, newOutputShape);
     LLVM_DEBUG(llvm::dbgs() << "reshapedOutput: " << reshapedOutput << "\n");
 
     rewriter.replaceOp(op, reshapedOutput);

@@ -432,57 +432,57 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
     printf("[%lld]", (long long)strides[i]);
   printf("\n");
 
-#define START_LOOP(IV, LB, UB)                                                 \
+#define LOOP_1(INDEXES, IV, UB)                                                \
   printf("[");                                                                 \
-  for (int64_t IV = LB; IV < UB; ++IV) {                                       \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
-      printf(", ");
+      printf(", ");                                                            \
+    int64_t elemOffset = computeElemOffset(tensor->_strides, INDEXES, rank);   \
+    printElement(dataPtr, elemOffset, dataType);                               \
+  }                                                                            \
+  printf("]");
 
-#define CLOSE_LOOP(IV)                                                         \
+#define LOOP_2(INDEXES, IV, UB, ...)                                           \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    LOOP_1(INDEXES, __VA_ARGS__)                                               \
+  }                                                                            \
+  printf("]");
+
+#define LOOP_3(INDEXES, IV, UB, ...)                                           \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    LOOP_2(INDEXES, __VA_ARGS__)                                               \
+  }                                                                            \
+  printf("]");
+
+#define LOOP_4(INDEXES, IV, UB, ...)                                           \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    LOOP_3(INDEXES, __VA_ARGS__)                                               \
   }                                                                            \
   printf("]");
 
   printf("\tdata: (");
   switch (rank) {
   case 1:
-    START_LOOP(i, 0, shape[0])
-    int64_t indexes[] = {i};
-    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-    printElement(dataPtr, elemOffset, dataType);
-    CLOSE_LOOP(I)
+    LOOP_1(((int64_t[]){i}), i, shape[0])
     break;
   case 2:
-    START_LOOP(i, 0, shape[0])
-    START_LOOP(j, 0, shape[1])
-    int64_t indexes[] = {i, j};
-    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-    printElement(dataPtr, elemOffset, dataType);
-    CLOSE_LOOP(i)
-    CLOSE_LOOP(j)
+    LOOP_2(((int64_t[]){i, j}), i, shape[0], j, shape[1])
     break;
   case 3:
-    START_LOOP(i, 0, shape[0])
-    START_LOOP(j, 0, shape[1])
-    START_LOOP(k, 0, shape[2])
-    int64_t indexes[] = {i, j, k};
-    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-    printElement(dataPtr, elemOffset, dataType);
-    CLOSE_LOOP(i)
-    CLOSE_LOOP(j)
-    CLOSE_LOOP(k)
+    LOOP_3(((int64_t[]){i, j, k}), i, shape[0], j, shape[1], k, shape[2])
     break;
   case 4:
-    START_LOOP(i, 0, shape[0])
-    START_LOOP(j, 0, shape[1])
-    START_LOOP(k, 0, shape[2])
-    START_LOOP(l, 0, shape[3])
-    int64_t indexes[] = {i, j, k, l};
-    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-    printElement(dataPtr, elemOffset, dataType);
-    CLOSE_LOOP(i)
-    CLOSE_LOOP(j)
-    CLOSE_LOOP(k)
-    CLOSE_LOOP(l)
+    LOOP_4(((int64_t[]){i, j, k, l}), i, shape[0], j, shape[1], k, shape[2], l,
+        shape[3])
     break;
   default:
     assert(false && "not implemented");
