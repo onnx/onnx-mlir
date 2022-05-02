@@ -42,6 +42,7 @@ add_onnx_mlir_library(CompilerOptions
 
   LINK_LIBS PUBLIC
   MLIRIR
+  Accelerator
   )
 
 add_onnx_mlir_library(CompilerPasses
