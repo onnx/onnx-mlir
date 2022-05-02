@@ -794,7 +794,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
       accel->getOrLoadDialects(context);
       accel->addPasses(module, pm, emissionTarget);
     }
-  } 
+  }
   if (!hasActiveAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
