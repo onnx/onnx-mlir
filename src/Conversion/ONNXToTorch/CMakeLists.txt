@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ReduceMean.cpp
   NN/Gemm.cpp
   NN/ElementwiseOp.cpp
+  NN/BinaryOps.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper

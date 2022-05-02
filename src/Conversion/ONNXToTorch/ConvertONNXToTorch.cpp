@@ -37,6 +37,7 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchBinaryOpPattern(patterns, typeConverter, ctx);
 }
 
 //===-----------------------------------------------------------------===//
