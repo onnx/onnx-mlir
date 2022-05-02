@@ -69,19 +69,19 @@ public:
     auto axis = op1.axisAttr();       // ::mlir::IntegerAttr
     Value input = op1.input();
 
-    auto inputTy = toTorchType (context, input.getType());
+    auto inputType = toTorchType (context, input.getType());
     auto inputTorchTensor  = 
 	rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( 
-			loc, inputTy, input);
+			loc, inputType, input);
     Value constAxisValue = rewriter.create<ConstantIntOp>(loc,axis);
-    auto resultTy = toTorchType (context, op->getResult(0).getType());
+    auto resultType = toTorchType (context, op->getResult(0).getType());
     Value floatType = rewriter.create<ConstantBoolOp>(loc, true);
-    Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultTy, 
+    Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType, 
 		    inputTorchTensor, constAxisValue, floatType);
 
     llvm::outs() << "ATENSOFTMAX CREATED \n" << result << "\n\n"; 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, 
-		    resultTy, result);
+		    resultType, result);
     return success();
   }
 };
@@ -90,6 +90,3 @@ void populateLoweringONNXToTorchSoftmaxOpPattern(RewritePatternSet
 	&patterns, TypeConverter &typeConverter, MLIRContext *ctx) {
     patterns.insert<ONNXSoftmaxOpToTorchLowering>(typeConverter, ctx);
 }
-
-
-
