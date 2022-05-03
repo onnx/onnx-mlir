@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #ifdef __cplusplus
+#include <array>
 #include <cassert>
 #include <complex>
 #include <map>
@@ -432,58 +433,65 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
     printf("[%lld]", (long long)strides[i]);
   printf("\n");
 
-#define LOOP_1(INDEXES, IV, UB)                                                \
+#define LOOP_1(INDEX, IV, UB)                                                  \
   printf("[");                                                                 \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
       printf(", ");                                                            \
-    int64_t elemOffset = computeElemOffset(tensor->_strides, INDEXES, rank);   \
+    indexes[INDEX] = IV;                                                       \
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);   \
     printElement(dataPtr, elemOffset, dataType);                               \
   }                                                                            \
   printf("]");
 
-#define LOOP_2(INDEXES, IV, UB, ...)                                           \
+#define LOOP_2(INDEX, IV, UB, ...)                                             \
   printf("[");                                                                 \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
       printf(", ");                                                            \
-    LOOP_1(INDEXES, __VA_ARGS__)                                               \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_1(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
   printf("]");
 
-#define LOOP_3(INDEXES, IV, UB, ...)                                           \
+#define LOOP_3(INDEX, IV, UB, ...)                                             \
   printf("[");                                                                 \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
       printf(", ");                                                            \
-    LOOP_2(INDEXES, __VA_ARGS__)                                               \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_2(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
   printf("]");
 
-#define LOOP_4(INDEXES, IV, UB, ...)                                           \
+#define LOOP_4(INDEX, IV, UB, ...)                                             \
   printf("[");                                                                 \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
       printf(", ");                                                            \
-    LOOP_3(INDEXES, __VA_ARGS__)                                               \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_3(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
   printf("]");
 
   printf("\tdata: (");
   switch (rank) {
-  case 1:
-    LOOP_1(((int64_t[]){i}), i, shape[0])
-    break;
-  case 2:
-    LOOP_2(((int64_t[]){i, j}), i, shape[0], j, shape[1])
-    break;
-  case 3:
-    LOOP_3(((int64_t[]){i, j, k}), i, shape[0], j, shape[1], k, shape[2])
-    break;
-  case 4:
-    LOOP_4(((int64_t[]){i, j, k, l}), i, shape[0], j, shape[1], k, shape[2], l,
-        shape[3])
-    break;
+  case 1: {
+    int64_t indexes[1];
+    LOOP_1(0, i, shape[0])
+  } break;
+  case 2: {
+    int64_t indexes[2];
+    LOOP_2(0, i, shape[0], j, shape[1])
+  } break;
+  case 3: {
+    int64_t indexes[3];
+    LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
+  } break;
+  case 4: {
+    int64_t indexes[4];
+    LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
+  } break;
   default:
     assert(false && "not implemented");
   }
