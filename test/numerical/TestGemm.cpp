@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   if (true) {
     printf("RapidCheck test case generation.\n");

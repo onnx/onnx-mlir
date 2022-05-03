@@ -206,17 +206,13 @@ std::string getTargetCPUOption() {
 }
 
 // Accel.
-static accel::Accelerator::Kind getAccelKindFromString(
-    const std::string &str, bool &found) {
-  found = true;
+static bool getAccelKindFromString(accel::Accelerator::Kind &kind,
+    const std::string &str) {
   // Test each existing accelerator, returning its Kind when found.
-  APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_FROM_STRING, str);
+  APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_FROM_STRING, kind, str);
   // No specific accelerator found, check if we have Kind::NONE
-  if (str.compare(std::string("NONE")) == 0)
-    return accel::Accelerator::Kind::NONE;
-  // No valid accelerator found, report failure.
-  found = false;
-  return accel::Accelerator::Kind::NONE;
+  kind = accel::Accelerator::Kind::NONE;
+  return str.compare(std::string("NONE")) == 0;
 }
 
 // Return 0 on success, nonzero on error.
@@ -228,10 +224,9 @@ int setTargetAccel(const std::string &str) {
     return 0;
   }
   // Nonempty string means adding accelerator to current accelerator list.
-  bool found;
-  accel::Accelerator::Kind accel = getAccelKindFromString(str, found);
-  if (found) {
-    setTargetAccel(accel);
+  accel::Accelerator::Kind accelKind;
+  if (getAccelKindFromString(accelKind, str)) {
+    setTargetAccel(accelKind);
     return 0;
   }
   return 1;

@@ -69,6 +69,8 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   bool rc = testInt64ToStr();
   rc &= testStrToInt64();

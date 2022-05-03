@@ -43,14 +43,14 @@ int main(int argc, char *argv[]) {
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
-  bool success;
   printf("RapidCheck Matrix-Vector test case generation.\n");
-  success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
-    const auto I = *rc::gen::inRange(4, 50);
-    const auto K = *rc::gen::inRange(4, 14);
+  bool success =
+      rc::check("Matrix-Vector Matmul implementation correctness", []() {
+        const auto I = *rc::gen::inRange(4, 50);
+        const auto K = *rc::gen::inRange(4, 14);
 
-    RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
-  });
+        RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
+      });
   if (!success)
     return 1;
 
