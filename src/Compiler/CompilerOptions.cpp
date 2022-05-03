@@ -169,7 +169,7 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-// Triple.
+// Support for Triple.
 void setTargetTriple(const std::string &triple) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
   mtriple = triple;
@@ -185,7 +185,7 @@ std::string getTargetTripleOption() {
   return targetOptions;
 }
 
-// Arch.
+// Support for Arch.
 void setTargetArch(const std::string &arch) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
   march = arch;
@@ -195,7 +195,7 @@ std::string getTargetArchOption() {
   return (march != "") ? "--march=" + march : "";
 }
 
-// CPU.
+// Support for CPU.
 void setTargetCPU(const std::string &cpu) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
   mcpu = cpu;
@@ -205,7 +205,7 @@ std::string getTargetCPUOption() {
   return (mcpu != "") ? "--mcpu=" + mcpu : "";
 }
 
-// Accel.
+// Support for Accel.
 static bool getAccelKindFromString(
     accel::Accelerator::Kind &kind, const std::string &str) {
   // Test each existing accelerator, returning its Kind when found.
@@ -251,7 +251,7 @@ std::string getTargetAccel() {
   return ss.str();
 }
 
-// Optimization level.
+// Support for Optimization level.
 void setOptLevel(const OptLevel level) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
   OptimizationLevel = level;
@@ -272,17 +272,17 @@ std::string getOptimizationLevelOption() {
   return "";
 }
 
-// Xopt.
+// Support for Xopt.
 void setXoptOption(const std::string &flag) { Xopt = flag; }
 
 std::string getXoptOption() { return (Xopt != "") ? Xopt : std::string(); }
 
-// Xllc.
+// Support for Xllc.
 void setXllcOption(const std::string &flag) { Xllc = flag; }
 
 std::string getXllcOption() { return (Xllc != "") ? Xllc : std::string(); }
 
-// LLVM.
+// Support for LLVM.
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
 
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
