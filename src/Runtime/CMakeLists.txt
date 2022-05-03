@@ -13,6 +13,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMIndexLookup.c
   OMInstrument.c
   OMRandomNormal.c
+  OMResize.c
   OMTensor.c
   OMTensorList.c
   OnnxDataType.c
@@ -35,6 +36,7 @@ add_onnx_mlir_library(OMTensorUtils
   OMIndexLookup.cpp
   OMInstrument.cpp
   OMRandomNormal.cpp
+  OMResize.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OnnxDataType.cpp

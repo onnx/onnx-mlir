@@ -34,6 +34,7 @@
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -89,16 +90,27 @@ static std::string typeToString(Type ty) {
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     std::string funcNameStr, Value resultVal, Operation *op,
     ValueRange operands, bool copyAttrs) {
-  // Creates inputs
+  // Creates parameters for KrnlCall for Optional input (with NoneType)
+  // The semantics of optional input is ONNX Op specific and should be
+  // handled when lowering ONNX Op, not lowering KrnlCall.
+  // For now, None input is picked out from parameters of KrnCall.
+  // The Op will decide which external function to call based on the input.
+  // For future work: it might be possible to assume None type is
+  // always for a tensor and implemented with a nullptr in llvm.
+  // Then the None input can be handled inside the external function.
+  // Currently, onnx-mlir::NoneType is not handled by typeConverter of
+  // ONNXToKrnl conversion.
   SmallVector<Value, 4> allInputs;
   allInputs.emplace_back(resultVal);
-  for (auto operand : operands)
-    allInputs.emplace_back(operand);
+  for (auto operand : operands) {
+    if (!isFromNone(operand))
+      allInputs.emplace_back(operand);
+  }
 
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
   if (!copyAttrs) {
-    build(builder, odsState, funcNameAttr, resultVal, operands);
+    build(builder, odsState, funcNameAttr, resultVal, allInputs);
   } else {
     std::vector<NamedAttribute> attributes;
     attributes.emplace_back(namedAttr);
