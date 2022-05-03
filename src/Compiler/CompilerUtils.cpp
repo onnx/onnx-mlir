@@ -743,17 +743,18 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
 
   // Set the module target accelerators.
   if (!maccel.empty()) {
-    SmallVector<Attribute, 1> accels;
+    SmallVector<Attribute, 1> activeAccels;
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       if (!accel->isActive() || !llvm::is_contained(maccel, accel->getKind()))
         continue;
       std::ostringstream versionNumber;
       versionNumber << std::hex << accel->getVersionNumber();
       std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-      accels.emplace_back(StringAttr::get(&context, accelStr));
+      activeAccels.emplace_back(StringAttr::get(&context, accelStr));
     }
-    if (accels.size())
-      moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accels));
+    if (!activeAccels.empty())
+      moduleOp.setAttr(
+          "onnx-mlir.accels", ArrayAttr::get(&context, activeAccels));
   }
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
