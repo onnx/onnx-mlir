@@ -325,6 +325,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Identity value of the operation.
     auto identity = getIdentityValue<PoolOp>(rewriter, loc, outputElementType);
+    // Create a local reduction value for output[n][c][ho][wo].
+    // Single scalar, no need for default alignment.
+    Value reductionVal =
+        create.mem.alloca(MemRefType::get({}, memRefType.getElementType()));
 
     // 1. Define output loops to compute one output pixel.
     // for n in range(N):
@@ -346,10 +350,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
 
           // 2.1 Emit: output[n][c][ho][wo] = identity
-          // Create a local reduction value for output[n][c][ho][wo].
-          // Single scalar, no need for default alignment.
-          Value reductionVal = create.mem.alloca(
-              MemRefType::get({}, memRefType.getElementType()));
           createKrnl.store(identity, reductionVal);
 
           // 2.2 Emit affine maps which express the lower and upper bounds for
