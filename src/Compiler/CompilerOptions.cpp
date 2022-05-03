@@ -206,8 +206,8 @@ std::string getTargetCPUOption() {
 }
 
 // Accel.
-static bool getAccelKindFromString(accel::Accelerator::Kind &kind,
-    const std::string &str) {
+static bool getAccelKindFromString(
+    accel::Accelerator::Kind &kind, const std::string &str) {
   // Test each existing accelerator, returning its Kind when found.
   APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_FROM_STRING, kind, str);
   // No specific accelerator found, check if we have Kind::NONE
