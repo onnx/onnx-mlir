@@ -1028,15 +1028,6 @@ LogicalResult ONNXSequenceInsertOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
-// ConcatFromSequenceOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXConcatFromSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // SequenceAtOp
 //===----------------------------------------------------------------------===//
 
@@ -2692,6 +2683,7 @@ LogicalResult ONNXConstantOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::verify() {
+  // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
   if (llvm::any_of(operandAdaptor.getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
@@ -2712,22 +2704,25 @@ LogicalResult ONNXConcatOp::verify() {
   if (axisIndex < 0)
     axisIndex += commonRank;
 
-  for (const Value &operand : operandAdaptor.getOperands()) {
-    ArrayRef<int64_t> currShape =
+  // All input tensors must have the same shape, except for the dimension size
+  // of the axis to concatenate on.
+  for (Value operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> operandShape =
         operand.getType().cast<ShapedType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitOpError("Concat inputs must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex)
+    int64_t operandRank = operandShape.size();
+    if (operandRank != commonRank)
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), operand, operandRank,
+          std::to_string(commonRank));
+
+    for (int64_t dim = 0; dim < commonRank; ++dim) {
+      if (dim == axisIndex)
         continue;
-      if (currShape[j] != -1 && commonShape[j] != -1 &&
-          currShape[j] != commonShape[j]) {
-        return emitOpError(
-                   "Concat input dimensions must be all identical, "
-                   "except for dimension on the axis of the "
-                   "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << operand.getType() << " instead.";
-      }
+      if (operandShape[dim] != -1 && commonShape[dim] != -1 &&
+          operandShape[dim] != commonShape[dim])
+        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+            *this->getOperation(), operand, dim, operandShape[dim],
+            std::to_string(commonShape[dim]));
     }
   }
 
@@ -2761,6 +2756,46 @@ LogicalResult ONNXConcatOp::inferShapes(
 
   return shapeHelperInferShapes<ONNXConcatOpShapeHelper, ONNXConcatOp,
       ONNXConcatOpAdaptor>(*this, commonType.getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// ConcatFromSequence
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXConcatFromSequenceOp::verify() {
+  ONNXConcatFromSequenceOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.input_sequence()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  Value inputSequence = operandAdaptor.input_sequence();
+  assert(inputSequence.getType().isa<SeqType>() &&
+         "Incorrect type for a sequence");
+  auto seqType = inputSequence.getType().cast<SeqType>();
+  auto elemType = seqType.getElementType().cast<ShapedType>();
+  int64_t rank = elemType.getShape().size();
+  int64_t axisIndex = axis();
+  int64_t newAxisIndex = new_axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  // When `new_axis` is 1, accepted range is [-r-1,r].
+  if (newAxisIndex == 1) {
+    if (axisIndex < (-rank - 1) || axisIndex > rank)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axisIndex,
+          onnx_mlir::Diagnostic::Range<int64_t>(-rank - 1, rank));
+  } else {
+    if (axisIndex < -rank || axisIndex >= rank)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axisIndex,
+          onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
+  }
+
+  return success();
+}
+
+LogicalResult ONNXConcatFromSequenceOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3035,6 +3070,28 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // DequantizeLinear
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDequantizeLinearOp::verify() {
+  ONNXDequantizeLinearOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.x()))
+    return success(); // Too early to verify.
+
+  int64_t xRank = operandAdaptor.x().getType().cast<ShapedType>().getRank();
+  Optional<int64_t> optionalAxis = axis();
+
+  if (optionalAxis.hasValue()) {
+    // axis attribute must be in the range [-r,r-1], where r = rank(input).
+    int64_t axis = optionalAxis.getValue();
+    if (axis < -xRank || axis >= xRank)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axis,
+          onnx_mlir::Diagnostic::Range<int64_t>(-xRank, xRank - 1));
+  }
+
+  // TODO: check other input constraints.
+
+  return success();
+}
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -3725,6 +3782,7 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
+  // Cannot check constraints if the shape of the inputs is not yet knwon.
   ONNXCompressOpAdaptor operandAdaptor(*this);
   if (llvm::any_of(operandAdaptor.getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
@@ -3744,18 +3802,18 @@ LogicalResult ONNXCompressOp::verify() {
 
   int64_t condRank = condition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
-    return emitOpError("condition's rank must be one");
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "condition", condRank,
+        onnx_mlir::Diagnostic::Range<int64_t>(1, 1));
 
   return success();
 }
 
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Check input type.
-  if (!input().getType().isa<RankedTensorType>()) {
-    // Won't be able to do any checking at this stage.
+  // Cannot infer the output shape if the input shape is not yet knwon.
+  if (!hasShapeAndRank(input()))
     return success();
-  }
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXCompressOpShapeHelper, ONNXCompressOp,
@@ -3910,6 +3968,28 @@ LogicalResult ONNXLRNOp::inferShapes(
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXLRNOpShapeHelper, ONNXLRNOp,
       ONNXLRNOpAdaptor>(*this, elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXLogSoftmax
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXLogSoftmaxOp::verify() {
+  ONNXLogSoftmaxOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.input()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  int64_t inputRank =
+      operandAdaptor.input().getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(input).
+  if (axisIndex < -inputRank || axisIndex >= inputRank)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+
+  return success();
 }
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
