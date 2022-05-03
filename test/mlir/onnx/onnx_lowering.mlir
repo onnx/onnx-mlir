@@ -1320,11 +1320,11 @@ func private @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> te
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
   // CHECK: [[IDENTITY:%.+]] = arith.constant 0.000000e+00 : f32
 
+  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
   // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31){
   // CHECK:   [[IV:%.+]]:4 = krnl.get_induction_var_value([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 
-  // CHECK:   [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK:   krnl.store [[IDENTITY]], [[REDUCTION_VAL]][] : memref<f32>
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
@@ -1374,11 +1374,11 @@ func private @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) 
   // CHECK-LABEL: @test_averagepool_pooling_operation
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
 
+  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
   // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31){
   // CHECK:   [[IV:%.+]]:4 = krnl.get_induction_var_value([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 
-  // CHECK:   [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK:   krnl.store {{.*}}, [[REDUCTION_VAL]][] : memref<f32>
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
@@ -1407,10 +1407,10 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
   // CHECK-LABEL: @test_maxpool_pooling_operation
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
 
+  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
   // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31){
 
-  // CHECK:   [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
   // CHECK:   krnl.store {{.*}}, [[REDUCTION_VAL]][] : memref<f32>
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
