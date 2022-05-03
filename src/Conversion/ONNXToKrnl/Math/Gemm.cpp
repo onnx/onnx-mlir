@@ -57,14 +57,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
+    // Create temp, single scalar, no need for default alignment.
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        createKrnl);
+    Value red = create.mem.alloca(MemRefType::get({}, elementType));
     // Outer loops.
     createKrnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          // Create temp and set to zero, single scalar, no need for default
-          // alignment.
-          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              createKrnl);
-          Value red = create.mem.alloca(MemRefType::get({}, elementType));
+          // Set to zero.
           createKrnl.store(zeroVal, red);
           // Inner loop.
           create.krnl.iterate({}, innerLoopDef, {}, {},
