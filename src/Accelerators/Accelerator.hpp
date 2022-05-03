@@ -31,7 +31,7 @@
 #define INVOKE_ACCEL_INIT_FUNCTION(name) create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
-#define ACCEL_CL_ENUM_FROM_STRING(name, kind, str)                             \
+#define ACCEL_CL_ENUM_FROM_STRING(name, var, str)                              \
   if (str.compare(std::string(#name)) == 0) {                                  \
     var = accel::Accelerator::Kind::name;                                      \
     return true;                                                               \
