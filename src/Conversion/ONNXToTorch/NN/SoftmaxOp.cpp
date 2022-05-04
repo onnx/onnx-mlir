@@ -75,9 +75,9 @@ public:
 			loc, inputType, input);
     Value constAxisValue = rewriter.create<ConstantIntOp>(loc,axis);
     auto resultType = toTorchType (context, op->getResult(0).getType());
-    Value floatType = rewriter.create<ConstantBoolOp>(loc, true);
+    Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, true);
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType, 
-		    inputTorchTensor, constAxisValue, floatType);
+		    inputTorchTensor, constAxisValue, halfToFloat);
 
     llvm::outs() << "ATENSOFTMAX CREATED \n" << result << "\n\n"; 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, 
