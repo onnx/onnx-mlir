@@ -8,9 +8,9 @@ module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i6
     %4 = "onnx.Constant"() {value = dense<[0.011732677, -0.0649859458, -0.0472838655, -0.0655153841, -0.0196100231]> : tensor<5xf32>} : () -> tensor<5xf32>
     %5 = "onnx.Conv"(%2, %3, %4) {dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Conv_1", pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<1x6x5x5xf32>, tensor<5x6x5x5xf32>, tensor<5xf32>) -> tensor<1x5x2x2xf32>
     %6 = "onnx.MaxPoolSingleOut"(%5) {kernel_shape = [2, 2], onnx_node_name = "MaxPool_2", pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x5x2x2xf32>) -> tensor<1x5x1x1xf32>
-//CHECK: %int[[START:[^ ]*]] = torch.constant.int 1
-//CHECK: %int[[END:.]] = torch.constant.int 4
-//CHECK: torch.aten.flatten.using_ints %20, %int[[START:[^ ]*]], %int[[END:.]] : 
+    //CHECK: %[[START:int1_23]] = torch.constant.int 1
+    //CHECK: %[[END:.*]] = torch.constant.int -1
+    //CHECK: torch.aten.flatten.using_ints %20, %[[START]], %[[END]] : 
     %7 = "onnx.Flatten"(%6) {axis = 1 : si64, onnx_node_name = "Flatten_3"} : (tensor<1x5x1x1xf32>) -> tensor<1x5xf32>
     return %7 : tensor<1x5xf32>
   }

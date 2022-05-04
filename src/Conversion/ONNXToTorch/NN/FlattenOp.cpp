@@ -90,8 +90,7 @@ public:
     Value input = op1.input();
     auto axisValue = op1.axis();       // ::mlir::IntegerAttr
 
-    auto inputShape = input.getType().cast<ShapedType>().getShape();
-    int64_t inputRank = inputShape.size();
+    ArrayRef<int64_t> inputShape = input.getType().cast<ShapedType>().getShape();
 
     TensorType resultTensorType =
       op->getResult(0).getType().cast<TensorType>();
@@ -135,10 +134,19 @@ public:
     //  2) flatten the region from axisValue to inputRank( last dimension).
     /********************************************************************/
 
+
     if (axisValue > 1) {
-      // flatten the region upto axis-1.
+      // Flatten the region upto axis-1.
+
+      // Build the intermediate result type.
+      // This is the same type as the input, with all dims before the axis value collapsed into one.
+      ArrayRef<int64_t> inputShape = inputTensorType.getShape();
+      // TODO need to have the new collapsed dimension first (resultShape[0])
+      auto intermShape = inputShape.drop_front(axisValue-1);
+      auto intermType = Torch::ValueTensorType::get(context, intermShape, inputTensorType.getElementType());
+
       result = createAtenFlattenOp(
-          rewriter, loc, result, resultType, /*start=*/0, /*start=*/axisValue - 1, op1);
+          rewriter, loc, result, intermType, /*start=*/0, /*start=*/axisValue - 1, op1);
     }
 
     // Flatten the region from axis upwards.

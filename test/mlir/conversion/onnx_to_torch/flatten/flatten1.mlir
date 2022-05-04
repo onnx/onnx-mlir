@@ -6,7 +6,7 @@ module {
     //CHECK: %[[I0:.*]] = torch_c.to_builtin_tensor %arg0 : !torch.vtensor<[1,1,160,160],f32> -> tensor<1x1x160x160xf32>
     //CHECK: %[[I1:.*]] = builtin.unrealized_conversion_cast %[[I0]] : tensor<1x1x160x160xf32> to memref<1x1x160x160xf32>
     //CHECK: %[[START:.*]] = torch.constant.int 1
-    //CHECK: %[[END:.*]] = torch.constant.int 3 
+    //CHECK: %[[END:.*]] = torch.constant.int -1
     //CHECK: %[[FLAT:.*]] = torch.aten.flatten.using_ints %arg0, %[[START]], %[[END]] : !torch.vtensor<[1,1,160,160],f32>, !torch.int, !torch.int -> !torch.vtensor<[1,25600],f32>
     //CHECK: %[[O1:.*]] = torch.tensor_static_info_cast %[[FLAT]] : !torch.vtensor<[1,25600],f32> to !torch.vtensor<[1,25600],f32>
     //CHECK: return %[[O1]] : !torch.vtensor<[1,25600],f32>
