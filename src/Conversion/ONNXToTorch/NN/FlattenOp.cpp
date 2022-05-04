@@ -146,7 +146,7 @@ public:
 
     // flatten the region from axis upwards.
     result = createAtenFlattenOp (rewriter, loc, result, resultType,
-		    axisValue, inputRank, op1);
+		    axisValue, inputRank - 1, op1);
     llvm::outs() << "AtenFlatten Op created" << "\n"
 	    << "\n" << result << "\n" << "\n";
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
