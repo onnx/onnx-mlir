@@ -61,12 +61,12 @@ using namespace mlir::torch::Torch;
  */
 
 static Value createAtenFlattenOp(ConversionPatternRewriter &rewriter, 
-	Location loc, Value result, ValueTensorType resultType,
-	int64_t start_dim, int64_t end_dim, ONNXFlattenOp op1) {
+  Location loc, Value result, ValueTensorType resultType,
+  int64_t start_dim, int64_t end_dim, ONNXFlattenOp op1) {
   auto ty = IntegerType::get(op1.getContext(), 64);
   auto startDimInt = IntegerAttr::get(ty, (start_dim));
   Value startDimConstInt = 
-	  rewriter.create<ConstantIntOp>(loc, startDimInt);
+    rewriter.create<ConstantIntOp>(loc, startDimInt);
   auto endDimInt = IntegerAttr::get(ty, (end_dim));
   Value endDimConstInt = rewriter.create<ConstantIntOp>(loc, endDimInt);
   return rewriter.create<AtenFlattenUsingIntsOp>(loc,
@@ -76,9 +76,9 @@ static Value createAtenFlattenOp(ConversionPatternRewriter &rewriter,
 class ONNXFlattenOpToTorchLowering : public ConversionPattern {
 public:
   ONNXFlattenOpToTorchLowering(TypeConverter &typeConverter,
-		  MLIRContext *ctx)
+      MLIRContext *ctx)
       : ConversionPattern( typeConverter,
-		      ::mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
+          ::mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -94,17 +94,16 @@ public:
     int64_t inputRank = inputShape.size();
 
     TensorType resultTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
+      op->getResult(0).getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
           resultTensorType.getShape(), resultTensorType.getElementType());
 
-    TensorType inputTensorType  = input.getType().cast<TensorType>();
-    auto inputType =
-	 Torch::ValueTensorType::get(context, inputTensorType.getShape(),
-                    inputTensorType.getElementType());
+    TensorType inputTensorType = input.getType().cast<TensorType>();
+    auto inputType = Torch::ValueTensorType::get(
+        context, inputTensorType.getShape(), inputTensorType.getElementType());
     auto inputTensor =
-	  rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
-                    inputType, input);
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, inputType, input);
     Value result = inputTensor;
 
     // if axisValue is negative
@@ -138,20 +137,16 @@ public:
 
     if (axisValue > 1) {
       // flatten the region upto axis-1.
-      result = createAtenFlattenOp (rewriter, loc, result, resultType, 0, 
-		      axisValue - 1, op1);
-      llvm::outs() << "Aten Flatten1 Op:   "
-	      << "\n" << result << "\n" << "\n";
+      result = createAtenFlattenOp(
+          rewriter, loc, result, resultType, /*start=*/0, /*start=*/axisValue - 1, op1);
     }
 
-    // flatten the region from axis upwards.
-    // todo doc why 1
-    result = createAtenFlattenOp (rewriter, loc, result, resultType,
-		    1, -1, op1);
-    llvm::outs() << "AtenFlatten Op created" << "\n"
-	    << "\n" << result << "\n" << "\n";
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
-                    resultType, result);
+    // Flatten the region from axis upwards.
+    // Since all dimensions before `axis` have already been condensed into a single one (dim 0),
+    // we set start=1. We use -1 as the end value, which tells torch to go until the last dimension.
+    result = createAtenFlattenOp(rewriter, loc, result, resultType,
+        /*start=*/1, /*end=*/-1, op1);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }
 };
