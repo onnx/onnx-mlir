@@ -15,7 +15,6 @@
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -26,38 +25,33 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
             typeConverter, ONNXSqueezeOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXSqueezeOp squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeOp>(op);
+    ONNXSqueezeV11Op squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeV11Op>(op);
 
     assert(squeezeOp && "Expecting op to have a strong type");
 
     Location loc = squeezeOp.getLoc();
-    Value operandA = squeezeOp.getOperand(0);
-    Value operandB = squeezeOp.getOperand(1);
+
+    Value data = squeezeOp.data();
+    ArrayAttr axes = squeezeOp.axesAttr();
+
     mlir::MLIRContext *context =  squeezeOp.getContext();
 
-    auto operandAType = toTorchType(context, operandA.getType());
-    auto operandBType = toTorchType(context, operandB.getType());
+    auto dataType = toTorchType(context, data.getType());
     auto resultType = toTorchType(context, squeezeOp.getResult().getType());
+    auto dataTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, dataType, data);
+    Value result;
 
-    auto operandATensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandAType, operandA);
-    auto operandBTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandBType, operandB);
+    if (axes) {
+      for (auto i = 0; axes.size(); i++) {
+        auto j = axes[i].dyn_cast<IntegerAttr>();
+        Value dim = rewriter.create<ConstantIntOp>(loc, j);
 
-    auto zero = 1;
-    auto ty = IntegerType::get(context, 64);
-    auto zeroAttr = IntegerAttr::get(ty, zero);
-    Value dim = rewriter.create<ConstantIntOp>(loc, zeroAttr);
-
-    llvm::outs() << "Unary input is "
-                 << operandATensor
-                 << "\n";
-
-    Value result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, operandATensor, dim);
-
-    llvm::outs() << "Unary CREATED is "
-                 << result
-                 << "\n";
+        result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, dataTensor, dim);
+      }
+    } else {
+      result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
+    }
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
