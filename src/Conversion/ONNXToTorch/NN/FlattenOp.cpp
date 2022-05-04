@@ -107,9 +107,35 @@ public:
                     inputType, input);
     Value result = inputTensor;
 
+    // if axisValue is negative
     if (axisValue < 0)
       return op->emitError("negative axis not supported");
     
+    /***************************************************************/
+    // if axisValue is 0 or 1, we need to flatten once.
+    // i) if axisValue is 0, start_dim will be -1 (axisValue -1 ) and
+    //    end_dim will be 0.
+    // ii) if axisValue is 1, start_dim will be 0 (axisValue - 1) and
+    //    end_dim will 0. Flatten from 0 to 0  flatten was not emitted.
+    //
+    // Because of these reasons, need to emit flatten once with
+    //   start_dim = axisValue and end_dim = inputRank.
+    //
+    // If axisValue is more than 1, emit the flatten two times like below.
+    //    a) Flattening is about bringing the flattened zone into a
+    //       single dimensional.
+    //    b) torch flatten flattens the region between (start-dim
+    //       and end-dim).
+    //    c) onnx flattening is about creating a 2-D vector,
+    //       the first dim consisting of values till axis-1, the second
+    //       dim consisting of values from axis to end.
+    //
+    // What we feel is that there will be two steps required -
+    //
+    //  1) flatten the region from 0 position to axis - 1.
+    //  2) flatten the region from axisValue to inputRank( last dimension).
+    /********************************************************************/
+
     if (axisValue > 1) {
       // flatten the region upto axis-1.
       result = createAtenFlattenOp (rewriter, loc, result, resultType, 0, 
