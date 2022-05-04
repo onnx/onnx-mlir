@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlSeqExtract.cpp - Lower KrnlSeqExtractOp
-//------------------------===//
+//===------ KrnlSeqExtract.cpp - Lower KrnlSeqExtractOp ------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //

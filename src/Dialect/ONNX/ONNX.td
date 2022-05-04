@@ -31,13 +31,13 @@ class SeqOf<list<Type> allowedTypes> :
                 "$_self.cast<SeqType>().getElementType()", "SeqType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
+  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
 
 def createNoneIntegerConstant : NativeCodeCall<
-  "createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
 def createNoneFloatConstant : NativeCodeCall<
-  "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";

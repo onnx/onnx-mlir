@@ -17,11 +17,11 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 static constexpr int BUFFER_ALIGN = 128;
-using namespace mlir;
-
 static constexpr StringRef FORWARD = "forward";
 static constexpr StringRef REVERSE = "reverse";
 static constexpr StringRef BIDIRECTIONAL = "bidirectional";
+
+namespace onnx_mlir {
 
 struct RNNActivation {
   StringRef name;
@@ -36,12 +36,14 @@ bool isNoneType(Value val);
 int64_t dimAt(Value val, int index);
 
 /// Insert Allocate and Deallocate for the all hidden output.
-Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
-    Value W, Value R, Value output, bool insertDealloc = false);
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc = false);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    Value X, Value W, Value R, Value output, bool insertDealloc = false);
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc = false);
 
 /// Initialize the hidden and cell states.
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
@@ -107,7 +109,8 @@ std::tuple<B, B> getBiasPack(
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
-    RNNOp *op, typename RNNOp::Adaptor operandAdaptor);
+    TypeConverter *typeConverter, RNNOp *op,
+    typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
 template <typename S, typename A, typename W, typename B>
@@ -141,7 +144,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
-        rewriter, loc, &rnnOp, operandAdaptor);
+        rewriter, loc, typeConverter, &rnnOp, operandAdaptor);
 
     // Activation functions.
     A activationForward, activationReverse;
@@ -162,67 +165,69 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     auto direction = rnnOp.direction();
 
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
-      sequenceLoops.createDefineOp();
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(1);
+      SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
       if (sequenceDimSize != -1)
-        sequenceLoops.pushBounds(0, sequenceDimSize);
-      else
-        sequenceLoops.pushBounds(0, create.mem.dim(X, 0));
-      sequenceLoops.createIterateOp();
-
-      auto ipSequenceLoops = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
-      {
-        Value directionIV =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-        Value sequenceIV = sequenceLoops.getInductionVar(0);
-        // Get a slice of X at the current timestep.
-        Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
-        // Emit calculation for one RNN step.
-        calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationForward,
-            weightForward, biasForward, sequenceIV, directionIV,
-            /*isForward=*/true);
+        ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
+      else {
+        MemRefBoundsIndexCapture bounds(X);
+        ubs.emplace_back(bounds.getDim(0));
       }
-      rewriter.restoreInsertionPoint(ipSequenceLoops);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value directionIV =
+                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+            Value sequenceIV = loopInd[0];
+            // Get a slice of X at the current timestep.
+            Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
+            // Emit calculation for one RNN step.
+            calculateState<S, A, W, B>(rewriter, loc, Xt, state,
+                activationForward, weightForward, biasForward, sequenceIV,
+                directionIV,
+                /*isForward=*/true);
+          });
     }
 
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
-      sequenceLoops.createDefineOp();
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(1);
+      SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
       if (sequenceDimSize != -1)
-        sequenceLoops.pushBounds(0, sequenceDimSize);
-      else
-        sequenceLoops.pushBounds(0, create.mem.dim(X, 0));
-      sequenceLoops.createIterateOp();
-
-      auto ipSequenceLoops = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
-      {
-        AffineMap reverseIVMap = AffineMap::get(1, 1,
-            rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) - 1);
-
-        Value directionIV = emitConstantOp(rewriter, loc,
-            rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-        Value sequenceSize;
-        if (sequenceDimSize != -1)
-          sequenceSize = emitConstantOp(
-              rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
-        else
-          sequenceSize = create.mem.dim(X, 0);
-
-        Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
-            reverseIVMap,
-            std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
-        // Get a slice of X at the current timestep.
-        Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);
-        // Emit calculation for one RNN step.
-        calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationReverse,
-            weightReverse, biasReverse, reverseSequenceIV, directionIV,
-            /*isForward=*/false);
+        ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
+      else {
+        MemRefBoundsIndexCapture bounds(X);
+        ubs.emplace_back(bounds.getDim(0));
       }
-      rewriter.restoreInsertionPoint(ipSequenceLoops);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            AffineMap reverseIVMap = AffineMap::get(1, 1,
+                rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) -
+                    1);
+
+            Value directionIV = emitConstantOp(rewriter, loc,
+                rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
+            Value sequenceSize =
+                (sequenceDimSize != -1)
+                    ? emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+                          sequenceDimSize)
+                    : create.mem.dim(X, 0);
+
+            Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
+                reverseIVMap, std::vector<Value>{loopInd[0], sequenceSize});
+            // Get a slice of X at the current timestep.
+            Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);
+            // Emit calculation for one RNN step.
+            calculateState<S, A, W, B>(rewriter, loc, Xt, state,
+                activationReverse, weightReverse, biasReverse,
+                reverseSequenceIV, directionIV,
+                /*isForward=*/false);
+          });
     }
 
     std::vector<Value> outputs;
@@ -231,3 +236,5 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     return success();
   }
 };
+
+} // namespace onnx_mlir

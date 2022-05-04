@@ -19,7 +19,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXTypes.cpp
   Rewrite.cpp
 
-  ShapeInference/ArgMax.cpp
+  ShapeInference/ArgMinMax.cpp
   ShapeInference/AveragePool.cpp
   ShapeInference/CategoryMapper.cpp  
   ShapeInference/Clip.cpp  
@@ -28,7 +28,9 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/Conv.cpp
   ShapeInference/DepthToSpace.cpp
   ShapeInference/Expand.cpp
+  ShapeInference/Flatten.cpp
   ShapeInference/Gather.cpp
+  ShapeInference/GatherElements.cpp  
   ShapeInference/Gemm.cpp
   ShapeInference/LRN.cpp
   ShapeInference/MatMul.cpp
@@ -57,6 +59,9 @@ add_onnx_mlir_library(OMONNXOps
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
+  LINK_LIBS PRIVATE
+  Diagnostic
+    
   LINK_LIBS PUBLIC
   OMMlirDialects
   onnx

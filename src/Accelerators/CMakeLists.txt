@@ -1,55 +1,52 @@
 # SPDX-License-Identifier: Apache-2.0
 
-set(ACCEL_LIST "")
-
-# Generate the enumerators used to identify the kind of accelerators.
-set(AcceleratorKinds "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.inc")
-file(WRITE "${AcceleratorKinds}" "// Enumeration of accelerators.\n")
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    message(DEBUG "Targeting ${t}")
+# Populate the accelerator list and add the accelerator subdirectories.
+# ONNX_MLIR_ACCELERATORS is the list of accelerators user specified
+# ACCEL_TARGET_LIST is the list of cmake targets
+# ACCEL_INCLUDE_LIST is the list passed to inc generator
+if (ONNX_MLIR_ACCELERATORS)
+  foreach(t ${ONNX_MLIR_ACCELERATORS})
     add_subdirectory(${t})
-    list(APPEND ACCEL_LIST "${t}Accel")
-    file(APPEND "${AcceleratorKinds}" "   ${t},\n")
-    endforeach(t)
-endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${AcceleratorKinds}" "   NONE\n")
 
-# Generate the enumerators for the --maccel command line option.
-set(AcceleratorOptions "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorOptions.inc")
-file(REMOVE  "${AcceleratorOptions}")
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${AcceleratorOptions}" "  clEnumValN(accel::Accelerator::Kind::${t}, \"${t}\", \"${t} accelerator\"),\n")
-  endforeach(t)  
-endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${AcceleratorOptions}" "  clEnumValN(accel::Accelerator::Kind::NONE, \"NONE\", \"No accelerator\")\n")
-
-# Generate the function used to initialize the accelerators.
-set(InitAccelerators "${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp")
-file(WRITE "${InitAccelerators}" "namespace onnx_mlir {\n"
-                                 "namespace accel {\n"
-                                 "bool initAccelerators() {\n")
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${InitAccelerators}" "  extern void create${t}();\n")
-    file(APPEND "${InitAccelerators}" "  create${t}();\n")
+    # If the accelerator can be built
+    if (${t}_ENABLED)
+      list(APPEND ACCEL_TARGET_LIST "${t}Accel")
+      list(APPEND ACCEL_INCLUDE_LIST "${t}")
+    endif()
   endforeach(t)
-  file(APPEND "${InitAccelerators}" "  return true;\n")
-else (ACCELERATORS_TO_BUILD)
-  file(APPEND "${InitAccelerators}" "  return false;\n")
-endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${InitAccelerators}" "}\n"
-                                  "} // namespace accel\n"
-                                  "} // namespace onnx_mlir\n")
+endif (ONNX_MLIR_ACCELERATORS)
+if (ACCEL_INCLUDE_LIST)
+  message(STATUS "Accelerators             : ${ACCEL_INCLUDE_LIST}")
+else()
+  message(STATUS "Accelerators             : NONE")
+endif()
+
+# Generate the Accelerators.inc file using a cmake script.
+set(accelerators_inc "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
+set(create_accelerators_inc_script "${CMAKE_CURRENT_SOURCE_DIR}/CreateAcceleratorsInc.cmake")
+
+add_custom_command(OUTPUT "${accelerators_inc}"
+  DEPENDS "${create_accelerators_inc_script}"
+  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}" "-DACCELERATORS=${ACCEL_INCLUDE_LIST}"
+    -P "${create_accelerators_inc_script}"
+  )
+set_source_files_properties("${accelerators_inc}"
+  PROPERTIES GENERATED TRUE
+             HEADER_FILE_ONLY TRUE
+  )
+add_custom_target(AcceleratorsInc ALL DEPENDS ${accelerators_inc})
 
 add_onnx_mlir_library(InitAccelerators
   InitAccelerators.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
+  DEPENDS 
+    AcceleratorsInc
+
   LINK_LIBS PUBLIC
-    ${ACCEL_LIST}
+    ${ACCEL_TARGET_LIST}
+    LLVMSupport
   )
 
 add_onnx_mlir_library(Accelerator
@@ -58,6 +55,7 @@ add_onnx_mlir_library(Accelerator
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
+    AcceleratorsInc
     MLIRIR
 
   INCLUDE_DIRS PUBLIC

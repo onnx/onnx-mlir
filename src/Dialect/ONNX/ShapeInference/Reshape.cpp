@@ -10,16 +10,9 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp)
-    : ONNXOpShapeHelper<ONNXReshapeOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXReshapeOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXReshapeOpShapeHelper::computeShape(
     ONNXReshapeOpAdaptor operandAdaptor) {
@@ -81,7 +74,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
         outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }
+
+} // namespace onnx_mlir

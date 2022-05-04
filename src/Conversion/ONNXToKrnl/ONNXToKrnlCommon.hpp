@@ -42,8 +42,6 @@
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
-using namespace mlir;
-
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
 extern bool ONNXToKrnl_gEmitDealloc;
@@ -52,6 +50,8 @@ extern bool ONNXToKrnl_gEmitDealloc;
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
 // operations.
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct OnnxToKrnlBuilder : public OnnxBuilder {
   OnnxToKrnlBuilder(OpBuilder &b, Location loc) : OnnxBuilder(b, loc) {}
@@ -72,14 +72,12 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check is all dimensions are known at compile time.
-bool hasAllConstantDimensions(MemRefType type);
-
-/// Check is all operands are scalar values at compile time.
+/// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
-MemRefType convertToMemRefType(Type type);
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
@@ -111,7 +109,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimensions are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index);
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index);
 
 // Function that emits the define_loop operation to define `numLoops`
 // number of krnl loops, and fill `loop` with the newly defined loops.
@@ -321,6 +319,8 @@ void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadConstantValuePadOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadOpPattern(
@@ -340,6 +340,10 @@ void populateLoweringONNXConcatOpPattern(
 void populateLoweringONNXDepthToSpaceOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSpaceToDepthOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXScatterElementsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXScatterNDOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXShapeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -402,3 +406,5 @@ Location ONNXLoc(Operation *op) {
 /// Default value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue);
+
+} // namespace onnx_mlir

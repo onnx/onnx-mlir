@@ -36,16 +36,6 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4125")
 endif()
 
-# Define preprocessor for accelerators.
-set(NNPA_ENABLED 0)
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    if (${t} STREQUAL "NNPA")
-      set(NNPA_ENABLED 1)
-    endif()
-  endforeach(t)
-endif(ACCELERATORS_TO_BUILD)
-
 # Enable warnings as errors
 # Leverage the imported LLVM_ENABLE_WERROR for compiler logic
 set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
@@ -53,12 +43,17 @@ set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
+set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include)
 
 set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 
 set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+set(ONNX_MLIR_INCLUDE_PATH ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
+
+set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
+  "Vendor-specific text for showing with version information.")
 
 include(CTest)
 include(ExternalProject)
@@ -137,6 +132,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
 endif()
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
+set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 set(pybind11_FIND_QUIETLY ON)
 set(BENCHMARK_USE_BUNDLED_GTEST OFF)
 set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
@@ -147,6 +143,7 @@ add_subdirectory(third_party/rapidcheck)
 if (NOT TARGET benchmark)
   add_subdirectory(third_party/benchmark)
 endif()
+set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)

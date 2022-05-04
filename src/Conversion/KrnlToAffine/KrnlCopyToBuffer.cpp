@@ -25,7 +25,6 @@
 #define DEBUG_TYPE "krnl_to_affine"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -75,7 +74,7 @@ public:
     // memeref to copy into the buffer. Also determine bufferPadUBs, which is
     // the upper bound past bufferReadUBs that must be padded.
     // This is only done on the dimensions shared between src memref and buffer.
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long srcIndex = srcIndexMap[srcOffset + buffIndex];
       // Compute how many values to read.
@@ -101,14 +100,14 @@ public:
       int64_t blockSizeLit = blockSize.getLiteral(); // Will assert if not lit.
       if (bufferRead.isLiteralAndIdenticalTo(blockSizeLit)) {
         // Read the full buffer already, nothing to do.
-        bufferPadUBs.emplace_back(zero);
+        bufferPadUBs.emplace_back(zeroIE);
       } else if (bufferRead.isLiteral() &&
                  bufferRead.getLiteral() % padToNextLit == 0) {
         // We are already reading to the end of a line.
-        bufferPadUBs.emplace_back(zero);
+        bufferPadUBs.emplace_back(zeroIE);
       } else if (padToNextLit == 1) {
         // Add pad % 1... namely no pad, nothing to do.
-        bufferPadUBs.emplace_back(zero);
+        bufferPadUBs.emplace_back(zeroIE);
       } else if (padToNextLit == blockSizeLit) {
         // Pad to end.
         bufferPadUBs.emplace_back(blockSize);
@@ -121,7 +120,7 @@ public:
     }
     SmallVector<Value, 4> loopIndices;
     genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref,
-        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
+        srcLoopMap, padVal, zeroIE, starts, bufferReadUBs, bufferPadUBs,
         loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
@@ -129,7 +128,7 @@ public:
 
   void genCopyLoops(AffineBuilderKrnlMem &createAffine,
       IndexExprScope *enclosingScope, Value buffMemref, Value sourceMemref,
-      SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
+      SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zeroIE,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
       int64_t i, int64_t buffRank, bool padPhase) const {
@@ -166,11 +165,11 @@ public:
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
       } else {
-        createAffine.forIE(zero, readUBs[i], 1,
+        createAffine.forIE(zeroIE, readUBs[i], 1,
             [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
-                  sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
+                  sourceMemref, srcLoopMap, padVal, zeroIE, starts, readUBs,
                   padUBs, loopIndices, i + 1, buffRank,
                   /*no pad phase*/ false);
               loopIndices.pop_back_n(1);
@@ -183,14 +182,14 @@ public:
             [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
-                  sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
+                  sourceMemref, srcLoopMap, padVal, zeroIE, starts, readUBs,
                   padUBs, loopIndices, i + 1, buffRank,
                   /*pad phase*/ true);
               loopIndices.pop_back_n(1);
             });
       }
       // For next level up of padding, if any, will not copy data anymore
-      readUBs[i] = zero;
+      readUBs[i] = zeroIE;
     }
   }
 };

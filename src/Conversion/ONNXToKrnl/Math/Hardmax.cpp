@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis) {
@@ -87,7 +89,12 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     ONNXHardmaxOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     auto elementType = memRefType.getElementType();
     Value zero = create.math.constantIndex(0);
 
@@ -147,3 +154,5 @@ void populateLoweringONNXHardmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXHardmaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

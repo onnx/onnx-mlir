@@ -22,6 +22,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
   ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -34,8 +36,11 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
-    // Output type:
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
@@ -89,3 +94,5 @@ void populateLoweringONNXRandomNormalLikeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRandomNormalLikeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

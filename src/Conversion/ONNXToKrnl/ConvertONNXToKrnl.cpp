@@ -16,9 +16,12 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
@@ -83,11 +86,14 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
@@ -128,7 +134,6 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering to Krnl loops of the ONNX operations.
-namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
 
@@ -178,7 +183,6 @@ public:
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
 };
-} // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -238,6 +242,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
   }
 
+  // Conversion target for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->conversionTargetONNXToKrnl(target);
+  }
+
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
@@ -264,6 +275,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateONNXToKrnlConversionPattern(
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    if (!accel->isActive())
+      continue;
+    accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
+  }
+
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
@@ -272,16 +290,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass() {
+std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(int optLevel) {
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(
+std::unique_ptr<Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
       emitDealloc, enableTiling);
 }
+
+} // namespace onnx_mlir

@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
@@ -75,10 +77,14 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     if (axisValue < 0)
       axisValue = inputRank + axisValue;
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     // Insert alloc and dealloc
     bool insertDealloc = checkInsertDealloc(op);
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
                       ? insertAllocAndDealloc(
                             outputMemRefType, loc, rewriter, insertDealloc)
@@ -90,7 +96,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inputRank);
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (size_t i = 0; i < inputRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -172,3 +178,5 @@ void populateLoweringONNXFlattenOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXFlattenOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

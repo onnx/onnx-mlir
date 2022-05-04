@@ -16,7 +16,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
