@@ -84,7 +84,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
               git libtool make python39 && \
           rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
        fi \
-    && cp onnx-mlir/build/Release/lib/*.so . \
+    && cp onnx-mlir/build/Release/lib/*.so . && ls && \
     && rm -rf /tmp/* /usr/bin/python llvm-project onnx-mlir
 
 # Copy from onnx-mlir-test to squash removed source layer and
