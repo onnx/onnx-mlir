@@ -95,16 +95,16 @@ public:
 
     TensorType resultTensorType =
 	    op->getResult(0).getType().cast<TensorType>();
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
           resultTensorType.getShape(), resultTensorType.getElementType());
 
     TensorType inputTensorType  = input.getType().cast<TensorType>();
-    auto inputTy =
+    auto inputType =
 	 Torch::ValueTensorType::get(context, inputTensorType.getShape(),
                     inputTensorType.getElementType());
     auto inputTensor =
 	  rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
-                    inputTy, input);
+                    inputType, input);
     Value result = inputTensor;
 
     if (axisValue < 0)
@@ -112,19 +112,19 @@ public:
     
     if (axisValue > 1) {
       // flatten the region upto axis-1.
-      result = createAtenFlattenOp (rewriter, loc, result, resultTy, 0, 
+      result = createAtenFlattenOp (rewriter, loc, result, resultType, 0, 
 		      axisValue - 1, op1);
       llvm::outs() << "Aten Flatten1 Op:   "
 	      << "\n" << result << "\n" << "\n";
     }
 
     // flatten the region from axis upwards.
-    result = createAtenFlattenOp (rewriter, loc, result, resultTy,
+    result = createAtenFlattenOp (rewriter, loc, result, resultType,
 		    axisValue, inputRank, op1);
     llvm::outs() << "AtenFlatten Op created" << "\n"
 	    << "\n" << result << "\n" << "\n";
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op,
-                    resultTy, result);
+                    resultType, result);
     return success();
   }
 };
