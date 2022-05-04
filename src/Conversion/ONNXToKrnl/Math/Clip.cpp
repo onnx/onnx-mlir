@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXClipOp
 //===----------------------------------------------------------------------===//
@@ -30,12 +32,17 @@ struct ONNXClipOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXClipOp clipOp = cast<ONNXClipOp>(op);
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     ONNXClipOpAdaptor operandAdaptor(operands);
     ONNXClipOpShapeHelper shapeHelper(&clipOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -99,3 +106,5 @@ void populateLoweringONNXClipOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXClipOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

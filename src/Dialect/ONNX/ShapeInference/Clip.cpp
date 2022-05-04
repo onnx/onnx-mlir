@@ -15,16 +15,9 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXClipOpShapeHelper::ONNXClipOpShapeHelper(ONNXClipOp *newOp)
-    : ONNXOpShapeHelper<ONNXClipOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXClipOpShapeHelper::ONNXClipOpShapeHelper(ONNXClipOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXClipOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXClipOpShapeHelper::computeShape(
     ONNXClipOpAdaptor operandAdaptor) {
@@ -39,3 +32,5 @@ LogicalResult ONNXClipOpShapeHelper::computeShape(
 
   return success();
 }
+
+} // namespace onnx_mlir

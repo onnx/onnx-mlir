@@ -1,9 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
-//===------ KrnlSeqStore.cpp - Lower KrnlSeqStoreOp
-//------------------------===//
+//===------ KrnlSeqStore.cpp - Lower KrnlSeqStoreOp ----------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //

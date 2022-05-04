@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 // Identity values
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
@@ -143,10 +145,14 @@ struct ONNXReductionOpLowering : public ConversionPattern {
      * }
      *
      */
-    auto loc = op->getLoc();
-    auto input = operands[0];
-    auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
+    Location loc = op->getLoc();
+    Value input = operands[0];
+    MemRefType memRefInType = input.getType().cast<MemRefType>();
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
@@ -220,7 +226,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -248,7 +254,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -375,7 +381,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     auto input = operands[0];
     auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
@@ -384,8 +394,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     bool isKeepdims = (keepdims == 1);
 
     ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -416,8 +426,13 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
+      // Convert the mask type to MemRefType.
+      Type convertedMaskType = typeConverter->convertType(maskType);
+      assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
       maskVal = insertAllocAndDealloc(
-          convertToMemRefType(maskType), loc, rewriter, insertDealloc);
+          maskTypeInMemRefType, loc, rewriter, insertDealloc);
       falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
       trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
@@ -552,7 +567,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -581,7 +596,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -680,3 +695,5 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       typeConverter, ctx, /*computeMean=*/true);
 }
+
+} // namespace onnx_mlir

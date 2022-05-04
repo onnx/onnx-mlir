@@ -17,9 +17,11 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
+    ConversionPatternRewriter &rewriter, TypeConverter *typeConverter) {
   // Gather info.
   Location loc = op->getLoc();
   Adaptor operandAdaptor(operands);
@@ -31,7 +33,8 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
 
   // Get a shape helper.
   ShapeHelper shapeHelper(&splitOp, &rewriter,
-      getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
+      krnl::getDenseElementAttributeFromKrnlValue,
+      krnl::loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -39,7 +42,12 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   SmallVector<Value, 4> allocs;
   for (unsigned i = 0; i < outputNum; ++i) {
     checkInsertDealloc(op, i);
-    auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
+    // Convert the output type to MemRefType.
+    Type convertedType =
+        typeConverter->convertType(splitOp.outputs()[i].getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(i));
     allocs.emplace_back(alloc);
@@ -95,7 +103,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSplitOpLoweringCommon<ONNXSplitOpAdaptor, ONNXSplitOp,
-        ONNXSplitOpShapeHelper>(op, operands, rewriter);
+        ONNXSplitOpShapeHelper>(op, operands, rewriter, typeConverter);
   }
 };
 
@@ -107,7 +115,7 @@ struct ONNXSplitV11OpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSplitOpLoweringCommon<ONNXSplitV11OpAdaptor, ONNXSplitV11Op,
-        ONNXSplitV11OpShapeHelper>(op, operands, rewriter);
+        ONNXSplitV11OpShapeHelper>(op, operands, rewriter, typeConverter);
   }
 };
 
@@ -120,3 +128,5 @@ void populateLoweringONNXSplitV11OpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSplitV11OpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

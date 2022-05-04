@@ -10,18 +10,9 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXDepthToSpaceOpShapeHelper::ONNXDepthToSpaceOpShapeHelper(
-    ONNXDepthToSpaceOp *newOp)
-    : ONNXOpShapeHelper<ONNXDepthToSpaceOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXDepthToSpaceOpShapeHelper::ONNXDepthToSpaceOpShapeHelper(
-    ONNXDepthToSpaceOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXDepthToSpaceOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
     ONNXDepthToSpaceOpAdaptor operandAdaptor) {
@@ -52,6 +43,8 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
   outputDims[3] = W * blocksize;
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

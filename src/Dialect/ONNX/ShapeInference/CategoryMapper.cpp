@@ -15,18 +15,9 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXCategoryMapperOpShapeHelper::ONNXCategoryMapperOpShapeHelper(
-    ONNXCategoryMapperOp *newOp)
-    : ONNXOpShapeHelper<ONNXCategoryMapperOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXCategoryMapperOpShapeHelper::ONNXCategoryMapperOpShapeHelper(
-    ONNXCategoryMapperOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXCategoryMapperOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
     ONNXCategoryMapperOpAdaptor operandAdaptor) {
@@ -41,3 +32,5 @@ LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
 
   return success();
 }
+
+} // namespace onnx_mlir

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-zhigh-to-zlow --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
  %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 

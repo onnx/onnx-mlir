@@ -25,7 +25,6 @@
 #define DEBUG_TYPE "krnl_to_affine"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -62,7 +61,7 @@ public:
     MemRefBoundsIndexCapture destBounds(destMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
 
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long destIndex = destOffset + buffIndex;
@@ -83,7 +82,7 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zero,
+    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zeroIE,
         starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
@@ -91,7 +90,7 @@ public:
 
   void genCopyLoops(AffineBuilderKrnlMem &createAffine,
       IndexExprScope *enclosingScope, Value buffMemref, Value destMemref,
-      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
+      IndexExpr zeroIE, SmallVectorImpl<IndexExpr> &starts,
       SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
       int64_t i, int64_t buffRank) const {
     if (i == buffRank) {
@@ -123,11 +122,11 @@ public:
         // Nothing to write.
       } else {
         // Loop to copy the data.
-        createAffine.forIE(zero, writeUBs[i], 1,
+        createAffine.forIE(zeroIE, writeUBs[i], 1,
             [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
-                  zero, starts, writeUBs, loopIndices, i + 1, buffRank);
+                  zeroIE, starts, writeUBs, loopIndices, i + 1, buffRank);
               loopIndices.pop_back_n(1);
             });
       }

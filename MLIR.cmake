@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (DEFINED ENV{MLIR_DIR})
-  set(MLIR_DIR $ENV{MLIR_DIR} CACHE PATH "Path to directory containing MLIRConfig.cmake")
-elseif (NOT DEFINED MLIR_DIR)
+# Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR
+# won't change accordingly.
+unset(LLVM_DIR CACHE)
+if (NOT DEFINED MLIR_DIR)
   message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-          "Please set the env variable MLIR_DIR or the corresponding cmake configuration option.")
+    "Set the cmake option MLIR_DIR, e.g.,\n"
+    "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
+    )
 endif()
 
 find_package(MLIR REQUIRED CONFIG)
@@ -27,17 +30,17 @@ include_directories(${MLIR_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
 # the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
 set(LLVM_REQUIRES_EH ON)
-message(STATUS "LLVM_REQUIRES_EH        : " ${LLVM_REQUIRES_EH})
+message(STATUS "LLVM_REQUIRES_EH         : " ${LLVM_REQUIRES_EH})
 
 # LLVM_HOST_TRIPLE is exported as part of the llvm config, so we should be able to leverage it.
 # If, for some reason, it is not set, default to an empty string which is the old default behavior of onnx-mlir.
 set(ONNX_MLIR_DEFAULT_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE STRING "Default triple for onnx-mlir.")
-message(STATUS "ONNX_MLIR_DEFAULT_TRIPLE: " ${ONNX_MLIR_DEFAULT_TRIPLE})
+message(STATUS "ONNX_MLIR_DEFAULT_TRIPLE : " ${ONNX_MLIR_DEFAULT_TRIPLE})
 
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
 # LLVM and a CMakeCache.txt exists,
@@ -50,7 +53,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT LLVM_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
   endif()
 endif()
-message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
+message(STATUS "CMAKE_INSTALL_PREFIX     : " ${CMAKE_INSTALL_PREFIX})
 
 # The tablegen functions below are modeled based on the corresponding functions
 # in mlir: https://github.com/llvm/llvm-project/blob/main/mlir/cmake/modules/AddMLIR.cmake
@@ -80,6 +83,8 @@ function(add_onnx_mlir_dialect dialect dialect_name)
   mlir_tablegen(${dialect}Dialect.cpp.inc -gen-dialect-defs -dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
   mlir_tablegen(${dialect}Types.hpp.inc -gen-typedef-decls -typedefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
   mlir_tablegen(${dialect}Types.cpp.inc -gen-typedef-defs -typedefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Attributes.hpp.inc -gen-attrdef-decls -attrdefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Attributes.cpp.inc -gen-attrdef-defs -attrdefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
   add_public_tablegen_target(OM${dialect}IncGen)
 endfunction()
 

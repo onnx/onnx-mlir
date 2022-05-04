@@ -22,12 +22,11 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-using namespace mlir;
-using namespace onnx_mlir;
-using llvm::dbgs;
-
 #define DEBUG_TYPE "category_mapper_onnx_to_krnl"
 
+using namespace mlir;
+
+namespace onnx_mlir {
 struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   using PerfectHashTable = struct {
     Value G;
@@ -48,8 +47,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
 
     ONNXCategoryMapperOpShapeHelper shapeHelper(&categoryMapperOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapeComputed;
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -78,15 +77,20 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
                   categoryMapperOp.default_stringAttr().getValue())
             : nullptr;
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Basic information.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
     int64_t rank = memRefType.getShape().size();
     ShapedType inputType = X.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
         rewriter, op->getLoc());
@@ -96,13 +100,25 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     PerfectHashTable perfectHashTable = createPerfectHashTable(cats_int64s,
         cats_strings, cats_int64sAttr, cats_stringsAttr, elementType, create);
 
+    // Convert the cats type to MemRefType.
+    Type convertedCatsInt64s =
+        typeConverter->convertType(cats_int64s.getType());
+    assert(convertedCatsInt64s && convertedCatsInt64s.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType catsInt64sInMemRefType = convertedCatsInt64s.cast<MemRefType>();
+    Type convertedCatsStrings =
+        typeConverter->convertType(cats_strings.getType());
+    assert(convertedCatsStrings && convertedCatsStrings.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType catsStringsInMemRefType =
+        convertedCatsStrings.cast<MemRefType>();
+
     // Create loop invariant values.
     Value constantForCatsInt64s = create.krnl.constant(
-        convertToMemRefType(cats_int64s.getType()), "cats_int64s", cats_int64s);
+        catsInt64sInMemRefType, "cats_int64s", cats_int64s);
 
-    Value constantForCatsStrings =
-        create.krnl.constant(convertToMemRefType(cats_strings.getType()),
-            "cats_strings", cats_strings);
+    Value constantForCatsStrings = create.krnl.constant(
+        catsStringsInMemRefType, "cats_strings", cats_strings);
 
     Value defaultInt64 = (default_int64)
                              ? create.math.constant(rewriter.getIntegerType(64),
@@ -159,7 +175,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     LLVM_DEBUG({
       FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
-      dbgs() << "function:\n" << function << "\n";
+      llvm::dbgs() << "function:\n" << function << "\n";
     });
 
     return success();
@@ -342,3 +358,5 @@ void populateLoweringONNXCategoryMapperOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCategoryMapperOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
