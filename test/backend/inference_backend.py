@@ -674,38 +674,39 @@ def get_test_models():
 
         # Resize
 
-        '''
-        All test cases in onnx v1.11.0. yes for currently supported
-        yes name='test_resize_upsample_scales_nearest')
-        yes name='test_resize_downsample_scales_nearest')
-        yes name='test_resize_upsample_sizes_nearest')
-        yes name='test_resize_downsample_sizes_nearest')
-        name='test_resize_upsample_scales_linear')
-        name='test_resize_upsample_scales_linear_align_corners')
-        name='test_resize_downsample_scales_linear')
-        name='test_resize_downsample_scales_linear_align_corners')
-        name='test_resize_upsample_scales_cubic')
-        name='test_resize_upsample_scales_cubic_align_corners')
-        name='test_resize_downsample_scales_cubic')
-        name='test_resize_downsample_scales_cubic_align_corners')
-        name='test_resize_upsample_sizes_cubic')
-        name='test_resize_downsample_sizes_cubic')
-        name='test_resize_upsample_scales_cubic_A_n0p5_exclude_outside')
-        name='test_resize_downsample_scales_cubic_A_n0p5_exclude_outside')
-        name='test_resize_upsample_scales_cubic_asymmetric')
-        name='test_resize_tf_crop_and_resize')
-        name='test_resize_tf_crop_and_resize')
-        name='test_resize_downsample_sizes_linear_pytorch_half_pixel')
-        name='test_resize_upsample_sizes_nearest_floor_align_corners')
-        yes name='test_resize_upsample_sizes_nearest_round_prefer_ceil_asymmetric')
-        yes name='test_resize_upsample_sizes_nearest_ceil_half_pixel')
-        '''
+        #All test cases in onnx v1.11.0. yes for currently supported
+        #yes name='test_resize_upsample_scales_nearest')
+        #yes name='test_resize_downsample_scales_nearest')
+        #yes name='test_resize_upsample_sizes_nearest')
+        #yes name='test_resize_downsample_sizes_nearest')
+        #yes name='test_resize_upsample_scales_linear')
+        #name='test_resize_upsample_scales_linear_align_corners')
+        #yes name='test_resize_downsample_scales_linear')
+        #name='test_resize_downsample_scales_linear_align_corners')
+        #name='test_resize_upsample_scales_cubic')
+        #name='test_resize_upsample_scales_cubic_align_corners')
+        #name='test_resize_downsample_scales_cubic')
+        #name='test_resize_downsample_scales_cubic_align_corners')
+        #name='test_resize_upsample_sizes_cubic')
+        #name='test_resize_downsample_sizes_cubic')
+        #name='test_resize_upsample_scales_cubic_A_n0p5_exclude_outside')
+        #name='test_resize_downsample_scales_cubic_A_n0p5_exclude_outside')
+        #name='test_resize_upsample_scales_cubic_asymmetric')
+        #name='test_resize_tf_crop_and_resize')
+        #name='test_resize_tf_crop_and_resize')
+        #name='test_resize_downsample_sizes_linear_pytorch_half_pixel')
+        #name='test_resize_upsample_sizes_nearest_floor_align_corners')
+        #yes name='test_resize_upsample_sizes_nearest_round_prefer_ceil_asymmetric')
+        #yes name='test_resize_upsample_sizes_nearest_ceil_half_pixel')
+
         "test_resize_upsample_scales_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_downsample_scales_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_upsample_sizes_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_downsample_sizes_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_upsample_sizes_nearest_round_prefer_ceil_asymmetric_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_upsample_sizes_nearest_ceil_half_pixel_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_upsample_scales_linear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_downsample_scales_linear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
         # Reverse Sequence
         "test_reversesequence_time_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

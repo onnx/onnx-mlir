@@ -3,34 +3,12 @@
 #include "OnnxMlirRuntime.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
 
-/* 
-issues:
-
-python on Z:
-floor(10*1.3) = 1.2
-half-pixel: 6.5/1.3 = 5.500000183398914
-*/
-
-
-/*
-void resizeRuntime(OMTensor *input, int coordinate_transformation_mode, float cubic_coeff_a, int exclude_outside, float extrapolation_value, int mode, int nearest_mode, OMTensor *output) {
-   int64_t n = omTensorGetRank(output);
+void linear_coeffs(float ratio, float *coeffs_buffer, int mode) {
+  coeffs_buffer[0] = 1-ratio;
+  coeffs_buffer[1] = ratio;
 }
-*/
 
 void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
-	/*
-	    if type(ratio) == int or ratio.is_integer():
-        return np.array([0, 1])
-    elif mode == 'round_prefer_floor':
-        return np.array([ratio <= 0.5, ratio > 0.5])
-    elif mode == 'round_prefer_ceil':
-        return np.array([ratio < 0.5, ratio >= 0.5])
-    elif mode == 'floor':
-        return np.array([1, 0])
-    elif mode == 'ceil':
-        return np.array([0, 1])
-	*/
    /* integer ratio is handled outside */
    switch(mode) {
    case 0: // round_prefer_float
@@ -65,7 +43,6 @@ void  get_neighbor(float x,
   // nearest indx: identify the central idx first, then select from both side
   // If the central idx is right to x (>= x), favor the left one
   // == from the example
-  
 
   int pad_width = ceil(n/2);
   x += pad_width;
@@ -99,7 +76,6 @@ void  get_neighbor(float x,
        }
      }  
 
-  //printf("start %d end %d \n", start, end);
   start -= pad_width;
   end -= pad_width;
 
@@ -118,12 +94,6 @@ void  get_neighbor(float x,
 	    points[i-start] = data[i];
           }
   }
-  /*
-  for(int i=0; i<n; i++) {
-	  printf("%f ", points[i]);
-  }
-  printf("\n");
-  */
 }
 
 typedef void (*Coeff_Func_t)(float, float*, int mode);
@@ -142,7 +112,6 @@ static float interpolate_1d_with_x(
         int mode) {
 
   int64_t input_width = omTensorGetShape(data)[0];
-  float output_width_f = scale_factor * input_width;
   float x_ori;
   switch (coordinate_transformation_mode) {
     case 0 : //half_pixel
@@ -154,8 +123,6 @@ static float interpolate_1d_with_x(
   }
   int64_t x_ori_int = floor(x_ori);
 
-  //if x_ori.is_integer()
-  //  ratio = 1
   float ratio = x_ori - x_ori_int;
   if (ratio == 0)
     ratio = 1;
@@ -164,15 +131,12 @@ static float interpolate_1d_with_x(
   int64_t n = coeffs_n;
 
   float points[coeffs_n];
-  int64_t idxes[coeffs_n];
 
-  //printf("x_ori %f ratio %f ", x_ori, ratio);
   get_neighbor(x_ori, n, input_width, (float *)omTensorGetDataPtr(data), points, exclude_outside);
   float sum = 0.;
   for (int i = 0; i < n; i++) {
     sum += coeffs_buffer[i]*points[i];
   }
-  //printf("result %f %f\n", x, sum);
   return sum;
 }
 
@@ -198,7 +162,6 @@ static float interpolate_nd_with_x(
     float tempData[input_width];
     int64_t tempShape[] = {input_width};
 
-    int64_t rank = omTensorGetRank(data);
     int64_t stride = 1;
     for (int i = 1; i < n; i++) {
 	    stride *= omTensorGetShape(data)[i];
@@ -210,7 +173,7 @@ static float interpolate_nd_with_x(
 	    get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
 	    coordinate_transformation_mode, exclude_outside, mode);
     }
-    OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, 1);
+    OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, ONNX_TYPE_FLOAT);
     return interpolate_1d_with_x(tempT, scale_factors[0], xs[0],
 	    get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
 	    coordinate_transformation_mode, exclude_outside, mode);
@@ -238,77 +201,14 @@ void generate_coordinates(int64_t rank, int64_t *output_size, int64_t  allCoordi
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
 }
 
-void interpolate_nd(OMTensor *data,
-	int64_t mode,
-	int64_t *output_size,
-	float   *scale_factor,
-	OMTensor *roi,
-	float *extrapolation_value,
-	int coordinate_transformation_mode,
-	int exclude_outside) {
-   int64_t rank = omTensorGetRank(data);
-   int64_t *inputShape = omTensorGetShape(data);
-   if (scale_factor == NULL) {
-     scale_factor = malloc(sizeof(float)*rank);
-     for (int i = 0; i < rank; i++) {
-       scale_factor[i] = (float)output_size[i]/inputShape[i];
-     }
-   } else {
-     output_size = malloc(sizeof(int64_t)*rank);
-     for (int i = 0; i < rank; i++) {
-       output_size[i] = scale_factor[i]*inputShape[i];
-     }
-   }
-
-
-   int64_t outputSize = 1;
-   for (int i = 0; i < rank; i++) {
-     outputSize *= output_size[i];
-   }
-   //float *outputData = (float*) malloc(sizeof(float)*outputSize);
-
-   int64_t allCoordinates[outputSize][rank];
-   generate_coordinates(rank, output_size, allCoordinates);
-   /* debug
-   for(int i = 0; i < outputSize; i++) {
-     for(int j = 0; j < rank; j++) {
-       printf("%ld\t", allCoordinates[i][j]);
-     } 
-     printf("\n");
-   }
-   */
-   const int  COEFFS_N = 2;
-   float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-
-   for(int i = 0; i < outputSize; i++) {
-      float Xs[rank];
-      for(int j = 0; j < rank; j++) {
-	Xs[j] = allCoordinates[i][j];
-      }
-      float r = interpolate_nd_with_x(
-	/*OMTensor */data,
-	/* n */4,
-	/*float scale_factor*/ scale_factor,
-	/*floats *x*/ Xs,
-	/* Coeff_Func_t*/ nearest_coeffs,
-	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
-	/*float roi*/ 0.,
-	/*float extrapolation_value*/ 0.,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0,
-        /*mode */0);
-       printf("%f ", r);
-   }
-   printf("\n");
-}
-
 void interpolate_nd_OMTensor(
         OMTensor *output_OMT,
         OMTensor *data,
 	int64_t mode,
 	OMTensor *output_size_OMT,
 	OMTensor *scale_factor_OMT,
+        Coeff_Func_t get_coeffs,
+        int coeffs_n,
 	OMTensor *roi,
 	float *extrapolation_value,
 	int coordinate_transformation_mode,
@@ -322,12 +222,12 @@ void interpolate_nd_OMTensor(
    if (output_size_OMT != NULL)
      output_size = (int64_t*)omTensorGetDataPtr(output_size_OMT);
    if (scale_factor == NULL) {
-     scale_factor = malloc(sizeof(float)*rank);
+     scale_factor = (float*) malloc(sizeof(float)*rank);
      for (int i = 0; i < rank; i++) {
-       scale_factor[i] = (float)output_size[i]/inputShape[i];
+       scale_factor[i] = ((float)output_size[i])/inputShape[i];
      }
    } else {
-     output_size = malloc(sizeof(int64_t)*rank);
+     output_size = (int64_t*)malloc(sizeof(int64_t)*rank);
      for (int i = 0; i < rank; i++) {
        output_size[i] = scale_factor[i]*inputShape[i];
      }
@@ -341,8 +241,7 @@ void interpolate_nd_OMTensor(
 
    int64_t allCoordinates[outputSize][rank];
    generate_coordinates(rank, output_size, allCoordinates);
-   const int  COEFFS_N = 2;
-   float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
+   float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
 
    for(int i = 0; i < outputSize; i++) {
       float Xs[rank];
@@ -354,9 +253,9 @@ void interpolate_nd_OMTensor(
 	/* n */4,
 	/*float scale_factor*/ scale_factor,
 	/*floats *x*/ Xs,
-	/* Coeff_Func_t*/ nearest_coeffs,
+	/* Coeff_Func_t*/ get_coeffs,
 	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
+	/*int coeffs_n*/ coeffs_n,
 	/*float roi*/ 0.,
 	/*float extrapolation_value*/ 0.,
 	/*int coordinate_transformation_mode*/0,
@@ -364,200 +263,10 @@ void interpolate_nd_OMTensor(
         /*mode */0);
       outputData[i] = r;
    }
-}
-
-
-void test_2D_1(){
-  const int  COEFFS_N = 2;
-  float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-  const int  D1 =  1;
-  const int D2 = 1;
-  const int D3 = 2;
-  const int D4 = 4;
-   float data[D1*D2*D3*D4];
-   for(int i = 0; i< D1*D2*D3*D4; i++) {
-	   data[i] = (i+1)*1.0; // backend test starts from 1
-   }
-   int64_t shape[] = {D1, D2, D3, D4};
-   OMTensor *myT = omTensorCreate(data, shape, 4, 1);
-   float scale_factors[] = {1., 1., 0.6, 0.6};
-      interpolate_nd(
-	/*OMTensor */myT,
-	/*mode*/ 0,
-	/* output size */ NULL,
-	/*float scale_factor*/ scale_factors,
-	/* roi */ NULL,
-	///* Coeff_Func_t*/ nearest_coeffs,
-	///*float */coeffs_buffer,
-	///*int coeffs_n*/ COEFFS_N,
-	/*float * extrapolation_value*/ 0,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0);
-}
-
-void test_scalar_down_2D() {
-  const int  COEFFS_N = 2;
-   float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-  const int  D1 =  1;
-  const int D2 = 1;
-  const int D3 = 2;
-  const int D4 = 4;
-   float data[D1*D2*D3*D4];
-   for(int i = 0; i< D1*D2*D3*D4; i++) {
-	   data[i] = (i+1)*1.0; // backend test starts from 1
-   }
-   int64_t shape[] = {D1, D2, D3, D4};
-   OMTensor *myT = omTensorCreate(data, shape, 4, 1);
-   float scale_factors[] = {1., 1., 0.6, 0.6};
-   float Xs[4];
-   printf("[");
-   for(int x1 = 0; x1 < floor(D1*scale_factors[0]); x1++) {
-     printf("\n[");
-     for(int x2 = 0; x2 < floor(D2*scale_factors[1]); x2++) {
-     printf("\n[");
-     for(int x3 = 0; x3 < floor(D3*scale_factors[2]); x3++) {
-     printf("\n[");
-     for(int x4 = 0; x4 < floor(D4*scale_factors[3]); x4++) {
-	     Xs[0] = x1;
-	     Xs[1] = x2;
-	     Xs[2] = x3;
-	     Xs[3] = x4;
-      float r = interpolate_nd_with_x(
-	/*OMTensor */myT,
-	/* n */4,
-	/*float scale_factor*/ scale_factors,
-	/*floats *x*/ Xs,
-	/* Coeff_Func_t*/ nearest_coeffs,
-	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
-	/*float roi*/ 0.,
-	/*float extrapolation_value*/ 0.,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0,
-        /*mode */0);
-       printf("%f ", r);
-     }
-     printf("]\n");
-     }
-     printf("]\n");
-     }
-     printf("]\n");
-   }
-   printf("]\n");
-}
-
-void test_scalar_up_2D() {
-  const int  COEFFS_N = 2;
-   float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-  const int  D1 =  2;
-  const int D2 = 3;
-   float data[D1*D2];
-   for(int i = 0; i< D1*D2; i++) {
-	   data[i] = (i+1)*1.0; // backend test starts from 1
-   }
-   int64_t shape[] = {D1, D2};
-   OMTensor *myT = omTensorCreate(data, shape, 2, 1);
-   float scale_factors[] = {1, 2};
-   float Xs[2];
-   printf("[");
-   for(int x1 = 0; x1 < floor(D1*scale_factors[0]); x1++) {
-     printf("\n[");
-     for(int x2 = 0; x2 < floor(D2*scale_factors[1]); x2++) {
-	     Xs[0] = x1;
-	     Xs[1] = x2;
-      float r = interpolate_nd_with_x(
-	/*OMTensor */myT,
-	/* n */2,
-	/*float scale_factor*/ scale_factors,
-	/*floats *x*/ Xs,
-	/* Coeff_Func_t*/ nearest_coeffs,
-	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
-	/*float roi*/ 0.,
-	/*float extrapolation_value*/ 0.,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0,
-        /*mode */0);
-       printf("%f ", r);
-     }
-     printf("]\n");
-   }
-   printf("]\n");
-}
-
-void test_scalar1() {
-  const int  COEFFS_N = 2;
-   float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-  const int  MAXN =  2;
-   float data[MAXN];
-   for(int i = 0; i< MAXN; i++) {
-	   data[i] = (i+1)*1.0; // backend test starts from 1
-   }
-   int64_t shape[] = {MAXN};
-   OMTensor *myT = omTensorCreate(data, shape, 1, 1);
-   float scale_factor = 3;
-   for(int x = 0; x < floor(MAXN*scale_factor); x++) {
-   interpolate_1d_with_x(
-	/*OMTensor */myT,
-	/*float scale_factor*/scale_factor,
-	/*float x*/ (float)x,
-	/* Coeff_Func_t*/ nearest_coeffs,
-	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
-	/*float roi*/ 0.,
-	/*float extrapolation_value*/ 0.,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0,
-        /*mode */0);
-   }
-}
-
-void test_scalar2() {
-  const int COEFFS_N = 2;
-  float coeffs_buffer[COEFFS_N]; // = {1.0, 0.};
-  const int  MAXN = 4;
-   float data[MAXN];
-   for(int i = 0; i< MAXN; i++) {
-	   data[i] = (i+1)*1.0; // backend test starts from 1
-   }
-   int64_t shape[] = {MAXN};
-   OMTensor *myT = omTensorCreate(data, shape, 1, 1);
-   float scale_factor = 0.6;
-   for(int x = 0; x < floor(MAXN*scale_factor); x++) {
-   interpolate_1d_with_x(
-	/*OMTensor */myT,
-	/*float scale_factor*/scale_factor,
-	/*float x*/ (float)x,
-	/* Coeff_Func_t*/ nearest_coeffs,
-	/*float */coeffs_buffer,
-	/*int coeffs_n*/ COEFFS_N,
-	/*float roi*/ 0.,
-	/*float extrapolation_value*/ 0.,
-	/*int coordinate_transformation_mode*/0,
-	/*exclude */0,
-        /*mode */0);
-   }
-}
-
-void test_neighbor_idx(){
-#define MAXM 10
-   float data[MAXM];
-   for(int i = 0; i< MAXM; i++) {
-	   data[i] = (i)*1.0; // backend test starts from 1
-   }
-   int64_t n = 3;
-   float x;
-   printf("x = ");
-   scanf("%f", &x);
-   printf("n = ");
-   scanf("%lld", &n);
-   float points[3];
-   get_neighbor(x,
-	n,
-	MAXM,
-	data,
-	points,
-	0);
+   if (output_size_OMT == NULL)
+     free(output_size);
+   if (scale_factor_OMT == NULL) 
+     free(scale_factor);
 }
 
 void Resize_Scales_Nearest(OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str) {
@@ -567,18 +276,26 @@ void Resize_Scales_Nearest(OMTensor *output, OMTensor *data, OMTensor *scales, c
 	/*mode*/ 0,
         /*OMTensor output size */ NULL,
         /*OMTensor scales */ scales,
+	/* Coeff_Func_t*/ nearest_coeffs,
+	/*int coeffs_n*/ 2,
 	/* roi */ NULL,
-	///* Coeff_Func_t*/ nearest_coeffs,
-	///*float */coeffs_buffer,
-	///*int coeffs_n*/ COEFFS_N,
 	/*float * extrapolation_value*/ 0,
 	/*int coordinate_transformation_mode*/0,
 	/*exclude */0);
 }
 
-/*
-int main() {
-   test_2D_1();
+void Resize_Scales_Linear(OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str) {
+      interpolate_nd_OMTensor(
+        /*OMTensor */ output,
+	/*OMTensor */ data,
+	/*mode*/ 0,
+        /*OMTensor output size */ NULL,
+        /*OMTensor scales */ scales,
+	/* Coeff_Func_t*/ linear_coeffs,
+	/*int coeffs_n*/ 2,
+	/* roi */ NULL,
+	/*float * extrapolation_value*/ 0,
+	/*int coordinate_transformation_mode*/0,
+	/*exclude */0);
 }
-*/
 

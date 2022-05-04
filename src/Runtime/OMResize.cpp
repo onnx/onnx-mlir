@@ -12,4 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OMResize.inc"
+// ToFix: the c version uses dynamic array that caused compilation error
+// for c++.
+//#include "OMResize.inc"
