@@ -19,8 +19,8 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
       break;
     }
   }
-  assert(
-      is_symmetric && "Frontend transformations only handle symmetric padding");
+// assert(
+//     is_symmetric && "Frontend transformations only handle symmetric padding");
 
   dim_pads dimArray[pads.size()];
   if (is_symmetric) {
