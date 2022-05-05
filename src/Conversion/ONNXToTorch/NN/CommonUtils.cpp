@@ -81,3 +81,19 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
   }
   return operandArrayValues;
 }
+
+/// Converts ONNX operand of type tensor to Torch tensor
+///
+/// Typical usage:
+/// \code
+///   auto operandType = toTorchType(context, unaryOp.getOperand().getType());
+/// \endcode
+///
+/// \param ctx: context of the operand
+/// \param t: tensor type of the operand
+///
+/// \returns Torch::ValueTensorType conversion from tensor
+Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
+   auto type = t.template dyn_cast<TensorType>();
+   return Torch::ValueTensorType::get(ctx, type.getShape(), type.getElementType());
+}
