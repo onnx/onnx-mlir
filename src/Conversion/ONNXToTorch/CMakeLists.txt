@@ -10,10 +10,10 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/LeakyReluOp.cpp
   NN/MaxPoolSingleOutOp.cpp
   NN/PaddingOp.cpp
-  NN/ReluOp.cpp
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
+  NN/ElementwiseOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
@@ -36,7 +36,6 @@ add_onnx_mlir_library(OMONNXToTorch
   #ControlFlow/Scan.cpp
   #Math/CumSum.cpp
   #Math/Clip.cpp
-  #Math/Elementwise.cpp
   #Math/Gemm.cpp
   #Math/Hardmax.cpp
   #Math/LRN.cpp
@@ -57,21 +56,21 @@ add_onnx_mlir_library(OMONNXToTorch
   #RNN/RNNBase.cpp
   #Tensor/ArgMax.cpp
   #Tensor/Concat.cpp
-  #Tensor/Compress.cpp  
+  #Tensor/Compress.cpp
   #Tensor/Constant.cpp
   #Tensor/ConstantOfShape.cpp
   #Tensor/DepthToSpace.cpp
   #Tensor/Expand.cpp
   #Tensor/Flatten.cpp
-  #Tensor/Gather.cpp 
+  #Tensor/Gather.cpp
   #Tensor/Identity.cpp
   #Tensor/NonZero.cpp
-  #Tensor/OneHot.cpp  
+  #Tensor/OneHot.cpp
   #Tensor/Pad.cpp
   #Tensor/Squeeze.cpp
   #Tensor/Split.cpp
   #Tensor/Shape.cpp
-  #Tensor/Size.cpp 
+  #Tensor/Size.cpp
   #Tensor/Slice.cpp
   #Tensor/SpaceToDepth.cpp
   #Tensor/Reshape.cpp
