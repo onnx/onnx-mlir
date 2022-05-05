@@ -236,7 +236,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     Value result = addValue;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, resultTy, result);
+        op, op->getResult(0).getType(), result);
 
     return success();
   }
