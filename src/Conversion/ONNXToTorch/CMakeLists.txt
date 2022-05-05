@@ -15,6 +15,9 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/PaddingOp.cpp
   NN/ReduceMean.cpp
   NN/SoftmaxOp.cpp
+  NN/Gemm.cpp
+  NN/FlattenOp.cpp
+  NN/ElementwiseOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
