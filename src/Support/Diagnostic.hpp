@@ -40,7 +40,7 @@ public:
     }
   };
 
-  /// Verifies whether an attribute value is outside the supplied range.
+  /// Diagnostic message for attribute value outside of a supplied range.
   template <typename T>
   static mlir::LogicalResult emitAttributeOutOfRangeError(mlir::Operation &op,
       const llvm::Twine &attrName, T attrVal, Range<T> validRange);
