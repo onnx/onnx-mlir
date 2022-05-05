@@ -219,7 +219,7 @@ func @test_gatherND_verifier_2(%arg0 : tensor<2xf32>, %arg1 : tensor<i64>) -> te
 
 // COM: The value batch_dims must be smaller than the minimum of rank(data) and rank(indices).
 func @test_gatherND_verifier_3(%arg0 : tensor<1x2x3xf32>, %arg1 : tensor<2x2x2x2xi64>) -> tensor<*xf32> {
-  // expected-error @+1 {{onnx.GatherND 'batch_dims' value is 3, accepted range is [0, 2]}}
+  // expected-error @+1 {{onnx.GatherND: 'batch_dims' value is 3, accepted range is [0, 2]}}
   %1 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 3 : si64}: (tensor<1x2x3xf32>, tensor<2x2x2x2xi64>)  -> tensor<*xf32>
 }
 
@@ -246,7 +246,7 @@ func @test_gatherND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor<1x4xi
 // COM: All values in 'indices' are expected to satisfy the inequality:
 // COM:   -data.shape[i] <= indices[...,i] <= (data.shape[i]-1)].
 func @test_gatherND_verifier_6(%arg0 : tensor<3x4x4x4xf32>) -> tensor<*xf32> {
-  // expected-error @+2 {{onnx.GatherND 'indices[0]' value is 3, accepted range is [-3, 2]}}
+  // expected-error @+2 {{onnx.GatherND: 'indices[0]' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3,2,2]> : tensor<3xi64>} : () -> tensor<3x3x2xi64>
   %1 = "onnx.GatherND"(%arg0, %indices) : (tensor<3x4x4x4xf32>, tensor<3x3x2xi64>)  -> tensor<*xf32>
 }
