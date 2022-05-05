@@ -19,6 +19,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "llvm/Support/Debug.h"
@@ -119,32 +120,72 @@ private:
     auto loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
 
-    if (attribute.isa<StringAttr>()) {
-      auto strAttr = attribute.cast<StringAttr>();
-      StringRef attrValue = strAttr.getValue();
-      LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(attrValue, loc,
-          rewriter, module, static_cast<LLVMTypeConverter *>(typeConverter));
-      Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
-      auto int8Ty = IntegerType::get(context, 8);
-      auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
-      parameterTypeList.emplace_back(opaquePtrTy);
-      parameterList.emplace_back(strPtr);
-    } else if (attribute.isa<IntegerAttr>()) {
-      auto integerAttr = attribute.cast<IntegerAttr>();
-      auto int64Ty = IntegerType::get(context, 64);
-      Value cst = rewriter.create<LLVM::ConstantOp>(loc, int64Ty, integerAttr);
-      parameterTypeList.emplace_back(int64Ty);
-      parameterList.emplace_back(cst);
-    } else if (attribute.isa<FloatAttr>()) {
-      auto floatAttr = attribute.cast<FloatAttr>();
-      auto f64Ty = rewriter.getF64Type();
-      Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty, floatAttr);
-      parameterTypeList.emplace_back(f64Ty);
-      parameterList.emplace_back(cst);
-    } else {
-      llvm_unreachable(
-          "This type of Attribute used by krnl.call has not implemented");
-    }
+    TypeSwitch<Attribute>(attribute)
+        .Case<StringAttr>([&](StringAttr strAttr) {
+          StringRef attrValue = strAttr.getValue();
+          LLVM::GlobalOp globalStr =
+              krnl::getOrCreateGlobalString(attrValue, loc, rewriter, module,
+                  static_cast<LLVMTypeConverter *>(typeConverter));
+          Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
+          auto int8Ty = IntegerType::get(context, 8);
+          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          parameterTypeList.emplace_back(opaquePtrTy);
+          parameterList.emplace_back(strPtr);
+        })
+        .Case<IntegerAttr>([&](IntegerAttr integerAttr) {
+          auto int64Ty = IntegerType::get(context, 64);
+          Value cst =
+              rewriter.create<LLVM::ConstantOp>(loc, int64Ty, integerAttr);
+          parameterTypeList.emplace_back(int64Ty);
+          parameterList.emplace_back(cst);
+        })
+        .Case<FloatAttr>([&](FloatAttr floatAttr) {
+          auto f64Ty = rewriter.getF64Type();
+          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty, floatAttr);
+          parameterTypeList.emplace_back(f64Ty);
+          parameterList.emplace_back(cst);
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr denseAttr) {
+          // Use krnl.global to handle it
+          // Since the attribute is still in tensor type, the code has to cross
+          // onnx to krnl, and krnl to llvm.
+          // In future, the attributes should be converted in krnl.call builder.
+          // This code passed onnx-mlir-opt --convert-krnl-to-llvm test case,
+          // but failed in onnx-milr for the tensor type for the attribute
+          const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+          auto tensorTy = denseAttr.getType().cast<TensorType>();
+          tensorTy.dump();
+          auto memRefTy =
+              MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
+          memRefTy.dump();
+          MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+          Value constantGlobal =
+              create.krnl.constant(memRefTy, "constant_", denseAttr);
+          Value convertedConstantGlobal =
+              rewriter
+                  .create<UnrealizedConversionCastOp>(
+                      loc, typeConverter->convertType(memRefTy), constantGlobal)
+                  .getResult(0);
+          // constantGlobal.setType(typeConverter->convertType(memRefTy));
+
+          auto int64Ty = IntegerType::get(context, 64);
+          auto memRefRank = memRefTy.getRank();
+          auto memRefRankVal = rewriter.create<LLVM::ConstantOp>(
+              loc, int64Ty, rewriter.getI64IntegerAttr(memRefRank));
+          Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+              RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
+
+          krnl::fillOMTensorWithMemRef(convertedConstantGlobal, omTensor,
+              false /*outOwning*/, rewriter, loc, apiRegistry, module);
+          auto int8Ty = IntegerType::get(context, 8);
+          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          parameterTypeList.emplace_back(opaquePtrTy);
+          parameterList.emplace_back(omTensor);
+        })
+        .Default([&](Attribute attr) {
+          llvm_unreachable(
+              "This type of Attribute used by krnl.call has not implemented");
+        });
   }
 
   FlatSymbolRefAttr getOrInsertCall(PatternRewriter &rewriter, ModuleOp module,

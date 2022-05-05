@@ -683,12 +683,12 @@ def get_test_models():
         #name='test_resize_upsample_scales_linear_align_corners')
         #yes name='test_resize_downsample_scales_linear')
         #name='test_resize_downsample_scales_linear_align_corners')
-        #name='test_resize_upsample_scales_cubic')
+        #yes name='test_resize_upsample_scales_cubic')
         #name='test_resize_upsample_scales_cubic_align_corners')
-        #name='test_resize_downsample_scales_cubic')
+        #yes name='test_resize_downsample_scales_cubic')
         #name='test_resize_downsample_scales_cubic_align_corners')
-        #name='test_resize_upsample_sizes_cubic')
-        #name='test_resize_downsample_sizes_cubic')
+        #yes name='test_resize_upsample_sizes_cubic')
+        #yes name='test_resize_downsample_sizes_cubic')
         #name='test_resize_upsample_scales_cubic_A_n0p5_exclude_outside')
         #name='test_resize_downsample_scales_cubic_A_n0p5_exclude_outside')
         #name='test_resize_upsample_scales_cubic_asymmetric')
@@ -707,6 +707,10 @@ def get_test_models():
         "test_resize_upsample_sizes_nearest_ceil_half_pixel_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_upsample_scales_linear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_resize_downsample_scales_linear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_upsample_scales_cubic_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_downsample_scales_cubic_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_upsample_sizes_cubic_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_resize_downsample_sizes_cubic_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
         # Reverse Sequence
         "test_reversesequence_time_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

@@ -11,7 +11,7 @@
 
 /**
  * The runtime implementation of ONNXResizeOp is manually translated python
- * implementation: onnx/onnx/backend/test/case/node/Resize.py
+ * implementation: onnx/onnx/backend/test/case/node/resize.py (onnx v1.9.0)
  * This implementation can be improved in efficiency.
  **/
 
@@ -40,6 +40,21 @@ void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
     coeffs_buffer[1] = 1;
     break;
   }
+}
+
+void cubic_coeffs(float ratio, float *coeffs_buffer, int mode) {
+  float A = -0.75;
+  // A may have different value for different coordinate_transformation_mode
+  // Currently, only default mode is supported
+  coeffs_buffer[0] =
+      ((A * (ratio + 1) - 5 * A) * (ratio + 1) + 8 * A) * (ratio + 1) - 4 * A;
+  coeffs_buffer[1] = ((A + 2) * ratio - (A + 3)) * ratio * ratio + 1;
+  coeffs_buffer[2] =
+      ((A + 2) * (1 - ratio) - (A + 3)) * (1 - ratio) * (1 - ratio) + 1;
+  coeffs_buffer[3] =
+      ((A * ((1 - ratio) + 1) - 5 * A) * ((1 - ratio) + 1) + 8 * A) *
+          ((1 - ratio) + 1) -
+      4 * A;
 }
 
 void get_neighbor(float x, int64_t n, int limit, float *data, float *points,
@@ -271,9 +286,11 @@ void Resize_Scales(
   } else if (strcmp(mode_str, "linear") == 0) {
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
+  } else if (strcmp(mode_str, "cubic") == 0) {
+    coeffs_f = cubic_coeffs;
+    coeffs_n = 4;
   } else {
-    printf("Resize runtime: unsupported mode %s\n", mode_str);
-    exit(1);
+    assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
       /*OMTensor */ output,
@@ -299,6 +316,9 @@ void Resize_Size(
   } else if (strcmp(mode_str, "linear") == 0) {
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
+  } else if (strcmp(mode_str, "cubic") == 0) {
+    coeffs_f = cubic_coeffs;
+    coeffs_n = 4;
   } else {
     assert(0 && "Resize runtime: unsupported mode");
   }
