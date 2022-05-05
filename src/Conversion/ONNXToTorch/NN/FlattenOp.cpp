@@ -90,8 +90,6 @@ public:
     Value input = op1.input();
     auto axisValue = op1.axis();       // ::mlir::IntegerAttr
 
-    ArrayRef<int64_t> inputShape = input.getType().cast<ShapedType>().getShape();
-
     TensorType resultTensorType =
       op->getResult(0).getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
@@ -141,9 +139,14 @@ public:
       // Build the intermediate result type.
       // This is the same type as the input, with all dims before the axis value collapsed into one.
       ArrayRef<int64_t> inputShape = inputTensorType.getShape();
-      // TODO need to have the new collapsed dimension first (resultShape[0])
-      auto intermShape = inputShape.drop_front(axisValue-1);
-      auto intermType = Torch::ValueTensorType::get(context, intermShape, inputTensorType.getElementType());
+      auto numDimsAfterAxis = inputShape.size() - axisValue;
+      auto remainingDims = inputShape.take_back(numDimsAfterAxis);
+      std::vector<int64_t> intermShape;
+      intermShape.push_back(resultTensorType.getShape()[0]); // this is the collapsed dimension
+      intermShape.insert(intermShape.end(), remainingDims.begin(), remainingDims.end());
+      auto intermType = Torch::ValueTensorType::get(context,
+       llvm::makeArrayRef(intermShape), // todo is this a memory leak? where to allocate the vector?
+       inputTensorType.getElementType());
 
       result = createAtenFlattenOp(
           rewriter, loc, result, intermType, /*start=*/0, /*start=*/axisValue - 1, op1);
