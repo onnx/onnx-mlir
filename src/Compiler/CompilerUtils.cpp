@@ -62,7 +62,6 @@ llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
 namespace {
-
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
@@ -159,6 +158,9 @@ static llvm::cl::opt<std::string> mllvm("mllvm",
         "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
+    llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Conversion"));
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -824,6 +826,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
+  if (! RunTorchPass)
+    return;
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
