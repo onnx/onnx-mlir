@@ -26,14 +26,8 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   Adaptor operandAdaptor(operands);
   Op unsqueezeOp = dyn_cast_or_null<Op>(op);
 
-  auto loc = op->getLoc();
+  Location loc = op->getLoc();
   Value data = operandAdaptor.data();
-
-  // Convert the output type to MemRefType.
-  Type convertedType = typeConverter->convertType(*op->result_type_begin());
-  assert(convertedType && convertedType.isa<MemRefType>() &&
-         "Failed to convert type to MemRefType");
-  MemRefType memRefType = convertedType.cast<MemRefType>();
 
   ShapeHelper shapeHelper(&unsqueezeOp, &rewriter,
       krnl::getDenseElementAttributeFromKrnlValue,
@@ -43,7 +37,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.
   Value newView = emitMemRefReinterpretCastOp(
-      rewriter, loc, data, memRefType, shapeHelper.dimsForOutput());
+      rewriter, loc, data, shapeHelper.dimsForOutput());
   rewriter.replaceOp(op, newView);
   return success();
 }
