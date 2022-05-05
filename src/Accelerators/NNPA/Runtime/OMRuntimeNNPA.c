@@ -125,9 +125,12 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     /* If not compatible, generate an error here */
     if (!isCompatible) {
       fprintf(stderr,
-          "Attempting to initialize zdnn with version num %llu, which is "
-          "not compatible with current NNPA hardware\n",
-          versionNum);
+          "Model is running on hardware that is not compatible with the NNPA "
+          "accelerator that this model was compiled for (version num 0x%llx). "
+          "Please check that the model is running on hardware with an NNPA "
+          "accelerator (z16+) and that this NNPA accelerator is compatible "
+          "with the version that the model was compiler for.\n",
+          (unsigned long long)versionNum);
       exit(1);
     }
   }
