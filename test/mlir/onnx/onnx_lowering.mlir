@@ -2469,7 +2469,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
     %cst = "onnx.NoValue"() {value} : () -> none
     %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
-    %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
+    %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {mode = "linear"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
     "std.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
@@ -2479,7 +2479,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant 3.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x12xf32>
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) {coordinate_transformation_mode = "asymmetric", funcName = "onnx_Resize_f32", mode = "linear", nearest_mode = "round_prefer_floor"} : (memref<3x12xf32>, memref<3x4xf32>, memref<4xf32>, memref<2xf32>, none) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {funcName = "Resize_Scales", mode = "linear"} : (memref<3x12xf32>, memref<3x4xf32>, memref<4xf32>, memref<2xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<3x12xf32>
 // CHECK:         }
 }
