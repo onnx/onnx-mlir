@@ -43,7 +43,7 @@ file(GENERATE
  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
  INPUT ${ONNX_BACKENDTEST_BIN_DIR}/test_config.py.cfg
  )
-  
+
 configure_file(
   ${ONNX_BACKENDTEST_SRC_DIR}/test_config_compilerlib.py.in
   ${ONNX_BACKENDTEST_BIN_DIR}/test_config_compilerlib.py.cfg
