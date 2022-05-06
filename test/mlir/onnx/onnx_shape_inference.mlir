@@ -2601,7 +2601,7 @@ func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64
 //===----------------------------------------------------------------------===//
 func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
   %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi1>
-  "std.return"(%0) : (tensor<2x3x4xi1>) -> ()
+  "std.return"(%0) : (tensor<*xi1>) -> ()
   
   // CHECK-LABEL: func @test_isnan
   // CHECK: [[RES:%.+]] = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
