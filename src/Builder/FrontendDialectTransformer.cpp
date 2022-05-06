@@ -323,11 +323,11 @@ private:
       break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
-          llvm::makeArrayRef(attr.floats().begin(), attr.floats().end()));
+          llvm::makeArrayRef(attr.floats().data(), attr.floats().size()));
       break;
     case onnx::AttributeProto::INTS:
       mlirAttr = builder_.getI64ArrayAttr(
-          llvm::makeArrayRef(attr.ints().begin(), attr.ints().end()));
+          llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
