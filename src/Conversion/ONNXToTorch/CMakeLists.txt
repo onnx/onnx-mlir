@@ -16,6 +16,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ReduceMean.cpp
   NN/SoftmaxOp.cpp
   NN/Gemm.cpp
+  NN/AddOp.cpp
   NN/FlattenOp.cpp
   NN/ElementwiseOp.cpp
 
