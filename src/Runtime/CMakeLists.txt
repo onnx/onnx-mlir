@@ -107,3 +107,7 @@ target_link_libraries(PyRuntime
   PRIVATE
   ExecutionSession
   )
+
+install(TARGETS PyRuntime
+  DESTINATION lib
+  )
