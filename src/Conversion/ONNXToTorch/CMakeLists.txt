@@ -13,6 +13,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
   NN/Gemm.cpp
+  NN/AddOp.cpp
   NN/FlattenOp.cpp
   NN/ElementwiseOp.cpp
 
