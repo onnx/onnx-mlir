@@ -980,10 +980,8 @@ def JniExecutionSession(jar_name, inputs):
 class InferenceBackendTest(BackendTest):
     @classmethod
     def assert_similar_outputs(cls, ref_outputs: Sequence[Any], outputs: Sequence[Any], rtol: float, atol: float) -> None:
-        rtol =os.getenv("TEST_RTOL", rtol)
-        atol =os.getenv("TEST_ATOL", atol)
-        print(rtol, flush=True)
-        print(atol, flush=True)
+        rtol =float(os.getenv("TEST_RTOL", rtol))
+        atol =float(os.getenv("TEST_ATOL", atol))
         np.testing.assert_equal(len(outputs), len(ref_outputs))
         for i in range(len(outputs)):
             if isinstance(outputs[i], (list, tuple)):
