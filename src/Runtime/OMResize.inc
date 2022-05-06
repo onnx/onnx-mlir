@@ -15,12 +15,12 @@
  * This implementation can be improved in efficiency.
  **/
 
-void linear_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void linear_coeffs(float ratio, float *coeffs_buffer, int mode) {
   coeffs_buffer[0] = 1 - ratio;
   coeffs_buffer[1] = ratio;
 }
 
-void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
   /* integer ratio is handled outside */
   switch (mode) {
   case 0: // round_prefer_float
@@ -42,7 +42,7 @@ void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
   }
 }
 
-void cubic_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void cubic_coeffs(float ratio, float *coeffs_buffer, int mode) {
   float A = -0.75;
   // A may have different value for different coordinate_transformation_mode
   // Currently, only default mode is supported
@@ -57,8 +57,8 @@ void cubic_coeffs(float ratio, float *coeffs_buffer, int mode) {
       4 * A;
 }
 
-void get_neighbor(float x, int64_t n, int limit, float *data, float *points,
-    int exclude_outside) {
+static void get_neighbor(float x, int64_t n, int limit, float *data,
+    float *points, int exclude_outside) {
 
   // inline the python get_neighbor_idx function without real padding
   // Avoid malloc/free
@@ -187,7 +187,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
   }
 }
 
-void coordinate_step(int64_t rank, int64_t *output_size,
+static void coordinate_step(int64_t rank, int64_t *output_size,
     int64_t allCoordinates[][rank], int64_t currentRank, int64_t *currentIter,
     int64_t *currentPosition) {
   for (int i = 0; i < output_size[currentRank]; i++) {
@@ -205,15 +205,15 @@ void coordinate_step(int64_t rank, int64_t *output_size,
   }
 }
 
-void generate_coordinates(
+static void generate_coordinates(
     int64_t rank, int64_t *output_size, int64_t allCoordinates[][rank]) {
   int64_t position = 0;
   int64_t currentIter[rank];
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
 }
 
-void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data, int64_t mode,
-    OMTensor *output_size_OMT, OMTensor *scale_factor_OMT,
+static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
+    int64_t mode, OMTensor *output_size_OMT, OMTensor *scale_factor_OMT,
     Coeff_Func_t get_coeffs, int coeffs_n, OMTensor *roi,
     float *extrapolation_value, int coordinate_transformation_mode,
     int exclude_outside) {
@@ -290,6 +290,7 @@ void Resize_Scales(
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
+    printf("mode str %s\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
@@ -320,6 +321,7 @@ void Resize_Size(
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
+    printf("mode str %s\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
