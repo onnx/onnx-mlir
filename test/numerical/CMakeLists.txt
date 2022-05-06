@@ -32,7 +32,8 @@ function(add_numerical_unittest test_name)
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
   add_test(NAME ${test_name}
     COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
 endfunction()
 

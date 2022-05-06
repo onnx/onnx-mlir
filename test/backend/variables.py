@@ -126,7 +126,7 @@ def get_args_from_env():
         type=str,
         choices=["0", "1", "2", "3"],
         default=os.getenv("TEST_OPTLEVEL", "3"),
-        help="set compiler optimization level (default: 3)",
+        help="set compiler optimization level (default: 3 if TEST_OPTLEVEL env var not set)",
     )
     parser.add_argument(
         "-v",
