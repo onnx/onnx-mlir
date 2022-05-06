@@ -41,6 +41,14 @@ typedef enum {
   LLVMFlag,         /* Kind for -mllvm string. */
 } OptionKind;
 
+/* Compiler options to describe instrumentation options */
+typedef enum {
+  InstrumentBeforeOp,
+  InstrumentAfterOp,
+  InstrumentReportTime,
+  InstrumentReportMemory
+} InstrumentActions;
+
 #ifdef __cplusplus
 } // namespace onnx_mlir
 #endif

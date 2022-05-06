@@ -286,12 +286,10 @@ bool GRULibBuilder::verifyOutputs() {
   omTensorDestroy(rt);
   omTensorDestroy(zt);
 
-  if (!areCloseFloat(gruY, refY))
-    return false;
-  if (!areCloseFloat(gruYh, refYh))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(gruY, refY) && areCloseFloat(gruYh, refYh);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  return ok;
 }
 
 } // namespace test

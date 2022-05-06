@@ -1,5 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Turn on lit test for specified accelerators even if the
+# accelerator code itself cannot be built.
+if (ONNX_MLIR_ACCELERATORS)
+  foreach(t ${ONNX_MLIR_ACCELERATORS})
+    set(${t}_LIT_ENABLED 1)
+    list(APPEND ACCEL_LIT_LIST "${t}")
+  endforeach(t)
+endif(ONNX_MLIR_ACCELERATORS)
+if (ACCEL_LIT_LIST)
+  message(STATUS "Accelerator lit tests    : ${ACCEL_LIT_LIST}")
+else()
+  message(STATUS "Accelerator lit tests    : NONE")
+endif()
+
 # Set LLVM_DEFAULT_EXTERNAL_LIT to an empty string to avoid warnings about the path
 # when using multi-config generators such as VS or Xcode
 set(LLVM_DEFAULT_EXTERNAL_LIT "")
@@ -33,6 +47,7 @@ set(ONNX_MLIR_TEST_DEPENDS
   count
   not
   split-file
+  llvm-dis
   )
 
 add_lit_testsuite(check-onnx-lit

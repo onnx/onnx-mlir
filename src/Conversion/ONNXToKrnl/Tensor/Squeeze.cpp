@@ -21,12 +21,12 @@ namespace onnx_mlir {
 
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
-    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
+    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter,
+    TypeConverter *typeConverter) {
   Adaptor operandAdaptor(operands);
   Op squeezeOp = dyn_cast_or_null<Op>(op);
 
-  auto loc = op->getLoc();
-  auto memRefType = convertToMemRefType(*op->result_type_begin());
+  Location loc = op->getLoc();
   Value data = operandAdaptor.data();
 
   ShapeHelper shapeHelper(&squeezeOp, &rewriter,
@@ -37,7 +37,7 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.
   Value newView = emitMemRefReinterpretCastOp(
-      rewriter, loc, data, memRefType, shapeHelper.dimsForOutput());
+      rewriter, loc, data, shapeHelper.dimsForOutput());
   rewriter.replaceOp(op, newView);
   return success();
 }
@@ -50,7 +50,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSqueezeOpLoweringCommon<ONNXSqueezeOpAdaptor, ONNXSqueezeOp,
-        ONNXSqueezeOpShapeHelper>(op, operands, rewriter);
+        ONNXSqueezeOpShapeHelper>(op, operands, rewriter, typeConverter);
   }
 };
 
@@ -62,7 +62,8 @@ struct ONNXSqueezeV11OpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     return ONNXSqueezeOpLoweringCommon<ONNXSqueezeV11OpAdaptor,
-        ONNXSqueezeV11Op, ONNXSqueezeV11OpShapeHelper>(op, operands, rewriter);
+        ONNXSqueezeV11Op, ONNXSqueezeV11OpShapeHelper>(
+        op, operands, rewriter, typeConverter);
   }
 };
 
