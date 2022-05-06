@@ -290,7 +290,7 @@ void Resize_Scales(
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    printf("mode str %s\n", mode_str);
+    fprintf(stderr, "mode str %s\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
@@ -321,7 +321,8 @@ void Resize_Size(
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    printf("mode str %s\n", mode_str);
+    //printf("mode str %s\n", mode_str);
+    fprintf(stderr, "mode str %s\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
