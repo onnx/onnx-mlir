@@ -294,6 +294,7 @@ OpsWithVerifier = [
     'Flatten',
     'Gather',
     'GatherElements',
+    'GatherND',        
     'Hardmax',
     'InstanceNormalization',
     'LogSoftmax',
