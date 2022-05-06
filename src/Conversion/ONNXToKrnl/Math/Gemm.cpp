@@ -57,14 +57,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
+    // Create temp, single scalar, no need for default alignment.
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        createKrnl);
+    Value red = create.mem.alloca(MemRefType::get({}, elementType));
     // Outer loops.
     createKrnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          // Create temp and set to zero, single scalar, no need for default
-          // alignment.
-          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              createKrnl);
-          Value red = create.mem.alloca(MemRefType::get({}, elementType));
+          // Set to zero.
           createKrnl.store(zeroVal, red);
           // Inner loop.
           create.krnl.iterate({}, innerLoopDef, {}, {},
@@ -321,8 +321,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
         loc, shapeHelper.dimsForOutput(), (int64_t)BUFFER_ALIGN);

@@ -87,7 +87,11 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     // Frequently used MemRefType.
     Value X = operandAdaptor.X();
     MemRefType xMemRefType = X.getType().cast<MemRefType>();
-    MemRefType resMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
     int64_t xRank = xMemRefType.getRank();
 
     // Frequently used element types.
@@ -173,6 +177,8 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     //   out[0][i] = p
     // ```
 
+    Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
+    Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
         [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
@@ -183,8 +189,6 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
             Value axisVal = create.math.constantIndex(axis);
             MemRefBoundsIndexCapture rsumBounds(rsumMemRefs[axis]);
 
-            Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
-            Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
             create.krnl.store(iMinusOne, pos, {});
             create.krnl.store(iZero, sum, {});
 

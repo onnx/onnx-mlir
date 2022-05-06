@@ -741,6 +741,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
@@ -905,7 +906,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
   "output_shape can also be explicitly specified in which case pads values are auto generated using these equations:"
   ""
   "  total_padding[i] = stride[i] * (input_size[i] - 1) + output_padding[i] + ((kernel_shape[i] - 1) * dilations[i] + 1) - output_shape[i]"
-  "  If (auto_pads != SAME_UPPER): pads[start_i] = total_padding[i]/2; pads[end_i] = total_padding[i] - (total_padding[i]/2)"
+  "  If (auto_pads == SAME_UPPER): pads[start_i] = total_padding[i]/2; pads[end_i] = total_padding[i] - (total_padding[i]/2)"
   "  Else: pads[start_i] = total_padding[i] - (total_padding[i]/2); pads[end_i] = (total_padding[i]/2)."
   ""
   "    "
@@ -1076,7 +1077,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   let description = [{
   "The linear dequantization operator. It consumes a quantized tensor, a scale, and a zero point to compute the full precision tensor."
   "The dequantization formula is y = (x - x_zero_point) * x_scale. 'x_scale' and 'x_zero_point' must have same shape, and can be either a scalar"
-  "for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantizations."
+  "for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization."
   "'x_zero_point' and 'x' must have same type. 'x' and 'y' must have same shape. In the case of dequantizing int32,"
   "there's no zero point (zero point is supposed to be 0)."
   }];
@@ -1096,6 +1097,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return {7};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
@@ -1720,6 +1722,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
@@ -1756,10 +1759,8 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   "  ]"
   "  axis = 1"
   "  output = ["
-  "      ["
-  "        [1, 1],"
-  "        [4, 3],"
-  "      ],"
+  "      [1, 1],"
+  "      [4, 3],"
   "  ]"
   "```"
   "Example 2:"
@@ -1775,10 +1776,8 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   "  ]"
   "  axis = 0"
   "  output = ["
-  "      ["
-  "        [4, 8, 3],"
-  "        [7, 2, 3],"
-  "      ],"
+  "      [4, 8, 3],"
+  "      [7, 2, 3],"
   "  ]"
   "```"
   }];
@@ -1797,6 +1796,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
@@ -1910,6 +1910,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
@@ -2134,9 +2135,8 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
   ""
   " Hardmax(element in input, axis) = 1 if the element is the first maximum value along the specified axis, 0 otherwise"
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which Hardmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which Hardmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the Hardmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
@@ -2574,9 +2574,8 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
   ""
   " LogSoftmax(input, axis) = Log(Softmax(input, axis=axis))"
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which LogSoftmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which LogSoftmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the LogSoftmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
@@ -2593,6 +2592,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
@@ -3882,12 +3882,15 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
-  "It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, and computes the quantized output."
-  "The quantization formula is y = saturate((x / y_scale) + y_zero_point). For (x / y_scale), it is rounding to nearest ties to even."
-  "Refer to https://en.wikipedia.org/wiki/Rounding for details. Scale and zero point must have same shape."
-  "They must be either scalar (per tensor) or 1-D tensor (per row for 'a' and per column for 'b'). If scale and zero point are 1-D tensor,"
-  "the number of elements of scale and zero point tensor of input 'a' and output 'y' should be equal to the number of rows of input 'a',"
-  "and the number of elements of scale and zero point tensor of input 'b' should be equal to the number of columns of input 'b'."
+  "It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, "
+  "and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point). "
+  "For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. "
+  "Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor "
+  "(per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row "
+  "or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be "
+  "an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K] "
+  "for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may "
+  "have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization."
   "Production must never overflow, and accumulation may overflow if and only if in 32 bits."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$a,
@@ -3916,8 +3919,9 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
-  "The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor. The scale factor can be a scalar"
-  "(per-tensor/layer quantization), or a 1-D tensor for per-axis quantization. The quantization formula is y = saturate ((x / y_scale) + y_zero_point)."
+  "The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor."
+  "The scale factor and zero point must have same shape, and can be either a scalar for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization."
+  "The quantization formula is y = saturate ((x / y_scale) + y_zero_point)."
   "For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8."
   "For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type."
   }];
@@ -4628,7 +4632,8 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   "At most one dimension of the new shape can be -1. In this case, the value is"
   "inferred from the size of the tensor and the remaining dimensions. A dimension"
   "could also be 0, in which case the actual dimension value is unchanged (i.e. taken"
-  "from the input tensor)."
+  "from the input tensor). Shape (second input) could be an empty shape, which means converting to a scalar."
+  "The input tensor's shape and the output tensor's shape are required to have the same number of elements."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
     AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$shape);
@@ -5643,9 +5648,8 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   ""
   " Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) "
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which Softmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which Softmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the Softmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
@@ -5836,6 +5840,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
@@ -5894,6 +5899,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -6412,6 +6418,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return {20,4,4,4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
@@ -6573,10 +6580,12 @@ def ONNXWhereOp:ONNX_Op<"Where",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Where operation";
   let description = [{
-  "Return elements, either from X or Y, depending on condition"
-  "    (with Numpy-style broadcasting support)."
-  "    Where behaves like numpy.where with three parameters:"
-  "    https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html"
+  "Return elements, either from X or Y, depending on condition."
+  "Where behaves like"
+  "[numpy.where](https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html)"
+  "with three parameters."
+  ""
+  "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$condition,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X,

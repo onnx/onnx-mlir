@@ -34,7 +34,12 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     auto loc = op->getLoc();
     Value data = operandAdaptor.data();
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     LLVM_DEBUG(llvm::dbgs() << "memRefType: " << memRefType << "\n");
 
     ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, &rewriter,
@@ -46,7 +51,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     // Lower to ReinterpretCastOp so that the data is never copied or modified.
     Value newView = emitMemRefReinterpretCastOp(
-        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput());
+        rewriter, loc, data, shapeHelper.dimsForOutput());
     LLVM_DEBUG(llvm::dbgs() << "newView: " << newView << "\n");
 
     rewriter.replaceOp(op, newView);

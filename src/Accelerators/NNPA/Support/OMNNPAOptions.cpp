@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- OMOptions.cpp ----------------------------===//
+//===--------------------------- OMNNPAOptions.cpp ------------------------===//
 //
 // Copyright 2019-2021 The IBM Research Authors.
 //
