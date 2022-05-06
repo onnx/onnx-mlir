@@ -33,6 +33,7 @@ from onnx.backend.test import BackendTest
 
 import inspect
 from inference_backend import (
+    InferenceBackendTest,
     InferenceBackend,
     get_test_models,
 )
@@ -50,7 +51,7 @@ else:
     test_to_enable = get_test_models()
 
     # Backend Test
-    backend_test = BackendTest(InferenceBackend, __name__)
+    backend_test = InferenceBackendTest(InferenceBackend, __name__)
 
     # Extract name of all test cases.
     all_tests = []
