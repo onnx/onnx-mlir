@@ -38,6 +38,7 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConcatOpPattern (patterns, typeConverter, ctx);
 }
 
 //===-----------------------------------------------------------------===//

@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/Gemm.cpp
   NN/FlattenOp.cpp
   NN/ElementwiseOp.cpp
+  NN/ConcatOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
