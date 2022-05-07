@@ -293,18 +293,18 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
-#ifdef PRODUCT_VERSION
-  int32_t ProductVersion = PRODUCT_VERSION;
+#ifdef PRODUCT_VERSION_MAJOR
+  int32_t ProductVersion = PRODUCT_VERSION_MAJOR;
   llvmModule.addModuleFlag(
       llvm::Module::Warning, "Product Major Version", ProductVersion);
 #endif
-#ifdef PRODUCT_RELEASE
-  int32_t ProductRelease = PRODUCT_RELEASE;
+#ifdef PRODUCT_VERSION_MINOR
+  int32_t ProductRelease = PRODUCT_VERSION_MINOR;
   llvmModule.addModuleFlag(
       llvm::Module::Warning, "Product Minor Version", ProductRelease);
 #endif
-#ifdef PRODUCT_PATCH
-  int32_t ProductPatch = PRODUCT_PATCH;
+#ifdef PRODUCT_VERSION_PATCH
+  int32_t ProductPatch = PRODUCT_VERSION_PATCH;
   llvmModule.addModuleFlag(
       llvm::Module::Warning, "Product Patchlevel", ProductPatch);
 #endif
