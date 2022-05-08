@@ -29,9 +29,11 @@ function(add_numerical_unittest test_name)
     set_property(TARGET ${test_name} PROPERTY FOLDER "${test_suite_folder}")
   endif ()
 
-  # Force -O3 when invoking the numerical tests, so that the models in the test
-  # are compiled with -O3. TODO: make that a runtime env variable.
-  add_test(NAME ${test_name} COMMAND ${test_name} -O3 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
+  add_test(NAME ${test_name}
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
 endfunction()
 
