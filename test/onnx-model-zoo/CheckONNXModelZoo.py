@@ -28,9 +28,9 @@ Note:
 Example:
     $ git clone https://github.com/onnx/models
     $ cd models
-    $ ln -s /onnx_mlir/test/onnx-model/zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
+    $ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
     $ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
-    $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -njobs=8 -mcpu=z14
+    $ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3 -mcpu=z14"
 """
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
