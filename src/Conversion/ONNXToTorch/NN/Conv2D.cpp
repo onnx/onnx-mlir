@@ -237,46 +237,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
           loc, bTy, b);
     }
 
-    llvm::outs() << "\n ResultType : "
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
-    llvm::outs() << "xtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
-    llvm::outs() << "wtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << wtt << "\n"
-                 << "\n";
-    llvm::outs() << "btt : "
-                 << "\n"
-                 << btt << "\n"
-                 << "\n";
-    llvm::outs() << "stridesList:   "
-                 << "\n"
-                 << stridesList << "\n"
-                 << "\n";
-    llvm::outs() << "padsList:   "
-                 << "\n"
-                 << padsList << "\n"
-                 << "\n";
-    llvm::outs() << "dilationList:   "
-                 << "\n"
-                 << dilationList << "\n"
-                 << "\n";
-    llvm::outs() << "f1v:   "
-                 << "\n"
-                 << f1v << "\n"
-                 << "\n";
-
     Value atenconv2d = rewriter.create<AtenConv2dOp>( loc, resultTy, 
 		 xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
-
-    llvm::outs() << "AtenConv2d operation creation "
-                 << "\n"
-                 << atenconv2d << "\n"
-                 << "\n";
 
     Value result = atenconv2d;
 

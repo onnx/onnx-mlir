@@ -116,7 +116,6 @@ public:
     Value atenleakyrelu =
         rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v);
 
-    llvm::outs() << "ATENRELU CREATED is " << atenleakyrelu << "\n";
     Value result = atenleakyrelu;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
@@ -151,13 +150,9 @@ class ONNXToAtenLeakyReluOpTransformPass
     target.addLegalDialect<
         ::mlir::torch::TorchConversion::TorchConversionDialect>();
 
-    llvm::outs() << "ONNXToAtenLeakyReluOpTransformPass Before "
-                 << "\n";
 
     patterns.add<DecomposeONNXToAtenLeakyReluOp>(context);
 
-    llvm::outs() << "ONNXToAtenLeakyReluOpTransformPass After "
-                 << "\n";
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

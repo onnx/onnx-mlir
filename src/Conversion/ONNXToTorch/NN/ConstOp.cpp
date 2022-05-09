@@ -98,12 +98,6 @@ public:
     // 4) Create the torch tensor of shape as in 2,
     // 5) Create the torch op and replace it.
 
-    llvm::outs() << "CONSTFLOATOP operation creation value_attr type: "
-                 << value_attr.getType() << "\n"
-                 << "\n";
-    llvm::outs() << "CONSTFLOATOP array tensor type 1: " << value_attr << "\n"
-                 << "\n";
-
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     ::mlir::Attribute value_attr_finalized;
     Type element_type;
@@ -171,29 +165,13 @@ public:
     auto resultTy = Torch::ValueTensorType::get(
         op1.getContext(), op_tensor_type.getShape(), element_type);
 
-    llvm::outs() << "CONSTFLOATOP operation creation: result type "
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
-
     Value literal = rewriter.create<Torch::ValueTensorLiteralOp>(
         loc, resultTy, value_attr_finalized);
 
-    llvm::outs() << "ValueTensorLiteralOp operation creation"
-                 << "\n"
-                 << literal << "\n"
-                 << "\n";
-
     Value result = literal;
-
-    llvm::outs() << "Before Writer replace Op"
-                 << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
-
-    llvm::outs() << "After Writer replace Op"
-                 << "\n";
 
     return success();
   }

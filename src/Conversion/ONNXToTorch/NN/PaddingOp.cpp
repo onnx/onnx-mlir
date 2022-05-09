@@ -117,19 +117,6 @@ public:
     auto pads = op1.pads();                   // ONNX operands
     Value const_value = op1.constant_value(); // ONNX operands
 
-    llvm::outs() << "pads type"
-                 << "\n"
-                 << pads.getType() << "\n"
-                 << "\n";
-    llvm::outs() << "pads data "
-                 << "\n"
-                 << pads << "\n"
-                 << "\n";
-    llvm::outs() << "constant_value "
-                 << "\n"
-                 << const_value << "\n"
-                 << "\n";
-
     DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
@@ -187,15 +174,6 @@ public:
 
     TensorType data_tensor_type = data.getType().cast<TensorType>();
 
-    llvm::outs() << "data type "
-                 << "\n"
-                 << data_tensor_type.getElementType() << "\n"
-                 << "\n";
-    llvm::outs() << "data "
-                 << "\n"
-                 << data << "\n"
-                 << "\n";
-
     auto dataTy = Torch::ValueTensorType::get(context,
         data_tensor_type.getShape(), data_tensor_type.getElementType());
 
@@ -213,29 +191,12 @@ public:
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatepadsList});
 
-    for (auto p : padsList1.elements()) {
-      llvm::outs() << " padding list element: "
-                   << "\n"
-                   << p << "\n"
-                   << "\n";
-    }
-
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
         op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    llvm::outs() << "pads list:  "
-                 << "\n"
-                 << padsList1 << "\n"
-                 << "\n";
-
     Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(
         loc, resultTy, dtt, padsList1, ctt);
-
-    llvm::outs() << "AtenConstantPadNdOp operation creation"
-                 << "\n"
-                 << atenconstantpad << "\n"
-                 << "\n";
 
     Value result = atenconstantpad;
 

@@ -187,42 +187,8 @@ public:
     auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, xTy, x);
 
-    llvm::outs() << "\n resultTy:"
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
-    llvm::outs() << "xtt torch tensor from MLIR tensor:"
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
-    llvm::outs() << "kernalShapeList:"
-                 << "\n"
-                 << kernalShapeList << "\n"
-                 << "\n";
-    llvm::outs() << "stridesList:"
-                 << "\n"
-                 << stridesList << "\n"
-                 << "\n";
-    llvm::outs() << "padsList:"
-                 << "\n"
-                 << padsList << "\n"
-                 << "\n";
-    llvm::outs() << "dilationList:"
-                 << "\n"
-                 << dilationList << "\n"
-                 << "\n";
-    llvm::outs() << "ceiling_mode_val:"
-                 << "\n"
-                 << ceiling_mode_val << "\n"
-                 << "\n";
-
     Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, resultTy, xtt,
         kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
-
-    llvm::outs() << "AtenMaxPool2dOp operation creation"
-                 << "\n"
-                 << atenmaxpool2d << "\n"
-                 << "\n";
 
     Value result = atenmaxpool2d;
 

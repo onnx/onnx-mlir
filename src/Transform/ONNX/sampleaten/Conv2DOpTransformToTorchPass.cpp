@@ -123,21 +123,6 @@ public:
     auto bs = strides.begin();
     auto es = strides.end();
 
-    llvm::outs() << "SIZES OF THE STRIDESLIST: " << strides.size() << "\n"
-                 << "\n";
-
-    for (bs; bs != es; ++bs) {
-      Attribute a = *bs;
-
-      llvm::outs() << "STRIDES ITERATOR \t" << *bs << "\n"
-                   << "\n";
-      llvm::outs() << "STRIDES Attribute \t" << a.getType() << "\n"
-                   << "\n";
-      llvm::outs() << "STRIDES Attribute value \t"
-                   << a.cast<IntegerAttr>().getInt() << "\n"
-                   << "\n";
-    }
-
     auto groupValue = group.getAPSInt();
     auto sta = mlir::ArrayAttr::get(context, strides);
 
@@ -203,14 +188,6 @@ public:
           loc, bTy, b);
     }
 
-    llvm::outs() << "xtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
-    llvm::outs() << "wtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << wtt << "\n"
-                 << "\n";
 
     // auto t = Torch::ValueTensorType::get(context, optionalSizesArrayRef,
     // x1.getType());
@@ -218,23 +195,15 @@ public:
     Value atenconv2d = rewriter.create<AtenConv2dOp>(
         loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
-    llvm::outs() << "AtenConv2d operation creation"
-                 << "\n"
-                 << atenconv2d << "\n"
-                 << "\n";
 
     Value result = atenconv2d;
 
-    llvm::outs() << "Before Writer replace Op "
-                 << "\n";
 
     // rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op.getType(),
     // result);
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
 
-    llvm::outs() << "After Writer replace Op "
-                 << "\n";
 
     return success();
   }
@@ -261,14 +230,9 @@ class ONNXToAtenConv2DOpTransformPass
     target.addLegalDialect<::mlir::torch::Torch::TorchDialect>();
     target.addLegalDialect<
         ::mlir::torch::TorchConversion::TorchConversionDialect>();
-
-    llvm::outs() << "ONNXToAtenConv2DOpTransformPass Before OpTransform "
-                 << "\n";
     patterns.add<DecomposeONNXToAtenConv2DOp>(context);
 
     // target.addIllegalOp<ONNXConvOp>();
-    llvm::outs() << "ONNXToAtenConv2DOpTransformPass `After OpTransform "
-                 << "\n";
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

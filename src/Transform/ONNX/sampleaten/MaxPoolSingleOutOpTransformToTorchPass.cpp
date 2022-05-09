@@ -202,29 +202,16 @@ public:
     auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, xTy, x);
 
-    llvm::outs() << "xtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
 
     Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, resultTy, xtt,
         kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
 
-    llvm::outs() << "AtenMaxPool2dOp operation creation"
-                 << "\n"
-                 << atenmaxpool2d << "\n"
-                 << "\n";
 
     Value result = atenmaxpool2d;
 
-    llvm::outs() << "Before Writer replace Op "
-                 << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
-
-    llvm::outs() << "After Writer replace Op "
-                 << "\n";
 
     return success();
   }
@@ -256,12 +243,7 @@ class ONNXToAtenMaxPool2dOpTransformPass
     target.addLegalDialect<
         ::mlir::torch::TorchConversion::TorchConversionDialect>();
 
-    llvm::outs() << "ONNXToAtenMaxPool2dOpTransformPass Before OpTransform "
-                 << "\n";
     patterns.add<DecomposeONNXToAtenMaxPool2DOp>(context);
-
-    llvm::outs() << "ONNXToAtenMaxPool2dOpTransformPass After OpTransform "
-                 << "\n";
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

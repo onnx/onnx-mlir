@@ -109,14 +109,6 @@ public:
     auto pads = op.pads();                   // ONNX operands
     Value const_value = op.constant_value(); // ONNX operands
 
-    llvm::outs() << "pads type"
-                 << "\n"
-                 << pads.getType() << "\n"
-                 << "\n";
-    llvm::outs() << "pads data "
-                 << "\n"
-                 << pads << "\n"
-                 << "\n";
 
     // mode being constant
     // auto mode = op.modeAttr(); 				//
@@ -144,15 +136,6 @@ public:
     TensorType data_tensor_type = data.getType().cast<TensorType>();
     TensorType const_val_tensor_type = const_value.getType().cast<TensorType>();
 
-    llvm::outs() << "data type "
-                 << "\n"
-                 << data_tensor_type.getElementType() << "\n"
-                 << "\n";
-    llvm::outs() << "data "
-                 << "\n"
-                 << data << "\n"
-                 << "\n";
-
     auto dataTy = Torch::ValueTensorType::get(context,
         data_tensor_type.getShape(), data_tensor_type.getElementType());
     auto constValTy =
@@ -171,12 +154,6 @@ public:
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{f0v, f0v, f0v, f1v, f0v, f2v, f0v, f3v});
 
-    for (auto p : padsList1.elements()) {
-      llvm::outs() << " padding list element: "
-                   << "\n"
-                   << p << "\n"
-                   << "\n";
-    }
 
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op.getContext(),
@@ -185,20 +162,12 @@ public:
     Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(
         loc, resultTy, dtt, padsList1, ctt);
 
-    llvm::outs() << "AtenConstantPadNdOp operation creation"
-                 << "\n"
-                 << atenconstantpad << "\n"
-                 << "\n";
-
     Value result = atenconstantpad;
 
-    llvm::outs() << "Before Writer replace Op " << atenconstantpad << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
 
-    llvm::outs() << "After Writer replace Op "
-                 << "\n";
 
     return success();
   }
@@ -229,12 +198,7 @@ class ONNXToAtenConstantPadNdOpTransformPass
     target.addLegalDialect<Torch::TorchDialect>();
     target.addLegalDialect<::mlir::torch::Torch::TorchDialect>();
 
-    llvm::outs() << "ONNXToAtenConstantPadNdOpTransformPass Before OpTransform "
-                 << "\n";
     patterns.add<ApplyONNXPaddingToAtenConstantPadNdOp>(context);
-
-    llvm::outs() << "ONNXToAtenConstantPadNdOpTransformPass After OpTransform "
-                 << "\n";
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

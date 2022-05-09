@@ -88,8 +88,6 @@ public:
     auto value_attr = op.valueAttr();                // ::mlir::Attribute
     bool v00 = value_attr.isa<::mlir::FloatAttr>();
 
-    llvm::outs() << "is value_attr of type floatattr :" << v00 << "\n"
-                 << "\n";
     auto val = adapter.value();
     ::mlir::FloatAttr va = adapter.value_floatAttr();
 
@@ -106,40 +104,10 @@ public:
     //type, 	4) Create the torch tensor of shape as in 2, 	5) Create the torch op
     //and replace it.
 
-    llvm::outs() << "sparese_value_attr:" << sparese_value_attr << "\n"
-                 << "\n";
-    llvm::outs() << "value_attr :" << value_attr << "\n"
-                 << "\n";
-    llvm::outs() << "va  :" << va << "\n"
-                 << "\n";
-    llvm::outs() << "value_flt_attr  :" << value_flt_attr << "\n"
-                 << "\n";
-    llvm::outs() << "value_flts_attr_array  :" << value_flts_attr_array << "\n"
-                 << "\n";
-    llvm::outs() << "value_int_attr :" << value_int_attr << "\n"
-                 << "\n";
-    llvm::outs() << "value_ints_attr_array :" << value_ints_attr_array << "\n"
-                 << "\n";
-    llvm::outs() << "value_str_attr :" << value_str_attr << "\n"
-                 << "\n";
-    llvm::outs() << "value_strs_attr_array :" << value_strs_attr_array << "\n"
-                 << "\n";
-
-    llvm::outs() << "CONSTFLOATOP operation creation value_attr type: "
-                 << value_attr.getType() << "\n"
-                 << "\n";
-    llvm::outs() << "CONSTFLOATOP array tensor type 1: " << value_attr << "\n"
-                 << "\n";
-
     TensorType flt_array_tensor_type = value_attr.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op.getContext(),
         op_tensor_type.getShape(), op_tensor_type.getElementType());
-
-    llvm::outs() << "CONSTFLOATOP operation creation: result type "
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
 
     auto one = 1;
     auto three = 3;
@@ -153,28 +121,14 @@ public:
         Torch::ValueTensorType::get(context, flt_array_tensor_type.getShape(),
             flt_array_tensor_type.getElementType());
 
-    llvm::outs() << "XTY IS HERE "
-                 << "\n"
-                 << xTy << "\n";
-
     Value literal =
         rewriter.create<Torch::ValueTensorLiteralOp>(loc, resultTy, value_attr);
 
-    llvm::outs() << "ValueTensorLiteralOp operation creation"
-                 << "\n"
-                 << literal << "\n"
-                 << "\n";
 
     Value result = literal;
 
-    llvm::outs() << "Before Writer replace Op "
-                 << "\n";
-
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
-
-    llvm::outs() << "After Writer replace Op "
-                 << "\n";
 
     return success();
   }
@@ -205,12 +159,8 @@ class ONNXToAtenConstantOpTransformPass
     target.addLegalDialect<
         ::mlir::torch::TorchConversion::TorchConversionDialect>();
 
-    llvm::outs() << "ONNXToAtenConstantOpTransformPass Before OpTransform "
-                 << "\n";
     patterns.add<DecomposeONNXToConstOp>(context);
 
-    llvm::outs() << "ONNXToAtenConstantOpTransformPass After OpTransform "
-                 << "\n";
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {
