@@ -325,6 +325,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Identity value of the operation.
     auto identity = getIdentityValue<PoolOp>(rewriter, loc, outputElementType);
+    // Create a local reduction value for output[n][c][ho][wo].
+    // Single scalar, no need for default alignment.
+    Value reductionVal =
+        create.mem.alloca(MemRefType::get({}, memRefType.getElementType()));
 
     // 1. Define output loops to compute one output pixel.
     // for n in range(N):
@@ -346,10 +350,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
 
           // 2.1 Emit: output[n][c][ho][wo] = identity
-          // Create a local reduction value for output[n][c][ho][wo].
-          // Single scalar, no need for default alignment.
-          Value reductionVal = create.mem.alloca(
-              MemRefType::get({}, memRefType.getElementType()));
           createKrnl.store(identity, reductionVal);
 
           // 2.2 Emit affine maps which express the lower and upper bounds for
@@ -429,8 +429,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           //      output[n][c][ho][wo] =
           //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi,
           //        wi]);
-          krnl::BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
-          poolingLoops.createDefineOp();
+          std::vector<Value> poolingLoops;
+          defineLoops(rewriter, loc, poolingLoops, kernelShapeSize);
+          krnl::KrnlIterateOperandPack pack(rewriter, poolingLoops);
+
           // Push bounds.
           AffineMap windowSizeMap =
               getWindowAffineMap(rewriter, ceilMode, isDilated);
@@ -439,13 +441,17 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             SmallVector<Value, 4> operands;
             for (IndexExpr expr : IVExprs[i])
               operands.emplace_back(expr.getValue());
-            poolingLoops.pushBounds(0, windowSizeMap, operands);
+            pack.pushConstantBound(0);
+            pack.pushAffineMapBound(windowSizeMap, operands);
           }
-          // Create a krnl iterate.
-          poolingLoops.createIterateOp();
-
+          KrnlIterateOp iterateOp = createKrnl.iterate(pack);
           auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-          rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
+          Block &iterationBlock = iterateOp.bodyRegion().front();
+          rewriter.setInsertionPointToStart(&iterationBlock);
+          SmallVector<Value, 4> poolingLoopInd(
+              iterationBlock.getArguments().begin(),
+              iterationBlock.getArguments().end());
+
           {
             // 2.4 Emit the body of the pooling loop nest.
             // Prepare indices to access a pixel in the input.
@@ -455,7 +461,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
                 inputIndices.emplace_back(outputIndices[i]);
               for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
                 int j = i - kernelOffset;
-                DimIndexExpr hp(poolingLoops.getInductionVar(j));
+                DimIndexExpr hp(poolingLoopInd[j]);
                 IndexExpr startH = windowStartExprs[j];
                 if (isDilated) {
                   // hi = hp * dH + startH

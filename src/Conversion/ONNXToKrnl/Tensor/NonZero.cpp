@@ -177,6 +177,8 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     //   out[0][i] = p
     // ```
 
+    Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
+    Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
         [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
@@ -187,8 +189,6 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
             Value axisVal = create.math.constantIndex(axis);
             MemRefBoundsIndexCapture rsumBounds(rsumMemRefs[axis]);
 
-            Value pos = create.mem.alloca(MemRefType::get({}, indexTy));
-            Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
             create.krnl.store(iMinusOne, pos, {});
             create.krnl.store(iZero, sum, {});
 

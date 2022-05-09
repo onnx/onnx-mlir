@@ -61,15 +61,19 @@ struct ONNXScanOpLowering : public ConversionPattern {
     Value maxTripCount = createMemRef.dim(*inputOperands.begin(), 0);
 
     // Create the scan iteration.
-    krnl::BuildKrnlLoop loop(rewriter, loc, 1);
-    loop.createDefineOp();
-    loop.pushBounds(0, maxTripCount);
-    loop.createIterateOp();
-    rewriter.setInsertionPointToStart(loop.getIterateBlock());
+    std::vector<Value> loop;
+    defineLoops(rewriter, loc, loop, 1);
+    krnl::KrnlIterateOperandPack pack(rewriter, loop);
+    pack.pushConstantBound(0);
+    pack.pushOperandBound(maxTripCount);
+    KrnlBuilder createKrnl(rewriter, loc);
+    KrnlIterateOp iterateOp = createKrnl.iterate(pack);
+    Block &iterationBlock = iterateOp.bodyRegion().front();
+    rewriter.setInsertionPointToStart(&iterationBlock);
 
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
-      Value iv = loop.getInductionVar(0);
+      Value iv = *iterationBlock.getArguments().begin();
 
       // Initialize scan body function parameter to be all the
       // loop-carried dependencies.
@@ -103,7 +107,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      Block *loopBodyBlock = loop.getIterateBlock();
+      Block *loopBodyBlock = &iterationBlock;
       Region &loopBodyRegion = *loopBodyBlock->getParent();
 
       // Split the insertion block into two, where the second block

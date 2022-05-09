@@ -109,6 +109,8 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   Value ss = ssIE.getValue();
   Value zero = create.math.constantIndex(0);
   Value one = create.math.constantIndex(1);
+  // Store the number of scores whose value is greater than the threshold.
+  Value topk = create.mem.alloca(MemRefType::get({}, indexType));
 
   // Compute the effective max output per class.
   Value effectiveMaxPerClass =
@@ -122,9 +124,8 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
             createKrnl);
         Value b(bcLoopInd[0]), c(bcLoopInd[1]);
 
-        // Store the number of scores whose value is greater than the
+        // Reset the number of scores whose value is greater than the
         // threshold. Counting is done per class.
-        Value topk = create.mem.alloca(MemRefType::get({}, indexType));
         create.krnl.store(zero, topk, {});
 
         // Count the number of scores whose value is greater than the
@@ -320,14 +321,14 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Suppress by using IOU.
     // Iterate over all bounding boxes in the descending order of scores.
+    Value effectiveMaxOutputPerClass =
+        create.mem.alloca(MemRefType::get({}, indexType));
     ValueRange bcLoopDef = create.krnl.defineLoops(2);
     create.krnl.iterate(bcLoopDef, bcLoopDef, {zero, zero}, {bs, cs},
         [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
               createKrnl);
           // Keep trace of the number of output boxes per class.
-          Value effectiveMaxOutputPerClass =
-              create.mem.alloca(MemRefType::get({}, indexType));
           create.krnl.store(zero, effectiveMaxOutputPerClass, {});
           // Keep trace of removed indices per class.
           DimIndexExpr ssIE(ss);
