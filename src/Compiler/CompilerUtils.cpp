@@ -743,16 +743,18 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
 
   // Set the module target accelerators.
   if (!maccel.empty()) {
-    SmallVector<Attribute, 1> accels;
+    SmallVector<Attribute, 1> activeAccels;
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       if (!accel->isActive() || !llvm::is_contained(maccel, accel->getKind()))
         continue;
       std::ostringstream versionNumber;
       versionNumber << std::hex << accel->getVersionNumber();
       std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-      accels.emplace_back(StringAttr::get(&context, accelStr));
+      activeAccels.emplace_back(StringAttr::get(&context, accelStr));
     }
-    moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accels));
+    if (!activeAccels.empty())
+      moduleOp.setAttr(
+          "onnx-mlir.accels", ArrayAttr::get(&context, activeAccels));
   }
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
@@ -784,14 +786,17 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  bool hasActiveAccel = false;
   if (!maccel.empty()) {
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       if (!accel->isActive())
         continue;
+      hasActiveAccel = true;
       accel->getOrLoadDialects(context);
       accel->addPasses(module, pm, emissionTarget);
     }
-  } else
+  }
+  if (!hasActiveAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
