@@ -4,7 +4,7 @@
 
 ## Build
 
-The following CMake variable is required to build onnx-mlir for NNPA.
+The following CMake option is required to build onnx-mlir for NNPA. Add this option in [build command](https://github.com/onnx/onnx-mlir/blob/main/docs/BuildOnLinuxOSX.md/#build)
 
 - `-DONNX_MLIR_ACCELERATORS=NNPA`
 
@@ -14,7 +14,7 @@ Lit tests and numerical tests are provided for NNPA.
 
 - Lit tests
 
-When building onnx-mlir for NNPA, lit tests for NNPA also run with the command for CPU. The lit tests for NNPA are included in `test/mlir/accelerators/nnpa`.
+The lit tests for NNPA are included in `test/mlir/accelerators/nnpa`. When building onnx-mlir for NNPA, these lit tests also run with the following same command with CPU.
 
 ```
 cmake --build . --target check-onnx-lit
