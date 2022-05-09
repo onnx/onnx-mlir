@@ -25,5 +25,12 @@ const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
   return acceleratorTargets;
 }
 
+void Accelerator::getActiveAccelerators(
+    llvm::SmallVectorImpl<Accelerator *> &targets) {
+  for (Accelerator *accel : acceleratorTargets)
+    if (accel->isActive())
+      targets.emplace_back(accel);
+}
+
 } // namespace accel
 } // namespace onnx_mlir

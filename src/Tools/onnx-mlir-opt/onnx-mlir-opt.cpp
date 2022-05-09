@@ -97,11 +97,12 @@ int main(int argc, char **argv) {
 
   // Initialize accelerators if they exist.
   onnx_mlir::accel::initAccelerators();
+  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
+  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
 
   // Register dialects for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    if (accel->isActive())
-      accel->registerDialects(registry);
+  for (auto *accel : activeAccels)
+    accel->registerDialects(registry);
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -118,9 +119,8 @@ int main(int argc, char **argv) {
   onnx_mlir::initMLIRPasses();
 
   // Initialize passes for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    if (accel->isActive())
-      accel->initPasses(OptimizationLevel);
+  for (auto *accel : activeAccels)
+    accel->initPasses(OptimizationLevel);
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

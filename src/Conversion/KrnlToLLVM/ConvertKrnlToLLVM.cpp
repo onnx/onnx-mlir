@@ -520,12 +520,13 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
+  // Get active accelerators if any.
+  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
+  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
+
   // Conversion target for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : activeAccels)
     accel->conversionTargetKrnlToLLVM(target);
-  }
 
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(ctx, options);
@@ -556,11 +557,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       /*singleEntryPoint=*/entryPointNames.size() == 1);
 
   // Rewrite patterns for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : activeAccels)
     accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);
-  }
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

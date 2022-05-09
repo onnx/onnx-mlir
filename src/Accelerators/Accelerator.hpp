@@ -28,14 +28,15 @@
 // generated file Accelerators.inc).
 #define CREATE_ACCEL_ENUM(name) name,
 #define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
-#define INVOKE_ACCEL_INIT_FUNCTION(name) create##name()->setName(#name);
+#define INVOKE_ACCEL_INIT_FUNCTION(name, kinds)                                \
+  if (kinds.empty() ||                                                         \
+      llvm::is_contained(kinds, accel::Accelerator::Kind::name))               \
+    create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
 
 namespace onnx_mlir {
 namespace accel {
-
-extern void initAccelerators();
 
 class Accelerator {
 public:
@@ -55,6 +56,10 @@ public:
 
   /// Returns the set of accelerators available.
   static const llvm::SmallVectorImpl<Accelerator *> &getAccelerators();
+
+  /// Obtains the set of active accelerators.
+  static void getActiveAccelerators(
+      llvm::SmallVectorImpl<Accelerator *> &targets);
 
   /// Getter for the name of this accelerator.
   std::string getName() { return name; }
@@ -131,6 +136,8 @@ private:
   /// Name of accelerator.
   std::string name = "";
 };
+
+extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds = {});
 
 } // namespace accel
 } // namespace onnx_mlir

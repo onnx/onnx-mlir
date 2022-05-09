@@ -243,12 +243,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
   }
 
+  // Get active accelerators if any.
+  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
+  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
+
   // Conversion target for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : activeAccels)
     accel->conversionTargetONNXToKrnl(target);
-  }
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
@@ -277,11 +278,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // Rewrite patterns for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : activeAccels)
     accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
-  }
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

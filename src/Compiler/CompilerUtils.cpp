@@ -742,19 +742,18 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getDataLayout(loc)));
 
   // Set the module target accelerators.
-  if (!maccel.empty()) {
-    SmallVector<Attribute, 1> activeAccels;
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive() || !llvm::is_contained(maccel, accel->getKind()))
-        continue;
+  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
+  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
+  if (!activeAccels.empty()) {
+    SmallVector<Attribute, 2> activeAccelsAttr;
+    for (auto *accel : activeAccels) {
       std::ostringstream versionNumber;
       versionNumber << std::hex << accel->getVersionNumber();
       std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-      activeAccels.emplace_back(StringAttr::get(&context, accelStr));
+      activeAccelsAttr.emplace_back(StringAttr::get(&context, accelStr));
     }
-    if (!activeAccels.empty())
-      moduleOp.setAttr(
-          "onnx-mlir.accels", ArrayAttr::get(&context, activeAccels));
+    moduleOp.setAttr(
+        "onnx-mlir.accels", ArrayAttr::get(&context, activeAccelsAttr));
   }
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
@@ -780,23 +779,21 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
   // Initialize accelerator(s) if required.
-  if (!maccel.empty())
-    onnx_mlir::accel::initAccelerators();
+  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
+  if (!maccel.empty()) {
+    onnx_mlir::accel::initAccelerators(maccel);
+    onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
+  }
 
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  bool hasActiveAccel = false;
-  if (!maccel.empty()) {
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
-      hasActiveAccel = true;
+  if (!activeAccels.empty())
+    for (auto *accel : activeAccels) {
       accel->getOrLoadDialects(context);
       accel->addPasses(module, pm, emissionTarget);
     }
-  }
-  if (!hasActiveAccel)
+  else
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
