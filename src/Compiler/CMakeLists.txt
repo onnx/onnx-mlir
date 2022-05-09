@@ -68,32 +68,44 @@ add_onnx_mlir_library(CompilerPasses
 if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
 endif()
-if (DEFINED PRODUCT_VERSION_MAJOR)
-  if (NOT DEFINED PRODUCT_ID)
-    message(FATAL_ERROR "PRODUCT_ID must be defined with PRODUCT_VERSION_MAJOR")
+
+# PRODUCT_VERSION is specified/cached.
+if (PRODUCT_VERSION)
+  string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"
+	  VERSION_MATCH ${PRODUCT_VERSION})
+
+  # For a version string 1.2.3-foo,
+  # CMAKE_MATCH_1 = 1
+  # CMAKE_MATCH_3 = 2
+  # CMAKE_MATCH_5 = 3
+  # CMAKE_MATCH_7 = foo
+  set(PRODUCT_VERSION_MAJOR ${CMAKE_MATCH_1})
+  set(PRODUCT_VERSION_MINOR ${CMAKE_MATCH_3})
+  set(PRODUCT_VERSION_PATCH ${CMAKE_MATCH_5})
+  set(PRODUCT_ID ${CMAKE_MATCH_7})
+
+  message(DEBUG "PRODUCT_VERSION_MAJOR = ${PRODUCT_VERSION_MAJOR}")
+  message(DEBUG "PRODUCT_VERSION_MINOR = ${PRODUCT_VERSION_MINOR}")
+  message(DEBUG "PRODUCT_VERSION_PATCH = ${PRODUCT_VERSION_PATCH}")
+  message(DEBUG "PRODUCT_ID = ${PRODUCT_ID}")
+
+  # Major and product ID are mandatory, minor and patch are optional.
+  # Major must be greater than zero.
+  # When not specified, minor and patch are empty.
+  if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "")
+	  OR ("${PRODUCT_ID}" STREQUAL "")
+	  OR (PRODUCT_VERSION_MAJOR LESS_EQUAL 0))
+    message(STATUS "Product version          : Invalid version ${PRODUCT_VERSION} ignored")
+    unset(PRODUCT_VERSION CACHE)
+  else()
+    message(STATUS "Product version          : ${PRODUCT_VERSION}")
+    list(APPEND DEFINITIONS "PRODUCT_VERSION_MAJOR=${PRODUCT_VERSION_MAJOR}")
+    list(APPEND DEFINITIONS "PRODUCT_VERSION_MINOR=${PRODUCT_VERSION_MINOR}")
+    list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
+    list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
   endif()
-  if (PRODUCT_VERSION_MAJOR LESS_EQUAL 0)
-    message(FATAL_ERROR "PRODUCT_VERSION_MAJOR must be greater than zero")
-  endif()
-  list(APPEND DEFINITIONS "PRODUCT_VERSION_MAJOR=${PRODUCT_VERSION_MAJOR}")
-endif()
-if (DEFINED PRODUCT_VERSION_MINOR)
-  if (NOT DEFINED PRODUCT_VERSION_MAJOR)
-    message(FATAL_ERROR "PRODUCT_VERSION_MAJOR must be defined with PRODUCT_VERSION_MINOR")
-  endif()
-  list(APPEND DEFINITIONS "PRODUCT_VERSION_MINOR=${PRODUCT_VERSION_MINOR}")
-endif()
-if (DEFINED PRODUCT_VERSION_PATCH)
-  if (NOT DEFINED PRODUCT_VERSION_MINOR)
-    message(FATAL_ERROR "PRODUCT_VERSION_MINOR must be defined with PRODUCT_VERSION_PATCH")
-  endif()
-  list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
-endif()
-if (PRODUCT_ID)
-  if (NOT DEFINED PRODUCT_VERSION_MAJOR)
-    message(FATAL_ERROR "PRODUCT_VERSION_MAJOR must be defined with PRODUCT_ID")
-  endif()
-  list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
+else()
+  message(STATUS "Product version          : not set")
 endif()
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
