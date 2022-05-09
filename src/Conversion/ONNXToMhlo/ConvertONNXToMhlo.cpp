@@ -13,33 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
-#include "src/Accelerators/Accelerator.hpp"
-
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/TypeSwitch.h"
-
-#include "src/Dialect/Mlir/IndexExpr.hpp"
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
+#include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 
 using namespace mlir;
 
@@ -47,6 +23,7 @@ namespace onnx_mlir {
 
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
+  populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//
