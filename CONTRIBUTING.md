@@ -19,6 +19,7 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 * To test new code, see [here](docs/Testing.md) for instructions.
 * A guide on how to do constant propagation for ONNX operations is found
   [here](docs/ConstPropagationPass.md).
+* To build and test for specialized accelerator, see [here](docs/AccelNNPAHowToUseAndTest.md)
 
 ## ONNX-MLIR specific dialects
 
