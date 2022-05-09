@@ -2,6 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//=========-- TestGRU-NNPA.cpp - Test configurations for GRU Models -=========//
+//
+// Copyright 2019-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains configurations for testing GRU models on NNPA.
+// This file is based on test/numerical/TestGRU.cpp, but includes NNPA-specific
+// configurations. For example, bidirectional GRU is not included because it is
+// not supported in onnx-mlir. LinierBeforeReset is disabled because the zDNN
+// library used in NNPA does not support it.
+//
+//===----------------------------------------------------------------------===//
+
 #include <rapidcheck.h>
 
 #include "llvm/Support/FileSystem.h"

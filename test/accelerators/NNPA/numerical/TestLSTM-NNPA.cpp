@@ -2,6 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//========-- TestLSTM-NNPA.cpp - Test configurations for LSTM Models -========//
+//
+// Copyright 2019-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains configurations for testing LSTM models on NNPA.
+// This file is based on test/numerical/TestLSTM.cpp, but includes NNPA-specific
+// configurations. For example, bidirectional LSTM is not included because it is
+// not supported in onnx-mlir. the weight tensor for peepholes is specified
+// because the zDNN library used in NNPA does not support it.
+//
+//===----------------------------------------------------------------------===//
+
 #include <rapidcheck.h>
 
 #include "llvm/Support/FileSystem.h"
