@@ -160,14 +160,20 @@ bool areProducedByTransposeOp(ValueRange values) {
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 /// Register optimization patterns as "canonicalization" patterns
-/// on the ONNXMatMultOp.
+/// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeAddPattern>(context);
   results.insert<MulAddToGemmOptPattern>(context);
   results.insert<FuseGemmFollowedByAddition>(context);
-  // results.insert<FuseAddConvPattern>(context);
-  //  results.insert<FuseAddConvNullBiasPattern>(context);
+  results.insert<FuseAddConvPattern>(context);
+  results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+/// on the ONNXMulOp.
+void ONNXMulOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeAddPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
 }
 
