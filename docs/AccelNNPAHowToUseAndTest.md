@@ -2,15 +2,15 @@
 
 # Build and test for Accelerator NNPA
 
+Neural Network Processing Assist Facility (NNPA) is implemented on processor units of IBM z16. Onnx-mlir uses [IBM Z Deep Neural Network Library (zDNN)](https://github.com/IBM/zDNN) to use it. Building and lit tests runs on other IBM Z systems(eg. z15), but numerical tests need to run on z16.
+
 ## Build
 
-The following CMake option is required to build onnx-mlir for NNPA. Add this option in [build command](https://github.com/onnx/onnx-mlir/blob/main/docs/BuildOnLinuxOSX.md/#build)
+Add following CMake option to build onnx-mlir for NNPA. Regarding build command for Linux OS, see [here](https://github.com/onnx/onnx-mlir/blob/main/docs/BuildOnLinuxOSX.md/#build)
 
 - `-DONNX_MLIR_ACCELERATORS=NNPA`
 
 ## Test
-
-Lit tests and numerical tests are provided for NNPA.
 
 - Lit tests
 
@@ -22,7 +22,7 @@ cmake --build . --target check-onnx-lit
 
 - Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerator/NNPA/numrical`. Currently tests for MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. For MatMul2D and Gemm, the same test code with CPU is used. For LSTM and GRU, different parameter configurations are provided for NNPA-specific tests. In these tests, appropriate ATOL and RTOL are used to pass the tests.
+Numerical tests for NNPA are provided in `test/accelerator/NNPA/numerical`. Currently tests for MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. For MatMul2D and Gemm, the same test code with CPU is used. For LSTM and GRU, different parameter configurations are provided for NNPA-specific tests. In these tests, appropriate ATOL and RTOL are used to pass the tests.
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
