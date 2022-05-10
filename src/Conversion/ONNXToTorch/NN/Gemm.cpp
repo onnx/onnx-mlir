@@ -78,6 +78,13 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return rewriter.create<ConstantIntOp>(loc, iVal);
   }
 
+  Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
+      mlir::MLIRContext *context, Location loc) const {
+    auto operandType = toTorchType(context, operand.getType());
+    return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, operandType, operand);
+  }
+
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
@@ -90,10 +97,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto loc = gemmOp.getLoc();
     mlir::MLIRContext *context = gemmOp.getContext();
 
-    Value a = gemmOp.A(); // ONNX operands
-    Value b = gemmOp.B(); // ONNX operands
-    Value c = gemmOp.C(); // ONNX operands
-
     auto alpha = gemmOp.alphaAttr();   // ::mlir::FloatAttr
     auto beta = gemmOp.betaAttr();     // ::mlir::FloatAttr
     auto transA = gemmOp.transAAttr(); // ::mlir::IntegerAttr
@@ -102,16 +105,9 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     Value f0v = getIntValue(0, rewriter, context, loc);
     Value f1v = getIntValue(1, rewriter, context, loc);
 
-    auto aType = toTorchType(context, a.getType());
-    auto bType = toTorchType(context, b.getType());
-    auto cType = toTorchType(context, c.getType());
-
-    auto aTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, aType, a);
-    auto bTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, bType, b);
-    auto cTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, cType, c);
+    auto aTensor = getTorchTensor(gemmOp.A(), rewriter, context, loc);
+    auto bTensor = getTorchTensor(gemmOp.B(), rewriter, context, loc);
+    auto cTensor = getTorchTensor(gemmOp.C(), rewriter, context, loc);
 
     Value alpha3v = getFloatValue(alpha, rewriter, loc);
     Value beta3v = getFloatValue(beta, rewriter, loc);
