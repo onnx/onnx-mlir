@@ -69,10 +69,10 @@ if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
 endif()
 
-# PRODUCT_VERSION is specified/cached.
-if (PRODUCT_VERSION)
+# ONNX_MLIR_PRODUCT_VERSION is specified/cached.
+if (ONNX_MLIR_PRODUCT_VERSION)
   string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"
-	  VERSION_MATCH ${PRODUCT_VERSION})
+	  VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
 
   # For a version string 1.2.3-foo,
   # CMAKE_MATCH_1 = 1
@@ -93,12 +93,12 @@ if (PRODUCT_VERSION)
   # Major must be greater than zero.
   # When not specified, minor and patch are empty.
   if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "")
-	  OR ("${PRODUCT_ID}" STREQUAL "")
-	  OR (PRODUCT_VERSION_MAJOR LESS_EQUAL 0))
-    message(STATUS "Product version          : Invalid version ${PRODUCT_VERSION} ignored")
-    unset(PRODUCT_VERSION CACHE)
+      OR ("${PRODUCT_ID}" STREQUAL "")
+      OR (PRODUCT_VERSION_MAJOR EQUAL 0))
+    message(STATUS "Product version          : Invalid version ${ONNX_MLIR_PRODUCT_VERSION} ignored")
+    unset(ONNX_MLIR_PRODUCT_VERSION CACHE)
   else()
-    message(STATUS "Product version          : ${PRODUCT_VERSION}")
+    message(STATUS "Product version          : ${ONNX_MLIR_PRODUCT_VERSION}")
     list(APPEND DEFINITIONS "PRODUCT_VERSION_MAJOR=${PRODUCT_VERSION_MAJOR}")
     list(APPEND DEFINITIONS "PRODUCT_VERSION_MINOR=${PRODUCT_VERSION_MINOR}")
     list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
