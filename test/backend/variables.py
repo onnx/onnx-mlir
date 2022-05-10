@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/env python3
 
 ############################ variables.py #####################################
 #
@@ -26,15 +26,15 @@ import tempfile
 
 
 def get_args_from_env():
-    # Casting with "bool" does not work well. When you specify VERBOSE=xxx,
+    # Casting with "bool" does not work well. When you specify TEST_VERBOSE=xxx,
     # regardless of the value of xxx (e.g., true, false, y, n, etc.) the
     # casted bool value will be true. Only if xxx is empty, the casted bool
     # value will be false. This is a bit counter intuitive. So we use strtobool
     # to do the conversion. But note that strtobool can't take an emtpy string.
 
-    VERBOSE = os.getenv("VERBOSE")
-    INVOKECONVERTER = os.getenv("INVOKECONVERTER")
-    IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
+    TEST_VERBOSE = os.getenv("TEST_VERBOSE")
+    TEST_INVOKECONVERTER = os.getenv("TEST_INVOKECONVERTER")
+    TEST_IMPORTER_FORCE_DYNAMIC = os.getenv("TEST_IMPORTER_FORCE_DYNAMIC")
     # Force input tensors to constants. Set this to a list of input indices.
     # E.g.
     #   - "0, 2" for the first and third input tensors.
@@ -89,19 +89,18 @@ def get_args_from_env():
         help="dimensions to be changed to unknown (default: all dimensions if TEST_DIM env var not set)",
     )
     parser.add_argument(
+        "--converter",
+        action="store_true",
+        default=(strtobool(TEST_INVOKECONVERTER) if TEST_INVOKECONVERTER else False),
+        help="invoke version converter (default: false if TEST_INVOKECONVERTER env var not set)",
+    )
+    parser.add_argument(
         "-e",
         "--emit",
         type=str,
         choices=["lib", "jni"],
         default=os.getenv("TEST_EMIT", "lib"),
         help="emit lib or jni for testing (default: lib)",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        default=(strtobool(VERBOSE) if VERBOSE else False),
-        help="verbose output (default: false if VERBOSE env var not set)",
     )
     parser.add_argument(
         "--mtriple",
@@ -122,10 +121,19 @@ def get_args_from_env():
         help="target a specific architecture, passed to the compiler",
     )
     parser.add_argument(
-        "--converter",
+        "-O",
+        "--Optlevel",
+        type=str,
+        choices=["0", "1", "2", "3"],
+        default=os.getenv("TEST_OPTLEVEL", "3"),
+        help="set compiler optimization level (default: 3 if TEST_OPTLEVEL env var not set)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
         action="store_true",
-        default=(strtobool(INVOKECONVERTER) if INVOKECONVERTER else False),
-        help="invoke version converter (default: false if INVOKECONVERTER env var not set)",
+        default=(strtobool(TEST_VERBOSE) if TEST_VERBOSE else False),
+        help="verbose output (default: false if TEST_VERBOSE env var not set)",
     )
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()

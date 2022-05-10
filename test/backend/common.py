@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/env python3
 
 ##################### common.py ################################################
 #
@@ -60,7 +60,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                     first_dim = False
                 else:
                     env_string += "," + str(dim_index)
-        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
+        my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
 
 
@@ -103,6 +103,8 @@ def compile_model(model, emit):
 
     # Command
     command_list = [TEST_DRIVER]
+    if args.Optlevel:
+        command_list.append("-O" + args.Optlevel)
     if args.mcpu:
         command_list.append("--mcpu=" + args.mcpu)
     if args.march:
@@ -113,7 +115,6 @@ def compile_model(model, emit):
         command_list.append("--invokeOnnxVersionConverter=true")
     command_list.append(target[emit])
     command_list.append(model_name)
-    command_list.append('-O3')
     command_list.append("-o=" + exec_base)
 
     # Call frontend to process model_name.onnx, bit code will be generated.
