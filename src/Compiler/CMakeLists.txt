@@ -90,11 +90,8 @@ if (ONNX_MLIR_PRODUCT_VERSION)
   message(DEBUG "PRODUCT_ID = ${PRODUCT_ID}")
 
   # Major and product ID are mandatory, minor and patch are optional.
-  # Major must be greater than zero.
   # When not specified, minor and patch are empty.
-  if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "")
-      OR ("${PRODUCT_ID}" STREQUAL "")
-      OR (PRODUCT_VERSION_MAJOR EQUAL 0))
+  if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "") OR ("${PRODUCT_ID}" STREQUAL ""))
     message(STATUS "Product version          : Invalid version ${ONNX_MLIR_PRODUCT_VERSION} ignored")
     unset(ONNX_MLIR_PRODUCT_VERSION CACHE)
   else()
