@@ -18,22 +18,65 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include <numeric>
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// Otherwise, return '-rhs'.
-Value subtractOrNeg(
-    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
-  if (lhs.getType().isa<NoneType>()) {
-    Value result = rewriter.create<ONNXNegOp>(loc, rhs);
-    return result;
-  } else {
-    Value result = rewriter.create<ONNXSubOp>(loc, lhs, rhs);
-    return result;
+// If 'A' is NoneType, return -B. Otherwise return A-B.
+Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
+  if (A.getType().isa<NoneType>())
+    return rewriter.create<ONNXNegOp>(loc, B);
+  return rewriter.create<ONNXSubOp>(loc, A, B);
+}
+
+// Multiply scale the tensor 'A' by the value of 'scalers' along the given axis.
+Value scaleByAxis(
+    PatternRewriter &rewriter, Value toScale, Attribute scaler, int64_t axis) {
+  assert(axis >= 0 && "Axis should not be negative");
+  assert(hasShapeAndRank(toScale) && "toScale must be ranked");
+  assert(isa<ONNXConstantOp>(toScale.getDefiningOp()) &&
+         "toScale should be defined by a ONNXConstantOp");
+
+  llvm::errs() << "toScale: " << toScale << "\n";
+  llvm::errs() << "scaler: " << scaler << "\n";
+
+  ArrayRef<int64_t> toScaleShape =
+      toScale.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> scalerShape =
+      scaler.getType().cast<ShapedType>().getShape();
+
+  const int64_t size = std::accumulate(
+      toScaleShape.begin(), toScaleShape.end(), 1, std::multiplies<int64_t>());
+  const int64_t blockSize = std::accumulate(toScaleShape.begin() + axis,
+      toScaleShape.end(), 1, std::multiplies<int64_t>());
+  const int64_t numBlocks = size / blockSize;
+  const int64_t scalerSize = std::accumulate(
+      scalerShape.begin(), scalerShape.end(), 1, std::multiplies<int64_t>());
+
+  llvm::errs() << "blockSize: " << blockSize << "\n";
+  llvm::errs() << "numBlocks: " << numBlocks << "\n";
+  llvm::errs() << "scalerSize: " << scalerSize << "\n";
+
+  assert(
+      (scalerSize == 1 || scalerSize == numBlocks) && "Invalid scaler shape");
+
+  Type elementType = toScale.getType().cast<ShapedType>().getElementType();
+  llvm::errs() << "elementType: " << elementType << "\n";
+
+  DenseElementsAttr toScaleDenseAttr =
+      getDenseElementAttributeFromONNXValue(toScale);
+  llvm::errs() << "toScaleDenseAttr: " << toScaleDenseAttr << "\n";
+
+  DenseElementsAttr scalerDenseAttr = scaler.cast<DenseElementsAttr>();
+
+  ArrayRef<char> rawData = scalerDenseAttr.getRawData();
+  llvm::errs() << "rawData.data(): " << rawData.data() << "\n";
+
+  if (elementType.isa<FloatType>()) {
+    auto valueIt = scalerDenseAttr.getValues<FloatAttr>().begin();
+    auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
   }
 }
 
@@ -100,10 +143,10 @@ bool areProducedByTransposeOp(ValueRange values) {
   });
 }
 
+} // namespace onnx_mlir
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
-
-} // end anonymous namespace
 
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ONNXMatMultOp.
@@ -112,8 +155,9 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<NormalizeAddPattern>(context);
   results.insert<MulAddToGemmOptPattern>(context);
   results.insert<FuseGemmFollowedByAddition>(context);
-  results.insert<FuseAddConvPattern>(context);
-  results.insert<FuseAddConvNullBiasPattern>(context);
+  // results.insert<FuseAddConvPattern>(context);
+  //  results.insert<FuseAddConvNullBiasPattern>(context);
+  results.insert<FuseMulConvNullBiasPattern>(context);
 }
 
 /// on the ONNXIdentityOp.
