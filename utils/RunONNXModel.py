@@ -1,3 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### RunONNXModel.py #########################################
+#
+# Copyright 2019-2022 The IBM Research Authors.
+#
+################################################################################
+#
+# This script is to run and debug an onnx model.
+
+################################################################################
+
 import os
 import sys
 import argparse
@@ -383,8 +395,9 @@ def main():
                 if mismatched_elements == 0:
                     print("  correct.\n".format(args.atol, args.rtol))
                 else:
-                    print("  mismatched elements {}/{}.\n".format(
-                        mismatched_elements, total_elements))
+                    raise AssertionError(
+                        "  mismatched elements {}/{}.\n".format(
+                            mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':
