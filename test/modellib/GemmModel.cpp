@@ -150,7 +150,9 @@ bool GemmLibBuilder::verifyOutputs() {
           alphaVal * omTensorGetElem<float>(ref, {i, j}) + betaVal * cVal;
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
 
 } // namespace test

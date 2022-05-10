@@ -53,9 +53,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
 
+    // Convert the cond type to MemRefType.
+    Type convertedType =
+        typeConverter->convertType(loopOpAdapter.cond().getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType condMemRefTy = convertedType.cast<MemRefType>();
+
     // Create a memref for recording loop condition, initialize it with the
     // initial loop condition.
-    auto condMemRefTy = convertToMemRefType(loopOpAdapter.cond().getType());
     Value cond;
     if (hasAllConstantDimensions(condMemRefTy))
       cond = insertAllocAndDealloc(
@@ -290,10 +296,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
+      // Convert vFinal's type to MemRefType.
+      Type convertedType = typeConverter->convertType(vFinal.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use their
       // initial value tensors as reference when allocating memory.
-      auto memRefType = convertToMemRefType(vFinal.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))
@@ -311,12 +322,17 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       SmallVectorImpl<mlir::Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
+      // Convert opScanOutput's type to MemRefType.
+      Type convertedType = typeConverter->convertType(opScanOutput.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the scan outputs. There're no good "reference"
       // shape for scan outputs. So if the scan outputs do not have constant
       // dimensions in all except the leading dimensions, we simply give up. The
       // leading dimension is simply the number of iterations executed, which is
       // easier to obtain.
-      auto memRefType = convertToMemRefType(opScanOutput.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))

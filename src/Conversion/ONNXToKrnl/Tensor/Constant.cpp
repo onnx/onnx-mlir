@@ -31,7 +31,11 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);

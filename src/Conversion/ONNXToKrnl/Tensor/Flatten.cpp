@@ -77,10 +77,14 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     if (axisValue < 0)
       axisValue = inputRank + axisValue;
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     // Insert alloc and dealloc
     bool insertDealloc = checkInsertDealloc(op);
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
                       ? insertAllocAndDealloc(
                             outputMemRefType, loc, rewriter, insertDealloc)

@@ -193,12 +193,10 @@ bool RNNLibBuilder::verifyOutputs() {
   omTensorDestroy(XtWi);
   omTensorDestroy(HtRi);
 
-  if (!areCloseFloat(rnnY, refY))
-    return false;
-  if (!areCloseFloat(rnnYh, refYh))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(rnnY, refY) && areCloseFloat(rnnYh, refYh);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  return ok;
 }
 
 } // namespace test

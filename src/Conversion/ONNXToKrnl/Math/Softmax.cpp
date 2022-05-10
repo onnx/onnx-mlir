@@ -231,7 +231,13 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     //                let exp_x = exp(x - max_x) in
     //                  let sum = sum(exp_x) in
     //                    exp_x / sum
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     int64_t rank = memRefType.getRank();
     int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis();
     axis = axis >= 0 ? axis : rank + axis;

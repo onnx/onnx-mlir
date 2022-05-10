@@ -42,10 +42,14 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     auto limitShape = limit.getType().cast<MemRefType>().getShape();
     auto deltaShape = delta.getType().cast<MemRefType>().getShape();
 
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
 
+    // Insert an allocation and deallocation for the result of this operation.
     // Allocate result.
     Value alloc;
     Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);

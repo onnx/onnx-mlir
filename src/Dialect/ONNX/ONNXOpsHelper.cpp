@@ -355,8 +355,12 @@ bool AreTheSameConstantOpDenseAttr(
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
-  return val.getType().isa<ShapedType>() &&
-         val.getType().cast<ShapedType>().hasRank();
+  Type valType = val.getType();
+  if (!valType.isa<SeqType>())
+    return valType.isa<ShapedType>() && valType.cast<ShapedType>().hasRank();
+
+  // Check the element type for a Sequence.
+  return valType.cast<SeqType>().getElementType().hasRank();
 }
 
 //===----------------------------------------------------------------------===//

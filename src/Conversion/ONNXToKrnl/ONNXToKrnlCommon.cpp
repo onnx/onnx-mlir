@@ -123,41 +123,6 @@ bool indicesAreNonNegativeConstants(Value indices) {
       [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
-/// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
-MemRefType convertToMemRefType(Type type) {
-  // Convert the element type of the (tensor or memref) to a valid Krnl type.
-  auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<ONNXStringType>())
-      return krnl::StringType::get(elemType.getContext());
-    return elemType;
-  };
-
-  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    MemRefType memRefType = MemRefType::get(
-        tensorType.getShape(), convertElemType(tensorType.getElementType()));
-    return memRefType;
-  }
-
-  if (auto seqType = type.dyn_cast_or_null<SeqType>()) {
-    ShapedType seqElementType = seqType.getElementType();
-    Type seqElementMemRefType =
-        seqElementType.hasRank()
-            ? (Type)convertToMemRefType(seqElementType)
-            : (Type)UnrankedMemRefType::get(seqElementType.getElementType(), 0);
-    SmallVector<int64_t, 1> dims;
-    dims.emplace_back(seqType.getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType memRefType = MemRefType::get(shape, seqElementMemRefType);
-    return memRefType;
-  }
-
-  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
-  auto memRefType = type.cast<MemRefType>();
-  return MemRefType::get(
-      memRefType.getShape(), convertElemType(memRefType.getElementType()));
-}
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
@@ -488,10 +453,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
   MemRefBuilder createMemRef(rewriter, loc);
   return createMemRef.reinterpretCast(data, outputDims);
 }

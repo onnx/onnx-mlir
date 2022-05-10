@@ -284,14 +284,12 @@ bool LSTMLibBuilder::verifyOutputs() {
   omTensorDestroy(HtRf);
   omTensorDestroy(HtRc);
 
-  if (!areCloseFloat(lstmY, refY))
-    return false;
-  if (!areCloseFloat(lstmYh, refYh))
-    return false;
-  if (!areCloseFloat(lstmYc, refYc))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(lstmY, refY) && areCloseFloat(lstmYh, refYh) &&
+            areCloseFloat(lstmYc, refYc);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  omTensorDestroy(refYc);
+  return ok;
 }
 
 } // namespace test

@@ -865,8 +865,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
             typeConverter, ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ElementwiseUnaryOp>(op);
-    auto X = operands[0];
+    Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
+    Value X = operands[0];
 
     // If type is scalar or vector, there is no need to allocate a buffer. Just
     // call scalar computation and return the result. This is efficient when
@@ -878,9 +878,13 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       return success();
     }
 
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
+    // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
@@ -937,12 +941,17 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                ElementwiseBinaryOp::getOperationName()),
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseBinaryOp::getOperationName()),
         op->getLoc());
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputElementType = outputMemRefType.getElementType();
-    auto outputRank = outputMemRefType.getRank();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type outputElementType = outputMemRefType.getElementType();
+    uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
@@ -970,7 +979,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (int i = 0; i < outputRank; ++i)
+            for (uint64_t i = 0; i < outputRank; ++i)
               outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
             // Load the first value.
@@ -1022,13 +1031,18 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             typeConverter, ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                ElementwiseVariadicOp::getOperationName()),
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseVariadicOp::getOperationName()),
         op->getLoc());
-    auto numArgs = op->getNumOperands();
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputElementType = outputMemRefType.getElementType();
-    auto outputRank = outputMemRefType.getRank();
+    unsigned numArgs = op->getNumOperands();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type outputElementType = outputMemRefType.getElementType();
+    uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
@@ -1057,7 +1071,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (int i = 0; i < outputRank; ++i)
+            for (uint64_t i = 0; i < outputRank; ++i)
               outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
             // Fold over operands for each of their scalar values.
@@ -1122,11 +1136,16 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(
+    Location loc = NameLoc::get(
         StringAttr::get(op->getContext(), ONNXWhereOp::getOperationName()),
         op->getLoc());
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputRank = outputMemRefType.getRank();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    uint64_t outputRank = outputMemRefType.getRank();
 
     ONNXWhereOpAdaptor operandAdaptor(operands);
     // Shape helper.
@@ -1154,7 +1173,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (int i = 0; i < outputRank; ++i)
+            for (uint64_t i = 0; i < outputRank; ++i)
               outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
             // Load the condition value.

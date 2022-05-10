@@ -741,6 +741,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
@@ -1096,6 +1097,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return {7};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
@@ -1908,6 +1910,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
@@ -2589,6 +2592,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
@@ -5836,6 +5840,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
@@ -5894,6 +5899,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -6412,6 +6418,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return {20,4,4,4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",

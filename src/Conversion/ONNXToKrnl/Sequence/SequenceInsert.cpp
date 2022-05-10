@@ -33,7 +33,13 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
         rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    auto outputMemRefType = convertToMemRefType(thisOp.getResult().getType());
+    // Convert the output type to MemRefType.
+    Type convertedType =
+        typeConverter->convertType(thisOp.getResult().getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     auto seqElementConvertedType =
         outputMemRefType.getElementType().cast<MemRefType>();
     auto input_sequence = operandAdaptor.input_sequence();

@@ -40,15 +40,17 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
-  bool success;
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   printf("RapidCheck Matrix-Vector test case generation.\n");
-  success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
-    const auto I = *rc::gen::inRange(4, 50);
-    const auto K = *rc::gen::inRange(4, 14);
+  bool success =
+      rc::check("Matrix-Vector Matmul implementation correctness", []() {
+        const auto I = *rc::gen::inRange(4, 50);
+        const auto K = *rc::gen::inRange(4, 14);
 
-    RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
-  });
+        RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
+      });
   if (!success)
     return 1;
 

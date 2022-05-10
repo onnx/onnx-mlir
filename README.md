@@ -55,11 +55,10 @@ Directions to install MLIR and ONNX-MLIR are dependent on your OS.
 * [Linux or OSX](docs/BuildOnLinuxOSX.md).
 * [Windows](docs/BuildOnWindows.md).
 
-### Testing build and summary of custom environment variables
-
 After installation, an `onnx-mlir` executable should appear in the `build/Debug/bin` or `build/Release/bin` directory.
 
-There are several cmake targets that are used to verify the validity of the `onnx-mlir` compiler, which are listed [here](docs/TestingHighLevel.md).
+If you have difficulties building, rebuilding, or testing `onnx-mlir`, check this [page](docs/TestingHighLevel.md) for helpful hints.
+
 
 ## Using ONNX-MLIR
 

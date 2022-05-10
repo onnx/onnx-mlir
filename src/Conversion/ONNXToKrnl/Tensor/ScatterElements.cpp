@@ -47,12 +47,15 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
 
-    // Insert an allocation and deallocation for the result of this
-    // operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     int64_t outputRank = outputMemRefType.getShape().size();
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
+    // Insert an allocation and deallocation for the result of this operation.
     KrnlBuilder createKrnl(rewriter, loc);
     IndexExprScope indexScope(createKrnl);
     MemRefBoundsIndexCapture dataBounds(data);
