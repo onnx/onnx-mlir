@@ -169,7 +169,7 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-// Triple.
+// Support for Triple.
 void setTargetTriple(const std::string &triple) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
   mtriple = triple;
@@ -185,7 +185,7 @@ std::string getTargetTripleOption() {
   return targetOptions;
 }
 
-// Arch.
+// Support for Arch.
 void setTargetArch(const std::string &arch) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
   march = arch;
@@ -195,7 +195,7 @@ std::string getTargetArchOption() {
   return (march != "") ? "--march=" + march : "";
 }
 
-// CPU.
+// Support for CPU.
 void setTargetCPU(const std::string &cpu) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
   mcpu = cpu;
@@ -205,7 +205,53 @@ std::string getTargetCPUOption() {
   return (mcpu != "") ? "--mcpu=" + mcpu : "";
 }
 
-// Optimization level.
+// Support for Accel.
+static bool getAccelKindFromString(
+    accel::Accelerator::Kind &kind, const std::string &str) {
+  // Test each existing accelerator, returning its Kind when found.
+  APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_FROM_STRING, kind, str);
+  // No specific accelerator found, check if we have Kind::NONE
+  kind = accel::Accelerator::Kind::NONE;
+  return str.compare(std::string("NONE")) == 0;
+}
+
+// Return 0 on success, nonzero on error.
+int setTargetAccel(const std::string &str) {
+  // Empty string means reset maccel.
+  if (str.compare(std::string("RESET")) == 0) {
+    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel to empty\n");
+    maccel.clear();
+    return 0;
+  }
+  // Nonempty string means adding accelerator to current accelerator list.
+  accel::Accelerator::Kind accelKind;
+  if (getAccelKindFromString(accelKind, str)) {
+    setTargetAccel(accelKind);
+    return 0;
+  }
+  return 1;
+}
+
+void setTargetAccel(const accel::Accelerator::Kind accel) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel\"" << accel << "\"\n";);
+  // Add accel to maccel.
+  maccel.push_back(accel);
+}
+
+std::string getTargetAccel() {
+  std::stringstream ss;
+  int accelCount = 0;
+  for (accel::Accelerator::Kind accel : maccel) {
+    if (accelCount++)
+      ss << " ";
+    ss << "--maccel=" << accel;
+  }
+  if (!accelCount)
+    ss << "--maccel=NONE";
+  return ss.str();
+}
+
+// Support for Optimization level.
 void setOptLevel(const OptLevel level) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
   OptimizationLevel = level;
@@ -226,17 +272,17 @@ std::string getOptimizationLevelOption() {
   return "";
 }
 
-// Xopt.
+// Support for Xopt.
 void setXoptOption(const std::string &flag) { Xopt = flag; }
 
 std::string getXoptOption() { return (Xopt != "") ? Xopt : std::string(); }
 
-// Xllc.
+// Support for Xllc.
 void setXllcOption(const std::string &flag) { Xllc = flag; }
 
 std::string getXllcOption() { return (Xllc != "") ? Xllc : std::string(); }
 
-// LLVM.
+// Support for LLVM.
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
 
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
@@ -254,6 +300,10 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     break;
   case OptionKind::TargetCPU:
     setTargetCPU(val);
+    break;
+  case OptionKind::TargetAccel:
+    if (setTargetAccel(val) != 0)
+      return 1;
     break;
   case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
@@ -283,6 +333,8 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetArchOption();
   case OptionKind::TargetCPU:
     return getTargetCPUOption();
+  case OptionKind::TargetAccel:
+    return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
   case OptionKind::OPTFlag:
