@@ -30,6 +30,7 @@ add_onnx_mlir_library(CompilerOptions
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
+  Accelerator
   ExternalUtil
   AcceleratorsInc
 
@@ -41,6 +42,7 @@ add_onnx_mlir_library(CompilerOptions
 
   LINK_LIBS PUBLIC
   MLIRIR
+  Accelerator
   )
 
 add_onnx_mlir_library(CompilerPasses
