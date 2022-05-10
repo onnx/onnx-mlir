@@ -35,6 +35,7 @@ typedef enum {
   TargetTriple,     /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
   TargetCPU,        /* Kind for mcpu string. */
+  TargetAccel,      /* Kind for maccel string. */
   CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
   OPTFlag,          /* Kind for -Xopt string. */
   LLCFlag,          /* Kind for -Xllc string. */

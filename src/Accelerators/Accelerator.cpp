@@ -14,6 +14,8 @@
 // subclass and pushback that subclass variable onto acceleratorTargets.
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "src/Accelerators/Accelerator.hpp"
 
 namespace onnx_mlir {
@@ -23,6 +25,26 @@ llvm::SmallVector<Accelerator *, 4> Accelerator::acceleratorTargets;
 
 const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
   return acceleratorTargets;
+}
+
+// Help to print accelerator kinds.
+static std::map<Accelerator::Kind, std::string> mapKind2Strings;
+
+std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind) {
+  if (mapKind2Strings.empty()) {
+    APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_TO_STRING, mapKind2Strings);
+    mapKind2Strings[Accelerator::Kind::NONE] = "NONE";
+  }
+  return out << mapKind2Strings[kind];
+}
+
+llvm::raw_ostream &operator<<(
+    llvm::raw_ostream &out, const Accelerator::Kind kind) {
+  if (mapKind2Strings.empty()) {
+    APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_TO_STRING, mapKind2Strings);
+    mapKind2Strings[Accelerator::Kind::NONE] = "NONE";
+  }
+  return out << mapKind2Strings[kind];
 }
 
 } // namespace accel
