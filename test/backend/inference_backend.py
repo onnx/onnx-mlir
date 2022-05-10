@@ -982,21 +982,7 @@ class InferenceBackendTest(BackendTest):
     def assert_similar_outputs(cls, ref_outputs: Sequence[Any], outputs: Sequence[Any], rtol: float, atol: float) -> None:
         rtol =float(os.getenv("TEST_RTOL", rtol))
         atol =float(os.getenv("TEST_ATOL", atol))
-        np.testing.assert_equal(len(outputs), len(ref_outputs))
-        for i in range(len(outputs)):
-            if isinstance(outputs[i], (list, tuple)):
-                for j in range(len(outputs[i])):
-                    cls.assert_similar_outputs(ref_outputs[i][j], outputs[i][j], rtol, atol)
-            else:
-                np.testing.assert_equal(outputs[i].dtype, ref_outputs[i].dtype)
-                if ref_outputs[i].dtype == np.object:
-                    np.testing.assert_array_equal(outputs[i], ref_outputs[i])
-                else:
-                    np.testing.assert_allclose(
-                        outputs[i],
-                        ref_outputs[i],
-                        rtol=rtol,
-                        atol=atol)
+        super(InferenceBackendTest, cls).assert_similar_outputs(ref_outputs, outputs, rtol, atol)
 
 # There are two issues, which necessitates the adoption of this endianness
 # aware wrapper around Execution Session:
