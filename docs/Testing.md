@@ -7,6 +7,7 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
 3. [Numerical Tests](#numerical-tests)
 4. [Use gdb](#use-gdb)
+4. [ONNX Model Zoo](#onnx-model-zoo)
 
 ## ONNX Backend Tests
 
@@ -345,3 +346,16 @@ Some examples that uses this support in the project are in these files.
 * src/Conversion/ONNXToKrnl/Math/Gemm/Gemm.cpp
 
 Again, these debug statements can then be activated by adding the `--debug-only=my_opt_name_here` option to `onnx-mlir` or `onnx-mlir-opt`.
+
+## ONNX Model Zoo
+
+We provide a Python script, i.e. [CheckONNXModelZoo.py](test/onnx-model-zoo/CheckONNXModelZoo.py), to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script must be invoked from the ONNX model zoo repository, not the onnx-mlir repository.
+
+Below is a quick start for checking the `mnist-8` model:
+```bash
+$ git clone https://github.com/onnx/models
+$ cd models
+$ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
+$ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
+$ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3"
+```
