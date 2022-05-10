@@ -31,16 +31,23 @@ Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
-// Multiply scale the tensor 'A' by the value of 'scalers' along the given axis.
-Value scaleByAxis(
-    PatternRewriter &rewriter, Value toScale, Attribute scaler, int64_t axis) {
-  assert(axis >= 0 && "Axis should not be negative");
-  assert(hasShapeAndRank(toScale) && "toScale must be ranked");
+// Scale the input tensor 'toScale' by the value of 'scalers' along the given
+// axis. Notes:
+//  - 'toScale' should be a ONNXConstant with a dense attribute
+//  - 'scaler' should be a dense element attribute
+DenseElementsAttr scaleByAxis(PatternRewriter &rewriter, Location loc,
+    Value toScale, Attribute scaler, int64_t axis) {
   assert(isa<ONNXConstantOp>(toScale.getDefiningOp()) &&
          "toScale should be defined by a ONNXConstantOp");
+  assert(getONNXConstantOp(toScale).valueAttr().isa<DenseElementsAttr>() &&
+         "toScale should be a ONNXConstantOp with a DenseElementAttr");
+  assert(scaler.isa<DenseElementsAttr>() &&
+         "scaler should be a DenseElementsAttr");
+  assert(axis >= 0 && "Axis should not be negative");
 
-  llvm::errs() << "toScale: " << toScale << "\n";
-  llvm::errs() << "scaler: " << scaler << "\n";
+  DenseElementsAttr toScaleDenseAttr =
+      getDenseElementAttributeFromONNXValue(toScale);
+  DenseElementsAttr scalerDenseAttr = scaler.cast<DenseElementsAttr>();
 
   ArrayRef<int64_t> toScaleShape =
       toScale.getType().cast<ShapedType>().getShape();
@@ -54,30 +61,34 @@ Value scaleByAxis(
   const int64_t numBlocks = size / blockSize;
   const int64_t scalerSize = std::accumulate(
       scalerShape.begin(), scalerShape.end(), 1, std::multiplies<int64_t>());
-
-  llvm::errs() << "blockSize: " << blockSize << "\n";
-  llvm::errs() << "numBlocks: " << numBlocks << "\n";
-  llvm::errs() << "scalerSize: " << scalerSize << "\n";
-
   assert(
       (scalerSize == 1 || scalerSize == numBlocks) && "Invalid scaler shape");
 
-  Type elementType = toScale.getType().cast<ShapedType>().getElementType();
-  llvm::errs() << "elementType: " << elementType << "\n";
+  Type elementType = toScaleDenseAttr.getElementType();
 
-  DenseElementsAttr toScaleDenseAttr =
-      getDenseElementAttributeFromONNXValue(toScale);
-  llvm::errs() << "toScaleDenseAttr: " << toScaleDenseAttr << "\n";
-
-  DenseElementsAttr scalerDenseAttr = scaler.cast<DenseElementsAttr>();
-
-  ArrayRef<char> rawData = scalerDenseAttr.getRawData();
-  llvm::errs() << "rawData.data(): " << rawData.data() << "\n";
-
-  if (elementType.isa<FloatType>()) {
-    auto valueIt = scalerDenseAttr.getValues<FloatAttr>().begin();
-    auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
+  SmallVector<float, 64> values;
+  for (int64_t blockOffset = 0, i = 0; i < numBlocks; i++) {
+    if (elementType.isa<FloatType>()) {
+      auto scalerVal = scalerDenseAttr.getValues<FloatAttr>()[i];
+      for (int64_t j = 0; j < blockSize; ++j, ++blockOffset) {
+        auto toScaleVal = toScaleDenseAttr.getValues<FloatAttr>()[blockOffset];
+        APFloat mul = toScaleVal.getValue() * scalerVal.getValue();
+        values.emplace_back(mul.convertToDouble());
+      }
+    } else if (elementType.isa<IntegerType>()) {
+      auto scalerVal = scalerDenseAttr.getValues<IntegerAttr>()[i];
+      for (int64_t j = 0; j < blockSize; ++j, ++blockOffset) {
+        auto toScaleVal =
+            toScaleDenseAttr.getValues<IntegerAttr>()[blockOffset];
+        APInt mul = toScaleVal.getValue() * scalerVal.getValue();
+        values.emplace_back(mul.roundToDouble());
+      }
+    } else
+      llvm_unreachable("Unsupported element type");
   }
+
+  return DenseElementsAttr::get(
+      toScale.getType().cast<ShapedType>(), makeArrayRef(values));
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N].

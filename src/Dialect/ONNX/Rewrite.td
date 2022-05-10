@@ -47,9 +47,12 @@ def createDenseElementsAttrFromSize : NativeCodeCall<
 def subtractOrNeg: NativeCodeCall<
   "onnx_mlir::subtractOrNeg($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
 
-// Multiply $0 X $1 which are expected to be constants of the same shape.
+// Scale '$0' up by '$1' along the given axis.
+// Notes:
+//   - '$0' should be a ONNNConstantOp with a dense attribute
+//   - '$1' should be a DenseElementsAttr
 class ScaleByAxis<int axis>: NativeCodeCall<
-  "onnx_mlir::scaleByAxis($_builder, $0, $1," # axis # ")">;  
+  "onnx_mlir::scaleByAxis($_builder, $0.getDefiningOp()->getLoc(), $0, $1," # axis # ")">;  
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
 def createArrayAttrOfOneToRankOf : NativeCodeCall<
@@ -68,6 +71,11 @@ def ONNXConstantOpNormalize: NativeCodeCall<
 
 def AttributeIsNotNull :
   Constraint<CPred<" ($_self) ">, "Attribute is null">;
+
+def IsDenseElementsAttr :
+  Constraint<And<[CPred<" ($_self) ">, 
+                  CPred<" ($_self).isa<DenseElementsAttr>()">
+                 ]>, "Attribute is not a DenseElementsAttr">;
 
 // Intended to check whether there is at least one not-Null the attributes
 // However, the current table gen can only support max 4 parameters
@@ -158,6 +166,11 @@ def IsFromONNXConstantOp: Constraint<
 def IsNotFromONNXConstantOp: Constraint<
     CPred<"!(llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp()))">,
     "Is a value not from ONNXConstantOp">;
+
+def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
+    And<[CPred<" isa<ONNXConstantOp>($_self.getDefiningOp()) ">,
+         CPred<" onnx_mlir::getONNXConstantOp($_self).valueAttr().isa<DenseElementsAttr>() ">
+        ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
     CPred<"onnx_mlir::AreTheSameConstantOpDenseAttr($_builder,"
@@ -295,12 +308,12 @@ def FuseMulConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x,
      // new_w
-     (ScaleByAxis<1> $w, $denseAttr),
+     (ONNXConstantOpFromDenseAttr (ScaleByAxis<1> $w, $denseAttr)),
      // unchanged operands and attributes.
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
-   (AttributeIsNotNull:$denseAttr),
-   (IsFromONNXConstantOp $w),    
+   (IsDenseElementsAttr:$denseAttr),
+   (IsFromONNXConstantOpWithDenseElementsAttr:$w),    
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.      
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.  
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank(w)-1.
