@@ -128,8 +128,8 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
           "Model is running on hardware that is not compatible with "
           "the zDNN library that this model was compiled for "
           "(version num %u.%u.%u). Please check that the model is running "
-          "on hardware with an integrated accelerator for AI
-          (z16 +) that supports the required zDNN library version.\n "
+          "on hardware with an integrated accelerator for AI "
+          "(z16 +) that supports the required zDNN library version.\n ",
           (unsigned)(versionNum & (~0xffffll)),
           (unsigned)(versionNum & 0xff00ll), (unsigned)(versionNum & 0xffll));
       exit(1);
