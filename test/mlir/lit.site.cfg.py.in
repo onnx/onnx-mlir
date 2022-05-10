@@ -9,7 +9,6 @@ config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
 config.onnx_mlir_obj_root = r"@ONNX_MLIR_BIN_ROOT@"
 
 config.onnx_mlir_vendor = r"@ONNX_MLIR_VENDOR@"
-config.onnx_mlir_product_version = r"@ONNX_MLIR_PRODUCT_VERSION@"
 
 config.enable_nnpa= 0x0@NNPA_LIT_ENABLED@
 
