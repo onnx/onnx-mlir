@@ -4063,9 +4063,15 @@ LogicalResult ONNXIsInfOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+//===------------------------------------------------------------------------===//
+// IsNaNOp
+//===------------------------------------------------------------------------===//
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto inputShape = X().getType().cast<ShapedType>().getShape();
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  getResult().setType(RankedTensorType::get(inputShape, i1Type));
+  return success();
 }
 
 LogicalResult ONNXLRNOp::inferShapes(
