@@ -54,9 +54,12 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // Had to explicitly iterate over dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.

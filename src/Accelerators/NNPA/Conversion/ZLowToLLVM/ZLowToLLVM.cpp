@@ -18,7 +18,7 @@
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 using namespace mlir;
 using namespace onnx_mlir;

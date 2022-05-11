@@ -40,14 +40,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
-#if defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&            \
-    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
-static const std::string OnnxMlirVersion =
-    "onnx-mlir version 1.0.0 (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
-    " " LLVM_REPOSITORY " " LLVM_REVISION ")";
-#else
-const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
-#endif
 
 namespace {
 
@@ -233,6 +225,20 @@ static std::string getToolPath(std::string tool) {
     return std::string();
 }
 
+static std::string getOnnxMlirFullVersion() {
+  const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+  return
+#ifdef ONNX_MLIR_VENDOR
+      ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
+#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
+    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
+      OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
+                        ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
+#else
+      OnnxMlirVersion;
+#endif
+}
+
 // Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
@@ -355,8 +361,29 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Emit the onnx-mlir version as llvm.ident metadata.
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
+  llvm::Metadata *identNode[] = {
+      llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
+
+#ifdef PRODUCT_VERSION_MAJOR
+  int32_t ProductVersion = PRODUCT_VERSION_MAJOR;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Major Version", ProductVersion);
+#endif
+#ifdef PRODUCT_VERSION_MINOR
+  int32_t ProductRelease = PRODUCT_VERSION_MINOR;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Minor Version", ProductRelease);
+#endif
+#ifdef PRODUCT_VERSION_PATCH
+  int32_t ProductPatch = PRODUCT_VERSION_PATCH;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Patchlevel", ProductPatch);
+#endif
+#ifdef PRODUCT_ID
+  llvmModule.addModuleFlag(llvm::Module::Warning, "Product Id",
+      llvm::MDString::get(ctx, PRODUCT_ID));
+#endif
 
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
@@ -564,8 +591,8 @@ std::string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(
-      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
+  return genSharedLib(outputBaseName, {}, {modelObjPath},
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -594,7 +621,7 @@ void compileModuleToJniJar(
 
   std::string modelSharedLibPath = genSharedLib(jniLibBase,
       {"-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"jniruntime", "cruntime"}, {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -780,6 +807,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
   } break;
   case EmitLib: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
     std::string sharedLib =
         compileModuleToSharedLibrary(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
@@ -788,6 +816,7 @@ void emitOutputFiles(std::string outputBaseName,
       printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } break;
   case EmitJNI: {
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
@@ -885,6 +914,22 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
+  // Set the module target accelerators.
+  if (!maccel.empty()) {
+    SmallVector<Attribute, 1> activeAccels;
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      if (!accel->isActive() || !llvm::is_contained(maccel, accel->getKind()))
+        continue;
+      std::ostringstream versionNumber;
+      versionNumber << std::hex << accel->getVersionNumber();
+      std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
+      activeAccels.emplace_back(StringAttr::get(&context, accelStr));
+    }
+    if (!activeAccels.empty())
+      moduleOp.setAttr(
+          "onnx-mlir.accels", ArrayAttr::get(&context, activeAccels));
+  }
+
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
     module.release();
@@ -907,19 +952,24 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
+  // Initialize accelerator(s) if required.
+  if (!maccel.empty())
+    onnx_mlir::accel::initAccelerators();
+
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  // Initialize accelerator(s) if required.
+  bool hasActiveAccel = false;
   if (!maccel.empty()) {
-    onnx_mlir::accel::initAccelerators();
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       if (!accel->isActive())
         continue;
+      hasActiveAccel = true;
       accel->getOrLoadDialects(context);
       accel->addPasses(module, pm, emissionTarget);
     }
-  } else
+  }
+  if (!hasActiveAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);

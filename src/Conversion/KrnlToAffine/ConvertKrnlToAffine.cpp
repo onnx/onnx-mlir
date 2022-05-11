@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -568,6 +567,31 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   return success();
 }
 
+AffineTypeConverter::AffineTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
@@ -665,8 +689,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
   // Patterns.
   RewritePatternSet patterns(ctx);
-  LLVMTypeConverter typeConverter(ctx, options);
-  customizeTypeConverter(typeConverter);
+  AffineTypeConverter typeConverter;
 
   populateKrnlToAffineConversion(typeConverter, patterns, ctx);
 
@@ -708,7 +731,7 @@ std::unique_ptr<Pass> createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }
 
-void populateKrnlToAffineConversion(LLVMTypeConverter &typeConverter,
+void populateKrnlToAffineConversion(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   krnl::populateLoweringKrnlCopyFromBufferOpPattern(
       typeConverter, patterns, ctx);

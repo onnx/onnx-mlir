@@ -335,7 +335,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
 
 template <>
 GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
-    ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op,
+    ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, ONNXGRUOp *op,
     typename ONNXGRUOp::Adaptor operandAdaptor) {
   GruState state;
 
@@ -344,11 +345,11 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y(),
       checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
       checkInsertDealloc(op->getOperation(), 1));
 

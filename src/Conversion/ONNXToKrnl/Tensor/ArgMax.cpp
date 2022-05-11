@@ -40,9 +40,12 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    // reduced output
-    auto reducedMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto reducedElementType = reducedMemRefType.getElementType();
+    // Convert the reduced output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType reducedMemRefType = convertedType.cast<MemRefType>();
+    Type reducedElementType = reducedMemRefType.getElementType();
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input

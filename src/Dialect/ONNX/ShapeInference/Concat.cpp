@@ -29,10 +29,8 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
   int64_t axisIndex = op->axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
-  if (axisIndex < -commonRank || axisIndex >= commonRank)
-    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
-        "axis", axisIndex,
-        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
+  assert(-commonRank <= axisIndex && axisIndex < commonRank &&
+         "axis out of range");
 
   // Negative axis means values are counted from the opposite side.
   // TOFIX should be in normalization pass

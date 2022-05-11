@@ -198,5 +198,16 @@ struct ZHighPoolingOpShapeHelper : public ZHighOpShapeHelper<OP> {
   DimsExpr allOriginalDims;
 };
 
+//===----------------------------------------------------------------------===//
+// Shape helper for ConcatOp.
+
+struct ZHighConcatOpShapeHelper : public ZHighOpShapeHelper<ZHighConcatOp> {
+  ZHighConcatOpShapeHelper(ZHighConcatOp *newOp);
+  ZHighConcatOpShapeHelper(ZHighConcatOp *newOp, mlir::OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  mlir::LogicalResult computeShape(ZHighConcatOpAdaptor operandAdaptor);
+};
+
 } // namespace zhigh
 } // namespace onnx_mlir

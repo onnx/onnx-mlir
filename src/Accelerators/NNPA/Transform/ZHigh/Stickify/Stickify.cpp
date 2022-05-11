@@ -262,8 +262,8 @@ void free_aligned_4k(void *aligned_ptr) {
 // Functions from third_party/zdnn-lib/zdnn/utils.c
 uint64_t get_num_elements(const zdnn_ztensor *ztensor, elements_mode mode) {
   uint64_t num_elements = 1;
-  uint32_t *dims_ptr;
-  int i;
+  uint32_t *dims_ptr = NULL;
+  int i = 0;
 
   // Setup how to loop over the shape based on the mode.
   switch (mode) {

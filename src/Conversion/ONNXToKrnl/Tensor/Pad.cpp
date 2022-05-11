@@ -43,9 +43,14 @@ struct ONNXPadOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+    Type resElementType = resMemRefType.getElementType();
+
     // Insert an allocation and deallocation for the output of this operation.
-    auto resMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto resElementType = resMemRefType.getElementType();
     Value resMemRef = insertAllocAndDeallocSimple(
         rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput());
 

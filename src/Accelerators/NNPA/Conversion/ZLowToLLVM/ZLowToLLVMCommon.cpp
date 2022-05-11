@@ -19,7 +19,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 using namespace mlir;
 

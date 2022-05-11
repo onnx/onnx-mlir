@@ -48,9 +48,9 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape(
       outputDims.emplace_back(XBounds.getDim(i));
   }
 
-  // There are two outputs: one for values and one for indices.
-  // But they have the same shape. Thus, return one output dims is enough.
-  dimsForOutput() = outputDims;
+  dimsForOutput(0) = outputDims;
+  dimsForOutput(1) = outputDims;
+
   return success();
 }
 

@@ -9,3 +9,12 @@ add_onnx_mlir_library(OMZLowRewrite
   MLIRViewLikeInterface
   OMZLowOps
   )
+
+add_onnx_mlir_library(OMZLowDummyOpForMultiDeref
+  ZLowDummyOpForMultiDerefPass.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZLowOps
+  )

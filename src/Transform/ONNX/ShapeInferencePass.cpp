@@ -28,11 +28,12 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
 namespace {
 
-static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
-    mlir::ModuleOp module, std::regex pattern) {
-  SmallVector<mlir::FuncOp, 4> matchedFuncs;
+static SmallVector<FuncOp, 4> lookUpFuncsMatching(
+    ModuleOp module, std::regex pattern) {
+  SmallVector<FuncOp, 4> matchedFuncs;
   module.walk([&](FuncOp funcOp) {
     if (std::regex_search(funcOp.getName().str(), pattern))
       matchedFuncs.emplace_back(funcOp);
@@ -58,14 +59,14 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  * function as a main computation graph; this is mostly just for testing
  * purposes.
  */
-class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass,
-                               OperationPass<mlir::ModuleOp>> {
+class ShapeInferencePass
+    : public PassWrapper<ShapeInferencePass, OperationPass<ModuleOp>> {
 private:
   bool analyzeAllFunctions;
 
 public:
-  ShapeInferencePass(bool analyzeAllFunctions_)
-      : analyzeAllFunctions(analyzeAllFunctions_) {}
+  ShapeInferencePass(bool analyzeAllFunctions)
+      : analyzeAllFunctions(analyzeAllFunctions) {}
 
   StringRef getArgument() const override { return "shape-inference"; }
 
@@ -93,34 +94,40 @@ public:
       signalPassFailure();
   }
 
-  static LogicalResult runShapeInferenceOnRegion(mlir::Region &r) {
+  static LogicalResult runShapeInferenceOnRegion(Region &r) {
+    std::function<void(Region &)> doShapeInference =
+        &ShapeInferencePass::runShapeInferenceOnRegion;
+
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     for (Operation &op : r.getOps()) {
-      std::function<void(mlir::Region &)> doShapeInference =
-          &ShapeInferencePass::runShapeInferenceOnRegion;
       // The shape of graph output has been imported from onnx protobuf model,
       // so the ops followed by a return op may not have dynamic shape output.
-      // However, shape inference is still need on these ops
-      // to infer optional attributes.
-      if (containSubgraph(&op) || isUsedByReturnOp(&op) ||
-          returnsDynamicOrUnknownShape(&op)) {
-        if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
-          if (failed(shape_op.inferShapes(doShapeInference))) {
-            op.emitError("shape inference failed");
-            return failure();
-          }
-        } else if (!llvm::dyn_cast<CallOpInterface>(op)) {
-          op.emitError("unable to infer shape of operation without shape "
-                       "inference interface");
-          return failure();
-        }
-      }
+      // However, shape inference is still needed on these ops to infer optional
+      // attributes.
+      if (!containSubgraph(op) && !isUsedByReturnOp(op) &&
+          !returnsDynamicOrUnknownShape(op))
+        continue;
+
+      if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
+        // Verify the operation before attempting to infer the shape of the
+        // produced output(s).
+        Optional<RegisteredOperationName> registeredInfo =
+            op.getName().getRegisteredInfo();
+        if (registeredInfo && failed(registeredInfo->verifyInvariants(&op)))
+          return op.emitError("verification failed");
+
+        // Attempt to infer the shape of the produced output(s).
+        if (failed(shape_op.inferShapes(doShapeInference)))
+          return op.emitError("shape inference failed");
+      } else if (!llvm::dyn_cast<CallOpInterface>(op))
+        return op.emitError("unable to infer shape of operation without shape "
+                            "inference interface");
     }
     return success();
   }
 
-  static LogicalResult runShapeInferenceOn(mlir::FuncOp f) {
+  static LogicalResult runShapeInferenceOn(FuncOp f) {
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     auto &funcBody = f.getBody();
@@ -138,34 +145,25 @@ public:
     return success();
   }
 
-  static bool isUsedByReturnOp(Operation *op) {
-    for (auto *user : op->getUsers()) {
-      if (dyn_cast<ReturnOp>(user)) {
-        return true;
-      }
-    }
-    return false;
+  static bool isUsedByReturnOp(Operation &op) {
+    return llvm::any_of(
+        op.getUsers(), [](Operation *user) { return isa<ReturnOp>(user); });
   }
 
   // Op needs shape inference when contains a subgraph
   // Temporary fix: only LoopOp is checked
-  static bool containSubgraph(Operation *op) {
-    if (dyn_cast<ONNXLoopOp>(*op))
-      return true;
-    return false;
-  }
+  static bool containSubgraph(Operation &op) { return isa<ONNXLoopOp>(op); }
 
   /*!
    *  Check if the given operation has a dynamically shaped result.
    */
-  static bool returnsDynamicOrUnknownShape(Operation *op) {
-    return llvm::any_of(op->getResultTypes(), [](Type result_type) {
-      if (result_type.isa<RankedTensorType>()) {
+  static bool returnsDynamicOrUnknownShape(Operation &op) {
+    return llvm::any_of(op.getResultTypes(), [](Type result_type) {
+      if (result_type.isa<RankedTensorType>())
         return llvm::any_of(result_type.dyn_cast<RankedTensorType>().getShape(),
             [](int64_t dim) { return dim < 0; });
-      } else {
+      else
         return !result_type.isa<NoneType>();
-      }
     });
   }
 };
@@ -174,7 +172,8 @@ public:
 /*!
  * Create a Shape Inference pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createShapeInferencePass(
-    bool analyzeAllFunctions) {
+std::unique_ptr<Pass> createShapeInferencePass(bool analyzeAllFunctions) {
   return std::make_unique<ShapeInferencePass>(analyzeAllFunctions);
 }
+
+} // namespace onnx_mlir

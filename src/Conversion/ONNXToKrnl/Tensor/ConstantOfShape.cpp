@@ -33,8 +33,12 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
                          .getValue()
                          .cast<DenseElementsAttr>();
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto elementType = memRefType.getElementType();
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    Type elementType = memRefType.getElementType();
     size_t rank = memRefType.cast<ShapedType>().getRank();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(

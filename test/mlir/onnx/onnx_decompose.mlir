@@ -157,10 +157,10 @@ func @test_scaler_no_scale2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-  //CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<*xf32>
-  //CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<[1986.99939, 0.99999988, 0.999999701]> : tensor<3xf32>} : () -> tensor<3xf32>
-  //CHECK-NEXT: %2 = "onnx.Sub"(%0, %1) : (tensor<*xf32>, tensor<3xf32>) -> tensor<3xf32>
-  //CHECK-NEXT: return %2 : tensor<3xf32>
+  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<*xf32>
+  // CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<[1986.99939, 0.99999988, 0.999999701]> : tensor<3xf32>} : () -> tensor<3xf32>
+  // CHECK-NEXT: %2 = "onnx.Sub"(%0, %1) : (tensor<*xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK-NEXT: return %2 : tensor<3xf32>
 }
 
 // -----
@@ -276,12 +276,13 @@ func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
   func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
     %0 = "onnx.ResizeV10"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<4xf32>) -> tensor<*xf32>
     return %0 : tensor<*xf32>
-// CHECK-LABEL:  func @test_resizev10
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<*xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xi64>} : () -> tensor<0xi64>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]], [[VAR_1_]]) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<0xf32>, tensor<4xf32>, tensor<0xi64>) -> tensor<*xf32>
-// CHECK:           return [[VAR_2_]] : tensor<*xf32>
+
+    // CHECK-LABEL:  func @test_resizev10
+    // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<*xf32> {
+    // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+    // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xi64>} : () -> tensor<0xi64>
+    // CHECK:           [[VAR_2_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]], [[VAR_1_]]) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<0xf32>, tensor<4xf32>, tensor<0xi64>) -> tensor<*xf32>
+    // CHECK:           return [[VAR_2_]] : tensor<*xf32>
   }
 
   func @test_resizev11(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<*xf32> {
@@ -289,24 +290,26 @@ func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     %1 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
     %2 = "onnx.Resize"(%arg0, %0, %0, %arg1) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
     return %2 : tensor<*xf32>
-// CHECK-LABEL:  func @test_resizev11
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[VAR_0_]], [[PARAM_1_]]) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
-// CHECK:           return [[VAR_2_]] : tensor<*xf32>
+
+    // CHECK-LABEL:  func @test_resizev11
+    // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
+    // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+    // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+    // CHECK:           [[VAR_2_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[VAR_0_]], [[PARAM_1_]]) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
+    // CHECK:           return [[VAR_2_]] : tensor<*xf32>
   }
 
 func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<*xf32>, tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
-// CHECK-LABEL:  func @test_seqence_construct_1
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
-// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
-// CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
+
+  // CHECK-LABEL:  func @test_seqence_construct_1
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  // CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  // CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
 }
 
 // -----
@@ -315,11 +318,23 @@ func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
   %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
   return 
 
-// CHECK-LABEL:  func @test_clipv6
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<6.000000e+00> : tensor<f32>} : () -> tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) : (tensor<*xf32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
-// CHECK:           return
-// CHECK:         }
+  // CHECK-LABEL:  func @test_clipv6
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<6.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  // CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) : (tensor<*xf32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  // CHECK:           return
 }
+
+// -----
+
+func @test_scatter(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Scatter"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL:  func @test_scatter
+  // CHECK-SAME:   ([[PARAM_0:%.+]]: tensor<64x25600xf32>, [[PARAM_1:%.+]]: tensor<64x100xi64>, [[PARAM_2:%.+]]: tensor<64x100xf32>) -> tensor<*xf32> {
+  // CHECK-NEXT:      [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
+  // CHECK-NEXT:      return [[RES]] : tensor<*xf32>
+}
+

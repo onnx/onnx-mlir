@@ -9,7 +9,7 @@
 #include "llvm/Support/FileSystem.h"
 
 #include "include/OnnxMlirRuntime.h"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
@@ -75,9 +75,12 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   if (true) {
     printf("RapidCheck test case generation.\n");

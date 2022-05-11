@@ -36,7 +36,7 @@
 #include <malloc.h>
 #endif // #ifdef __APPLE__
 
-#include "include/onnx-mlir/Compiler/OMCompilerMacros.h"
+#include <onnx-mlir/Compiler/OMCompilerMacros.h>
 
 #ifdef __cplusplus
 extern "C" {

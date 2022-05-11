@@ -425,4 +425,20 @@ def ZLowBatchNormOp:ZLow_Op<"batchnorm", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$output);
 }
 
+def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
+  let summary = "ZLow dummy operation that behaves like identity";
+  let description = [{
+  "ZLow operation to forward the input value to the output value."
+  "It will be removed if canonicalization is called."
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$input), [{
+      build($_builder, $_state, input.getType(), input);
+    }]>
+  ];
+  let hasCanonicalizer = 1;
+}
+
 #endif // ZLOW_OPS

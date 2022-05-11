@@ -50,5 +50,8 @@ namespace zlow {
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
 
+/// Add pass for rewriting ZLow ops.
+std::unique_ptr<mlir::Pass> createZLowDummyOpForMultiDerefPass();
+
 } // namespace zlow
 } // namespace onnx_mlir

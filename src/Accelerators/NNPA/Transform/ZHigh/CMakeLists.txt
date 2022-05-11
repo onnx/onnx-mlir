@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMZHighConstPropagation
 
   DEPENDS
   OMONNXZHighConstPropagationIncGen
+  libzdnn
 
   LINK_LIBS PUBLIC
   MLIRRewrite
@@ -16,6 +17,9 @@ add_onnx_mlir_library(OMZHighConstPropagation
   OMStickify
   OMZHighOps
   OMONNXOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
 
 add_onnx_mlir_rewriter(ZHighLayoutPropagation)

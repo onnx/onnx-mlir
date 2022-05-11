@@ -15,6 +15,8 @@
 
 #include <set>
 
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
+
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
@@ -22,7 +24,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -36,33 +37,45 @@ namespace {
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
 
-// Strong-typed enum is NOT used because the value will be static_cast to int
-enum InstrumentActions {
-  InstrumentBeforeOp,
-  InstrumentAfterOp,
-  InstrumentReportTime,
-  InstrumentReportMemory
-};
-
-// Inherited issue: no default value support for cl::bits
-llvm::cl::bits<InstrumentActions> InstrumentControlBits(
-    llvm::cl::desc("Specify what instrumentation actions at runtime:"),
-    llvm::cl::values(
-        clEnumVal(InstrumentBeforeOp, "insert instrument before op"),
-        clEnumVal(InstrumentAfterOp, "insert instrument after op"),
-        clEnumVal(
-            InstrumentReportTime, "instrument runtime reports time usage"),
-        clEnumVal(
-            InstrumentReportMemory, "instrument runtime reports memory usage")),
-    llvm::cl::cat(onnx_mlir::OMPassOptions));
-
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>> {
+
+public:
+  Option<std::string> instrumentONNXOps{*this, "instrument-onnx-ops",
+      llvm::cl::desc("Specify onnx ops to be instrumented\n"
+                     "\"NONE\" or \"\" for no instrument\n"
+                     "\"ALL\" for all ops. \n"
+                     "\"op1 op2 ...\" for the specified ops."),
+      llvm::cl::init("")};
+
+  Option<bool> instrumentBefore{*this, "instrument-before",
+      llvm::cl::desc("insert instrument before op"), llvm::cl::init(false)};
+
+  Option<bool> instrumentAfter{*this, "instrument-after",
+      llvm::cl::desc("insert instrument after op"), llvm::cl::init(false)};
+
+  Option<bool> reportTime{*this, "report-time",
+      llvm::cl::desc("instrument runtime reports time usage"),
+      llvm::cl::init(false)};
+
+  Option<bool> reportMemory{*this, "report-memory",
+      llvm::cl::desc("instrument runtime reports memory usage"),
+      llvm::cl::init(false)};
+
+  InstrumentONNXPass() = default;
+  InstrumentONNXPass(const InstrumentONNXPass &pass)
+      : mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>>() {}
+  InstrumentONNXPass(StringRef ops, int actions) {
+    this->instrumentONNXOps = ops.str();
+    this->instrumentBefore = actions & onnx_mlir::InstrumentBeforeOp;
+    this->instrumentAfter = actions & onnx_mlir::InstrumentAfterOp;
+    this->reportTime = actions & onnx_mlir::InstrumentReportTime;
+    this->reportMemory = actions & onnx_mlir::InstrumentReportMemory;
+  }
 
 private:
   bool allOpsAllowed;
   std::set<std::string> allowedOps;
-  unsigned runtimeActions;
 
 public:
   StringRef getArgument() const override { return "instrument-onnx"; }
@@ -81,14 +94,34 @@ public:
       std::istream_iterator<std::string> end;
       allowedOps = std::set<std::string>(begin, end);
     }
-    runtimeActions = InstrumentControlBits.getBits();
-  };
+  }
+
+  // merge all action options into a bitset
+  // used to create tags for instrumentation ops
+  int actions() const {
+    int tag = 0;
+    if (instrumentBefore)
+      tag |= 1 << onnx_mlir::InstrumentBeforeOp;
+    if (instrumentAfter)
+      tag |= 1 << onnx_mlir::InstrumentAfterOp;
+    if (reportTime)
+      tag |= 1 << onnx_mlir::InstrumentReportTime;
+    if (reportMemory)
+      tag |= 1 << onnx_mlir::InstrumentReportMemory;
+    return tag;
+  }
+
+  int beforeTag() const {
+    return actions() & (~(1 << onnx_mlir::InstrumentAfterOp));
+  }
+  int afterTag() const {
+    return actions() & (~(1 << onnx_mlir::InstrumentBeforeOp));
+  }
 
   void runOnOperation() override {
-    if (onnx_mlir::instrumentONNXOps == "" ||
-        onnx_mlir::instrumentONNXOps == "NONE")
+    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
       return;
-    init(onnx_mlir::instrumentONNXOps);
+    init(instrumentONNXOps);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
@@ -100,19 +133,13 @@ public:
 
         Location loc = op->getLoc();
         OpBuilder opBuilder(op);
-        if (InstrumentControlBits.isSet(InstrumentBeforeOp)) {
-          uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
-        }
+        if (instrumentBefore)
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
 
         // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
-        if (InstrumentControlBits.isSet(InstrumentAfterOp) &&
-            !op->hasTrait<OpTrait::IsTerminator>()) {
+        if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
           opBuilder.setInsertionPointAfter(op);
-          uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());
         }
       }
     });
@@ -125,4 +152,9 @@ public:
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass() {
   return std::make_unique<InstrumentONNXPass>();
+}
+
+std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass(
+    StringRef ops, int actions) {
+  return std::make_unique<InstrumentONNXPass>(ops, actions);
 }

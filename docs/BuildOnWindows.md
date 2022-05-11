@@ -100,3 +100,7 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
 call cmake --build . --config Release --target onnx-mlir
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+### Trouble shooting build issues
+
+Check this [page](TestingHighLevel.md) for helpful hints.

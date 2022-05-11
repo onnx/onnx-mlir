@@ -18,7 +18,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 namespace onnx_mlir {
 namespace zlow {

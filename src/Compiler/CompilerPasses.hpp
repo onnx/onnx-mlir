@@ -17,9 +17,10 @@
 
 namespace onnx_mlir {
 void addONNXToMLIRPasses(mlir::PassManager &pm);
-void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel);
+void addONNXToKrnlPasses(
+    mlir::PassManager &pm, int optLevel, bool enableCSE = true);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE = true);
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,

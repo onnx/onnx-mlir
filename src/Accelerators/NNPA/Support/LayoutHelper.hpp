@@ -13,7 +13,7 @@
 #pragma once
 
 #include "mlir/IR/BuiltinAttributes.h"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 namespace onnx_mlir {
 

@@ -545,7 +545,7 @@ import_handler_map_["Binarizer"] =
 import_handler_map_["CastMap"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastMapOp>;
 import_handler_map_["CategoryMapper"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCategoryMapperOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportCategoryMapper;
 import_handler_map_["DictVectorizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDictVectorizerOp>;
 import_handler_map_["FeatureVectorizer"] = 

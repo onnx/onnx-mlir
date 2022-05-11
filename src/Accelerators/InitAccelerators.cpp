@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// Initialization of accelerators.
+// Initialization of accelerators' compile time data structures.
 //
 //===----------------------------------------------------------------------===//
 

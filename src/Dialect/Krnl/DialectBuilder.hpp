@@ -136,6 +136,7 @@ struct KrnlBuilder : public DialectBuilder {
   void printf(mlir::StringRef msg) const;
   void printf(
       mlir::StringRef msg, mlir::Value input, mlir::Type inputType) const;
+  void printf(mlir::Value input, mlir::Type inputType) const;
 
   // Onnx-mlir runtime functions.
   void randomNormal(mlir::Value alloc, mlir::Value numberOfRandomValues,

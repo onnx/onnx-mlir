@@ -103,7 +103,8 @@ mlir::Value createNoneFloatConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 
 bool isFromNone(mlir::Value value);
-mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
+mlir::Type getBroadcastedRankedType(
+    mlir::Type type1, mlir::Type type2, mlir::Type elementType = nullptr);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.

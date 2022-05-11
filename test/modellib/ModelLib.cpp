@@ -17,7 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace mlir;
@@ -72,6 +72,26 @@ std::string ModelLibBuilder::getSharedLibName(
 #else
   return sharedLibBaseName + ".so";
 #endif
+}
+
+void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
+  bool hasSeedValue = false;
+  unsigned int seed = 0;
+  if (const char *envVal = std::getenv(envVar.c_str())) {
+    std::string seedStr(envVal);
+    seed = (unsigned int)std::stoul(seedStr, nullptr);
+    hasSeedValue = true;
+    std::cout
+        << "Model will use the random number generator seed provided by \""
+        << envVar << "=" << seed << "\"\n";
+  }
+  seed = omDefineSeed(seed, hasSeedValue);
+  if (!hasSeedValue) {
+    // We used a random seed; print that seed to that we may reproduce the
+    // experiment.
+    std::cout << "Model can reuse the current seed by exporting \"" << envVar
+              << "=" << seed << "\"\n";
+  }
 }
 
 FuncOp ModelLibBuilder::createEmptyTestFunction(

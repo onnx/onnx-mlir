@@ -4,7 +4,7 @@
 
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,7 @@
 //
 // This pass is applied before any other pass so that there is no need to
 // implement shape inference for the decomposed operation. Hence, it is expected
-// that there is no knowledge about tensor shape at this point
+// that there is no knowledge about tensor shape at this point.
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,35 +28,39 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
 DenseElementsAttr createDenseArrayAttr(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
-
   assert(origAttrs && "handle EXISTING ArrayAttr only");
+
   if (origAttrs.getValue()[0].dyn_cast<FloatAttr>()) {
-    mlir::Type elementType = rewriter.getF32Type();
+    Type elementType = rewriter.getF32Type();
     int nElements = origAttrs.getValue().size();
     SmallVector<float, 4> wrapper(nElements, 0);
-    for (int i = 0; i < nElements; ++i) {
+    for (int i = 0; i < nElements; ++i)
       wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
-    }
+
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+
   if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
-    mlir::Type elementType = rewriter.getIntegerType(64);
+    Type elementType = rewriter.getIntegerType(64);
     int nElements = origAttrs.getValue().size();
     SmallVector<int64_t, 4> wrapper(nElements, 0);
-    for (int i = 0; i < nElements; ++i) {
+    for (int i = 0; i < nElements; ++i)
       wrapper[i] = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
-    }
+
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+
   llvm_unreachable("unexpected attribute type");
 }
 
@@ -65,19 +69,21 @@ DenseElementsAttr createDenseArrayAttr(
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {
   if (attr.dyn_cast<FloatAttr>()) {
-    mlir::Type elementType = rewriter.getF32Type();
+    Type elementType = rewriter.getF32Type();
     SmallVector<float, 1> wrapper;
     wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
   }
+
   if (attr.dyn_cast<IntegerAttr>()) {
-    mlir::Type elementType = rewriter.getIntegerType(64);
+    Type elementType = rewriter.getIntegerType(64);
     SmallVector<int64_t, 1> wrapper;
     wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
   }
+
   llvm_unreachable("unexpected attribute type");
 }
 
@@ -89,20 +95,18 @@ Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
 // When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
 DenseElementsAttr createDenseArrayAttrOrEmpty(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
-
-  if (origAttrs) {
+  if (origAttrs)
     return createDenseArrayAttr(rewriter, origAttrs);
-  } else {
-    mlir::Type elementType = rewriter.getIntegerType(64);
-    int nElements = 0;
-    SmallVector<int64_t, 4> wrapper(nElements, 0);
-    for (int i = 0; i < nElements; ++i) {
-      wrapper[i] = i;
-    }
-    return DenseElementsAttr::get(
-        RankedTensorType::get(wrapper.size(), elementType),
-        llvm::makeArrayRef(wrapper));
-  }
+
+  Type elementType = rewriter.getIntegerType(64);
+  int nElements = 0;
+  SmallVector<int64_t, 4> wrapper(nElements, 0);
+  for (int i = 0; i < nElements; ++i)
+    wrapper[i] = i;
+
+  return DenseElementsAttr::get(
+      RankedTensorType::get(wrapper.size(), elementType),
+      llvm::makeArrayRef(wrapper));
 }
 
 Value createSequenceConstructOp(
@@ -111,17 +115,18 @@ Value createSequenceConstructOp(
   Location loc = seq.getLoc();
   Value position = rewriter.create<ONNXNoneOp>(loc);
 
-  for (auto input : inputs) {
+  for (auto input : inputs)
     seq = rewriter.create<ONNXSequenceInsertOp>(
         loc, resType, seq, input, position);
-  }
+
   return seq;
 }
 
-/// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXDecompose.inc"
+} // namespace onnx_mlir
 
 namespace {
+/// Include the patterns defined in the Declarative Rewrite framework.
+#include "src/Transform/ONNX/ONNXDecompose.inc"
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<FuncOp>> {
@@ -135,10 +140,9 @@ struct DecomposeONNXToONNXPass
 
   void runOnOperation() final;
 };
-} // end anonymous namespace.
 
 void DecomposeONNXToONNXPass::runOnOperation() {
-  auto function = getOperation();
+  FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
@@ -161,6 +165,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXResizeV11Op>();
   target.addIllegalOp<ONNXResizeV10Op>();
   target.addIllegalOp<ONNXScalerOp>();
+  target.addIllegalOp<ONNXScatterOp>();
   target.addIllegalOp<ONNXSequenceConstructOp>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV9Op>();
@@ -171,11 +176,17 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
-} // end anonymous namespace
+}
+
+} // namespace
+
+namespace onnx_mlir {
 
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass() {
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass() {
   return std::make_unique<DecomposeONNXToONNXPass>();
 }
+
+} // namespace onnx_mlir

@@ -489,10 +489,6 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   if ((aShape.size() != 2) || (bShape.size() != 2) ||
       (hasC && (cShape.size() != 1)))
     return false;
-  // Shape must be static.
-  if (!aType.hasStaticShape() || !bType.hasStaticShape() ||
-      (hasC && !cType.hasStaticShape()))
-    return false;
 
   ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
   if ((gemmOp.alpha().convertToFloat() != 1.0) ||
@@ -502,8 +498,13 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   auto bShape1 = gemmOp.transB() ? bShape[0] : bShape[1];
   // Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
-  if (hasC && (cShape[0] != bShape1))
-    return false;
+  if (hasC) {
+    // Cannot check broadcasting at compile time.
+    if (cShape[0] == -1)
+      return false;
+    if (cShape[0] != bShape1)
+      return false;
+  }
   return true;
 }
 
@@ -681,13 +682,16 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
          "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
 
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.o_Y()))
+    return false;
+
   // dilations not supported. Only default one is accepted.
   if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
     return false;
 
-  return checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-      op, op.o_Y());
+  return true;
 }
 
 /// Check legality for ONNXAveragePool.
@@ -733,8 +737,8 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
       if (outputDim != ceil((float)inputDim / stride))
         return false;
     } else { // VALID_PADDING
-      // inputDim must be > kernelDim.
-      if (inputDim <= kernelDim)
+      // inputDim must be >= kernelDim.
+      if (inputDim < kernelDim)
         return false;
       // height_out restriction.
       if (outputDim != ceil((float)(inputDim - kernelDim + 1) / stride))
