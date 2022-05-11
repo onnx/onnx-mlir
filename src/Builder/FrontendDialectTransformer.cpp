@@ -487,7 +487,7 @@ private:
     }
 
     if (useStdReturn)
-      builder_.create<ReturnOp>(UnknownLoc(), retVals);
+      builder_.create<func::ReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
       builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
@@ -1197,7 +1197,7 @@ private:
     for (auto &v : pFunctionProto->output()) {
       ret_vals.push_back(LookupOnnxName(v));
     }
-    builder_.create<ReturnOp>(UnknownLoc(), ret_vals);
+    builder_.create<func::ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);

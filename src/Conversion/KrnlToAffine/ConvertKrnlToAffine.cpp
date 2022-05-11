@@ -684,7 +684,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::memref::MemRefDialect, func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Patterns.

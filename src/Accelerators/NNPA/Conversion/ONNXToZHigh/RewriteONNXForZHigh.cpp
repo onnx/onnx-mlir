@@ -89,8 +89,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target
-      .addLegalDialect<ONNXDialect, zhigh::ZHighDialect, StandardOpsDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());

@@ -563,7 +563,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::vector::VectorDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
-  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::func::FuncDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
