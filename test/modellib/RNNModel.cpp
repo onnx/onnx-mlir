@@ -103,7 +103,7 @@ bool RNNLibBuilder::build() {
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, rnnOp.getResults());
+  builder.create<func::ReturnOp>(loc, rnnOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

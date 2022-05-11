@@ -2,7 +2,7 @@
 
 func @test_onnx_to_matmul2d(%arg0 : tensor<4x8xf32>, %arg1 : tensor<8x16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul2d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<4x16xf32> {
@@ -19,7 +19,7 @@ func @test_onnx_to_matmul2d(%arg0 : tensor<4x8xf32>, %arg1 : tensor<8x16xf32>) -
 
 func @test_onnx_to_matmul3d(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<100x8x16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<100x4x8xf32>, tensor<100x8x16xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul3d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
@@ -36,7 +36,7 @@ func @test_onnx_to_matmul3d(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<100x8x16
 
 func @test_onnx_to_matmul3dbcast(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<8x16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<100x4x8xf32>, tensor<8x16xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul3dbcast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<100x4x16xf32> {
@@ -55,7 +55,7 @@ func @test_onnx_to_matmul3dbcast(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<8x1
 /// for matrix multiply because zDNN does not support broadcasting.
 func @test_matmul_not_lowered_inadequate_shape(%arg0 : tensor<4x4xf32>, %arg1 : tensor<4xf32>) -> tensor<4xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x4xf32>, tensor<4xf32>) -> tensor<4xf32>
-  "std.return"(%0) : (tensor<4xf32>) -> ()
+  "func.return"(%0) : (tensor<4xf32>) -> ()
 
   // CHECK-LABEL: test_matmul_not_lowered_inadequate_shape
   // CHECK: {{.*}} = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x4xf32>, tensor<4xf32>) -> tensor<4xf32>
@@ -72,7 +72,7 @@ func @test_onnx_matmul_add_to_zhigh_1D_bias(
     %arg2 : tensor<16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<*xf32>
   %1 = "onnx.Add"(%arg2, %0) : (tensor<16xf32>,tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_matmul_add_to_zhigh_1D_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>, [[PARAM_2_:%.+]]: tensor<16xf32>) -> tensor<4x16xf32> {
@@ -98,7 +98,7 @@ func @test_onnx_matmul_add_to_zhigh_1D_bias_normalized(
     %arg2 : tensor<16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<*xf32>
   %1 = "onnx.Add"(%0, %arg2) : (tensor<*xf32>, tensor<16xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_matmul_add_to_zhigh_1D_bias_normalized
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>, [[PARAM_2_:%.+]]: tensor<16xf32>) -> tensor<4x16xf32> {
@@ -123,7 +123,7 @@ func @test_onnx_matmul_add_to_zhigh_not_lower_add_since_bias_dims(
     %arg2 : tensor<4x16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<10x4x8xf32>, tensor<10x8x16xf32>) -> tensor<*xf32>
   %1 = "onnx.Add"(%arg2, %0) : (tensor<4x16xf32>,tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK: func @test_onnx_matmul_add_to_zhigh_not_lower_add_since_bias_dims
   // CHECK: "zhigh.MatMul"
@@ -140,7 +140,7 @@ func @test_onnx_matmul_add_to_zhigh_1D_bias_not_lower_add_since_broadcasting_bia
     %arg2 : tensor<1xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<*xf32>
   %1 = "onnx.Add"(%arg2, %0) : (tensor<1xf32>,tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK: func @test_onnx_matmul_add_to_zhigh_1D_bias_not_lower_add_since_broadcasting_bias
   // CHECK: "zhigh.MatMul"
@@ -154,7 +154,7 @@ func @test_onnx_matmul_add_to_zhigh_1D_bias_not_lower_add_since_broadcasting_bia
 // COM: If they don't meet the requirement, get runtime error.
 func @test_onnx_to_matmul2d_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul2d_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
@@ -171,7 +171,7 @@ func @test_onnx_to_matmul2d_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>
 
 func @test_onnx_to_matmul3d_dyn(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul3d_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
@@ -188,7 +188,7 @@ func @test_onnx_to_matmul3d_dyn(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x?x?x
 
 func @test_onnx_to_matmul3dbcast_dyn(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x?xf32>, tensor<?x?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_matmul3dbcast_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?xf32>) -> tensor<?x?x?xf32> {
@@ -208,7 +208,7 @@ func @test_onnx_to_matmul3dbcast_dyn(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?
 /// for matrix multiply because broadcasting is not supported
 func @test_matmul_not_lowered_inadequate_shape_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?xf32>) -> tensor<?xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?xf32>) -> tensor<?xf32>
-  "std.return"(%0) : (tensor<?xf32>) -> ()
+  "func.return"(%0) : (tensor<?xf32>) -> ()
 
   // CHECK-LABEL: func @test_matmul_not_lowered_inadequate_shape_dyn
   // CHECK: onnx.MatMul
@@ -222,7 +222,7 @@ func @test_matmul_not_lowered_inadequate_shape_dyn(%arg0 : tensor<?x?xf32>, %arg
 
 func @test_exceed_limit_matmul2d(%arg0 : tensor<4x32769xf32>, %arg1 : tensor<32769x16xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<4x32769xf32>, tensor<32769x16xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_matmul2d
 // CHECK:        "onnx.MatMul"
