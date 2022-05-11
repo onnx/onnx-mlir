@@ -144,7 +144,8 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
   get_coeffs(ratio, coeffs_buffer, mode);
   int64_t n = coeffs_n;
 
-  float points[coeffs_n];
+  //float points[coeffs_n];
+  float *points = (float*)malloc(sizeof(float)*coeffs_n);
 
   get_neighbor(x_ori, n, input_width, (float *)omTensorGetDataPtr(data), points,
       exclude_outside);
@@ -152,6 +153,7 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
   for (int i = 0; i < n; i++) {
     sum += coeffs_buffer[i] * points[i];
   }
+  free(points);
   return sum;
 }
 
@@ -188,14 +190,14 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
 }
 
 static void coordinate_step(int64_t rank, int64_t *output_size,
-    int64_t allCoordinates[][rank], int64_t currentRank, int64_t *currentIter,
+    int64_t *allCoordinates, int64_t currentRank, int64_t *currentIter,
     int64_t *currentPosition) {
   for (int i = 0; i < output_size[currentRank]; i++) {
     if (currentRank == rank - 1) {
       for (int j = 0; j < currentRank; j++) {
-        allCoordinates[*currentPosition][j] = currentIter[j];
+        *(allCoordinates+(*currentPosition)*rank+j) = currentIter[j];
       }
-      allCoordinates[*currentPosition][currentRank] = i;
+      *(allCoordinates+(*currentPosition)*rank+currentRank) = i;
       (*currentPosition)++;
     } else {
       currentIter[currentRank] = i;
@@ -206,7 +208,7 @@ static void coordinate_step(int64_t rank, int64_t *output_size,
 }
 
 static void generate_coordinates(
-    int64_t rank, int64_t *output_size, int64_t allCoordinates[][rank]) {
+    int64_t rank, int64_t *output_size, int64_t* allCoordinates) {
   int64_t position = 0;
   int64_t currentIter[rank];
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
@@ -246,14 +248,17 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
-  int64_t allCoordinates[outputSize][rank];
+  //int64_t allCoordinates[outputSize][rank];
+  int64_t *allCoordinates = (int64_t*)malloc(outputSize*rank*sizeof(int64_t));
   generate_coordinates(rank, output_size, allCoordinates);
-  float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
+
+  //float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
+  float *coeffs_buffer = (float *)malloc(sizeof(float)*coeffs_n);
 
   for (int i = 0; i < outputSize; i++) {
     float Xs[rank];
     for (int j = 0; j < rank; j++) {
-      Xs[j] = allCoordinates[i][j];
+      Xs[j] = *(allCoordinates+i*rank+j);
     }
     float r = interpolate_nd_with_x(
         /*OMTensor */ data,
@@ -274,16 +279,19 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     free(output_size);
   if (scale_factor_OMT == NULL)
     free(scale_factor);
+  free(allCoordinates);
+  free(coeffs_buffer);
 }
 
 void Resize_Scales(
     OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str) {
-  Coeff_Func_t coeffs_f;
-  int coeffs_n;
+  Coeff_Func_t coeffs_f = NULL;
+  int coeffs_n = 0;
   if (strcmp(mode_str, "nearest") == 0) {
     coeffs_f = nearest_coeffs;
     coeffs_n = 2;
-  } else if (strcmp(mode_str, "linear") == 0) {
+  //} else if (strcmp(mode_str, "linear") == 0) {
+  } else if (strncmp(mode_str, "linear", 6) == 0){
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
   } else if (strcmp(mode_str, "cubic") == 0) {
@@ -314,7 +322,8 @@ void Resize_Size(
   if (strcmp(mode_str, "nearest") == 0) {
     coeffs_f = nearest_coeffs;
     coeffs_n = 2;
-  } else if (strcmp(mode_str, "linear") == 0) {
+  //} else if (strcmp(mode_str, "linear") == 0) {
+  } else if(strncmp(mode_str, "linear", 6) == 0){
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
   } else if (strcmp(mode_str, "cubic") == 0) {
