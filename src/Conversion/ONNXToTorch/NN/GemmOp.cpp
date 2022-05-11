@@ -78,13 +78,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return rewriter.create<ConstantIntOp>(loc, iVal);
   }
 
-  Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
-      mlir::MLIRContext *context, Location loc) const {
-    auto operandType = toTorchType(context, operand.getType());
-    return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandType, operand);
-  }
-
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
