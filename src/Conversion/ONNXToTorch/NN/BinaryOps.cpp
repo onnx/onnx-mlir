@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- SqrtOp.cpp - ONNX Op Transform ------------------===//
+//===------- BinaryOps.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2022, Helprack LLC.
 //
@@ -19,11 +19,32 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-// Element-wise binary ops lowering to Krnl dialect.
-//===----------------------------------------------------------------------===//
+/* Matrix product
+ *
+ * Operands:
+ *  A    tensor of 16-bit float values or tensor of 32-bit float values or
+ * tensor of 64-bit float values or tensor of 32-bit unsigned integer values or
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values
+ *  B    tensor of 16-bit float values or tensor of 32-bit float values or
+ * tensor of 64-bit float values or tensor of 32-bit unsigned integer values or
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values
+ *
+ * Result:
+ *  Y    tensor of 16-bit float values or tensor of 32-bit float values or
+ * tensor of 64-bit float values or tensor of 32-bit unsigned integer values or
+ * tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer
+ * values or tensor of 64-bit signless integer values or tensor of bfloat16 type
+ * values or memref of any type values
+ */
+
 template <typename ONNXBinaryOp, typename TorchBinaryOp>
 struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
-  ONNXToTorchElementwiseBinaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXToTorchElementwiseBinaryOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, ONNXBinaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -37,31 +58,26 @@ struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
     Value operandA = binaryOp.getOperand(0);
     Value operandB = binaryOp.getOperand(1);
 
-    mlir::MLIRContext *context =  binaryOp.getContext();
+    mlir::MLIRContext *context = binaryOp.getContext();
 
     auto operandAType = toTorchType(context, operandA.getType());
     auto operandBType = toTorchType(context, operandB.getType());
     auto resultType = toTorchType(context, binaryOp.getResult().getType());
 
-    auto operandATensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandAType, operandA);
-    auto operandBTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandBType, operandB);
+    auto operandATensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, operandAType, operandA);
+    auto operandBTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, operandBType, operandB);
 
-    llvm::outs() << "Binary input is "
-                 << operandATensor
-                 << "\n"
-                 << operandBTensor
-                 << "\n";
+    llvm::outs() << "Binary input is " << operandATensor << "\n"
+                 << operandBTensor << "\n";
 
-    Value result = rewriter.create<TorchBinaryOp>(loc,
-                                                  resultType,
-                                                  operandATensor,
-                                                  operandBTensor);
+    Value result = rewriter.create<TorchBinaryOp>(
+        loc, resultType, operandATensor, operandBTensor);
 
-    llvm::outs() << "Binary CREATED is "
-                 << result
-                 << "\n";
+    llvm::outs() << "Binary CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
@@ -72,5 +88,6 @@ struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
 void populateLoweringONNXToTorchBinaryOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<
-    ONNXToTorchElementwiseBinaryOpLowering<mlir::ONNXMatMulOp, AtenMatmulOp>>(typeConverter, ctx);
+      ONNXToTorchElementwiseBinaryOpLowering<mlir::ONNXMatMulOp, AtenMatmulOp>>(
+      typeConverter, ctx);
 }
