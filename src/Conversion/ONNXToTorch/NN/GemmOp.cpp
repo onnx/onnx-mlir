@@ -111,7 +111,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
 
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
-    // Transpose the A and B.
+    // Transpose A and B. Transpose on Torch is only 2d or less.
     Value transposeAVal = (transA) ? rewriter.create<AtenTransposeIntOp>(
                                          loc, resultType, aTensor, f0v, f1v)
                                    : aTensor;
