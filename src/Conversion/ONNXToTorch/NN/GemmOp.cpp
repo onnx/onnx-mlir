@@ -78,11 +78,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return rewriter.create<ConstantIntOp>(loc, iVal);
   }
 
-  Value getFloatValueFromRaw(float val, ConversionPatternRewriter &rewriter,
-      Location loc) const {
-    rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(val));
-  }
-
   Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
       mlir::MLIRContext *context, Location loc) const {
     auto operandType = toTorchType(context, operand.getType());
@@ -114,49 +109,40 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto bTensor = getTorchTensor(gemmOp.B(), rewriter, context, loc);
     auto cTensor = getTorchTensor(gemmOp.C(), rewriter, context, loc);
 
-    Value alpha3v = (alpha) ? getFloatValue(alpha, rewriter, loc) : getFloatValueFromRaw(1.0, rewriter, loc);
-    Value beta3v = (beta) ? getFloatValue(beta, rewriter, loc) : getFloatValueFromRaw(1.0, rewriter, loc);
-
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
     // Transpose the A and B.
-    Value transposeAVal, transposeBVal;
-    if (transA)
-      transposeAVal = rewriter.create<AtenTransposeIntOp>(
-          loc, resultType, aTensor, f0v, f1v);
-    else
-      transposeAVal = aTensor;
-    llvm::outs() << "\n transposeAVal : "
-                 << "\n"
-                 << transposeAVal << "\n"
-                 << "\n";
-
-    if (transB)
-      transposeBVal = rewriter.create<AtenTransposeIntOp>(
-          loc, resultType, bTensor, f0v, f1v);
-    else
-      transposeBVal = bTensor;
+    Value transposeAVal = (transA) ? rewriter.create<AtenTransposeIntOp>(
+                                         loc, resultType, aTensor, f0v, f1v)
+                                   : aTensor;
+    Value transposeBVal = (transB) ? rewriter.create<AtenTransposeIntOp>(
+                                         loc, resultType, bTensor, f0v, f1v)
+                                   : bTensor;
 
     llvm::outs() << "\n transposeBVal : "
                  << "\n"
-                 << transposeBVal << "\n"
-                 << "\n";
+                 << transposeAVal << "\n"
+                 << transposeBVal << "\n";
 
     // Compute Y = alpha * A’ * B’ + beta * C
     // Scalar multiplication with alpha(alpha * A’)
     // and beta(beta * C) values.
     Value alphaMulResult = NULL, betaMulResult = NULL;
-    if (alpha)
+    if (alpha) {
+      Value alpha3v = getFloatValue(alpha, rewriter, loc);
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, resultType, transposeAVal, alpha3v);
+    }
     llvm::outs() << "alphaMulResult Value"
                  << "\n"
                  << alphaMulResult << "\n"
                  << "\n";
 
-    if (beta)
+    if (beta) {
+      Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult =
           rewriter.create<AtenMulScalarOp>(loc, resultType, cTensor, beta3v);
+    }
 
     llvm::outs() << "betaMulResult Value"
                  << "\n"
@@ -191,7 +177,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
                  << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, resultType, result);
+        op, op->getResult(0).getType(), result);
 
     return success();
   }
