@@ -88,10 +88,7 @@ public:
 	    Torch::ListType::get(inputArrayValues.front().getType()),
       ValueRange{inputArrayValues}
     );
-    Value result = rewriter.create<AtenCatOp>(loc, resultType, inputShapeList, axisVal);
-
-    llvm::outs() << "Aten Concat Op:" << "\n" << result << "\n\n";
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
+    AtenCatOp result = rewriter.replaceOpWithNewOp<AtenCatOp>(op, resultType, inputShapeList, axisVal);
     return success();
   }
 };
