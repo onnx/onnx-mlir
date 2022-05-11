@@ -7,11 +7,14 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/CommonUtils.cpp
   NN/Conv2D.cpp
   NN/ConstOp.cpp
+  NN/ElementwiseOp.cpp
+  NN/Gemm.cpp
+  NN/GlobalAveragePool.cpp
   NN/LeakyReluOp.cpp
   NN/MaxPoolSingleOutOp.cpp
   NN/PaddingOp.cpp
-  NN/GlobalAveragePool.cpp
   NN/ReduceMean.cpp
+  NN/SoftmaxOp.cpp
   NN/Gemm.cpp
   NN/AddOp.cpp
   NN/FlattenOp.cpp
