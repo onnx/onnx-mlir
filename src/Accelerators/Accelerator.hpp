@@ -29,7 +29,7 @@
 #define CREATE_ACCEL_ENUM(name) name,
 #define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
 #define INVOKE_ACCEL_INIT_FUNCTION(name, kinds)                                \
-  if (kinds.empty() ||                                                         \
+  if (!kinds.empty() &&                                                        \
       llvm::is_contained(kinds, accel::Accelerator::Kind::name))               \
     create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
@@ -64,18 +64,11 @@ public:
   /// Returns the set of accelerators available.
   static const llvm::SmallVectorImpl<Accelerator *> &getAccelerators();
 
-  /// Obtains the set of active accelerators.
-  static void getActiveAccelerators(
-      llvm::SmallVectorImpl<Accelerator *> &targets);
-
   /// Getter for the name of this accelerator.
   std::string getName() { return name; }
 
   /// Setter for the name of this accelerator.
   void setName(std::string _name) { name = _name; }
-
-  /// Returns whether the accelerator is active.
-  virtual bool isActive() const = 0;
 
   /// Returns the version number of the accelerator library.
   /// Version number format: 0x[major][minor][patch]
@@ -149,7 +142,7 @@ std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind);
 llvm::raw_ostream &operator<<(
     llvm::raw_ostream &out, const Accelerator::Kind kind);
 
-extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds = {});
+extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds);
 
 } // namespace accel
 } // namespace onnx_mlir

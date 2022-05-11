@@ -585,9 +585,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     }
     // Acccelators may have special versions of TensorType. Call the conversions
     // of accelerators.
-    SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
-    onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
-    for (auto *accel : activeAccels) {
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt %s
+// RUN: onnx-mlir-opt --maccel=NNPA --maccel=NNPA %s
 
 // COM: Enable when onnx-mlir driver works well with nnpa.
 // COM: RUN_: onnx-mlir --printIR --EmitZHighIR --execNodesOnCpu=test/add0,test/add2 %s | FileCheck %s

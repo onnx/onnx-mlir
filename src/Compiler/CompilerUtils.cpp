@@ -742,19 +742,16 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getDataLayout(loc)));
 
   // Set the module target accelerators.
-  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
-  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
-  if (!activeAccels.empty()) {
-    SmallVector<Attribute, 2> activeAccelsAttr;
-    for (auto *accel : activeAccels) {
-      std::ostringstream versionNumber;
-      versionNumber << std::hex << accel->getVersionNumber();
-      std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-      activeAccelsAttr.emplace_back(StringAttr::get(&context, accelStr));
-    }
+  SmallVector<Attribute, 2> activeAccelsAttr;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    std::ostringstream versionNumber;
+    versionNumber << std::hex << accel->getVersionNumber();
+    std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
+    activeAccelsAttr.emplace_back(StringAttr::get(&context, accelStr));
+  }
+  if (!activeAccelsAttr.empty())
     moduleOp.setAttr(
         "onnx-mlir.accels", ArrayAttr::get(&context, activeAccelsAttr));
-  }
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
@@ -780,10 +777,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     EmissionTargetType emissionTarget) {
   // Initialize accelerator(s) if required.
   SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
-  if (!maccel.empty()) {
+  if (!maccel.empty())
     onnx_mlir::accel::initAccelerators(maccel);
-    onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
-  }
 
   setupModule(module, context, outputBaseName);
 
@@ -792,12 +787,13 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
   // pipeline.
-  if (!activeAccels.empty())
-    for (auto *accel : activeAccels) {
-      accel->getOrLoadDialects(context);
-      accel->addPasses(module, pm, emissionTarget);
-    }
-  else
+  bool hasActiveAccel = false;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    hasActiveAccel = true;
+    accel->getOrLoadDialects(context);
+    accel->addPasses(module, pm, emissionTarget);
+  }
+  if (!hasActiveAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);

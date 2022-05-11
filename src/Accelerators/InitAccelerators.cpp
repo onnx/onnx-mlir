@@ -19,8 +19,7 @@ namespace accel {
 
 APPLY_TO_ACCELERATORS(DECLARE_ACCEL_INIT_FUNCTION)
 
-/// Initialize all accelerators specified by -DONNX_MLIR_ACCELERATORS in cmake.
-/// If `kinds` is given, only initialize the accelerators of the given kinds.
+/// Initialize accelerators of the given kinds.
 void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds) {
   APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION, kinds)
 }

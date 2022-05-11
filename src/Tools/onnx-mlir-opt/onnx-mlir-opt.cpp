@@ -81,7 +81,27 @@ void scanAndSetOptLevel(int argc, char **argv) {
   }
 }
 
+void scanAndSetMAccel(int argc, char **argv) {
+  // In decreasing order, so we pick the last one if there are many.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    if (currStr.find("--maccel=") != 0)
+      continue;
+    std::string kind(&argv[i][9]); // Get the number starting 8 chars down.
+    setTargetAccel(kind);
+  }
+}
+
 int main(int argc, char **argv) {
+  llvm::InitLLVM y(argc, argv);
+  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
+  scanAndSetOptLevel(argc, argv);
+  // Scan maccel manually now as it is needed for initializing the OM Passes.
+  scanAndSetMAccel(argc, argv);
+
+  // Hide unrelated options except common ones.
+  llvm::cl::HideUnrelatedOptions({&onnx_mlir::OnnxMlirCommonOptions});
+
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
   registry.insert<mlir::AffineDialect>();
@@ -96,12 +116,10 @@ int main(int argc, char **argv) {
   registry.insert<mlir::KrnlOpsDialect>();
 
   // Initialize accelerators if they exist.
-  onnx_mlir::accel::initAccelerators();
-  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
-  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
+  onnx_mlir::accel::initAccelerators(maccel);
 
   // Register dialects for accelerators.
-  for (auto *accel : activeAccels)
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 
   registerTransformsPasses();
@@ -111,15 +129,11 @@ int main(int argc, char **argv) {
   registerSCFPasses();
   registerStandardPasses();
 
-  llvm::InitLLVM y(argc, argv);
-  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
-  scanAndSetOptLevel(argc, argv);
-
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();
 
   // Initialize passes for accelerators.
-  for (auto *accel : activeAccels)
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->initPasses(OptimizationLevel);
 
   // Register any command line options.

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_remove_unstick_view_stick(%arg0: memref<7x4x1x8x32x64xf16>) -> (memref<7x4x1x8x32x64xf16>){
     %0 = memref.alloc() {alignment = 16 : i64} : memref<7x1x256x200xf32>

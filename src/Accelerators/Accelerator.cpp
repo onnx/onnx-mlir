@@ -27,13 +27,6 @@ const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
   return acceleratorTargets;
 }
 
-void Accelerator::getActiveAccelerators(
-    llvm::SmallVectorImpl<Accelerator *> &targets) {
-  for (Accelerator *accel : acceleratorTargets)
-    if (accel->isActive())
-      targets.emplace_back(accel);
-}
-
 // Help to print accelerator kinds.
 static std::map<Accelerator::Kind, std::string> mapKind2Strings;
 

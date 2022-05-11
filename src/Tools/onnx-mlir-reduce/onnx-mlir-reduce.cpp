@@ -40,9 +40,7 @@ static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::KrnlOpsDialect>();
 
   // Initialize and register dialects used by accelerators.
-  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
-  onnx_mlir::accel::Accelerator::getActiveAccelerators(activeAccels);
-  for (auto *accel : activeAccels)
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 }
 
