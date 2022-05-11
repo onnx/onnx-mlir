@@ -130,7 +130,7 @@ public:
  */
 class DisconnectKrnlDimFromAllocPass
     : public PassWrapper<DisconnectKrnlDimFromAllocPass,
-          OperationPass<FuncOp>> {
+          OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
 

@@ -50,14 +50,14 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
+ATTRIBUTE(unused) func::FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentFuncOp))
     parentFuncOp = parentFuncOp->getParentOp();
 
-  return cast<FuncOp>(parentFuncOp);
+  return cast<func::FuncOp>(parentFuncOp);
 }
 
 // Check if this value is an argument of one of the blocks nested
@@ -76,7 +76,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
     parentBlockOp = currentBlock->getParentOp();
     currentBlock = parentBlockOp->getBlock();
 
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
+  } while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp));
 
   return false;
 }
@@ -505,7 +505,7 @@ public:
     auto parentBlock = constOp.getOperation()->getBlock();
 
     // Ensure it's the top block.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // Move instruction to the top.
@@ -518,8 +518,8 @@ public:
  *  Function pass that enables memory pooling for MemRefs.
  */
 
-class KrnlBundleMemoryPoolsPass
-    : public PassWrapper<KrnlBundleMemoryPoolsPass, OperationPass<FuncOp>> {
+class KrnlBundleMemoryPoolsPass : public PassWrapper<KrnlBundleMemoryPoolsPass,
+                                      OperationPass<func::FuncOp>> {
 
   BlockToMemPool blockToStaticPool;
   BlockToMemPool blockToDynamicPool;

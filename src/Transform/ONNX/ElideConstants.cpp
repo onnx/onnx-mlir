@@ -64,7 +64,7 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public PassWrapper<ElideConstantValuePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ElideConstantValuePass, OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "elide-constants"; }
 

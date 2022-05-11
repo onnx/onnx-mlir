@@ -129,7 +129,7 @@ namespace {
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
 struct DecomposeONNXToONNXPass
-    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<FuncOp>> {
+    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -142,7 +142,7 @@ struct DecomposeONNXToONNXPass
 };
 
 void DecomposeONNXToONNXPass::runOnOperation() {
-  FuncOp function = getOperation();
+  func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());

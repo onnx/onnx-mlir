@@ -756,7 +756,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 struct ConstPropONNXToONNXPass
-    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<func::FuncOp>> {
 
   StringRef getArgument() const override { return "constprop-onnx"; }
 

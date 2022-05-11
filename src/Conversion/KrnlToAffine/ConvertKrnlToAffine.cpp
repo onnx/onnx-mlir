@@ -15,6 +15,7 @@
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
@@ -600,7 +601,7 @@ AffineTypeConverter::AffineTypeConverter() {
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
-    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
 
@@ -610,8 +611,8 @@ struct ConvertKrnlToAffinePass
 };
 
 void ConvertKrnlToAffinePass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (funcOp.body().empty()) // external function: nothing to do
+  func::FuncOp funcOp = getOperation();
+  if (funcOp.getBody().empty()) // external function: nothing to do
     return;
 
   MLIRContext *ctx = &getContext();
@@ -631,8 +632,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   });
 
   // We use the end of the function body as a staging area for movable ops.
-  builder.setInsertionPoint(
-      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
+  builder.setInsertionPoint(&funcOp.getBody().front(),
+      funcOp.getBody().front().without_terminator().end());
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });

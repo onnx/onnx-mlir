@@ -2984,7 +2984,7 @@ func @test_cumsum_dynamic_dims(%arg0: tensor<?x?xf64>, %arg1:tensor<i32>) -> ten
 // -----
 // Compress on axis 0, with enough conditions, test elided
 
-builtin.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x2xf32> {
+func.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x2xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 //  use arg names: ['input', 'condition']
@@ -3033,7 +3033,7 @@ builtin.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> ten
 // -----
 // Compress on axis 0, with not enough conditions, test not elided
 
-builtin.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2xi1>) -> tensor<?x2xf32> {
+func.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2xi1>) -> tensor<?x2xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2xi1>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 // mlir2FileCheck.py -a'["input", "condition"]'
@@ -3085,7 +3085,7 @@ builtin.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2x
 // -----
 // Compress on axis 1, with enough conditions, test elided
 
-builtin.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<3x?xf32> {
+func.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<3x?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<3x?xf32>
   return %0 : tensor<3x?xf32>
 // mlir2FileCheck.py -a'["input", "condition"]'
@@ -3133,7 +3133,7 @@ builtin.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> ten
 // -----
 // Compress witn no axis , with not enough conditions, test not elided
 
-builtin.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?xf32> {
+func.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?xf32>
   return %0 : tensor<?xf32>
 
@@ -3186,7 +3186,7 @@ builtin.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<
 // -----
 // Compress witn no axis , with enough conditions, test elided
 
-builtin.func @compress_no_axis_enough_cond(%arg0: tensor<3x2xf32>, %arg1: tensor<6xi1>) -> tensor<?xf32> {
+func.func @compress_no_axis_enough_cond(%arg0: tensor<3x2xf32>, %arg1: tensor<6xi1>) -> tensor<?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<6xi1>) -> tensor<?xf32>
   return %0 : tensor<?xf32>
 // CHECK-LABEL:  func @compress_no_axis_enough_cond

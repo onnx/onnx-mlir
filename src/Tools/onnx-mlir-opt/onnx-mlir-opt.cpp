@@ -27,7 +27,7 @@
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
-#include <mlir/Support/MlirOptMain.h>
+#include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"

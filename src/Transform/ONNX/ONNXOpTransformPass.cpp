@@ -132,10 +132,12 @@ void ONNXOpTransformPass::runOnOperation() {
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createDecomposeONNXToONNXPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     currentTag = createTagForIR(module);

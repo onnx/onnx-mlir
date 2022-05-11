@@ -53,7 +53,7 @@ public:
  *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
-    : public PassWrapper<LowerKrnlRegionPass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlRegionPass, OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "lower-krnl-region"; }
 
