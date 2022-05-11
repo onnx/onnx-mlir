@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- SqrtOp.cpp - ONNX Op Transform ------------------===//
+//===------- ElementwiseOp.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2022, Helprack LLC.
 //
 // =============================================================================
 //
-// This file lowers most unary operators from torch to onnx using a template
+// This file lowers most unary operators from onnx to torch using a template
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,11 +19,22 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-// Element-wise unary ops lowering to Krnl dialect.
-//===----------------------------------------------------------------------===//
+/**
+ * Lowers most unary operators from onnx to torch using a template. It accepts
+ * two parameters, the first one is ONNX operator and the second paramenter is
+ * the equivalent Torch ATen operator.
+ *
+ * Operands:
+ *   X/input    tensor, type depends on the operator.
+ *
+ * Results:
+ *   Y/output   tensor, type depends on the operator.
+ */
+
 template <typename ONNXUnaryOp, typename TorchUnaryOp>
 struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
-  ONNXToTorchElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXToTorchElementwiseUnaryOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, ONNXUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -34,23 +45,21 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
 
     Location loc = unaryOp.getLoc();
     Value operand = unaryOp.getOperand();
-    mlir::MLIRContext *context =  unaryOp.getContext();
+    mlir::MLIRContext *context = unaryOp.getContext();
 
     auto operandType = toTorchType(context, operand.getType());
     auto resultType = toTorchType(context, unaryOp.getResult().getType());
 
-    auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, operandType, operand);
+    auto operandTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, operandType, operand);
 
-    llvm::outs() << "Unary input is "
-                 << operandTensor
-                 << "\n";
+    llvm::outs() << "Unary input is " << operandTensor << "\n";
 
-    Value result = rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
+    Value result =
+        rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
 
-    llvm::outs() << "Unary CREATED is "
-                 << result
-                 << "\n";
+    llvm::outs() << "Unary CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
@@ -58,8 +67,9 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+void populateLoweringONNXToTorchElementwiseOpPattern(
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
   patterns.insert<
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
@@ -88,5 +98,6 @@ void populateLoweringONNXToTorchElementwiseOpPattern(RewritePatternSet &patterns
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp, AtenSigmoidOp>,
       // ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
-      ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSqrtOp, AtenSqrtOp>>(typeConverter, ctx);
+      ONNXToTorchElementwiseUnaryOpLowering<mlir::ONNXSqrtOp, AtenSqrtOp>>(
+      typeConverter, ctx);
 }
