@@ -31,6 +31,13 @@
 #define INVOKE_ACCEL_INIT_FUNCTION(name) create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
+#define ACCEL_CL_ENUM_FROM_STRING(name, var, str)                              \
+  if (str.compare(std::string(#name)) == 0) {                                  \
+    var = accel::Accelerator::Kind::name;                                      \
+    return true;                                                               \
+  }
+#define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
+  map[accel::Accelerator::Kind::name] = #name;
 
 namespace onnx_mlir {
 namespace accel {
@@ -131,6 +138,11 @@ private:
   /// Name of accelerator.
   std::string name = "";
 };
+
+// Help to print accelerator kinds.
+std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind);
+llvm::raw_ostream &operator<<(
+    llvm::raw_ostream &out, const Accelerator::Kind kind);
 
 } // namespace accel
 } // namespace onnx_mlir
