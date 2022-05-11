@@ -14,8 +14,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -56,7 +56,7 @@ public:
     // Strlen call.
     // TODO: should return a size_t
     Type retType = IntegerType::get(context, 64);
-    auto funcCall = rewriter.create<CallOp>(
+    auto funcCall = rewriter.create<func::CallOp>(
         loc, strlenRef, retType, ArrayRef<Value>({strPtr}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);

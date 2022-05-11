@@ -49,7 +49,7 @@ bool MatMul2DLibBuilder::build() {
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
 
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
