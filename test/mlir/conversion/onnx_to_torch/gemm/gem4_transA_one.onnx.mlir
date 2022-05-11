@@ -7,11 +7,12 @@ module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i6
     %3 = "onnx.MaxPoolSingleOut"(%2) {kernel_shape = [2, 2], onnx_node_name = "MaxPool_1", pads = [0, 0, 0, 0], strides = [4, 4]} : (tensor<1x25x25x25xf32>) -> tensor<1x25x6x6xf32>
     %4 = "onnx.Constant"() {value = dense<"0xDEADBEEF"> : tensor<1x900xf32>} : () -> tensor<1x900xf32>
     %5 = "onnx.Constant"() {value = dense<0.00692393398> : tensor<1xf32>} : () -> tensor<1xf32>
-//CHECK: %int[[AVAL:[^ ]*]] = torch.constant.int 0
-//CHECK: %int[[BVAL:[^ ]*]] = torch.constant.int 1
-//CHECK: torch.aten.transpose.int %13, %int[[AVAL:[^ ]*]], %int[[BVAL:[^ ]*]] :
+//CHECK: %[[AVAL:int0_13]] = torch.constant.int 0
+//CHECK: %[[BVAL:int1_14]] = torch.constant.int 1
+//CHECK: torch.aten.transpose.int %13, %[[AVAL]], %[[BVAL]] : !torch.vtensor<[1,25,6,6],f32>, !torch.int, !torch.int -> !torch.vtensor<[1,1],f32>
     %6 = "onnx.Gemm"(%3, %4, %5) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "Gemm_3", transA = 1 : si64} : (tensor<1x25x6x6xf32>, tensor<1x900xf32>, tensor<1xf32>) -> tensor<1x1xf32>
-    %7 = "onnx.ReduceMean"(%6) {keepdims = 0 : si64, onnx_node_name = "ReduceMean_4"} : (tensor<1x1xf32>) -> tensor<f32>
+//CHECK: torch.aten.bmm %17, %14 : !torch.vtensor<[1,1],f32>, !torch.vtensor<[1,900],f32> -> !torch.vtensor<[1,1],f32>  
+  %7 = "onnx.ReduceMean"(%6) {keepdims = 0 : si64, onnx_node_name = "ReduceMean_4"} : (tensor<1x1xf32>) -> tensor<f32>
     return %7 : tensor<f32>
   }
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [1 , 3 , 50 , 50] , \22name\22 : \22input.1\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [] , \22name\22 : \229\22 }\0A\0A]\00"} : () -> ()
