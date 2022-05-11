@@ -82,13 +82,13 @@ void scanAndSetOptLevel(int argc, char **argv) {
 }
 
 void scanAndSetMAccel(int argc, char **argv) {
-  // In decreasing order, so we pick the last one if there are many.
+  // Scan accelerators and add them to the maccel option.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
     if (currStr.find("--maccel=") != 0)
       continue;
-    std::string kind(&argv[i][9]); // Get the number starting 8 chars down.
-    setTargetAccel(kind);
+    std::string accelKind(&argv[i][9]); // Get the string starting 9 chars down.
+    setTargetAccel(accelKind);
   }
 }
 

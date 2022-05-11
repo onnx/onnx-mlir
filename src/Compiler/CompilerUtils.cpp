@@ -762,16 +762,15 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getDataLayout(loc)));
 
   // Set the module target accelerators.
-  SmallVector<Attribute, 2> activeAccelsAttr;
+  SmallVector<Attribute, 2> accelsAttr;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     std::ostringstream versionNumber;
     versionNumber << std::hex << accel->getVersionNumber();
     std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-    activeAccelsAttr.emplace_back(StringAttr::get(&context, accelStr));
+    accelsAttr.emplace_back(StringAttr::get(&context, accelStr));
   }
-  if (!activeAccelsAttr.empty())
-    moduleOp.setAttr(
-        "onnx-mlir.accels", ArrayAttr::get(&context, activeAccelsAttr));
+  if (!accelsAttr.empty())
+    moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accelsAttr));
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
@@ -796,7 +795,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
   // Initialize accelerator(s) if required.
-  SmallVector<onnx_mlir::accel::Accelerator *, 2> activeAccels;
   if (!maccel.empty())
     onnx_mlir::accel::initAccelerators(maccel);
 
@@ -807,13 +805,13 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
   // pipeline.
-  bool hasActiveAccel = false;
+  bool hasAccel = false;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    hasActiveAccel = true;
+    hasAccel = true;
     accel->getOrLoadDialects(context);
     accel->addPasses(module, pm, emissionTarget);
   }
-  if (!hasActiveAccel)
+  if (!hasAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
