@@ -68,42 +68,30 @@ public:
     
     ValueRange inputs = op1.inputs();
     auto axisValue = op1.axisAttr();       // ::mlir::IntegerAttr
-    Value  axisVal = rewriter.create<ConstantIntOp>(loc,axisValue);
+    Value  axisVal = rewriter.create<ConstantIntOp>(loc, axisValue);
     
     auto resultType = toTorchType(context, op1.getType());
     std::vector<Value> inputArrayValues;
-    // iterate through the list of inputs and create the 
-    // Torch Tensors of each input.
-    for (unsigned int i = 0; i < inputs.size(); i++)
+
+    // Iterate through the list of inputs and create corresponding
+    // torch tensors for each input tensor.
+    for (Value input : inputs)
     {
-      auto inputType = toTorchType(context, inputs[i].getType());
-      auto inputTorchTensor  = 
-	rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-		      loc, inputType, inputs[i]);
+      auto inputType = toTorchType(context, input.getType());
+      auto inputTorchTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+		    loc, inputType, input);
       inputArrayValues.push_back(inputTorchTensor);
     }
-    // here, resultType is different than input tensor type.
-    // here, we are creting list of input tensor types. And all 
-    // input tensor list types will be the same. That's why i have taken
-    // one element type from that list(inputArrayValues.front().getType()).
-    // All element types will be same
-    // from that list right?
-    // E.g:
-    //    %2 = "torch.prim.ListConstruct"(%arg0, %arg0) : 
-    //     (!torch.vtensor<[5,5],f32>, !torch.vtensor<[5,5],f32>) -> 
-    //     !torch.list<vtensor<[5,5],f32>>
 
-    Value inputShapeList = rewriter.create<PrimListConstructOp>(loc, 
-	Torch::ListType::get(inputArrayValues.front().getType()),
-       			ValueRange{inputArrayValues});
+    Value inputShapeList = rewriter.create<PrimListConstructOp>(
+      loc, 
+	    Torch::ListType::get(inputArrayValues.front().getType()),
+      ValueRange{inputArrayValues}
+    );
+    Value result = rewriter.create<AtenCatOp>(loc, resultType, inputShapeList, axisVal);
 
-    Value result = rewriter.create<AtenCatOp>(loc, resultType, 
-		    inputShapeList, axisVal);
-    
-    llvm::outs() << "Aten Concat Op:   " << "\n" << result 
-	    << "\n" << "\n";
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType,
-		    result);
+    llvm::outs() << "Aten Concat Op:" << "\n" << result << "\n\n";
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }
 };
