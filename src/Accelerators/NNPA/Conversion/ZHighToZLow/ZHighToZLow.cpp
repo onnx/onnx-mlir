@@ -451,8 +451,9 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_ZRH layout");
         }
         n = constExpr0;
-        h = (b.getAffineDimExpr(e1) +
-             pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS)))
+        h = (shape[0] *
+             (b.getAffineDimExpr(e1) +
+                 pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
         c = b.getAffineDimExpr(e2).floorDiv(constExpr32);
         res32 = b.getAffineDimExpr(e2) % constExpr32;
