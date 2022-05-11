@@ -78,6 +78,11 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return rewriter.create<ConstantIntOp>(loc, iVal);
   }
 
+  Value getFloatValueFromRaw(float val, ConversionPatternRewriter &rewriter,
+      Location loc) const {
+    rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(val));
+  }
+
   Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
       mlir::MLIRContext *context, Location loc) const {
     auto operandType = toTorchType(context, operand.getType());
@@ -109,8 +114,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto bTensor = getTorchTensor(gemmOp.B(), rewriter, context, loc);
     auto cTensor = getTorchTensor(gemmOp.C(), rewriter, context, loc);
 
-    Value alpha3v = getFloatValue(alpha, rewriter, loc);
-    Value beta3v = getFloatValue(beta, rewriter, loc);
+    Value alpha3v = (alpha) ? getFloatValue(alpha, rewriter, loc) : getFloatValueFromRaw(1.0, rewriter, loc);
+    Value beta3v = (beta) ? getFloatValue(beta, rewriter, loc) : getFloatValueFromRaw(1.0, rewriter, loc);
 
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
