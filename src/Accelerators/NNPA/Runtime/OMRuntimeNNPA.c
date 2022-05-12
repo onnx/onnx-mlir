@@ -122,14 +122,21 @@ void OMInitAccelNNPA() {
  *  are incompatible, an ERRNO=EPERM (Operation not permitted POSIX.1-2001) is
  *  set. The caller context is responsible to return NULL in the caller function
  *  so that users would know to check ERRNO to learn about why the call failed.
+ *
+ *  The assumption here is that all models are compiled for the same NNPA. If
+ *  the compatibility succeeds once, it is assumed that all subsequent models
+ *  were all compiled for the same NNPA version. However, if the compatibility
+ *  fails during the first invocation of a model, the function will repetitively
+ *  check if new models are compatible, in case the models were recompiled.
+ *
  *  Function name must be OMInitAccelX where X=NNPA.
  *  @param versionNum Version of the library/Architecture level that models
  *  were compiled for.
  *  @return true for compatible versions or false on incompatible versions.
  */
 uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
+  static int isCompatible = 0;
   if (!OMIsInitAccelNNPA) {
-    int isCompatible = 1;
     /* Grab mutex. */
     pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
     /* Test again in the mutex to see if accelerator is not initialized. */
@@ -137,13 +144,23 @@ uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
       /* Still unitinitialized, actual init. */
       zdnn_init();
       /* Check if version is compatible */
-      isCompatible = zdnn_is_version_runnable((uint32_t)versionNum);
-      /* No need for a fence due to strong consistency. */
-      OMIsInitAccelNNPA = 1;
+      if (zdnn_is_version_runnable((uint32_t)versionNum))
+        isCompatible = 1;
     }
+    /* No need for a fence due to strong consistency. */
+    OMIsInitAccelNNPA = 1;
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
-    /* If not compatible, generate an error here */
+  }
+  /* If not compatible, generate an error here */
+  if (!isCompatible) {
+    /* Grab mutex. */
+    pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
+    /* Check again if we have a compatible model */ 
+    if (zdnn_is_version_runnable((uint32_t)versionNum))
+      isCompatible = 1;
+    /* Release mutex. */
+    pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
     if (!isCompatible) {
       /* Code below has to agree with zdnn.h convention */
       unsigned long long ver_major = versionNum >> 16;
