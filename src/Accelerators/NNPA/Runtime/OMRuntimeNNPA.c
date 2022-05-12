@@ -124,15 +124,16 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
     /* If not compatible, generate an error here */
     if (!isCompatible) {
+      unsigned long long ver_major = versionNum >> 16;
+      unsigned long long ver_minor = (versionNum >> 8) & 0xff;
+      unsigned long long ver_patch = versionNum & 0xff;
       fprintf(stderr,
           "Model is running on hardware that is not compatible with "
           "the zDNN library that this model was compiled for "
-          "(version num %u.%u.%u). Please check that the model is running "
-          "on hardware with an integrated accelerator for AI "
+          "(version num %ull.%ull.%ull). Please check that the model is "
+          "running on hardware with an integrated accelerator for AI "
           "(z16 +) that supports the required zDNN library version.\n ",
-          (unsigned)(versionNum & (~0xffffll)) >> 16,
-          (unsigned)(versionNum & 0xff00ll) >> 8,
-          (unsigned)(versionNum & 0xffll));
+          ver_major, ver_minor, ver_patch);
       exit(1);
     }
   }
