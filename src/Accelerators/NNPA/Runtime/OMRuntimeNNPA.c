@@ -18,6 +18,7 @@
 #endif
 #include <pthread.h>
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,9 +87,15 @@ long OMIsInitAccelNNPA = 0;
 // Mutex definitions for init and shutdown serialization.
 pthread_mutex_t OMMutexForInitShutdownNNPA = PTHREAD_MUTEX_INITIALIZER;
 
-// Define function that performs the serialization of the initialization as well
-// as set the OMIsInitAccelNNPA to true.
-// Name must be OMInitAccelX where X=NNPA.
+/*!
+ *  \brief Function that performs the initialization of the NNPA device.
+ *
+ *  Define function that performs the initialization as
+ *  well as set the OMIsInitAccelNNPA to true. The function serialize
+ *  potentially parallel accesses to this function so as to guarantee that the
+ *  initializing code is executed exactly once.
+ *  Function name must be OMInitAccelX where X=NNPA.
+ */
 void OMInitAccelNNPA() {
   if (!OMIsInitAccelNNPA) {
     /* Grab mutex. */
@@ -104,9 +111,23 @@ void OMInitAccelNNPA() {
   }
 }
 
-// Perform the same initialization and also check that the NNPA version that the
-// program was compiled for is compatible with the actual NNPA hardware.
-void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
+/*!
+ *  \brief Function that performs the initialization of the NNPA device and
+ *   check that the NNPA version that the program was compiled for is compatible
+ *   with the actual NNPA hardware.
+ *
+ *  Perform the same operations as OMInitAccelNNPA. In addition, it checks that
+ *  the NNPA version that was embedded in the code when compiling the models is
+ *  compatible with the NNPA version that is executing the code. If the versions
+ *  are incompatible, an ERRNO=EPERM (Operation not permitted POSIX.1-2001) is
+ *  set. The caller context is responsible to return NULL in the caller function
+ *  so that users would know to check ERRNO to learn about why the call failed.
+ *  Function name must be OMInitAccelX where X=NNPA.
+ *  @param versionNum Version of the library/Architecture level that models
+ *  were compiled for.
+ *  @return true for compatible versions or false on incompatible versions.
+ */
+uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
   if (!OMIsInitAccelNNPA) {
     int isCompatible = 1;
     /* Grab mutex. */
@@ -128,15 +149,22 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
           "Attempting to initialize zdnn with version num %llu, which is "
           "not compatible with current NNPA hardware\n",
           versionNum);
-      exit(1);
+      errno = EPERM;
+      return false;
     }
   }
+  return true;
 }
 
-// Define function that performs the serialization of the shutdown as well
-// as set the OMIsInitAccelNNPA to false. This function can only be called when
-// all evaluation on the NNPA are known to have completed. Name must be
-// OMShutdownAccelX where X=NNPA.
+/*!
+ *  \brief Function that performs the shutdown of the NNPA device.
+ *
+ *  Function that performs the initialization as well as set the
+ *  OMIsInitAccelNNPA to true. The function serialize potentially parallel
+ *  accesses to this function so as to guarantee that the initializing code is
+ *  executed exactly once.
+ *  Function name must be OMInitAccelX where X=NNPA.
+ */
 void OMShutdownAccelNNPA() {
   if (OMIsInitAccelNNPA) {
     /* Grab mutex. */
