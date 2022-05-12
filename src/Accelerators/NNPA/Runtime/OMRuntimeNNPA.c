@@ -130,8 +130,9 @@ void OMInitCompatibleAccelNNPA(uint64_t versionNum) {
           "(version num %u.%u.%u). Please check that the model is running "
           "on hardware with an integrated accelerator for AI "
           "(z16 +) that supports the required zDNN library version.\n ",
-          (unsigned)(versionNum & (~0xffffll)),
-          (unsigned)(versionNum & 0xff00ll), (unsigned)(versionNum & 0xffll));
+          (unsigned)(versionNum & (~0xffffll)) >> 16,
+          (unsigned)(versionNum & 0xff00ll) >> 8,
+          (unsigned)(versionNum & 0xffll));
       exit(1);
     }
   }
