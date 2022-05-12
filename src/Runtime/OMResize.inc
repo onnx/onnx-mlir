@@ -145,8 +145,8 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
   get_coeffs(ratio, coeffs_buffer, mode);
   int64_t n = coeffs_n;
 
-  //float points[coeffs_n];
-  float *points = (float*)malloc(sizeof(float)*coeffs_n);
+  // float points[coeffs_n];
+  float *points = (float *)malloc(sizeof(float) * coeffs_n);
 
   get_neighbor(x_ori, n, input_width, (float *)omTensorGetDataPtr(data), points,
       exclude_outside);
@@ -155,7 +155,7 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
     sum += coeffs_buffer[i] * points[i];
   }
   free(points);
-  //free OMTensor data1
+  // free OMTensor data1
   return sum;
 }
 
@@ -169,7 +169,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
         coordinate_transformation_mode, exclude_outside, mode);
   } else {
     int64_t input_width = omTensorGetShape(data)[0];
-    float *tempData = (float *)malloc(sizeof(float)*input_width);
+    float *tempData = (float *)malloc(sizeof(float) * input_width);
     int64_t tempShape[] = {input_width};
 
     int64_t stride = 1;
@@ -183,12 +183,15 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
       tempData[i] = interpolate_nd_with_x(data1, n - 1, scale_factors + 1,
           xs + 1, get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
           coordinate_transformation_mode, exclude_outside, mode);
+      omTensorDestroy(data1);
     }
     OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, ONNX_TYPE_FLOAT);
-    //free(tempData);
-    return interpolate_1d_with_x(tempT, scale_factors[0], xs[0], get_coeffs,
-        coeffs_buffer, coeffs_n, roi, extrapolation_value,
+    float ret = interpolate_1d_with_x(tempT, scale_factors[0], xs[0],
+        get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
         coordinate_transformation_mode, exclude_outside, mode);
+    omTensorDestroy(tempT);
+    free(tempData);
+    return ret;
   }
 }
 
@@ -198,9 +201,9 @@ static void coordinate_step(int64_t rank, int64_t *output_size,
   for (int i = 0; i < output_size[currentRank]; i++) {
     if (currentRank == rank - 1) {
       for (int j = 0; j < currentRank; j++) {
-        *(allCoordinates+(*currentPosition)*rank+j) = currentIter[j];
+        *(allCoordinates + (*currentPosition) * rank + j) = currentIter[j];
       }
-      *(allCoordinates+(*currentPosition)*rank+currentRank) = i;
+      *(allCoordinates + (*currentPosition) * rank + currentRank) = i;
       (*currentPosition)++;
     } else {
       currentIter[currentRank] = i;
@@ -211,9 +214,9 @@ static void coordinate_step(int64_t rank, int64_t *output_size,
 }
 
 static void generate_coordinates(
-    int64_t rank, int64_t *output_size, int64_t* allCoordinates) {
+    int64_t rank, int64_t *output_size, int64_t *allCoordinates) {
   int64_t position = 0;
-  int64_t *currentIter = (int64_t*)malloc(sizeof(int64_t)*rank);
+  int64_t *currentIter = (int64_t *)malloc(sizeof(int64_t) * rank);
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
   free(currentIter);
 }
@@ -252,17 +255,18 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
-  //int64_t allCoordinates[outputSize][rank];
-  int64_t *allCoordinates = (int64_t*)malloc(outputSize*rank*sizeof(int64_t));
+  // int64_t allCoordinates[outputSize][rank];
+  int64_t *allCoordinates =
+      (int64_t *)malloc(outputSize * rank * sizeof(int64_t));
   generate_coordinates(rank, output_size, allCoordinates);
 
-  //float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
-  float *coeffs_buffer = (float *)malloc(sizeof(float)*coeffs_n);
+  // float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
+  float *coeffs_buffer = (float *)malloc(sizeof(float) * coeffs_n);
 
   for (int i = 0; i < outputSize; i++) {
-    float *Xs = (float *)malloc(sizeof(float)*rank);
+    float *Xs = (float *)malloc(sizeof(float) * rank);
     for (int j = 0; j < rank; j++) {
-      Xs[j] = *(allCoordinates+i*rank+j);
+      Xs[j] = *(allCoordinates + i * rank + j);
     }
     float r = interpolate_nd_with_x(
         /*OMTensor */ data,
@@ -295,15 +299,13 @@ void Resize_Scales(
   if (strcmp(mode_str, "nearest") == 0) {
     coeffs_f = nearest_coeffs;
     coeffs_n = 2;
-  //} else if (strcmp(mode_str, "linear") == 0) {
-  } else if (strncmp(mode_str, "linear", 6) == 0){
+  } else if (strncmp(mode_str, "linear", 6) == 0) {
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
   } else if (strcmp(mode_str, "cubic") == 0) {
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    fprintf(stderr, "xxxmode str %s xxx\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
@@ -327,16 +329,13 @@ void Resize_Size(
   if (strcmp(mode_str, "nearest") == 0) {
     coeffs_f = nearest_coeffs;
     coeffs_n = 2;
-  //} else if (strcmp(mode_str, "linear") == 0) {
-  } else if(strncmp(mode_str, "linear", 6) == 0){
+  } else if (strncmp(mode_str, "linear", 6) == 0) {
     coeffs_f = linear_coeffs;
     coeffs_n = 2;
   } else if (strcmp(mode_str, "cubic") == 0) {
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    //printf("mode str %s\n", mode_str);
-    fprintf(stderr, "xxxmode str %s xxx\n", mode_str);
     assert(0 && "Resize runtime: unsupported mode");
   }
   interpolate_nd_OMTensor(
