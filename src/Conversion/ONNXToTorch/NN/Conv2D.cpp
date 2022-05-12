@@ -14,125 +14,39 @@
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include <fstream>
-#include <iostream>
-#include <set>
-#include <vector>
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
-
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
-
-#include "mlir/Transforms/DialectConversion.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
 #endif
 
-/* 
+/*
  * ONNX Conv operation
- * “The convolution operator consumes an input tensor and a filter, 
+ * “The convolution operator consumes an input tensor and a filter,
  * and” “computes the output.
  *
  * Attributes:
-   * 	Attribute	    MLIR Type		    Description
    *	auto_pad	::mlir::StringAttr	string attribute
    * 	dilations	::mlir::ArrayAttr	64-bit integer array
    *	group		::mlir::IntegerAttr	64-bit signed integer
    *	kernel_shape	::mlir::ArrayAttr	64-bit integer array
    *	pads		::mlir::ArrayAttr	64-bit integer array
-   *	strides		::mlir::ArrayAttr	64-bit integer array   
+   *	strides		::mlir::ArrayAttr	64-bit integer array
 
  *Operands:
-   * Operand Description
-     *	X tensor of 16-bit/32-bit/64-bit float values or memref 
-	    of any type values
-     *	W tensor of 16-bit/32-bit/64-bit float values or memref 
-	    of any type values
-     *	B tensor of 16-bit/32-bit/64-bit float values or memref 
-	    of any type values or none type
+     *	X tensor of 16-bit/32-bit/64-bit float values or memref
+            of any type values
+     *	W tensor of 16-bit/32-bit/64-bit float values or memref
+            of any type values
+     *	B tensor of 16-bit/32-bit/64-bit float values or memref
+            of any type values or none type
  *Results:
-   *Result Description
-     *	Y tensor of 16-bit/32-bit/64-bit float values or memref 
+     *	Y  tensor of 16-bit/32-bit/64-bit float values or memref
      *	  of any type values or none type
  */
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
-
-/*
-std::vector<Value> setUpSymmetricPadding(ConversionPatternRewriter &rewriter,
-                                         Location &loc, ::mlir::ArrayAttr &pads,
-Type ty) { dim_pads dimArray[pads.size()]; std::vector<Value> translatepadsList;
-
-
-  bool is_symmetric = true;
-  for (unsigned int i = 0; i < pads.size(); i += 2) {
-    if (pads[i] != pads[i+1]) {
-      is_symmetric = false;
-      break;
-    }
-  }
-
-  if (is_symmetric) {
-    for (unsigned int i = 0; i < pads.size(); i += 2) {
-      auto pad_value =
-(pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue(); auto f0 =
-IntegerAttr::get(ty, pad_value); Value p0v = rewriter.create<ConstantIntOp>(loc,
-f0); translatepadsList.push_back(p0v);
-    }
-  } else {
-    int j = 0;
-    for (unsigned int i = 0; i < pads.size(); i++) {
-      dimArray[j].dim_start =
-        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      i++;
-      dimArray[j].dim_end =
-        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      j++;
-    }
-
-    // read the onnx pad values from array(dim_start values)
-    int k = 0;
-    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
-      auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
-      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-      translatepadsList.push_back(p0v);
-      k++;
-    }
-
-    // read the onnx pad values from array(dim_end values)
-    k = 0;
-    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
-      auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
-      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-      translatepadsList.push_back(p1v);
-      k++;
-    }
-  }
-  return translatepadsList;
-}
-*/
 
 struct ONNXConvOpToTorchLowering : public ConversionPattern {
   ONNXConvOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -160,15 +74,8 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto pads = op1.padsAttr();                 // ::mlir::ArrayAttr
     auto strides = op1.stridesAttr();           // ::mlir::ArrayAttr
 
-    auto b0 = strides.getValue();
-    auto bs = strides.begin();
-    auto es = strides.end();
-
-    auto groupValue = group.getAPSInt();
-    auto strides_AR = strides.getValue();
-    ::mlir::ArrayAttr stridesArrayAttr = 
-	    mlir::ArrayAttr::get(context, strides);
-
+    // create vector of tensor list iterate through the ArrayAttribute
+    // list.
     std::vector<Value> translatepadsList =
         createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
     std::vector<Value> dilationonnxList =
@@ -179,21 +86,21 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         createArrayAttribute(strides, group.getType(), loc, rewriter);
 
     // If group Value is null, assigning default value.
-
     auto zero = 0;
-    auto ty = IntegerType::get(op1.getContext(), 64);
-    auto f00 = IntegerAttr::get(ty, zero);
-    Value f0v = rewriter.create<ConstantIntOp>(loc, f00);
-    Value f1v;
+    auto intType = IntegerType::get(op1.getContext(), 64);
+    auto zeroAttr = IntegerAttr::get(intType, zero);
+    Value zeroConstOp = rewriter.create<ConstantIntOp>(loc, zeroAttr);
+    Value oneConstOp;
     Value groupVal;
     if (group) {
-      f1v = rewriter.create<ConstantIntOp>(loc, group);
+      oneConstOp = rewriter.create<ConstantIntOp>(loc, group);
       groupVal = rewriter.create<ConstantIntOp>(loc, group);
     } else {
-      f1v = rewriter.create<ConstantIntOp>(loc, f0v);
-      groupVal = rewriter.create<ConstantIntOp>(loc, f0v);
+      oneConstOp = rewriter.create<ConstantIntOp>(loc, zeroConstOp);
+      groupVal = rewriter.create<ConstantIntOp>(loc, zeroConstOp);
     }
 
+    // create the Torch List type using above created vectors.
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{stridesonnxList});
@@ -210,75 +117,45 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{kernalshapeonnxList});
 
-    TensorType x_tensor_type = x.getType().cast<TensorType>();
-    TensorType w_tensor_type = w.getType().cast<TensorType>();
-    TensorType op_tensor_type = 
-	    op->getResult(0).getType().cast<TensorType>();
+    // create a tensor types using onnx operands.
+    TensorType xTensorType = x.getType().cast<TensorType>();
+    TensorType wTensorType = w.getType().cast<TensorType>();
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
 
-    auto xTy = Torch::ValueTensorType::get(
-        context, x_tensor_type.getShape(), x_tensor_type.getElementType());
-    auto wTy = Torch::ValueTensorType::get(
-        context, w_tensor_type.getShape(), w_tensor_type.getElementType());
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
+    auto xType = Torch::ValueTensorType::get(
+        context, xTensorType.getShape(), xTensorType.getElementType());
+    auto wType = Torch::ValueTensorType::get(
+        context, wTensorType.getShape(), wTensorType.getElementType());
+    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
+        opTensorType.getShape(), opTensorType.getElementType());
 
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, xTy, x);
-    auto wtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, wTy, w);
-    Value btt;
+    auto xTorchTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, xType, x);
+    auto wTorchTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, wType, w);
+    Value bTorchTensor;
     if (biasIsNone) {
-      btt = rewriter.create<Torch::ConstantNoneOp>(loc);
+      bTorchTensor = rewriter.create<Torch::ConstantNoneOp>(loc);
     } else {
-      TensorType b_tensor_type = b.getType().cast<TensorType>();
-      auto bTy = Torch::ValueTensorType::get(op1.getContext(),
-          b_tensor_type.getShape(), b_tensor_type.getElementType());
-      btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-          loc, bTy, b);
+      TensorType bTensorType = b.getType().cast<TensorType>();
+      auto bType = Torch::ValueTensorType::get(op1.getContext(),
+          bTensorType.getShape(), bTensorType.getElementType());
+      bTorchTensor =
+          rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+              loc, bType, b);
     }
 
-    llvm::outs() << "\n ResultType : "
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
-    llvm::outs() << "xtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
-    llvm::outs() << "wtt torch tensor from MLIR tensor "
-                 << "\n"
-                 << wtt << "\n"
-                 << "\n";
-    llvm::outs() << "btt : "
-                 << "\n"
-                 << btt << "\n"
-                 << "\n";
-    llvm::outs() << "stridesList:   "
-                 << "\n"
-                 << stridesList << "\n"
-                 << "\n";
-    llvm::outs() << "padsList:   "
-                 << "\n"
-                 << padsList << "\n"
-                 << "\n";
-    llvm::outs() << "dilationList:   "
-                 << "\n"
-                 << dilationList << "\n"
-                 << "\n";
-    llvm::outs() << "f1v:   "
-                 << "\n"
-                 << f1v << "\n"
-                 << "\n";
-
-    Value atenconv2d = rewriter.create<AtenConv2dOp>( loc, resultTy, 
-		 xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
+    // emit the Conv2d operation in Torch side using "AtenConv2dOp".
+    Value result = rewriter.create<AtenConv2dOp>(loc, resultType, xTorchTensor,
+        wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
+        oneConstOp);
 
     llvm::outs() << "AtenConv2d operation creation "
                  << "\n"
-                 << atenconv2d << "\n"
+                 << result << "\n"
                  << "\n";
-
-    Value result = atenconv2d;
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
