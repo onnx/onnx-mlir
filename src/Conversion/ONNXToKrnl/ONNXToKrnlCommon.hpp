@@ -18,12 +18,12 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -224,7 +224,7 @@ public:
   }
 
   /// Return true if the operands/results of call have a legal type.
-  bool isSignatureLegal(mlir::CallOp call) {
+  bool isSignatureLegal(mlir::func::CallOp call) {
     auto f = [this](Type type) { return isLegal(type); };
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);

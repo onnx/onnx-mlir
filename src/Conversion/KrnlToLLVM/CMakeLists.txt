@@ -23,6 +23,8 @@ add_onnx_mlir_library(OMKrnlToLLVM
   Accelerator
   OMSupport
   MLIRAffineToStandard
+  MLIRFunc
+  MLIRFuncTransforms
   MLIRMathToLLVM
   MLIRMathTransforms
   MLIRMemRefToLLVM
@@ -30,7 +32,6 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRReconcileUnrealizedCasts
   MLIRSCFToControlFlow
   MLIRShapeToStandard
-  MLIRStandardOpsTransforms
   MLIRStandardToLLVM
   MLIRVectorToLLVM
   onnx
