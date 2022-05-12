@@ -14,8 +14,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -58,7 +58,7 @@ public:
 
     // Strncmp call.
     Type i32Type = IntegerType::get(ctx, 32);
-    auto funcCall = rewriter.create<CallOp>(
+    auto funcCall = rewriter.create<func::CallOp>(
         loc, StrncmpRef, i32Type, ArrayRef<Value>({str1Ptr, str2Ptr, length}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);

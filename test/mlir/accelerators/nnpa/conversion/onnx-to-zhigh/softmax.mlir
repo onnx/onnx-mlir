@@ -2,7 +2,7 @@
 
 func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -20,7 +20,7 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
   %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_logsoftmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -38,7 +38,7 @@ func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) : (tensor<?x?xf32>) -> tensor<*xf32>
   %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_logsoftmax_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
@@ -60,7 +60,7 @@ func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
 
 func @test_exceed_limit_softmax(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<32769x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_softmax
 // CHECK:        "onnx.Softmax"

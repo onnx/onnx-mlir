@@ -14,8 +14,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -55,7 +55,7 @@ public:
         loc, outputType, operandAdaptor.output(), rewriter.getI64ArrayAttr(1));
 
     // Memcpy call
-    rewriter.create<CallOp>(loc, randomNormalFuncRef, ArrayRef<Type>({}),
+    rewriter.create<func::CallOp>(loc, randomNormalFuncRef, ArrayRef<Type>({}),
         ArrayRef<Value>({alignedOutput, operandAdaptor.numberOfValues(),
             operandAdaptor.mean(), operandAdaptor.scale(),
             operandAdaptor.seed()}));
