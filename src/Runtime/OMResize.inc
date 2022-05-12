@@ -155,6 +155,7 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
     sum += coeffs_buffer[i] * points[i];
   }
   free(points);
+  //free OMTensor data1
   return sum;
 }
 
@@ -168,7 +169,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
         coordinate_transformation_mode, exclude_outside, mode);
   } else {
     int64_t input_width = omTensorGetShape(data)[0];
-    float tempData[input_width];
+    float *tempData = (float *)malloc(sizeof(float)*input_width);
     int64_t tempShape[] = {input_width};
 
     int64_t stride = 1;
@@ -184,6 +185,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
           coordinate_transformation_mode, exclude_outside, mode);
     }
     OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, ONNX_TYPE_FLOAT);
+    //free(tempData);
     return interpolate_1d_with_x(tempT, scale_factors[0], xs[0], get_coeffs,
         coeffs_buffer, coeffs_n, roi, extrapolation_value,
         coordinate_transformation_mode, exclude_outside, mode);
@@ -211,8 +213,9 @@ static void coordinate_step(int64_t rank, int64_t *output_size,
 static void generate_coordinates(
     int64_t rank, int64_t *output_size, int64_t* allCoordinates) {
   int64_t position = 0;
-  int64_t currentIter[rank];
+  int64_t *currentIter = (int64_t*)malloc(sizeof(int64_t)*rank);
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
+  free(currentIter);
 }
 
 static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
@@ -257,7 +260,7 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   float *coeffs_buffer = (float *)malloc(sizeof(float)*coeffs_n);
 
   for (int i = 0; i < outputSize; i++) {
-    float Xs[rank];
+    float *Xs = (float *)malloc(sizeof(float)*rank);
     for (int j = 0; j < rank; j++) {
       Xs[j] = *(allCoordinates+i*rank+j);
     }
@@ -275,6 +278,7 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
         /*exclude */ 0,
         /*mode */ 0);
     outputData[i] = r;
+    free(Xs);
   }
   if (output_size_OMT == NULL)
     free(output_size);
