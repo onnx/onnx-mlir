@@ -2,7 +2,7 @@
 
 func @test_gemm(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x5xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<10x10xf32> {
@@ -19,7 +19,7 @@ func @test_gemm(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
 
 func @test_gemm_transA(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_transA
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x10xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<10x10xf32> {
@@ -37,7 +37,7 @@ func @test_gemm_transA(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2
 
 func @test_gemm_transB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<10x5xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<10x5xf32>, tensor<10x5xf32>, tensor<10xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_transB
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<10x5xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<10x10xf32> {
@@ -56,7 +56,7 @@ func @test_gemm_transB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<10x5xf32>, %arg2
 
 func @test_gemm_transAB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 1 : si64, transB = 1 : si64} : (tensor<10x5xf32>, tensor<5x10xf32>, tensor<5xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_transAB
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<5xf32>) -> tensor<5x5xf32> {
@@ -79,7 +79,7 @@ func @test_gemm_transAB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg
 // COM: beyond the supported value.
 func @test_gemm_unknown_dims(%arg0: tensor<?x5xf32>, %arg1: tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0= "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<?x5xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_gemm_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<?x10xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<?x5xf32>) -> tensor<?x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
@@ -97,7 +97,7 @@ func @test_gemm_unknown_dims(%arg0: tensor<?x5xf32>, %arg1: tensor<5x10xf32>, %a
 
 func @test_gemm_unknown_dims_not_lowered(%arg0: tensor<?x5xf32>, %arg1: tensor<5x10xf32>, %arg2: tensor<?xf32>) -> tensor<*xf32> {
   %0= "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<?x5xf32>, tensor<5x10xf32>, tensor<?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
  // CHECK-LABEL: test_gemm_unknown_dims_not_lowered
  // CHECK: onnx.Gemm
@@ -108,7 +108,7 @@ func @test_gemm_unknown_dims_not_lowered(%arg0: tensor<?x5xf32>, %arg1: tensor<5
 // COM: Not support since alpha != 1.0
 func @test_gemm_not_lowered(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 2.0 : f32, beta = 1.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
  // CHECK-LABEL: test_gemm_not_lowered
  // CHECK: onnx.Gemm
@@ -122,7 +122,7 @@ func @test_gemm_not_lowered(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, 
 
 func @test_exceed_limit_gemm(%arg0 : tensor<32769x5xf32>, %arg1 : tensor<5x32769xf32>, %arg2: tensor<32769xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<32769x5xf32>, tensor<5x32769xf32>, tensor<32769xf32>) -> tensor<*xf32>
- "std.return"(%0) : (tensor<*xf32>) -> ()
+ "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_gemm
 // CHECK:        "onnx.Gemm"

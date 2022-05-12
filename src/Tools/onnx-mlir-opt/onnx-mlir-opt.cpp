@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::AffineDialect>();
   registry.insert<mlir::LLVM::LLVMDialect>();
   registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::func::FuncDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();
@@ -124,10 +124,10 @@ int main(int argc, char **argv) {
 
   registerTransformsPasses();
   registerAffinePasses();
+  func::registerFuncPasses();
   registerLinalgPasses();
   memref::registerMemRefPasses();
   registerSCFPasses();
-  registerStandardPasses();
 
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();

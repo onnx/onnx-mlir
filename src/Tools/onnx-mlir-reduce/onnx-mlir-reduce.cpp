@@ -30,7 +30,7 @@ static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::AffineDialect>();
   registry.insert<mlir::LLVM::LLVMDialect>();
   registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::func::FuncDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();

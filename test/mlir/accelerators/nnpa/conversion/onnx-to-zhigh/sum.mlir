@@ -5,7 +5,7 @@
 
 func @test_sum_2_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_sum_2_operands
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -25,7 +25,7 @@ func @test_sum_2_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) 
 
 func @test_sum_4_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>, %arg2 : tensor<10x10xf32>, %arg3 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_sum_4_operands
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>, [[PARAM_2_:%.+]]: tensor<10x10xf32>, [[PARAM_3_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -50,7 +50,7 @@ func @test_sum_4_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>, 
 /// Do not lower broadcasting onnx.Sum to zHigh.
 func @test_sum_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sum_not_lowered_diff_shape
 }
@@ -61,7 +61,7 @@ func @test_sum_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<
 /// Need to check whether input tensors is really different at runtime.
 func @test_sum_not_lowered_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sum_not_lowered_unknown_dims
 }
@@ -74,7 +74,7 @@ func @test_sum_not_lowered_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tenso
 
 func @test_exceed_limit_sum(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<32769x10xf32>, tensor<32769x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_sum
 // CHECK:        "onnx.Sum"

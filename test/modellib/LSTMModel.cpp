@@ -124,7 +124,7 @@ bool LSTMLibBuilder::build() {
   lstmOp.getResults()[1].setType(yHType);
   lstmOp.getResults()[2].setType(yCType);
 
-  builder.create<ReturnOp>(loc, lstmOp.getResults());
+  builder.create<func::ReturnOp>(loc, lstmOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

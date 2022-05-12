@@ -28,12 +28,12 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -99,7 +99,7 @@ void determineOwnershipForOutputOMTensors(
   // Get ReturnOp of the entry function op.
   Operation *returnOp;
   entryFunc->walk([&](Operation *op) -> WalkResult {
-    if (llvm::dyn_cast<ReturnOp>(op)) {
+    if (llvm::dyn_cast<func::ReturnOp>(op)) {
       returnOp = op;
       return WalkResult::interrupt();
     }

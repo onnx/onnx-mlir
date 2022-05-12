@@ -2,7 +2,7 @@
 
 func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_relu
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
@@ -17,7 +17,7 @@ func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // COM:  Do not lower broadcasting onnx.Relu to zHigh.
 func @test_relu_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_relu_not_lowered_diff_shape
 }
@@ -30,7 +30,7 @@ func @test_relu_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>) -> tensor<*xf3
 
 func @test_exceed_limit_relu(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<32769x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_relu
 // CHECK:        "onnx.Relu"

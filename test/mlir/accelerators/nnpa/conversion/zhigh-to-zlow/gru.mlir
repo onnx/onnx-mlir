@@ -4,7 +4,7 @@ func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLay
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = 0 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
-  "std.return"(%hn_output) : (tensor<*xf32>) -> ()
+  "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -41,7 +41,7 @@ func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayou
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
-  "std.return"(%hn_output) : (tensor<*xf32>) -> ()
+  "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -79,7 +79,7 @@ func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = 
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
-  "std.return"(%hn_output) : (tensor<*xf32>) -> ()
+  "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -131,7 +131,7 @@ func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output = "zhigh.GRU"(%input, %cst, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
-  "std.return"(%hn_output) : (tensor<*xf32>) -> ()
+  "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -186,7 +186,7 @@ func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.encoding<
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %cst, %hidden_weights, %cst) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, none, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, none) -> tensor<*xf32>
 
-  "std.return"(%hn_output) : (tensor<*xf32>) -> ()
+  "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>

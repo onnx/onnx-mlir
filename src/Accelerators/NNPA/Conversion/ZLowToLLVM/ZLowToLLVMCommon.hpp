@@ -14,8 +14,8 @@
 
 #pragma once
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "zdnn.h"

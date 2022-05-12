@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -53,7 +53,7 @@ static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
     }
   });
 
-  function.walk([&opIsReturned, allocOp, castOpResults](ReturnOp op) {
+  function.walk([&opIsReturned, allocOp, castOpResults](func::ReturnOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands()) {
       // Determine if current function returns the result value of the

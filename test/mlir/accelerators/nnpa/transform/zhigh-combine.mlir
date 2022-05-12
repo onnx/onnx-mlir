@@ -8,7 +8,7 @@ func @remove_stick_and_unstick(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %3 = "zhigh.Stick"(%2) : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>
   %4 = "zhigh.Relu"(%3) : (tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>
   %5 = "zhigh.Unstick"(%4) : (tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>) -> tensor<10x10xf32>
-  "std.return"(%5) : (tensor<10x10xf32>) -> ()
+  "func.return"(%5) : (tensor<10x10xf32>) -> ()
 
   // CHECK-LABEL: remove_stick_and_unstick
   // CHECK: zhigh.Stick
@@ -31,7 +31,7 @@ func @remove_stick_only(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %5 = "zhigh.Unstick"(%4) : (tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>) -> tensor<10x10xf32>
 
   %6 = "onnx.Add"(%2, %5) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%6) : (tensor<10x10xf32>) -> ()
+  "func.return"(%6) : (tensor<10x10xf32>) -> ()
 
   // CHECK-LABEL: remove_stick_only
   // CHECK: zhigh.Stick
@@ -54,7 +54,7 @@ func @donot_remove_stick_and_unstick(%arg0 : tensor<5x10x10xf32>) -> tensor<5x10
   %3 = "zhigh.Stick"(%2) {layout = "3DS"} : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
   %4 = "zhigh.Relu"(%3) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
   %5 = "zhigh.Unstick"(%4) {layout = "3DS"} : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
-  "std.return"(%5) : (tensor<5x10x10xf32>) -> ()
+  "func.return"(%5) : (tensor<5x10x10xf32>) -> ()
 
   // CHECK-LABEL: donot_remove_stick_and_unstick
   // CHECK: zhigh.Stick
@@ -84,7 +84,7 @@ func @change_sigmoid_layout_to_remove_unstick_stick(%arg0: tensor<5x10x10xf32, #
   %1 = "zhigh.Stick"(%0) : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>
   %2 = "zhigh.Sigmoid"(%1) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>
   %3 = "zhigh.Unstick"(%2) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32>
-  "std.return"(%3) : (tensor<5x10x10xf32>) -> ()
+  "func.return"(%3) : (tensor<5x10x10xf32>) -> ()
 
   // CHECK-LABEL: change_sigmoid_layout_to_remove_unstick_stick
   // CHECK-NOT: zhigh.Unstick

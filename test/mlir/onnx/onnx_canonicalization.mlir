@@ -7,7 +7,7 @@ func @test_matmul_add_fused(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2:
   // CHECK-NEXT: %{{[0-9]+}} = "onnx.Gemm"(%{{.*}}, %{{.*}}, %{{.*}}) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   %0 = "onnx.MatMul"(%a0, %a1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   %1 = "onnx.Add"(%0, %a2) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%1) : (tensor<10x10xf32>) -> ()
+  "func.return"(%1) : (tensor<10x10xf32>) -> ()
 }
 
 // -----
@@ -18,7 +18,7 @@ func @test_matmul_add_not_fused(%a0: tensor<10x10x10xf32>, %a1: tensor<10x10x10x
   // CHECK-NEXT: %{{[0-9]+}} = "onnx.MatMul"(%{{.*}}, %{{.*}}) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
   %0 = "onnx.MatMul"(%a0, %a1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
   %1 = "onnx.Add"(%0, %a2) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
-  "std.return"(%1) : (tensor<10x10x10xf32>) -> ()
+  "func.return"(%1) : (tensor<10x10x10xf32>) -> ()
 }
 
 // -----
@@ -31,7 +31,7 @@ func @test_sigmoid_add(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2: tens
   %1 = "onnx.Add"(%0, %a2) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   %2 = "onnx.Add"(%0, %a1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   %3 = "onnx.Add"(%1, %2) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%3) : (tensor<10x10xf32>) -> ()
+  "func.return"(%3) : (tensor<10x10xf32>) -> ()
 }
 
 // -----
@@ -42,7 +42,7 @@ func @test_identity_identity(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>) -> 
   %0 = "onnx.Identity"(%a0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   %1 = "onnx.Identity"(%a1) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   %2 = "onnx.Add"(%0, %1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%2) : (tensor<10x10xf32>) -> ()
+  "func.return"(%2) : (tensor<10x10xf32>) -> ()
 }
 
 // -----
@@ -164,7 +164,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
 func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
   %0 = "onnx.Transpose"(%arg0)  {perm = [0, 1, 2, 3]} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
-  "std.return"(%0) : (tensor<10x11x12x13xf32>) -> ()
+  "func.return"(%0) : (tensor<10x11x12x13xf32>) -> ()
 }
 
 // -----
@@ -191,7 +191,7 @@ func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13
   %0 = "onnx.Constant"() {value = dense<[10, 11, 12, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
-  "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+  "func.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
 }
 
 // -----
@@ -238,7 +238,7 @@ func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x1
   %0 = "onnx.Transpose"(%arg0)  {perm = [3, 2, 1, 0]} : (tensor<10x11x12x13xf32>) -> tensor<13x12x11x10xf32>
   %1 = "onnx.Transpose"(%0)  {perm = [2, 3, 0, 1]} : (tensor<13x12x11x10xf32>) -> tensor<11x10x13x12xf32>
   // CHECK-NEXT: %{{.*}} = "onnx.Transpose"(%arg0) {perm = [1, 0, 3, 2]} : (tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32>
-  "std.return"(%1) : (tensor<11x10x13x12xf32>) -> ()
+  "func.return"(%1) : (tensor<11x10x13x12xf32>) -> ()
 }
 
 // -----
@@ -252,7 +252,7 @@ func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12x
   %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
   // CHECK-NEXT: [[RES:%.+]] = "onnx.Constant"() {value = dense<[11, 10, 13, 12]> : tensor<4xi64>} : () -> tensor<4xi64>
   // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
-  "std.return"(%3) : (tensor<11x10x13x12xf32>) -> ()
+  "func.return"(%3) : (tensor<11x10x13x12xf32>) -> ()
 }
 
 // -----
@@ -263,7 +263,7 @@ func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10
   %0 = "onnx.Transpose"(%arg0)  {perm = [3, 2, 1, 0]} : (tensor<10x11x12x13xf32>) -> tensor<13x12x11x10xf32>
   %1 = "onnx.Transpose"(%0)  {perm = [3, 2, 1, 0]} : (tensor<13x12x11x10xf32>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
-  "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+  "func.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
 }
 
 // -----
@@ -276,7 +276,7 @@ func @test_reshape_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x1
   %2 = "onnx.Constant"() {value = dense<[10, 11, 12, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
   %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
-  "std.return"(%3) : (tensor<10x11x12x13xf32>) -> ()
+  "func.return"(%3) : (tensor<10x11x12x13xf32>) -> ()
 }
 
 // -----
