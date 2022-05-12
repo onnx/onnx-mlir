@@ -15,8 +15,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -73,7 +73,8 @@ public:
 
     auto callRef = getOrInsertCall(
         rewriter, module, krnlCallOp.funcName(), parameterTypeList);
-    rewriter.create<CallOp>(loc, callRef, ArrayRef<Type>({}), parameterList);
+    rewriter.create<func::CallOp>(
+        loc, callRef, ArrayRef<Type>({}), parameterList);
 
     rewriter.eraseOp(op);
     return success();
