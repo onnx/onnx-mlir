@@ -57,9 +57,9 @@ using namespace mlir::torch::Torch;
 
 class ONNXLeakyReluOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXLeakyReluOpToTorchLowering(TypeConverter &typeConverter,
-	MLIRContext *ctx) : ConversionPattern( typeConverter,
-		mlir::ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
+  ONNXLeakyReluOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -71,39 +71,36 @@ public:
 
     Value x = op1.X();
 
-    auto alpha = adapter.alphaAttr();  // mlir::FloatAttr
+    auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
     auto negSlope = alpha.getValue(); // APSFloat
-    auto negSlopeFloatValue =
-	    FloatAttr::get( mlir::FloatType::getF64(op->getContext()),
-		    negSlope.convertToFloat());
+    auto negSlopeFloatValue = FloatAttr::get(
+        mlir::FloatType::getF64(op->getContext()), negSlope.convertToFloat());
     Value negSlopeConstFloat =
-	    rewriter.create<ConstantFloatOp>(loc,negSlopeFloatValue);
+        rewriter.create<ConstantFloatOp>(loc, negSlopeFloatValue);
 
     TensorType xTensorType = x.getType().cast<TensorType>();
-    TensorType opTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
 
     auto xType = Torch::ValueTensorType::get(
         context, xTensorType.getShape(), xTensorType.getElementType());
     auto xTorchTensor =
-	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, xType, x);
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, xType, x);
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
         opTensorType.getShape(), opTensorType.getElementType());
 
-    Value result = rewriter.create<AtenLeakyReluOp>(loc, resultType,
-		    xTorchTensor, negSlopeConstFloat);
+    Value result = rewriter.create<AtenLeakyReluOp>(
+        loc, resultType, xTorchTensor, negSlopeConstFloat);
 
     llvm::outs() << "ATENLEAKYRELU CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType() , result);
+        op, op->getResult(0).getType(), result);
     return success();
   }
 };
 
-void populateLoweringONNXToTorchLeakyReluOpPattern(
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+void populateLoweringONNXToTorchLeakyReluOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXLeakyReluOpToTorchLowering>(typeConverter, ctx);
 }

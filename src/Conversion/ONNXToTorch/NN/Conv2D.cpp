@@ -34,11 +34,11 @@
 
  *Operands:
      *	X tensor of 16-bit/32-bit/64-bit float values or memref
-	    of any type values
+            of any type values
      *	W tensor of 16-bit/32-bit/64-bit float values or memref
-	    of any type values
+            of any type values
      *	B tensor of 16-bit/32-bit/64-bit float values or memref
-	    of any type values or none type
+            of any type values or none type
  *Results:
      *	Y  tensor of 16-bit/32-bit/64-bit float values or memref
      *	  of any type values or none type
@@ -120,8 +120,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     // create a tensor types using onnx operands.
     TensorType xTensorType = x.getType().cast<TensorType>();
     TensorType wTensorType = w.getType().cast<TensorType>();
-    TensorType opTensorType =
-	    op->getResult(0).getType().cast<TensorType>();
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
 
     auto xType = Torch::ValueTensorType::get(
         context, xTensorType.getShape(), xTensorType.getElementType());
@@ -131,11 +130,11 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         opTensorType.getShape(), opTensorType.getElementType());
 
     auto xTorchTensor =
-	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, xType, x);
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, xType, x);
     auto wTorchTensor =
-	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        	loc, wType, w);
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, wType, w);
     Value bTorchTensor;
     if (biasIsNone) {
       bTorchTensor = rewriter.create<Torch::ConstantNoneOp>(loc);
@@ -144,14 +143,14 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
       auto bType = Torch::ValueTensorType::get(op1.getContext(),
           bTensorType.getShape(), bTensorType.getElementType());
       bTorchTensor =
-	      rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-          	loc, bType, b);
+          rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+              loc, bType, b);
     }
 
     // emit the Conv2d operation in Torch side using "AtenConv2dOp".
-    Value result = rewriter.create<AtenConv2dOp>( loc, resultType,
-		 xTorchTensor, wTorchTensor, bTorchTensor, stridesList,
-		 padsList, dilationList, oneConstOp);
+    Value result = rewriter.create<AtenConv2dOp>(loc, resultType, xTorchTensor,
+        wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
+        oneConstOp);
 
     llvm::outs() << "AtenConv2d operation creation "
                  << "\n"
