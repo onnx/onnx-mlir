@@ -1,4 +1,5 @@
 #ifdef __cplusplus
+#include <cassert>
 #else
 #include <assert.h>
 #endif
