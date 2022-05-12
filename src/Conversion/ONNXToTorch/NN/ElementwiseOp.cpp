@@ -44,22 +44,14 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
     assert(unaryOp && "Expecting op to have a strong type");
 
     Location loc = unaryOp.getLoc();
-    Value operand = unaryOp.getOperand();
     mlir::MLIRContext *context = unaryOp.getContext();
 
-    auto operandType = toTorchType(context, operand.getType());
     auto resultType = toTorchType(context, unaryOp.getResult().getType());
-
     auto operandTensor =
-        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-            loc, operandType, operand);
-
-    llvm::outs() << "Unary input is " << operandTensor << "\n";
+        getTorchTensor(unaryOp.getOperand(), rewriter, context, loc);
 
     Value result =
         rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
-
-    llvm::outs() << "Unary CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
