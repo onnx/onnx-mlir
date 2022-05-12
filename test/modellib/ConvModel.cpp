@@ -112,7 +112,7 @@ bool Conv2DLibBuilder::build() {
   convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

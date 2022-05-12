@@ -15,8 +15,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -57,7 +57,7 @@ public:
             rewriter.getIntegerAttr(
                 rewriter.getIntegerType(64), instrumentOp.tag()));
 
-    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
+    rewriter.create<func::CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
         ArrayRef<Value>({nodeName, tag}));
 
     rewriter.eraseOp(op);
