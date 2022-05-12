@@ -152,17 +152,17 @@ uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
   }
-  /* If not compatible, generate an error here */
+  /* If not compatible, generate an error here. */
   if (!isCompatible) {
     /* Grab mutex. */
     pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
-    /* Check again if we have a compatible model */ 
+    /* Check again if we have a compatible model. */
     if (zdnn_is_version_runnable((uint32_t)versionNum))
       isCompatible = 1;
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
     if (!isCompatible) {
-      /* Code below has to agree with zdnn.h convention */
+      /* Code below has to agree with zdnn.h convention. */
       unsigned long long ver_major = versionNum >> 16;
       unsigned long long ver_minor = (versionNum >> 8) & 0xff;
       unsigned long long ver_patch = versionNum & 0xff;
