@@ -68,16 +68,8 @@ struct ONNXGlobalAveragePoolOpToTorchLowering : public ConversionPattern {
     auto xTensor = getTorchTensor(x, rewriter, context, loc);
     auto rank = getRank(x, rewriter, context, loc);
 
-    llvm::outs() << "xTensor torch tensor from MLIR tensor:"
-                 << "\n"
-                 << xTensor << "\n";
-
     Value result = rewriter.create<AtenAdaptiveAvgPool2dOp>(
         loc, resultType, xTensor, rank);
-
-    llvm::outs() << "AtenAdaptiveAvgPool2dOp operation creation"
-                 << "\n"
-                 << result << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
