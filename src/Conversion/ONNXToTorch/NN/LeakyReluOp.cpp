@@ -14,37 +14,6 @@
 //===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-
-#include <fstream>
-#include <iostream>
-#include <set>
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
-
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
-
-#include "mlir/Transforms/DialectConversion.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "llvm/ADT/StringExtras.h"
-
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -58,9 +27,9 @@ using namespace mlir::torch::Torch;
  *
  * ONNX LeakyRelu operation
  *
- * “LeakyRelu takes input data (Tensor) and an argument alpha, 
- * and produces one" "output data (Tensor) where the function 
- * `f(x) = alpha * x for x < 0`,""`f(x) = x for x >= 0`, is applied to 
+ * “LeakyRelu takes input data (Tensor) and an argument alpha,
+ * and produces one" "output data (Tensor) where the function
+ * `f(x) = alpha * x for x < 0`,""`f(x) = x for x >= 0`, is applied to
  * the data tensor elementwise."
  *
  * Operands :
@@ -72,7 +41,9 @@ using namespace mlir::torch::Torch;
  * alpha    32-bit float attribute
  *
  * Result:
- *   Y	tensor of 16-bit/32-bit/64-bit float values or memref of any type values
+ *   Y	tensor of 16-bit/32-bit/64-bit float values or memref of
+ *      any type values
+ *
  * Validation
  * ----------
  * /scripts/docker/build_with_docker.py --external-build --build-dir build
@@ -100,31 +71,31 @@ public:
 
     Value x = op1.X();
 
-    auto alpha = adapter.alphaAttr();  // mlir::FloatAttr
-    auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get( mlir::FloatType::getF64(op->getContext()), 
-		    neg_slope.convertToFloat());
-    Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
+    auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
+    auto negSlope = alpha.getValue(); // APSFloat
+    auto negSlopeFloatValue = FloatAttr::get(
+        mlir::FloatType::getF64(op->getContext()), negSlope.convertToFloat());
+    Value negSlopeConstFloat =
+        rewriter.create<ConstantFloatOp>(loc, negSlopeFloatValue);
 
-    TensorType x_tensor_type = x.getType().cast<TensorType>();
-    TensorType op_tensor_type = 
-	    op->getResult(0).getType().cast<TensorType>();
+    TensorType xTensorType = x.getType().cast<TensorType>();
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
 
-    auto xTy = Torch::ValueTensorType::get(
-        context, x_tensor_type.getShape(), x_tensor_type.getElementType());
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-        loc, xTy, x);
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
-        op_tensor_type.getShape(), op_tensor_type.getElementType());
+    auto xType = Torch::ValueTensorType::get(
+        context, xTensorType.getShape(), xTensorType.getElementType());
+    auto xTorchTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, xType, x);
+    auto resultType = Torch::ValueTensorType::get(op1.getContext(),
+        opTensorType.getShape(), opTensorType.getElementType());
 
-    Value atenleakyrelu =
-        rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v);
+    Value result = rewriter.create<AtenLeakyReluOp>(
+        loc, resultType, xTorchTensor, negSlopeConstFloat);
 
-    llvm::outs() << "ATENLEAKYRELU CREATED is " << atenleakyrelu << "\n";
-    Value result = atenleakyrelu;
+    llvm::outs() << "ATENLEAKYRELU CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType() , result);
+        op, op->getResult(0).getType(), result);
     return success();
   }
 };
