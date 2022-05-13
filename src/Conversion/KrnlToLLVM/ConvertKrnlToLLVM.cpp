@@ -486,6 +486,7 @@ void genSignatureFunction(ModuleOp module,
 
 struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToLLVMPass)
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
 

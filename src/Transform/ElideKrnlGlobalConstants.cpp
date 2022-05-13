@@ -84,6 +84,8 @@ namespace {
 class ElideConstGlobalValuePass : public PassWrapper<ElideConstGlobalValuePass,
                                       OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstGlobalValuePass)
+
   StringRef getArgument() const override { return "elide-krnl-constants"; }
 
   StringRef getDescription() const override {

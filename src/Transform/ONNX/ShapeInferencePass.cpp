@@ -65,6 +65,8 @@ private:
   bool analyzeAllFunctions;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ShapeInferencePass)
+
   ShapeInferencePass(bool analyzeAllFunctions)
       : analyzeAllFunctions(analyzeAllFunctions) {}
 

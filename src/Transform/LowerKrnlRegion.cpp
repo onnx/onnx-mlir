@@ -55,6 +55,8 @@ public:
 class LowerKrnlRegionPass
     : public PassWrapper<LowerKrnlRegionPass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlRegionPass)
+
   StringRef getArgument() const override { return "lower-krnl-region"; }
 
   StringRef getDescription() const override {

@@ -525,6 +525,8 @@ class KrnlBundleMemoryPoolsPass : public PassWrapper<KrnlBundleMemoryPoolsPass,
   BlockToMemPool blockToDynamicPool;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlBundleMemoryPoolsPass)
+
   StringRef getArgument() const override { return "bundle-memory-pools"; }
 
   StringRef getDescription() const override {

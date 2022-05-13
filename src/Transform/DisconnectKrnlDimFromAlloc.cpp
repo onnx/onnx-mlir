@@ -132,6 +132,8 @@ class DisconnectKrnlDimFromAllocPass
     : public PassWrapper<DisconnectKrnlDimFromAllocPass,
           OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DisconnectKrnlDimFromAllocPass)
+
   StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
 
   StringRef getDescription() const override {

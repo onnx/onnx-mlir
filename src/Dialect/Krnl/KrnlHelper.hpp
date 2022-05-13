@@ -64,7 +64,7 @@ private:
   mlir::Builder &builder;
 
   // A queue storing the parsed SSA id references.
-  std::queue<mlir::OpAsmParser::OperandType> operandRefQueue;
+  std::queue<mlir::OpAsmParser::UnresolvedOperand> operandRefQueue;
 };
 
 // Adapted from:

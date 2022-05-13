@@ -22,6 +22,7 @@
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -602,6 +603,7 @@ AffineTypeConverter::AffineTypeConverter() {
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
     : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToAffinePass);
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
 
@@ -626,9 +628,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    LogicalResult res =
-        moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
-    assert(succeeded(res) && "failed to move loop invariant code");
+    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
 
   // We use the end of the function body as a staging area for movable ops.

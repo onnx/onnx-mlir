@@ -41,6 +41,8 @@ class InstrumentONNXPass : public mlir::PassWrapper<InstrumentONNXPass,
                                OperationPass<func::FuncOp>> {
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentONNXPass)
+
   Option<std::string> instrumentONNXOps{*this, "instrument-onnx-ops",
       llvm::cl::desc("Specify onnx ops to be instrumented\n"
                      "\"NONE\" or \"\" for no instrument\n"

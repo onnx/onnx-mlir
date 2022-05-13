@@ -92,11 +92,11 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
                        I32Attr:$numOutputs,
                        StrAttr:$signature);
 
-  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
+  let builders = [OpBuilder<(ins "func::FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];
 
   let extraClassDeclaration = [{
-    static ONNXEntryPointOp create(Location location, FuncOp& func,
+    static ONNXEntryPointOp create(Location location, func::FuncOp& func,
                                    int numInputs, int numOutputs,
                                    std::string signature);
 

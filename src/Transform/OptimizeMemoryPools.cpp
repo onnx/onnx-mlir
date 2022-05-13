@@ -875,6 +875,8 @@ class KrnlOptimizeMemoryPoolsPass
   BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlOptimizeMemoryPoolsPass)
+
   StringRef getArgument() const override { return "optimize-memory-pools"; }
 
   StringRef getDescription() const override {

@@ -37,6 +37,7 @@ namespace krnl {
 
 struct ConvertSeqToMemrefPass
     : public PassWrapper<ConvertSeqToMemrefPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertSeqToMemrefPass)
 
   StringRef getArgument() const override { return "convert-seq-to-memref"; }
 

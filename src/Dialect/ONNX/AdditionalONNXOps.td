@@ -54,7 +54,7 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   let results = (outs Variadic<AnyTypeOf<[AnyTensor]>>);
 
   let builders = [
-    OpBuilder<(ins "FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
+    OpBuilder<(ins "func::FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
       $_state.addOperands(operands);
       $_state.addAttribute("callee", SymbolRefAttr::get(callee));
       $_state.addTypes(callee.getFunctionType().getResults());

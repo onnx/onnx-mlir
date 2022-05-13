@@ -47,6 +47,7 @@ namespace {
 
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                  OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXOpTransformPass)
 
   StringRef getArgument() const override { return "onnx-op-transform"; }
 

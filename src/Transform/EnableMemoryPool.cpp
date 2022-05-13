@@ -193,6 +193,8 @@ public:
 class KrnlEnableMemoryPoolPass : public PassWrapper<KrnlEnableMemoryPoolPass,
                                      OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlEnableMemoryPoolPass)
+
   StringRef getArgument() const override { return "enable-memory-pool"; }
 
   StringRef getDescription() const override {

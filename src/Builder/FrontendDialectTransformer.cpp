@@ -520,7 +520,7 @@ private:
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         result.addRegion();
 
-    auto op = builder_.createOperation(result);
+    auto op = builder_.create(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(node.output()[i], r);
