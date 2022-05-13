@@ -39,6 +39,10 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
 
     EXCLUDE_FROM_OM_LIBS
 
+    DEPENDS
+    libzdnn
+    RuntimeNNPA
+
     INCLUDE_DIRS PUBLIC
     ${ONNX_MLIR_SRC_ROOT}/include
     ${ONNX_MLIR_SRC_ROOT}
