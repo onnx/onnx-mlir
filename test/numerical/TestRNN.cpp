@@ -44,6 +44,8 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // RapidCheck test case generation.
   bool success = rc::check("RNN implementation correctness", []() {
