@@ -95,19 +95,8 @@ public:
       Value zeroI64 = rewriter.create<LLVM::ConstantOp>(
           loc, int64Ty, rewriter.getI64IntegerAttr(0));
 
-      // Split the current block into condition, true, false, and end blocks.
-      // - If the user's entry point name is found, go to the true block, then
-      // the end block.
-      // - Otherwise, recursively split the false block.
-      Block *condBlock, *trueBlock, *falseBlock, *endBlock;
-      condBlock = rewriter.getInsertionBlock();
-      trueBlock = condBlock->splitBlock(rewriter.getInsertionPoint());
-      falseBlock = rewriter.createBlock(
-          trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
-      endBlock = rewriter.createBlock(
-          falseBlock->getParent(), std::next(Region::iterator(falseBlock)));
-
-      // Emit code for the condition, true and false blocks.
+      // Split the current block into IF, THEN, ELSE blocks.
+      Block *ifBlock, *thenBlock, *elseBlock;
       for (uint64_t i = 0; i < accels.size(); ++i) {
         assert(accels[i].isa<StringAttr>() && "Attribute must be StringAttr");
         StringRef accelStr = accels.getValue()[i].cast<StringAttr>().getValue();
@@ -117,8 +106,14 @@ public:
         FlatSymbolRefAttr funcRef = getOrInsertOMInitCompatibleAccel(
             rewriter, module, NameAndVersion.first);
 
-        // Emit code for the condition block.
-        rewriter.setInsertionPointToEnd(condBlock);
+        // Split the current block into IF, THEN, ELSE blocks.
+        ifBlock = rewriter.getInsertionBlock();
+        thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
+        elseBlock = rewriter.createBlock(
+            thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+
+        // Emit code for the IF block.
+        rewriter.setInsertionPointToEnd(ifBlock);
         // Call OMInitCompatibleAccelX.
         LLVM::ConstantOp versionNumberVal = rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(versionNumberInHex));
@@ -126,33 +121,21 @@ public:
                                  .create<LLVM::CallOp>(loc, int64Ty, funcRef,
                                      ArrayRef<Value>({versionNumberVal}))
                                  .getResult(0);
-        // Return NULL if it failed to initialize the accelerator. Otherwise,
-        // continue with other accelerators.
+        // Condition: if (OMInitCompatibleAccelX() != 0)
         Value notCompatible = rewriter.create<LLVM::ICmpOp>(
             loc, LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
-        // Branch the block into the true and false blocks.
-        rewriter.create<LLVM::CondBrOp>(loc, notCompatible, trueBlock,
-            ValueRange(), falseBlock, ValueRange());
+        // Branch the block into the THEN and ELSE blocks.
+        rewriter.create<LLVM::CondBrOp>(loc, notCompatible, thenBlock,
+            ValueRange(), elseBlock, ValueRange());
 
-        // Emit code for the true block. Return NULL.
-        rewriter.setInsertionPointToStart(trueBlock);
+        // Emit code for the THEN block: return NULL.
+        rewriter.setInsertionPointToStart(thenBlock);
         Value nullPtr = rewriter.create<LLVM::NullOp>(loc, opaquePtrTy);
         rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
 
-        // Emit code for the false block. 
-        //  - Continue with other accelerators if any.
-        //  - Otherwise, go to the end block.
-        rewriter.setInsertionPointToStart(falseBlock);
-        if (i == accels.size() - 1) {
-          rewriter.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-        } else {
-          condBlock = rewriter.getInsertionBlock();
-          trueBlock = condBlock->splitBlock(rewriter.getInsertionPoint());
-          falseBlock = rewriter.createBlock(
-              trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
-        }
+        // Emit code for the ELSE block: deal with other accelerators if any.
+        rewriter.setInsertionPointToStart(elseBlock);
       }
-      rewriter.setInsertionPointToStart(endBlock);
     }
 
     // Based on the static entry point type signature, unpack dynamic memory
