@@ -24,7 +24,7 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-static const llvm::StringRef SHARED_LIB_BASE("./TestGRUNNPA_main_graph");
+static const llvm::StringRef SHARED_LIB_BASE("./TestGRU-NNPA_main_graph");
 
 using namespace mlir;
 
@@ -58,6 +58,8 @@ int main(int argc, char *argv[]) {
   setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {
@@ -65,7 +67,7 @@ int main(int argc, char *argv[]) {
     // 1: forward, -1: reverse, 2: bidirectional
     // const auto D = *rc::gen::element(1, -1, 2);
     // bidirectional not supported now
-    const auto D = *rc::gen::element(1, -1, 2);
+    const auto D = *rc::gen::element(1, -1);
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
