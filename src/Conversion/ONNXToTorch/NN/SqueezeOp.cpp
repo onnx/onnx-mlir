@@ -75,7 +75,7 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     Location loc = squeezeOp.getLoc();
 
     Value data = squeezeOp.data();
-    Value axes = squeezeOp.axes();
+    // Value axes = squeezeOp.axes();
 
     mlir::MLIRContext *context = squeezeOp.getContext();
 
@@ -96,11 +96,11 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     //         dim);
     //   }
     // } else {
-    //   result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
+      result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
     // }
 
-    // rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType,
-    // result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType,
+    result);
 
     return success();
   }
