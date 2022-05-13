@@ -10,7 +10,7 @@ set(ZDNN_LIB "${ONNX_MLIR_BIN_ROOT}/src/Accelerators/NNPA/zDNN/src/zdnn/zdnn/lib
 
 add_custom_target(check-onnx-numerical-nnpa
   COMMENT "Running the ONNX-MLIR numerical regression tests for NNPA"
-  COMMAND "${CMAKE_CTEST_COMMAND}" -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
+  COMMAND "${CMAKE_CTEST_COMMAND}" --verbose -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS numerical-nnpa
   )
@@ -36,11 +36,13 @@ function(add_numerical_unittest test_name)
 
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
   add_test(NAME ${test_name}
-    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA --instrument-zhigh-ops=ALL --InstrumentBeforeZHighOp --InstrumentAfterZHighOp --InstrumentReportTimeZHigh
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05};LD_PRELOAD=${ZDNN_LIB}")
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05")
+  # set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;RC_PARAMS=max_success=1;LD_PRELOAD=${ZDNN_LIB}")
+  # set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;LD_PRELOAD=${ZDNN_LIB}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -63,6 +65,7 @@ add_numerical_unittest(TestMatMul2D-NNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
 
 add_numerical_unittest(TestGemm-NNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
