@@ -242,7 +242,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK: llvm.func @OMInitCompatibleAccelPseudo(i64)
 // CHECK-LABEL: llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-NEXT: [[VERSION_NUMBER_1:%.+]] = llvm.mlir.constant(65537 : i64) : i64
-// CHECK-NEXT: llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER_1]]) : (i64) -> ()
+// CHECK-NEXT: llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER_1]]) : (i64) -> i64
 // CHECK-NEXT: [[VERSION_NUMBER_2:%.+]] = llvm.mlir.constant(65536 : i64) : i64
-// CHECK-NEXT: llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER_2]]) : (i64) -> ()
+// CHECK-NEXT: llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER_2]]) : (i64) -> i64
 }

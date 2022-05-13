@@ -86,7 +86,7 @@ public:
 
     // Emit code to initialize accelerators by calling OMInitCompatibleAccelX
     // where X is the accelerator name.
-    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     if (Attribute maccelAttr =
             module->getAttrOfType<::mlir::Attribute>("onnx-mlir.accels")) {
       assert(
@@ -103,7 +103,7 @@ public:
         LLVM::ConstantOp versionNumberVal = rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(versionNumberInHex));
         rewriter.create<LLVM::CallOp>(
-            loc, TypeRange(), funcRef, ArrayRef<Value>({versionNumberVal}));
+            loc, int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
       }
     }
 
@@ -380,14 +380,14 @@ private:
   FlatSymbolRefAttr getOrInsertOMInitCompatibleAccel(
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
     std::string funcName = "OMInitCompatibleAccel" + accelName.str();
-    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
     MLIRContext *ctx = rewriter.getContext();
     if (!func) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
       LLVM::LLVMFunctionType funcType =
-          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx),
+          LLVM::LLVMFunctionType::get(IntegerType::get(ctx, 64),
               ArrayRef<mlir::Type>({IntegerType::get(ctx, 64)}),
               /*isVarArg=*/false);
       func = rewriter.create<LLVM::LLVMFuncOp>(
