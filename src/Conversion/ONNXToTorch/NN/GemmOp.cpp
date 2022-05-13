@@ -112,11 +112,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
                                          loc, resultType, bTensor, f0v, f1v)
                                    : bTensor;
 
-    llvm::outs() << "\n transposeBVal : "
-                 << "\n"
-                 << transposeAVal << "\n"
-                 << transposeBVal << "\n";
-
     // Compute Y = alpha * A’ * B’ + beta * C
     // Scalar multiplication with alpha(alpha * A’)
     // and beta(beta * C) values.
@@ -126,21 +121,12 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, resultType, transposeAVal, alpha3v);
     }
-    llvm::outs() << "alphaMulResult Value"
-                 << "\n"
-                 << alphaMulResult << "\n"
-                 << "\n";
 
     if (beta) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult =
           rewriter.create<AtenMulScalarOp>(loc, resultType, cTensor, beta3v);
     }
-
-    llvm::outs() << "betaMulResult Value"
-                 << "\n"
-                 << betaMulResult << "\n"
-                 << "\n";
 
     // Bmm Operation ((alpha * A’) * B’)
     Value bmmValue;
