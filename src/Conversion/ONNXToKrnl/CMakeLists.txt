@@ -42,8 +42,9 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/DepthToSpace.cpp
   Tensor/Expand.cpp
   Tensor/Flatten.cpp
-  Tensor/Gather.cpp 
-  Tensor/GatherElements.cpp  
+  Tensor/Gather.cpp
+  Tensor/GatherElements.cpp
+  Tensor/GatherND.cpp
   Tensor/Identity.cpp
   Tensor/NonZero.cpp
   Tensor/OneHot.cpp  
@@ -70,5 +71,6 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MLIRStandardOpsTransforms
+  MLIRFunc
+  MLIRFuncTransforms
   )

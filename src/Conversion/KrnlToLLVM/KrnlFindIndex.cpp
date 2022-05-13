@@ -73,7 +73,7 @@ public:
 
     // Generate the call to the runtime function.
     Type retType = IntegerType::get(ctx, 64);
-    auto funcCall = rewriter.create<CallOp>(loc, findIndexRef, retType,
+    auto funcCall = rewriter.create<func::CallOp>(loc, findIndexRef, retType,
         ArrayRef<Value>({firstOperand, extractedGPtr, extractedVPtr, length}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);

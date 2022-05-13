@@ -18,12 +18,12 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -145,10 +145,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims);
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
@@ -225,7 +224,7 @@ public:
   }
 
   /// Return true if the operands/results of call have a legal type.
-  bool isSignatureLegal(mlir::CallOp call) {
+  bool isSignatureLegal(mlir::func::CallOp call) {
     auto f = [this](Type type) { return isLegal(type); };
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);
@@ -320,6 +319,8 @@ void populateLoweringONNXTransposeOpPattern(
 void populateLoweringONNXGatherOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherElementsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherNDOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadConstantValuePadOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

@@ -4,7 +4,7 @@
 // supported in mlir: https://reviews.llvm.org/D91886
 func private @test_no_argument_2() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value =  dense<[[1.000000e+0, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf32>} : () -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 }
 
 // CHECK-LABEL: test_no_argument_2
@@ -15,7 +15,7 @@ func private @test_no_argument_2() -> tensor<*xf32> {
 
 func private @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<f32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_elementwise_op_with_scalar_values_1
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -29,7 +29,7 @@ func private @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>) -> t
 
 func private @test_elementwise_op_with_scalar_values_2(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_elementwise_op_with_scalar_values_2
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -44,7 +44,7 @@ func private @test_elementwise_op_with_scalar_values_2(%arg0 : tensor<f32>, %arg
 
 func private @test_elementwise_op_with_scalar_values_3(%arg0 : tensor<f32>, %arg1 : tensor<f32>, %arg2 : tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_elementwise_op_with_scalar_values_3
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -61,7 +61,7 @@ func private @test_elementwise_op_with_scalar_values_3(%arg0 : tensor<f32>, %arg
 
 func private @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_add
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -79,7 +79,7 @@ func private @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_mul
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -97,7 +97,7 @@ func private @test_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_div
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -115,7 +115,7 @@ func private @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sub
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -133,7 +133,7 @@ func private @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
   %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
-  "std.return"(%0) : (tensor<*xi1>) -> ()
+  "func.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_and
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi1>
@@ -151,7 +151,7 @@ func private @test_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> te
 
 func private @test_or(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
   %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
-  "std.return"(%0) : (tensor<*xi1>) -> ()
+  "func.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_or
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi1>
@@ -169,7 +169,7 @@ func private @test_or(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> ten
 
 func private @test_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
   %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
-  "std.return"(%0) : (tensor<*xi1>) -> ()
+  "func.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_xor
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi1>
@@ -187,7 +187,7 @@ func private @test_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> te
 
 func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_exp
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -209,7 +209,7 @@ func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_tanh
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
@@ -234,7 +234,7 @@ func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sinh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sinh
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -262,7 +262,7 @@ func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cosh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_cosh
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -290,7 +290,7 @@ func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cos"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_cos
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -312,7 +312,7 @@ func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sin"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sin
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -334,7 +334,7 @@ func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_log
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -356,7 +356,7 @@ func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sigmoid
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -383,7 +383,7 @@ func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_relu
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -408,7 +408,7 @@ func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:     test_reshape_constant
 // CHECK: krnl.global
 // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [2, 5], strides: [5, 1] : memref<1x10xf32> to memref<2x5xf32>
@@ -425,7 +425,7 @@ func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x1xf32>) -> tensor<*xf32>
   %1 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
   %2 = "onnx.Reshape"(%0, %1) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%2) : (tensor<*xf32>) -> ()
+  "func.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_reshape_constant_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10], strides: [10, 1] : memref<10x1xf32> to memref<1x10xf32> 
@@ -438,7 +438,7 @@ func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<
 
 func private @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sum
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -456,7 +456,7 @@ func private @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Max"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_max
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -475,7 +475,7 @@ func private @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Min"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_min
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
@@ -494,7 +494,7 @@ func private @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
 
 func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Elu"(%arg0) {alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_elu
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -523,7 +523,7 @@ func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.LeakyRelu"(%arg0) {alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_leakyrelu
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -549,7 +549,7 @@ func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Selu"(%arg0) {alpha=1.0:f32, gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_selu
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -579,7 +579,7 @@ func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.HardSigmoid"(%arg0) {alpha=1.0:f32, beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_hardsigmoid
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -610,7 +610,7 @@ func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reciprocal
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -633,7 +633,7 @@ func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softplus"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_softplus
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -658,7 +658,7 @@ func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softsign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_softsign
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -683,7 +683,7 @@ func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducemax
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
@@ -707,7 +707,7 @@ func private @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 func private @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducemin
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
@@ -731,7 +731,7 @@ func private @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 func private @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reduceprod
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
@@ -755,7 +755,7 @@ func private @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %cst = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64> } : () -> tensor<1xi64>
   %0 ="onnx.ReduceSum"(%arg0, %cst) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducesum
   // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = {{.*}}, shape = [1], value = dense<1> : tensor<1xi64>} : () -> memref<1xi64>
@@ -779,7 +779,7 @@ func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSumV11"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducesumV11
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
@@ -928,7 +928,7 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sqrt
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -951,7 +951,7 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
@@ -962,7 +962,7 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 func private @test_unsqueezev11(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueezev11
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
@@ -979,7 +979,7 @@ func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32>
   %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %2 = "onnx.Unsqueeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%2) : (tensor<*xf32>) -> ()
+  "func.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_unsqueeze_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
@@ -993,7 +993,7 @@ func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32>
 func private @test_unsqueezev11_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %1 = "onnx.UnsqueezeV11"(%0) {axes=[0,3]} : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_unsqueezev11_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
@@ -1012,7 +1012,7 @@ func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tenso
   %3 = "onnx.Unsqueeze"(%2, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
   %4 = "onnx.Transpose"(%3) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   %5 = "onnx.Squeeze"(%4, %1) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%5) : (tensor<*xf32>) -> ()
+  "func.return"(%5) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_unsqueeze_squeeze_dealloc
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
@@ -1029,7 +1029,7 @@ func private @test_unsqueezev11_squeezev11_dealloc(%arg0 : tensor<10x20xf32>) ->
   %1 = "onnx.UnsqueezeV11"(%0) { axes = [1, -1]} : (tensor<*xf32>) -> (tensor<*xf32>)
   %2 = "onnx.Transpose"(%1) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   %3 = "onnx.SqueezeV11"(%2) {axes=[1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%3) : (tensor<*xf32>) -> ()
+  "func.return"(%3) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_unsqueezev11_squeezev11_dealloc
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
@@ -1044,7 +1044,7 @@ func private @test_unsqueezev11_squeezev11_dealloc(%arg0 : tensor<10x20xf32>) ->
 func private @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_transpose
   // CHECK:       [[RES1:%.+]] = memref.alloc() {{.*}}: memref<40x30x20x10xf32>
@@ -1071,7 +1071,7 @@ func private @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
 // COM: Test whether the lowering is correct in the presence of dynamic dimensions.
 func private @test_transpose_dynamic_dims(%arg0 : tensor<10x?x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x?x30x40xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK:        [[MAP:#.+]] = affine_map<(d0) -> (d0)>  
   // CHECK-LABEL:  func private @test_transpose_dynamic_dims
@@ -1098,7 +1098,7 @@ func private @test_transpose_dynamic_dims(%arg0 : tensor<10x?x30x40xf32>) -> ten
 
 func private @test_identity(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Identity"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_identity
   // CHECK: return %arg0 : memref<10x20x30x40xf32>
@@ -1108,7 +1108,7 @@ func private @test_identity(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
 
 func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sign_f
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
@@ -1136,7 +1136,7 @@ func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+  "func.return"(%0) : (tensor<*xi32>) -> ()
 
   // CHECK-LABEL: test_sign_i
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -1250,7 +1250,7 @@ func private @test_batchnorm_testmode_2d(%arg0: tensor<10x3xf32>, %arg1: tensor<
 
 func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_abs_float
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -1272,7 +1272,7 @@ func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+  "func.return"(%0) : (tensor<*xi32>) -> ()
 
   // CHECK-LABEL: test_abs_int
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -1297,7 +1297,7 @@ func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 func private @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_constant_dense_2d_value
   // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = {{.*}}, shape = [3, 2], value = dense<{{.*}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00]{{.*}}> : tensor<3x2xf32>} : () -> memref<3x2xf32>
   // CHECK: return [[GLOBAL]] : memref<3x2xf32>
@@ -1307,7 +1307,7 @@ func private @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32
 
 func private @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (0, d0)>
   // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (32, d0 + 2)>
@@ -1343,7 +1343,7 @@ func private @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> te
 
 func private @test_averagepool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_averagepool_identity_value
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
@@ -1356,7 +1356,7 @@ func private @test_averagepool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> 
 
 func private @test_maxpool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_maxpool_identity_value
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
@@ -1369,7 +1369,7 @@ func private @test_maxpool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tens
 
 func private @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_averagepool_pooling_operation
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
@@ -1402,7 +1402,7 @@ func private @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) 
 
 func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_maxpool_pooling_operation
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<1x3x31x31xf32>
@@ -1435,7 +1435,7 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
 func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
@@ -1446,7 +1446,7 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 
 func private @test_squeezev11(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeezev11
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
@@ -1461,7 +1461,7 @@ func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*
   %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
   %2 = "onnx.Squeeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> (tensor<*xf32>)
-  "std.return"(%2) : (tensor<*xf32>) -> ()
+  "func.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 1, 32, 1, 64], strides: [2048, 2048, 64, 64, 1] : memref<16x32x1x1x64xf32> to memref<16x1x32x1x64xf32>
@@ -1475,7 +1475,7 @@ func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*
 func private @test_squeezev11_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
   %1 = "onnx.SqueezeV11"(%0) { axes = [1, -2]} : (tensor<*xf32>) -> (tensor<*xf32>)
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeezev11_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 1, 32, 1, 64], strides: [2048, 2048, 64, 64, 1] : memref<16x32x1x1x64xf32> to memref<16x1x32x1x64xf32>
@@ -1489,7 +1489,7 @@ func private @test_squeezev11_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tenso
 func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<?x1x32x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
@@ -1509,7 +1509,7 @@ func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -
 
 func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeezev11_unknown_dimensions
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
@@ -1530,7 +1530,7 @@ func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>
 func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 0 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 8)>
   // CHECK-LABEL: @test_split_equal
@@ -1561,7 +1561,7 @@ func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, 
 func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
   %0, %1 = "onnx.Split"(%arg0, %split) { axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 2)>
   // CHECK-LABEL: @test_split_variable
@@ -1588,7 +1588,7 @@ func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32
 
 func private @test_splitv11_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 0 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 8)>
   // CHECK-LABEL: @test_splitv11_equal
@@ -1615,7 +1615,7 @@ func private @test_splitv11_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32
 
 func private @test_splitv11_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 2)>
   // CHECK-LABEL: @test_splitv11_variable
@@ -1641,7 +1641,7 @@ func private @test_splitv11_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*x
 
 func private @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f32>) -> tensor<f32>
-  "std.return"(%0) : (tensor<f32>) -> ()
+  "func.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_sametype
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -1654,7 +1654,7 @@ func private @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
 
 func private @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<i64>) -> tensor<f32>
-  "std.return"(%0) : (tensor<f32>) -> ()
+  "func.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_intfloat
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -1668,7 +1668,7 @@ func private @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
 
 func private @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
   %0 = "onnx.Cast"(%arg0) {to = i64} : (tensor<f32>) -> tensor<i64>
-  "std.return"(%0) : (tensor<i64>) -> ()
+  "func.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_floatint
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<i64>
@@ -1682,7 +1682,7 @@ func private @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
 
 func private @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f16>) -> tensor<f32>
-  "std.return"(%0) : (tensor<f32>) -> ()
+  "func.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f16f32
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -1696,7 +1696,7 @@ func private @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
 
 func private @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f64>) -> tensor<f32>
-  "std.return"(%0) : (tensor<f32>) -> ()
+  "func.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -1710,7 +1710,7 @@ func private @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
 
 func private @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<10xf64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32_10
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10xf32>
@@ -1727,7 +1727,7 @@ func private @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 
 func private @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
   %0 = "onnx.Cast"(%arg0) {to = i64} : (tensor<i32>) -> tensor<i64>
-  "std.return"(%0) : (tensor<i64>) -> ()
+  "func.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_wider_int
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<i64>
@@ -1741,7 +1741,7 @@ func private @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
 
 func private @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
   %0 = "onnx.Cast"(%arg0) {to = i32 } : (tensor<i64>) -> tensor<i32>
-  "std.return"(%0) : (tensor<i32>) -> ()
+  "func.return"(%0) : (tensor<i32>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_narrow_int
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<i32>
@@ -1755,7 +1755,7 @@ func private @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
 
 func private @cast_lowering_int_to_bool(%arg0: tensor<i64>) -> tensor<i1> {
   %0 = "onnx.Cast"(%arg0) {to = i1 } : (tensor<i64>) -> tensor<i1>
-  "std.return"(%0) : (tensor<i1>) -> ()
+  "func.return"(%0) : (tensor<i1>) -> ()
 
 // CHECK-LABEL:  func private @cast_lowering_int_to_bool
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i64>) -> memref<i1> {
@@ -1772,7 +1772,7 @@ func private @cast_lowering_int_to_bool(%arg0: tensor<i64>) -> tensor<i1> {
 
 func private @cast_lowering_uint_to_bool(%arg0 : tensor<ui8>) -> tensor<i1> {
   %0 = "onnx.Cast"(%arg0) {to = i1} : (tensor<ui8>) -> tensor<i1>
-  "std.return"(%0): (tensor<i1>) -> ()
+  "func.return"(%0): (tensor<i1>) -> ()
 
 // CHECK-LABEL:  func private @cast_lowering_uint_to_bool
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui8>) -> memref<i1> {  
@@ -1790,7 +1790,7 @@ func private @cast_lowering_uint_to_bool(%arg0 : tensor<ui8>) -> tensor<i1> {
 
 func private @cast_lowering_float_to_bool(%arg0: tensor<f32>) -> tensor<i1> {
   %0 = "onnx.Cast"(%arg0) {to = i1 } : (tensor<f32>) -> tensor<i1>
-  "std.return"(%0) : (tensor<i1>) -> ()
+  "func.return"(%0) : (tensor<i1>) -> ()
 
 // CHECK-LABEL:  func private @cast_lowering_float_to_bool
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>) -> memref<i1> {
@@ -1807,7 +1807,7 @@ func private @cast_lowering_float_to_bool(%arg0: tensor<f32>) -> tensor<i1> {
 
 func private @cast_lowering_uint_narrow_uint(%arg0: tensor<ui64>) -> tensor<ui32> {
   %0 = "onnx.Cast"(%arg0) {to = ui32 } : (tensor<ui64>) -> tensor<ui32>
-  "std.return"(%0) : (tensor<ui32>) -> ()
+  "func.return"(%0) : (tensor<ui32>) -> ()
 // CHECK-LABEL:  func private @cast_lowering_uint_narrow_uint
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui64>) -> memref<ui32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<ui32>
@@ -1824,7 +1824,7 @@ func private @cast_lowering_uint_narrow_uint(%arg0: tensor<ui64>) -> tensor<ui32
 
 func private @cast_lowering_uint_wider_uint(%arg0: tensor<ui32>) -> tensor<ui64> {
   %0 = "onnx.Cast"(%arg0) {to = ui64 } : (tensor<ui32>) -> tensor<ui64>
-  "std.return"(%0) : (tensor<ui64>) -> ()
+  "func.return"(%0) : (tensor<ui64>) -> ()
 // CHECK-LABEL:  func private @cast_lowering_uint_wider_uint
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui32>) -> memref<ui64> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<ui64>
@@ -1841,7 +1841,7 @@ func private @cast_lowering_uint_wider_uint(%arg0: tensor<ui32>) -> tensor<ui64>
 
 func private @test_size_known(%arg0: tensor<2x2xf32>) -> tensor<i64> {
   %1 = "onnx.Size"(%arg0) : (tensor<2x2xf32>) -> tensor<i64>
-  "std.return"(%1) : (tensor<i64>) -> ()
+  "func.return"(%1) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: test_size_known
   // CHECK:      [[RES:%.+]] = memref.alloc() {{.*}}: memref<i64>
@@ -1870,7 +1870,7 @@ func private @test_size_unknown(%arg0 : tensor<?x2x?xf32>) -> tensor<i64> {
   // CHECK-NEXT:  return [[RES]] : memref<i64>
 
   %1 = "onnx.Size"(%arg0)  : (tensor<?x2x?xf32>) -> tensor<i64>
-  "std.return"(%1) : (tensor<i64>) -> ()
+  "func.return"(%1) : (tensor<i64>) -> ()
 }
 
 // -----
@@ -1883,7 +1883,7 @@ func private @test_size_unknown(%arg0 : tensor<?x2x?xf32>) -> tensor<i64> {
 //   - The output is a scalar tensor.
 func private @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
   %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_empty_tensor
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
@@ -1902,7 +1902,7 @@ func private @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tens
 //   - Krnl iterates are used to set values to the output.
 func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
   %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_dynamic_dims
   // CHECK: [[CST0:%.+]] = arith.constant 0 : index
@@ -1935,7 +1935,7 @@ func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tens
 func private @test_constant_of_shape_static_dims() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
   %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_static_dims
   // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() {name = {{.*}}, shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> memref<3xi64>
@@ -1953,7 +1953,7 @@ func private @test_constant_of_shape_static_dims() -> tensor<*xf32> {
 
 func private @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
   // CHECK: [[MAP_FIRST:#.+]] = affine_map<() -> (0)>
   // CHECK: [[MAP_SECOND:#.+]] = affine_map<(d0, d1, d2)[s0, s1, s2] -> (d2 + d1 * s2 + d0 * (s1 * s2))>
   // CHECK-LABEL test_flatten0
@@ -1977,7 +1977,7 @@ func private @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
 // test partially known input shape
 func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func private @test_flatten1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x?x4xf32>) -> memref<?x4xf32> {
@@ -2051,7 +2051,7 @@ func private @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>
 
 func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Floor"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_floor
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -2073,7 +2073,7 @@ func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Ceil"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_ceil
   // CHECK: [[C0:%.+]] = arith.constant 0 : index
@@ -2415,7 +2415,7 @@ func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
     %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
     %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
-    "std.return"(%2) : (tensor<*xf32>) -> ()
+    "func.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
@@ -2470,7 +2470,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
     %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
     %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
-    "std.return"(%2) : (tensor<*xf32>) -> ()
+    "func.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
@@ -2534,6 +2534,82 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 
 //-----
 
+// COM: Test GatherND with indices_shape[-1] == rank(data) - batch_dims
+func @test_gather_nd_1(%arg0 : tensor<2x2xf32>, %arg1 : tensor<2x2xi64>) -> tensor<2xf32> {
+  %0 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 0 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<2xf32>
+  "func.return"(%0) : (tensor<2xf32>) -> ()
+// CHECK-LABEL:  @test_gather_nd_1
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<2x2xf32>, [[PARAM_1:%.+]]: memref<2x2xi64>) -> memref<2xf32> {
+// CHECK:           [[RESHAPED_INDICES:%.+]] = memref.reinterpret_cast %arg1 to offset: [0], sizes: [1, 2, 2], strides: [4, 2, 1] : memref<2x2xi64> to memref<1x2x2xi64>
+// CHECK:           [[RESHAPED_DATA:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 2, 2], strides: [4, 2, 1] : memref<2x2xf32> to memref<1x2x2xf32>
+// CHECK-DAG:       [[RES_BUFFER:%.+]] = memref.alloc() : memref<2xf32>
+// CHECK-DAG:       [[RES_BUFFER_INDEX:%.+]] = memref.alloca() : memref<index>
+// CHECK-DAG:       [[CST_0_0:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_1_0:%.+]] = arith.constant 1 : index
+// CHECK:           krnl.store [[CST_0_0]], [[RES_BUFFER_INDEX]][] : memref<index>
+// CHECK:           [[LOOP:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP]]#0, [[LOOP]]#1) with ([[LOOP]]#0 -> [[I_0:%.+]] = 0 to 1, [[LOOP]]#1 -> [[I_1:%.+]] = 0 to 2){
+// CHECK-DAG:         [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[CST_0_1:%.+]] = arith.constant 0 : index
+// CHECK:             [[LOAD_INDEX_1:%.+]] = krnl.load [[RESHAPED_INDICES]][[[IV]]#0, [[IV]]#1, [[CST_0_1]]] : memref<1x2x2xi64>
+// CHECK-DAG:         [[INDEX_1:%.+]] = arith.index_cast [[LOAD_INDEX_1]] : i64 to index
+// CHECK-DAG:         [[CST_1_1:%.+]] = arith.constant 1 : index
+// CHECK:             [[LOAD_INDEX_2:%.+]] = krnl.load [[RESHAPED_INDICES]][[[IV]]#0, [[IV]]#1, [[CST_1_1]]] : memref<1x2x2xi64>
+// CHECK:             [[INDEX_2:%.+]] = arith.index_cast [[LOAD_INDEX_2]] : i64 to index
+// CHECK-DAG:         [[DATA_VAL:%.+]] = krnl.load [[RESHAPED_DATA]][[[IV]]#0, [[INDEX_1]], [[INDEX_2]]] : memref<1x2x2xf32>
+// CHECK-DAG:         [[RES_BUFFER_INDEX_VAL:%.+]] = krnl.load [[RES_BUFFER_INDEX]][] : memref<index>
+// CHECK:             krnl.store [[DATA_VAL]], [[RES_BUFFER]][[[RES_BUFFER_INDEX_VAL]]] : memref<2xf32>
+// CHECK:             [[PLUS_ONE:%.+]] = arith.addi [[RES_BUFFER_INDEX_VAL]], [[CST_1_0]] : index
+// CHECK:             krnl.store [[PLUS_ONE]], [[RES_BUFFER_INDEX]][] : memref<index>
+// CHECK:           }
+// CHECK:          [[RES:%.+]] = memref.reinterpret_cast [[RES_BUFFER]] to offset: [0], sizes: [2], strides: [1] : memref<2xf32> to memref<2xf32> 
+// CHECK:           return [[RES]] : memref<2xf32>
+}
+
+//-----
+
+// COM: Test GatherND with indices_shape[-1] < rank(data) - batch_dims
+func @test_gather_nd_2(%arg0 : tensor<2x2x2xf32>, %arg1 : tensor<2x1x2xi64>) -> tensor<2x1x2xf32> {
+  %0 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 0 : si64} : (tensor<2x2x2xf32>, tensor<2x1x2xi64>) -> tensor<2x1x2xf32>
+  "func.return"(%0) : (tensor<2x1x2xf32>) -> ()
+// CHECK-LABEL:  func @test_gather_nd_2
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<2x2x2xf32>, [[PARAM_1:%.+]]: memref<2x1x2xi64>) -> memref<2x1x2xf32> {
+// CHECK-DAG:       [[RESHAPED_INDICES:%.+]] = memref.reinterpret_cast [[PARAM_1]] to offset: [0], sizes: [1, 2, 2], strides: [4, 2, 1] : memref<2x1x2xi64> to memref<1x2x2xi64>
+// CHECK-DAG:       [[RESHAPED_DATA:%.+]] = memref.reinterpret_cast [[PARAM_0]] to offset: [0], sizes: [1, 2, 2, 2], strides: [8, 4, 2, 1] : memref<2x2x2xf32> to memref<1x2x2x2xf32>
+// CHECK-DAG:       [[RES_BUFFER:%.+]] = memref.alloc() : memref<4xf32>
+// CHECK:           [[CST_0_0:%.+]] = arith.constant 0 : index
+// CHECK:           [[CST_1_0:%.+]] = arith.constant 1 : index
+// CHECK:           [[RES_INDEX_BUFFER:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_0]], [[RES_INDEX_BUFFER]][] : memref<index>
+// CHECK:           [[LOOP_0:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK-DAG:         [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[CST_0_1:%.+]] = arith.constant 0 : index
+// CHECK:             [[LOAD_INDEX_1:%.+]] = krnl.load [[RESHAPED_INDICES]]{{.}}[[IV]]#0, [[IV]]#1, [[CST_0_1]]{{.}} : memref<1x2x2xi64>
+// CHECK-DAG:         [[INDEX_1:%.+]] = arith.index_cast [[LOAD_INDEX_1]] : i64 to index
+// CHECK-DAG:         [[CST_1_1:%.+]] = arith.constant 1 : index
+// CHECK:             [[LOAD_INDEX_2:%.+]] = krnl.load [[RESHAPED_INDICES]]{{.}}[[IV]]#0, [[IV]]#1, [[CST_1_1]]{{.}} : memref<1x2x2xi64>
+// CHECK-DAG:         [[INDEX_2:%.+]] = arith.index_cast [[LOAD_INDEX_2]] : i64 to index
+// CHECK-DAG:         [[CST_0_2:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[DATA_1:%.+]] = krnl.load [[RESHAPED_DATA]]{{.}}[[IV]]#0, [[INDEX_1]], [[INDEX_2]], [[CST_0_2]]{{.}} : memref<1x2x2x2xf32>
+// CHECK-DAG:         [[RES_INDEX_1:%.+]] = krnl.load [[RES_INDEX_BUFFER]][] : memref<index>
+// CHECK:             krnl.store [[DATA_1]], [[RES_BUFFER]]{{.}}[[RES_INDEX_1]]{{.}} : memref<4xf32>
+// CHECK:             [[PLUS_ONE:%.+]] = arith.addi [[RES_INDEX_1]], [[CST_1_0]] : index
+// CHECK:             krnl.store [[PLUS_ONE]], [[RES_INDEX_BUFFER]][] : memref<index>
+// CHECK:             [[CST_1_2:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[DATA_2:%.+]] = krnl.load [[RESHAPED_DATA]]{{.}}[[IV]]#0, [[INDEX_1]], [[INDEX_2]], [[CST_1_2]]{{.}} : memref<1x2x2x2xf32>
+// CHECK-DAG:         [[RES_INDEX_2:%.+]] = krnl.load [[RES_INDEX_BUFFER]][] : memref<index>
+// CHECK:             krnl.store [[DATA_2]], [[RES_BUFFER]]{{.}}[[RES_INDEX_2]]{{.}} : memref<4xf32>
+// CHECK:             [[PLUS_ONE_1:%.+]] = arith.addi [[RES_INDEX_2]], [[CST_1_0]] : index
+// CHECK:             krnl.store [[PLUS_ONE_1]], [[RES_INDEX_BUFFER]][] : memref<index>
+// CHECK:           }
+// CHECK:           [[RES:%.+]] = memref.reinterpret_cast [[RES_BUFFER]] to offset: [0], sizes: [2, 1, 2], strides: [2, 2, 1] : memref<4xf32> to memref<2x1x2xf32>
+// CHECK:           return [[RES]] : memref<2x1x2xf32>
+}
+
+//-----
+
   func @test_reversesequence_1(%arg0: tensor<10x?xf32>, %arg1: tensor<10xi64>) -> tensor<*xf32> {
     %0 = "onnx.ReverseSequence"(%arg0, %arg1) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x?xf32>, tensor<10xi64>) -> tensor<*xf32>
     return %0 : tensor<*xf32>
@@ -2562,7 +2638,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal1() -> tensor<*xf32> {
     %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal1
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2576,7 +2652,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal2() -> tensor<*xf32> {
     %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal2
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2590,7 +2666,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal3() -> tensor<*xf32> {
     %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32} : () -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal3
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2604,7 +2680,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal_like1(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
     %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal_like1
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2618,7 +2694,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal_like2(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
     %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal_like2
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2632,7 +2708,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal_like3(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
     %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal_like3
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
@@ -2646,7 +2722,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal_like4(%arg0: tensor<3x4x?x?xf32>) -> tensor<*xf32> {
     %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x?x?xf32>) -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal_like4
 // CHECK-DAG:       [[C2:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[DIM2:%.+]] = memref.dim %arg0, [[C2]] : memref<3x4x?x?xf32>
@@ -2670,7 +2746,7 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 //-----
   func @test_random_normal_like5(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
     %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
-    "std.return"(%0) : (tensor<*xf32>) -> ()
+    "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  @test_random_normal_like5
 // CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
 // CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index

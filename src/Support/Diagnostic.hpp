@@ -36,7 +36,7 @@ public:
 
   public:
     Range(T min, T max) : min(min), max(max) {
-      assert(min < max && "Illegal range");
+      assert(min <= max && "Illegal range");
     }
   };
 

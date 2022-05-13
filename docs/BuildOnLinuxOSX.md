@@ -14,7 +14,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout a7ac120a9ad784998a5527fc0a71b2d0fd55eccb && cd ..
+cd llvm-project && git checkout 23aa5a744666b281af807b1f598f517bf0d597cb && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -36,10 +36,9 @@ cmake --build . --target check-mlir
 
 ### Build
 
-The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
-- `MLIR_DIR` should point to the mlir cmake module inside an llvm-project build or install directory (e.g., llvm-project/build/lib/cmake/mlir).
+The `MLIR_DIR` cmake variable must be set before building onnx-mlir. It should point to the mlir cmake module inside an llvm-project build or install directory (e.g., llvm-project/build/lib/cmake/mlir).
 
-This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
+This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running cmake, we can also specify the path to the lit tool from LLVM using the `LLVM_EXTERNAL_LIT` variable but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If `MLIR_DIR` points to an install directory of llvm-project, `LLVM_EXTERNAL_LIT` is required.
 
 To build ONNX-MLIR, use the following commands:
 

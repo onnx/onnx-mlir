@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -87,6 +87,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
@@ -198,7 +199,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target
       .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
-          StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
+          func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
           memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
@@ -260,13 +261,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     return krnlTypeConverter.isSignatureLegal(op.getType());
   });
 
-  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
     // CallOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isLegal(op);
   });
 
   // Operations that are legal only if types are not tensors.
-  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
+  target.addDynamicallyLegalOp<mlir::func::ReturnOp>([&](Operation *op) {
     return llvm::none_of(op->getOperandTypes(),
         [](Type type) { return type.isa<TensorType>(); });
   });
