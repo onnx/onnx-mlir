@@ -151,11 +151,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
       bmmValue = rewriter.create<AtenBmmOp>(
           loc, resultType, transposeAVal, transposeBVal);
 
-    llvm::outs() << "bmmValue operation creation"
-                 << "\n"
-                 << bmmValue << "\n"
-                 << "\n";
-
     // Addition ((alpha * A’ * B’) + (beta * C))
     Value result;
     if (betaMulResult)
@@ -164,10 +159,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     else
       result = rewriter.create<AtenAddTensorOp>(
           loc, resultType, bmmValue, transposeBVal, f1v);
-    llvm::outs() << "Gemm operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
