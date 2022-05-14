@@ -5,10 +5,9 @@ module  {
     %1 = "onnx.Constant"() {value = dense<[0.199155629, 0.185304552, 0.36959976, 0.261764377]> : tensor<4xf32>} : () -> tensor<4xf32>
 //CHECK: %[[AVAL:.*]] = torch.constant.int 0
 //CHECK: %[[BVAL:.*]] = torch.constant.int 1
-//CHECK: %[[O4:.*]] = torch.aten.transpose.int %arg0, %[[AVAL]], %[[BVAL]] : !torch.vtensor<[?,3],f32>, !torch.int, !torch.int -> !torch.vtensor<[?,4],f32>
-%2 = "onnx.Gemm"(%arg0, %0, %1) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<?x3xf32>, tensor<3x4xf32>, tensor<4xf32>) -> tensor<?x4xf32>
-//CHECK: %[[O8:.*]] = torch.aten.bmm %6, %5 : !torch.vtensor<[?,4],f32>, !torch.vtensor<[?,4],f32> -> !torch.vtensor<[?,4],f32>
+//CHECK: torch.aten.transpose.int %arg0, %[[AVAL]], %[[BVAL]] : !torch.vtensor<[?,3],f32>, !torch.int, !torch.int -> !torch.vtensor<[?,4],f32>
+    %2 = "onnx.Gemm"(%arg0, %0, %1) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<?x3xf32>, tensor<3x4xf32>, tensor<4xf32>) -> tensor<?x4xf32>
+//CHECK: torch.aten.bmm %{{[^,]*}}, %{{[^,]*}} : !torch.vtensor<[?,4],f32>, !torch.vtensor<[?,4],f32> -> !torch.vtensor<[?,4],f32> 
     return %2 : tensor<?x4xf32>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22float\22 , \22dims\22 : [-1 , 3]  }\0A\0A]\00@[   { \22type\22 : \22float\22 , \22dims\22 : [-1 , 4]  }\0A\0A]\00"} : () -> ()
 }
