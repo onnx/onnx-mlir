@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMBuilder
   OMHasOnnxSubgraphOpInterface
   OMONNXOps
   OMResultTypeInferenceOpInterface
+  MLIRFunc
   onnx
   )
 

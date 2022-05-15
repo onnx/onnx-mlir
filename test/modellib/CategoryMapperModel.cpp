@@ -90,14 +90,14 @@ template <typename T1, typename T2>
 void CategoryMapperLibBuilder<T1, T2>::createTestFunction(
     Type inputType, Type outputType, const CMAttributes &attributes) {
   SmallVector<Type, 1> inputsType{inputType}, outputsType{outputType};
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   createCategoryMapper(outputType, attributes, funcOp);
   createEntryPoint(funcOp);
 }
 
 template <typename T1, typename T2>
 void CategoryMapperLibBuilder<T1, T2>::createCategoryMapper(
-    Type outputType, const CMAttributes &attributes, FuncOp &funcOp) {
+    Type outputType, const CMAttributes &attributes, func::FuncOp &funcOp) {
   Block &entryBlock = funcOp.getBody().front();
   BlockArgument input = entryBlock.getArgument(0);
   auto categoryMapperOp = builder.create<ONNXCategoryMapperOp>(loc, outputType,

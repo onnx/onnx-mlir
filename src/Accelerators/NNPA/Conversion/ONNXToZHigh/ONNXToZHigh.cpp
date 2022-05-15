@@ -260,7 +260,7 @@ public:
                      "specified nodes are forced to run on the CPU instead of "
                      "using the zDNN. The node name is an optional attribute "
                      "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-      llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore};
+      llvm::cl::ZeroOrMore};
 };
 } // end anonymous namespace.
 

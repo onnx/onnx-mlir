@@ -17,6 +17,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
@@ -24,7 +25,6 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
@@ -87,7 +87,7 @@ void determineOwnershipForOutputOMTensors(
 
   // Get entry function op.
   Operation *entryFunc;
-  module->walk([&](FuncOp op) -> WalkResult {
+  module->walk([&](func::FuncOp op) -> WalkResult {
     if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
       entryFunc = op;
       return WalkResult::interrupt();
@@ -166,7 +166,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateMathPolynomialApproximationPatterns(patterns);
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
@@ -486,6 +486,7 @@ void genSignatureFunction(ModuleOp module,
 
 struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToLLVMPass)
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
 
