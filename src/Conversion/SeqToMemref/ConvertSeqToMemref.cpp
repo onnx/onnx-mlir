@@ -17,12 +17,12 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
 
@@ -60,7 +60,7 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   target.addIllegalOp<KrnlSeqExtractOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Now that the conversion target has been defined, we just need to provide

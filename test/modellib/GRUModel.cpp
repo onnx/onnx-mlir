@@ -111,7 +111,7 @@ bool GRULibBuilder::build() {
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, gruOp.getResults());
+  builder.create<func::ReturnOp>(loc, gruOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

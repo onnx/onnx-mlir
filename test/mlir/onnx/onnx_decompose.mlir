@@ -5,7 +5,7 @@
 // CHECK-LABEL: @test_reducel1(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceL1"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[ABS:%.+]] =  "onnx.Abs"(%arg0) : (tensor<?x?x?xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -17,7 +17,7 @@ func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // CHECK-LABEL: @test_reducel2(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducel2(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceL2"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[MUL:%.+]] =  "onnx.Mul"(%arg0, %arg0) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -30,7 +30,7 @@ func @test_reducel2(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // CHECK-LABEL: @test_reducelogsum(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducelogsum(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSum"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
   // CHECK-NEXT: [[REDUCE_SUM:%.+]] = "onnx.ReduceSum"(%arg0, [[CST]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<?x?x?xf32>, tensor<1xi64>) -> tensor<*xf32>
@@ -42,7 +42,7 @@ func @test_reducelogsum(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // CHECK-LABEL: @test_reducelogsumexp(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSumExp"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[REDUCE_MAX:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<?x?x?xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[SUB:%.+]] = "onnx.Sub"(%arg0, [[REDUCE_MAX]]) : (tensor<?x?x?xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -60,7 +60,7 @@ func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // CHECK-LABEL: @test_reducelogsumexp_keepdims(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducelogsumexp_keepdims(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSumExp"(%arg0) {axes=[1], keepdims = 1 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[REDUCE_MAX:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<?x?x?xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[SUB:%.+]] = "onnx.Sub"(%arg0, [[REDUCE_MAX]]) : (tensor<?x?x?xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -77,7 +77,7 @@ func @test_reducelogsumexp_keepdims(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> 
 // CHECK-LABEL: @test_reducesumsquare(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducesumsquare(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSumSquare"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-NEXT: [[SQUARE:%.+]] =  "onnx.Mul"(%arg0, %arg0) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -214,7 +214,7 @@ func @test_scaler_constant(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 // Rewrite LogSoftmax using Log and Softmax.
 func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.LogSoftmax"(%arg0) {axis=1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_logsoftmax
   // CHECK: [[SOFTMAX:%.+]] = "onnx.Softmax"(%arg0) {axis = 1 : si64} : (tensor<10x10xf32>) -> tensor<*xf32>

@@ -15,7 +15,7 @@
 
 #include <regex>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
@@ -146,8 +146,8 @@ public:
   }
 
   static bool isUsedByReturnOp(Operation &op) {
-    return llvm::any_of(
-        op.getUsers(), [](Operation *user) { return isa<ReturnOp>(user); });
+    return llvm::any_of(op.getUsers(),
+        [](Operation *user) { return isa<func::ReturnOp>(user); });
   }
 
   // Op needs shape inference when contains a subgraph

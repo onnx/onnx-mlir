@@ -106,7 +106,7 @@ void CategoryMapperLibBuilder<T1, T2>::createCategoryMapper(
       builder.getStringAttr(attributes.default_string));
 
   SmallVector<Value, 1> results = {categoryMapperOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 }
 

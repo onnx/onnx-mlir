@@ -33,7 +33,7 @@ public:
 
   ~NNPAAccelerator();
 
-  /// Creates an instance on the first invocation. Subsequernt invocations
+  /// Creates an instance on the first invocation. Subsequent invocations
   /// return the existing instance.
   static NNPAAccelerator *getInstance();
 

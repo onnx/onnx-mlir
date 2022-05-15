@@ -2,7 +2,7 @@
 
 func @test_log(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_log
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -18,7 +18,7 @@ func @test_log(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // COM:  Do not lower broadcasting onnx.Log to zHigh.
 func @test_log_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_log_not_lowered_diff_shape
 }
@@ -31,7 +31,7 @@ func @test_log_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>) -> tensor<*xf32
 
 func @test_exceed_limit_log(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<32769x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_log
 // CHECK:        "onnx.Log"

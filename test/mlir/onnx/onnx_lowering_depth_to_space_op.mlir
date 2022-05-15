@@ -5,7 +5,7 @@
 // Test whether the lowering is correct in the presence of dynamic dimensions.
 func private @test_depth_to_space_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>) -> tensor<1x?x32x?xf32> {
   %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64} : (tensor<1x?x8x?xf32>) -> tensor<1x?x32x?xf32>
-  "std.return"(%0) : (tensor<1x?x32x?xf32>) -> ()
+  "func.return"(%0) : (tensor<1x?x32x?xf32>) -> ()
 
   // CHECK: [[MAP0:#.+]] = affine_map<()[s0] -> (s0 floordiv 16)>
   // CHECK: [[MAP1:#.+]] = affine_map<()[s0] -> (s0 * 4)>

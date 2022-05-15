@@ -274,7 +274,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
-      StandardOpsDialect, arith::ArithmeticDialect>();
+      func::FuncDialect, arith::ArithmeticDialect>();
 
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single
