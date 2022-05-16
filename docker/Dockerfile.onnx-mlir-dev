@@ -49,6 +49,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && echo $PYTHONPATH \
     && ls ./Debug/lib \
     && python3 --version \
+    && echo "====" \
+    && ls \
     && cp ${WORK_DIR}/onnx-mlir/test/runtime-harness/test.py . \
     && PYTHONPATH=$PWD/Debug/lib:$PYTHONPATH python3 test.py \
     && make check-docs \
