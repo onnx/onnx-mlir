@@ -50,8 +50,14 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
                     B.getType().isa<ShapedType>() &&
                     B.getType().cast<ShapedType>().hasRank() &&
                     (B.getType().cast<ShapedType>().getRank() == 2);
+  auto aTy = A.getType().cast<ShapedType>();
+  auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
+  auto aValue = b.create<UnrealizedConversionCastOp>(loc, aTensorTy, A).getResult(0);
+  auto bTy = B.getType().cast<ShapedType>();
+  auto bTensorTy = RankedTensorType::get(bTy.getShape(), bTy.getElementType());
+  auto bValue = b.create<UnrealizedConversionCastOp>(loc, bTensorTy, B).getResult(0);
   if (canUseGemm)
-    return b.create<ONNXGemmOp>(loc, Y, A, B, b.createOrFold<ONNXNoneOp>(loc),
+    return b.create<ONNXGemmOp>(loc, Y, aValue, bValue, b.createOrFold<ONNXNoneOp>(loc),
         /*alpha=*/b.getF32FloatAttr(1.0), /*beta=*/b.getF32FloatAttr(1.0),
         /*transA=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
@@ -59,7 +65,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
         /*transB=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
             APInt(64, 0, /*isSigned=*/true)));
-  return b.create<ONNXMatMulOp>(loc, Y, A, B);
+  return b.create<ONNXMatMulOp>(loc, Y, aValue, bValue);
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
