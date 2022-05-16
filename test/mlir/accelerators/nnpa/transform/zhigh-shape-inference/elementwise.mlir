@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
 func @add(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Add"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>

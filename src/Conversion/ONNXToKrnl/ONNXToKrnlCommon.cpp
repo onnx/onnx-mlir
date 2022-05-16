@@ -239,21 +239,21 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   }
   // If there is at least one result to investigate.
   if (currentOp->getNumResults() > 0) {
-    parentBlock->walk(
-        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
-          auto result = currentOp->getResult(resultIndex);
-          for (const auto &operand : op.getOperands()) {
-            // Determine if current function returns the result value of the
-            // current op.
-            if (operand == result)
-              insertDealloc = false;
-            // Determin if the result value of reinterpret_cast op whose operand
-            // is the result value of current op
-            for (const auto &castOpResult : castOpResults)
-              if (operand == castOpResult)
-                insertDealloc = false;
-          }
-        });
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          func::ReturnOp op) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &operand : op.getOperands()) {
+        // Determine if current function returns the result value of the
+        // current op.
+        if (operand == result)
+          insertDealloc = false;
+        // Determin if the result value of reinterpret_cast op whose operand
+        // is the result value of current op
+        for (const auto &castOpResult : castOpResults)
+          if (operand == castOpResult)
+            insertDealloc = false;
+      }
+    });
   }
   return insertDealloc;
 }
@@ -586,8 +586,6 @@ KrnlTypeConverter::KrnlTypeConverter() {
     // Acccelators may have special versions of TensorType. Call the conversions
     // of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;

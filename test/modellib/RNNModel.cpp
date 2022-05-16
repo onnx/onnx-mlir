@@ -65,7 +65,7 @@ bool RNNLibBuilder::build() {
   llvm::SmallVector<Type, 5> inputsType{xType, hType};
   llvm::SmallVector<Type, 2> outputsType{yType, yHType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
@@ -103,7 +103,7 @@ bool RNNLibBuilder::build() {
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, rnnOp.getResults());
+  builder.create<func::ReturnOp>(loc, rnnOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

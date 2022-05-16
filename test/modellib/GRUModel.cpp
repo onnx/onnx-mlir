@@ -70,7 +70,7 @@ bool GRULibBuilder::build() {
   SmallVector<Type, 2> inputsType{xType, hType};
   SmallVector<Type, 2> outputsType{yType, yHType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
@@ -111,7 +111,7 @@ bool GRULibBuilder::build() {
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, gruOp.getResults());
+  builder.create<func::ReturnOp>(loc, gruOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

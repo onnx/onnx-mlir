@@ -279,7 +279,7 @@ public:
                      "specified nodes are forced to run on the CPU instead of "
                      "using the zDNN. The node name is an optional attribute "
                      "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-      llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore};
+      llvm::cl::ZeroOrMore};
 };
 } // end anonymous namespace.
 
@@ -293,7 +293,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
-      StandardOpsDialect, arith::ArithmeticDialect>();
+      func::FuncDialect, arith::ArithmeticDialect>();
 
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single

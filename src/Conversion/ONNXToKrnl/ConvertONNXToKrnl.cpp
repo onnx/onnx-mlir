@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -51,7 +51,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
       patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
@@ -199,7 +199,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target
       .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
-          StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
+          func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
           memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
@@ -244,11 +244,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 
   // Conversion target for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->conversionTargetONNXToKrnl(target);
-  }
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
@@ -256,18 +253,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Convert types to legal types for the Krnl dialect.
   KrnlTypeConverter krnlTypeConverter;
-  target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
-    return krnlTypeConverter.isSignatureLegal(op.getType());
+    return krnlTypeConverter.isSignatureLegal(op.getFunctionType());
   });
 
-  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
     // CallOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isLegal(op);
   });
 
   // Operations that are legal only if types are not tensors.
-  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
+  target.addDynamicallyLegalOp<mlir::func::ReturnOp>([&](Operation *op) {
     return llvm::none_of(op->getOperandTypes(),
         [](Type type) { return type.isa<TensorType>(); });
   });
@@ -277,11 +274,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // Rewrite patterns for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
-  }
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

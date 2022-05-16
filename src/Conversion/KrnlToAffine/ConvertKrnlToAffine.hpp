@@ -42,7 +42,7 @@ public:
   }
 
   /// Return true if the operands/results of call have a legal type.
-  bool isSignatureLegal(mlir::CallOp call) {
+  bool isSignatureLegal(mlir::func::CallOp call) {
     auto f = [this](mlir::Type type) { return isLegal(type); };
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);

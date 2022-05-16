@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Softmax"(%arg0) {act_func = "ACT_NONE"} : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32>

@@ -15,7 +15,7 @@
 
 #include <regex>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
@@ -31,10 +31,10 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace {
 
-static SmallVector<FuncOp, 4> lookUpFuncsMatching(
+static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
     ModuleOp module, std::regex pattern) {
-  SmallVector<FuncOp, 4> matchedFuncs;
-  module.walk([&](FuncOp funcOp) {
+  SmallVector<func::FuncOp, 4> matchedFuncs;
+  module.walk([&](func::FuncOp funcOp) {
     if (std::regex_search(funcOp.getName().str(), pattern))
       matchedFuncs.emplace_back(funcOp);
   });
@@ -65,6 +65,8 @@ private:
   bool analyzeAllFunctions;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ShapeInferencePass)
+
   ShapeInferencePass(bool analyzeAllFunctions)
       : analyzeAllFunctions(analyzeAllFunctions) {}
 
@@ -87,7 +89,7 @@ public:
         return;
       }
     }
-    auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
+    auto result = module.walk([&](func::FuncOp funcOp) -> WalkResult {
       return runShapeInferenceOn(funcOp);
     });
     if (result.wasInterrupted())
@@ -127,7 +129,7 @@ public:
     return success();
   }
 
-  static LogicalResult runShapeInferenceOn(FuncOp f) {
+  static LogicalResult runShapeInferenceOn(func::FuncOp f) {
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     auto &funcBody = f.getBody();
@@ -139,15 +141,16 @@ public:
         funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
-        f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),
-            std::vector<Type>(results.begin(), results.end())));
+        f.setType(
+            FunctionType::get(f.getContext(), f.getFunctionType().getInputs(),
+                std::vector<Type>(results.begin(), results.end())));
       }
     return success();
   }
 
   static bool isUsedByReturnOp(Operation &op) {
-    return llvm::any_of(
-        op.getUsers(), [](Operation *user) { return isa<ReturnOp>(user); });
+    return llvm::any_of(op.getUsers(),
+        [](Operation *user) { return isa<func::ReturnOp>(user); });
   }
 
   // Op needs shape inference when contains a subgraph

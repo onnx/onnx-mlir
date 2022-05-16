@@ -24,20 +24,20 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
 
 ARG NPROC=4
+ARG ACCEL=NNPA
+ARG TEST_MCPU
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
 # Build onnx-mlir and run tests
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
-# Dev image is built with NNPA acclerator (currently on s390x only)
-    && BUILD_NNPA=${BUILD_NNPA:-$([ "$(uname -m)" = "s390x" ] && echo NNPA || \
-                                  [ "$(uname -m)" = "x86_64" ] &&  echo || \
-                                  [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
+# NNPA acclerator is built on all archs to enable lit tests
+# (dependent libzdnn is built on s390x only)
     && cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Debug \
              -DONNX_MLIR_TEST_OPTLEVEL=0 \
-             -DONNX_MLIR_ACCELERATORS=${BUILD_NNPA} .. \
+             -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
 # Dev image is built without SIMD, placeholder for easy SIMD enablement

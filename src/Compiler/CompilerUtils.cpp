@@ -293,6 +293,26 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
+#ifdef PRODUCT_VERSION_MAJOR
+  int32_t ProductVersion = PRODUCT_VERSION_MAJOR;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Major Version", ProductVersion);
+#endif
+#ifdef PRODUCT_VERSION_MINOR
+  int32_t ProductRelease = PRODUCT_VERSION_MINOR;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Minor Version", ProductRelease);
+#endif
+#ifdef PRODUCT_VERSION_PATCH
+  int32_t ProductPatch = PRODUCT_VERSION_PATCH;
+  llvmModule.addModuleFlag(
+      llvm::Module::Warning, "Product Patchlevel", ProductPatch);
+#endif
+#ifdef PRODUCT_ID
+  llvmModule.addModuleFlag(llvm::Module::Warning, "Product Id",
+      llvm::MDString::get(ctx, PRODUCT_ID));
+#endif
+
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
@@ -543,7 +563,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::vector::VectorDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
-  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::func::FuncDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
@@ -661,10 +681,10 @@ void emitOutputFiles(std::string outputBaseName,
     mlir::PassManager cleanSourcePM(
         &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addNestedPass<FuncOp>(
+      cleanSourcePM.addNestedPass<func::FuncOp>(
           onnx_mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addNestedPass<FuncOp>(
+      cleanSourcePM.addNestedPass<func::FuncOp>(
           onnx_mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
@@ -742,20 +762,15 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getDataLayout(loc)));
 
   // Set the module target accelerators.
-  if (!maccel.empty()) {
-    SmallVector<Attribute, 1> activeAccels;
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive() || !llvm::is_contained(maccel, accel->getKind()))
-        continue;
-      std::ostringstream versionNumber;
-      versionNumber << std::hex << accel->getVersionNumber();
-      std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
-      activeAccels.emplace_back(StringAttr::get(&context, accelStr));
-    }
-    if (!activeAccels.empty())
-      moduleOp.setAttr(
-          "onnx-mlir.accels", ArrayAttr::get(&context, activeAccels));
+  SmallVector<Attribute, 2> accelsAttr;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    std::ostringstream versionNumber;
+    versionNumber << std::hex << accel->getVersionNumber();
+    std::string accelStr = accel->getName() + "-0x" + versionNumber.str();
+    accelsAttr.emplace_back(StringAttr::get(&context, accelStr));
   }
+  if (!accelsAttr.empty())
+    moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accelsAttr));
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
@@ -781,22 +796,22 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     EmissionTargetType emissionTarget) {
   // Initialize accelerator(s) if required.
   if (!maccel.empty())
-    onnx_mlir::accel::initAccelerators();
+    onnx_mlir::accel::initAccelerators(maccel);
 
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  bool hasActiveAccel = false;
-  if (!maccel.empty()) {
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
-      hasActiveAccel = true;
-      accel->getOrLoadDialects(context);
-      accel->addPasses(module, pm, emissionTarget);
-    }
+  // TODO(tung): Revise adding passes. The current mechanism does not work if
+  // there are multiple accelerators enabled at the same time. It's because
+  // each `accel->addPasses` is independent and controls the whole compilation
+  // pipeline.
+  bool hasAccel = false;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    hasAccel = true;
+    accel->getOrLoadDialects(context);
+    accel->addPasses(module, pm, emissionTarget);
   }
-  if (!hasActiveAccel)
+  if (!hasAccel)
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);

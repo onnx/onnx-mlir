@@ -70,7 +70,8 @@ namespace {
 #include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighLayoutPropagation.inc"
 
 struct ZHighLayoutPropagationPass
-    : public PassWrapper<ZHighLayoutPropagationPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ZHighLayoutPropagationPass,
+          OperationPass<func::FuncOp>> {
 
   StringRef getArgument() const override { return "zhigh-layout-prop"; }
 
