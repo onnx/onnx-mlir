@@ -69,7 +69,7 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : lstmInput.getUsers()) {
-      char *opName = (char *)user->getName().getStringRef().data();
+      const char *opName = user->getName().getStringRef().data();
       if (!strcmp(opName, "zlow.lstm")) {
         ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
         if (userLstmOp != lstmOp) {
@@ -116,7 +116,7 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : gruInput.getUsers()) {
-      char *opName = (char *)user->getName().getStringRef().data();
+      const char *opName = user->getName().getStringRef().data();
       if (!strcmp(opName, "zlow.gru")) {
         ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
         if (userGruOp != gruOp) {
@@ -154,7 +154,7 @@ public:
  *  This Pass should be the final pass toupdate ZLowIR.
  */
 class ZLowRewriteFinalPass
-    : public PassWrapper<ZLowRewriteFinalPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ZLowRewriteFinalPass, OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "zlow-rewrite-final"; }
 

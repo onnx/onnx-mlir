@@ -148,7 +148,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       pm.addPass(zlow::createZLowRewriteFinalPass());
       pm.addPass(mlir::createCanonicalizerPass());
       // Constant folding for std.alloc.
-      pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
