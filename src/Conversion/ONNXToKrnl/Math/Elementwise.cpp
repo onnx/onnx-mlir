@@ -895,6 +895,9 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
 
     KrnlBuilder createKrnl(rewriter, loc);
+    // printf("INSERT PRINT! %s\n", op->getName().stripDialect().str().c_str());
+    // createKrnl.printf(op->getName().stripDialect());
+    // createKrnl.printf("\n");
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       IndexExprScope childScope(&rewriter, loc);

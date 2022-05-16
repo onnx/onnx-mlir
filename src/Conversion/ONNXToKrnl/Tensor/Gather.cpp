@@ -30,6 +30,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
     Location loc = op->getLoc();
 
+    KrnlBuilder createKrnl(rewriter, loc);
+
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex);
@@ -45,6 +47,13 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+
+    // for (auto dim : shapeHelper.dimsForOutput()) {
+    //   dim.getValue().dump();
+    //   createKrnl.printf(
+    //       "Output Dim = ", dim.getValue(), dim.getValue().getType());
+    //   createKrnl.printf("\n");
+    // }
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -80,14 +89,18 @@ struct ONNXGatherOpLowering : public ConversionPattern {
             out[ii + jj + kk] = data[ii + (indices[jj],) + kk]
     */
     // Define loops and iteration trip counts (equivalent to size of output)
-    KrnlBuilder createKrnl(rewriter, loc);
+
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
     DimsExpr lbs(outputRank, zeroIE);
+    // createKrnl.printf("BEFORE LOOP\n");
     createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          // createKrnl.printf("ITERATION START\n");
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
           SymbolIndexExpr axisDim(dataDims[axisLit]);
+
+          // createKrnl.printf("ITERATION START\n");
 
           // compute the loop indices for the output
           SmallVector<IndexExpr, 4> outputAccessFct;
@@ -118,6 +131,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
           // Save data into output
           createKrnl.storeIE(dataVal, alloc, outputAccessFct);
+          // createKrnl.printf("ITERATION END\n\n");
         });
     rewriter.replaceOp(op, alloc);
     return success();
