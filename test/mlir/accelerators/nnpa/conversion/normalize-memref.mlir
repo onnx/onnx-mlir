@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --normalize-memrefs %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --normalize-memrefs %s -split-input-file | FileCheck %s
 
 // -----
 

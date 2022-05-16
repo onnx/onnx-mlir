@@ -244,11 +244,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 
   // Conversion target for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->conversionTargetONNXToKrnl(target);
-  }
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
@@ -277,11 +274,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // Rewrite patterns for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-    if (!accel->isActive())
-      continue;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
-  }
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
