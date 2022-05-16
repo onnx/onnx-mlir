@@ -509,28 +509,42 @@ def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /
 //                              (ZHighStickOp %C)),
 //===----------------------------------------------------------------------===//
 
-def normalizeONNXGemmPattern1 : Pat<
+def normalizeONNXGemmTransAPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
   (ONNXGemmOp (Transpose2D $a), $b, $c, $alpha, $beta, (GemmTransA), $transB),
   [(IsTransposed:$transA)],
   (addBenefit 1)
 >;
 
-def normalizeONNXGemmPattern2 : Pat<
+def normalizeONNXGemmTransBPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
   (ONNXGemmOp $a, (Transpose2D $b), $c, $alpha, $beta, $transA, (GemmTransB)),
   [(IsTransposed:$transB)],
   (addBenefit 1)
 >;
 
-def replaceONNXGemmPattern1 : Pat<
-  (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
+def replaceONNXGemmBias1DPattern : Pat<
+  (ONNXGemmOp $a, $b, $c, $_, $_, $_, $_),
   (ZHighUnstickOp
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr)),
         (ZHighStickOp $c, (_1DLayoutAttr)))),
   [(HasRankOf<1> $c)],
+  (addBenefit 0)
+>;
+
+def replaceONNXGemmBias2DPattern : Pat<
+  (ONNXGemmOp:$res $a, $b, $c, $_, $_, $_, $_),
+  (ONNXAddOp
+    (ZHighUnstickOp
+       (ZHighMatMulOp
+          (ZHighStickOp $a, (_2DLayoutAttr)),
+          (ZHighStickOp $b, (_2DLayoutAttr)),
+          (CreateUnitConstant)),
+        (returnType $res)),
+    $c),
+  [(HasRankOf<2> $c)],
   (addBenefit 0)
 >;
 

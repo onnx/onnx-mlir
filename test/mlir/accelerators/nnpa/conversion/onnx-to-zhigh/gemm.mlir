@@ -1,10 +1,10 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 
-func @test_gemm(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
+func @test_gemm_bias_1d(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x5xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
  "func.return"(%0) : (tensor<*xf32>) -> ()
 
-// CHECK-LABEL:  func @test_gemm
+// CHECK-LABEL:  func @test_gemm_bias_1d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<10x10xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x5xf32>) -> tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "2D"} : (tensor<5x10xf32>) -> tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
@@ -12,6 +12,27 @@ func @test_gemm(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) : (tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<10xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32>
 // CHECK:           [[VAR_4_:%.+]] = "zhigh.Unstick"([[VAR_3_]]) : (tensor<*xf32>) -> tensor<10x10xf32>
 // CHECK:           return [[VAR_4_]] : tensor<10x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: NNPA does not support GEMM with 2D bias, so we decompose GEMM into MatMul and Add.
+func @test_gemm_bias_2d(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x5xf32>, tensor<5x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
+ "func.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  func @test_gemm_bias_2d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x5xf32>) -> tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "2D"} : (tensor<5x10xf32>) -> tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) : (tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>, none) -> tensor<*xf32>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.Unstick"([[VAR_3_]]) : (tensor<*xf32>) -> tensor<10x10xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[VAR_4_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_7_:%.+]] = "zhigh.Add"([[VAR_5_]], [[VAR_6_]]) : (tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_8_:%.+]] = "zhigh.Unstick"([[VAR_7_]]) : (tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_8_]] : tensor<10x10xf32>
 // CHECK:         }
 }
 
