@@ -49,6 +49,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && echo $PYTHONPATH \
     && ls ./Debug/lib \
     && python3 --version \
+    && pip3 install Cython pytest==4.6.9 \
     && echo "====" \
     && ls \
     && cp ${WORK_DIR}/onnx-mlir/test/runtime-harness/test.py . \
