@@ -21,8 +21,12 @@
 #define DEBUG_TYPE "compiler_options"
 
 namespace onnx_mlir {
+// Options for onnx-mlir only.
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
+
+// Common options shared between onnx-mlir and onnx-mlir-opt.
+llvm::cl::OptionCategory OnnxMlirCommonOptions("ONNX-MLIR Common Options", "");
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -94,7 +98,7 @@ llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
       clEnumValN(accel::Accelerator::Kind::NONE, "NONE", "No accelerator")
     ),
     // clang-format on
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::ValueRequired);
 
 llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
@@ -121,7 +125,7 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O1, "Optimization level 1."),
         clEnumVal(O2, "Optimization level 2."),
         clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
     llvm::cl::desc("Specify onnx ops to be instrumented\n"

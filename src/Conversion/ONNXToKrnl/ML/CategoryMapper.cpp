@@ -173,7 +173,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, alloc);
 
     LLVM_DEBUG({
-      FuncOp function = getContainingFunction(op);
+      func::FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
       llvm::dbgs() << "function:\n" << function << "\n";
     });

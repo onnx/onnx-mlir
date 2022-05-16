@@ -756,7 +756,8 @@ public:
 //===----------------------------------------------------------------------===//
 
 struct ConstPropONNXToONNXPass
-    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConstPropONNXToONNXPass)
 
   StringRef getArgument() const override { return "constprop-onnx"; }
 

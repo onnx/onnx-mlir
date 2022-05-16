@@ -310,7 +310,7 @@ Operation *getOutermostLoop(Operation *op) {
   // Compute parent operation of the current block. Every block has
   // a parent operation.
   Operation *parentBlockOp = currentBlock->getParentOp();
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp)) {
     if (llvm::dyn_cast_or_null<KrnlIterateOp>(parentBlockOp))
       outermostLoop = parentBlockOp;
     parentBlockOp = parentBlockOp->getBlock()->getParentOp();
@@ -520,7 +520,7 @@ public:
 
     // TODO: relax this condition.
     // If this is not the top block fail.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // List of all GetRefs which share the slot with firstGetRef.
@@ -759,7 +759,7 @@ public:
       return failure();
 
     // If this is not the top block, fail.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // Compute size of all krnl.getref operations that use this memory pool.
@@ -869,11 +869,14 @@ public:
  *  Function pass that optimizes memory pools.
  */
 class KrnlOptimizeMemoryPoolsPass
-    : public PassWrapper<KrnlOptimizeMemoryPoolsPass, OperationPass<FuncOp>> {
+    : public PassWrapper<KrnlOptimizeMemoryPoolsPass,
+          OperationPass<func::FuncOp>> {
   BlockToCompactedAlignments blockToStaticPoolAlignments;
   BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlOptimizeMemoryPoolsPass)
+
   StringRef getArgument() const override { return "optimize-memory-pools"; }
 
   StringRef getDescription() const override {

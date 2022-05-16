@@ -586,8 +586,6 @@ KrnlTypeConverter::KrnlTypeConverter() {
     // Acccelators may have special versions of TensorType. Call the conversions
     // of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;

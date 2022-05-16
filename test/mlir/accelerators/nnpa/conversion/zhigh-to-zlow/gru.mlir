@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 

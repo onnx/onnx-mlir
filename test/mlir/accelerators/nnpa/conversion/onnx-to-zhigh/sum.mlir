@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 // COM: Check the singleton case of lowering ONNXSumOp to ZHighAddOp,
 // COM: where ONNXSumOp has two inputs and is lowered to a single ZHighAddOp.

@@ -36,7 +36,8 @@ namespace onnx_mlir {
 namespace krnl {
 
 struct ConvertSeqToMemrefPass
-    : public PassWrapper<ConvertSeqToMemrefPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConvertSeqToMemrefPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertSeqToMemrefPass)
 
   StringRef getArgument() const override { return "convert-seq-to-memref"; }
 
@@ -48,8 +49,8 @@ struct ConvertSeqToMemrefPass
 };
 
 void ConvertSeqToMemrefPass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (funcOp.body().empty()) // external function: nothing to do
+  func::FuncOp funcOp = getOperation();
+  if (funcOp.getBody().empty()) // external function: nothing to do
     return;
   MLIRContext *ctx = &getContext();
 

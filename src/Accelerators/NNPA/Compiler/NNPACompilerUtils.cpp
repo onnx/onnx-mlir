@@ -70,19 +70,19 @@ void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
   pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
-  pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
-    pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass(
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
         instrumentONNXOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
-  pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
-  pm.addNestedPass<FuncOp>(
+  pm.addNestedPass<func::FuncOp>(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -91,7 +91,7 @@ void addONNXToZHighPasses(
   bool isBE = llvm::support::endian::system_endianness() ==
               llvm::support::endianness::big;
   if (isBE)
-    pm.addNestedPass<FuncOp>(
+    pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
@@ -126,7 +126,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     else {
       pm.addPass(mlir::createCanonicalizerPass());
       // Add instrumentation for ZHigh Ops
-      pm.addNestedPass<FuncOp>(zhigh::createInstrumentZHighPass());
+      pm.addNestedPass<func::FuncOp>(zhigh::createInstrumentZHighPass());
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
@@ -151,7 +151,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.
-        pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
     }
   }
