@@ -38,7 +38,7 @@ mlir::memref::AllocOp getAllocOfGetRef(mlir::KrnlGetRefOp *getRef);
 mlir::Block *getTopBlock(mlir::Operation *op);
 
 /// Retrieve function which contains the current operation.
-mlir::FuncOp getContainingFunction(mlir::Operation *op);
+mlir::func::FuncOp getContainingFunction(mlir::Operation *op);
 
 // Emit a constant of a specific type.
 // Use this function for small values only to avoid unexpected loss in type

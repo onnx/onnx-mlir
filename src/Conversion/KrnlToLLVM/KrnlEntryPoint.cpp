@@ -148,7 +148,7 @@ public:
            isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
     auto staticEntryPointTy = dyn_cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
-                                  .getType()
+                                  .getFunctionType()
                                   .dyn_cast<LLVM::LLVMFunctionType>();
 
     // Retrieve dynamic mem refs from wrapped input, and convert every one of

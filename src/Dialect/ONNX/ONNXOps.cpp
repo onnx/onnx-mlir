@@ -680,7 +680,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
-    mlir::OperationState &state, mlir::FuncOp function, int numInputs,
+    mlir::OperationState &state, mlir::func::FuncOp function, int numInputs,
     int numOutputs, std::string signature) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       SymbolRefAttr::get(function));
@@ -693,7 +693,8 @@ void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
 }
 
 ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-    mlir::FuncOp &func, int numInputs, int numOutputs, std::string signature) {
+    mlir::func::FuncOp &func, int numInputs, int numOutputs,
+    std::string signature) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
   mlir::ONNXEntryPointOp::build(
@@ -5274,13 +5275,14 @@ LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
   if (!fnAttr)
     return emitOpError("requires a 'callee' symbol reference attribute");
-  FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+  func::FuncOp fn =
+      symbolTable.lookupNearestSymbolFrom<func::FuncOp>(*this, fnAttr);
   if (!fn)
     return emitOpError() << "'" << fnAttr.getValue()
                          << "' does not reference a valid function";
 
   // Verify that the operand and result types match the callee.
-  auto fnType = fn.getType();
+  auto fnType = fn.getFunctionType();
   if (fnType.getNumInputs() != getNumOperands())
     return emitOpError("incorrect number of operands for callee");
 
@@ -5306,6 +5308,26 @@ LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 
 FunctionType ONNXCallOp::getCalleeType() {
   return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+}
+
+//===----------------------------------------------------------------------===//
+// SeqType
+//===---------------------------------------------------------------------===//
+
+mlir::Type SeqType::parse(mlir::AsmParser &parser) {
+  Type elementType;
+  if (parser.parseLess() || parser.parseType(elementType) ||
+      parser.parseGreater() || !elementType.isa<ShapedType>())
+    return Type();
+
+  ShapedType ty = elementType.cast<ShapedType>();
+  return get(ty.getContext(), ty, -1);
+}
+
+void SeqType::print(mlir::AsmPrinter &printer) const {
+  // Previous implementation did not print/parse the length field
+  // May add the field in future
+  printer << "<" << getElementType() << ">";
 }
 
 //===----------------------------------------------------------------------===//

@@ -51,7 +51,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
       patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
@@ -253,9 +253,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Convert types to legal types for the Krnl dialect.
   KrnlTypeConverter krnlTypeConverter;
-  target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
-    return krnlTypeConverter.isSignatureLegal(op.getType());
+    return krnlTypeConverter.isSignatureLegal(op.getFunctionType());
   });
 
   target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {

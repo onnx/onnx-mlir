@@ -681,10 +681,10 @@ void emitOutputFiles(std::string outputBaseName,
     mlir::PassManager cleanSourcePM(
         &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addNestedPass<FuncOp>(
+      cleanSourcePM.addNestedPass<func::FuncOp>(
           onnx_mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addNestedPass<FuncOp>(
+      cleanSourcePM.addNestedPass<func::FuncOp>(
           onnx_mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||

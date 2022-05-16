@@ -13,6 +13,7 @@
 #ifndef ZHIGH_OPS
 #define ZHIGH_OPS
 
+include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
@@ -37,6 +38,7 @@ class ZHigh_Attr<string name, list<Trait> traits = []>
 // ztensor encoding attribute.
 def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
   let mnemonic = "encoding";
+  let hasCustomAssemblyFormat = 1;
 
   let description = [{
     An attribute to encode information on properties of ztensors. A tensor with
@@ -383,7 +385,7 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
       build($_builder, $_state, resType, X, Y, B);
     }]>
   ];
-  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
@@ -429,7 +431,7 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
             hidden_bias, hidden_size, direction, return_all_steps);
     }]>
   ];
-  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
@@ -471,7 +473,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
             hidden_bias, hidden_size, direction, return_all_steps);
     }]>
   ];
-  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
@@ -553,7 +555,7 @@ def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
             kernel_shape, strides, padding_type, act_func);
     }]>
   ];
-  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
@@ -599,7 +601,7 @@ def ZHighConcatOp:ZHigh_Op<"Concat", [NoSideEffect,
   let arguments = (ins Variadic<AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>>:$inputs,
                        SI64Attr:$axis);
   let results = (outs AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>:$concat_result);
-  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 #endif // ZHIGH_OPS

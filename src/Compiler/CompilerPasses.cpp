@@ -43,13 +43,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  pm.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
 
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
@@ -60,7 +60,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(onnx_mlir::createShapeInferencePass());
-      pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
 
@@ -74,21 +75,23 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE) {
     // TODO: enable this by default when we make sure it works flawlessly.
     pm.addPass(mlir::createCSEPass());
   // Verify ONNX ops before lowering to Krnl.
-  pm.addNestedPass<FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass(
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
       instrumentONNXOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(onnx_mlir::createDisconnectKrnlDimFromAllocPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addNestedPass<FuncOp>(onnx_mlir::krnl::createConvertKrnlToAffinePass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::krnl::createConvertKrnlToAffinePass());
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
@@ -96,25 +99,26 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
     pm.addPass(mlir::createCSEPass());
-  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
   // Use MLIR buffer deallocation pass to emit buffer deallocs.
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained in
   // https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+  pm.addNestedPass<func::FuncOp>(
+      mlir::bufferization::createBufferDeallocationPass());
   if (enableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
+    pm.addNestedPass<func::FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<func::FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
     pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
+    pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  pm.addNestedPass<FuncOp>(krnl::createLowerKrnlRegionPass());
-  pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
+  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+  pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
-  pm.addNestedPass<FuncOp>(krnl::createConvertSeqToMemrefPass());
+  pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
