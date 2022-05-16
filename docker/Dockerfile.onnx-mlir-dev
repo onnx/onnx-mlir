@@ -40,26 +40,11 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
-# Dev image is built without SIMD, placeholder for easy SIMD enablement
-    && TEST_MCPU=$([ "$(uname -m)" = "s390x" ] && echo || \
-                   [ "$(uname -m)" = "x86_64" ] &&  echo || \
-                   [ "$(uname -m)" = "ppc64le" ] && echo || echo) \
-    && TEST_ARGS="-mcpu=${TEST_MCPU}" \
-    && TEST_OPTLEVEL=0 \
-    && make NPROC=${NPROC} \
-            CTEST_PARALLEL_LEVEL=${NPROC} \
-            TEST_MCPU=${TEST_MCPU} \
-            TEST_ARGS="${TEST_ARGS}" \
-            TEST_OPTLEVEL=${TEST_OPTLEVEL} \
-            -j${NPROC} -f CMakeFiles/Makefile2 \
-            check-onnx-backend \
-            check-onnx-backend-dynamic \
-            check-onnx-backend-constant \
-            check-onnx-backend-signature \
-            check-onnx-backend-jni \
-            check-onnx-backend-dynamic-jni \
-            check-onnx-backend-constant-jni \
-            check-onnx-numerical \
+    && wget https://github.com/onnx/models/raw/main/text/machine_comprehension/roberta/model/roberta-base-11.onnx \
+    && ./Release/bin/onnx-mlir --EmitLib roberta-base-11.onnx \
+    && PYTHONPATH=./Release/lib:$PYTHONPATH \
+    && cp ${WORK_DIR}/onnx-mlir/test/runtime-harness/test.py . \
+    && python test.py \
     && make check-docs \
 # When building for push event to publish the image, unshallow and
 # rename origin to upstream to make the repo a bit more dev friendly.
