@@ -501,12 +501,24 @@ def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /
 def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 
 //===----------------------------------------------------------------------===//
-// zAIU does not support cases with alpha(!=1.0) or beta(!=1.0)
+// NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
+// Since alpha and beta were legalized by the pass configuration, we check rank only. 
+//
+// If bias's rank is 1, directly lower ONNX GEMM to ZHigh MatMul.
 // ONNXGemmOp %A %B %C = ZHighUnstickOp
-//                          (ZHighMatMulOp
-//                              (ZHighStickOp %A),
-//                              (ZHighStickOp %B),
-//                              (ZHighStickOp %C)),
+//                         (ZHighMatMulOp
+//                            (ZHighStickOp %A),
+//                            (ZHighStickOp %B),
+//                            (ZHighStickOp %C)),
+//
+// If bias's rank is 2, lower ONNX GEMM to ZHigh MatMul and ONNX Add.
+// ONNX Add could be lowered to ZHigh depending on the rule for ONNX Add.
+// ONNXGemmOp %A %B %C = ONNXAdd (ZHighUnstickOp
+//                                  (ZHighMatMulOp
+//                                     (ZHighStickOp %A),
+//                                     (ZHighStickOp %B),
+//                                     (NoValue)),
+//                                %C)
 //===----------------------------------------------------------------------===//
 
 def normalizeONNXGemmTransAPattern : Pat<
@@ -542,7 +554,7 @@ def replaceONNXGemmBias2DPattern : Pat<
           (ZHighStickOp $a, (_2DLayoutAttr)),
           (ZHighStickOp $b, (_2DLayoutAttr)),
           (CreateUnitConstant)),
-        (returnType $res)),
+       (returnType $res)),
     $c),
   [(HasRankOf<2> $c)],
   (addBenefit 0)
