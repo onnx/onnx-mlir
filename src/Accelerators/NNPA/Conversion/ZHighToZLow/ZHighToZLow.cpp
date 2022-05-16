@@ -415,10 +415,10 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_FICO layout");
         }
         n = constExpr0;
-        // shape[0] in the FICO is direction for LSTM/GRU, and should be 1 or 2
+        // shape[0] is the direction dimmension for LSTM, and should be 1 or 2
         assert((shape[0] == 1 || shape[0] == 2) &&
                "wrong direction dimension size");
-        h = (shape[0] *
+        h = (((rank == 2) ? shape[0] : 1) *
              (b.getAffineDimExpr(e1) +
                  pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
@@ -451,7 +451,10 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_ZRH layout");
         }
         n = constExpr0;
-        h = (shape[0] *
+        // shape[0] is the direction dimension for GRU, and should be 1 or 2
+        assert((shape[0] == 1 || shape[0] == 2) &&
+               "wrong direction dimension size");
+        h = (((rank == 2) ? shape[0] : 1) *
              (b.getAffineDimExpr(e1) +
                  pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
