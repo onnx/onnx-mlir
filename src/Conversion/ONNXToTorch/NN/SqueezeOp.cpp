@@ -42,7 +42,7 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
     auto dataTensor =
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, dataType, data);
-    Value result;
+    Value result = dataTensor;
 
     if (axes) {
       for (auto i = 0; axes.size(); i++) {
@@ -50,7 +50,7 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
         Value dim = rewriter.create<ConstantIntOp>(loc, j);
 
         result =
-            rewriter.create<AtenSqueezeDimOp>(loc, resultType, dataTensor, dim);
+            rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
       }
     } else {
       result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
