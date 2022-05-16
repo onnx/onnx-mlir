@@ -497,6 +497,9 @@ def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)"
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
+def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+
 //===----------------------------------------------------------------------===//
 // zAIU does not support cases with alpha(!=1.0) or beta(!=1.0)
 // ONNXGemmOp %A %B %C = ZHighUnstickOp
@@ -506,48 +509,29 @@ def Transpose2D: NativeCodeCall<
 //                              (ZHighStickOp %C)),
 //===----------------------------------------------------------------------===//
 
-def replaceONNXGemmPattern1 : Pat<
+def normalizeONNXGemmPattern1 : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp (Transpose2D $a), (_2DLayoutAttr)),
-        (ZHighStickOp $b, (_2DLayoutAttr)),
-        (ZHighStickOp $c, (_1DLayoutAttr)))),
+  (ONNXGemmOp (Transpose2D $a), $b, $c, $alpha, $beta, (GemmTransA), $transB),
   [(IsTransposed:$transA)],
   (addBenefit 1)
 >;
 
-def replaceONNXGemmPattern2 : Pat<
+def normalizeONNXGemmPattern2 : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp $a, (_2DLayoutAttr)),
-        (ZHighStickOp (Transpose2D $b), (_2DLayoutAttr)),
-        (ZHighStickOp $c, (_1DLayoutAttr)))),
+  (ONNXGemmOp $a, (Transpose2D $b), $c, $alpha, $beta, $transA, (GemmTransB)),
   [(IsTransposed:$transB)],
   (addBenefit 1)
 >;
 
-def replaceONNXGemmPattern3 : Pat<
+def replaceONNXGemmPattern1 : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
   (ZHighUnstickOp
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr)),
         (ZHighStickOp $c, (_1DLayoutAttr)))),
-  [],
+  [(HasRankOf<1> $c)],
   (addBenefit 0)
->;
-
-def replaceONNXGemmPattern4 : Pat<
-  (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
-  (ZHighUnstickOp
-     (ZHighMatMulOp
-        (ZHighStickOp (Transpose2D $a), (_2DLayoutAttr)),
-        (ZHighStickOp (Transpose2D $b), (_2DLayoutAttr)),
-        (ZHighStickOp $c, (_1DLayoutAttr)))),
-  [(IsTransposed:$transA), (IsTransposed:$transB)],
-  (addBenefit 2)
 >;
 
 //===----------------------------------------------------------------------===//

@@ -41,8 +41,8 @@ func @test_gemm_transB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<10x5xf32>, %arg2
 
 // CHECK-LABEL:  func @test_gemm_transB
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<10x5xf32>, [[PARAM_2_:%.+]]: tensor<10xf32>) -> tensor<10x10xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x5xf32>) -> tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [1, 0]} : (tensor<10x5xf32>) -> tensor<5x10xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x5xf32>) -> tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[VAR_1_]]) {layout = "2D"} : (tensor<5x10xf32>) -> tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "1D"} : (tensor<10xf32>) -> tensor<10xf32, #zhigh.encoding<{dataLayout = "1D"}>>
@@ -60,9 +60,9 @@ func @test_gemm_transAB(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>, %arg
 
 // CHECK-LABEL:  func @test_gemm_transAB
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x5xf32>, [[PARAM_1_:%.+]]: tensor<5x10xf32>, [[PARAM_2_:%.+]]: tensor<5xf32>) -> tensor<5x5xf32> {
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [1, 0]} : (tensor<5x10xf32>) -> tensor<10x5xf32>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0]} : (tensor<10x5xf32>) -> tensor<5x10xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "2D"} : (tensor<5x10xf32>) -> tensor<5x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [1, 0]} : (tensor<5x10xf32>) -> tensor<10x5xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "2D"} : (tensor<10x5xf32>) -> tensor<10x5xf32, #zhigh.encoding<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "1D"} : (tensor<5xf32>) -> tensor<5xf32, #zhigh.encoding<{dataLayout = "1D"}>>
