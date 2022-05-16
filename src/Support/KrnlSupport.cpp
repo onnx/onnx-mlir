@@ -42,7 +42,7 @@ Block *getTopBlock(Operation *op) {
   Block *topBlock = op->getBlock();
   Operation *parentBlockOp = topBlock->getParentOp();
 
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp)) {
     topBlock = parentBlockOp->getBlock();
     parentBlockOp = topBlock->getParentOp();
   }
@@ -51,14 +51,14 @@ Block *getTopBlock(Operation *op) {
 }
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(Operation *op) {
+func::FuncOp getContainingFunction(Operation *op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentFuncOp))
     parentFuncOp = parentFuncOp->getParentOp();
 
-  return cast<FuncOp>(parentFuncOp);
+  return cast<func::FuncOp>(parentFuncOp);
 }
 
 /// Emit constant operation.
@@ -142,7 +142,7 @@ bool isBlockArgument(Operation *op, Value operand) {
     parentBlockOp = currentBlock->getParentOp();
     currentBlock = parentBlockOp->getBlock();
 
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
+  } while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp));
 
   return false;
 }
@@ -204,7 +204,7 @@ bool opInTopLevelBlock(Operation *op) {
 
   // If the parent operation of the current block is a FuncOp then
   // this operation is in the top-level block.
-  return llvm::dyn_cast_or_null<FuncOp>(currentBlock->getParentOp());
+  return llvm::dyn_cast_or_null<func::FuncOp>(currentBlock->getParentOp());
 }
 
 /// This function returns true if `beforeOp` is visited before `op` in a
@@ -224,7 +224,7 @@ bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
 
 /// Check Alloc operation result is used by a krnl.getref.
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+  func::FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
   function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {

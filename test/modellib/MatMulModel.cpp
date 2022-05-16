@@ -40,7 +40,7 @@ bool MatMul2DLibBuilder::build() {
   llvm::SmallVector<Type, 2> inputsType{aType, bType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);

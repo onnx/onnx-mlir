@@ -28,7 +28,10 @@
 // generated file Accelerators.inc).
 #define CREATE_ACCEL_ENUM(name) name,
 #define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
-#define INVOKE_ACCEL_INIT_FUNCTION(name) create##name()->setName(#name);
+#define INVOKE_ACCEL_INIT_FUNCTION(name, kinds)                                \
+  if (!kinds.empty() &&                                                        \
+      llvm::is_contained(kinds, accel::Accelerator::Kind::name))               \
+    create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
 #define ACCEL_CL_ENUM_FROM_STRING(name, var, str)                              \
@@ -41,8 +44,6 @@
 
 namespace onnx_mlir {
 namespace accel {
-
-extern void initAccelerators();
 
 class Accelerator {
 public:
@@ -68,9 +69,6 @@ public:
 
   /// Setter for the name of this accelerator.
   void setName(std::string _name) { name = _name; }
-
-  /// Returns whether the accelerator is active.
-  virtual bool isActive() const = 0;
 
   /// Returns the version number of the accelerator library.
   /// Version number format: 0x[major][minor][patch]
@@ -143,6 +141,8 @@ private:
 std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind);
 llvm::raw_ostream &operator<<(
     llvm::raw_ostream &out, const Accelerator::Kind kind);
+
+extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds);
 
 } // namespace accel
 } // namespace onnx_mlir
