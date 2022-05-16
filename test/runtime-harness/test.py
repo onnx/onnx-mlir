@@ -15,7 +15,7 @@
 from PyRuntime import ExecutionSession
 import numpy as np
 
-compiled_model = "workdir/onnx-mlir/build/roberta-base-11.so"
+compiled_model = "/workdir/onnx-mlir/build/roberta-base-11.so"
 model_file = "roberta-base-11.onnx"
 
 print("RUN:", compiled_model)
