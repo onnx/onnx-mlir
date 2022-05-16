@@ -24,6 +24,8 @@ namespace accel {
 llvm::SmallVector<Accelerator *, 4> Accelerator::acceleratorTargets;
 
 const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
+  assert(acceleratorTargets.size() <= 1 &&
+         "Only support at most one accelerator at this moment");
   return acceleratorTargets;
 }
 

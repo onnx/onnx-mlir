@@ -572,8 +572,8 @@ LogicalResult ZHighMatMulOp::inferShapes(
   return success();
 }
 
-static LogicalResult verify(ZHighMatMulOp op) {
-  ZHighMatMulOpAdaptor operandAdaptor(op);
+LogicalResult ZHighMatMulOp::verify() {
+  ZHighMatMulOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value X = operandAdaptor.X();
   Value Y = operandAdaptor.Y();
@@ -618,8 +618,8 @@ static LogicalResult verify(ZHighMatMulOp op) {
 //===----------------------------------------------------------------------===//
 // LSTMOp
 
-static LogicalResult verify(ZHighLSTMOp op) {
-  ZHighLSTMOpAdaptor operandAdaptor(op);
+LogicalResult ZHighLSTMOp::verify() {
+  ZHighLSTMOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value W = operandAdaptor.input_weights();
   Value R = operandAdaptor.hidden_weights();
@@ -627,7 +627,7 @@ static LogicalResult verify(ZHighLSTMOp op) {
   Value RB = operandAdaptor.hidden_bias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = op.hidden_size();
+  int64_t hiddenSize = hidden_size();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -694,8 +694,8 @@ LogicalResult ZHighLSTMOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // GRUOp
 
-static LogicalResult verify(ZHighGRUOp op) {
-  ZHighGRUOpAdaptor operandAdaptor(op);
+LogicalResult ZHighGRUOp::verify() {
+  ZHighGRUOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value W = operandAdaptor.input_weights();
   Value R = operandAdaptor.hidden_weights();
@@ -703,7 +703,7 @@ static LogicalResult verify(ZHighGRUOp op) {
   Value RB = operandAdaptor.hidden_bias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = op.hidden_size();
+  int64_t hiddenSize = hidden_size();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -765,20 +765,20 @@ LogicalResult ZHighGRUOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Conv2DOp
 
-static LogicalResult verify(ZHighConv2DOp op) {
-  ZHighConv2DOpAdaptor operandAdaptor(op);
+LogicalResult ZHighConv2DOp::verify() {
+  ZHighConv2DOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value K = operandAdaptor.input_kernel();
   Value B = operandAdaptor.input_bias();
 
   // Verify attributes.
   // - padding_type must be SAME_PADDING or VALID_PADDING.
-  StringRef paddingType = op.padding_type();
+  StringRef paddingType = padding_type();
   if (!(paddingType.equals_insensitive("SAME_PADDING") ||
           paddingType.equals_insensitive("VALID_PADDING")))
     return failure();
   // - act_func must be ACT_NONE or ACT_RELU.
-  StringRef actFunc = op.act_func();
+  StringRef actFunc = act_func();
   if (!(actFunc.equals_insensitive("ACT_NONE") ||
           actFunc.equals_insensitive("ACT_RELU")))
     return failure();
@@ -793,7 +793,7 @@ static LogicalResult verify(ZHighConv2DOp op) {
   }
 
   // Verify kernel shape.
-  ArrayAttr kernelShape = op.kernel_shape();
+  ArrayAttr kernelShape = kernel_shape();
   int64_t attrKH = kernelShape[0].cast<IntegerAttr>().getInt();
   int64_t attrKW = kernelShape[1].cast<IntegerAttr>().getInt();
   if (hasRankedType(K)) {
@@ -882,8 +882,8 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ConcatOp
 
-static LogicalResult verify(ZHighConcatOp op) {
-  ZHighConcatOpAdaptor operandAdaptor(op);
+LogicalResult ZHighConcatOp::verify() {
+  ZHighConcatOpAdaptor operandAdaptor(*this);
   // Check all inputs.
   for (const auto &operand : operandAdaptor.getOperands()) {
     if (!hasRankedType(operand)) {
@@ -896,11 +896,11 @@ static LogicalResult verify(ZHighConcatOp op) {
       operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = op.axis();
+  int64_t axisIndex = axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   if (axisIndex < -commonRank || axisIndex >= commonRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(*op, "axis",
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(**this, "axis",
         axisIndex,
         onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
 
@@ -911,16 +911,15 @@ static LogicalResult verify(ZHighConcatOp op) {
     ArrayRef<int64_t> currShape =
         operand.getType().cast<RankedTensorType>().getShape();
     if ((int64_t)currShape.size() != commonRank)
-      return op.emitError("Concat inputs must all have the same rank");
+      return emitError("Concat inputs must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex)
         continue;
       if (currShape[j] != -1 && commonShape[j] != -1 &&
           currShape[j] != commonShape[j]) {
-        return op.emitError(
-                   "Concat input dimensions must be all identical, "
-                   "except for dimension on the axis of the "
-                   "concatenation. Expected something compatible with: ")
+        return emitError("Concat input dimensions must be all identical, "
+                         "except for dimension on the axis of the "
+                         "concatenation. Expected something compatible with: ")
                << commonType << " but got " << operand.getType() << " instead.";
       }
     }

@@ -41,8 +41,7 @@ static void registerDialects(DialectRegistry &registry) {
 
   // Initialize and register dialects used by accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    if (accel->isActive())
-      accel->registerDialects(registry);
+    accel->registerDialects(registry);
 }
 
 int main(int argc, char **argv) {

@@ -81,8 +81,10 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlShapePass)
+
   StringRef getArgument() const override { return "lower-krnl-shape"; }
 
   StringRef getDescription() const override {

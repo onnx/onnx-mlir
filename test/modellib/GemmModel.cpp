@@ -53,7 +53,7 @@ bool GemmLibBuilder::build() {
   llvm::SmallVector<Type, 3> inputsType{aType, bType, cType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto aVal = entryBlock.getArgument(0);
