@@ -54,18 +54,6 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
-bool NNPAAccelerator::isActive() const {
-  if (instance || llvm::any_of(maccel, [](Accelerator::Kind kind) {
-        return kind == Accelerator::Kind::NNPA;
-      })) {
-    LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is active\n");
-    return true;
-  }
-
-  LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is not active\n");
-  return false;
-}
-
 uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
 
 void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 func @should_lower_to_zhigh(%arg0 : tensor<1x3x5x7xf32>) -> tensor<*xf32> {
   %0 = "onnx.ReduceMean"(%arg0) { axes = [2, 3] }: (tensor<1x3x5x7xf32>) -> tensor<*xf32>

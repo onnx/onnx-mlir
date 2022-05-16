@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 // COM:  Do not lower element-wise ops with scalar tensor since it is not benefical. 
 func @test_not_lowered_scalar_tensor(%arg0 : tensor<f32>, %arg1 : tensor<f32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {

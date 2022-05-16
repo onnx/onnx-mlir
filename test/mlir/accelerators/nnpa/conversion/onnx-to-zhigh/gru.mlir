@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none

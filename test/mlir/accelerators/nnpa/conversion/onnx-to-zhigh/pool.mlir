@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 func @maxpool_should_lower_to_zhigh_padtype_valid(%arg0: tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
