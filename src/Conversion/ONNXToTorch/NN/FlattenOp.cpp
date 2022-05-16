@@ -15,10 +15,6 @@
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
-#ifdef _WIN32
-#include <io.h>
-#endif
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -60,6 +56,7 @@ using namespace mlir::torch::Torch;
  *
  */
 
+// wrapper function for emit the Flatten Operation.
 static Value createAtenFlattenOp(ConversionPatternRewriter &rewriter, 
   Location loc, Value result, ValueTensorType resultType,
   int64_t start_dim, int64_t end_dim, ONNXFlattenOp op1) {
@@ -91,13 +88,13 @@ public:
     auto axisValue = op1.axis();       // ::mlir::IntegerAttr
 
     TensorType resultTensorType =
-      op->getResult(0).getType().cast<TensorType>();
+	op->getResult(0).getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
-          resultTensorType.getShape(), resultTensorType.getElementType());
+       	resultTensorType.getShape(), resultTensorType.getElementType());
 
     TensorType inputTensorType = input.getType().cast<TensorType>();
-    auto inputType = Torch::ValueTensorType::get(
-        context, inputTensorType.getShape(), inputTensorType.getElementType());
+    auto inputType = Torch::ValueTensorType::get(context, 
+	inputTensorType.getShape(), inputTensorType.getElementType());
     auto inputTensor =
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, inputType, input);
@@ -115,7 +112,7 @@ public:
     //    end_dim will 0. Flatten from 0 to 0  flatten was not emitted.
     //
     // Because of these reasons, need to emit flatten once with
-    //   start_dim = axisValue and end_dim = inputRank.
+    //   start=1, end=-1.
     //
     // If axisValue is more than 1, emit the flatten two times like below.
     //    a) Flattening is about bringing the flattened zone into a
@@ -129,35 +126,39 @@ public:
     // What we feel is that there will be two steps required -
     //
     //  1) flatten the region from 0 position to axis - 1.
-    //  2) flatten the region from axisValue to inputRank( last dimension).
+    //  2) Since all dimensions before `axis` have already been 
+    //     condensed into a single one (dim 0),
+    //     we set start=1. We use -1 as the end value, which tells torch
+    //     to go until the last dimension.
     /********************************************************************/
 
 
     if (axisValue > 1) {
-      // Flatten the region upto axis-1.
-
       // Build the intermediate result type.
-      // This is the same type as the input, with all dims before the axis value collapsed into one.
+      // This is the same type as the input, with all dims before the axis
+      // value collapsed into one.
       ArrayRef<int64_t> inputShape = inputTensorType.getShape();
       auto numDimsAfterAxis = inputShape.size() - axisValue;
       auto remainingDims = inputShape.take_back(numDimsAfterAxis);
       std::vector<int64_t> intermShape;
-      intermShape.push_back(resultTensorType.getShape()[0]); // this is the collapsed dimension
-      intermShape.insert(intermShape.end(), remainingDims.begin(), remainingDims.end());
+      // this is the collapsed dimension
+      intermShape.push_back(resultTensorType.getShape()[0]);
+      intermShape.insert(intermShape.end(), remainingDims.begin(), 
+		remainingDims.end());
       auto intermType = Torch::ValueTensorType::get(context,
-       llvm::makeArrayRef(intermShape), // todo is this a memory leak? where to allocate the vector?
-       inputTensorType.getElementType());
-
-      result = createAtenFlattenOp(
-          rewriter, loc, result, intermType, /*start=*/0, /*start=*/axisValue - 1, op1);
+       		llvm::makeArrayRef(intermShape), // todo is this a memory 
+		//leak? where to allocate the vector?
+      		inputTensorType.getElementType());
+      // 1) Flatten the region from 0 position to axis - 1.
+      result = createAtenFlattenOp(rewriter, loc, result, 
+		intermType, /*start=*/0, /*start=*/axisValue - 1, op1);
     }
 
-    // Flatten the region from axis upwards.
-    // Since all dimensions before `axis` have already been condensed into a single one (dim 0),
-    // we set start=1. We use -1 as the end value, which tells torch to go until the last dimension.
+    // 2) Flatten the region from start=1, end=-1.
     result = createAtenFlattenOp(rewriter, loc, result, resultType,
         /*start=*/1, /*end=*/-1, op1);
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, 
+	resultType, result);
     return success();
   }
 };
