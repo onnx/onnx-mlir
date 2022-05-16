@@ -47,12 +47,13 @@ def createDenseElementsAttrFromSize : NativeCodeCall<
 def subtractOrNeg: NativeCodeCall<
   "onnx_mlir::subtractOrNeg($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
 
-// Scale '$0' up by '$1' along the given axis.
-// Notes:
-//   - '$0' should be a ONNNConstantOp with a dense attribute
-//   - '$1' should be a DenseElementsAttr
-class ScaleByAxis<int axis>: NativeCodeCall<
-  "onnx_mlir::scaleByAxis($_builder, $0.getDefiningOp()->getLoc(), $0, $1," # axis # ")">;  
+// Get the rank of the given value.
+def getRankOf :
+	NativeCodeCall<"$0.getType().cast<ShapedType>().getRank()">;
+
+// Create an ArrayAttr of IntergerAttr(s) of [$0].
+def createArrayAttrOf : NativeCodeCall<
+  "onnx_mlir::createArrayAttrOfNToM($_builder, $0, $0)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
 def createArrayAttrOfOneToRankOf : NativeCodeCall<
@@ -119,6 +120,7 @@ def HaveSameLastDim: Constraint<
 
 class HaveSameDim<int dim>: Constraint<
   CPred<"onnx_mlir::hasShapeAndRank($0) && onnx_mlir::hasShapeAndRank($1) && "
+        "$0.getType().cast<RankedTensorType>().getShape()[" # dim # "] != -1 && "
         "($0.getType().cast<RankedTensorType>().getShape()[" # dim # "] =="
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
@@ -308,7 +310,7 @@ def FuseMulConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x,
      // new_w
-     (ONNXConstantOpFromDenseAttr (ScaleByAxis<1> $w, $denseAttr)),
+     (ONNXMulOp $w, (ONNXUnsqueezeV11Op $y, (createArrayAttrOf(getRankOf $y)))),
      // unchanged operands and attributes.
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),

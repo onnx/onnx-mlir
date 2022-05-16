@@ -135,6 +135,7 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
