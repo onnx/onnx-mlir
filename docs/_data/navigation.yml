@@ -17,14 +17,20 @@ toc:
         url:  UsingPyRuntime.html
       - page: Inference Using C/C++
         url:  doxygen_html/OnnxMlirRuntime/index.html
+      - page: Inference Using Java
+        url:  doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html
   - title: References
     subfolderitems:
       - page: ONNX Dialect
         url:  Dialects/onnx.html
       - page: OMTensor C99 Runtime API
-        url:  doxygen_html/OMTensor/_o_m_tensor_8h.html
+        url:  doxygen_html/OMTensor_h/_o_m_tensor_8h.html
       - page: OMTensorList C99 Runtime API
-        url:  doxygen_html/OMTensorList/_o_m_tensor_list_8h.html
+        url:  doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html
+      - page: OMTensor Java Runtime API
+        url:  doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html
+      - page: OMTensorList Java Runtime API
+        url:  doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html
       - page: Generate ONNX Dialect
         url:  ImportONNXDefs.html
       - page: About Documentation

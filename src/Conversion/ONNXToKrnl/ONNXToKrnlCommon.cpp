@@ -14,8 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
+
+namespace onnx_mlir {
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
@@ -43,6 +48,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   MemRefBuilder memRefBuilder(b, loc);
   KrnlBuilder krnlBuilder(memRefBuilder);
+  MathBuilder createMath(b, loc);
 
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the putput dimension
@@ -53,7 +59,7 @@ Value OnnxToKrnlBuilder::reshape(
       memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value index = createMath.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
     krnlBuilder.store(data, alloc, index);
   }
@@ -106,26 +112,16 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
-MemRefType convertToMemRefType(Type type) {
-  // Convert the element type of the (tensor or memref) to a valid Krnl type.
-  auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<ONNXStringType>())
-      return StringType::get(elemType.getContext());
-    return elemType;
-  };
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
 
-  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    MemRefType memRefType = MemRefType::get(
-        tensorType.getShape(), convertElemType(tensorType.getElementType()));
-    return memRefType;
-  }
-
-  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
-  auto memRefType = type.cast<MemRefType>();
-  return MemRefType::get(
-      memRefType.getShape(), convertElemType(memRefType.getElementType()));
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -244,21 +240,21 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   }
   // If there is at least one result to investigate.
   if (currentOp->getNumResults() > 0) {
-    parentBlock->walk(
-        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
-          auto result = currentOp->getResult(resultIndex);
-          for (const auto &operand : op.getOperands()) {
-            // Determine if current function returns the result value of the
-            // current op.
-            if (operand == result)
-              insertDealloc = false;
-            // Determin if the result value of reinterpret_cast op whose operand
-            // is the result value of current op
-            for (const auto &castOpResult : castOpResults)
-              if (operand == castOpResult)
-                insertDealloc = false;
-          }
-        });
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          func::ReturnOp op) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &operand : op.getOperands()) {
+        // Determine if current function returns the result value of the
+        // current op.
+        if (operand == result)
+          insertDealloc = false;
+        // Determin if the result value of reinterpret_cast op whose operand
+        // is the result value of current op
+        for (const auto &castOpResult : castOpResults)
+          if (operand == castOpResult)
+            insertDealloc = false;
+      }
+    });
   }
   return insertDealloc;
 }
@@ -297,12 +293,12 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index) {
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
-    pack.pushOperandBound(
-        rewriter.create<memref::DimOp>(loc, operand, index).getResult());
+    pack.pushOperandBound(create.mem.dim(operand, index));
   } else {
     pack.pushConstantBound(0);
     pack.pushConstantBound(shape[index]);
@@ -312,172 +308,27 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 // Function that emits the definition of loops references.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops) {
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+  ValueRange loopsOp = create.krnl.defineLoops(numLoops);
   loops.reserve(numLoops);
-  for (auto result : loopsOp.getResults())
+  for (auto result : loopsOp)
     loops.push_back(result);
-}
-
-Value emitPositiveInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
-  TypeSwitch<Type>(type)
-      .Case<Float16Type>([&](Type) {
-        // 0x7C00
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
-      })
-      .Case<Float32Type>([&](Type) {
-        // 0x7F800000
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
-      })
-      .Case<Float64Type>([&](Type) {
-        // 0x7FF0000000000000
-        double value = std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
-      })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
-          llvm_unreachable("unsupported element type");
-        }
-      })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
-}
-
-Value emitNegativeInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
-  TypeSwitch<Type>(type)
-      .Case<Float16Type>([&](Type) {
-        // 0xFC00
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
-      })
-      .Case<Float32Type>([&](Type) {
-        // 0xFF800000
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
-      })
-      .Case<Float64Type>([&](Type) {
-        // 0xFFF0000000000000
-        double value = -std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
-      })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
-          llvm_unreachable("unsupported element type");
-        }
-      })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
-
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
-  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  Value dimVal;
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
-  if (shape[axis] < 0) {
-    Value dim = create.mem.dim(operand, axis);
-    dimVal = create.math.cast(type, dim);
-  } else {
-    dimVal = create.math.constant(type, shape[axis]);
-  }
-  return dimVal;
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  return (shape[axis] < 0)
+             ? create.math.cast(type, create.mem.dim(operand, axis))
+             : create.math.constant(type, shape[axis]);
 }
 
 /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -500,7 +351,7 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -539,7 +390,7 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -582,7 +433,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   for (auto permVal : permAttr.getValue())
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -603,43 +454,11 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims) {
-  int64_t rank = memRefType.getRank();
-
-  // Compute new sizes and strides.
-  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
-  sizesIE.resize(rank);
-  stridesIE.resize(rank);
-  IndexExpr strideIE = LiteralIndexExpr(1);
-  for (int i = rank - 1; i >= 0; --i) {
-    sizesIE[i] = outputDims[i];
-    stridesIE[i] = strideIE;
-    if (i > 0)
-      strideIE = strideIE * sizesIE[i];
-  }
-
-  SmallVector<OpFoldResult, 4> sizes, strides;
-  sizes.resize(rank);
-  strides.resize(rank);
-  for (int i = rank - 1; i >= 0; --i) {
-    if (sizesIE[i].isLiteral())
-      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
-    else
-      sizes[i] = sizesIE[i].getValue();
-    if (stridesIE[i].isLiteral())
-      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
-    else
-      strides[i] = stridesIE[i].getValue();
-  }
-
-  // Emit ReinterpretCastOp.
-  Value newView =
-      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
-          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
-  return newView;
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
+  MemRefBuilder createMemRef(rewriter, loc);
+  return createMemRef.reinterpretCast(data, outputDims);
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
@@ -679,7 +498,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange loopDef = createKrnl.defineLoops(rank);
   createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + LiteralIndexExpr(1);
+        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
             [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
@@ -756,16 +575,39 @@ KrnlTypeConverter::KrnlTypeConverter() {
   addConversion([](Type type) { return type; });
 
   addConversion([](ONNXStringType stringType) {
-    return StringType::get(stringType.getContext());
+    return krnl::StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
     if (tensorType.getElementType().isa<ONNXStringType>()) {
-      Type elementType = StringType::get(tensorType.getContext());
+      Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
+    // Acccelators may have special versions of TensorType. Call the conversions
+    // of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
+      if (memRefType)
+        return memRefType;
+    }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  });
+
+  addConversion([](SeqType seqType) {
+    ShapedType seqElementType = seqType.getElementType();
+    Type elementType = seqElementType.getElementType();
+    Type seqElementConvertedType;
+    if (seqElementType.hasRank()) {
+      seqElementConvertedType =
+          MemRefType::get(seqElementType.getShape(), elementType);
+    } else {
+      seqElementConvertedType = UnrankedMemRefType::get(elementType, 0);
+    }
+    SmallVector<int64_t, 1> dims;
+    dims.emplace_back(seqType.getLength());
+    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
+    return MemRefType::get(shape, seqElementConvertedType);
   });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
@@ -788,3 +630,5 @@ KrnlTypeConverter::KrnlTypeConverter() {
         .getResult(0);
   });
 }
+
+} // namespace onnx_mlir

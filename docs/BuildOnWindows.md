@@ -46,9 +46,9 @@ Install MLIR (as a part of LLVM-Project):
 
 [same-as-file]: <> (utils/clone-mlir.sh)
 ```shell
-git clone https://github.com/llvm/llvm-project.git
+git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout d7f0083dcae45e6bf774af23533a2d5e18aaf253 && cd ..
+cd llvm-project && git checkout 9778ec057cf4214241e4a970f3e764e3cf150181 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -100,3 +100,7 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
 call cmake --build . --config Release --target onnx-mlir
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+### Trouble shooting build issues
+
+Check this [page](TestingHighLevel.md) for helpful hints.

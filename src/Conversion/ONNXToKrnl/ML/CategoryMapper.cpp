@@ -22,11 +22,11 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-using namespace mlir;
-using llvm::dbgs;
-
 #define DEBUG_TYPE "category_mapper_onnx_to_krnl"
 
+using namespace mlir;
+
+namespace onnx_mlir {
 struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   using PerfectHashTable = struct {
     Value G;
@@ -47,8 +47,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
 
     ONNXCategoryMapperOpShapeHelper shapeHelper(&categoryMapperOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapeComputed;
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -64,8 +64,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             cats_int64sAttr.size(), rewriter.getIntegerType(64)),
         cats_int64sAttr.getValue());
     DenseElementsAttr cats_strings = mlir::DenseElementsAttr::get(
-        RankedTensorType::get(
-            cats_stringsAttr.size(), StringType::get(rewriter.getContext())),
+        RankedTensorType::get(cats_stringsAttr.size(),
+            krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
     IntegerAttr default_int64 = categoryMapperOp.default_int64Attr();
@@ -73,19 +73,24 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
         (categoryMapperOp.default_stringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
-                      {}, StringType::get(rewriter.getContext())),
+                      {}, krnl::StringType::get(rewriter.getContext())),
                   categoryMapperOp.default_stringAttr().getValue())
             : nullptr;
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Basic information.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
     int64_t rank = memRefType.getShape().size();
     ShapedType inputType = X.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
         rewriter, op->getLoc());
@@ -95,24 +100,36 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     PerfectHashTable perfectHashTable = createPerfectHashTable(cats_int64s,
         cats_strings, cats_int64sAttr, cats_stringsAttr, elementType, create);
 
+    // Convert the cats type to MemRefType.
+    Type convertedCatsInt64s =
+        typeConverter->convertType(cats_int64s.getType());
+    assert(convertedCatsInt64s && convertedCatsInt64s.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType catsInt64sInMemRefType = convertedCatsInt64s.cast<MemRefType>();
+    Type convertedCatsStrings =
+        typeConverter->convertType(cats_strings.getType());
+    assert(convertedCatsStrings && convertedCatsStrings.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType catsStringsInMemRefType =
+        convertedCatsStrings.cast<MemRefType>();
+
     // Create loop invariant values.
     Value constantForCatsInt64s = create.krnl.constant(
-        convertToMemRefType(cats_int64s.getType()), "cats_int64s", cats_int64s);
+        catsInt64sInMemRefType, "cats_int64s", cats_int64s);
 
-    Value constantForCatsStrings =
-        create.krnl.constant(convertToMemRefType(cats_strings.getType()),
-            "cats_strings", cats_strings);
+    Value constantForCatsStrings = create.krnl.constant(
+        catsStringsInMemRefType, "cats_strings", cats_strings);
 
     Value defaultInt64 = (default_int64)
                              ? create.math.constant(rewriter.getIntegerType(64),
                                    default_int64.getSInt())
                              : nullptr;
     Value defaultString =
-        (default_string)
-            ? create.krnl.constant(
-                  MemRefType::get({}, StringType::get(rewriter.getContext())),
-                  "default_string", default_string)
-            : nullptr;
+        (default_string) ? create.krnl.constant(
+                               MemRefType::get({}, krnl::StringType::get(
+                                                       rewriter.getContext())),
+                               "default_string", default_string)
+                         : nullptr;
 
     // Lookup the index in the perfect hash table corresponding to
     // each input value.
@@ -132,8 +149,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
           // 'pHash'. Note: the index might not be valid (this happens
           // when the 'inputElem' is not present in the perfect hash
           // table).
-          Value inputElem = createKrnl.load(X, loopInd);
-
+          Value inputElem =
+              loadElement(X, loopInd, elementType, rank, createKrnl);
           if (emitPrintStmts)
             create.krnl.printf("inputElem: ", inputElem, elementType);
 
@@ -156,9 +173,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, alloc);
 
     LLVM_DEBUG({
-      FuncOp function = getContainingFunction(op);
+      func::FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
-      dbgs() << "function:\n" << function << "\n";
+      llvm::dbgs() << "function:\n" << function << "\n";
     });
 
     return success();
@@ -211,7 +228,7 @@ private:
           PerfectHash<int64_t, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Populate the dictionary.
           std::map<StringRef, int32_t> dict;
           int32_t size = cats_strings.size();
@@ -226,9 +243,35 @@ private:
           PerfectHash<StringRef, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
+  }
+
+  Value loadElement(Value memref, ValueRange loopInd, Type elementType,
+      int64_t rank, KrnlBuilder &createKrnl) const {
+    Value inputElem;
+    TypeSwitch<Type>(elementType)
+        .Case<IntegerType>(
+            [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
+        .Case<krnl::StringType>([&](krnl::StringType stringType) {
+          MathBuilder createMath(createKrnl);
+          Value zero = createMath.constant(
+              createMath.getBuilder().getIntegerType(64), 0);
+          auto memRefType = MemRefType::get(
+              {rank}, krnl::StringType::get(elementType.getContext()));
+          Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
+          inputElem = createKrnl.load(stringMemRef, loopInd);
+        })
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Unexpected elementType");
+        });
+
+    return inputElem;
   }
 
   // Determine the index of 'inputElem' in the perfect hash table 'pHash'.
@@ -251,7 +294,7 @@ private:
           Value isIndexValid = create.math.eq(inputElem, compareVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Determine whether the index returned is valid.
           // The index is valid if 'inputElem' compares equal to the string in
           // 'constantForCatsStrings'.
@@ -263,7 +306,10 @@ private:
           Value isIndexValid = create.math.eq(strncmpRes, zeroVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
   }
@@ -291,7 +337,7 @@ private:
           Value loadDefault = createKrnl.load(defaultString);
           createKrnl.store(loadDefault, alloc, loopInd);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // index is valid: retrieve the value from 'cat_int64s'.
           rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsInt64s, {index});
@@ -301,7 +347,10 @@ private:
           rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           createKrnl.store(defaultInt64, alloc, loopInd);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
   }
 };
 
@@ -309,3 +358,5 @@ void populateLoweringONNXCategoryMapperOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCategoryMapperOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_RUNTIMEAPI
-#define ONNX_RUNTIMEAPI
+#pragma once
 
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -22,8 +21,6 @@
 #include "mlir/IR/Types.h"
 
 #include <string>
-
-using namespace mlir;
 
 class RuntimeAPIRegistry;
 
@@ -51,28 +48,29 @@ public:
 
   // Call the runtime API identified by \p apiId, return the SSA value
   // representing the call.
-  static Value callApi(OpBuilder &builder, Location loc,
-      const RuntimeAPIRegistry &registry, API apiId, ArrayRef<Value> params);
+  static mlir::Value callApi(mlir::OpBuilder &builder, mlir::Location loc,
+      const RuntimeAPIRegistry &registry, API apiId,
+      llvm::ArrayRef<mlir::Value> params);
 
 private:
-  RuntimeAPI(
-      API id, const std::string &name, Type outputTy, ArrayRef<Type> inputTys)
+  RuntimeAPI(API id, const std::string &name, mlir::Type outputTy,
+      llvm::ArrayRef<mlir::Type> inputTys)
       : id(id), name(name), outputTy(outputTy),
         inputTys(inputTys.begin(), inputTys.end()) {}
 
   // Inject the declaration for this runtime API into the given module (unless a
   // declaration exists already).
-  void declareAPI(ModuleOp &module, OpBuilder &builder);
+  void declareAPI(mlir::ModuleOp &module, mlir::OpBuilder &builder);
 
-  static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
-      ModuleOp module, mlir::Type funcType, OpBuilder &builder);
+  static mlir::FlatSymbolRefAttr getOrInsertExternFunc(llvm::StringRef funcName,
+      mlir::ModuleOp module, mlir::Type funcType, mlir::OpBuilder &builder);
 
 private:
   API id;
   std::string name;
-  Type outputTy;
-  SmallVector<Type, 4> inputTys;
-  FlatSymbolRefAttr symbolRef;
+  mlir::Type outputTy;
+  llvm::SmallVector<mlir::Type, 4> inputTys;
+  mlir::FlatSymbolRefAttr symbolRef;
 };
 
 /// \class RuntimeAPIRegistry
@@ -84,7 +82,8 @@ public:
 
   ~RuntimeAPIRegistry();
 
-  static const RuntimeAPIRegistry build(ModuleOp &module, OpBuilder &builder);
+  static const RuntimeAPIRegistry build(
+      mlir::ModuleOp &module, mlir::OpBuilder &builder);
 
   const RuntimeAPI &getAPI(RuntimeAPI::API apiId) const {
     assert((registry.find(apiId) != registry.end()) &&
@@ -93,11 +92,9 @@ public:
   }
 
 private:
-  RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder);
+  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
 
   static RuntimeAPIRegistry *instance;
 
   ApiRegistry registry;
 };
-
-#endif // ONNX_RUNTIMEAPI

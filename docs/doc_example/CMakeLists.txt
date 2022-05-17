@@ -25,16 +25,6 @@ configure_file(
   )
 
 if (WIN32)
-  # On Windows, we need a .def file to specify the export functions from a DLL.
-  # The name of the .def file must match the name of the DLL being created
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/add.def
-    ${CMAKE_CURRENT_BINARY_DIR}/add.def
-    COPYONLY
-    )
-endif()
-
-if (WIN32)
   set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX})
   list(APPEND OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_LINK_LIBRARY_SUFFIX})
 else() 

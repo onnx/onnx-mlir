@@ -10,16 +10,9 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp)
-    : ONNXOpShapeHelper<ONNXTileOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTileOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXTileOpShapeHelper::computeShape(
     ONNXTileOpAdaptor operandAdaptor) {
@@ -41,6 +34,8 @@ LogicalResult ONNXTileOpShapeHelper::computeShape(
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

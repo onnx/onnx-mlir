@@ -14,6 +14,10 @@
 
 #include "src/Support/KrnlSupport.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Return various operations.
 //===----------------------------------------------------------------------===//
@@ -38,7 +42,7 @@ Block *getTopBlock(Operation *op) {
   Block *topBlock = op->getBlock();
   Operation *parentBlockOp = topBlock->getParentOp();
 
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp)) {
     topBlock = parentBlockOp->getBlock();
     parentBlockOp = topBlock->getParentOp();
   }
@@ -47,42 +51,14 @@ Block *getTopBlock(Operation *op) {
 }
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(Operation *op) {
+func::FuncOp getContainingFunction(Operation *op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentFuncOp))
     parentFuncOp = parentFuncOp->getParentOp();
 
-  return cast<FuncOp>(parentFuncOp);
-}
-
-/// Emit constant operation.
-Value emitConstantOp(
-    OpBuilder &rewriter, Location loc, Type type, double value) {
-  Attribute constantAttr;
-
-  TypeSwitch<Type>(type)
-      .Case<Float16Type>(
-          [&](Type) { constantAttr = rewriter.getF16FloatAttr((float)value); })
-      .Case<Float32Type>(
-          [&](Type) { constantAttr = rewriter.getF32FloatAttr((float)value); })
-      .Case<Float64Type>(
-          [&](Type) { constantAttr = rewriter.getF64FloatAttr((float)value); })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        if (width == 1) {
-          constantAttr = rewriter.getBoolAttr(value != 0);
-        } else {
-          constantAttr =
-              rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
-        }
-      })
-      .Case<IndexType>([&](Type) {
-        constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
-      })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
+  return cast<func::FuncOp>(parentFuncOp);
 }
 
 //===----------------------------------------------------------------------===//
@@ -138,7 +114,7 @@ bool isBlockArgument(Operation *op, Value operand) {
     parentBlockOp = currentBlock->getParentOp();
     currentBlock = parentBlockOp->getBlock();
 
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
+  } while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp));
 
   return false;
 }
@@ -200,7 +176,7 @@ bool opInTopLevelBlock(Operation *op) {
 
   // If the parent operation of the current block is a FuncOp then
   // this operation is in the top-level block.
-  return llvm::dyn_cast_or_null<FuncOp>(currentBlock->getParentOp());
+  return llvm::dyn_cast_or_null<func::FuncOp>(currentBlock->getParentOp());
 }
 
 /// This function returns true if `beforeOp` is visited before `op` in a
@@ -220,7 +196,7 @@ bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
 
 /// Check Alloc operation result is used by a krnl.getref.
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+  func::FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
   function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
@@ -249,8 +225,8 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
-  } else if (elementType.isa<StringType>()) {
-    auto stringType = elementType.cast<StringType>();
+  } else if (elementType.isa<krnl::StringType>()) {
+    auto stringType = elementType.cast<krnl::StringType>();
     sizeInBits = stringType.getElementSize();
   } else {
     assert(elementType.isa<VectorType>() && "elementType is not a VectorType");
@@ -291,15 +267,16 @@ Value getDynamicMemRefSizeInBytes(
       allStaticDimensions = false;
   }
   // Accumulate the remaining dimensions that are unknown.
+  MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
   Value sizeInBytes =
-      emitConstantOp(rewriter, loc, rewriter.getI64Type(), staticSizeInBytes);
+      create.math.constant(rewriter.getI64Type(), staticSizeInBytes);
   if (!allStaticDimensions) {
     for (unsigned i = 0; i < shape.size(); i++) {
       if (shape[i] == -1) {
-        Value index = rewriter.create<memref::DimOp>(loc, val, i);
+        Value index = create.mem.dim(val, i);
         Value dim = rewriter.create<arith::IndexCastOp>(
-            loc, index, rewriter.getI64Type());
-        sizeInBytes = rewriter.create<arith::MulIOp>(loc, sizeInBytes, dim);
+            loc, rewriter.getI64Type(), index);
+        sizeInBytes = create.math.mul(sizeInBytes, dim);
       }
     }
   }
@@ -309,26 +286,28 @@ Value getDynamicMemRefSizeInBytes(
 /// Get the size of a dynamic MemRef in bytes.
 Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
     PatternRewriter &rewriter, memref::AllocOp allocOp) {
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
   // Initialize the size variable with the size in bytes of the type.
   int64_t typeSize = getMemRefEltSizeInBytes(type);
-  Value result =
-      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+  Value result = create.math.constant(rewriter.getIndexType(), typeSize);
 
   // Multiply all dimensions (constant and dynamic).
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
   int dynDimIdx = 0;
+
   for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       // Dyanmic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
       dynDimIdx++;
-      result = rewriter.create<arith::MulIOp>(loc, result, dynamicDim);
+      result = create.math.mul(result, dynamicDim);
     } else {
       // Static size.
-      auto staticDim = emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
-      result = rewriter.create<arith::MulIOp>(loc, result, staticDim);
+      auto staticDim =
+          create.math.constant(rewriter.getIndexType(), memRefShape[idx]);
+      result = create.math.mul(result, staticDim);
     }
   }
 
@@ -451,3 +430,5 @@ bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
   return opBeforeOp(topLevelBlock, firstOp, liveRangeFirstOp) &&
          opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
 }
+
+} // namespace onnx_mlir

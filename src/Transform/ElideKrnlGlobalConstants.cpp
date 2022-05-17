@@ -4,7 +4,7 @@
 
 //===- ElideKrnlGlobalConstants.cpp - Krnl Constant lobal Value Elision ---===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,10 +19,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
@@ -30,12 +31,13 @@
 #include "ElideKrnlGlobalConstants.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 constexpr uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold;
 
 mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {
-  auto loc = op.getLoc();
+  Location loc = op.getLoc();
 
   // Only elide if value is available.
   if (!op.value().hasValue())
@@ -46,17 +48,18 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
           op.value()->isa<OpaqueElementsAttr>()))
     return success();
 
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+
   if (op.value()->isa<DenseElementsAttr>()) {
     // Elide the dense attribute.
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
       IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
-      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
-          op.getResult().getType(), /*shape=*/op.shape(),
-          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr,
-          /*alignment=*/alignmentAttr);
-      rewriter.replaceOp(op, newGlobalOp.getResult());
+      auto newGlobalOp =
+          create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
+              op.name(), None, offsetAttr, alignmentAttr);
+      rewriter.replaceOp(op, newGlobalOp);
     }
   } else {
     // Elide the opaque attribute.
@@ -64,11 +67,10 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     if ((unsigned int)valAttr.getValue().size() > elisionThreshold) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
       IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
-      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
-          op.getResult().getType(), /*shape=*/op.shape(),
-          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr,
-          /*alignment=*/alignmentAttr);
-      rewriter.replaceOp(op, newGlobalOp.getResult());
+      auto newGlobalOp =
+          create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
+              op.name(), None, offsetAttr, alignmentAttr);
+      rewriter.replaceOp(op, newGlobalOp);
     }
   }
 
@@ -79,9 +81,11 @@ namespace {
 /*!
  *  Function pass that performs constant value elision of Krnl globals.
  */
-class ElideConstGlobalValuePass
-    : public PassWrapper<ElideConstGlobalValuePass, OperationPass<FuncOp>> {
+class ElideConstGlobalValuePass : public PassWrapper<ElideConstGlobalValuePass,
+                                      OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstGlobalValuePass)
+
   StringRef getArgument() const override { return "elide-krnl-constants"; }
 
   StringRef getDescription() const override {
@@ -104,6 +108,6 @@ public:
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createElideConstGlobalValuePass() {
+std::unique_ptr<Pass> onnx_mlir::createElideConstGlobalValuePass() {
   return std::make_unique<ElideConstGlobalValuePass>();
 }

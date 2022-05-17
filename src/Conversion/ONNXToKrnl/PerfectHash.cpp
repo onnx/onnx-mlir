@@ -23,11 +23,9 @@
 #include <string>
 #include <vector>
 
-using namespace mlir;
-using llvm::dbgs;
-using llvm::SmallVector;
-
 #define DEBUG_TYPE "perfect_hash"
+
+namespace onnx_mlir {
 
 class Utilities {
 public:
@@ -53,31 +51,32 @@ public:
 
   // Extracts the keys of the given map.
   template <typename KeyType, typename ValueType>
-  static SmallVector<KeyType> extractKeys(
+  static llvm::SmallVector<KeyType> extractKeys(
       const std::map<KeyType, ValueType> &map) {
-    SmallVector<KeyType> keys;
+    llvm::SmallVector<KeyType> keys;
     for (const auto &entry : map)
       keys.push_back(entry.first);
     return keys;
   }
 
   // Generate the integers in the range [0 .. max-1].
-  static SmallVector<uint32_t> range(uint32_t max) {
-    SmallVector<uint32_t> range(max);
+  static llvm::SmallVector<uint32_t> range(uint32_t max) {
+    llvm::SmallVector<uint32_t> range(max);
     std::iota(range.begin(), range.end(), 0);
     return range;
   }
 
   // Generate the integers in the range [min .. max-1].
-  static SmallVector<uint32_t> range(uint32_t min, uint32_t max) {
-    SmallVector<uint32_t> range(max - min);
+  static llvm::SmallVector<uint32_t> range(uint32_t min, uint32_t max) {
+    llvm::SmallVector<uint32_t> range(max - min);
     std::iota(range.begin(), range.end(), min);
     return range;
   }
 
   // Generate the integers [min, min+step, ...].
-  static SmallVector<uint32_t> range(int32_t min, int32_t max, int32_t step) {
-    SmallVector<uint32_t> range;
+  static llvm::SmallVector<uint32_t> range(
+      int32_t min, int32_t max, int32_t step) {
+    llvm::SmallVector<uint32_t> range;
     int32_t nElems = (max - min) / step;
     if (nElems < 1)
       return range;
@@ -126,17 +125,16 @@ PerfectHash<KeyTy, ValueTy>::PerfectHash(const std::map<KeyTy, ValueTy> &dict)
 // unexpected type.
 template <typename KeyTy, typename ValueTy>
 void PerfectHash<KeyTy, ValueTy>::createPerfectHash() {
-  LLVM_DEBUG({ Utilities::print(dict, "dict", dbgs()); });
+  LLVM_DEBUG({ Utilities::print(dict, "dict", llvm::dbgs()); });
 
   // Step 1: place all of the keys into buckets.
   size_t size = dict.size();
-  SmallVector<KeyTy> keys = Utilities::extractKeys<KeyTy, ValueTy>(dict);
-  LLVM_DEBUG({ Utilities::print(keys, "keys", dbgs()); });
+  llvm::SmallVector<KeyTy> keys = Utilities::extractKeys<KeyTy, ValueTy>(dict);
+  LLVM_DEBUG({ Utilities::print(keys, "keys", llvm::dbgs()); });
 
-  SmallVector<SmallVector<KeyTy>> buckets(size);
-  for (const KeyTy &key : keys) {
+  llvm::SmallVector<llvm::SmallVector<KeyTy>> buckets(size);
+  for (const KeyTy &key : keys)
     buckets[Utilities::hash(0, key) % size].push_back(key);
-  }
 
   // Step 2: Sort the buckets and process the ones with the most items first.
   llvm::sort(buckets, [](const llvm::SmallVectorImpl<KeyTy> &v1,
@@ -146,15 +144,15 @@ void PerfectHash<KeyTy, ValueTy>::createPerfectHash() {
 
   uint32_t biMax = 0;
   for (uint32_t bi : Utilities::range(size)) {
-    LLVM_DEBUG(dbgs() << "bi=" << bi << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "bi=" << bi << "\n");
     biMax = bi;
-    SmallVector<KeyTy> &bucket = buckets[bi];
+    llvm::SmallVector<KeyTy> &bucket = buckets[bi];
     if (bucket.size() <= 1)
       break;
 
     int32_t hval = 1;
     size_t item = 0;
-    SmallVector<uint32_t> slots;
+    llvm::SmallVector<uint32_t> slots;
 
     // Repeatedly try different hash values until we find a hash function that
     // places all items in the bucket into free slots.
@@ -175,22 +173,22 @@ void PerfectHash<KeyTy, ValueTy>::createPerfectHash() {
     for (uint32_t i : Utilities::range(bucket.size()))
       V[slots[i]] = dict.at(bucket[i]);
 
-    LLVM_DEBUG({ Utilities::print(G, "G", dbgs()); });
-    LLVM_DEBUG({ Utilities::print(V, "V", dbgs()); });
+    LLVM_DEBUG({ Utilities::print(G, "G", llvm::dbgs()); });
+    LLVM_DEBUG({ Utilities::print(V, "V", llvm::dbgs()); });
   }
 
   // Place remaining buckets (containing a single entry) into a free slot. Use
   // a negative value of hval to indicate this.
-  SmallVector<uint32_t> freeList;
+  llvm::SmallVector<uint32_t> freeList;
   for (uint32_t i : Utilities::range(size))
     if (V[i] == -1)
       freeList.push_back(i);
 
-  LLVM_DEBUG(Utilities::print(freeList, "freeList", dbgs()));
-  LLVM_DEBUG(dbgs() << "biMax: " << biMax << "\n");
+  LLVM_DEBUG(Utilities::print(freeList, "freeList", llvm::dbgs()));
+  LLVM_DEBUG(llvm::dbgs() << "biMax: " << biMax << "\n");
 
   for (uint32_t i : Utilities::range(biMax, size)) {
-    SmallVector<KeyTy> &bucket = buckets[i];
+    llvm::SmallVector<KeyTy> &bucket = buckets[i];
     if (bucket.size() == 0)
       break;
 
@@ -201,12 +199,12 @@ void PerfectHash<KeyTy, ValueTy>::createPerfectHash() {
     G[Utilities::hash(0, bucket[0]) % size] = -(int32_t)slot - 1;
     V[slot] = dict.at(bucket[0]);
 
-    LLVM_DEBUG({ Utilities::print(G, "G", dbgs()); });
-    LLVM_DEBUG({ Utilities::print(V, "V", dbgs()); });
+    LLVM_DEBUG({ Utilities::print(G, "G", llvm::dbgs()); });
+    LLVM_DEBUG({ Utilities::print(V, "V", llvm::dbgs()); });
   }
 }
 
-namespace mlir {
 template class PerfectHash<int64_t, int32_t>;
 template class PerfectHash<llvm::StringRef, int32_t>;
-} // namespace mlir
+
+} // namespace onnx_mlir

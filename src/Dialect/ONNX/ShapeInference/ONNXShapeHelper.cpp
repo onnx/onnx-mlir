@@ -18,9 +18,11 @@
 
 #include <algorithm>
 
+#define DEBUG_TYPE "shape-helper"
+
 using namespace mlir;
 
-#define DEBUG_TYPE "shape-helper"
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
@@ -108,14 +110,14 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
 
   // Prepare dims for every input. Prepend 1s if the input's shape has smaller
   // rank, so that all the shapes have the same rank.
-  LiteralIndexExpr one(1);
+  LiteralIndexExpr oneIE(1);
   for (int64_t i = 0; i < numOfInputs; ++i) {
     MemRefBoundsIndexCapture bounds(operands[i]);
     int64_t r = bounds.getRank();
     // Prepend 1s.
     DimsExpr dims;
     for (int64_t k = 0; k < outputRank - r; ++k)
-      dims.emplace_back(one);
+      dims.emplace_back(oneIE);
     // Get from the input.
     for (int64_t k = 0; k < r; ++k)
       dims.emplace_back(bounds.getDim(k));
@@ -123,7 +125,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
   }
   // Handle the additional operand here.
   if (hasAdditionalOper) {
-    DimsExpr dims(outputRank - additionalOperRank, one);
+    DimsExpr dims(outputRank - additionalOperRank, oneIE);
     for (int64_t k = 0; k < additionalOperRank; ++k)
       dims.emplace_back(additionalOperand[k]);
     inputsDims.emplace_back(dims);
@@ -189,7 +191,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     }
   }
   // Set the final output.
-  ONNXOpShapeHelper<OP>::dimsForOutput(0) = dimsExpr;
+  ONNXOpShapeHelper<OP>::dimsForOutput() = dimsExpr;
   return success();
 }
 
@@ -316,16 +318,16 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
   // * P[i] = p' / 2, if odd, first or second are increased by one.
   auto autoPad = ONNXOpShapeHelper<OP_TYPE>::op->auto_pad();
-  LiteralIndexExpr zero(0);
-  LiteralIndexExpr one(1);
+  LiteralIndexExpr zeroIE(0);
+  LiteralIndexExpr oneIE(1);
   for (int64_t i = 0; i < spatialRank; ++i) {
     int64_t ii = i + spatialOffset;
     IndexExpr I = XBounds.getDim(ii);
     IndexExpr K = kernelShape[i];
     LiteralIndexExpr d(dilations[i]);
     LiteralIndexExpr s(strides[i]);
-    IndexExpr t1 = K - one;
-    IndexExpr kdTerm = t1 * d + one; // (k - 1) * d + 1
+    IndexExpr t1 = K - oneIE;
+    IndexExpr kdTerm = t1 * d + oneIE; // (k - 1) * d + 1
     if (autoPad == "NOTSET") {
       IndexExpr p = pads[i] + pads[i + spatialRank]; // Sum both pads.
       IndexExpr t1 = I + p; // Compute floor/ceil((I + p - kdTerm) / s) + 1.
@@ -335,12 +337,12 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
         O = t2.ceilDiv(s);
       else
         O = t2.floorDiv(s);
-      O = O + one;
+      O = O + oneIE;
       // Set output dim, and pads already set, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
       IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
-      IndexExpr t2 = t1 + one;
+      IndexExpr t2 = t1 + oneIE;
       IndexExpr O = t2.ceilDiv(s);
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
@@ -349,15 +351,15 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
       IndexExpr O = I.ceilDiv(s);
       outputDims.emplace_back(O);
       // Compute sum of pads padSum = (O -1)*s + kdTerm - I.
-      IndexExpr t1 = O - one;
+      IndexExpr t1 = O - oneIE;
       IndexExpr t2 = t1 * s + kdTerm;
       IndexExpr t3 = t2 - I;
-      IndexExpr padSum = IndexExpr::max(t3, zero);
+      IndexExpr padSum = IndexExpr::max(t3, zeroIE);
       // Single pad value is padSump / 2.
       IndexExpr p = padSum.floorDiv(2);
       // Increment is 1 when pp % 2 != 0
-      IndexExpr test = (padSum % 2) != zero;
-      IndexExpr inc = IndexExpr::select(test, one, zero);
+      IndexExpr test = (padSum % 2) != zeroIE;
+      IndexExpr inc = IndexExpr::select(test, oneIE, zeroIE);
       // Increment 1st value for SAME_LOWER and 2nd for SAME_UPPER.
       if (autoPad == "SAME_UPPER") {
         pads[i] = p;
@@ -393,7 +395,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 #endif
 
   // Set type for the first output.
-  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput(0) = outputDims;
+  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput() = outputDims;
   return success();
 }
 
@@ -403,19 +405,25 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 //===----------------------------------------------------------------------===//
 
 template struct ONNXOpShapeHelper<ONNXArgMaxOp>;
+template struct ONNXOpShapeHelper<ONNXArgMinOp>;
 template struct ONNXOpShapeHelper<ONNXAveragePoolOp>;
 template struct ONNXOpShapeHelper<ONNXCategoryMapperOp>;
+template struct ONNXOpShapeHelper<ONNXClipOp>;
 template struct ONNXOpShapeHelper<ONNXCompressOp>;
 template struct ONNXOpShapeHelper<ONNXConcatOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
 template struct ONNXOpShapeHelper<ONNXDepthToSpaceOp>;
 template struct ONNXOpShapeHelper<ONNXExpandOp>;
+template struct ONNXOpShapeHelper<ONNXFlattenOp>;
 template struct ONNXOpShapeHelper<ONNXGatherOp>;
+template struct ONNXOpShapeHelper<ONNXGatherElementsOp>;
+template struct ONNXOpShapeHelper<ONNXGatherNDOp>;
 template struct ONNXOpShapeHelper<ONNXGemmOp>;
 template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;
 template struct ONNXOpShapeHelper<ONNXPadOp>;
+template struct ONNXOpShapeHelper<ONNXReduceSumOp>;
 template struct ONNXOpShapeHelper<ONNXReshapeOp>;
 template struct ONNXOpShapeHelper<ONNXLRNOp>;
 template struct ONNXOpShapeHelper<ONNXReverseSequenceOp>;
@@ -443,3 +451,5 @@ template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
 
 // Keep template instantiation at the end of the file.
+
+} // namespace onnx_mlir

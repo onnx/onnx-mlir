@@ -43,12 +43,17 @@ set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
+set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include)
 
 set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 
 set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+set(ONNX_MLIR_INCLUDE_PATH ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
+
+set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
+  "Vendor-specific text for showing with version information.")
 
 include(CTest)
 include(ExternalProject)
@@ -111,6 +116,12 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
     "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
 endif()
 
+# Use the new MSVC preprocessor to improve standard conformance.
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+endif()
+
 # Suppress warnings in third party code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS_COPY ${CMAKE_C_FLAGS})
@@ -127,6 +138,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
 endif()
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
+set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 set(pybind11_FIND_QUIETLY ON)
 set(BENCHMARK_USE_BUNDLED_GTEST OFF)
 set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
@@ -134,7 +146,10 @@ set(BENCHMARK_ENABLE_TESTING OFF)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
-add_subdirectory(third_party/benchmark)
+if (NOT TARGET benchmark)
+  add_subdirectory(third_party/benchmark)
+endif()
+set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
@@ -149,3 +164,4 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)
+add_subdirectory(version)

@@ -10,20 +10,11 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXReverseSequenceOpShapeHelper::ONNXReverseSequenceOpShapeHelper(
-    ONNXReverseSequenceOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXReverseSequenceOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope) {}
+using namespace mlir;
 
-ONNXReverseSequenceOpShapeHelper::ONNXReverseSequenceOpShapeHelper(
-    ONNXReverseSequenceOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXReverseSequenceOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope) {}
+namespace onnx_mlir {
 
-LogicalResult ONNXReverseSequenceOpShapeHelper::Compute(
+LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape(
     ONNXReverseSequenceOpAdaptor operandAdaptor) {
 
   // Get info about input data operand.
@@ -32,7 +23,9 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::Compute(
   int64_t inputRank = inputBounds.getRank();
 
   for (int64_t i = 0; i < inputRank; ++i)
-    dimsForOutput(0).emplace_back(inputBounds.getDim(i));
+    dimsForOutput().emplace_back(inputBounds.getDim(i));
 
   return success();
 }
+
+} // namespace onnx_mlir

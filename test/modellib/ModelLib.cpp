@@ -17,14 +17,15 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
 
-ModelLibBuilder::ModelLibBuilder(const string &name)
+namespace onnx_mlir {
+namespace test {
+
+ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
       exec(nullptr) {
@@ -47,7 +48,8 @@ bool ModelLibBuilder::compileAndLoad() {
   return exec != nullptr;
 }
 
-bool ModelLibBuilder::compileAndLoad(const CompilerOptionList &list) {
+bool ModelLibBuilder::compileAndLoad(
+    const onnx_mlir::CompilerOptionList &list) {
   if (setCompilerOptions(list) != 0)
     return false;
   return compileAndLoad();
@@ -63,7 +65,8 @@ bool ModelLibBuilder::run() {
   return outputs != nullptr;
 }
 
-string ModelLibBuilder::getSharedLibName(const string &sharedLibBaseName) {
+std::string ModelLibBuilder::getSharedLibName(
+    const std::string &sharedLibBaseName) {
 #ifdef _WIN32
   return sharedLibBaseName + ".dll";
 #else
@@ -71,7 +74,27 @@ string ModelLibBuilder::getSharedLibName(const string &sharedLibBaseName) {
 #endif
 }
 
-FuncOp ModelLibBuilder::createEmptyTestFunction(
+void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
+  bool hasSeedValue = false;
+  unsigned int seed = 0;
+  if (const char *envVal = std::getenv(envVar.c_str())) {
+    std::string seedStr(envVal);
+    seed = (unsigned int)std::stoul(seedStr, nullptr);
+    hasSeedValue = true;
+    std::cout
+        << "Model will use the random number generator seed provided by \""
+        << envVar << "=" << seed << "\"\n";
+  }
+  seed = omDefineSeed(seed, hasSeedValue);
+  if (!hasSeedValue) {
+    // We used a random seed; print that seed to that we may reproduce the
+    // experiment.
+    std::cout << "Model can reuse the current seed by exporting \"" << envVar
+              << "=" << seed << "\"\n";
+  }
+}
+
+func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {
   assert(!inputsType.empty() && "Expecting inputsTypes to be non-empty");
@@ -80,15 +103,15 @@ FuncOp ModelLibBuilder::createEmptyTestFunction(
   FunctionType funcType = builder.getFunctionType(inputsType, outputsType);
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp = builder.create<FuncOp>(loc, "main_graph", funcType, attrs);
+  auto funcOp = builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
   return funcOp;
 }
 
-void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getType();
+void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
+  FunctionType funcType = funcOp.getFunctionType();
   auto entryPoint = ONNXEntryPointOp::create(
       loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
   module.push_back(entryPoint);
@@ -107,10 +130,14 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
       ArrayAttr());
 }
 
-bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref) {
+bool ModelLibBuilder::areCloseFloat(
+    const OMTensor *res, const OMTensor *ref) const {
   if (!res || !ref)
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
+
+} // namespace test
+} // namespace onnx_mlir

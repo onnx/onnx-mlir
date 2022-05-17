@@ -2,24 +2,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--- Compress.cpp - Shape Inference for Compress Op ---===//
+//===----------- Compress.cpp - Shape Inference for Compress Op -----------===//
+//
+// Copyright 2020-2022 The IBM Research Authors.
+//
+// =============================================================================
 //
 // This file implements shape inference for the ONNX Compress Operator.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
 
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp)
-    : ONNXOpShapeHelper<ONNXCompressOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXCompressOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXCompressOpShapeHelper::computeShape(
     ONNXCompressOpAdaptor operandAdaptor) {
@@ -32,36 +30,48 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   Value cond = operandAdaptor.condition();
   ShapedType condType = cond.getType().dyn_cast_or_null<ShapedType>();
   assert(condType && condType.hasRank() &&
-         "Condition should have a known and rank");
-  // Get the dimension derived from the condition. Assume in shape helper
-  // that it is only going to be a question mark. ONNX to Krnl lowering will
-  // compute the actual value.
+         "Condition should have a known shape and rank");
+  Optional<int64_t> optionalAxis = op->axis();
+
+  // axis attribute (if specified) must be in the range [-r,r-1], where r =
+  // rank(input).
+  assert(
+      (!optionalAxis.hasValue() || (-inputRank <= optionalAxis.getValue() &&
+                                       optionalAxis.getValue() < inputRank)) &&
+      "axis out of range");
+
+  // Get the dimension derived from the condition. Assume in shape helper that
+  // it is only going to be a question mark. ONNX to Krnl lowering will compute
+  // the actual value.
   // TODO: if cond is constant, the compute the actual value.
   IndexExpr dynDim;
   if (scope->isShapeInferencePass())
     dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
   else
     dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
-  // Get axis. Value -1 signify axis was not specified. Verifier already checked
-  // that the axis, if given, is in range.
-  axis = -1;
-  if (op->axis().hasValue()) {
-    axis = op->axis().getValue();
-    if (axis < 0)
-      axis += inputRank;
-  }
+
   // Compute dims for output.
   DimsExpr outputDims;
-  if (axis == -1) {
+  if (!optionalAxis.hasValue())
     // Reduced to a single dimensional array, of dynamic size.
     outputDims.emplace_back(dynDim);
-  } else {
+  else {
     // Has same dimensionality as input, with axis dimension being the dynamic
     // size.
     MemRefBoundsIndexCapture inputBounds(input);
     inputBounds.getDimList(outputDims);
-    outputDims[axis] = dynDim;
+
+    // Negative axis means values are counted from the opposite side.
+    // TODO: should be in normalization pass
+    int64_t axisValue = optionalAxis.getValue();
+    if (axisValue < 0)
+      axisValue += inputRank;
+
+    outputDims[axisValue] = dynDim;
   }
-  dimsForOutput(0) = outputDims;
+
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

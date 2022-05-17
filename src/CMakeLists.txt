@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
+add_subdirectory(Accelerators)
 add_subdirectory(Interface)
 add_subdirectory(Dialect)
 add_subdirectory(Support)
@@ -16,3 +17,4 @@ add_onnx_mlir_executable(onnx-mlir
   LINK_LIBS PRIVATE
   CompilerUtils
   )
+  

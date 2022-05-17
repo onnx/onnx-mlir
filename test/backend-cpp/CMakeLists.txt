@@ -31,25 +31,11 @@ function(add_backend_cpp_unittest test_name)
 
   add_test(NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(${test_name} PROPERTIES LABELS backend-cpp)
-
-  if (WIN32)
-    # On Windows, we need a .def file to specify the export functions from a DLL.
-    # The name of the .def file must match the name of the DLL being created, so
-    # we follow the same naming convention as the tests (e.g. TestCategoryMapper_main_graph)
-    # (see SHARED_LIB_BASE in each of the test files).
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/backend-cpp.def
-      ${CMAKE_CURRENT_BINARY_DIR}/${test_name}_main_graph.def
-      COPYONLY
-      )
-  endif()
 endfunction()
 
-set(TEST_LINK_LIBS CompilerUtils ExecutionSession)
-
 add_backend_cpp_unittest(TestCategoryMapper
-  ModelBuilder.cpp
   TestCategoryMapper.cpp
 
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  LINK_LIBS PRIVATE
+  ModelLib
   )

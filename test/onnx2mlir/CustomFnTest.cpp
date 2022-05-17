@@ -72,7 +72,7 @@ void RegisterFunSchema() {
 }
 
 void registerDialects(mlir::MLIRContext &context) {
-  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::func::FuncDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
 }
 
@@ -86,7 +86,7 @@ int check(ModelProto &model) {
   onnx_mlir::ImportFrontendModel(model, context, module, options);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  pm.addPass(mlir::createShapeInferencePass(true));
+  pm.addPass(onnx_mlir::createShapeInferencePass(true));
   mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module))) {
     module->dump();

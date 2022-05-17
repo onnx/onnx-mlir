@@ -7,11 +7,11 @@
 #include <thread>
 
 int main(int argc, char *argv[]) {
-  const char opstart[] = "TOpStar";
-  const char op2[]     = "TOp2";
-  const char op3[]     = "TOp3";
-  const char op4[]     = "TOp4";
-  const char opfinal[] = "TOpFin";
+  const char opstart[8] = "TOpStar";
+  const char op2[8]     = "TOp2";
+  const char op3[8]     = "TOp3";
+  const char op4[8]     = "TOp4";
+  const char opfinal[8] = "TOpFin";
   OMInstrumentInit();
   OMInstrumentPoint(*(const int64_t*)opstart, 13);
   OMInstrumentPoint(*(const int64_t*)op2, 1);

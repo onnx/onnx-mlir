@@ -17,7 +17,7 @@
 #include <iostream>
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
@@ -32,7 +32,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -48,6 +47,7 @@ namespace {
 
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                  OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXOpTransformPass)
 
   StringRef getArgument() const override { return "onnx-op-transform"; }
 
@@ -59,12 +59,17 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::desc("max iteration for op transform passes."),
       llvm::cl::init(3)};
 
+  Option<bool> onnxOpTransformReport{*this, "onnx-op-transform-report",
+      llvm::cl::desc("Report diagnostic info for op transform passes."),
+      llvm::cl::init(false)};
+
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold_) {
-    this->onnxOpTransformThreshold = threshold_;
+  ONNXOpTransformPass(int threshold, bool report) {
+    this->onnxOpTransformThreshold = threshold;
+    this->onnxOpTransformReport = report;
   }
 
   void runOnOperation() final;
@@ -128,10 +133,12 @@ void ONNXOpTransformPass::runOnOperation() {
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
-    dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-    dynamicPM.addPass(mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     currentTag = createTagForIR(module);
@@ -154,10 +161,11 @@ void ONNXOpTransformPass::runOnOperation() {
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
   return std::make_unique<ONNXOpTransformPass>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass(int threshold) {
-  return std::make_unique<ONNXOpTransformPass>(threshold);
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
+    int threshold, bool report) {
+  return std::make_unique<ONNXOpTransformPass>(threshold, report);
 }

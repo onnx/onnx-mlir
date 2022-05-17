@@ -17,10 +17,11 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
-using namespace mlir;
-using llvm::dbgs;
-
 #define DEBUG_TYPE "space_to_depth_onnx_to_krnl"
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
   ONNXSpaceToDepthOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -34,8 +35,8 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
 
     // Ensure we can compute the operator output shape.
     ONNXSpaceToDepthOpShapeHelper shapeHelper(&spaceToDepthOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     ONNXSpaceToDepthOpAdaptor operandAdaptor(operands);
     LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapeComputed;
@@ -63,18 +64,18 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     LiteralIndexExpr bsLit(bs);
     SmallVector<DimIndexExpr> outputDims1({B, C, newH, bsLit, newW, bsLit});
     Value reshapeRes1 = create.reshape(input, outputDims1);
-    LLVM_DEBUG(dbgs() << "reshapeRes1: " << reshapeRes1 << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "reshapeRes1: " << reshapeRes1 << "\n");
 
     // Transpose the reshape result into shape [B, C, bs, bs, H/bs, W/bs].
     SmallVector<DimIndexExpr> outputDims2({B, C, bsLit, bsLit, newH, newW});
     SmallVector<int64_t> perm({0, 1, 3, 5, 2, 4});
     Value transposeRes = create.transpose(reshapeRes1, perm, outputDims2);
-    LLVM_DEBUG(dbgs() << "transposeRes: " << transposeRes << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "transposeRes: " << transposeRes << "\n");
 
     // Reshape the transpose result into shape [B, C*bs*bs, H/bs, W/bs].
     SmallVector<DimIndexExpr> outputDims3({B, newC, newH, newW});
     Value reshapeRes2 = create.reshape(transposeRes, outputDims3);
-    LLVM_DEBUG(dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);
 
@@ -86,3 +87,4 @@ void populateLoweringONNXSpaceToDepthOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSpaceToDepthOpLowering>(typeConverter, ctx);
 }
+} // namespace onnx_mlir

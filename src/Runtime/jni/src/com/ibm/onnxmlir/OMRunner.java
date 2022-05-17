@@ -22,6 +22,25 @@ import com.jsoniter.output.JsonStream;
 
 /*import com.fasterxml.jackson.databind.ObjectMapper;*/
 
+/* This class is used to run the backend JNI tests.
+ *
+ * It reads from stdin a JSON string which contains the
+ * input tensors converted from numpy ndarray. The tensor
+ * data are base64 encoded.
+ *
+ * It decodes the base64 tensor data, reconstruct the
+ * OMTensor and OMTensorList objects from the JSON, and
+ * calls the OMModel.mainGraph entry point of the model.
+ *
+ * With the output tensors returned by the OMModel.mainGraph
+ * entry point of the model, it base64 encodes the tensor
+ * data, and construct a HashMap with the OMTensor and
+ * OMTensorList objects.
+ *
+ * It writes to stdout a JSON string which contains the
+ * output tensors converted from Java HashMap. The tensor
+ * data are base64 encoded.
+ */
 public class OMRunner
 {
     private static class Data {

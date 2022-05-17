@@ -46,14 +46,14 @@ MathBuilder createMath(rewriter, loc); // Use original info.
 MathBuilder createMath(createKrnl);    // Use info stored in another builder.
 ```
 
-The Math builder contains the operations listed below. Most are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file.
+The Math builder contains the operations listed below. Most are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/Mlir/DialectBuilder.hpp) file.
 
 ```C++
 struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc);
   MathBuilder(DialectBuilder &db);
 
-  Value _and(Value lhs, Value rhs);
+  Value andi(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
@@ -86,41 +86,11 @@ struct MemRefBuilder : DialectBuilder {
 ```
 ***Code: MemRef builder class.***
 
-It defines 4 distinct methods: how to allocate memory (`alloc`) and free (`dealloc`) memory from the heap, how to allocate memory on the stack (`alloca`), and how to extract the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` method above allows for the multi-dimensional memory to have dynamic dimensions; these dynamic dimensions are specified by the parameter `dynSymbols`.  There are variant of these methods for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file for the full set of supported operations.
+It defines 4 distinct methods: how to allocate memory (`alloc`) and free (`dealloc`) memory from the heap, how to allocate memory on the stack (`alloca`), and how to extract the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` method above allows for the multi-dimensional memory to have dynamic dimensions; these dynamic dimensions are specified by the parameter `dynSymbols`.  There are variant of these methods for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/Mlir/DialectBuilder.hpp) file for the full set of supported operations.
 
 ## Generating Krnl Operations
 
 The krnl dialect is our main dialect to lower ONNX operations into loops. This dialect is one step above the MLIR affine dialect in that in enables us to express higher level loop constructs and loop optimizations.
-
-### Older interface to generate loops
-
-In the older approach, we generate loops manually by first defining the loop variables, then the loop bounds, then the loop itself. To generate code inside of the loop, we first need to manually move a code insertion pointer to the block inside of the loop body and then generate the code. When generating code after the loop, we need to move the code insertion pointer back to a point after the loop. For example, consider the code below to initialize a 2 dimensional array to zero.
-
-``` C++
-// Defined values 0 and a 2 dimensional array with dim ub0 and ub1
-Value zero, array, ub0, ub1;
-
-// Define data structure containing the info for the 2 dimensional loop.
-BuildKrnlLoop loop(rewriter, loc, 2);
-loop.createDefineOp();
-loop.pushBounds(zero, ub0);
-loop.pushBounds(zero, ub1);
-
-// Create loop.
-loop.createIterateOp();
-
-// Set insertion point inside the loop.
-rewriter.setInsertionPointToStart(loop.getIterateBlock());
-// write the code inside the loop
-Value loopInd0 = loop.getInductionVar(0);
-Value loopInd1 = loop.getInductionVar(0);
-rewriter.create<KrnlStoreOp>(loc, zero, array, {loopInd0, loopInd1});
-``` 
-***Code: Zeroing an array using the old interface***
-
-Notably, it is difficult to visualize in the code where the loop body starts and ends. In addition, the loop bounds are pushed by pairs (lower and upper bounds) in a strict order somewhere else in the code. That same order is used to retrieve the loop indices inside of the loop. The `rewriter`'s insertion point is manually changed from outside of the loop to inside the loop, and would have to be moved back when we need to insert operations after the loop.
-
-Readability becomes particularly difficult when the nesting structure becomes more complicated.
 
 ## Builder based interface to generate Krnl loops
 
