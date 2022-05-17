@@ -77,7 +77,7 @@ bool LSTMLibBuilder::build() {
   llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
   llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();

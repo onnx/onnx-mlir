@@ -323,11 +323,11 @@ private:
       break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
-          llvm::makeArrayRef(attr.floats().begin(), attr.floats().end()));
+          llvm::makeArrayRef(attr.floats().data(), attr.floats().size()));
       break;
     case onnx::AttributeProto::INTS:
       mlirAttr = builder_.getI64ArrayAttr(
-          llvm::makeArrayRef(attr.ints().begin(), attr.ints().end()));
+          llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
@@ -520,7 +520,7 @@ private:
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         result.addRegion();
 
-    auto op = builder_.createOperation(result);
+    auto op = builder_.create(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(node.output()[i], r);
@@ -1049,7 +1049,7 @@ private:
     return std::string("");
   }
 
-  FuncOp CreateFuncOp(
+  func::FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
     if (namePrefix.empty())
@@ -1060,7 +1060,7 @@ private:
       funcName = namePrefix + "_" + std::to_string(suffix);
     }
 
-    auto funcOp = FuncOp::create(UnknownLoc(), funcName, funcType);
+    auto funcOp = func::FuncOp::create(UnknownLoc(), funcName, funcType);
     module_.insert(module_.begin(), funcOp);
     return funcOp;
   }
@@ -1388,16 +1388,16 @@ private:
    * @param graph onnx graph proto.
    * @return A function corresponding to the imported computation graph.
    */
-  FuncOp importGraph(const onnx::GraphProto &graph) {
+  func::FuncOp importGraph(const onnx::GraphProto &graph) {
     const std::string &name = "main_graph";
-    auto mainFunc = FuncOp::create(UnknownLoc(), name,
+    auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
     // Create and set insertion point to entry block.
-    mainFunc.body().push_back(new Block);
-    builder_.setInsertionPointToStart(&mainFunc.body().back());
+    mainFunc.getBody().push_back(new Block);
+    builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
-    auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
+    auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
 

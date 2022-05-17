@@ -94,7 +94,7 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
-FuncOp ModelLibBuilder::createEmptyTestFunction(
+func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {
   assert(!inputsType.empty() && "Expecting inputsTypes to be non-empty");
@@ -103,15 +103,15 @@ FuncOp ModelLibBuilder::createEmptyTestFunction(
   FunctionType funcType = builder.getFunctionType(inputsType, outputsType);
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp = builder.create<FuncOp>(loc, "main_graph", funcType, attrs);
+  auto funcOp = builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
   return funcOp;
 }
 
-void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getType();
+void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
+  FunctionType funcType = funcOp.getFunctionType();
   auto entryPoint = ONNXEntryPointOp::create(
       loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
   module.push_back(entryPoint);

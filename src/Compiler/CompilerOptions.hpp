@@ -23,7 +23,10 @@
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {
+// Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
+// Common options shared between onnx-mlir and onnx-mlir-opt.
+extern llvm::cl::OptionCategory OnnxMlirCommonOptions;
 
 extern llvm::cl::opt<bool> invokeOnnxVersionConverter;
 extern llvm::cl::opt<bool> preserveLocations;

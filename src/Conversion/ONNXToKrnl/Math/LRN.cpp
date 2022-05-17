@@ -54,10 +54,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     float betaLit = lrnOp.beta().convertToFloat();
     int sizeLit = lrnOp.size();
     auto f32Type = FloatType::getF32(rewriter.getContext());
-    Value biasValue = emitConstantOp(rewriter, loc, f32Type, biasLit);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
-        emitConstantOp(rewriter, loc, f32Type, alphaLit / (float)sizeLit);
-    Value betaValue = emitConstantOp(rewriter, loc, f32Type, betaLit);
+        create.math.constant(f32Type, alphaLit / (float)sizeLit);
+    Value betaValue = create.math.constant(f32Type, betaLit);
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
@@ -95,8 +97,6 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
           // Initialize sum, single scalar, no need for default alignment.
           MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              rewriter, loc);
 
           Value sumAlloc = create.mem.alloc(scalarMemRefType);
           createKrnl.store(create.math.constant(elementType, 0), sumAlloc);

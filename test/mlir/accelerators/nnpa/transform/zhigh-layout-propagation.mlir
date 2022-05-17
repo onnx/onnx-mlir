@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --zhigh-layout-prop --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --zhigh-layout-prop --shape-inference %s -split-input-file | FileCheck %s
 
 // -----
 

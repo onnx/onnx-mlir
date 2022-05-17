@@ -37,10 +37,12 @@ namespace {
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
 
-class InstrumentONNXPass
-    : public mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>> {
+class InstrumentONNXPass : public mlir::PassWrapper<InstrumentONNXPass,
+                               OperationPass<func::FuncOp>> {
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentONNXPass)
+
   Option<std::string> instrumentONNXOps{*this, "instrument-onnx-ops",
       llvm::cl::desc("Specify onnx ops to be instrumented\n"
                      "\"NONE\" or \"\" for no instrument\n"
@@ -64,7 +66,7 @@ public:
 
   InstrumentONNXPass() = default;
   InstrumentONNXPass(const InstrumentONNXPass &pass)
-      : mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>>() {}
+      : mlir::PassWrapper<InstrumentONNXPass, OperationPass<func::FuncOp>>() {}
   InstrumentONNXPass(StringRef ops, int actions) {
     this->instrumentONNXOps = ops.str();
     this->instrumentBefore = actions & onnx_mlir::InstrumentBeforeOp;

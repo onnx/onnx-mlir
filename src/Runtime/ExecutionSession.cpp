@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <errno.h>
+#include <string.h>
+
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -99,7 +102,13 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   auto *wrappedInput = omTensorListCreate(&omts[0], (int64_t)omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-
+  if (!wrappedOutput) {
+    std::stringstream errStr;
+    std::string errMessageStr = std::string(strerror(errno));
+    errStr << "Runtime error during inference returning with ERRNO code '"
+           << errMessageStr << "'" << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
   std::vector<OMTensorUniquePtr> outs;
 
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
@@ -118,7 +127,15 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
            << std::endl;
     throw std::runtime_error(errStr.str());
   }
-  return _entryPointFunc(input);
+  OMTensorList *output = _entryPointFunc(input);
+  if (!output) {
+    std::stringstream errStr;
+    std::string errMessageStr = std::string(strerror(errno));
+    errStr << "Runtime error during inference returning with ERRNO code '"
+           << errMessageStr << "'" << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  return output;
 }
 
 const std::string ExecutionSession::inputSignature() const {

@@ -55,11 +55,10 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
       if (outputMemRefShape[i] > 0)
         constantValues *= outputMemRefShape[i];
-    Value numberOfRandomValues =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), constantValues);
-
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
+    Value numberOfRandomValues =
+        create.math.constant(rewriter.getIndexType(), constantValues);
 
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
@@ -73,15 +72,15 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ONNXRandomNormalLikeOp randomNormalLikeOp =
         cast<ONNXRandomNormalLikeOp>(op);
     double mean = randomNormalLikeOp.mean().convertToDouble();
-    Value meanValue = emitConstantOp(rewriter, loc, elementType, mean);
+    Value meanValue = create.math.constant(elementType, mean);
     double scale = randomNormalLikeOp.scale().convertToDouble();
-    Value scaleValue = emitConstantOp(rewriter, loc, elementType, scale);
+    Value scaleValue = create.math.constant(elementType, scale);
     auto seed = randomNormalLikeOp.seed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)
       doubleSeed = seed->convertToDouble();
-    Value seedValue = emitConstantOp(rewriter, loc, elementType, doubleSeed);
+    Value seedValue = create.math.constant(elementType, doubleSeed);
     create.krnl.randomNormal(
         alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 
