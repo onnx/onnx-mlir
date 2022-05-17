@@ -14,8 +14,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -78,7 +78,7 @@ public:
             rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
 
     // Memcpy call
-    rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
+    rewriter.create<func::CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 

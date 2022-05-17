@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMEnableMemoryPool
 
   LINK_LIBS PUBLIC
   OMSupport
+  MLIRFunc
   MLIRTransformUtils
   )
 

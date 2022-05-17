@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -53,8 +53,10 @@ public:
  *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
-    : public PassWrapper<LowerKrnlRegionPass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlRegionPass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlRegionPass)
+
   StringRef getArgument() const override { return "lower-krnl-region"; }
 
   StringRef getDescription() const override {

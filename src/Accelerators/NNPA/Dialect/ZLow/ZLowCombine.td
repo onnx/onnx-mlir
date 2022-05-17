@@ -15,6 +15,7 @@
 #define ZLOW_COMBINE
 
 #ifndef OP_BASE
+include "mlir/IR/PatternBase.td"
 include "ZLow.td"
 #endif // OP_BASE
 

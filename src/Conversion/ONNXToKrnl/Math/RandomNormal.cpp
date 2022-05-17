@@ -51,23 +51,23 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
     int64_t randomValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
       randomValues *= outputMemRefShape[i];
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     Value numberOfRandomValues =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), randomValues);
+        create.math.constant(rewriter.getIndexType(), randomValues);
 
     // Create the Krnl Random Normal operation:
     ONNXRandomNormalOp randomNormalOp = llvm::cast<ONNXRandomNormalOp>(op);
     double mean = randomNormalOp.mean().convertToDouble();
-    Value meanValue = emitConstantOp(rewriter, loc, elementType, mean);
+    Value meanValue = create.math.constant(elementType, mean);
     double scale = randomNormalOp.scale().convertToDouble();
-    Value scaleValue = emitConstantOp(rewriter, loc, elementType, scale);
+    Value scaleValue = create.math.constant(elementType, scale);
     auto seed = randomNormalOp.seed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)
       doubleSeed = seed->convertToDouble();
-    Value seedValue = emitConstantOp(rewriter, loc, elementType, doubleSeed);
+    Value seedValue = create.math.constant(elementType, doubleSeed);
 
-    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     create.krnl.randomNormal(
         alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 

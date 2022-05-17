@@ -73,7 +73,7 @@ bool Conv2DLibBuilder::build() {
   llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto xVal = entryBlock.getArgument(0);
@@ -112,7 +112,7 @@ bool Conv2DLibBuilder::build() {
   convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

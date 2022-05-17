@@ -164,7 +164,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
     auto direction = rnnOp.direction();
 
-    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
@@ -181,7 +181,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value directionIV =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+                create.math.constant(rewriter.getIndexType(), 0);
             Value sequenceIV = loopInd[0];
             // Get a slice of X at the current timestep.
             Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
@@ -210,12 +210,12 @@ struct ONNXRNNOpLowering : public ConversionPattern {
                 rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) -
                     1);
 
-            Value directionIV = emitConstantOp(rewriter, loc,
+            Value directionIV = create.math.constant(
                 rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
             Value sequenceSize =
                 (sequenceDimSize != -1)
-                    ? emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                          sequenceDimSize)
+                    ? create.math.constant(
+                          rewriter.getIndexType(), sequenceDimSize)
                     : create.mem.dim(X, 0);
 
             Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
