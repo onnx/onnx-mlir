@@ -112,9 +112,34 @@ deprecated_models = {
     "emotion-ferplus-2",
 }
 
+int8_models = {
+    "bertsquad-12-int8",
+    "inception-v1-12-int8",
+    "googlenet-12-int8",
+    "zfnet512-12-int8",
+    "caffenet-12-int8",
+    "mobilenetv2-12-int8",
+    "squeezenet1.0-12-int8",
+    "densenet-12-int8",
+    "resnet50-v1-12-int8",
+    "efficientnet-lite4-11-int8",
+    "bvlcalexnet-12-int8",
+    "vgg16-12-int8",
+    "shufflenet-v2-12-int8",
+    "yolov3-12-int8",
+    "FasterRCNN-12-int8",
+    "fcn-resnet50-12-int8",
+    "ssd-12-int8",
+    "ssd_mobilenet_v1_12-int8",
+    "MaskRCNN-12-int8",
+}
+
+excluded_models = deprecated_models.union(int8_models)
+
 # Additional information passed to RunONNXModel.py.
 RunONNXModel_additional_options = {
-    "t5-decoder-with-lm-head-12": ['--shape_info=0:1x2,1:1x2x768']
+    "t5-decoder-with-lm-head-12": ['--shape_info=0:1x2,1:1x2x768'],
+    "t5-encoder-12": ['--shape_info=0:1x2,1:1x2x768']
 }
 
 # States
@@ -131,18 +156,16 @@ def obtain_all_model_paths():
     model_names = [
         path.split('/')[-1][:-len(".tag.gz")] for path in model_paths
     ]  # remove .tag.gz
-    deprecated_names = set(model_names).intersection(deprecated_models)
+    excluded_names = set(model_names).intersection(excluded_models)
 
     log_l1('\n')
-    deprecated_msg = ""
-    if (len(deprecated_names) != 0):
-        deprecated_msg = "where " + \
-            str(len(deprecated_names)) + \
-            " models are deprecated (using very old opsets, e.g. <= 3)"
-    log_l1("# There are {} models in the ONNX model zoo {}".format(
-        len(model_paths), deprecated_msg))
-    log_l1("See https://github.com/onnx/models/pull/389",
-           "for a list of deprecated models\n")
+    excluded_msg = ""
+    if (len(excluded_names) != 0):
+        excluded_msg = "where " + \
+            str(len(excluded_names)) + \
+            " models are excluded because of old opsets or quantization"
+    log_l1("# There are {} models in the ONNX model zoo {}.".format(
+        len(model_paths), excluded_msg))
     return model_names, model_paths
 
 
@@ -185,8 +208,8 @@ def check_model(model_path, model_name, compile_args):
                 data_set = pb_files.split('\n')[0]
         if (not has_data_sets):
             log_l1(
-                "Warning: This model does not have test data sets. Will check the model with random data."
-            )
+                "Warning: model {} does not have test data sets. Will check the model with random data."
+                .format(model_name))
 
         # compile, run and verify.
         log_l1("Checking the model {} ...".format(model_name))
@@ -200,7 +223,7 @@ def check_model(model_path, model_name, compile_args):
             options += RunONNXModel_additional_options[model_name]
         ok, msg = execute_commands(RUN_ONNX_MODEL + [onnx_file] + options)
         state = TEST_PASSED if ok else TEST_FAILED
-        log_l1(msg)
+        log_l1("[{}] {}".format(model_name, msg))
     return state
 
 
@@ -210,8 +233,8 @@ def pull_and_check_model(model_path, compile_args, keep_model):
     # Ignore deprecated models.
     model_tag_gz = "./" + model_path.split('/')[-1]
     model_name = model_path.split('/')[-1][:-len(".tag.gz")]  # remove .tag.gz
-    if model_name in deprecated_models:
-        log_l1("The model {} is deprecated. Ignored.".format(model_name))
+    if model_name in excluded_models:
+        log_l1("The model {} is excluded. Ignored.".format(model_name))
         return state, model_name
 
     # pull the model.
@@ -278,7 +301,7 @@ def main():
     if (args.m):
         models_to_run = [args.m]
 
-    target_model_paths = []
+    target_model_paths = set()
     for name in models_to_run:
         if name not in all_model_names:
             print(
@@ -287,7 +310,9 @@ def main():
                 difflib.get_close_matches(name, all_model_names,
                                           len(all_model_names)))
             return
-        target_model_paths += [m for m in all_model_paths if name in m]
+        for m in all_model_paths:
+            if name in m:
+                target_model_paths.add(m)
 
     # Start processing the models.
     results = Parallel(n_jobs=args.njobs, verbose=1)(
@@ -295,14 +320,14 @@ def main():
         for path in target_model_paths)
 
     # Report the results.
-    tested_models = [r[1] for r in results if r[0] != NO_TEST]
+    tested_models = {r[1] for r in results if r[0] != NO_TEST}
     print("{} models tested: {}\n".format(len(tested_models),
                                           ', '.join(tested_models)))
-    passed_models = [r[1] for r in results if r[0] == TEST_PASSED]
+    passed_models = {r[1] for r in results if r[0] == TEST_PASSED}
     print("{} models passed: {}\n".format(len(passed_models),
                                           ', '.join(passed_models)))
     if len(passed_models) != len(tested_models):
-        failed_models = [r[1] for r in results if r[0] == TEST_FAILED]
+        failed_models = {r[1] for r in results if r[0] == TEST_FAILED}
         msg = "{} model failed: {}\n".format(len(failed_models),
                                              ', '.join(failed_models))
         if args.a:
