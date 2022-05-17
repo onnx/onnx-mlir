@@ -328,7 +328,7 @@ def main():
                                           ', '.join(passed_models)))
     if len(passed_models) != len(tested_models):
         failed_models = {r[1] for r in results if r[0] == TEST_FAILED}
-        msg = "{} model failed: {}\n".format(len(failed_models),
+        msg = "{} models failed: {}\n".format(len(failed_models),
                                              ', '.join(failed_models))
         if args.a:
             raise AssertionError(msg)
