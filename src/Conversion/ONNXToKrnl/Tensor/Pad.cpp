@@ -71,10 +71,11 @@ struct ONNXPadOpLowering : public ConversionPattern {
       // This way is to avoid using `select` in computing indices as doing for
       // 'edge' and 'reflect' modes.
       Value cValue;
-      if (constantValue.getType().isa<NoneType>())
+      if (constantValue.getType().isa<NoneType>()) {
         // Default to 0 if constant_value is not specified.
-        cValue = emitConstantOp(rewriter, loc, resElementType, 0);
-      else
+        MathBuilder createMath(rewriter, loc);
+        cValue = createMath.constant(resElementType, 0);
+      } else
         cValue = createKrnl.load(constantValue, {});
 
       // Initialize the result to the constant value.
