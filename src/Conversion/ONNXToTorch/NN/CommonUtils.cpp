@@ -137,12 +137,16 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
                           ConversionPatternRewriter &rewriter,
                           mlir::MLIRContext *context, Location loc) {
   Value result = dataTensor;
+  auto dataType = dataTensor.getType().dyn_cast<TensorType>();
 
   if (axes.size() > 0) {
     for (auto i = 0; i < axes.size(); i++) {
       // With every successive deleting on dimension, the input axis
       // changes to `axis = axis - number_of_dimensions_deleted`
-      Value dim = getIntValue((axes[i] - i), rewriter, context, loc);
+      // This works because, axes is sorted and normalized to possitive integers
+      auto dim_raw = axes[i] - i;
+      assert((dataType.getShape()[dim_raw] == 1) && "Cannot squeeze for dim");
+      Value dim = getIntValue(dim_raw, rewriter, context, loc);
       result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
     }
   } else {
