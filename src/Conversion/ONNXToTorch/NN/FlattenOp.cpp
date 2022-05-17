@@ -146,8 +146,7 @@ public:
       intermShape.insert(intermShape.end(), remainingDims.begin(), 
 		remainingDims.end());
       auto intermType = Torch::ValueTensorType::get(context,
-       		llvm::makeArrayRef(intermShape), // todo is this a memory 
-		//leak? where to allocate the vector?
+       		llvm::makeArrayRef(intermShape),
       		inputTensorType.getElementType());
       // 1) Flatten the region from 0 position to axis - 1.
       result = createAtenFlattenOp(rewriter, loc, result, 
