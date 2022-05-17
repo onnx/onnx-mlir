@@ -12,6 +12,7 @@
 
 import os
 import sys
+import signal
 import argparse
 import subprocess
 import tempfile
@@ -30,7 +31,7 @@ Example:
     $ cd models
     $ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
     $ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
-    $ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3 -mcpu=z14"
+    $ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -m mnist-8 -compile_args="-O3 -mcpu=z14"
 """
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -47,6 +48,8 @@ VERBOSE values:
 """
 VERBOSE = int(os.environ.get('VERBOSE', 0))
 
+ONNX_MODEL_ZOO_URL = "https://github.com/onnx/models/raw/main"
+
 
 def log_l1(*args):
     if (VERBOSE >= 1):
@@ -60,17 +63,13 @@ def log_l2(*args):
 
 """Commands will be called in this script.
 """
-FIND_MODEL_PATHS_CMD = ['find', '.', '-type', 'f', '-name', '*.tar.gz']
-# git lfs pull --include="${onnx_model}" --exclude=""
-PULL_CMD = ['git', 'lfs', 'pull', '--exclude=\"\"']
-# git lfs pointer --file = "${onnx_model}" > ${onnx_model}.pt
-CLEAN_CMD = ['git', 'lfs', 'pointer']
-# git checkout file_path
-CHECKOUT_CMD = ['git', 'checkout']
-# tar -xzvf file.tar.gz
+# `-mindepth 2` is to ignore the current folder but subfolders.
+FIND_MODEL_PATHS_CMD = [
+    'find', '.', '-mindepth', '2', '-type', 'f', '-name', '*.tar.gz'
+]
 UNTAR_CMD = ['tar', '-xzvf']
+WGET_CMD = ['wget', '--no-check-certificate', '--timestamping']
 RM_CMD = ['rm']
-MV_CMD = ['mv']
 # Compile, run and verify an onnx model.
 RUN_ONNX_MODEL = ['python', 'RunONNXModel.py']
 
@@ -81,10 +80,11 @@ def execute_commands(cmds):
                            stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
     stdout, stderr = out.communicate()
-    if stderr:
-        return (False, stderr.decode("utf-8"))
-    else:
-        return (True, stdout.decode("utf-8"))
+    if out.returncode == -signal.SIGSEGV:
+        return (False, "Segfault")
+    if out.returncode != 0:
+        return (False, stderr.decode("utf-8") + stdout.decode("utf-8"))
+    return (True, stdout.decode("utf-8"))
 
 
 def execute_commands_to_file(cmds, ofile):
@@ -110,6 +110,11 @@ deprecated_models = {
     "zfnet512-3",
     "vgg19-caffe2-3",
     "emotion-ferplus-2",
+}
+
+# Additional information passed to RunONNXModel.py.
+RunONNXModel_additional_options = {
+    "t5-decoder-with-lm-head-12": ['--shape_info=0:1x2,1:1x2x768']
 }
 
 # States
@@ -179,7 +184,9 @@ def check_model(model_path, model_name, compile_args):
                 has_data_sets = True
                 data_set = pb_files.split('\n')[0]
         if (not has_data_sets):
-            log_l1("Warning: This model does not have test data sets.")
+            log_l1(
+                "Warning: This model does not have test data sets. Will check the model with random data."
+            )
 
         # compile, run and verify.
         log_l1("Checking the model {} ...".format(model_name))
@@ -189,39 +196,35 @@ def check_model(model_path, model_name, compile_args):
         if has_data_sets:
             options += ['--verify=ref']
             options += ['--data_folder={}'.format(data_set)]
+        if model_name in RunONNXModel_additional_options:
+            options += RunONNXModel_additional_options[model_name]
         ok, msg = execute_commands(RUN_ONNX_MODEL + [onnx_file] + options)
         state = TEST_PASSED if ok else TEST_FAILED
         log_l1(msg)
     return state
 
 
-def pull_and_check_model(model_path, compile_args, pull_models, keep_model):
+def pull_and_check_model(model_path, compile_args, keep_model):
     state = NO_TEST
 
     # Ignore deprecated models.
+    model_tag_gz = "./" + model_path.split('/')[-1]
     model_name = model_path.split('/')[-1][:-len(".tag.gz")]  # remove .tag.gz
     if model_name in deprecated_models:
         log_l1("The model {} is deprecated. Ignored.".format(model_name))
         return state, model_name
 
     # pull the model.
-    if pull_models:
-        log_l1('Downloading {}'.format(model_path))
-        pull_cmd = PULL_CMD + ['--include={}'.format(model_path)]
-        ok, _ = execute_commands(pull_cmd)
-        if not ok:
-            log_l1("Failed to pull the model {}. Ignored.".format(model_name))
+    model_url = ONNX_MODEL_ZOO_URL + '/' + model_path
+    log_l1('Downloading {}'.format(model_url))
+    ok, _ = execute_commands(WGET_CMD + [model_url])
 
     # check the model.
-    state = check_model(model_path, model_name, compile_args)
+    state = check_model(model_tag_gz, model_name, compile_args)
 
-    if pull_models and (not keep_model):
+    if not keep_model:
         # remove the model to save the storage space.
-        clean_cmd = CLEAN_CMD + ['--file={}'.format(model_path)]
-        execute_commands_to_file(clean_cmd, '{}.pt'.format(model_path))
-        execute_commands(RM_CMD + [model_path])
-        execute_commands(MV_CMD + ['{}.pt'.format(model_path), model_path])
-        execute_commands(CHECKOUT_CMD + [model_path])
+        execute_commands(RM_CMD + [model_tag_gz])
 
     return state, model_name
 
@@ -250,21 +253,12 @@ def main():
     parser.add_argument(
         '-compile_args',
         help="Options passing to onnx-mlir to compile a model.")
-    parallel_group = parser.add_mutually_exclusive_group()
-    parallel_group.add_argument(
-        '-njobs',
-        type=int,
-        default=1,
-        help="The number of processes in parallel."
-        " The large -njobs is, the more disk space is needed"
-        " for downloaded onnx models. Default 1.")
-    parallel_group.add_argument(
-        '-pull_models',
-        action='store_true',
-        help="Pull models from the remote git repository."
-        " This requires git-lfs. Please follow the instruction here to install"
-        " git-lfs: https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage."
-    )
+    parser.add_argument('-njobs',
+                        type=int,
+                        default=1,
+                        help="The number of processes in parallel."
+                        " The large -njobs is, the more disk space is needed"
+                        " for downloaded onnx models. Default 1.")
     args = parser.parse_args()
 
     # Collect all model paths in the model zoo
@@ -296,10 +290,9 @@ def main():
         target_model_paths += [m for m in all_model_paths if name in m]
 
     # Start processing the models.
-    results = Parallel(n_jobs=args.njobs,
-                       verbose=1)(delayed(pull_and_check_model)(
-                           path, args.compile_args, args.pull_models, args.k)
-                                  for path in target_model_paths)
+    results = Parallel(n_jobs=args.njobs, verbose=1)(
+        delayed(pull_and_check_model)(path, args.compile_args, args.k)
+        for path in target_model_paths)
 
     # Report the results.
     tested_models = [r[1] for r in results if r[0] != NO_TEST]
@@ -312,7 +305,7 @@ def main():
         failed_models = [r[1] for r in results if r[0] == TEST_FAILED]
         msg = "{} model failed: {}\n".format(len(failed_models),
                                              ', '.join(failed_models))
-        if args.assertion:
+        if args.a:
             raise AssertionError(msg)
         else:
             print(msg)
