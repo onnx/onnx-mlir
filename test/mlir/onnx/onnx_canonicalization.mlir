@@ -106,7 +106,7 @@ func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>)
     // CHECK: [[SQRT:%.+]] = "onnx.Sqrt"([[VAR_EPSILON]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[COEFFICIENT_W:%.+]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[UNSQUEEZE:%.+]] = "onnx.UnsqueezeV11"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[WEIGHT]], [[UNSQUEEZE]]) : (tensor<64x3x7x7xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[UNSQUEEZE]], [[WEIGHT]]) : (tensor<*xf32>, tensor<64x3x7x7xf32>) -> tensor<*xf32>
 
     // CHECK: [[NEG_MEAN:%.+]] = "onnx.Neg"([[MEAN]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[MUL:%.+]] = "onnx.Mul"([[COEFFICIENT_W]], [[NEG_MEAN]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -144,7 +144,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
     // CHECK: [[SQRT:%.+]] = "onnx.Sqrt"([[VAR_EPSILON]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[COEFFICIENT_W:%.+]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[UNSQUEEZE:%.+]] = "onnx.UnsqueezeV11"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[WEIGHT]], [[UNSQUEEZE]]) : (tensor<64x3x7x7xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[UNSQUEEZE]], [[WEIGHT]]) : (tensor<*xf32>, tensor<64x3x7x7xf32>) -> tensor<*xf32>
 
     // CHECK: [[SUB:%.+]] = "onnx.Sub"(%arg1, [[MEAN]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
     // CHECK: [[MUL:%.+]] = "onnx.Mul"([[COEFFICIENT_W]], [[SUB]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
@@ -560,7 +560,7 @@ func @test_rewrite_batchnormtestmode_Nd(%arg0 : tensor<1x64x112x112xf32>) -> ten
 
     // CHECK: [[X_A:%.*]] = "onnx.Mul"(%arg0, [[A_UNSQUEEZE]]) : (tensor<1x64x112x112xf32>, tensor<*xf32>) -> tensor<*xf32>
 
-    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[MEAN]], [[A]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[A]], [[MEAN]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[B:%.*]] = "onnx.Sub"([[BIAS]], [[SUB]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[B_UNSQUEEZE:%.*]] = "onnx.UnsqueezeV11"([[B]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
 
@@ -591,7 +591,7 @@ func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>) -> tensor<64xf32
 
     // CHECK: [[X_A:%.*]] = "onnx.Mul"(%arg0, [[A]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
 
-    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[MEAN]], [[A]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[A]], [[MEAN]]) : (tensor<*xf32>, tensor<1xf32>) -> tensor<*xf32>
     // CHECK: [[B:%.*]] = "onnx.Sub"([[BIAS]], [[SUB]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<64xf32>
@@ -645,7 +645,7 @@ func @test_fuse_mul_conv(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
     // CHECK: [[NOBIAS:%.+]] = "onnx.NoValue"() {value} : () -> none
     // CHECK: [[Y:%.+]] = "onnx.Constant"() {value = dense<{{.*}}[-0.161539719{{.*}}, {{.*}}-0.433835655{{.*}}, {{.*}}0.091641359{{.*}}, {{.*}}-0.0168522168{{.*}}, {{.*}}-0.0650264397{{.*}}, {{.*}}-0.131737873{{.*}}, {{.*}}0.0204175506{{.*}}, {{.*}}-0.121110231{{.*}}> : tensor<8x1x1xf32>} : () -> tensor<8x1x1xf32>
     // CHECK: [[Y1:%.+]] = "onnx.UnsqueezeV11"([[Y]]) {axes = [3]} : (tensor<8x1x1xf32>) -> tensor<*xf32>
-    // CHECK: [[MUL:%.+]] = "onnx.Mul"([[W]], [[Y1]]) : (tensor<8x1x2x2xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[MUL:%.+]] = "onnx.Mul"([[Y1]], [[W]]) : (tensor<*xf32>, tensor<8x1x2x2xf32>) -> tensor<*xf32>
     // CHECK: [[RES:%.+]] = "onnx.Conv"(%arg0, [[MUL]], [[NOBIAS]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [2, 2], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<*xf32>, none) -> tensor<*xf32>
     // CHECK: return [[RES]] : tensor<*xf32>
 }

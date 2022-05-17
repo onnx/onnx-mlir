@@ -18,7 +18,6 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include <numeric>
 
 using namespace mlir;
 
@@ -113,7 +112,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
 /// on the ONNXMulOp.
 void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<NormalizeAddPattern>(context);
+  results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
 }
 
