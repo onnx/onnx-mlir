@@ -12,30 +12,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdint>
-#include <set>
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include <cstdint>
+#include <set>
+#include <vector>
 
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
-  ONNXToTorchSqueezeV11OpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXSqueezeOp::getOperationName(), 1, ctx) {}
+  ONNXToTorchSqueezeV11OpLowering(TypeConverter &typeConverter,
+                                  MLIRContext *ctx)
+      : ConversionPattern(typeConverter, ONNXSqueezeOp::getOperationName(), 1,
+                          ctx) {}
 
-  Value getIntValue(int val, ConversionPatternRewriter &rewriter,
-      mlir::MLIRContext *context, Location loc) const {
-    auto iType = IntegerType::get(context, 64);
-    auto iVal = IntegerAttr::get(iType, val);
-    return rewriter.create<ConstantIntOp>(loc, iVal);
+  std::vector<int> toVector(mlir::ArrayAttr axes_unsorted) const {
+    std::vector<int> axes;
+
+    // for (auto i : axes_unsorted) {
+    //   auto j = i.dyn_cast<IntegerAttr>();
+    //   axes.push_back(j);
+    // }
+
+    return axes;
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  std::vector<int> getAxes(mlir::ArrayAttr axes) const {
+    auto axes_vec = toVector(axes);
+    return getSortedWithNegativeAxes(axes_vec);
+  }
+
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
     ONNXSqueezeV11Op squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeV11Op>(op);
 
     assert(squeezeOp && "Expecting op to have a strong type");
@@ -43,7 +54,7 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
     Location loc = squeezeOp.getLoc();
 
     Value data = squeezeOp.data();
-    ArrayAttr axes = squeezeOp.axesAttr();
+    auto axes = getAxes(squeezeOp.axesAttr());
 
     mlir::MLIRContext *context = squeezeOp.getContext();
 
@@ -52,18 +63,8 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
     auto dataTensor =
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, dataType, data);
-    Value result = dataTensor;
-
-    // if (0) {
-    //   for (auto i = 0; axes.size(); i++) {
-    //     Value dim = getIntValue(0, rewriter, context, loc);
-
-    //     result =
-    //       rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
-    //   }
-    // } else {
-      result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
-    // }
+    Value result =
+        squeezeResult(axes, dataTensor, resultType, rewriter, context, loc);
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
@@ -73,51 +74,28 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
 
 struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
   ONNXToTorchSqueezeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXSqueezeOp::getOperationName(), 1, ctx) {}
-
-  Value getIntValue(int val, ConversionPatternRewriter &rewriter,
-      mlir::MLIRContext *context, Location loc) const {
-    auto iType = IntegerType::get(context, 64);
-    auto iVal = IntegerAttr::get(iType, val);
-    return rewriter.create<ConstantIntOp>(loc, iVal);
-  }
+      : ConversionPattern(typeConverter, ONNXSqueezeOp::getOperationName(), 1,
+                          ctx) {}
 
   std::vector<int> toVector(mlir::Value axes_unsorted) const {
     std::vector<int> axes;
 
-    for (auto i : axes_unsorted) {
-      auto j = i.dyn_cast<IntegerAttr>();
-      axes.push_back(j);
-    }
+    // for (auto i : axes_unsorted) {
+    //   auto j = i.dyn_cast<IntegerAttr>();
+    //   axes.push_back(j);
+    // }
 
     return axes;
   }
 
-  std::vector<int> toUniqueAndNonNegative(std::vector<int> axes) const {
-    std::set<int> axesSet(axes.begin(), axes.end());
-    std::vector<int> axesNonNeg;
-
-    for (auto x : axesSet) {
-      // positive integers are added as it
-      // negative integers are normarlized to positive
-      axesNonNeg.push_back((x > 0) ? x : (x + axesSet.size()));
-    }
-    return axesNonNeg;
+  std::vector<int> getAxes(mlir::Value axes) const {
+    auto axes_vec = toVector(axes);
+    return getSortedWithNegativeAxes(axes_vec);
   }
 
-  std::vector<int> getSortedWithNegativeAxes(mlir::Value axesRaw) const {
-    auto axesVector = toVector(axesRaw);
-    auto axesNonNegative = toUniqueAndNonNegative(axesVector);
-    auto axesSorted = axesNonNegative;
-
-    std::sort(axesSorted.begin(), axesSorted.end());
-
-    return axesSorted;
-  }
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
     ONNXSqueezeOp squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeOp>(op);
 
     assert(squeezeOp && "Expecting op to have a strong type");
@@ -127,7 +105,7 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     Value data = squeezeOp.data();
     mlir::ValueRange x = squeezeOp.axes();
 
-    auto axes = getSortedWithNegativeAxes(squeezeOp.axes());
+    auto axes = getAxes(squeezeOp.axes());
 
     mlir::MLIRContext *context = squeezeOp.getContext();
 
@@ -136,29 +114,19 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     auto dataTensor =
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, dataType, data);
-    Value result = dataTensor;
 
-    if (axes.size() > 0) {
-      for (auto i=0; i<axes.size(); i++) {
-        // With every successive deleting on dimension, the input axis
-        // changes to `axis = axis - number_of_dimensions_deleted`
-        Value dim = getIntValue((axes[i] - i), rewriter, context, loc);
-        result =
-          rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
-      }
-    } else {
-      result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
-    }
+    auto result =
+        squeezeResult(axes, dataTensor, resultType, rewriter, context, loc);
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType,
-    result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
     return success();
   }
 };
 
 void populateLoweringONNXToTorchSqueezeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+                                                 TypeConverter &typeConverter,
+                                                 MLIRContext *ctx) {
   patterns
       .insert<ONNXToTorchSqueezeV11OpLowering, ONNXToTorchSqueezeOpLowering>(
           typeConverter, ctx);

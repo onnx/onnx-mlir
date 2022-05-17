@@ -1,12 +1,15 @@
 #include "CommonUtils.h"
+#include <set>
+#include <vector>
 
 typedef struct dim_pads {
   int dim_start;
   int dim_end;
 } dim_pads;
 
-std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
-    Location loc, ConversionPatternRewriter &rewriter) {
+std::vector<Value>
+createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
+                         ConversionPatternRewriter &rewriter) {
   // Reading the ONNX side pads values and store in the array.
   std::vector<Value> translatepadsList;
   if (!pads)
@@ -19,8 +22,8 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
       break;
     }
   }
-  assert(
-      is_symmetric && "Frontend transformations only handle symmetric padding");
+  assert(is_symmetric &&
+         "Frontend transformations only handle symmetric padding");
 
   dim_pads dimArray[pads.size()];
   if (is_symmetric) {
@@ -64,13 +67,15 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
 }
 
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
-    Type ty, Location loc, ConversionPatternRewriter &rewriter,
-    int default_val) {
+                                        Type ty, Location loc,
+                                        ConversionPatternRewriter &rewriter,
+                                        int default_val) {
   std::vector<Value> operandArrayValues;
   if (onnxArrayAttr) {
     for (unsigned int i = 0; i < onnxArrayAttr.size(); i++) {
-      auto f1 = IntegerAttr::get(ty,
-        (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+      auto f1 = IntegerAttr::get(
+          ty,
+          (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       operandArrayValues.push_back(p1v);
     }
@@ -94,6 +99,55 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
 ///
 /// \returns Torch::ValueTensorType conversion from tensor
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
-   auto type = t.template dyn_cast<TensorType>();
-   return Torch::ValueTensorType::get(ctx, type.getShape(), type.getElementType());
+  auto type = t.template dyn_cast<TensorType>();
+  return Torch::ValueTensorType::get(ctx, type.getShape(),
+                                     type.getElementType());
+}
+
+Value getIntValue(int val, ConversionPatternRewriter &rewriter,
+                  mlir::MLIRContext *context, Location loc) {
+  auto iType = IntegerType::get(context, 64);
+  auto iVal = IntegerAttr::get(iType, val);
+  return rewriter.create<ConstantIntOp>(loc, iVal);
+}
+
+std::vector<int> toUniqueAndNonNegative(std::vector<int> axes) {
+  std::set<int> axesSet(axes.begin(), axes.end());
+  std::vector<int> axesNonNeg;
+
+  for (auto x : axesSet) {
+    // positive integers are added as it
+    // negative integers are normarlized to positive
+    axesNonNeg.push_back((x > 0) ? x : (x + axesSet.size()));
+  }
+  return axesNonNeg;
+}
+
+std::vector<int> getSortedWithNegativeAxes(std::vector<int> axesRaw) {
+  auto axesNonNegative = toUniqueAndNonNegative(axesRaw);
+  auto axesSorted = axesNonNegative;
+
+  std::sort(axesSorted.begin(), axesSorted.end());
+
+  return axesSorted;
+}
+
+mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
+                          Torch::ValueTensorType resultType,
+                          ConversionPatternRewriter &rewriter,
+                          mlir::MLIRContext *context, Location loc) {
+  Value result = dataTensor;
+
+  if (axes.size() > 0) {
+    for (auto i = 0; i < axes.size(); i++) {
+      // With every successive deleting on dimension, the input axis
+      // changes to `axis = axis - number_of_dimensions_deleted`
+      Value dim = getIntValue((axes[i] - i), rewriter, context, loc);
+      result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
+    }
+  } else {
+    result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
+  }
+
+  return result;
 }

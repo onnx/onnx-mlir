@@ -49,9 +49,21 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
-    Location loc, ConversionPatternRewriter &rewriter);
+std::vector<Value>
+createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
+                         ConversionPatternRewriter &rewriter);
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
-    Type ty, Location loc, ConversionPatternRewriter &rewriter,
-    int default_val = 0);
+                                        Type ty, Location loc,
+                                        ConversionPatternRewriter &rewriter,
+                                        int default_val = 0);
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);
+Value getIntValue(int val, ConversionPatternRewriter &rewriter,
+                  mlir::MLIRContext *context, Location loc);
+
+std::vector<int> getSortedWithNegativeAxes(std::vector<int> axesRaw);
+std::vector<int> toUniqueAndNonNegative(std::vector<int> axes);
+
+mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
+                          Torch::ValueTensorType resultType,
+                          ConversionPatternRewriter &rewriter,
+                          mlir::MLIRContext *context, Location loc);
