@@ -137,10 +137,11 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
                           ConversionPatternRewriter &rewriter,
                           mlir::MLIRContext *context, Location loc) {
   Value result = dataTensor;
-  auto dataType = dataTensor.getType().dyn_cast<TensorType>();
 
   if (axes.size() > 0) {
     for (auto i = 0; i < axes.size(); i++) {
+      auto dataType = result.getType().dyn_cast<TensorType>();
+
       // With every successive deleting on dimension, the input axis
       // changes to `axis = axis - number_of_dimensions_deleted`
       // This works because, axes is sorted and normalized to possitive integers
