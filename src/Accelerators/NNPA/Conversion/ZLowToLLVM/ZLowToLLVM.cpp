@@ -329,6 +329,17 @@ public:
     // hidden size
     auto H = dims[4];
 
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.LSTM");
+
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
@@ -362,7 +373,7 @@ public:
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
             /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE);
+            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | prevLayer);
 
     // Create zTensor for input_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_bias());
@@ -370,7 +381,7 @@ public:
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
             /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | PREV_LAYER_NONE);
+            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | prevLayer);
 
     // Create zTensor for hidden_weights.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
@@ -378,7 +389,7 @@ public:
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
         /*isTransformed=*/true, /*'isConcat=*/true,
-        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | PREV_LAYER_NONE);
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | prevLayer);
 
     // Create zTensor for hidden_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
@@ -386,18 +397,21 @@ public:
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
         /*isTransformed=*/true, /*'isConcat=*/true,
-        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_BIASES | PREV_LAYER_NONE);
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_BIASES | prevLayer);
 
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
+    if (directionStr.equals_insensitive("forward")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
+    } else if (directionStr.equals_insensitive("reverse")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BIDIR));
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -405,6 +419,7 @@ public:
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
+
     if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
@@ -417,7 +432,8 @@ public:
         RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
@@ -565,13 +581,16 @@ public:
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
+    if (directionStr.equals_insensitive("forward")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
+    } else if (directionStr.equals_insensitive("reverse")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BIDIR));
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -591,7 +610,8 @@ public:
         RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.

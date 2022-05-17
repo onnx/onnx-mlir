@@ -369,9 +369,10 @@ std::vector<std::string> getCompilerConfig(std::string k) {
 // with the specified key
 void addCompilerConfig(std::string k, std::vector<std::string> v) {
   std::vector<std::string> u = CompilerConfigMap[k];
+  std::vector<std::string> w;
 
-  u.insert(u.end(), v.begin(), v.end());
-  CompilerConfigMap[k] = u;
+  std::set_union(u.begin(), u.end(), v.begin(), v.end(), std::back_inserter(w));
+  CompilerConfigMap[k] = w;
 }
 
 // Delete strings in a vector from the string vector associated

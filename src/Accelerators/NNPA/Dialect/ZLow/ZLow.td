@@ -217,6 +217,7 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
   "  - 5th item: hiddenSize"
   "direction accepts "forward", "reverse", or "bidirectional"
   "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+  "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
                        AnyTypeOf<[AnyMemRef]>:$h0,
@@ -230,7 +231,8 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$hn_output,
                        AnyTypeOf<[AnyMemRef]>:$cf_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "not_set">:$prev_layer);
 }
 
 def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
@@ -246,6 +248,7 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
   "  - 5th item: hiddenSize"
   "direction accepts "forward", "reverse", or "bidirectional"
   "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+  "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
                        AnyTypeOf<[AnyMemRef]>:$h0,
@@ -257,7 +260,8 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
                        AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
                        AnyTypeOf<[AnyMemRef]>:$hn_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "not_set">:$prev_layer);
 }
 
 def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
@@ -270,7 +274,7 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr());
+      build($_builder, $_state, X, Out, ::mlir::StringAttr());
     }]>
   ];
 }
@@ -312,7 +316,7 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr());
+      build($_builder, $_state, X, Out, ::mlir::StringAttr());
     }]>
   ];
 }

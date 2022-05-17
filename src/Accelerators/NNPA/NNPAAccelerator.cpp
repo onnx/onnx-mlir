@@ -49,8 +49,7 @@ NNPAAccelerator *NNPAAccelerator::getInstance() {
 NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
   acceleratorTargets.push_back(this);
-  // Order is important! libRuntimeNNPA depends on libzdnn
-  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"RuntimeNNPA", "zdnn"});
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"zdnn", "RuntimeNNPA"});
 };
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
@@ -92,6 +91,10 @@ void NNPAAccelerator::initPasses(int optLevel) const {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zlow::createZLowDummyOpForMultiDerefPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowRewriteFinalPass();
   });
 
   mlir::registerPass(
