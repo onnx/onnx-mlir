@@ -43,7 +43,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
              -DCMAKE_INSTALL_MESSAGE=NEVER \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
     && make -j${NPROC} \
-    && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
+    # && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
 # User image is built with SIMD (currently on s390x only)
     && microdnf update && microdnf install procps \
     && yum install -q -y wget \
