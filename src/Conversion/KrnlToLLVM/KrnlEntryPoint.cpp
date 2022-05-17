@@ -86,12 +86,17 @@ public:
 
     // Emit code to initialize accelerators by calling OMInitCompatibleAccelX
     // where X is the accelerator name.
-    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     if (Attribute maccelAttr =
             module->getAttrOfType<::mlir::Attribute>("onnx-mlir.accels")) {
       assert(
           maccelAttr.isa<ArrayAttr>() && "onnx-mlir.accels must be ArrayAttr");
       ArrayAttr accels = maccelAttr.cast<ArrayAttr>();
+      Value zeroI64 = rewriter.create<LLVM::ConstantOp>(
+          loc, int64Ty, rewriter.getI64IntegerAttr(0));
+
+      // Split the current block into IF, THEN, ELSE blocks.
+      Block *ifBlock, *thenBlock, *elseBlock;
       for (uint64_t i = 0; i < accels.size(); ++i) {
         assert(accels[i].isa<StringAttr>() && "Attribute must be StringAttr");
         StringRef accelStr = accels.getValue()[i].cast<StringAttr>().getValue();
@@ -100,10 +105,36 @@ public:
             std::stoul(NameAndVersion.second.str(), nullptr, 16);
         FlatSymbolRefAttr funcRef = getOrInsertOMInitCompatibleAccel(
             rewriter, module, NameAndVersion.first);
+
+        // Split the current block into IF, THEN, ELSE blocks.
+        ifBlock = rewriter.getInsertionBlock();
+        thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
+        elseBlock = rewriter.createBlock(
+            thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+
+        // Emit code for the IF block.
+        rewriter.setInsertionPointToEnd(ifBlock);
+        // Call OMInitCompatibleAccelX.
         LLVM::ConstantOp versionNumberVal = rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(versionNumberInHex));
-        rewriter.create<LLVM::CallOp>(
-            loc, TypeRange(), funcRef, ArrayRef<Value>({versionNumberVal}));
+        Value isCompatible = rewriter
+                                 .create<LLVM::CallOp>(loc, int64Ty, funcRef,
+                                     ArrayRef<Value>({versionNumberVal}))
+                                 .getResult(0);
+        // Condition: if (OMInitCompatibleAccelX() != 0)
+        Value notCompatible = rewriter.create<LLVM::ICmpOp>(
+            loc, LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
+        // Branch the block into the THEN and ELSE blocks.
+        rewriter.create<LLVM::CondBrOp>(loc, notCompatible, thenBlock,
+            ValueRange(), elseBlock, ValueRange());
+
+        // Emit code for the THEN block: return NULL.
+        rewriter.setInsertionPointToStart(thenBlock);
+        Value nullPtr = rewriter.create<LLVM::NullOp>(loc, opaquePtrTy);
+        rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+
+        // Emit code for the ELSE block: deal with other accelerators if any.
+        rewriter.setInsertionPointToStart(elseBlock);
       }
     }
 
@@ -117,7 +148,7 @@ public:
            isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
     auto staticEntryPointTy = dyn_cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
-                                  .getType()
+                                  .getFunctionType()
                                   .dyn_cast<LLVM::LLVMFunctionType>();
 
     // Retrieve dynamic mem refs from wrapped input, and convert every one of
@@ -380,14 +411,14 @@ private:
   FlatSymbolRefAttr getOrInsertOMInitCompatibleAccel(
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
     std::string funcName = "OMInitCompatibleAccel" + accelName.str();
-    // OMInitCompatibleAccelX's signature is `void (i64)`.
+    // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
     MLIRContext *ctx = rewriter.getContext();
     if (!func) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
       LLVM::LLVMFunctionType funcType =
-          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx),
+          LLVM::LLVMFunctionType::get(IntegerType::get(ctx, 64),
               ArrayRef<mlir::Type>({IntegerType::get(ctx, 64)}),
               /*isVarArg=*/false);
       func = rewriter.create<LLVM::LLVMFuncOp>(

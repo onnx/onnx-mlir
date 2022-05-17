@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 namespace {
 
 static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+  func::FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
 
@@ -113,7 +113,7 @@ public:
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
     // Only enable pooling for top level memrefs.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // For now only handle constant MemRefs.
@@ -190,9 +190,11 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
-class KrnlEnableMemoryPoolPass
-    : public PassWrapper<KrnlEnableMemoryPoolPass, OperationPass<FuncOp>> {
+class KrnlEnableMemoryPoolPass : public PassWrapper<KrnlEnableMemoryPoolPass,
+                                     OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlEnableMemoryPoolPass)
+
   StringRef getArgument() const override { return "enable-memory-pool"; }
 
   StringRef getDescription() const override {

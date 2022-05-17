@@ -64,8 +64,10 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public PassWrapper<ElideConstantValuePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ElideConstantValuePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstantValuePass)
+
   StringRef getArgument() const override { return "elide-constants"; }
 
   StringRef getDescription() const override {

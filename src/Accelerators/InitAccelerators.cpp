@@ -19,7 +19,10 @@ namespace accel {
 
 APPLY_TO_ACCELERATORS(DECLARE_ACCEL_INIT_FUNCTION)
 
-void initAccelerators() { APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION) }
+/// Initialize accelerators of the given kinds.
+void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds) {
+  APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION, kinds)
+}
 
 } // namespace accel
 } // namespace onnx_mlir

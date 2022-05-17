@@ -297,7 +297,8 @@ namespace {
 
 struct ZHighConstPropagationPass
     //: public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
-    : public PassWrapper<ZHighConstPropagationPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ZHighConstPropagationPass,
+          OperationPass<func::FuncOp>> {
 
   StringRef getArgument() const override { return "constprop-zhigh"; }
 

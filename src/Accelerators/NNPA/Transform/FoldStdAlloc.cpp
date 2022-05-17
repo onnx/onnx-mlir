@@ -196,7 +196,7 @@ public:
  *  Function pass that folds std.alloc.
  */
 class FoldStdAllocPass
-    : public PassWrapper<FoldStdAllocPass, OperationPass<FuncOp>> {
+    : public PassWrapper<FoldStdAllocPass, OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "fold-std-alloc"; }
 
