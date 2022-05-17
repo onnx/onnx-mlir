@@ -31,10 +31,11 @@ struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
   std::vector<int> toVector(mlir::ArrayAttr axes_unsorted) const {
     std::vector<int> axes;
 
-    // for (auto i : axes_unsorted) {
-    //   auto j = i.dyn_cast<IntegerAttr>();
-    //   axes.push_back(j);
-    // }
+    for (auto i : axes_unsorted) {
+      auto j = i.dyn_cast<IntegerAttr>();
+      int64_t k = j.getValue().getSExtValue();
+      axes.push_back(k);
+    }
 
     return axes;
   }
