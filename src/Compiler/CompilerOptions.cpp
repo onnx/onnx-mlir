@@ -102,12 +102,14 @@ llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
 llvm::cl::opt<std::string> Xopt("Xopt",
     llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
+    llvm::cl::OneOrMore);
 
 llvm::cl::opt<std::string> Xllc("Xllc",
     llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
+    llvm::cl::OneOrMore);
 
 llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::desc(
