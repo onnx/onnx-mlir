@@ -39,6 +39,11 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     bool isDynamicB = false, bool isNoneH = false, bool isNoneC = false,
     bool isNoneP = false) {
 
+  static int testNum = 0;
+  printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, isDynS %d, "
+         "isDynB %d, isNoneH %d, isNoneC %d, is NoneP %d\n",
+      ++testNum, direction, S, B, I, H, isDynamicS, isDynamicB, isNoneH,
+      isNoneC, isNoneP);
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   return lstm.build() && lstm.compileAndLoad() && lstm.prepareInputs() &&
