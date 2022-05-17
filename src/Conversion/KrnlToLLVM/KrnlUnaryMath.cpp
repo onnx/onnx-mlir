@@ -14,8 +14,8 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -151,7 +151,7 @@ public:
         MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmType);
 
     // Emit function call.
-    auto funcCall = rewriter.create<CallOp>(
+    auto funcCall = rewriter.create<func::CallOp>(
         loc, mathFunctionRef, llvmType, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
