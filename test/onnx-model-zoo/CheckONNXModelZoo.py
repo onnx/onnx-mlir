@@ -163,8 +163,8 @@ def obtain_all_model_paths():
     if (len(excluded_names) != 0):
         excluded_msg = "where " + \
             str(len(excluded_names)) + \
-            " models are excluded because of old opsets or quantization"
-    log_l1("# There are {} models in the ONNX model zoo {}.".format(
+            " models are not checked because of old opsets or quantization"
+    print("There are {} models in the ONNX model zoo {}.".format(
         len(model_paths), excluded_msg))
     return model_names, model_paths
 
@@ -329,7 +329,7 @@ def main():
     if len(passed_models) != len(tested_models):
         failed_models = {r[1] for r in results if r[0] == TEST_FAILED}
         msg = "{} models failed: {}\n".format(len(failed_models),
-                                             ', '.join(failed_models))
+                                              ', '.join(failed_models))
         if args.a:
             raise AssertionError(msg)
         else:
