@@ -318,7 +318,7 @@ def FuseMulConvNullBiasPattern: Pat<
    (IsFromONNXConstantOpWithDenseElementsAttr:$w),    
    (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.      
    (HasRankGT<1> $w),                  // rank of $w must be at least 2.  
-   (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank(w)-1.
+   (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
    (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
    (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
