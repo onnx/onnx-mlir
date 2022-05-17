@@ -65,8 +65,7 @@ public:
           create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
 
       // Store value in the new MemRef.
-      Value idxValue =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      Value idxValue = create.math.constant(rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
       rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }

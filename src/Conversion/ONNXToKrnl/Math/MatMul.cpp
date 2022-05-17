@@ -309,7 +309,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Get the constants: zero.
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value zero = createMath.constant(elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
