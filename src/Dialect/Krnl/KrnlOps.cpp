@@ -16,8 +16,9 @@
 #include <queue>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -35,6 +36,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // KrnlOpsDialect
@@ -42,7 +44,7 @@ using namespace mlir;
 
 KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
-  addTypes<LoopType, StringType>();
+  addTypes<krnl::LoopType, krnl::StringType>();
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
@@ -56,9 +58,9 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
   MLIRContext *context = getContext();
 
   if (keyword == "loop")
-    return LoopType::get(context);
+    return krnl::LoopType::get(context);
   if (keyword == "string")
-    return StringType::get(context);
+    return krnl::StringType::get(context);
 
   parser.emitError(parser.getNameLoc(), "unknown krnl type: " + keyword);
   return Type();
@@ -66,12 +68,60 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
 
 void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
   TypeSwitch<Type>(type)
-      .Case<LoopType>([&](Type) { os << "loop"; })
-      .Case<StringType>([&](Type) { os << "string"; })
+      .Case<krnl::LoopType>([&](Type) { os << "loop"; })
+      .Case<krnl::StringType>([&](Type) { os << "string"; })
       .Default([](Type) { llvm_unreachable("Unexpected 'krnl' type kind"); });
 }
 
 namespace mlir {
+
+//===----------------------------------------------------------------------===//
+// KrnlCallOp
+//===----------------------------------------------------------------------===//
+
+static std::string typeToString(Type ty) {
+  std::string str;
+  llvm::raw_string_ostream out(str);
+  ty.print(out);
+  return out.str();
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    std::string funcNameStr, Value resultVal, Operation *op,
+    ValueRange operands, bool copyAttrs) {
+  // Creates inputs
+  SmallVector<Value, 4> allInputs;
+  allInputs.emplace_back(resultVal);
+  for (auto operand : operands)
+    allInputs.emplace_back(operand);
+
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  if (!copyAttrs) {
+    build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
+        operands);
+  } else {
+    std::vector<NamedAttribute> attributes;
+    attributes.emplace_back(namedAttr);
+    for (auto namedAttr : op->getAttrs()) {
+      attributes.emplace_back(namedAttr);
+    }
+    build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
+        attributes);
+  }
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
+  // Create funcName
+  std::string name = op->getName().getStringRef().str();
+  std::replace(name.begin(), name.end(), '.', '_');
+  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  Type elementType = resultType.getElementType();
+  std::string funcNameStr = name + "_" + typeToString(elementType);
+
+  build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+}
 
 //===----------------------------------------------------------------------===//
 // KrnlDefineLoopsOp
@@ -81,7 +131,7 @@ void KrnlDefineLoopsOp::build(
     OpBuilder &builder, OperationState &result, int64_t num_loops) {
   // Create the same number of dimension handlers as the number of
   // dimensions in the associated integer set.
-  result.types.append(num_loops, LoopType::get(builder.getContext()));
+  result.types.append(num_loops, krnl::LoopType::get(builder.getContext()));
   result.addAttribute(
       getNumLoopsAttrName(), builder.getI64IntegerAttr(num_loops));
 }
@@ -102,8 +152,9 @@ ParseResult KrnlDefineLoopsOp::parse(
           KrnlDefineLoopsOp::getNumLoopsAttrName(), result.attributes))
     return failure();
 
-  auto loopTypes = llvm::SmallVector<Type, 4>(
-      numLoops.getValue().getSExtValue(), LoopType::get(builder.getContext()));
+  auto loopTypes =
+      llvm::SmallVector<Type, 4>(numLoops.getValue().getSExtValue(),
+          krnl::LoopType::get(builder.getContext()));
   if (parser.addTypesToList(loopTypes, result.types))
     return failure();
   return success();
@@ -135,7 +186,7 @@ ParseResult KrnlDefineLoopsOp::parse(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    KrnlIterateOperandPack operandPack, ValueRange iterArgs,
+    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgs,
     function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
@@ -181,7 +232,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     origLoops.emplace_back(org);
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  krnl::KrnlIterateOperandPack pack(builder, origLoops, optLoops);
   for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushOperandBound(lbs[i]);
     pack.pushOperandBound(ubs[i]);
@@ -200,7 +251,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     origLoops.emplace_back(org);
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  krnl::KrnlIterateOperandPack pack(builder, origLoops, optLoops);
   for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushIndexExprBound(lbs[i], /*isLb*/ true);
     pack.pushIndexExprBound(ubs[i], /*isLb*/ false);
@@ -236,10 +287,10 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
     printer << " -> ";
     printer.printOperand(var);
     printer << " = ";
-    onnx_mlir::printBound(
+    krnl::printBound(
         (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", printer);
     printer << " to ";
-    onnx_mlir::printBound(
+    krnl::printBound(
         (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", printer);
     delimiter = ", ";
   }
@@ -252,14 +303,14 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
 ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
   auto context = builder.getContext();
-  onnx_mlir::KrnlDialectOperandParser operandParser(parser);
+  onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
 
   // Parse optimized loops:
-  SmallVector<OpAsmParser::OperandType, 4> optimizedLoopRefs;
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
   if (parser.parseOperandList(
           optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
       parser.resolveOperands(optimizedLoopRefs,
-          LoopType::get(result.getContext()), result.operands))
+          krnl::LoopType::get(result.getContext()), result.operands))
     return failure();
 
   // Record how many optimized loops did we parse.
@@ -267,7 +318,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
       builder.getI64IntegerAttr(optimizedLoopRefs.size()));
 
   // Parse input loops and their lower and upper bounds.
-  SmallVector<OpAsmParser::OperandType, 4> inductionVarRefs;
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
   SmallVector<Attribute, 4> boundMaps;
 
   if (parser.parseKeyword("with") || parser.parseLParen())
@@ -341,11 +392,11 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 
   while (failed(parser.parseOptionalRParen())) {
     // Parse an input loop operand;
-    operandParser.ParseOperand(LoopType::get(context), result.operands);
+    operandParser.ParseOperand(krnl::LoopType::get(context), result.operands);
     parser.parseArrow();
 
     // Parse induction variable.
-    OpAsmParser::OperandType inductionVar;
+    OpAsmParser::UnresolvedOperand inductionVar;
     if (parser.parseRegionArgument(inductionVar) || parser.parseEqual())
       return failure();
     inductionVarRefs.emplace_back(inductionVar);
@@ -383,20 +434,27 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 
 Region &KrnlIterateOp::getLoopBody() { return bodyRegion(); }
 
-LogicalResult KrnlIterateOp::moveOutOfLoop(ArrayRef<Operation *> ops) {
-  for (auto *op : ops)
-    op->moveBefore(*this);
-  return success();
-}
-
-bool KrnlIterateOp::isDefinedOutsideOfLoop(Value value) {
-  return !bodyRegion().isAncestor(value.getParentRegion());
-}
-
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
   return success();
+}
+
+void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
+    function_ref<void(OpBuilder &, Location)> bodyBuilderFn) {
+
+  Region *bodyRegion = result.addRegion();
+  auto *body = new Block();
+  llvm::SmallVector<Type, 4> body_args;
+  llvm::SmallVector<Location, 4> body_arg_locs;
+  body->addArguments(body_args, body_arg_locs);
+  bodyRegion->push_back(body);
+
+  if (bodyBuilderFn) {
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(body);
+    bodyBuilderFn(builder, result.location);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -431,7 +489,8 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
 
 void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsLoop, int64_t odsTileSize) {
-  SmallVector<Type, 4> blockResType(2, LoopType::get(odsBuilder.getContext()));
+  SmallVector<Type, 4> blockResType(
+      2, krnl::LoopType::get(odsBuilder.getContext()));
   build(odsBuilder, odsState, blockResType, odsLoop,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
@@ -570,7 +629,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
 }
 
 OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
-  if (Value folded = impl::foldCastOp(*this))
+  if (OpFoldResult folded = OpFoldResult())
     return folded;
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
 }
@@ -633,12 +692,15 @@ LogicalResult KrnlMatMulOp::verify() {
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return emitOpError("currently only support ranks >=2");
-  if (operandAdaptor.aMemStart().size() != aRank)
-    return emitOpError("aMemStart should have same rank as memref A");
-  if (operandAdaptor.bMemStart().size() != bRank)
-    return emitOpError("bMemStart should have same rank as memref A");
-  if (operandAdaptor.cMemStart().size() != cRank)
-    return emitOpError("cMemStart should have same rank as memref A");
+  if (operandAdaptor.aGlobalIndexMemStart().size() != aRank)
+    return emitOpError(
+        "aGlobalIndexMemStart should have same rank as memref A");
+  if (operandAdaptor.bGlobalIndexMemStart().size() != bRank)
+    return emitOpError(
+        "bGlobalIndexMemStart should have same rank as memref A");
+  if (operandAdaptor.cGlobalIndexMemStart().size() != cRank)
+    return emitOpError(
+        "cGlobalIndexMemStart should have same rank as memref A");
   if (operandAdaptor.loops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 
@@ -767,6 +829,29 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
   return success();
+}
+
+void KrnlSeqExtractOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(
+      MemoryEffects::Read::get(), seq(), SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), output(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+      SideEffects::DefaultResource::get());
+}
+
+Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
+  auto loc = alloc.getLoc();
+  MultiDialectBuilder<MemRefBuilder> create(builder, loc);
+  return create.mem.dealloc(alloc).getOperation();
+}
+
+Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
 }
 
 } // namespace mlir

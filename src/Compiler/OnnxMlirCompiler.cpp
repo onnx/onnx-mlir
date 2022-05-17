@@ -42,7 +42,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   std::string val = getCompilerOption(kind);
-  return val.c_str();
+  return strdup(val.c_str());
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,

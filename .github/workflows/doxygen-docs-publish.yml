@@ -39,24 +39,60 @@ jobs:
          echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
-            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime/index.html
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime \
+                           -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/src/Runtime/jni/src/com/ibm/onnxmlir/OMModel.java; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMModel_java) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMModel_java \
+                           -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
 
         (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
          echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/include/onnx-mlir/Runtime/OMTensor.h; \
-         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor) | \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor_h) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
-            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor/_o_m_tensor_8h.html
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor_h \
+                      -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
 
         (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
          echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/include/onnx-mlir/Runtime/OMTensorList.h; \
-         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList) | \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList_h) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
-            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList/_o_m_tensor_list_8h.html
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList_h \
+                      -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/src/Runtime/jni/src/com/ibm/onnxmlir/OMTensor.java; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor_java) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor_java \
+                      -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/src/Runtime/jni/src/com/ibm/onnxmlir/OMTensorList.java; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList_java) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        for html in $(find $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList_java \
+                      -name "*.html"); do \
+            sed -i -e '1s/^/---\nlayout: default\n---\n/' $html; \
+        done
 
     - name: commit updated gh-pages
       run: |

@@ -14,13 +14,15 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <ctime>
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
   ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -34,8 +36,11 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
-    // Output type:
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
@@ -50,33 +55,34 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
       if (outputMemRefShape[i] > 0)
         constantValues *= outputMemRefShape[i];
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
     Value numberOfRandomValues =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), constantValues);
+        create.math.constant(rewriter.getIndexType(), constantValues);
 
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
       if (outputMemRefShape[i] < 0) {
-        Value dim = rewriter.create<memref::DimOp>(loc, input, i);
-        numberOfRandomValues =
-            rewriter.create<arith::MulIOp>(loc, numberOfRandomValues, dim);
+        Value dim = create.mem.dim(input, i);
+        numberOfRandomValues = create.math.mul(numberOfRandomValues, dim);
       }
     }
 
     // Create the Krnl Random Normal operation:
     ONNXRandomNormalLikeOp randomNormalLikeOp =
-        llvm::cast<ONNXRandomNormalLikeOp>(op);
+        cast<ONNXRandomNormalLikeOp>(op);
     double mean = randomNormalLikeOp.mean().convertToDouble();
-    Value meanValue = emitConstantOp(rewriter, loc, elementType, mean);
+    Value meanValue = create.math.constant(elementType, mean);
     double scale = randomNormalLikeOp.scale().convertToDouble();
-    Value scaleValue = emitConstantOp(rewriter, loc, elementType, scale);
+    Value scaleValue = create.math.constant(elementType, scale);
     auto seed = randomNormalLikeOp.seed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)
       doubleSeed = seed->convertToDouble();
-    Value seedValue = emitConstantOp(rewriter, loc, elementType, doubleSeed);
-    rewriter.create<KrnlRandomNormalOp>(
-        loc, alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
+    Value seedValue = create.math.constant(elementType, doubleSeed);
+    create.krnl.randomNormal(
+        alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -87,3 +93,5 @@ void populateLoweringONNXRandomNormalLikeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRandomNormalLikeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

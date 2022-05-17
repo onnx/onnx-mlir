@@ -323,11 +323,11 @@ private:
       break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
-          llvm::makeArrayRef(attr.floats().begin(), attr.floats().end()));
+          llvm::makeArrayRef(attr.floats().data(), attr.floats().size()));
       break;
     case onnx::AttributeProto::INTS:
       mlirAttr = builder_.getI64ArrayAttr(
-          llvm::makeArrayRef(attr.ints().begin(), attr.ints().end()));
+          llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
@@ -448,14 +448,15 @@ private:
         ++numInputs;
       }
     }
+
+    for (const auto &internal : graph.value_info()) {
+      AddValueInfo(internal);
+    }
+
     for (const auto &output : graph.output()) {
       // Output tensor may be in input list
       AddValueInfo(output, true);
       outputNames.push_back(output.name());
-    }
-
-    for (const auto &internal : graph.value_info()) {
-      AddValueInfo(internal);
     }
 
     entryBlock->addArguments(argTypes,
@@ -486,7 +487,7 @@ private:
     }
 
     if (useStdReturn)
-      builder_.create<ReturnOp>(UnknownLoc(), retVals);
+      builder_.create<func::ReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
       builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
@@ -519,7 +520,7 @@ private:
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         result.addRegion();
 
-    auto op = builder_.createOperation(result);
+    auto op = builder_.create(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(node.output()[i], r);
@@ -571,7 +572,8 @@ private:
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
-      int expectedNumResults, const std::vector<NamedAttribute> &attributes) {
+      int expectedNumResults, const std::vector<NamedAttribute> &attributes,
+      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -619,6 +621,9 @@ private:
           auto elementType = buildTypeFromIndex(outputMap[j]);
           auto outType = UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
+        } else if (!givenOutputTypes.empty()) {
+          outputTypes.emplace_back(
+              UnrankedTensorType::get(givenOutputTypes[i]));
         } else {
           outputTypes.emplace_back(builder_.getNoneType());
         }
@@ -693,6 +698,27 @@ private:
     auto attributes = ImportNodeAttributes(node);
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults, attributes);
+  }
+
+  // The output type of CategoryMapper needs special handling
+  // If the input is I64, the output is string.
+  // If the input is string, the output is I64.
+  void ImportCategoryMapper(const onnx::NodeProto &node) {
+    std::vector<Value> inputs;
+    int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
+    int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    std::vector<Type> outputTypes;
+    auto inputType = inputs[0].getType().cast<TensorType>();
+    if (inputType.getElementType().isInteger(64)) {
+      outputTypes.emplace_back(
+          mlir::ONNXStringType::get(builder_.getContext()));
+    } else {
+      outputTypes.emplace_back(builder_.getIntegerType(64));
+    }
+    buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
+        expectedNumOperands, expectedNumResults, attributes, outputTypes);
   }
 
   std::vector<NamedAttribute> ImportCastAttributes(
@@ -997,9 +1023,9 @@ private:
                    << " in your model is using Opset " << current_opset
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n";
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
-               << ", Opset: " << current_opset << "\n");
+    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
+                            << node.op_type() << " (" << node.name() << ")"
+                            << ", Opset: " << current_opset << "\n");
 
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
@@ -1023,7 +1049,7 @@ private:
     return std::string("");
   }
 
-  FuncOp CreateFuncOp(
+  func::FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
     if (namePrefix.empty())
@@ -1034,7 +1060,7 @@ private:
       funcName = namePrefix + "_" + std::to_string(suffix);
     }
 
-    auto funcOp = FuncOp::create(UnknownLoc(), funcName, funcType);
+    auto funcOp = func::FuncOp::create(UnknownLoc(), funcName, funcType);
     module_.insert(module_.begin(), funcOp);
     return funcOp;
   }
@@ -1171,7 +1197,7 @@ private:
     for (auto &v : pFunctionProto->output()) {
       ret_vals.push_back(LookupOnnxName(v));
     }
-    builder_.create<ReturnOp>(UnknownLoc(), ret_vals);
+    builder_.create<func::ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
@@ -1362,16 +1388,16 @@ private:
    * @param graph onnx graph proto.
    * @return A function corresponding to the imported computation graph.
    */
-  FuncOp importGraph(const onnx::GraphProto &graph) {
+  func::FuncOp importGraph(const onnx::GraphProto &graph) {
     const std::string &name = "main_graph";
-    auto mainFunc = FuncOp::create(UnknownLoc(), name,
+    auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
     // Create and set insertion point to entry block.
-    mainFunc.body().push_back(new Block);
-    builder_.setInsertionPointToStart(&mainFunc.body().back());
+    mainFunc.getBody().push_back(new Block);
+    builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
-    auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
+    auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
 

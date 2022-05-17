@@ -16,7 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -25,6 +25,7 @@
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -93,11 +94,12 @@ public:
     // maps.
     auto firstArgDefOp = krnlDimOp.alloc().getDefiningOp();
 
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
+
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
-      result = rewriter.create<arith::ConstantOp>(loc,
-          rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
+      result = create.math.constantIndex(memRefShape[index]);
     } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
       memref::AllocOp allocOp =
@@ -112,12 +114,10 @@ public:
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getLayout().isIdentity()) {
       // Use a standard DimOp since no map is present.
-      result = rewriter.create<memref::DimOp>(
-          loc, krnlDimOp.alloc(), krnlDimOp.index());
-    } else {
+      result = create.mem.dim(krnlDimOp.alloc(), krnlDimOp.index());
+    } else
       llvm_unreachable(
           "dynamic sized MemRef with map must be defined by an AllocOp");
-    }
 
     rewriter.replaceOp(krnlDimOp, result);
 
@@ -130,8 +130,10 @@ public:
  */
 class DisconnectKrnlDimFromAllocPass
     : public PassWrapper<DisconnectKrnlDimFromAllocPass,
-          OperationPass<FuncOp>> {
+          OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DisconnectKrnlDimFromAllocPass)
+
   StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
 
   StringRef getDescription() const override {
@@ -151,6 +153,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createDisconnectKrnlDimFromAllocPass() {
+std::unique_ptr<Pass> onnx_mlir::createDisconnectKrnlDimFromAllocPass() {
   return std::make_unique<DisconnectKrnlDimFromAllocPass>();
 }

@@ -16,17 +16,17 @@
 using namespace std;
 using namespace onnx_mlir;
 
-extern llvm::cl::OptionCategory OnnxMlirOptions;
+extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
   mlir::MLIRContext context;
   registerDialects(context);
 
-  llvm::cl::opt<string> inputFilename(llvm::cl::Positional,
+  llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
       llvm::cl::cat(OnnxMlirOptions));
 
-  llvm::cl::opt<string> outputBaseName("o",
+  llvm::cl::opt<std::string> outputBaseName("o",
       llvm::cl::desc("Base path for output files, extensions will be added."),
       llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
       llvm::cl::ValueRequired);
@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
   // Register MLIR command line options.
+  mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
@@ -71,7 +72,9 @@ int main(int argc, char *argv[]) {
   // such as ".", "..", "./", "/.", etc.
   bool b = false;
   if (outputBaseName == "" ||
-      (b = std::regex_match(outputBaseName, std::regex("(.*/)*\\.*$")))) {
+      (b = std::regex_match(
+           outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
+           std::regex("[\\.]*$")))) {
     if (b)
       printf("Invalid -o option value %s ignored.\n", outputBaseName.c_str());
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));

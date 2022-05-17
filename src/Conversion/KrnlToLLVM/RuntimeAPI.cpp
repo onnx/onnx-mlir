@@ -15,6 +15,8 @@
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+using namespace mlir;
+
 //===----------------------------------------------------------------------===//
 // RuntimeAPI
 //===----------------------------------------------------------------------===//
@@ -52,7 +54,7 @@ FlatSymbolRefAttr RuntimeAPI::getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::Type funcType, OpBuilder &builder) {
   MLIRContext *context = module.getContext();
   if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    assert(sym.getType() == funcType && "wrong symbol type");
+    assert(sym.getFunctionType() == funcType && "wrong symbol type");
     return SymbolRefAttr::get(context, funcName);
   }
 

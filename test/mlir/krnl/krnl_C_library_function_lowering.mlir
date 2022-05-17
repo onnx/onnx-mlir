@@ -8,8 +8,8 @@ func private @test_krnl_strlen1(%arg0: !krnl.string) -> i64  {
   return %len : i64
 
 // CHECK:       llvm.func @strlen(!llvm.ptr<i8>) -> i64
-// CHECK-LABEL: @test_krnl_strlen1(%arg0: !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>)
-// CHECK:       [[STR:%.+]] = llvm.extractvalue %arg0[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-LABEL: llvm.func @test_krnl_strlen1(%arg0: i64)
+// CHECK:       [[STR:%.+]] = llvm.inttoptr %arg0 : i64 to !llvm.ptr<i8> 
 // CHECK:       [[LEN:%.+]] = llvm.call @strlen([[STR]]) : (!llvm.ptr<i8>) -> i64
 // CHECK:       llvm.return [[LEN]] : i64
 }
@@ -25,9 +25,9 @@ func private @test_krnl_strlen2() -> i64  {
   return %len : i64
 
 // CHECK:       llvm.func @strlen(!llvm.ptr<i8>) -> i64
-// CHECK-LABEL: @test_krnl_strlen2() -> i64
-// CHECK:       [[LOAD:%.+]] = llvm.load {{.*}} : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
-// CHECK:       [[STR:%.+]] = llvm.extractvalue [[LOAD]][1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-LABEL: llvm.func @test_krnl_strlen2() -> i64
+// CHECK:       [[LOAD:%.+]] = llvm.load {{.*}} : !llvm.ptr<i64>
+// CHECK:       [[STR:%.+]] = llvm.inttoptr [[LOAD]] : i64 to !llvm.ptr<i8>
 // CHECK:       [[LEN:%.+]] = llvm.call @strlen([[STR]]) : (!llvm.ptr<i8>) -> i64
 // CHECK:       llvm.return [[LEN]] : i64
 }
@@ -43,10 +43,10 @@ func private @test_strncmp(%str: !krnl.string, %len: i64) -> i32  {
   return %cmp : i32
 
 // CHECK:       llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
-// CHECK-LABEL: @test_strncmp(%arg0: !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>, %arg1: i64) -> i32
-// CHECK:       [[LOAD:%.+]] = llvm.load {{.*}} : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
-// CHECK:       [[STR1:%.+]] = llvm.extractvalue %arg0[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:       [[STR2:%.+]] = llvm.extractvalue [[LOAD]][1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-LABEL: llvm.func @test_strncmp(%arg0: i64, %arg1: i64) -> i32 
+// CHECK:       [[LOAD:%.+]] = llvm.load {{.*}} : !llvm.ptr<i64>
+// CHECK:       [[STR1:%.+]] = llvm.inttoptr %arg0 : i64 to !llvm.ptr<i8>
+// CHECK:       [[STR2:%.+]] = llvm.inttoptr [[LOAD]] : i64 to !llvm.ptr<i8>
 // CHECK:       [[CMP:%.+]] = llvm.call @strncmp([[STR1]], [[STR2]], %arg1) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:       llvm.return [[CMP]] : i32
 }

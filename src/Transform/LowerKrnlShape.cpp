@@ -4,7 +4,7 @@
 
 //===-------- LowerKrnlShape.cpp ------------------------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,15 +14,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -45,25 +47,25 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
-    auto loc = krnlShapeOp.getLoc();
-    int64_t rank =
+    Location loc = krnlShapeOp.getLoc();
+    size_t rank =
         krnlShapeOp.alloc().getType().dyn_cast<MemRefType>().getShape().size();
 
-    // Create MemRef to hold shape information.
-    auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
-    auto newMemRefAlloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
-    SmallVector<mlir::Value, 4> fromExtentsOpOperands;
-    for (int idx = 0; idx < rank; idx++) {
-      auto index = rewriter.create<arith::ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
-      auto operand = rewriter.create<KrnlDimOp>(
-          loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
-      fromExtentsOpOperands.emplace_back(operand);
+    // Create MemRef to hold shape information.
+    auto memRefType =
+        MemRefType::get({static_cast<int64_t>(rank)}, rewriter.getIndexType());
+    memref::AllocOp newMemRefAlloc = create.mem.alloc(memRefType);
+
+    for (size_t idx = 0; idx < rank; idx++) {
+      Value index = create.math.constantIndex(idx);
+      Value operand =
+          create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
 
       // Store value in the new MemRef.
-      Value idxValue =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      Value idxValue = create.math.constant(rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
       rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
@@ -78,8 +80,10 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlShapePass)
+
   StringRef getArgument() const override { return "lower-krnl-shape"; }
 
   StringRef getDescription() const override {
@@ -100,6 +104,6 @@ public:
 } // namespace
 
 // TODO: integrate with other passes if needed.
-std::unique_ptr<Pass> mlir::createLowerKrnlShapePass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerKrnlShapePass() {
   return std::make_unique<LowerKrnlShapePass>();
 }

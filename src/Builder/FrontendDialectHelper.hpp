@@ -18,7 +18,7 @@
 #include <regex>
 #include <tuple>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -53,8 +53,5 @@ struct InitializedTensorMapping : SymbolMapping<onnx::TensorProto> {
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
-
-mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
 
 } // namespace onnx_mlir

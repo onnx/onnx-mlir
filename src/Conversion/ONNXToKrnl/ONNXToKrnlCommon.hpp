@@ -18,12 +18,12 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -31,16 +31,16 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-
-using namespace mlir;
 
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
@@ -50,6 +50,8 @@ extern bool ONNXToKrnl_gEmitDealloc;
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
 // operations.
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
 
 struct OnnxToKrnlBuilder : public OnnxBuilder {
   OnnxToKrnlBuilder(OpBuilder &b, Location loc) : OnnxBuilder(b, loc) {}
@@ -70,14 +72,12 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check is all dimensions are known at compile time.
-bool hasAllConstantDimensions(MemRefType type);
-
-/// Check is all operands are scalar values at compile time.
+/// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
-MemRefType convertToMemRefType(Type type);
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
@@ -109,25 +109,12 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimensions are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index);
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index);
 
 // Function that emits the define_loop operation to define `numLoops`
 // number of krnl loops, and fill `loop` with the newly defined loops.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops);
-
-// Emit a positive infinity constant of a specific type.
-// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
-// In case of Integer, emit the maximum value.
-Value emitPositiveInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type);
-
-// Emit a negative infinity constant of a specific type.
-// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
-// In case of Float, emit the negative of the positive infinity.
-// In case of Integer, emit the minimum value.
-Value emitNegativeInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type);
 
 /// Get a dimension value from a memref. Emit a constant if the dimension is
 /// constant. Otherwise, emit a dim op.
@@ -158,10 +145,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims);
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
@@ -238,7 +224,7 @@ public:
   }
 
   /// Return true if the operands/results of call have a legal type.
-  bool isSignatureLegal(mlir::CallOp call) {
+  bool isSignatureLegal(mlir::func::CallOp call) {
     auto f = [this](Type type) { return isLegal(type); };
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);
@@ -309,6 +295,18 @@ void populateLoweringONNXLSTMOpPattern(
 void populateLoweringONNXRNNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
+// `Sequence` directory methods:
+void populateLoweringONNXSequenceAtOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEmptyOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEraseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceInsertOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceLengthOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -319,6 +317,10 @@ void populateLoweringONNXUnsqueezeV11OpPattern(
 void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGatherNDOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadConstantValuePadOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -339,6 +341,10 @@ void populateLoweringONNXConcatOpPattern(
 void populateLoweringONNXDepthToSpaceOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSpaceToDepthOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXScatterElementsOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXScatterNDOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXShapeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -401,3 +407,5 @@ Location ONNXLoc(Operation *op) {
 /// Default value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue);
+
+} // namespace onnx_mlir

@@ -4,7 +4,7 @@
 
 //===-------- EnableMemoryPool.cpp - Enable Memory Pool for MemRefs -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,21 +15,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
-bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
+  func::FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
 
@@ -51,7 +53,7 @@ bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
     }
   });
 
-  function.walk([&opIsReturned, allocOp, castOpResults](ReturnOp op) {
+  function.walk([&opIsReturned, allocOp, castOpResults](func::ReturnOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands()) {
       // Determine if current function returns the result value of the
@@ -111,12 +113,15 @@ public:
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
     // Only enable pooling for top level memrefs.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // For now only handle constant MemRefs.
     if (!hasAllConstantDimensions(memRefType))
       return failure();
+
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
     memref::AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
@@ -128,8 +133,11 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = rewriter.create<memref::AllocOp>(
-          loc, memPoolMemRefType, allocOp.alignmentAttr());
+      newAlloc = (allocOp.alignment().hasValue())
+                     ? create.mem.alignedAlloc(
+                           memPoolMemRefType, allocOp.alignment().getValue())
+                     : create.mem.alloc(memPoolMemRefType);
+
     } else {
       memPoolShape.emplace_back(-1);
       auto memPoolMemRefType =
@@ -137,25 +145,23 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = rewriter.create<memref::AllocOp>(
-          loc, memPoolMemRefType, dyanmicTotalSize, allocOp.alignmentAttr());
+      newAlloc = (allocOp.alignment().hasValue())
+                     ? create.mem.alignedAlloc(memPoolMemRefType,
+                           dyanmicTotalSize, allocOp.alignment().getValue())
+                     : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 
     // Emit new dealloc.
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, newAlloc);
+    auto dealloc = create.mem.dealloc(newAlloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
-    auto zero = rewriter.create<arith::ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
-    KrnlGetRefOp poolMemRef;
-    if (hasAllConstantDimensions(memRefType)) {
-      poolMemRef =
-          rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
-    } else {
-      poolMemRef = rewriter.create<KrnlGetRefOp>(
-          loc, memRefType, newAlloc, zero, allocOp.getDynamicSizes());
-    }
+    Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
+    KrnlGetRefOp poolMemRef =
+        (hasAllConstantDimensions(memRefType))
+            ? create.krnl.getRef(memRefType, newAlloc, zero)
+            : create.krnl.getRef(
+                  memRefType, newAlloc, zero, allocOp.getDynamicSizes());
 
     rewriter.replaceOp(allocOp, poolMemRef.getResult());
 
@@ -184,9 +190,11 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
-class KrnlEnableMemoryPoolPass
-    : public PassWrapper<KrnlEnableMemoryPoolPass, OperationPass<FuncOp>> {
+class KrnlEnableMemoryPoolPass : public PassWrapper<KrnlEnableMemoryPoolPass,
+                                     OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlEnableMemoryPoolPass)
+
   StringRef getArgument() const override { return "enable-memory-pool"; }
 
   StringRef getDescription() const override {
@@ -209,6 +217,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createKrnlEnableMemoryPoolPass() {
+std::unique_ptr<Pass> onnx_mlir::krnl::createKrnlEnableMemoryPoolPass() {
   return std::make_unique<KrnlEnableMemoryPoolPass>();
 }

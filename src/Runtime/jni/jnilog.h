@@ -25,22 +25,25 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 
 #define MIN(x, y) ((x) > (y) ? y : x)
 
-/* Construct string of up to LOG_MAX_NUM elements of an array of C type */
+/* Construct string of up to LOG_MAX_NUM elements of an array of C type
+ * To avoid variable name clash, prefix with double underscores.
+ */
 #define LOG_BUF_C_TYPE(type, format, buf, data, n)                             \
   do {                                                                         \
-    char *p = buf;                                                             \
+    char *__p = buf;                                                           \
     /* Reserve 5 char at the end for " ... \0". Note the first                 \
      * space will come from the '\0' of the previous string.                   \
      */                                                                        \
-    int i = 0, j = sizeof(buf) - 5, k, l = MIN(n, LOG_MAX_NUM);                \
+    int __i = 0, __j = sizeof(buf) - 5, __k, __l = MIN(n, LOG_MAX_NUM);        \
     /* j is the available number of chars including '\0'. k is the             \
      * number of chars printed without '\0'. So as long as k < j,              \
      * it means the output, with a trailing '\0', fits in the buffer.          \
      */                                                                        \
-    while (i < l && (k = snprintf(p, j, format, ((type *)data)[i])) < j) {     \
-      p += k;                                                                  \
-      j -= k;                                                                  \
-      i++;                                                                     \
+    while (__i < __l &&                                                        \
+           (__k = snprintf(__p, __j, format, ((type *)data)[__i])) < __j) {    \
+      __p += __k;                                                              \
+      __j -= __k;                                                              \
+      __i++;                                                                   \
     }                                                                          \
     /* If i==l, we finished all the elements, add " " at the end.              \
      * Otherwise, we ran out of buffer. If j==1, it means output               \
@@ -52,8 +55,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * add "... " at the end to denote that the last element is                \
      * truncated.                                                              \
      */                                                                        \
-    snprintf(                                                                  \
-        buf + strlen(buf), 6, (i == l) ? " " : (j == 1) ? " ... " : "... ");   \
+    snprintf(buf + strlen(buf), 6,                                             \
+        (__i == __l) ? " " : (__j == 1) ? " ... " : "... ");                   \
   } while (0)
 
 /* Construct string of up to LOG_MAX_NUM elements of an array of ONNX type.

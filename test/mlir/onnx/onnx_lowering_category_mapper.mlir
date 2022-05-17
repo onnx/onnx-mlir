@@ -5,9 +5,10 @@
 // Test whether lowering is correct for a string tensor input.
 func private @test_category_mapper_string_to_int64(%arg0 : tensor<2x2x!onnx.String>) -> tensor<2x2xi64> {
   %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "cow"], default_int64 = -1: si64} : (tensor<2x2x!onnx.String>) -> tensor<2x2xi64>
-  "std.return"(%0) : (tensor<2x2xi64>) -> ()
+  "func.return"(%0) : (tensor<2x2xi64>) -> ()
 
   // CHECK-LABEL: test_category_mapper_string_to_int64
+  // CHECK-DAG: [[ZERO_i64:%.+]] = arith.constant 0 : i64
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32
   // CHECK-DAG: [[ALLOCA:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x2xi64>
   // CHECK-DAG: [[G:%.+]] = "krnl.global"() {name = {{.*}}, shape = [3], value = dense<[1, 0, -3]> : tensor<3xi32>} : () -> memref<3xi32>
@@ -19,7 +20,8 @@ func private @test_category_mapper_string_to_int64(%arg0 : tensor<2x2x!onnx.Stri
   // CHECK-DAG: [[LOOP_0:%.+]]:2 = krnl.define_loops 2
   // CHECK:     krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 2){  
   // CHECK:     [[IVS:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-  // CHECK:     [[LOAD1:%.+]] = krnl.load %arg0{{.}}[[IVS]]#0, [[IVS]]#1{{.}} : memref<2x2x!krnl.string>
+  // CHECK:     [[REF:%.+]] = "krnl.getref"(%arg0, [[ZERO_i64]]) : (memref<2x2x!krnl.string>, i64) -> memref<2x!krnl.string>
+  // CHECK:     [[LOAD1:%.+]] = krnl.load [[REF]]{{.}}[[IVS]]#0, [[IVS]]#1{{.}} : memref<2x!krnl.string>
   // CHECK:     [[INDEX:%.+]] = "krnl.find_index"([[LOAD1]], [[G]], [[V]], [[LEN]]) : (!krnl.string, memref<3xi32>, memref<3xi32>, i32) -> index
   // CHECK:     [[LOAD2:%.+]] = krnl.load [[CAT_STRINGS]]{{.}}[[INDEX]]{{.}} : memref<3x!krnl.string>
   // CHECK:     [[STRLEN:%.+]] = "krnl.strlen"([[LOAD2]]) : (!krnl.string) -> i64
@@ -39,7 +41,7 @@ func private @test_category_mapper_string_to_int64(%arg0 : tensor<2x2x!onnx.Stri
 // Test whether lowering is correct for a int64_t tensor input.
 func private @test_category_mapper_int64_to_string(%arg0 : tensor<2x2xi64>) -> tensor<2x2x!onnx.String> {
   %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "cow"], default_string = "none"} : (tensor<2x2xi64>) -> tensor<2x2x!onnx.String>
-  "std.return"(%0) : (tensor<2x2x!onnx.String>) -> ()
+  "func.return"(%0) : (tensor<2x2x!onnx.String>) -> ()
 
   // CHECK-LABEL: test_category_mapper_int64_to_string
   // CHECK-DAG: [[LEN:%.+]] = arith.constant 3 : i32  
