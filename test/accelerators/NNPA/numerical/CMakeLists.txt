@@ -66,7 +66,7 @@ add_numerical_unittest(TestMatMul2D-NNPA
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-TODO: Create tests for Gemm 
+# TODO: Create tests for Gemm 
 #add_numerical_unittest(TestGemm-NNPA
 #  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
 #  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
