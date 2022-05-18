@@ -74,7 +74,7 @@ func @test_onnx_to_zhigh_ccfd0_reverse(%X: tensor<7x2000x204xf32>, %W: tensor<1x
 func @test_onnx_to_zhigh_ccfd0_bidir(%X: tensor<7x2000x204xf32>, %W: tensor<2x800x204xf32>, %R: tensor<2x800x200xf32>, %B: tensor<2x1600xf32>) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, onnx_node_name = "lstm" } : (tensor<7x2000x204xf32>, tensor<2x800x204xf32>, tensor<2x800x200xf32>, tensor<2x1600xf32>, none, none, none, none) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>)
- "std.return"(%Y, %Y_h, %Y_c) : (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) -> ()
+ "func.return"(%Y, %Y_h, %Y_c) : (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_zhigh_ccfd0_bidir
 // CHECK-SAME:   ([[X_:%.+]]: tensor<7x2000x204xf32>, [[W_:%.+]]: tensor<2x800x204xf32>, [[R_:%.+]]: tensor<2x800x200xf32>, [[B_:%.+]]: tensor<2x1600xf32>) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) {
@@ -340,7 +340,7 @@ func @test_onnx_to_zhigh_ccfd1_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x800x?xf32
 func @test_onnx_to_zhigh_ccfd0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x800x?xf32>, %R: tensor<2x800x200xf32>, %B: tensor<2x1600xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, onnx_node_name = "lstm" } : (tensor<?x?x?xf32>, tensor<2x800x?xf32>, tensor<2x800x200xf32>, tensor<2x1600xf32>, none, none, none, none) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>)
- "std.return"(%Y, %Y_h, %Y_c) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> ()
+ "func.return"(%Y, %Y_h, %Y_c) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_zhigh_ccfd0_bidir_dyn
 // CHECK-SAME:   ([[X_:%.+]]: tensor<?x?x?xf32>, [[W_:%.+]]: tensor<2x800x?xf32>, [[R_:%.+]]: tensor<2x800x200xf32>, [[B_:%.+]]: tensor<2x1600xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) {
@@ -379,7 +379,7 @@ func @test_onnx_to_zhigh_ccfd0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x800
 func @test_onnx_to_zhigh_ccfd1_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x800x?xf32>, %R: tensor<2x800x200xf32>, %B: tensor<2x1600xf32>, %InitH: tensor<2x?x200xf32>, %InitC: tensor<2x?x200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %InitH, %InitC, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, onnx_node_name = "lstm" } : (tensor<?x?x?xf32>, tensor<2x800x?xf32>, tensor<2x800x200xf32>, tensor<2x1600xf32>, none, tensor<2x?x200xf32>, tensor<2x?x200xf32>, none) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>)
- "std.return"(%Y, %Y_h, %Y_c) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> ()
+ "func.return"(%Y, %Y_h, %Y_c) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_zhigh_ccfd1_bidir_dyn
 // CHECK-SAME:   ([[X_:%.+]]: tensor<?x?x?xf32>, [[W_:%.+]]: tensor<2x800x?xf32>, [[R_:%.+]]: tensor<2x800x200xf32>, [[B_:%.+]]: tensor<2x1600xf32>, [[PARAM_0_:%.+]]: tensor<2x?x200xf32>, [[PARAM_1_:%.+]]: tensor<2x?x200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>) {

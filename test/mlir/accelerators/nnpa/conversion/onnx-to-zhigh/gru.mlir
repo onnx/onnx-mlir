@@ -214,7 +214,7 @@ func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?xf32>
 func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x600x?xf32>, %R: tensor<2x600x200xf32>, %B: tensor<2x1200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<?x?x?xf32>, tensor<2x600x?xf32>, tensor<2x600x200xf32>, tensor<2x1200xf32>, none, none) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>)
- "std.return"(%Y, %Y_h) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) -> ()
+ "func.return"(%Y, %Y_h) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_zhigh_gru0_bidir_dyn
 // CHECK-SAME:   ([[X_:%.+]]: tensor<?x?x?xf32>, [[W_:%.+]]: tensor<2x600x?xf32>, [[R_:%.+]]: tensor<2x600x200xf32>, [[B_:%.+]]: tensor<2x1200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) {

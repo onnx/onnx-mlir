@@ -80,7 +80,7 @@ func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<
 
   %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "backward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
 
-  "std.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -118,10 +118,10 @@ func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{da
 
   %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
 
-  "std.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, ((d2 + (d2 floordiv 9) * 55) * 2) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
+// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, ((d1 + (d1 floordiv 9) * 55) * 2) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, (d3 ceildiv 64) * 2, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-LABEL:  func @lstm_bidir_return_all_steps
@@ -210,10 +210,10 @@ func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLa
 
   %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
 
-  "std.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, ((d2 + (d2 floordiv 9) * 55) * 2) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
+// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, ((d1 + (d1 floordiv 9) * 55) * 2) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, (d3 ceildiv 64) * 2, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map4 = affine_map<()[s0] -> ((s0 + 31) floordiv 32)>
