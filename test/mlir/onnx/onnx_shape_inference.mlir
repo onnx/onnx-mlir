@@ -2602,10 +2602,10 @@ func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64
 
 func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.Celu"(%arg0) {alpha = 1.0 : f32} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
-  "func.return"(%0) : (tensor<*xf32>) -> ()
+  return %0 : tensor<*xf32>
 
-  // CHECK-LABEL: test_celu
-  // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.0 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  // CHECK-LABEL: func @test_celu
+  // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
 }
 
