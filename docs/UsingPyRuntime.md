@@ -27,20 +27,55 @@ python3
 
 ### Running the PyRuntime interface
 
-Following is an example of how PyRuntime is leveraged in
-an example program:
+An ONNX model is a computation graph and it is often the case that the graph
+has a single entry point to trigger the computation. Below is an example of doing
+inference for a model that has a single entry point.
+
 ```python
 import numpy as np
 from PyRuntime import ExecutionSession
 
 model = 'model.so' # LeNet from ONNX Zoo compiled with onnx-mlir
+
+# Create a session for this model.
 session = ExecutionSession(model)
+# Input and output signatures of the default entry point.
 print("input signature in json", session.input_signature())
 print("output signature in json",session.output_signature())
+# Do inference using the default entry point.
 input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
 outputs = session.run([input])
 
 for output in outputs:
+    print(output.shape)
+```
+
+In case a computation graph has multiple entry points, users have to set a specfic
+entry point to do inference. Below is an example of doing inference with multiple
+entry points.
+```python
+import numpy as np
+from PyRuntime import ExecutionSession
+
+model = 'multi-entry-points-model.so'
+
+# Create a session for this model.
+session = ExecutionSession(model, False) # False to manually set an entry point.
+
+# Query entry points in the model.
+entry_points = sess.entry_points()
+
+for entry_point in entry_points:
+  # Set the entry point to do inference.
+  sess.set_entry_point(entry_point)
+  # Input and output signatures of the current entry point.
+  print("input signature in json", sess.input_signature())
+  print("output signature in json",sess.output_signature())
+  # Do inference using the current entry point.
+  a = np.arange(10).astype('float32')
+  b = np.arange(10).astype('float32')
+  outputs = sess.run([a, b])
+  for output in outputs:
     print(output.shape)
 ```
 
