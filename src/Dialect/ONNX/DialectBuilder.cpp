@@ -27,19 +27,19 @@ namespace onnx_mlir {
 //====-------------------------- ONNX Builder ---------------------------===//
 
 Value OnnxBuilder::add(Value A, Value B) const {
-  return b.create<ONNXAddOp>(loc, A, B);
+  return b.create<ONNXAddOp>(loc, totensor(A), totensor(B));
 }
 
 Value OnnxBuilder::sub(Value A, Value B) const {
-  return b.create<ONNXSubOp>(loc, A, B);
+  return b.create<ONNXSubOp>(loc, totensor(A), totensor(B));
 }
 
 Value OnnxBuilder::mul(Value A, Value B) const {
-  return b.create<ONNXMulOp>(loc, A, B);
+  return b.create<ONNXMulOp>(loc, totensor(A), totensor(B));
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {
-  return b.create<ONNXDivOp>(loc, A, B);
+  return b.create<ONNXDivOp>(loc, totensor(A), totensor(B));
 }
 
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
@@ -50,14 +50,8 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
                     B.getType().isa<ShapedType>() &&
                     B.getType().cast<ShapedType>().hasRank() &&
                     (B.getType().cast<ShapedType>().getRank() == 2);
-  auto aTy = A.getType().cast<ShapedType>();
-  auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
-  auto aValue =
-      b.create<UnrealizedConversionCastOp>(loc, aTensorTy, A).getResult(0);
-  auto bTy = B.getType().cast<ShapedType>();
-  auto bTensorTy = RankedTensorType::get(bTy.getShape(), bTy.getElementType());
-  auto bValue =
-      b.create<UnrealizedConversionCastOp>(loc, bTensorTy, B).getResult(0);
+  auto aValue = totensor(A);
+  auto bValue = totensor(B);
   if (canUseGemm)
     return b.create<ONNXGemmOp>(loc, Y, aValue, bValue,
         b.createOrFold<ONNXNoneOp>(loc),
@@ -72,16 +66,28 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
-  return b.create<ONNXReshapeOp>(loc, outputType, input, shape);
+  return b.create<ONNXReshapeOp>(
+      loc, outputType, totensor(input), totensor(shape));
 }
 
 Value OnnxBuilder::transpose(
     Type outputType, Value input, ArrayAttr perm) const {
-  return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
+  return b.create<ONNXTransposeOp>(loc, outputType, totensor(input), perm);
 }
 
 Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+Value OnnxBuilder::totensor(Value input) const {
+  if (input.getType().isa<TensorType>())
+    return input;
+  assert(input.getType().isa<MemRefType>() &&
+         "expect RankedMemref type when not a TensorType");
+  auto aTy = input.getType().cast<ShapedType>();
+  auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
+  return b.create<UnrealizedConversionCastOp>(loc, aTensorTy, input)
+      .getResult(0);
 }
 
 } // namespace onnx_mlir

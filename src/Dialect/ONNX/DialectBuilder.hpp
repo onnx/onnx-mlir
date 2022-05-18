@@ -39,6 +39,8 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
 
   mlir::Value constant(mlir::Attribute denseAttr) const;
+
+  mlir::Value totensor(mlir::Value input) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
