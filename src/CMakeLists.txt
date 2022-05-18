@@ -11,6 +11,8 @@ add_subdirectory(Runtime)
 add_subdirectory(Tools)
 add_subdirectory(Compiler)
 
+set_property(SOURCE onnx-mlir.cpp APPEND PROPERTY COMPILE_DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
+
 add_onnx_mlir_executable(onnx-mlir
   onnx-mlir.cpp
 

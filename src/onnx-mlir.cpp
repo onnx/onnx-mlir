@@ -12,12 +12,35 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CompilerUtils.hpp"
+#include "llvm/Support/Host.h"
 #include <iostream>
 
 using namespace std;
 using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;
+
+#if defined(__GNUC__)
+// GCC and GCC-compatible compilers define __OPTIMIZE__ when optimizations are
+// enabled.
+#if defined(__OPTIMIZE__)
+#define LLVM_IS_DEBUG_BUILD 0
+#else
+#define LLVM_IS_DEBUG_BUILD 1
+#endif
+#elif defined(_MSC_VER)
+// MSVC doesn't have a predefined macro indicating if optimizations are enabled.
+// Use _DEBUG instead. This macro actually corresponds to the choice between
+// debug and release CRTs, but it is a reasonable proxy.
+#if defined(_DEBUG)
+#define LLVM_IS_DEBUG_BUILD 1
+#else
+#define LLVM_IS_DEBUG_BUILD 0
+#endif
+#else
+// Otherwise, for an unknown compiler, assume this is an optimized build.
+#define LLVM_IS_DEBUG_BUILD 0
+#endif
 
 int main(int argc, char *argv[]) {
   mlir::MLIRContext context;
@@ -55,8 +78,24 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
-  llvm::cl::AddExtraVersionPrinter(
-      [](llvm::raw_ostream &os) { os << getOnnxMlirFullVersion() << "\n"; });
+  llvm::cl::SetVersionPrinter([](llvm::raw_ostream &os) {
+    os << getOnnxMlirFullVersion() << "\n";
+#if LLVM_IS_DEBUG_BUILD
+    os << "  DEBUG build";
+#else
+    os << "  Optimized build";
+#endif
+#ifndef NDEBUG
+    os << " with assertions";
+#endif
+    std::string CPU = std::string(llvm::sys::getHostCPUName());
+    if (CPU == "generic")
+      CPU = "(unknown)";
+    os << ".\n";
+    os << "  Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
+       << "  Host CPU: " << CPU << '\n';
+    os << "  LLVM version " << LLVM_PACKAGE_VERSION << "\n";
+  });
 
   // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
