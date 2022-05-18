@@ -1292,6 +1292,30 @@ func @test_unsqueezev11_mix(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the eyelike op inference.
+//===----------------------------------------------------------------------===//
+
+func @test_eyelike_1(%arg0 : tensor<8x8xi32>) -> tensor<*xf32> {
+  %1 = "onnx.EyeLike"(%arg0) {dtype = 1 : si64} : (tensor<8x8xi32>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_eyelike_1
+  // CHECK: [[RES:%.+]] = "onnx.EyeLike"(%arg0) {dtype = 1 : si64} : (tensor<8x8xi32>) -> tensor<8x8xf32>
+  // CHECK: return [[RES]] : tensor<8x8xf32>
+}
+
+func @test_eyelike_2(%arg0 : tensor<8x8xi32>) -> tensor<*xi32> {
+  %1 = "onnx.EyeLike"(%arg0) {} : (tensor<8x8xi32>) -> tensor<*xi32>
+  "func.return"(%1) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_eyelike_2
+  // CHECK: [[RES:%.+]] = "onnx.EyeLike"(%arg0) : (tensor<8x8xi32>) -> tensor<8x8xi32>
+  // CHECK: return [[RES]] : tensor<8x8xi32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the cast op inference.
 //===----------------------------------------------------------------------===//
 
