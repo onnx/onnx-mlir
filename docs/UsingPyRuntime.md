@@ -63,18 +63,18 @@ model = 'multi-entry-points-model.so'
 session = ExecutionSession(model, False) # False to manually set an entry point.
 
 # Query entry points in the model.
-entry_points = sess.entry_points()
+entry_points = session.entry_points()
 
 for entry_point in entry_points:
   # Set the entry point to do inference.
-  sess.set_entry_point(entry_point)
+  session.set_entry_point(entry_point)
   # Input and output signatures of the current entry point.
-  print("input signature in json", sess.input_signature())
-  print("output signature in json",sess.output_signature())
+  print("input signature in json", session.input_signature())
+  print("output signature in json",session.output_signature())
   # Do inference using the current entry point.
   a = np.arange(10).astype('float32')
   b = np.arange(10).astype('float32')
-  outputs = sess.run([a, b])
+  outputs = session.run([a, b])
   for output in outputs:
     print(output.shape)
 ```
@@ -84,10 +84,11 @@ The complete interface to ExecutionSession can be seen in the sources mentioned 
 using the constructor and run method is enough to perform inferences.
 
 ```python
-def __init__(self, path: str):
+def __init__(self, path: str, default_entry_point: bool):
     """
     Args:
         path: relative or absolute path to your .so model.
+        default_entry_point: use the default entry point that is `run_main_graph` or not. Set to True by default.
     """
 
 def run(self, input: List[ndarray]) -> List[ndarray]:
@@ -109,5 +110,17 @@ def output_signature(self) -> str:
     """
     Returns:
         A string containing a JSON representation of the model's output signature.
+    """
+
+def entry_points(self) -> List[str]:
+    """
+    Returns:
+        A list of entry point names.
+    """
+
+def set_entry_point(self, entry_point_name: str):
+    """
+    Args:
+        entry_point_name: an entry point name.
     """
 ```
