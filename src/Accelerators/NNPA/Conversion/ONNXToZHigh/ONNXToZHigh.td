@@ -497,8 +497,9 @@ def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)"
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
-def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
-def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+def GetZeroI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
 
 //===----------------------------------------------------------------------===//
 // NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
@@ -523,14 +524,14 @@ def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /
 
 def normalizeONNXGemmTransAPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
-  (ONNXGemmOp (Transpose2D $a), $b, $c, $alpha, $beta, (GemmTransA), $transB),
+  (ONNXGemmOp (Transpose2D $a), $b, $c, $alpha, $beta, (GetZeroI64Attr), $transB),
   [(IsTransposed:$transA)],
   (addBenefit 1)
 >;
 
 def normalizeONNXGemmTransBPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
-  (ONNXGemmOp $a, (Transpose2D $b), $c, $alpha, $beta, $transA, (GemmTransB)),
+  (ONNXGemmOp $a, (Transpose2D $b), $c, $alpha, $beta, $transA, (GetZeroI64Attr)),
   [(IsTransposed:$transB)],
   (addBenefit 1)
 >;
