@@ -40,12 +40,6 @@ mlir::Block *getTopBlock(mlir::Operation *op);
 /// Retrieve function which contains the current operation.
 mlir::func::FuncOp getContainingFunction(mlir::Operation *op);
 
-// Emit a constant of a specific type.
-// Use this function for small values only to avoid unexpected loss in type
-// casting.
-mlir::Value emitConstantOp(mlir::OpBuilder &rewriter, mlir::Location loc,
-    mlir::Type type, double value);
-
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
 //===----------------------------------------------------------------------===//

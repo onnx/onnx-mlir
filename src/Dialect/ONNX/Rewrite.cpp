@@ -21,20 +21,13 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// Otherwise, return '-rhs'.
-Value subtractOrNeg(
-    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
-  if (lhs.getType().isa<NoneType>()) {
-    Value result = rewriter.create<ONNXNegOp>(loc, rhs);
-    return result;
-  } else {
-    Value result = rewriter.create<ONNXSubOp>(loc, lhs, rhs);
-    return result;
-  }
+// If 'A' is NoneType, return -B. Otherwise return A-B.
+Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
+  if (A.getType().isa<NoneType>())
+    return rewriter.create<ONNXNegOp>(loc, B);
+  return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
@@ -100,13 +93,13 @@ bool areProducedByTransposeOp(ValueRange values) {
   });
 }
 
+} // namespace onnx_mlir
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
-} // end anonymous namespace
-
 /// Register optimization patterns as "canonicalization" patterns
-/// on the ONNXMatMultOp.
+/// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeAddPattern>(context);
@@ -114,6 +107,13 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+/// on the ONNXMulOp.
+void ONNXMulOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeMulPattern>(context);
+  results.insert<FuseMulConvNullBiasPattern>(context);
 }
 
 /// on the ONNXIdentityOp.

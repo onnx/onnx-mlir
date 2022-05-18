@@ -3116,6 +3116,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 
 def ONNXMulOp:ONNX_Op<"Mul",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
   "Performs element-wise binary multiplication (with Numpy-style broadcasting support)."
