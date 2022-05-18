@@ -104,6 +104,21 @@ Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
                                      type.getElementType());
 }
 
+/// Get Torch tensor from mlir::Value tensor
+///
+/// \param operand: operand tensor
+/// \param rewriter: rewriter object related to the operator
+/// \param context: context related to operator
+/// \param loc: location related to operator
+///
+/// \returns mlir::Value tensor of torch type
+mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
+                           mlir::MLIRContext *context, Location loc) {
+  auto operandType = toTorchType(context, operand.getType());
+  return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+      loc, operandType, operand);
+}
+
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc) {
   auto iType = IntegerType::get(context, 64);
@@ -111,49 +126,14 @@ Value getIntValue(int val, ConversionPatternRewriter &rewriter,
   return rewriter.create<ConstantIntOp>(loc, iVal);
 }
 
-std::vector<int> toUniqueAndNonNegative(std::vector<int> axes) {
-  std::set<int> axesSet(axes.begin(), axes.end());
-  std::vector<int> axesNonNeg;
+std::vector<int> toVector(mlir::ArrayAttr axesAttr) {
+  std::vector<int> axes;
 
-  for (auto x : axesSet) {
-    // positive integers are added as it
-    // negative integers are normarlized to positive
-    axesNonNeg.push_back((x > 0) ? x : (x + axesSet.size()));
-  }
-  return axesNonNeg;
-}
-
-std::vector<int> getSortedWithNegativeAxes(std::vector<int> axesRaw) {
-  auto axesNonNegative = toUniqueAndNonNegative(axesRaw);
-  auto axesSorted = axesNonNegative;
-
-  std::sort(axesSorted.begin(), axesSorted.end());
-
-  return axesSorted;
-}
-
-mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
-                          Torch::ValueTensorType resultType,
-                          ConversionPatternRewriter &rewriter,
-                          mlir::MLIRContext *context, Location loc) {
-  Value result = dataTensor;
-
-  if (axes.size() > 0) {
-    for (auto i = 0; i < axes.size(); i++) {
-      auto dataType = result.getType().dyn_cast<TensorType>();
-
-      // With every successive deleting on dimension, the input axis
-      // changes to `axis = axis - number_of_dimensions_deleted`
-      // This works because, axes is sorted and normalized to possitive integers
-      auto dim_raw = axes[i] - i;
-      // assert((dataType.getShape()[dim_raw] == 1) && "Cannot squeeze for
-      // dim");
-      Value dim = getIntValue(dim_raw, rewriter, context, loc);
-      result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
-    }
-  } else {
-    result = rewriter.create<AtenSqueezeOp>(loc, resultType, dataTensor);
+  for (auto axis : axesAttr) {
+    auto j = axis.dyn_cast<IntegerAttr>();
+    int64_t k = j.getValue().getSExtValue();
+    axes.push_back(k);
   }
 
-  return result;
+  return axes;
 }

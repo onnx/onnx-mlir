@@ -57,13 +57,8 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
                                         ConversionPatternRewriter &rewriter,
                                         int default_val = 0);
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);
+mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
+                           mlir::MLIRContext *context, Location loc);
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc);
-
-std::vector<int> getSortedWithNegativeAxes(std::vector<int> axesRaw);
-std::vector<int> toUniqueAndNonNegative(std::vector<int> axes);
-
-mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
-                          Torch::ValueTensorType resultType,
-                          ConversionPatternRewriter &rewriter,
-                          mlir::MLIRContext *context, Location loc);
+std::vector<int> toVector(mlir::ArrayAttr axesAttr);
