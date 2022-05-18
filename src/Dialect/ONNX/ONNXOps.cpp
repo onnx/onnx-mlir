@@ -893,6 +893,17 @@ LogicalResult ONNXSigmoidOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Celu
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXCeluOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXCeluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Elu
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXEluOp. This method is required by the
@@ -5167,7 +5178,6 @@ LogicalResult ONNXZipMapOp::inferShapes(
 
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
