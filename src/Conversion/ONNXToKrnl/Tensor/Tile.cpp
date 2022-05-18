@@ -156,8 +156,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     for (int64_t ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
       pack.pushConstantBound(0);
-      Value indexVal =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
+      Value indexVal = create.math.constant(rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       Value repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
