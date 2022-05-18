@@ -2604,7 +2604,7 @@ func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.Celu"(%arg0) {alpha = 1.0 : f32} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_erf
+  // CHECK-LABEL: test_celu
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.0 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
 }
