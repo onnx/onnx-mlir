@@ -40,7 +40,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
     IndexExpr G = LiteralIndexExpr(groupNum);
-    Value fZero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
+    MathBuilder createMath(rewriter, loc);
+    Value fZero = createMath.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
     // where N is Batch Size,

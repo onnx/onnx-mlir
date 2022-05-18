@@ -335,9 +335,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
     float betaLit = gemmOp.beta().convertToFloat();
-    Value alpha = emitConstantOp(rewriter, loc, elementType, alphaLit);
-    Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value alpha = createMath.constant(elementType, alphaLit);
+    Value beta = createMath.constant(elementType, betaLit);
+    Value zero = createMath.constant(elementType, 0);
 
     LLVM_DEBUG({
       if (DEBUG_SIMD_OFF)
