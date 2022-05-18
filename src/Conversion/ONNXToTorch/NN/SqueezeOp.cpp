@@ -78,18 +78,19 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
       : ConversionPattern(typeConverter, ONNXSqueezeOp::getOperationName(), 1,
                           ctx) {}
 
-  std::vector<int> toVector(mlir::Value axes_unsorted) const {
+  std::vector<int> toVector(mlir::ArrayAttr axes_unsorted) const {
     std::vector<int> axes;
 
-    // for (auto i : axes_unsorted) {
-    //   auto j = i.dyn_cast<IntegerAttr>();
-    //   axes.push_back(j);
-    // }
+    for (auto i : axes_unsorted) {
+      auto j = i.dyn_cast<IntegerAttr>();
+      int64_t k = j.getValue().getSExtValue();
+      axes.push_back(k);
+    }
 
     return axes;
   }
 
-  std::vector<int> getAxes(mlir::Value axes) const {
+  std::vector<int> getAxes(mlir::ArrayAttr axes) const {
     auto axes_vec = toVector(axes);
     return getSortedWithNegativeAxes(axes_vec);
   }
@@ -102,13 +103,16 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     assert(squeezeOp && "Expecting op to have a strong type");
 
     Location loc = squeezeOp.getLoc();
+    mlir::MLIRContext *context = squeezeOp.getContext();
+
+    auto builder = mlir::Builder(context);
 
     Value data = squeezeOp.data();
-    mlir::ValueRange x = squeezeOp.axes();
 
-    auto axes = getAxes(squeezeOp.axes());
+    auto axesConstOp = getONNXConstantOp(squeezeOp.axes());
+    auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
 
-    mlir::MLIRContext *context = squeezeOp.getContext();
+    auto axes = getAxes(axesAttr);
 
     auto dataType = toTorchType(context, data.getType());
     auto resultType = toTorchType(context, squeezeOp.getResult().getType());
