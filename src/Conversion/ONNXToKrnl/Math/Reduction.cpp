@@ -24,39 +24,43 @@ namespace onnx_mlir {
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.negativeInf(type);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.negativeInf(type);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMinOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.positiveInf(type);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.positiveInf(type);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceProdOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 1);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 1);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumV11Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMeanOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 // Scalar ops
@@ -91,11 +95,11 @@ template <>
 Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value max = create.math.sgt(lhs, rhs);
-  return create.math.select(max, lhs, rhs);
+  Value max = createMath.sgt(lhs, rhs);
+  return createMath.select(max, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -105,11 +109,11 @@ template <>
 Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value min = create.math.slt(lhs, rhs);
-  return create.math.select(min, lhs, rhs);
+  Value min = createMath.slt(lhs, rhs);
+  return createMath.select(min, lhs, rhs);
 }
 
 template <typename ONNXReductionOp>
@@ -433,8 +437,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
       maskVal = insertAllocAndDealloc(
           maskTypeInMemRefType, loc, rewriter, insertDealloc);
-      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
-      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
+      falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
+      trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
@@ -460,9 +464,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // maskVal[axes[i] < 0 ? axes[i]+inRank: axes[i]] = 1
       auto axesElementType =
           axesVal.getType().cast<MemRefType>().getElementType();
-      auto dataDimConst =
-          emitConstantOp(rewriter, loc, axesElementType, inRank);
-      Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
+      auto dataDimConst = create.math.constant(axesElementType, inRank);
+      Value zeroValue = create.math.constant(axesElementType, 0);
       if (axesDim == -1) {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);

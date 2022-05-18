@@ -72,8 +72,9 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
         rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Constant Value
-    auto minusOne = emitConstantOp(rewriter, loc, reducedElementType, -1);
-    auto zero = emitConstantOp(rewriter, loc, reducedElementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value minusOne = createMath.constant(reducedElementType, -1);
+    Value zero = createMath.constant(reducedElementType, 0);
     auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     KrnlBuilder createKrnl(rewriter, loc);
 

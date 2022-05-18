@@ -89,9 +89,10 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
-  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-  Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-  Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value zeroIndex = createMath.constant(rewriter.getIndexType(), 0);
+  Value oneIndex = createMath.constant(rewriter.getIndexType(), 1);
 
   int nLoops = 2;
   IndexExprScope childScope(&rewriter, loc);

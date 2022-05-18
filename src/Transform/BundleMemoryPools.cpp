@@ -436,16 +436,16 @@ public:
     if (!currentAllocGetRef)
       return failure();
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
     if (isFirstBundledAllocWithThisAlignment) {
-      Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+      Value zero = create.math.constant(rewriter.getIndexType(), 0);
       zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
     }
-
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
 
     arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));

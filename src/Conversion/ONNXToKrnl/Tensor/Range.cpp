@@ -52,7 +52,8 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     // Allocate result.
     Value alloc;
-    Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+    MathBuilder createMath(rewriter, loc);
+    Value zero = createMath.constant(rewriter.getIndexType(), 0);
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
