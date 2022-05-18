@@ -55,6 +55,9 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
+  llvm::cl::AddExtraVersionPrinter(
+      [](llvm::raw_ostream &os) { os << getOnnxMlirFullVersion() << "\n"; });
+
   // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
       "ONNX-MLIR modular optimizer driver\n", nullptr,

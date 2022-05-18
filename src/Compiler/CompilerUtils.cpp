@@ -153,20 +153,6 @@ static std::string getToolPath(std::string tool) {
     return std::string();
 }
 
-static std::string getOnnxMlirFullVersion() {
-  const std::string OnnxMlirVersion = "onnx-mlir version 0.3.0";
-  return
-#ifdef ONNX_MLIR_VENDOR
-      ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
-#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
-    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
-      OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
-                        ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
-#else
-      OnnxMlirVersion;
-#endif
-}
-
 // Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
@@ -250,6 +236,20 @@ struct Command {
 
 // =============================================================================
 // Methods for compiling and file processing.
+
+std::string getOnnxMlirFullVersion() {
+  const std::string OnnxMlirVersion = "onnx-mlir version 0.3.0";
+  return
+#ifdef ONNX_MLIR_VENDOR
+      ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
+#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
+    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
+      OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
+                        ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
+#else
+      OnnxMlirVersion;
+#endif
+}
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
