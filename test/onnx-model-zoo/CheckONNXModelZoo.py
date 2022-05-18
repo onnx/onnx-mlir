@@ -161,10 +161,10 @@ def obtain_all_model_paths():
     log_l1('\n')
     excluded_msg = ""
     if (len(excluded_names) != 0):
-        excluded_msg = "where " + \
-            str(len(excluded_names)) + \
-            " models are not checked because of old opsets or quantization"
-    print("There are {} models in the ONNX model zoo {}.".format(
+        excluded_msg = (
+            " where " + str(len(excluded_names)) +
+            " models are not checked because of old opsets or quantization")
+    print("There are {} models in the ONNX model zoo{}.".format(
         len(model_paths), excluded_msg))
     return model_names, model_paths
 
