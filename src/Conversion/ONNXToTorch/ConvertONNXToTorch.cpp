@@ -14,7 +14,7 @@
 //===------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "llvm/Support/CommandLine.h"
 

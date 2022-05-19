@@ -11,8 +11,8 @@
 #include <iostream>
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -31,7 +31,6 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -164,7 +163,7 @@ void setupBackendTypeTransforms(
 namespace{
   
 class ONNXToAtenTypesTransformPass 
-    : public PassWrapper<ONNXToAtenTypesTransformPass, OperationPass<::mlir::FuncOp>> {
+    : public PassWrapper<ONNXToAtenTypesTransformPass, OperationPass<func::FuncOp>> {
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<TorchConversion::TorchConversionDialect>();
@@ -186,14 +185,14 @@ class ONNXToAtenTypesTransformPass
     typeConverter.addConversion([](Type type) { return type; });
     setupBackendTypeTransforms(target, typeConverter);
 
-    populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(patterns, typeConverter);
-    target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
-      return typeConverter.isSignatureLegal(op.getType()) &&
+    populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
+    target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+      return typeConverter.isSignatureLegal(op.getFunctionType()) &&
              typeConverter.isLegal(&op.getBody());
     });
     populateCallOpTypeConversionPattern(patterns, typeConverter);
-    target.addDynamicallyLegalOp<CallOp>(
-        [&](CallOp op) { return typeConverter.isLegal(op); });
+    target.addDynamicallyLegalOp<func::CallOp>(
+        [&](func::CallOp op) { return typeConverter.isLegal(op); });
 
     populateBranchOpInterfaceTypeConversionPattern(patterns, typeConverter);
     populateReturnOpTypeConversionPattern(patterns, typeConverter);
@@ -261,7 +260,7 @@ static void setupFinalization(ConversionTarget &target,
 
 namespace {
 class ONNXToAtenFinalizeTypesTransformPass
-    : public PassWrapper<ONNXToAtenFinalizeTypesTransformPass, OperationPass<::mlir::FuncOp>> {
+    : public PassWrapper<ONNXToAtenFinalizeTypesTransformPass, OperationPass<func::FuncOp>> {
 
   void runOnOperation() override {
     auto func = getOperation();
@@ -316,7 +315,7 @@ class ONNXToAtenModifyMainFunctionPass
 
     module.walk([&](ONNXEntryPointOp op) {
 	auto functionName = op.func().getRootReference().getValue();
-	auto mainFuncOp   = module.lookupSymbol<FuncOp>(functionName);
+	auto mainFuncOp   = module.lookupSymbol<func::FuncOp>(functionName);
 	if (mainFuncOp) {
 	  StringRef forwardRef = "forward";
 	  auto forwardAttr     = StringAttr::get(module.getContext(), forwardRef);	  
