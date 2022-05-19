@@ -83,11 +83,13 @@ public:
       inputArrayValues.push_back(inputTorchTensor);
     }
 
+
     Value inputShapeList = rewriter.create<PrimListConstructOp>(
       loc, 
-	    Torch::ListType::get(inputArrayValues.front().getType()),
+	    Torch::ListType::get(Torch::ValueTensorType::getWithLeastStaticInformation(getContext())),
       ValueRange{inputArrayValues}
     );
+
     AtenCatOp result = rewriter.replaceOpWithNewOp<AtenCatOp>(op, resultType, inputShapeList, axisVal);
     return success();
   }
