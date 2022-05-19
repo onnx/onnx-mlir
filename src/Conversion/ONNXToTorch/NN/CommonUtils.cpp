@@ -112,3 +112,18 @@ mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
   return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
       loc, operandType, operand);
 }
+
+/// Get mlir::Value from int
+///
+/// \param val: operand tensor
+/// \param rewriter: rewriter object related to the operator
+/// \param context: context related to operator
+/// \param loc: location related to operator
+///
+/// \returns mlir::Value int
+Value getIntValue(int val, ConversionPatternRewriter &rewriter,
+                  mlir::MLIRContext *context, Location loc) {
+  auto iType = IntegerType::get(context, 64);
+  auto iVal = IntegerAttr::get(iType, val);
+  return rewriter.create<ConstantIntOp>(loc, iVal);
+}
