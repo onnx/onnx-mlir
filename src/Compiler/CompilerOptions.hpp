@@ -43,8 +43,8 @@ extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
 extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
 extern llvm::cl::opt<bool> VerboseOutput;
-extern llvm::cl::opt<std::string> Xopt;
-extern llvm::cl::opt<std::string> Xllc;
+extern llvm::cl::list<std::string> Xopt;
+extern llvm::cl::list<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
 
 extern llvm::cl::opt<std::string> instrumentONNXOps;
@@ -65,10 +65,10 @@ void setTargetAccel(const accel::Accelerator::Kind accel);
 std::string getTargetAccel();
 void setOptLevel(const onnx_mlir::OptLevel level);
 std::string getOptimizationLevelOption();
-void setXoptOption(const std::string &flag);
-std::string getXoptOption();
-void setXllcOption(const std::string &flag);
-std::string getXllcOption();
+void setXoptOption(const std::vector<std::string> &flags);
+std::vector<std::string> getXoptOption();
+void setXllcOption(const std::vector<std::string> &flags);
+std::vector<std::string> getXllcOption();
 void setLLVMOption(const std::string &flag);
 std::string getLLVMOption();
 

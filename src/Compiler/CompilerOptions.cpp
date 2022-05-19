@@ -103,17 +103,17 @@ llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
 llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> Xopt("Xopt",
+llvm::cl::list<std::string> Xopt("Xopt",
     llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
-    llvm::cl::OneOrMore);
+    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
-llvm::cl::opt<std::string> Xllc("Xllc",
+llvm::cl::list<std::string> Xllc("Xllc",
     llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
-    llvm::cl::OneOrMore);
+    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::desc(
@@ -279,14 +279,38 @@ std::string getOptimizationLevelOption() {
 }
 
 // Support for Xopt.
-void setXoptOption(const std::string &flag) { Xopt = flag; }
+void setXoptOption(const std::vector<std::string> &flags) {
+  for (const std::string &flag : flags)
+    Xllc.addValue(flag);
+}
 
-std::string getXoptOption() { return (Xopt != "") ? Xopt : std::string(); }
+std::vector<std::string> getXoptOption() {
+  if (Xopt.empty())
+    return std::vector<std::string>();
+
+  std::vector<std::string> flags;
+  for (std::string flag : Xopt)
+    flags.push_back(flag);
+
+  return flags;
+}
 
 // Support for Xllc.
-void setXllcOption(const std::string &flag) { Xllc = flag; }
+void setXllcOption(const std::vector<std::string> &flags) {
+  for (const std::string &flag : flags)
+    Xllc.addValue(flag);
+}
 
-std::string getXllcOption() { return (Xllc != "") ? Xllc : std::string(); }
+std::vector<std::string> getXllcOption() {
+  if (Xllc.empty())
+    return std::vector<std::string>();
+
+  std::vector<std::string> flags;
+  for (std::string flag : Xllc)
+    flags.push_back(flag);
+
+  return flags;
+}
 
 // Support for LLVM.
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
@@ -318,10 +342,10 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     setOptLevel((OptLevel)level);
   } break;
   case OptionKind::OPTFlag:
-    setXoptOption(val);
+    setXoptOption({val});
     break;
   case OptionKind::LLCFlag:
-    setXllcOption(val);
+    setXllcOption({val});
     break;
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
@@ -343,10 +367,26 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
-  case OptionKind::OPTFlag:
-    return getXoptOption();
-  case OptionKind::LLCFlag:
-    return getXllcOption();
+  case OptionKind::OPTFlag: {
+    std::vector<std::string> flags = getXoptOption();
+    std::string s;
+    for (int i = 0, n = flags.size(); i < n; ++i) {
+      s.append(flags.at(i));
+      if (i != n - 1)
+        s.append(",");
+    }
+    return s;
+  }
+  case OptionKind::LLCFlag: {
+    std::vector<std::string> flags = getXllcOption();
+    std::string s;
+    for (int i = 0, n = flags.size(); i < n; ++i) {
+      s.append(flags.at(i));
+      if (i != n - 1)
+        s.append(",");
+    }
+    return s;
+  }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
   }
