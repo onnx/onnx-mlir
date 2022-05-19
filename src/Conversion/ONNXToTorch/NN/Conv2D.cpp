@@ -152,11 +152,6 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
         oneConstOp);
 
-    llvm::outs() << "AtenConv2d operation creation "
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
-
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
 

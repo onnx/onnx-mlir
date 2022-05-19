@@ -79,7 +79,6 @@ public:
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType, 
 		    inputTorchTensor, constAxisValue, halfToFloat);
 
-    llvm::outs() << "ATENSOFTMAX CREATED \n" << result << "\n\n"; 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, 
 		    resultType, result);
     return success();
