@@ -57,7 +57,6 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Create temp memory for summing up the true value and init to zero.
     Type indexType = rewriter.getIndexType();
     MemRefType indexMemRefType = MemRefType::get({}, indexType);
-    Value readIndexMemRef = create.mem.alloca(indexMemRefType);
     Value sumMemRef = create.mem.alloca(indexMemRefType);
     create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
@@ -147,6 +146,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
         }
       }
 
+      Value readIndexMemRef = create.mem.alloca(indexMemRefType);
       create.krnl.store(zeroIE.getValue(), readIndexMemRef);
 
       ValueRange inputLoopDef = create.krnl.defineLoops(inputRank);
