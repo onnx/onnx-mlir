@@ -206,12 +206,12 @@ def generate_random_input(model, input_shapes):
                           "of the {} input is unknown.".format(ordinal(i + 1)),
                           "Use --shape_info to set.")
                     print(shape_proto)
-                    exit()
+                    exit(1)
             else:
                 print("The shape of the {} input".format(ordinal(i + 1)),
                       "is unknown. Use --shape_info to set.")
                 print(shape_proto)
-                exit()
+                exit(1)
         rinput = np.random.uniform(-1.0, 1.0,
                                    explicit_shape).astype(np.float32)
         print("  - {} input's shape {}".format(ordinal(i + 1), rinput.shape))
@@ -371,7 +371,7 @@ def main():
                 ref_outs = read_output_from_refs(model, args.data_folder)
             else:
                 print("Invalid verify option")
-                exit()
+                exit(1)
 
             # For each output tensor, compare results.
             for i, name in enumerate(output_names):
