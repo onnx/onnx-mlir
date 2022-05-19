@@ -13,7 +13,7 @@ Releases are extensively tested, including the following steps.
 
 ## Prerelease 0.3.0
 
-This prerelease was cut on May TBD, 2022.
+This prerelease was cut on May 20th, 2022.
 There are no security issues that we know of.
 
 ## Prerelease 0.2.0
