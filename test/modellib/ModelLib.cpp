@@ -94,20 +94,21 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
-bool ModelLibBuilder::checkSharedLibInstruction(std::string instructionName, std::string sharedLibName) {
+bool ModelLibBuilder::checkSharedLibInstruction(
+    std::string instructionName, std::string sharedLibName) {
   if (instructionName.empty())
     return true;
   FILE *fp = NULL;
   const int bufSize = 256;
   char buf[bufSize];
   std::string out;
-  std::string cmd("nm " + sharedLibName +"|grep ");
+  std::string cmd("nm " + sharedLibName + "|grep ");
   cmd.append(instructionName.c_str());
-  if ((fp=popen(cmd.c_str(), "r")) == NULL) {
+  if ((fp = popen(cmd.c_str(), "r")) == NULL) {
     printf("Command: %s failed\n", cmd.c_str());
     return false;
   }
-  while(!feof(fp)) {
+  while (!feof(fp)) {
     if (fgets(buf, bufSize, fp) != NULL)
       out.append(buf);
   }
@@ -129,7 +130,8 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
   FunctionType funcType = builder.getFunctionType(inputsType, outputsType);
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp = builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
+  auto funcOp =
+      builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);

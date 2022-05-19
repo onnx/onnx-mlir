@@ -48,12 +48,15 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   bool successBuild = lstm.build() && lstm.compileAndLoad();
   assert(successBuild && "Build failed");
-  std::string instructionName = getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
-  std::string sharedLibName = ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
-  if (!ModelLibBuilder::checkSharedLibInstruction(instructionName, sharedLibName))
+  std::string instructionName =
+      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
+  std::string sharedLibName =
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
+  if (!ModelLibBuilder::checkSharedLibInstruction(
+          instructionName, sharedLibName))
     return false;
-  return successBuild && lstm.prepareInputs() &&
-         lstm.run() && lstm.verifyOutputs();
+  return successBuild && lstm.prepareInputs() && lstm.run() &&
+         lstm.verifyOutputs();
 }
 
 } // namespace test
