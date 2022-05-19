@@ -72,14 +72,12 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(
-      mlir::ArrayRef<std::string> execNodesOnCpu, bool testAllOpsToZdnn)
-      : execNodesOnCpu(execNodesOnCpu), testAllOpsToZdnn(testAllOpsToZdnn) {}
+  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu)
+      : execNodesOnCpu(execNodesOnCpu) {}
   void runOnOperation() final;
 
 public:
   mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>();
-  bool testAllOpsToZdnn = false;
 };
 
 void RewriteONNXForZHighPass::runOnOperation() {
@@ -101,7 +99,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, execNodesOnCpu, testAllOpsToZdnn);
+      &target, execNodesOnCpu);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -115,9 +113,8 @@ std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
 }
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu, bool testAllOpsToZdnn) {
-  return std::make_unique<RewriteONNXForZHighPass>(
-      execNodesOnCpu, testAllOpsToZdnn);
+    mlir::ArrayRef<std::string> execNodesOnCpu) {
+  return std::make_unique<RewriteONNXForZHighPass>(execNodesOnCpu);
 }
 
 } // namespace onnx_mlir

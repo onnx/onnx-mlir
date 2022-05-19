@@ -22,12 +22,12 @@ namespace onnx_mlir {
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 std::unique_ptr<mlir::Pass> createONNXToZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu, bool testAllOpsToZdnn);
+    mlir::ArrayRef<std::string> execNodesOnCpu);
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu, bool testAllOpsToZdnn);
+    mlir::ArrayRef<std::string> execNodesOnCpu);
 
 /// Pass for folding std.alloc.
 std::unique_ptr<mlir::Pass> createFoldStdAllocPass();

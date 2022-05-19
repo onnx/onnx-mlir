@@ -48,7 +48,6 @@ namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
-extern llvm::cl::opt<bool> testAllOpsToZdnn;
 
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
@@ -67,23 +66,16 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<bool> testAllOpsToZdnn("testAllOpsToZdnn",
-    llvm::cl::desc("An optin to check if all onnx ops are lowered to zHigh. "
-                   "This option is used in numerical tests for NNPA.:"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
-void addONNXToZHighPasses(mlir::PassManager &pm,
-    ArrayRef<std::string> execNodesOnCpu, bool testAllOpsToZdnn) {
-  pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(
-      execNodesOnCpu, testAllOpsToZdnn));
+void addONNXToZHighPasses(
+    mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
+  pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
         instrumentONNXOps, instrumentControlBits.getBits()));
-  pm.addPass(
-      onnx_mlir::createONNXToZHighPass(execNodesOnCpu, testAllOpsToZdnn));
+  pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
@@ -127,7 +119,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
-    addONNXToZHighPasses(pm, execNodesOnCpu, testAllOpsToZdnn);
+    addONNXToZHighPasses(pm, execNodesOnCpu);
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
