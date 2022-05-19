@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# Please keep in alphabetical order.
+add_onnx_mlir_library(OMONNXToTorch
+  ConvertONNXToTorch.cpp
+  ONNXToTorchCommon.cpp
+  NN/CommonUtils.cpp
+  NN/Conv2D.cpp
+  NN/ConstOp.cpp
+  NN/ElementwiseOp.cpp
+  NN/Gemm.cpp
+  NN/GlobalAveragePool.cpp
+  NN/LeakyReluOp.cpp
+  NN/MaxPoolSingleOutOp.cpp
+  NN/PaddingOp.cpp
+  NN/ReduceMean.cpp
+  NN/SoftmaxOp.cpp
+  NN/Gemm.cpp
+  NN/AddOp.cpp
+  NN/FlattenOp.cpp
+  NN/ElementwiseOp.cpp
+  NN/BinaryOps.cpp
+
+  LINK_LIBS PUBLIC
+  OMConstPropHelper
+  OMONNXOps
+  OMSupport
+  MLIRStandardOpsTransforms
+  OMONNXRewrite
+  OMShapeInference
+  MLIRIR
+  MLIRPass
+  MLIRTransforms
+  TorchMLIRTorchDialect
+  TorchMLIRTorchUtils
+  TorchMLIRInitAll
+  TorchMLIRTorchConversionDialect
+  TorchMLIRTorchPasses
+  MLIRMemRefTransforms
+  #PerfectHash.cpp
+  #ControlFlow/Loop.cpp
+  #ControlFlow/Scan.cpp
+  #Math/CumSum.cpp
+  #Math/Clip.cpp
+  #Math/Gemm.cpp
+  #Math/Hardmax.cpp
+  #Math/LRN.cpp
+  #Math/MatMul.cpp
+  #Math/RandomNormal.cpp
+  #Math/RandomNormalLike.cpp
+  #Math/Reduction.cpp
+  #Math/Softmax.cpp
+  #Math/TopK.cpp
+  #ML/CategoryMapper.cpp
+  #NN/Normalization.cpp
+  #NN/Pooling.cpp
+  #ObjectDetection/NonMaxSuppression.cpp
+  #RNN/RNNBase.cpp
+  #RNN/GRU.cpp
+  #RNN/LSTM.cpp
+  #RNN/RNN.cpp
+  #RNN/RNNBase.cpp
+  #Tensor/ArgMax.cpp
+  #Tensor/Concat.cpp
+  #Tensor/Compress.cpp
+  #Tensor/Constant.cpp
+  #Tensor/ConstantOfShape.cpp
+  #Tensor/DepthToSpace.cpp
+  #Tensor/Expand.cpp
+  #Tensor/Flatten.cpp
+  #Tensor/Gather.cpp
+  #Tensor/Identity.cpp
+  #Tensor/NonZero.cpp
+  #Tensor/OneHot.cpp
+  #Tensor/Pad.cpp
+  #Tensor/Squeeze.cpp
+  #Tensor/Split.cpp
+  #Tensor/Shape.cpp
+  #Tensor/Size.cpp
+  #Tensor/Slice.cpp
+  #Tensor/SpaceToDepth.cpp
+  #Tensor/Reshape.cpp
+  #Tensor/Tile.cpp
+  #Tensor/Transpose.cpp
+  #Tensor/Unsqueeze.cpp
+  #Tensor/Range.cpp
+  #Tensor/Resize.cpp
+  #Tensor/ReverseSequence.cpp
+  #ConvertONNXToTorch.cpp
+  )
+
+add_onnx_mlir_library(ONNXToAtenTypesTransform
+  TypesTransformToTorchPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMSupport
+  OMONNXRewrite
+  OMShapeInference
+  MLIRIR
+  MLIRPass
+  MLIRTransforms
+  TorchMLIRTorchDialect
+  TorchMLIRTorchUtils
+  TorchMLIRInitAll
+  TorchMLIRTorchConversionDialect
+  TorchMLIRTorchPasses
+  MLIRMemRefTransforms
+  )

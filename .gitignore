@@ -186,3 +186,12 @@ dmypy.json
 
 # Visual Studio Code Files
 .vscode
+
+# Gnu Global
+GPATH
+GRTAGS
+GTAGS
+
+# Emacs save file
+
+\#*\#
