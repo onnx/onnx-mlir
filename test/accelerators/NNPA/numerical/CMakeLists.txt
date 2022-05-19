@@ -6,8 +6,6 @@ set(ONNX_NUMERICALTEST_BIN_DIR ${ONNX_MLIR_BIN_ROOT}/test/numerical)
 add_custom_target(numerical-nnpa)
 set_target_properties(numerical-nnpa PROPERTIES FOLDER "Tests")
 
-set(ZDNN_LIB "${ONNX_MLIR_BIN_ROOT}/src/Accelerators/NNPA/zDNN/src/zdnn/zdnn/lib/libzdnn.so")
-
 add_custom_target(check-onnx-numerical-nnpa
   COMMENT "Running the ONNX-MLIR numerical regression tests for NNPA"
   COMMAND "${CMAKE_CTEST_COMMAND}" --verbose -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
@@ -25,7 +23,7 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES EXCLUDE_FROM_DEFAULT_
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
 #   )
-function(add_numerical_unittest test_name)
+function(add_numerical_unittest test_name check_instruction)
   add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
 
   add_dependencies(numerical-nnpa ${test_name})
@@ -36,13 +34,12 @@ function(add_numerical_unittest test_name)
 
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
   add_test(NAME ${test_name}
-    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA --instrument-zhigh-ops=ALL --InstrumentBeforeZHighOp --InstrumentAfterZHighOp --InstrumentReportTimeZHigh
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA
+    # COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA --instrument-zhigh-ops=ALL --InstrumentBeforeZHighOp --InstrumentAfterZHighOp --InstrumentReportTimeZHigh
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05")
-  # set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;RC_PARAMS=max_success=1;LD_PRELOAD=${ZDNN_LIB}")
-  # set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;LD_PRELOAD=${ZDNN_LIB}")
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;TEST_CHECK_INSTRUCTION=${check_instruction}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -61,22 +58,22 @@ set(TEST_LINK_LIBS rapidcheck ModelLib)
 #   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
 #   )
 
-add_numerical_unittest(TestMatMul2D-NNPA
+add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemm-NNPA
+add_numerical_unittest(TestGemm-NNPA zdnn_matmul
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLSTM-NNPA
+add_numerical_unittest(TestLSTM-NNPA zdnn_lstm
   TestLSTM-NNPA.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGRU-NNPA
-  TestGRU-NNPA.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+add_numerical_unittest(TestGRU-NNPA zdnn_gru
+   TestGRU-NNPA.cpp
+   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+   )

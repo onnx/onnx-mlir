@@ -94,6 +94,32 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
+bool ModelLibBuilder::checkSharedLibInstruction(std::string instructionName, std::string sharedLibName) {
+  if (instructionName.empty())
+    return true;
+  FILE *fp = NULL;
+  const int bufSize = 256;
+  char buf[bufSize];
+  std::string out;
+  std::string cmd("nm " + sharedLibName +"|grep ");
+  cmd.append(instructionName.c_str());
+  if ((fp=popen(cmd.c_str(), "r")) == NULL) {
+    printf("Command: %s failed\n", cmd.c_str());
+    return false;
+  }
+  while(!feof(fp)) {
+    if (fgets(buf, bufSize, fp) != NULL)
+      out.append(buf);
+  }
+  pclose(fp);
+  if (out.empty()) {
+    std::string errmsg("Instruction:" + instructionName + " not generated.\n");
+    printf("%s\n", errmsg.c_str());
+    return false;
+  }
+  return true;
+}
+
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {

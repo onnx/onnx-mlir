@@ -61,7 +61,13 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
-  return gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
+  bool successBuild = gemm.build() && gemm.compileAndLoad();
+  assert(successBuild && "Build failed.");
+  std::string instructionName = getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
+  std::string sharedLibName = ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
+  if (!ModelLibBuilder::checkSharedLibInstruction(instructionName, sharedLibName))
+    return false;
+  return successBuild && gemm.prepareInputs() &&
          gemm.run() && gemm.verifyOutputs();
 }
 
