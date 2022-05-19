@@ -138,7 +138,7 @@ ExecutionSession::~ExecutionSession() {
 
 std::string ExecutionSession::reportLibraryOpeningError(
     const std::string &libraryName) const {
-  errno = ELIBACC; // Cannot access a needed shared library.
+  errno = EDOM; // Domain error.
   std::stringstream errStr;
   errStr << "Cannot open library: '" << libraryName << "'" << std::endl;
   return errStr.str();
@@ -146,7 +146,7 @@ std::string ExecutionSession::reportLibraryOpeningError(
 
 std::string ExecutionSession::reportSymbolLoadingError(
     const std::string &symbolName) const {
-  errno = ELIBACC; // Cannot access a needed shared library.
+  errno = EDOM; // Domain error.
   std::stringstream errStr;
   errStr << "Cannot load symbol: '" << symbolName << "'" << std::endl;
   return errStr.str();

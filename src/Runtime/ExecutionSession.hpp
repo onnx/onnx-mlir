@@ -36,7 +36,7 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * throw std::runtime_error errors. Errno info will provide further info about
  * the specific error that was raised.
  *
- * ELIBACC when it could not load the library or a needed symbol was not found.
+ * EDOM when it could not load the library or a needed symbol was not found.
  * EINVAL when it expected an entry point prior to executing a specific
  * function.
  * EPERM when the model executed on a machine without a compatible
