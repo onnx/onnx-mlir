@@ -27,6 +27,9 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -150,6 +153,31 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   return LLVMLevel;
 }
 
+static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
+    llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Conversion"));
+
+void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
+  if (! RunTorchPass)
+    return;
+  // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+
+  pm.addPass(createONNXToAtenModifyMainFunctionPass());
+  pm.addNestedPass<func::FuncOp>(createONNXToAtenTypesTransformPass());
+  
+  pm.addPass(createLowerToTorchPass(optLevel));
+
+  pm.addNestedPass<func::FuncOp>(createONNXToAtenFinalizeTypesTransformPass());
+  
+  // An additional pass of canonicalization is helpful because lowering
+  // from ONNX dialect to Standard dialect exposes additional canonicalization
+  // opportunities.
+  // pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addNestedPass<func::FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
+}
+
 void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
@@ -163,6 +191,10 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
+
+  /// torch pass has been added
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+    addONNXToTorchPasses(pm, OptimizationLevel);
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
