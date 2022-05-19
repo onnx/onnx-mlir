@@ -34,10 +34,16 @@
 
 #include "VCSVersion.inc"
 
+#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 #define DEBUG_TYPE "compiler_utils"
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+using namespace mlir::torch;
+using namespace mlir::torch::Torch;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
@@ -48,6 +54,10 @@ static llvm::Optional<std::string> getEnvVar(std::string name) {
     return std::string(envVerbose);
   return llvm::None;
 }
+
+
+static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
+    llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Conversion"));
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -557,6 +567,28 @@ void compileModuleToJniJar(
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
+void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
+  if (! RunTorchPass)
+    return;
+  // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+
+  pm.addPass(createONNXToAtenModifyMainFunctionPass());
+  pm.addNestedPass<func::FuncOp>(createONNXToAtenTypesTransformPass());
+  
+  pm.addPass(createLowerToTorchPass(optLevel));
+
+  pm.addNestedPass<func::FuncOp>(createONNXToAtenFinalizeTypesTransformPass());
+  
+  // An additional pass of canonicalization is helpful because lowering
+  // from ONNX dialect to Standard dialect exposes additional canonicalization
+  // opportunities.
+  // pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addNestedPass<func::FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
+}
+
 void registerDialects(mlir::MLIRContext &context) {
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::AffineDialect>();
@@ -569,6 +601,9 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
+  context
+      .getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
