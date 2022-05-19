@@ -91,8 +91,6 @@ public:
         rewriter.create<AtenAddTensorOp>(loc, resultType, aTensor, bTensor,
 			alphaDefaultValue);
 
-    llvm::outs() << "ATENADDOP CREATED is " << result << "\n";
-
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
     return success();

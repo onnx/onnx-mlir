@@ -131,25 +131,9 @@ public:
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
         op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    llvm::outs() << "axesShapeList:"
-                 << "\n"
-                 << axesShapeList << "\n"
-                 << "\n";
-    llvm::outs() << "keepdimVal:"
-                 << "\n"
-                 << keepdimVal << "\n"
-                 << "\n";
-    llvm::outs() << "dtt Value:"
-                 << "\n"
-                 << dtt << "\n"
-                 << "\n";
 
     Value atenmultensorOp =
         rewriter.create<AtenMeanOp>(loc, resultTy, dtt, keepdimVal);
-    llvm::outs() << "AtenMulTensorOp operation creation"
-                 << "\n"
-                 << atenmultensorOp << "\n"
-                 << "\n";
 
     Value result = atenmultensorOp;
 

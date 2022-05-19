@@ -149,10 +149,6 @@ public:
     Value result = rewriter.create<AtenMaxPool2dOp>(loc, resultType,
         xTorchTensor, kernalShapeList, stridesList, padsList, dilationList,
         ceilingModeVal);
-    llvm::outs() << "AtenMaxPool2dOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
     return success();

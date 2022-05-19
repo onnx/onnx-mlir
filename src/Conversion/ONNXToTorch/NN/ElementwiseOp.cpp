@@ -42,15 +42,7 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
     auto operandTensor = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, operandType, operand);
 
-    llvm::outs() << "Unary input is "
-                 << operandTensor
-                 << "\n";
-
     Value result = rewriter.create<TorchUnaryOp>(loc, resultType, operandTensor);
-
-    llvm::outs() << "Unary CREATED is "
-                 << result
-                 << "\n";
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
