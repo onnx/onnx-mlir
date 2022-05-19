@@ -27,20 +27,55 @@ python3
 
 ### Running the PyRuntime interface
 
-Following is an example of how PyRuntime is leveraged in
-an example program:
+An ONNX model is a computation graph and it is often the case that the graph
+has a single entry point to trigger the computation. Below is an example of doing
+inference for a model that has a single entry point.
+
 ```python
 import numpy as np
 from PyRuntime import ExecutionSession
 
 model = 'model.so' # LeNet from ONNX Zoo compiled with onnx-mlir
-session = ExecutionSession(model)
+
+# Create a session for this model.
+session = ExecutionSession(shared_lib_path=model)
+# Input and output signatures of the default entry point.
 print("input signature in json", session.input_signature())
 print("output signature in json",session.output_signature())
-input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
-outputs = session.run([input])
+# Do inference using the default entry point.
+a = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
+outputs = session.run(input=[a])
 
 for output in outputs:
+    print(output.shape)
+```
+
+In case a computation graph has multiple entry points, users have to set a specfic
+entry point to do inference. Below is an example of doing inference with multiple
+entry points.
+```python
+import numpy as np
+from PyRuntime import ExecutionSession
+
+model = 'multi-entry-points-model.so'
+
+# Create a session for this model.
+session = ExecutionSession(shared_lib_path=model, use_default_entry_point=False) # False to manually set an entry point.
+
+# Query entry points in the model.
+entry_points = session.entry_points()
+
+for entry_point in entry_points:
+  # Set the entry point to do inference.
+  session.set_entry_point(name=entry_point)
+  # Input and output signatures of the current entry point.
+  print("input signature in json", session.input_signature())
+  print("output signature in json",session.output_signature())
+  # Do inference using the current entry point.
+  a = np.arange(10).astype('float32')
+  b = np.arange(10).astype('float32')
+  outputs = session.run(input=[a, b])
+  for output in outputs:
     print(output.shape)
 ```
 
@@ -49,10 +84,11 @@ The complete interface to ExecutionSession can be seen in the sources mentioned 
 using the constructor and run method is enough to perform inferences.
 
 ```python
-def __init__(self, path: str):
+def __init__(self, shared_lib_path: str, use_default_entry_point: bool):
     """
     Args:
-        path: relative or absolute path to your .so model.
+        shared_lib_path: relative or absolute path to your .so model.
+        use_default_entry_point: use the default entry point that is `run_main_graph` or not. Set to True by default.
     """
 
 def run(self, input: List[ndarray]) -> List[ndarray]:
@@ -74,5 +110,17 @@ def output_signature(self) -> str:
     """
     Returns:
         A string containing a JSON representation of the model's output signature.
+    """
+
+def entry_points(self) -> List[str]:
+    """
+    Returns:
+        A list of entry point names.
+    """
+
+def set_entry_point(self, name: str):
+    """
+    Args:
+        name: an entry point name.
     """
 ```
