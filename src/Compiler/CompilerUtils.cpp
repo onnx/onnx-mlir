@@ -154,7 +154,7 @@ static std::string getToolPath(std::string tool) {
 }
 
 static std::string getOnnxMlirFullVersion() {
-  const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+  const std::string OnnxMlirVersion = "onnx-mlir version 0.3.0";
   return
 #ifdef ONNX_MLIR_VENDOR
       ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
