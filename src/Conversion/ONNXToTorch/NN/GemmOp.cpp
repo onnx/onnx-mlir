@@ -12,9 +12,9 @@
 //
 //===-----------------------------------------------------------------===//
 
-#include <vector>
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include <vector>
 
 /*
  * ONNX Gemm operation
@@ -66,7 +66,7 @@ using namespace mlir::torch::Torch;
 struct ONNXGemmOpToTorchLowering : public ConversionPattern {
 
   Value getFloatValue(mlir::FloatAttr val, ConversionPatternRewriter &rewriter,
-      Location loc) const {
+                      Location loc) const {
     auto fVal =
         FloatAttr::get(rewriter.getF64Type(), val.getValue().convertToFloat());
     return rewriter.create<ConstantFloatOp>(loc, fVal);
@@ -85,11 +85,12 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
   }
 
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(typeConverter, mlir::ONNXGemmOp::getOperationName(),
+                          1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
     ONNXGemmOp gemmOp = llvm::dyn_cast_or_null<ONNXGemmOp>(op);
     assert(gemmOp && "Expecting op to have a strong type");
 
@@ -101,7 +102,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto transA = gemmOp.transAAttr(); // ::mlir::IntegerAttr
     auto transB = gemmOp.transBAttr(); // ::mlir::IntegerAttr
 
-    Value iZero = getIntValue(0, rewriter, context, loc);
     Value iOne = getIntValue(1, rewriter, context, loc);
 
     auto A = gemmOp.A();
@@ -118,29 +118,28 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
-    assert((getShapeSize(A) == 2 &&
-            getShapeSize(B) == 2 &&
+    assert((getShapeSize(A) == 2 && getShapeSize(B) == 2 &&
             getShapeSize(C) <= 2) &&
            "Checking input dimensions");
 
-    mlir::Type transposeAType = (transA)
-      ? Torch::ValueTensorType::get(context,
-                                    getTransposedShape2D(A),
-                                    A.getType().dyn_cast<TensorType>().getElementType())
-      : aType;
-    mlir::Type transposeBType = (transB)
-      ? Torch::ValueTensorType::get(context,
-                                    getTransposedShape2D(B),
-                                    B.getType().dyn_cast<TensorType>().getElementType())
-      : bType;
+    auto atype = A.getType().dyn_cast<TensorType>().getElementType();
+    auto btype = B.getType().dyn_cast<TensorType>().getElementType();
+    mlir::Type transposeAType =
+        (transA) ? Torch::ValueTensorType::get(context, getTransposedShape2D(A),
+                                               atype)
 
+                 : aType;
+    mlir::Type transposeBType =
+        (transB) ? Torch::ValueTensorType::get(context, getTransposedShape2D(B),
+                                               btype)
+                 : bType;
 
-    Value transposeAVal = (transA) ? rewriter.create<AtenTransposeIntOp>(
-                                         loc, transposeAType, aTensor, iZero, iOne)
-                                   : aTensor;
-    Value transposeBVal = (transB) ? rewriter.create<AtenTransposeIntOp>(
-                                         loc, transposeBType, bTensor, iZero, iOne)
-                                   : bTensor;
+    Value transposeAVal =
+        (transA) ? rewriter.create<AtenTOp>(loc, transposeAType, aTensor)
+                 : aTensor;
+    Value transposeBVal =
+        (transB) ? rewriter.create<AtenTOp>(loc, transposeBType, bTensor)
+                 : bTensor;
 
     // Compute Y = alpha * A’ * B’ + beta * C
     // Scalar multiplication with alpha(alpha * A’)
@@ -148,8 +147,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     Value alphaMulResult = NULL, betaMulResult = NULL;
     if (alpha) {
       Value alpha3v = getFloatValue(alpha, rewriter, loc);
-      alphaMulResult = rewriter.create<AtenMulScalarOp>(
-          loc, transposeAType, transposeAVal, alpha3v);
+      alphaMulResult = rewriter.create<AtenMulScalarOp>(loc, transposeAType,
+                                                        transposeAVal, alpha3v);
     }
 
     if (beta) {
@@ -161,20 +160,20 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     // Bmm Operation ((alpha * A’) * B’)
     Value bmmValue;
     if (alphaMulResult)
-      bmmValue = rewriter.create<AtenBmmOp>(
-          loc, resultType, alphaMulResult, transposeBVal);
+      bmmValue = rewriter.create<AtenBmmOp>(loc, resultType, alphaMulResult,
+                                            transposeBVal);
     else
-      bmmValue = rewriter.create<AtenBmmOp>(
-          loc, resultType, transposeAVal, transposeBVal);
+      bmmValue = rewriter.create<AtenBmmOp>(loc, resultType, transposeAVal,
+                                            transposeBVal);
 
     // Addition ((alpha * A’ * B’) + (beta * C))
     Value result;
     if (betaMulResult)
-      result = rewriter.create<AtenAddTensorOp>(
-          loc, resultType, bmmValue, betaMulResult, iOne);
+      result = rewriter.create<AtenAddTensorOp>(loc, resultType, bmmValue,
+                                                betaMulResult, iOne);
     else
-      result = rewriter.create<AtenAddTensorOp>(
-          loc, resultType, bmmValue, cTensor, iOne);
+      result = rewriter.create<AtenAddTensorOp>(loc, resultType, bmmValue,
+                                                cTensor, iOne);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
@@ -184,6 +183,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXToTorchGemmOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+                                              TypeConverter &typeConverter,
+                                              MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpToTorchLowering>(typeConverter, ctx);
 }
