@@ -67,7 +67,7 @@ bool ModelLibBuilder::run() {
     std::cout << "error while running: " << error.what() << std::endl;
     return false;
   }
-  assert(output && "when no exception are issued, output should exist");
+  assert(outputs && "when no exception are issued, output should exist");
   return true;
 }
 
