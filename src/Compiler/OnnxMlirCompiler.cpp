@@ -52,11 +52,13 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   mlir::MLIRContext context;
   registerDialects(context);
 
-  std::string error_message;
-  processInputFile(std::string(inputFilename), context, module, &error_message);
-  if (errorMessage != NULL) {
-    *errorMessage = error_message.c_str();
-    return 1;
+  std::string internalErrorMessage;
+  int rc = processInputFile(
+      std::string(inputFilename), context, module, &internalErrorMessage);
+  if (rc != 0) {
+    if (errorMessage != NULL)
+      *errorMessage = strdup(internalErrorMessage.c_str());
+    return rc;
   }
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
@@ -68,7 +70,14 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   mlir::MLIRContext context;
   registerDialects(context);
 
-  processInputArray(inputBuffer, bufferSize, context, module);
+  std::string internalErrorMessage;
+  int rc = processInputArray(
+      inputBuffer, bufferSize, context, module, &internalErrorMessage);
+  if (rc != 0) {
+    if (errorMessage != NULL)
+      *errorMessage = strdup(internalErrorMessage.c_str());
+    return rc;
+  }
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 

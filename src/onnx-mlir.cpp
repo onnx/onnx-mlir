@@ -61,9 +61,10 @@ int main(int argc, char *argv[]) {
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
-  processInputFile(inputFilename, context, module, &errorMessage);
-  if (!errorMessage.empty()) {
-    printf("%s\n", errorMessage.c_str());
+  int rc = processInputFile(inputFilename, context, module, &errorMessage);
+  if (rc != 0) {
+    if (!errorMessage.empty())
+      printf("%s\n", errorMessage.c_str());
     return 1;
   }
 

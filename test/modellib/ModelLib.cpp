@@ -41,8 +41,7 @@ ModelLibBuilder::~ModelLibBuilder() {
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
-  if (rc != 0)
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) != 0)
     return false;
   exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
   return exec != nullptr;
@@ -103,7 +102,8 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
   FunctionType funcType = builder.getFunctionType(inputsType, outputsType);
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp = builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
+  auto funcOp =
+      builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);

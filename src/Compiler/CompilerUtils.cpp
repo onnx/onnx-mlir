@@ -571,7 +571,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
-void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+// Return 0 on success, error number on failure.
+int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
@@ -584,7 +585,7 @@ void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     *errorMessage = "Invalid input file '" + inputFilename +
                     "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
                     "needs to be provided.";
-    return;
+    return 10;
   }
 
   if (inputIsONNX) {
@@ -592,19 +593,23 @@ void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
-    ImportFrontendModelFile(
+    return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
     loadMLIR(inputFilename, context, module);
+  return 0;
 }
 
-void processInputArray(const void *onnxBuffer, int bufferSize,
-    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module) {
+// Return 0 on success, error code on error.
+int processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module,
+    std::string *errorMessage) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.shapeInformation = shapeInformation;
-  ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
+  return ImportFrontendModelArray(
+      onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
 
 void outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
@@ -791,6 +796,7 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     emitOutputFiles(outputBaseName, emissionTarget, context, module);
 }
 
+// Return 0 on success, error code on error.
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {

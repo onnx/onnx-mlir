@@ -48,10 +48,12 @@ void compileModuleToJniJar(const mlir::OwningOpRef<mlir::ModuleOp> &module,
 
 void registerDialects(mlir::MLIRContext &context);
 
-void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+// ProcessInput* return 0 on success, error code on error.
+int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
-void processInputArray(const void *onnxBuffer, int bufferSize,
-    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module);
+int processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
+    std::string *errorMessage);
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
@@ -66,6 +68,7 @@ void emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
 void setupModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName);
+// Return 0 on success, error code on error.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     onnx_mlir::EmissionTargetType emissionTarget);

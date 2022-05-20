@@ -1445,17 +1445,23 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   }
 }
 
-void ImportFrontendModelArray(const void *onnxBuffer, int size,
+// Return 0 on success, error otherwise.
+int ImportFrontendModelArray(const void *onnxBuffer, int size,
     MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    ImportOptions options) {
+    std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
 
   auto parse_success = model.ParseFromArray(onnxBuffer, size);
-  assert(parse_success && "Onnx Model Parsing Failed.");
+  if (!parse_success) {
+    *errorMessage = "Unable to parse onnxBuffer";
+    return 10;
+  }
   ImportFrontendModelInternal(model, context, module, options);
+  return 0;
 }
 
-void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+// Return 0 on success, error otherwise.
+int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
@@ -1463,15 +1469,16 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   // check if the input file is opened
   if (!input.is_open()) {
     *errorMessage = "Unable to open or access " + model_fname;
-    return;
+    return 11;
   }
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {
     *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
-    return;
+    return 12;
   }
   ImportFrontendModelInternal(model, context, module, options);
+  return 0;
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
