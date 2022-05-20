@@ -148,8 +148,10 @@ jobs:
     displayName: Install onnx
     workingDirectory: $(Agent.BuildDirectory)
 
-  - script: |
-      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      call onnx-mlir\utils\check-docs.cmd
-    displayName: Run onnx-mlir doc tests
-    workingDirectory: $(Agent.BuildDirectory)
+# TODO: Temporarily disable the doc tests until we determine the correct way to deal with new versions of protobuf
+# that are automatically installed on the windows image in the pools.
+#  - script: |
+#      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+#      call onnx-mlir\utils\check-docs.cmd
+#    displayName: Run onnx-mlir doc tests
+#    workingDirectory: $(Agent.BuildDirectory)
