@@ -77,6 +77,13 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return operandShape.size();
   }
 
+  ArrayRef<int64_t> getTransposedShape2D(Value operand) const {
+    auto operandType = operand.getType().cast<TensorType>();
+    ArrayRef<int64_t> operandShape = operandType.getShape();
+    ArrayRef<int64_t> transposed{operandShape[1], operandShape[0]};
+    return transposed;
+  }
+
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
@@ -105,19 +112,34 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto bTensor = getTorchTensor(B, rewriter, context, loc);
     auto cTensor = getTorchTensor(C, rewriter, context, loc);
 
+    auto aType = toTorchType(context, A.getType());
+    auto bType = toTorchType(context, A.getType());
     auto cType = toTorchType(context, C.getType());
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
-    assert((getShapeSize(A) <= 2 &&
-            getShapeSize(B) <= 2) &&
-           "Transpose for more than 2d unsupported");
+    assert((getShapeSize(A) == 2 &&
+            getShapeSize(B) == 2 &&
+            getShapeSize(C) <= 2) &&
+           "Checking input dimensions");
+
+    mlir::Type transposeAType = (transA)
+      ? Torch::ValueTensorType::get(context,
+                                    getTransposedShape2D(A),
+                                    A.getType().dyn_cast<TensorType>().getElementType())
+      : aType;
+    mlir::Type transposeBType = (transB)
+      ? Torch::ValueTensorType::get(context,
+                                    getTransposedShape2D(B),
+                                    B.getType().dyn_cast<TensorType>().getElementType())
+      : bType;
+
 
     Value transposeAVal = (transA) ? rewriter.create<AtenTransposeIntOp>(
-                                         loc, resultType, aTensor, iZero, iOne)
+                                         loc, transposeAType, aTensor, iZero, iOne)
                                    : aTensor;
     Value transposeBVal = (transB) ? rewriter.create<AtenTransposeIntOp>(
-                                         loc, resultType, bTensor, iZero, iOne)
+                                         loc, transposeBType, bTensor, iZero, iOne)
                                    : bTensor;
 
     // Compute Y = alpha * A’ * B’ + beta * C
@@ -127,7 +149,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     if (alpha) {
       Value alpha3v = getFloatValue(alpha, rewriter, loc);
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
-          loc, resultType, transposeAVal, alpha3v);
+          loc, transposeAType, transposeAVal, alpha3v);
     }
 
     if (beta) {
