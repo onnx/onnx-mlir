@@ -105,22 +105,8 @@ public:
     auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, xTy, x);
 
-    llvm::outs() << "\n resultTy:"
-                 << "\n"
-                 << resultTy << "\n"
-                 << "\n";
-    llvm::outs() << "xtt torch tensor from MLIR tensor:"
-                 << "\n"
-                 << xtt << "\n"
-                 << "\n";
-
     Value atenGlobAvgpool2d =
         rewriter.create<AtenAdaptiveAvgPool2dOp>(loc, resultTy, xtt, f1v);
-
-    llvm::outs() << "AtenAdaptiveAvgPool2dOp operation creation"
-                 << "\n"
-                 << atenGlobAvgpool2d << "\n"
-                 << "\n";
 
     Value result = atenGlobAvgpool2d;
 
