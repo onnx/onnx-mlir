@@ -32,7 +32,11 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H,
       linearBeforeReset, isDynamicS, isDynamicB);
   bool successBuild = gru.build() && gru.compileAndLoad();
-  assert(successBuild && "Build failed.");
+  if (!successBuild) {
+    printf("Fail to build.\n");
+    return false;
+  }
+  // Verify generated library
   std::string instructionName =
       getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
   std::string sharedLibName =
@@ -40,6 +44,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   if (!ModelLibBuilder::checkSharedLibInstruction(
           instructionName, sharedLibName))
     return false;
+
   return successBuild && gru.prepareInputs() && gru.run() &&
          gru.verifyOutputs();
 }

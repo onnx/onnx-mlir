@@ -24,13 +24,21 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
   bool successBuild = matmul.build() && matmul.compileAndLoad();
-  assert(successBuild && "Build failed.");
-  std::string instructionName = getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
-  std::string sharedLibName = ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
-  if (!ModelLibBuilder::checkSharedLibInstruction(instructionName, sharedLibName))
+  if (!successBuild) {
+    printf("Fail to build.\n");
     return false;
-  return successBuild && matmul.prepareInputs() &&
-         matmul.run() && matmul.verifyOutputs();
+  }
+  // Verify generated library
+  std::string instructionName =
+      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
+  std::string sharedLibName =
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
+  if (!ModelLibBuilder::checkSharedLibInstruction(
+          instructionName, sharedLibName))
+    return false;
+
+  return successBuild && matmul.prepareInputs() && matmul.run() &&
+         matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir
