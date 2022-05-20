@@ -2,9 +2,9 @@
 module attributes {}  {
   func @main_graph(%arg0: tensor<2x3xf32>) -> tensor<4x3xf32> attributes {input_names = ["0"], output_names = ["1"]} {
 //CHECK: %[[DIM:.*]] = torch.constant.int 0
-//CHECK: [[RES:%.]] = torch.prim.ListConstruct %arg0, %arg0 : (!torch.vtensor<[2,3],f32>, !torch.vtensor<[2,3],f32>) -> !torch.list<vtensor<[2,3],f32>>
+//CHECK: [[RES:%.]] = torch.prim.ListConstruct %arg0, %arg0 : (!torch.vtensor<[2,3],f32>, !torch.vtensor<[2,3],f32>) -> !torch.list<vtensor>
     %0 = "onnx.Concat"(%arg0, %arg0) {axis = 0 : si64, onnx_node_name = "Concat_0"} : (tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<4x3xf32>
-//CHECK: torch.aten.cat [[RES]], %[[DIM]] : !torch.list<vtensor<[2,3],f32>>, !torch.int -> !torch.vtensor<[4,3],f32>    
+//CHECK: torch.aten.cat [[RES]], %[[DIM]] : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[4,3],f32>
 return %0 : tensor<4x3xf32>
   }
 }
