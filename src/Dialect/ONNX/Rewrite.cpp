@@ -150,9 +150,10 @@ public:
   LogicalResult matchAndRewrite(
       ONNXLoopOp loopOp, PatternRewriter &rewriter) const override {
     Location loc = loopOp.getLoc();
-    Operation *genericOp = loopOp.getOperation();
-    Value maxTripCountValue = genericOp->getOperands()[0];
+    Operation *genericLoopOp = loopOp.getOperation();
+    Value maxTripCountValue = genericLoopOp->getOperands()[0];
 
+    // A helper function to get a constant from a value.
     auto getOneConstantValue = [&](Value v) -> int64_t {
       if (v.isa<BlockArgument>())
         return -1;
@@ -167,6 +168,26 @@ public:
                                         .valueAttr()
                                         .cast<DenseElementsAttr>();
       return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
+    };
+
+    // A helper function to get a constant from a value. The value must be
+    // defined by ConstantOp inside the loop or fed by ConstantOp outside the
+    // loop.
+    auto constantOrFedByConstant = [&](Value v, Operation *loopOp,
+                                       Operation *returnOp) -> int64_t {
+      if (v.isa<BlockArgument>()) {
+        // Value is an block argument and its value is outside the loop.
+        // 1. is unchanged by iterations. By the definition of LoopOp, block
+        // arguments are shifted by 1 to the left in ReturnOp.
+        if (v !=
+            returnOp->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1])
+          return -1;
+        // 2. is fed with a constant.
+        Value vInput =
+            loopOp->getOperands()[v.cast<BlockArgument>().getArgNumber()];
+        return getOneConstantValue(vInput);
+      }
+      return getOneConstantValue(v);
     };
 
     // Only do this rewriting if the maximum trip count is a constant.
@@ -195,12 +216,13 @@ public:
             .wasInterrupted() ||
         !returnOp)
       return failure();
+    Operation *genericReturnOp = returnOp.getOperation();
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
 
     // The break condition is the first argument of ReturnOp.
-    Value breakCond = returnOp.getOperation()->getOperands()[0];
+    Value breakCond = genericReturnOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
       return failure();
     Operation *breakCondOp = breakCond.getDefiningOp();
@@ -211,67 +233,45 @@ public:
       return failure();
 
     // Compute a trip count from the break condition, given that the upper bound
-    // is fixed and the lower bound is increased by STEP at each iteration. So,
-    // the trip count will be `upper_bound - lower_bound`.
+    // is fixed and the lower bound is increased by a constant step at each
+    // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
     Value lbValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
 
     // Check the lower bound of the break condition.
-    // Do not support block argument.
-    if (lbValue.isa<BlockArgument>())
-      return failure();
-
     // The lowerbound is updated by ONNXAddOp, given that ONNXAddOp is
     // canonicalized to Add(lhs, rhs=constant).
-    // 1. is updated by AddOp at each iteration.
-    if (!isa<ONNXAddOp>(lbValue.getDefiningOp()))
+    if (lbValue.isa<BlockArgument>() ||
+        !isa<ONNXAddOp>(lbValue.getDefiningOp()))
       return failure();
     Value lhs = cast<ONNXAddOp>(lbValue.getDefiningOp())->getOperands()[0];
+    Value rhs = cast<ONNXAddOp>(lbValue.getDefiningOp())->getOperands()[1];
+    // 1. lhs is updated by AddOp at each iteration.
     if (!lhs.isa<BlockArgument>())
       return failure();
     if (lbValue !=
-        returnOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber() - 1])
+        genericReturnOp
+            ->getOperands()[lhs.cast<BlockArgument>().getArgNumber() - 1])
       return failure();
-    // 2. is increased by a constant.
-    int64_t step =
-        getOneConstantValue(lbValue.getDefiningOp()->getOperands()[1]);
+    // 2. lhs is increased by a constant step.
+    int64_t step = constantOrFedByConstant(rhs, genericLoopOp, genericReturnOp);
     if (step < 0)
       return failure();
-    // 3. lhs is fed by a constant.
-    Value lbValueInput =
-        genericOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber()];
-    if (!isa<ONNXConstantOp>(lbValueInput.getDefiningOp()))
+    // 3. lhs is initialized by a constant.
+    Value lhsInput =
+        genericLoopOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber()];
+    int64_t lowerBound = getOneConstantValue(lhsInput);
+    if (lowerBound < 0)
       return failure();
 
     // Check the upper bound of the break condition.
-    Value ubValueInput;
-    if (!ubValue.isa<BlockArgument>()) {
-      // Upper bound is a constant inside the loop.
-      if (isa<ONNXConstantOp>(ubValue.getDefiningOp()))
-        ubValueInput = ubValue;
-      else
-        return failure();
-    } else {
-      // Upper bound is an block argument and its value is outside the loop.
-      // 1. is unchanged by iterations. By the definition of LoopOp, block
-      // arguments are shifted by 1 to the left in ReturnOp.
-      if (ubValue !=
-          returnOp
-              ->getOperands()[ubValue.cast<BlockArgument>().getArgNumber() - 1])
-        return failure();
-      // 2. is fed with a constant.
-      ubValueInput =
-          genericOp
-              ->getOperands()[ubValue.cast<BlockArgument>().getArgNumber()];
-      if (ubValueInput.isa<BlockArgument>() ||
-          !isa<ONNXConstantOp>(ubValueInput.getDefiningOp()))
-        return failure();
-    }
+    int64_t upperBound =
+        constantOrFedByConstant(ubValue, genericLoopOp, genericReturnOp);
+    if (upperBound < 0)
+      return failure();
 
     // Replace the max trip count by a new trip count if the new trip count is
     // smaller.
-    int64_t lowerBound = getOneConstantValue(lbValueInput);
-    int64_t upperBound = getOneConstantValue(ubValueInput);
     int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
     if (maxTripCount <= derivedTripCount)
       return failure();
