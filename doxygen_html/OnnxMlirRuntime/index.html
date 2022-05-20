@@ -107,6 +107,10 @@ Invoke Models Using C Runtime</h2>
 <div class="line">  OMTensorList *input = omTensorListCreate(list, 2);</div>
 <div class="line">  <span class="comment">// Call the compiled onnx model function.</span></div>
 <div class="line">  OMTensorList *outputList = run_main_graph(input);</div>
+<div class="line">  <span class="keywordflow">if</span> (!outputList) {</div>
+<div class="line">    <span class="comment">// May inspect errno to get info about the error.</span></div>
+<div class="line">    <span class="keywordflow">return</span> 1;</div>
+<div class="line">  }</div>
 <div class="line">  <span class="comment">// Get the first omt as output.</span></div>
 <div class="line">  OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);</div>
 <div class="line">  <span class="keywordtype">float</span> *outputPtr = (<span class="keywordtype">float</span> *)omTensorGetDataPtr(y);</div>
