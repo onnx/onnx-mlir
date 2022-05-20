@@ -160,8 +160,7 @@ void setupBackendTypeTransforms(
 //===----------------------------------------------------------------------===//
 // ONNXToAtenTypesTransformPass
 //===----------------------------------------------------------------------===//
-namespace{
-  
+namespace onnx_mlir {
 class ONNXToAtenTypesTransformPass 
     : public PassWrapper<ONNXToAtenTypesTransformPass, OperationPass<func::FuncOp>> {
 
@@ -209,13 +208,13 @@ class ONNXToAtenTypesTransformPass
       signalPassFailure();
   }
 };
-}
 
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<Pass> onnx_mlir::createONNXToAtenTypesTransformPass() {
+std::unique_ptr<Pass> createONNXToAtenTypesTransformPass() {
   return std::make_unique<ONNXToAtenTypesTransformPass>();
+}
 }
 
 //===----------------------------------------------------------------------===//
@@ -258,7 +257,7 @@ static void setupFinalization(ConversionTarget &target,
   setupFinalization<OpTy2, OpTys...>(target, patterns, typeConverter);
 }
 
-namespace {
+namespace onnx_mlir {
 class ONNXToAtenFinalizeTypesTransformPass
     : public PassWrapper<ONNXToAtenFinalizeTypesTransformPass, OperationPass<func::FuncOp>> {
 
@@ -296,13 +295,7 @@ class ONNXToAtenFinalizeTypesTransformPass
       signalPassFailure();
   }
 };
-} // namespace
 
-std::unique_ptr<Pass> onnx_mlir::createONNXToAtenFinalizeTypesTransformPass() {
-  return std::make_unique<ONNXToAtenFinalizeTypesTransformPass>();
-}
-
-namespace {
 class ONNXToAtenModifyMainFunctionPass
     : public PassWrapper<ONNXToAtenModifyMainFunctionPass, OperationPass<::mlir::ModuleOp>> {
 
@@ -330,8 +323,13 @@ class ONNXToAtenModifyMainFunctionPass
       signalPassFailure();
   }
 };
-} // namespace
 
-std::unique_ptr<Pass> onnx_mlir::createONNXToAtenModifyMainFunctionPass() {
+std::unique_ptr<Pass> createONNXToAtenModifyMainFunctionPass() {
   return std::make_unique<ONNXToAtenModifyMainFunctionPass>();
 }
+
+std::unique_ptr<Pass> createONNXToAtenFinalizeTypesTransformPass() {
+  return std::make_unique<ONNXToAtenFinalizeTypesTransformPass>();
+}
+
+} // namespace onnx_mlir
