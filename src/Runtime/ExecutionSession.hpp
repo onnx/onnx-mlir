@@ -36,7 +36,7 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * throw std::runtime_error errors. Errno info will provide further info about
  * the specific error that was raised.
  *
- * EDOM when it could not load the library or a needed symbol was not found.
+ * EFAULT when it could not load the library or a needed symbol was not found.
  * EINVAL when it expected an entry point prior to executing a specific
  * function.
  * EPERM when the model executed on a machine without a compatible
@@ -71,15 +71,16 @@ public:
 
   ~ExecutionSession();
 
-protected:
+private:
   // Error reporting processing when throwing runtime errors. Set errno as
   // appropriate.
   std::string reportLibraryOpeningError(const std::string &libraryName) const;
   std::string reportSymbolLoadingError(const std::string &symbolName) const;
-  std::string reportMissingEntryPointError(
+  std::string reportUndefinedEntryPointIn(
       const std::string &functionName) const;
   std::string reportErrnoError() const;
 
+protected:
   // Handler to the shared library file being loaded.
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 

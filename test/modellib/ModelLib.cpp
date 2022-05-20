@@ -64,7 +64,7 @@ bool ModelLibBuilder::run() {
   try {
     outputs =  exec->run(inputs);
   } catch (const std::runtime_error &error) {
-    std::cout << "error while running: " << error.what() << std::endl;
+    std::cerr << "error while running: " << error.what() << std::endl;
     return false;
   }
   assert(outputs && "when no exception are issued, output should exist");

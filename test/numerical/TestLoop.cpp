@@ -112,7 +112,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   try {
     outputs = sess.run(move(inputs));
   } catch (const std::runtime_error &error) {
-    std::cout << "error while running: " << error.what() << std::endl;
+    std::cerr << "error while running: " << error.what() << std::endl;
     return false;
   }
 

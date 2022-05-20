@@ -74,7 +74,7 @@ void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
 std::vector<OMTensorUniquePtr> ExecutionSession::run(
     std::vector<OMTensorUniquePtr> ins) {
   if (!_entryPointFunc)
-    throw std::runtime_error(reportMissingEntryPointError("run"));
+    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -118,14 +118,14 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
 
 const std::string ExecutionSession::inputSignature() const {
   if (!_entryPointFunc)
-    throw std::runtime_error(reportMissingEntryPointError("signature"));
+    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
   errno = 0; // No errors.
   return _inputSignatureFunc(_entryPointName.c_str());
 }
 
 const std::string ExecutionSession::outputSignature() const {
   if (!_entryPointFunc)
-    throw std::runtime_error(reportMissingEntryPointError("signature"));
+    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
   errno = 0; // No errors.
   return _outputSignatureFunc(_entryPointName.c_str());
 }
@@ -138,26 +138,26 @@ ExecutionSession::~ExecutionSession() {
 
 std::string ExecutionSession::reportLibraryOpeningError(
     const std::string &libraryName) const {
-  errno = EDOM; // Domain error.
+  errno = EFAULT; // Bad Address.
   std::stringstream errStr;
-  errStr << "Cannot open library: '" << libraryName << "'" << std::endl;
+  errStr << "Cannot open library: '" << libraryName << "'." << std::endl;
   return errStr.str();
 }
 
 std::string ExecutionSession::reportSymbolLoadingError(
     const std::string &symbolName) const {
-  errno = EDOM; // Domain error.
+  errno = EFAULT; // Bad Address.
   std::stringstream errStr;
-  errStr << "Cannot load symbol: '" << symbolName << "'" << std::endl;
+  errStr << "Cannot load symbol: '" << symbolName << "'." << std::endl;
   return errStr.str();
 }
 
-std::string ExecutionSession::reportMissingEntryPointError(
+std::string ExecutionSession::reportUndefinedEntryPointIn(
     const std::string &functionName) const {
   errno = EINVAL; // Invalid argument.
   std::stringstream errStr;
-  errStr << "Must set the entry point before calling " << functionName
-         << " function" << std::endl;
+  errStr << "Must set an entry point (e.g. run_main_graph) before calling "
+         << functionName << " function." << std::endl;
   return errStr.str();
 }
 
@@ -165,7 +165,7 @@ std::string ExecutionSession::reportErrnoError() const {
   std::string errMessageStr = std::string(strerror(errno));
   std::stringstream errStr;
   errStr << "Runtime error during inference returning with ERRNO code '"
-         << errMessageStr << "'" << std::endl;
+         << errMessageStr << "'." << std::endl;
   return errStr.str();
 }
 
