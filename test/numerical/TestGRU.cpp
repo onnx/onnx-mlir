@@ -36,6 +36,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     printf("Fail to build.\n");
     return false;
   }
+#ifndef _WIN32
   // Verify generated library
   std::string instructionName =
       getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
@@ -44,7 +45,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   if (!ModelLibBuilder::checkSharedLibInstruction(
           instructionName, sharedLibName))
     return false;
-
+#endif
   return successBuild && gru.prepareInputs() && gru.run() &&
          gru.verifyOutputs();
 }

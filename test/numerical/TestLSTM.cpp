@@ -37,6 +37,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     printf("Fail to build.\n");
     return false;
   }
+#ifndef _WIN32
   // Verify generated library
   std::string instructionName =
       getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
@@ -45,7 +46,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   if (!ModelLibBuilder::checkSharedLibInstruction(
           instructionName, sharedLibName))
     return false;
-
+#endif
   return successBuild && lstm.prepareInputs() && lstm.run() &&
          lstm.verifyOutputs();
 }

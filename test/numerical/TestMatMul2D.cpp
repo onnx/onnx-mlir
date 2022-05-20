@@ -28,6 +28,7 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
     printf("Fail to build.\n");
     return false;
   }
+#ifndef _WIN32
   // Verify generated library
   std::string instructionName =
       getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
@@ -36,7 +37,7 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   if (!ModelLibBuilder::checkSharedLibInstruction(
           instructionName, sharedLibName))
     return false;
-
+#endif
   return successBuild && matmul.prepareInputs() && matmul.run() &&
          matmul.verifyOutputs();
 }
