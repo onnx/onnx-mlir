@@ -98,6 +98,197 @@ bool areProducedByTransposeOp(ValueRange values) {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
+// In some ONNX models, the maximum trip count for LoopOp is set to a big value,
+// e.g. LONG_MAX and termination depends on the break condition inside the loop.
+// In the current lowering of LoopOp, the maximum trip count is used to allocate
+// a buffer for all intermediate loop results. Since the actual number of loop
+// iterations may be much smaller than the maximum trip count, it is redundant
+// and error-prone to allocate a large buffer. For example, we may get segfault
+// if the maximum trip count is out of range.
+//
+// This pattern tries to derive a new maximum trip count for LoopOp by analyzing
+// the break condition. It only handles a special case where the loop is like a
+// for-loop with step, e.g. `for (i = LB, i < UB, i = i + Step)`.
+//
+// For example, the following loop which mimics LoopOp:
+// ```
+// max_trip_count=9223372036854775807
+// LB = -100
+// UB = 100
+// Step = 1
+//
+// i = 0
+// k = LB
+// keepgoing = true
+// while (i < max_trip_count && keepgoing == true) {
+//    k = k + STEP
+//    keepgoing = (k < UB)
+// }
+// ```
+//
+// will be rewritten into:
+//
+// ```
+// max_trip_count=200
+// LB = -100
+// UB = 100
+//
+// i = 0
+// k = LB
+// keepgoing = true
+// while (i < max_trip_count && keepgoing == true) {
+//    k = k + STEP
+//    keepgoing = (k < UB)
+// }
+// ```
+// where `max_trip_count` is replaced by an actual value derived from the loop.
+//
+class LoopOpRewriteMaxTripCountPattern : public OpRewritePattern<ONNXLoopOp> {
+public:
+  using OpRewritePattern<ONNXLoopOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLoopOp loopOp, PatternRewriter &rewriter) const override {
+    Location loc = loopOp.getLoc();
+    Operation *genericOp = loopOp.getOperation();
+    Value maxTripCountValue = genericOp->getOperands()[0];
+
+    auto getOneConstantValue = [&](Value v) -> int64_t {
+      if (v.isa<BlockArgument>())
+        return -1;
+      Operation *definingOp = v.getDefiningOp();
+      if (!isa<ONNXConstantOp>(definingOp))
+        return -1;
+      if (!cast<ONNXConstantOp>(definingOp)
+               .valueAttr()
+               .isa<DenseElementsAttr>())
+        return -1;
+      DenseElementsAttr valueAttr = cast<ONNXConstantOp>(definingOp)
+                                        .valueAttr()
+                                        .cast<DenseElementsAttr>();
+      return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
+    };
+
+    // Only do this rewriting if the maximum trip count is a constant.
+    int64_t maxTripCount = getOneConstantValue(maxTripCountValue);
+    if (maxTripCount < 0)
+      return failure();
+
+    // Get the loop region.
+    Region &loopBody = loopOp.body();
+    // Make sure the region has only one block.
+    if (!loopBody.hasOneBlock())
+      return failure();
+
+    // Get the body block.
+    Block &bodyBlock = loopBody.front();
+
+    // Make sure that the loop body has only one ReturnOp.
+    ONNXReturnOp returnOp;
+    if (bodyBlock
+            .walk([&](ONNXReturnOp op) -> WalkResult {
+              if (returnOp)
+                return WalkResult::interrupt();
+              returnOp = op;
+              return WalkResult::advance();
+            })
+            .wasInterrupted() ||
+        !returnOp)
+      return failure();
+
+    // Analyze the break condition of the loop body to see if we can derive a
+    // new maximum trip count or not.
+
+    // The break condition is the first argument of ReturnOp.
+    Value breakCond = returnOp.getOperation()->getOperands()[0];
+    if (breakCond.isa<BlockArgument>())
+      return failure();
+    Operation *breakCondOp = breakCond.getDefiningOp();
+
+    // Only support LessOp as the op that defines the break condition at this
+    // moment.
+    if (!isa<ONNXLessOp>(breakCondOp))
+      return failure();
+
+    // Compute a trip count from the break condition, given that the upper bound
+    // is fixed and the lower bound is increased by STEP at each iteration. So,
+    // the trip count will be `upper_bound - lower_bound`.
+    Value lbValue = breakCondOp->getOperands()[0];
+    Value ubValue = breakCondOp->getOperands()[1];
+
+    // Check the lower bound of the break condition.
+    // Do not support block argument.
+    if (lbValue.isa<BlockArgument>())
+      return failure();
+
+    // The lowerbound is updated by ONNXAddOp, given that ONNXAddOp is
+    // canonicalized to Add(lhs, rhs=constant).
+    // 1. is updated by AddOp at each iteration.
+    if (!isa<ONNXAddOp>(lbValue.getDefiningOp()))
+      return failure();
+    Value lhs = cast<ONNXAddOp>(lbValue.getDefiningOp())->getOperands()[0];
+    if (!lhs.isa<BlockArgument>())
+      return failure();
+    if (lbValue !=
+        returnOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber() - 1])
+      return failure();
+    // 2. is increased by a constant.
+    int64_t step =
+        getOneConstantValue(lbValue.getDefiningOp()->getOperands()[1]);
+    if (step < 0)
+      return failure();
+    // 3. lhs is fed by a constant.
+    Value lbValueInput =
+        genericOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber()];
+    if (!isa<ONNXConstantOp>(lbValueInput.getDefiningOp()))
+      return failure();
+
+    // Check the upper bound of the break condition.
+    Value ubValueInput;
+    if (!ubValue.isa<BlockArgument>()) {
+      // Upper bound is a constant inside the loop.
+      if (isa<ONNXConstantOp>(ubValue.getDefiningOp()))
+        ubValueInput = ubValue;
+      else
+        return failure();
+    } else {
+      // Upper bound is an block argument and its value is outside the loop.
+      // 1. is unchanged by iterations. By the definition of LoopOp, block
+      // arguments are shifted by 1 to the left in ReturnOp.
+      if (ubValue !=
+          returnOp
+              ->getOperands()[ubValue.cast<BlockArgument>().getArgNumber() - 1])
+        return failure();
+      // 2. is fed with a constant.
+      ubValueInput =
+          genericOp
+              ->getOperands()[ubValue.cast<BlockArgument>().getArgNumber()];
+      if (ubValueInput.isa<BlockArgument>() ||
+          !isa<ONNXConstantOp>(ubValueInput.getDefiningOp()))
+        return failure();
+    }
+
+    // Replace the max trip count by a new trip count if the new trip count is
+    // smaller.
+    int64_t lowerBound = getOneConstantValue(lbValueInput);
+    int64_t upperBound = getOneConstantValue(ubValueInput);
+    int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
+    if (maxTripCount <= derivedTripCount)
+      return failure();
+
+    SmallVector<int64_t, 1> values(1, derivedTripCount);
+    DenseElementsAttr valueAttr = DenseElementsAttr::get(
+        RankedTensorType::get({},
+            maxTripCountValue.getType().cast<ShapedType>().getElementType()),
+        makeArrayRef(values));
+    Value newMaxTripCountValue =
+        onnx_mlir::createONNXConstantOpWithDenseAttr(rewriter, loc, valueAttr);
+
+    maxTripCountValue.replaceAllUsesWith(newMaxTripCountValue);
+    return success();
+  }
+};
+
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
@@ -213,4 +404,16 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern4>(context);
   results.insert<ConstantOpNormalizationPattern5>(context);
   results.insert<ConstantOpNormalizationPattern6>(context);
+}
+
+/// on the ONNXLessOp.
+void ONNXLessOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LessOpSameCastPattern>(context);
+}
+
+/// on the ONNXLoopOp.
+void ONNXLoopOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LoopOpRewriteMaxTripCountPattern>(context);
 }

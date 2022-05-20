@@ -95,7 +95,6 @@ def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 
 def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
 
-
 // Check whether an ArrayAttr contains non-zero values or not.
 def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
                                        "has non-zero elements">;
@@ -194,6 +193,9 @@ class RankXMinusRankYIs<int diff>: Constraint<
 
 def TransposeVariadicInput: NativeCodeCall<
   "onnx_mlir::transposeVariadicInput($_builder, $_loc, $0, $1)">;
+
+// Check whether two variables are equal.
+def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -698,6 +700,16 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXLessOp
+//===----------------------------------------------------------------------===//
+
+def LessOpSameCastPattern: Pat<
+   (ONNXLessOp (ONNXCastOp $a, $to1), (ONNXCastOp $b, $to2)),
+   (ONNXLessOp $a, $b),
+   [(Equal $to1, $to2)]
 >;
 
 #endif // ONNX_REWRITE
