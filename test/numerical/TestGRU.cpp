@@ -24,10 +24,24 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, const int linearBeforeReset,
     bool isDynamicS = false, bool isDynamicB = false) {
 
+  static int testNum = 0;
+  printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, "
+         "linearBeforeReset %d, isDynS %d, isDynB %d\n",
+      ++testNum, direction, S, B, I, H, linearBeforeReset, isDynamicS,
+      isDynamicB);
   GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H,
       linearBeforeReset, isDynamicS, isDynamicB);
-  return gru.build() && gru.compileAndLoad() && gru.prepareInputs() &&
-         gru.run() && gru.verifyOutputs();
+  bool successBuild = gru.build() && gru.compileAndLoad();
+  assert(successBuild && "Build failed.");
+  std::string instructionName =
+      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
+  std::string sharedLibName =
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
+  if (!ModelLibBuilder::checkSharedLibInstruction(
+          instructionName, sharedLibName))
+    return false;
+  return successBuild && gru.prepareInputs() && gru.run() &&
+         gru.verifyOutputs();
 }
 
 } // namespace test
@@ -49,9 +63,13 @@ int main(int argc, char *argv[]) {
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {
-    // The number of directions.
-    // 1: forward, -1: reverse, 2: bidirectional
+  // The number of directions.
+  // 1: forward, -1: reverse, 2: bidirectional
+#ifdef TEST_RNN_NO_BIDIR
+    const auto D = *rc::gen::element(1, -1);
+#else
     const auto D = *rc::gen::element(1, -1, 2);
+#endif
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
@@ -61,7 +79,11 @@ int main(int argc, char *argv[]) {
     // Hidden size.
     const auto H = *rc::gen::inRange(5, 10);
     // LinearBeforeReset.
+#ifdef TEST_GRU_L1
+    const auto L = 1;
+#else
     const auto L = *rc::gen::element(0, 1);
+#endif
     // Whether test dynamic dimension for sequence.
     const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
@@ -78,22 +100,32 @@ int main(int argc, char *argv[]) {
     for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++)
+        // clang-format off
+#ifdef TEST_GRU_L1
+          {
+            int64_t l = 1;
+#else
           for (int64_t l = 0; l < 2; l++) {
+#endif
             // Static dimensions.
             // forward
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l));
             // reverse
             assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l));
+#ifndef TEST_RNN_NO_BIDIR
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l));
-
+#endif
             // Dynamic dimensions for sequence, batch size.
             // forward
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true, true));
             // reverse
             assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true, true));
+#ifndef TEST_RNN_NO_BIDIR
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
+#endif
           }
+  // clang-format on
   return 0;
 }
