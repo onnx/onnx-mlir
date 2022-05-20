@@ -8,7 +8,8 @@ set_target_properties(numerical-nnpa PROPERTIES FOLDER "Tests")
 
 add_custom_target(check-onnx-numerical-nnpa
   COMMENT "Running the ONNX-MLIR numerical regression tests for NNPA"
-  COMMAND "${CMAKE_CTEST_COMMAND}" --verbose -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
+  # To display error messages, add "--verbose" in following command
+  COMMAND "${CMAKE_CTEST_COMMAND}" -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS numerical-nnpa
   )
@@ -16,12 +17,14 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 # Exclude the target from the default VS build
 set_target_properties(check-onnx-numerical-nnpa PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
-# add_numerical_unittest(test_name sources... options...
+# add_numerical_unittest(test_name check_instruction sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
 #   all the rest of the arguments are passed directly to add_onnx_mlir_executable.
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
+#   The check_instruction is an instruction name which should be included in
+#   generated library.
 #   )
 function(add_numerical_unittest test_name check_instruction)
   add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
@@ -35,7 +38,6 @@ function(add_numerical_unittest test_name check_instruction)
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
   add_test(NAME ${test_name}
     COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA
-    # COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --maccel=NNPA --instrument-zhigh-ops=ALL --InstrumentBeforeZHighOp --InstrumentAfterZHighOp --InstrumentReportTimeZHigh
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)

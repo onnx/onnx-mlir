@@ -102,6 +102,7 @@ public:
   // reproducible random numbers.
   static void setRandomNumberGeneratorSeed(const std::string &envVar);
   // Check whether a particular instruction is included in the library.
+  // If not found, return false.
   static bool checkSharedLibInstruction(
       std::string instructionName, std::string sharedLibName);
 

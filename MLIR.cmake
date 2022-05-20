@@ -198,6 +198,8 @@ endfunction(add_onnx_mlir_library)
 #     Same semantics as target_include_directories().
 #   LINK_LIBS lib_targets...
 #     Same semantics as target_link_libraries().
+#   DEFINE define_targets...
+#     Same semantics as target_compile_definitions()
 #   )
 function(add_onnx_mlir_executable name)
   cmake_parse_arguments(ARG
