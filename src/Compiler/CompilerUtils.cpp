@@ -766,8 +766,8 @@ static std::string getDataLayout(const Location &loc) {
 }
 
 // Return 0 on success, error code on failure.
-int setupModule(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName) {
+int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
+    std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -825,7 +825,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     onnx_mlir::accel::initAccelerators(maccel);
 
   int rc = setupModule(module, context, outputBaseName);
-  if (rc != NoCompilerError) return rc;
+  if (rc != NoCompilerError)
+    return rc;
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if

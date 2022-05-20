@@ -19,10 +19,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "FrontendDialectTransformer.hpp"
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Support/SuppressWarnings.h"
-#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/TypeSwitch.h"
