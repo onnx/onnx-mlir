@@ -22,6 +22,7 @@
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Support/SuppressWarnings.h"
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -1451,13 +1452,13 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
     std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
 
-  auto parse_success = model.ParseFromArray(onnxBuffer, size);
+  bool parse_success = model.ParseFromArray(onnxBuffer, size);
   if (!parse_success) {
     *errorMessage = "Unable to parse onnxBuffer";
-    return 10;
+    return InvalidOnnxFormat;
   }
   ImportFrontendModelInternal(model, context, module, options);
-  return 0;
+  return NoCompilerError;
 }
 
 // Return 0 on success, error otherwise.
@@ -1469,16 +1470,16 @@ int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   // check if the input file is opened
   if (!input.is_open()) {
     *errorMessage = "Unable to open or access " + model_fname;
-    return 11;
+    return InvalidInputFileAccess;
   }
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {
     *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
-    return 12;
+    return InvalidOnnxFormat;
   }
   ImportFrontendModelInternal(model, context, module, options);
-  return 0;
+  return NoCompilerError;
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

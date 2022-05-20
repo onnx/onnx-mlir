@@ -17,14 +17,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
-  return !success; // Returns zero on success, nonzero on failure.
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgs\n");
-  return !success; // success result in 0, failure result in nonzero (1 here).
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
@@ -32,7 +32,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgsAndEnv\n", nullptr, name);
-  return !success; // success result in 0, failure result in nonzero (1 here).
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
@@ -55,7 +55,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   std::string internalErrorMessage;
   int rc = processInputFile(
       std::string(inputFilename), context, module, &internalErrorMessage);
-  if (rc != 0) {
+  if (rc != NoCompilerError) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
@@ -73,7 +73,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   std::string internalErrorMessage;
   int rc = processInputArray(
       inputBuffer, bufferSize, context, module, &internalErrorMessage);
-  if (rc != 0) {
+  if (rc != NoCompilerError) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;

@@ -57,18 +57,17 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
-void outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module, std::string filename,
+// The following functions return 0 on success, error code on error.
+int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module, std::string filename,
     std::string extension);
-void emitOutputFiles(std::string outputBaseName,
+int emitOutputFiles(std::string outputBaseName,
     onnx_mlir::EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module);
-void emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
+int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType emissionTarget);
-
-void setupModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
+int setupModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName);
-// Return 0 on success, error code on error.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     onnx_mlir::EmissionTargetType emissionTarget);
