@@ -108,7 +108,13 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
   inputs.emplace_back(move(yInitTensor));
 
-  auto outputs = sess.run(move(inputs));
+  std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
+  try {
+    outputs = sess.run(move(inputs));
+  } catch (const std::runtime_error &error) {
+    std::cout << "error while running: " << error.what() << std::endl;
+    return false;
+  }
 
   auto *yRefInitShape = new int64_t[1]{1};
   auto vFinalRef = OMTensorUniquePtr(
