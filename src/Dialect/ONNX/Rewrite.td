@@ -709,7 +709,7 @@ def ConstantOpNormalizationPattern6: Pat<
 def LessOpSameCastPattern: Pat<
    (ONNXLessOp (ONNXCastOp $a, $to1), (ONNXCastOp $b, $to2)),
    (ONNXLessOp $a, $b),
-   [(Equal $to1, $to2)]
+   [(HaveSameElementType $a, $b), (Equal $to1, $to2)]
 >;
 
 #endif // ONNX_REWRITE
