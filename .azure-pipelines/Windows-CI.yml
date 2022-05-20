@@ -16,6 +16,11 @@ jobs:
     vmImage: 'windows-2019'
 
   steps:
+  - checkout: self
+    clean: true
+    submodules: recursive
+    path: onnx-mlir
+
   - task: UsePythonVersion@0
     displayName: Set Python Version to 3.9
     inputs:
@@ -42,16 +47,19 @@ jobs:
         echo "Setting LitPath to $litPath"
         Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
 
-  - checkout: self
-    clean: true
-    submodules: recursive
-    path: onnx-mlir
-
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd
     displayName: Install protobuf
     workingDirectory: $(Agent.BuildDirectory)
+
+  - task: PowerShell@2
+    displayName: Install protobuf python package
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Install protobuf python package"
+        python3 -m pip install protobuf==3.16
 
   - powershell: |
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
