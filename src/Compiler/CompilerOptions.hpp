@@ -54,22 +54,36 @@ extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 
 void setTargetTriple(const std::string &triple);
+void clearTargetTriple();
 std::string getTargetTripleOption();
+
 void setTargetArch(const std::string &arch);
+void clearTargetArch();
 std::string getTargetArchOption();
+
 void setTargetCPU(const std::string &cpu);
+void clearTargetCPU();
 std::string getTargetCPUOption();
-// SetTargetAccel add given accleator to the list, reset when str="RESET".
+
 int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);
+void clearTargetAccel();
 std::string getTargetAccel();
+
 void setOptLevel(const onnx_mlir::OptLevel level);
+void clearOptLevel();
 std::string getOptimizationLevelOption();
+
 void setXoptOption(const std::vector<std::string> &flags);
+void clearXoptOption();
 std::vector<std::string> getXoptOption();
+
 void setXllcOption(const std::vector<std::string> &flags);
+void clearXllcOption();
 std::vector<std::string> getXllcOption();
+
 void setLLVMOption(const std::string &flag);
+void clearLLVMOption();
 std::string getLLVMOption();
 
 // Options support for OMCompilerOptions.
@@ -80,11 +94,10 @@ using CompilerOptionList =
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Return 0 on success. These functions are not thread-safe and should be called
-// by a single program thread. For OptionKind==TargetAccel, add given
-// accelerator to the accelerator target list, reset when val="RESET".
+// by a single program thread.
 int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
 int setCompilerOptions(const CompilerOptionList &list);
-
+void clearCompilerOption(const onnx_mlir::OptionKind kind);
 std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 // The add and del functions are not thread-safe and should only be
