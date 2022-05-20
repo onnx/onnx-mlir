@@ -223,13 +223,6 @@ static bool getAccelKindFromString(
 
 // Return 0 on success, nonzero on error.
 int setTargetAccel(const std::string &str) {
-  // Empty string means reset maccel.
-  if (str.compare(std::string("RESET")) == 0) {
-    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel to empty\n");
-    maccel.clear();
-    return 0;
-  }
-  // Nonempty string means adding accelerator to current accelerator list.
   accel::Accelerator::Kind accelKind;
   if (getAccelKindFromString(accelKind, str)) {
     setTargetAccel(accelKind);
@@ -242,6 +235,11 @@ void setTargetAccel(const accel::Accelerator::Kind accel) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel\"" << accel << "\"\n";);
   // Add accel to maccel.
   maccel.push_back(accel);
+}
+
+void clearTargetAccel() {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel to empty\n");
+  maccel.clear();
 }
 
 std::string getTargetAccel() {
@@ -284,6 +282,8 @@ void setXoptOption(const std::vector<std::string> &flags) {
     Xllc.addValue(flag);
 }
 
+void clearXoptOption() { Xopt.clear(); }
+
 std::vector<std::string> getXoptOption() {
   if (Xopt.empty())
     return std::vector<std::string>();
@@ -300,6 +300,8 @@ void setXllcOption(const std::vector<std::string> &flags) {
   for (const std::string &flag : flags)
     Xllc.addValue(flag);
 }
+
+void clearXllcOption() { Xllc.clear(); }
 
 std::vector<std::string> getXllcOption() {
   if (Xllc.empty())
@@ -367,25 +369,17 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
-  case OptionKind::OPTFlag: {
-    std::vector<std::string> flags = getXoptOption();
-    std::string s;
-    for (int i = 0, n = flags.size(); i < n; ++i) {
-      s.append(flags.at(i));
-      if (i != n - 1)
-        s.append(",");
-    }
-    return s;
-  }
+  case OptionKind::OPTFlag:
   case OptionKind::LLCFlag: {
-    std::vector<std::string> flags = getXllcOption();
-    std::string s;
+    std::vector<std::string> flags =
+        (kind == OptionKind::OPTFlag) ? getXoptOption() : getXllcOption();
+    std::stringstream ss;
     for (int i = 0, n = flags.size(); i < n; ++i) {
-      s.append(flags.at(i));
+      ss << flags.at(i);
       if (i != n - 1)
-        s.append(",");
+        ss << ' ';
     }
-    return s;
+    return ss.str();
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
