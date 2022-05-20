@@ -44,6 +44,18 @@ std::vector<int> getSortedWithNegativeAxes(mlir::ArrayAttr axesRaw) {
   return axesSorted;
 }
 
+
+std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
+  auto builder = mlir::Builder(squeezeOp.getContext());
+  auto axesConstOp = getONNXConstantOp(squeezeOp.axes());
+  auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
+  return getSortedWithNegativeAxes(axesAttr);
+}
+
+std::vector<int> getAxes(ONNXSqueezeV11Op squeezeOp) {
+  return getSortedWithNegativeAxes(squeezeOp.axesAttr());
+}
+
 mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
                           Torch::ValueTensorType resultType,
                           ConversionPatternRewriter &rewriter,
@@ -51,14 +63,13 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
   Value result = dataTensor;
 
   if (axes.size() > 0) {
-    for (auto i = 0; i < axes.size(); i++) {
-      auto dataType = result.getType().dyn_cast<TensorType>();
-
+    for (uint64_t i = 0; i < axes.size(); i++) {
       // With every successive deleting on dimension, the input axis
       // changes to `axis = axis - number_of_dimensions_deleted`
       // This works because, axes is sorted and normalized to possitive integers
       auto dim_raw = axes[i] - i;
-      // assert((dataType.getShape()[dim_raw] == 1) && "Cannot squeeze for
+      // Fail when dimension squeeze is not 1?
+      // assert((result.getType().dyn_cast<TensorType>().getShape()[dim_raw] == 1) && "Cannot squeeze for
       // dim");
       Value dim = getIntValue(dim_raw, rewriter, context, loc);
       result = rewriter.create<AtenSqueezeDimOp>(loc, resultType, result, dim);
@@ -70,57 +81,23 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
   return result;
 }
 
-struct ONNXToTorchSqueezeV11OpLowering : public ConversionPattern {
-  ONNXToTorchSqueezeV11OpLowering(TypeConverter &typeConverter,
-                                  MLIRContext *ctx)
-      : ConversionPattern(typeConverter, ONNXSqueezeOp::getOperationName(), 1,
-                          ctx) {}
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
-    ONNXSqueezeV11Op squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeV11Op>(op);
-
-    assert(squeezeOp && "Expecting op to have a strong type");
-
-    Location loc = squeezeOp.getLoc();
-    mlir::MLIRContext *context = squeezeOp.getContext();
-
-    auto axes = getSortedWithNegativeAxes(squeezeOp.axesAttr());
-    auto dataTensor = getTorchTensor(squeezeOp.data(), rewriter, context, loc);
-
-    auto resultType = toTorchType(context, squeezeOp.getResult().getType());
-    Value result =
-        squeezeResult(axes, dataTensor, resultType, rewriter, context, loc);
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
-
-    return success();
-  }
-};
-
+template <typename SqueezeOp>
 struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
   ONNXToTorchSqueezeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, ONNXSqueezeOp::getOperationName(), 1,
+      : ConversionPattern(typeConverter, SqueezeOp::getOperationName(), 1,
                           ctx) {}
-
-  std::vector<int> getAxes(mlir::Value axes, mlir::MLIRContext *context) const {
-    auto builder = mlir::Builder(context);
-    auto axesConstOp = getONNXConstantOp(axes);
-    auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
-    return getSortedWithNegativeAxes(axesAttr);
-  }
 
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
-    ONNXSqueezeOp squeezeOp = llvm::dyn_cast_or_null<ONNXSqueezeOp>(op);
+    SqueezeOp squeezeOp = llvm::dyn_cast_or_null<SqueezeOp>(op);
 
     assert(squeezeOp && "Expecting op to have a strong type");
 
     Location loc = squeezeOp.getLoc();
     mlir::MLIRContext *context = squeezeOp.getContext();
 
-    auto axes = getAxes(squeezeOp.axes(), context);
+    auto axes = getAxes(squeezeOp);
     auto dataTensor = getTorchTensor(squeezeOp.data(), rewriter, context, loc);
 
     auto resultType = toTorchType(context, squeezeOp.getResult().getType());
@@ -137,6 +114,7 @@ void populateLoweringONNXToTorchSqueezeOpPattern(RewritePatternSet &patterns,
                                                  TypeConverter &typeConverter,
                                                  MLIRContext *ctx) {
   patterns
-      .insert<ONNXToTorchSqueezeV11OpLowering, ONNXToTorchSqueezeOpLowering>(
+    .insert<ONNXToTorchSqueezeOpLowering<ONNXSqueezeV11Op>,
+            ONNXToTorchSqueezeOpLowering<ONNXSqueezeOp>>(
           typeConverter, ctx);
 }
