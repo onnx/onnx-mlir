@@ -69,7 +69,8 @@ add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul
 #  )
 
 add_numerical_unittest(TestLSTM-NNPA zdnn_lstm
-  TestLSTM-NNPA.cpp
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
+  DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
