@@ -60,8 +60,14 @@ bool ModelLibBuilder::run() {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
-  outputs = exec->run(inputs);
-  return outputs != nullptr;
+  try {
+    outputs =  exec->run(inputs);
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while running: " << error.what() << std::endl;
+    return false;
+  }
+  assert(outputs && "when no exception are issued, output should exist");
+  return true;
 }
 
 std::string ModelLibBuilder::getSharedLibName(
