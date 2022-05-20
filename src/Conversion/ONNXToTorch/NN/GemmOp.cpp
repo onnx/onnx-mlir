@@ -12,6 +12,7 @@
 //
 //===-----------------------------------------------------------------===//
 
+#include <vector>
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
@@ -80,8 +81,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
   ArrayRef<int64_t> getTransposedShape2D(Value operand) const {
     auto operandType = operand.getType().cast<TensorType>();
     ArrayRef<int64_t> operandShape = operandType.getShape();
-    ArrayRef<int64_t> transposed{operandShape[1], operandShape[0]};
-    return transposed;
+    return ArrayRef<int64_t>({operandShape[1], operandShape[0]});
   }
 
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -113,7 +113,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto cTensor = getTorchTensor(C, rewriter, context, loc);
 
     auto aType = toTorchType(context, A.getType());
-    auto bType = toTorchType(context, A.getType());
+    auto bType = toTorchType(context, B.getType());
     auto cType = toTorchType(context, C.getType());
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
