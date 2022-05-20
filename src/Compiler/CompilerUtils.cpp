@@ -34,8 +34,8 @@
 
 #include "VCSVersion.inc"
 
-#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 
 #define DEBUG_TYPE "compiler_utils"
 
