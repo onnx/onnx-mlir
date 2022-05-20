@@ -63,10 +63,11 @@ add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-#add_numerical_unittest(TestGemm-NNPA zdnn_matmul
-#  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
-#  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#  )
+add_numerical_unittest(TestGemm-NNPA zdnn_matmul
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
+  DEFINE PRIVATE TEST_ALPHA_BETA_1
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
 
 add_numerical_unittest(TestLSTM-NNPA zdnn_lstm
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
