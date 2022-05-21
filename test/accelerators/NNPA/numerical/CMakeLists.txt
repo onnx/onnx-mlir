@@ -60,12 +60,12 @@ set(TEST_LINK_LIBS rapidcheck ModelLib)
 #   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
 #   )
 
-add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul
+add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul_op
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemm-NNPA zdnn_matmul
+add_numerical_unittest(TestGemm-NNPA zdnn_matmul_op
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
   DEFINE PRIVATE TEST_ALPHA_BETA_1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}

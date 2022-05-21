@@ -11,6 +11,7 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
+#include <dlfcn.h>
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -61,7 +62,7 @@ bool ModelLibBuilder::run() {
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs =  exec->run(inputs);
+    outputs = exec->run(inputs);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -104,26 +105,19 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     std::string instructionName, std::string sharedLibName) {
   if (instructionName.empty())
     return true;
-  FILE *fp = NULL;
-  const int bufSize = 256;
-  char buf[bufSize];
-  std::string out;
-  std::string cmd("nm " + sharedLibName + "|grep ");
-  cmd.append(instructionName.c_str());
-  if ((fp = popen(cmd.c_str(), "r")) == NULL) {
-    printf("Command: %s failed\n", cmd.c_str());
+  void *handle;
+  handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
+  if (handle == NULL) {
+    printf("%s\n", dlerror());
     return false;
   }
-  while (!feof(fp)) {
-    if (fgets(buf, bufSize, fp) != NULL)
-      out.append(buf);
-  }
-  pclose(fp);
-  if (out.empty()) {
-    std::string errmsg("Instruction:" + instructionName + " not generated.\n");
-    printf("%s\n", errmsg.c_str());
+  int *dptr;
+  dptr = (int *)dlsym(handle, instructionName.c_str());
+  if (dptr == NULL) {
+    printf("%s\n", dlerror());
     return false;
   }
+  dlclose(handle);
   return true;
 }
 #endif
