@@ -664,6 +664,20 @@ func @test_less(%arg0 : tensor<i32>, %arg1 : tensor<i32>) -> tensor<i1> {
 
 // -----
 
+// Cast is not removed because of unsigned integers.
+func @test_less_should_not_remove_cast(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<i1> {
+  %0 = "onnx.Cast"(%arg0) {to = ui32} : (tensor<f32>) -> tensor<ui32>
+  %1 = "onnx.Cast"(%arg1) {to = ui32} : (tensor<f32>) -> tensor<ui32>
+  %2 = "onnx.Less"(%0, %1) : (tensor<ui32>, tensor<ui32>) -> tensor<i1>
+  return %2 : tensor<i1>
+  // CHECK-LABEL: test_less_should_not_remove_cast
+  // CHECK: "onnx.Cast"
+  // CHECK: "onnx.Cast"
+  // CHECK: "onnx.Less"
+}
+
+// -----
+
 // Check deriving a new maximum trip count from the break condition of the loop.
 func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30xf32> {
   %0 = "onnx.Constant"() {value = dense<9223372036854775807> : tensor<i64>} : () -> tensor<i64>

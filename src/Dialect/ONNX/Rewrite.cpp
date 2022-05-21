@@ -237,6 +237,16 @@ public:
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
     Value lbValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
+    if (!lbValue.getType()
+             .cast<ShapedType>()
+             .getElementType()
+             .isa<IntegerType>())
+      return failure();
+    if (!ubValue.getType()
+             .cast<ShapedType>()
+             .getElementType()
+             .isa<IntegerType>())
+      return failure();
 
     // Check the lower bound of the break condition.
     // The lowerbound is updated by ONNXAddOp, given that ONNXAddOp is

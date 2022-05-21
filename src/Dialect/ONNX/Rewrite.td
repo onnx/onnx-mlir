@@ -144,6 +144,15 @@ def HaveSameElementType : Constraint<
           "$1.getType().dyn_cast<ShapedType>().getElementType())">,
     "has same element type">;
 
+def HaveSameElementTypeBitWidth: Constraint<
+    CPred<"($0.getType().dyn_cast<ShapedType>().getElementTypeBitWidth() == "
+          "$1.getType().dyn_cast<ShapedType>().getElementTypeBitWidth())">,
+    "has same element type bitwidth">;
+
+def  ElementTypeIsNotUnsigned: Constraint<
+    CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
+    "element type is not unsigned int">;
+
 def IsStaticShapeTensor:
   Constraint<
     CPred<
@@ -707,9 +716,11 @@ def ConstantOpNormalizationPattern6: Pat<
 //===----------------------------------------------------------------------===//
 
 def LessOpSameCastPattern: Pat<
-   (ONNXLessOp (ONNXCastOp $a, $to1), (ONNXCastOp $b, $to2)),
+   (ONNXLessOp (ONNXCastOp:$cast_a $a, $to1), (ONNXCastOp $b, $to2)),
    (ONNXLessOp $a, $b),
-   [(HaveSameElementType $a, $b), (Equal $to1, $to2)]
+   [(HaveSameElementType $a, $b), (Equal $to1, $to2),
+    (HaveSameElementTypeBitWidth $a, $cast_a),
+    (ElementTypeIsNotUnsigned:$cast_a)]
 >;
 
 #endif // ONNX_REWRITE
