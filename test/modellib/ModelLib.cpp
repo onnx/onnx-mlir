@@ -41,8 +41,7 @@ ModelLibBuilder::~ModelLibBuilder() {
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
-  if (rc != 0)
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) != 0)
     return false;
   exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
   return exec != nullptr;
@@ -61,8 +60,14 @@ bool ModelLibBuilder::run() {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
-  outputs = exec->run(inputs);
-  return outputs != nullptr;
+  try {
+    outputs =  exec->run(inputs);
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while running: " << error.what() << std::endl;
+    return false;
+  }
+  assert(outputs && "when no exception are issued, output should exist");
+  return true;
 }
 
 std::string ModelLibBuilder::getSharedLibName(
