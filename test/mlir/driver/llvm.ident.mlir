@@ -4,7 +4,7 @@
 // XFAIL: onnx-mlir-vendor
 
 // CHECK: !llvm.ident = !{![[MD:[0-9]*]]}
-// CHECK: ![[MD]] = !{!"onnx-mlir version 1.0.0 ({{.*}}/onnx-mlir{{.*}} {{[a-zA-Z0-9]+}}, {{.*}}/llvm-project{{.*}} {{[a-zA-Z0-9]+}})"}
+// CHECK: ![[MD]] = !{!"onnx-mlir version 0.3.0 ({{.*}}/onnx-mlir{{.*}} {{[a-zA-Z0-9]+}}, {{.*}}/llvm-project{{.*}} {{[a-zA-Z0-9]+}})"}
 module {
   func @main_graph(%arg0: tensor<1x1xf32>, %arg1: tensor<1x1xf32>) -> tensor<1x1xf32> {
     %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x1xf32>, tensor<1x1xf32>) -> tensor<1x1xf32>

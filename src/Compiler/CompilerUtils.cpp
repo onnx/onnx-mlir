@@ -154,7 +154,7 @@ static std::string getToolPath(std::string tool) {
 }
 
 static std::string getOnnxMlirFullVersion() {
-  const std::string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+  const std::string OnnxMlirVersion = "onnx-mlir version 0.3.0";
   return
 #ifdef ONNX_MLIR_VENDOR
       ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
@@ -571,7 +571,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
-void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+// Return 0 on success, error number on failure.
+int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
@@ -584,7 +585,7 @@ void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     *errorMessage = "Invalid input file '" + inputFilename +
                     "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
                     "needs to be provided.";
-    return;
+    return InvalidInputFile;
   }
 
   if (inputIsONNX) {
@@ -592,22 +593,26 @@ void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
-    ImportFrontendModelFile(
+    return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
     loadMLIR(inputFilename, context, module);
+  return NoCompilerError;
 }
 
-void processInputArray(const void *onnxBuffer, int bufferSize,
-    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module) {
+// Return 0 on success, error code on error.
+int processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module,
+    std::string *errorMessage) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.shapeInformation = shapeInformation;
-  ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
+  return ImportFrontendModelArray(
+      onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
 
-void outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
+int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
     std::string extension) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
@@ -617,14 +622,16 @@ void outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
   auto output = openOutputFile(filename + extension, &errorMessage);
   if (!output) {
     llvm::errs() << errorMessage << "\n";
-    exit(1);
+    return InvalidOutputFileAccess;
   }
 
   module->print(output->os(), flags);
   output->keep();
+  return NoCompilerError;
 }
 
-void emitOutputFiles(std::string outputBaseName,
+// Return 0 on success, error code on failure.
+int emitOutputFiles(std::string outputBaseName,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
@@ -647,9 +654,11 @@ void emitOutputFiles(std::string outputBaseName,
   switch (emissionTarget) {
   case EmitObj: {
     std::string modelObjPath = compileModuleToObject(module, outputBaseName);
-    if (keepFiles(KeepFilesOfType::MLIR))
-      outputCode(module, outputBaseName, ".llvm.mlir");
-
+    if (keepFiles(KeepFilesOfType::MLIR)) {
+      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
+      if (rc != NoCompilerError)
+        return rc;
+    }
     if (VerboseOutput)
       printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
   } break;
@@ -657,25 +666,33 @@ void emitOutputFiles(std::string outputBaseName,
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
     std::string sharedLib =
         compileModuleToSharedLibrary(module, outputBaseName);
-    if (keepFiles(KeepFilesOfType::MLIR))
-      outputCode(module, outputBaseName, ".llvm.mlir");
+    if (keepFiles(KeepFilesOfType::MLIR)) {
+      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
+      if (rc != NoCompilerError)
+        return rc;
+    }
     if (VerboseOutput)
       printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } break;
   case EmitJNI: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
     compileModuleToJniJar(module, outputBaseName);
-    if (keepFiles(KeepFilesOfType::MLIR))
-      outputCode(module, outputBaseName, ".llvm.mlir");
+    if (keepFiles(KeepFilesOfType::MLIR)) {
+      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
+      if (rc != NoCompilerError)
+        return rc;
+    }
     if (VerboseOutput)
       printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } break;
   default: {
     // Emit the version with all constants included.
-    outputCode(module, outputBaseName, ".onnx.mlir");
+    int rc = outputCode(module, outputBaseName, ".onnx.mlir");
     if (VerboseOutput)
       printf("Full MLIR code written to: \n\t%s\n\n",
           (outputBaseName + ".onnx.mlir").c_str());
+    if (rc != NoCompilerError)
+      return rc;
 
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(
@@ -691,16 +708,19 @@ void emitOutputFiles(std::string outputBaseName,
         emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
-      outputCode(module, outputBaseName, ".tmp");
+      int rc = outputCode(module, outputBaseName, ".tmp");
       if (VerboseOutput) {
         printf("Constant-free MLIR Code written to: \n\t%s\n\n",
             (outputBaseName + ".tmp").c_str());
         printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
             (outputBaseName + ".onnx.mlir").c_str());
       }
+      if (rc != NoCompilerError)
+        return rc;
     }
   }
   }
+  return NoCompilerError;
 } // end anonymous namespace
 
 // Get the LLVM Target object corresponding to the target triple (if valid).
@@ -745,8 +765,9 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-void setupModule(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName) {
+// Return 0 on success, error code on failure.
+int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
+    std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -773,13 +794,16 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
     moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accelsAttr));
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
-    outputCode(module, outputBaseName, ".input.mlir");
+    int rc = outputCode(module, outputBaseName, ".input.mlir");
+    if (rc != NoCompilerError)
+      return rc;
     module.release();
     loadMLIR(outputBaseName + ".input.mlir", context, module);
   }
+  return NoCompilerError;
 }
 
-void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
+int emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   if (printIR) {
@@ -787,10 +811,12 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     if (preserveLocations)
       flags.enableDebugInfo();
     module->print(llvm::outs(), flags);
-  } else
-    emitOutputFiles(outputBaseName, emissionTarget, context, module);
+    return NoCompilerError;
+  }
+  return emitOutputFiles(outputBaseName, emissionTarget, context, module);
 }
 
+// Return 0 on success, error code on error.
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
@@ -798,7 +824,9 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (!maccel.empty())
     onnx_mlir::accel::initAccelerators(maccel);
 
-  setupModule(module, context, outputBaseName);
+  int rc = setupModule(module, context, outputBaseName);
+  if (rc != NoCompilerError)
+    return rc;
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if
@@ -817,7 +845,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
   if (mlir::failed(pm.run(*module)))
-    return 4;
-  emitOutput(module, context, outputBaseName, pm, emissionTarget);
-  return 0;
+    return CompilerFailure;
+  return emitOutput(module, context, outputBaseName, pm, emissionTarget);
 }
