@@ -11,7 +11,9 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 
 #include "mlir/IR/BuiltinOps.h"
 

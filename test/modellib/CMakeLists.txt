@@ -16,4 +16,5 @@ add_onnx_mlir_library(ModelLib
   OnnxMlirCompiler
   CompilerUtils
   ExecutionSession
+  dl
   )
