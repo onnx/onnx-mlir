@@ -135,6 +135,7 @@ bool ModelLibBuilder::checkSharedLibInstruction(
   dptr = (int *)dlsym(handle, instructionName.c_str());
   if (dptr == NULL) {
     printf("%s\n", dlerror());
+    dlclose(handle);
     return false;
   }
   dlclose(handle);
