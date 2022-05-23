@@ -11,9 +11,13 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
+/*
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <dlfcn.h>
+*/
+#ifndef _WIN32
 #include <dlfcn.h>
 #endif
 
@@ -104,12 +108,13 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
+#ifndef _WIN32
 bool ModelLibBuilder::checkSharedLibInstruction(
     std::string instructionName, std::string sharedLibName) {
   if (instructionName.empty())
     return true;
-#ifdef _WIN32
   /*
+1#ifdef _WIN32
   HMODULE handle = LoadLibrary(sharedLibName.c_str());
   if (handle == NULL) {
     printf("Can not open %s\n", sharedLibName.c_str());
@@ -123,8 +128,8 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     return false;
   }
   FreeLibrary(handle);
-  */
 #else
+  */
   void *handle;
   handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
   if (handle == NULL) {
@@ -139,9 +144,10 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     return false;
   }
   dlclose(handle);
-#endif
+  // #endif
   return true;
 }
+#endif
 
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,

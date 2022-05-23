@@ -66,6 +66,7 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     printf("Fail to build.\n");
     return false;
   }
+#ifndef _WIN32
   // Verify generated library
   std::string instructionName =
       getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
@@ -74,6 +75,7 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   if (!ModelLibBuilder::checkSharedLibInstruction(
           instructionName, sharedLibName))
     return false;
+#endif
   return successBuild && gemm.prepareInputs() && gemm.run() &&
          gemm.verifyOutputs();
 }
