@@ -16,7 +16,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-// #include <windows.h>
+#include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
@@ -113,7 +113,6 @@ bool ModelLibBuilder::checkSharedLibInstruction(
   if (instructionName.empty())
     return true;
 #ifdef _WIN32
-  /*
   HMODULE handle = LoadLibrary(sharedLibName.c_str());
   if (handle == NULL) {
     printf("Can not open %s\n", sharedLibName.c_str());
@@ -127,7 +126,6 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     return false;
   }
   FreeLibrary(handle);
-  */
 #else
   void *handle;
   handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
