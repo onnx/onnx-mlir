@@ -41,6 +41,7 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchBinaryOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchArgmaxOpPattern(patterns, typeConverter, ctx);
 }
 
 //===-----------------------------------------------------------------===//

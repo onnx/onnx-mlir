@@ -150,12 +150,49 @@ static void setupTorchFloatToF64Conversion(ConversionTarget &target,
   typeConverter.addArgumentMaterialization(sourceMaterialization);
 } */
 
+static void setupSignlessI64ToSignedI64Conversion(ConversionTarget &target,
+                                         TypeConverter &typeConverter) {
+  target.addLegalOp<TorchConversion::ToSI64TensorOp, TorchConversion::FromSI64TensorOp>();
+  typeConverter.addConversion([](RankedTensorType type) -> Type {
+    if (type.getElementType().isSignlessInteger()) {
+      llvm::outs() << "Type is signless" << "\n";
+      auto elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
+      llvm::outs() << "Element type is generated" << "\n";
+      //return RankedTensorType::get(type.getShape(), elementType);
+      return Torch::ValueTensorType::get(type.getContext(), type.getShape(), elementType);
+    }
+    return type;
+  });
+
+  typeConverter.addTargetMaterialization([](OpBuilder &builder,
+                                            RankedTensorType type, ValueRange inputs,
+                                            Location loc) -> Optional<Value> {
+    // Other builtin integer types could be handled by other materializers.
+    //if (type.getElementType().isSignlessInteger())
+    llvm::outs() << "\n Type IS Signless Type" << "\n";
+    assert(inputs.size() == 1);
+    //assert(inputs[0].getType().isa<RankedTensorType>());
+    return builder.create<torch::TorchConversion::FromSI64TensorOp>(loc, type, inputs[0]).getResult();
+  });
+  auto sourceMaterialization = [](OpBuilder &builder, Torch::ValueTensorType type,
+                                  ValueRange inputs, Location loc) -> Value {
+    //assert(inputs.size() == 1);
+    llvm::outs() << "\n Inside sourceMaterialization " << "\n";
+    return builder.create<torch::TorchConversion::ToSI64TensorOp>(loc, type, inputs[0]);
+  };
+  llvm::outs() << "\n Before Sorce and Argument Insertion " << "\n";
+  typeConverter.addSourceMaterialization(sourceMaterialization);
+  typeConverter.addArgumentMaterialization(sourceMaterialization);
+  llvm::outs() << "\n After Sorce and Argument Insertion " << "\n";
+}
+
 void setupBackendTypeTransforms(
     ConversionTarget &target, TypeConverter &typeConverter) {
   setupValueTensorToBuiltinTensorConversion(target, typeConverter);
   //setupTorchBoolToI1Conversion(target, typeConverter);
   //setupTorchIntToI64Conversion(target, typeConverter);
   //setupTorchFloatToF64Conversion(target, typeConverter);
+  setupSignlessI64ToSignedI64Conversion(target, typeConverter);
 }
 
 //===----------------------------------------------------------------------===//
@@ -280,8 +317,8 @@ class ONNXToAtenFinalizeTypesTransformPass
     
     // Mark materializations as illegal in this pass (since we are finalizing)
     // and add patterns that eliminate them.
-    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp>(target, patterns,
-                                                              typeConverter);
+    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp, ToSI64TensorOp,
+	    FromSI64TensorOp>(target, patterns, typeConverter);
 
     // If all result types are legal, and all block arguments are legal, then
     // all types in the program are legal.

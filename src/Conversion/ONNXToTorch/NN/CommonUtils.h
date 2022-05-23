@@ -55,3 +55,5 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
     Type ty, Location loc, ConversionPatternRewriter &rewriter,
     int default_val = 0);
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);
+
+Torch::ValueTensorType toSI64SignedType(mlir::MLIRContext *ctx, Type t);
