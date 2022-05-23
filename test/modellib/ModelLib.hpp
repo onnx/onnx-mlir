@@ -101,12 +101,10 @@ public:
   // variable; if not found, use a random seed. Optional call to enable
   // reproducible random numbers.
   static void setRandomNumberGeneratorSeed(const std::string &envVar);
-#ifndef _WIN32
   // Check whether a particular instruction is included in the library.
   // If not found, return false.
   static bool checkSharedLibInstruction(
       std::string instructionName, std::string sharedLibName);
-#endif
 
 protected:
   // Create a function with an empty body.

@@ -11,9 +11,7 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
-#ifndef _WIN32
 #include <dlfcn.h>
-#endif
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -102,7 +100,6 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
-#ifndef _WIN32
 bool ModelLibBuilder::checkSharedLibInstruction(
     std::string instructionName, std::string sharedLibName) {
   if (instructionName.empty())
@@ -122,7 +119,6 @@ bool ModelLibBuilder::checkSharedLibInstruction(
   dlclose(handle);
   return true;
 }
-#endif
 
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
