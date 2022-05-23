@@ -2,12 +2,11 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
   func @main_graph(%arg0: tensor<1x2048xf32>, %arg1: tensor<1000x2048xf32>, %arg2: tensor<1000xf32>) -> tensor<1x1000xf32> attributes {input_names = ["x", "fc.weight", "fc.bias"], output_names = ["y"]} {
-    //CHECK: %[[AVAL:.*]] = torch.constant.int 0
-    //CHECK: %[[BVAL:.*]] = torch.constant.int 1
-    //CHECK: torch.aten.transpose.int %arg1, %[[AVAL]], %[[BVAL]] : !torch.vtensor<[1000, 2048],f32>, !torch.int, !torch.int -> !torch.vtensor<[2048, 1000],f32>
-    %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<1x2048xf32>, tensor<1000x2048xf32>, tensor<1000xf32>) -> tensor<1x1000xf32>
-    //CHECK: torch.aten.bmm %arg0, %{{[^,]*}} : !torch.vtensor<[1,2048],f32>, !torch.vtensor<[2048,1000],f32> -> !torch.vtensor<[1,1000],f32>
-    //CHECK: torch.aten.add.Tensor %{{[^,]*}}, %arg2, %[[TRANSB]] : !torch.vtensor<[1,1000],f32>, !torch.vtensor<[1000],f32>, !torch.int -> !torch.vtensor<[1,1000],f32>
-    return %0 : tensor<1x1000xf32>
+    //CHECK: %[[CONST:.*]] = torch.constant.int 1
+%0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<1x2048xf32>, tensor<1000x2048xf32>, tensor<1000xf32>) -> tensor<1x1000xf32>
+//CHECK: [[RES1:%.]] = torch.aten.t %arg1 : !torch.vtensor<[1000,2048],f32> -> !torch.vtensor<[2048,1000],f32>
+//CHECK: [[RES2:%.]] = torch.aten.bmm %arg0, [[RES1]] : !torch.vtensor<[1,2048],f32>, !torch.vtensor<[2048,1000],f32> -> !torch.vtensor<[1,1000],f32>
+//CHECK: [[RES3:%.]] = torch.aten.add.Tensor [[RES2]], %arg2, %[[CONST]] : !torch.vtensor<[1,1000],f32>, !torch.vtensor<[1000],f32>, !torch.int -> !torch.vtensor<[1,1000],f32>       
+return %0 : tensor<1x1000xf32>
   }
 }
