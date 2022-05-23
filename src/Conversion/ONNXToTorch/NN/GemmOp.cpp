@@ -72,16 +72,20 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     return rewriter.create<ConstantFloatOp>(loc, fVal);
   }
 
-  int getShapeSize(Value operand) const {
+  int getRank(Value operand) const {
     auto operandType = operand.getType().cast<TensorType>();
     ArrayRef<int64_t> operandShape = operandType.getShape();
     return operandShape.size();
   }
 
-  ArrayRef<int64_t> getTransposedShape2D(Value operand) const {
-    auto operandType = operand.getType().cast<TensorType>();
+  SmallVector<int64_t, 4> getTransposedShape2D(ShapedType operandType) const {
     ArrayRef<int64_t> operandShape = operandType.getShape();
-    return ArrayRef<int64_t>({operandShape[1], operandShape[0]});
+
+    SmallVector<int64_t, 4> transposedShape;
+    transposedShape.emplace_back(operandShape[1]);
+    transposedShape.emplace_back(operandShape[0]);
+
+    return transposedShape;
   }
 
   ONNXGemmOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -118,21 +122,24 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
-    assert((getShapeSize(A) == 2 && getShapeSize(B) == 2 &&
-            getShapeSize(C) <= 2) &&
+    assert((getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2) &&
            "Checking input dimensions");
 
-    auto atype = A.getType().dyn_cast<TensorType>().getElementType();
-    auto btype = B.getType().dyn_cast<TensorType>().getElementType();
-    mlir::Type transposeAType =
-        (transA) ? Torch::ValueTensorType::get(context, getTransposedShape2D(A),
-                                               atype)
+    auto aShapedType = A.getType().dyn_cast<ShapedType>();
+    auto bShapedType = B.getType().dyn_cast<ShapedType>();
 
-                 : aType;
+    mlir::Type transposeAType =
+        (transA)
+            ? Torch::ValueTensorType::get(
+                  context, ArrayRef<int64_t>(getTransposedShape2D(aShapedType)),
+                  aShapedType.getElementType())
+            : aType;
     mlir::Type transposeBType =
-        (transB) ? Torch::ValueTensorType::get(context, getTransposedShape2D(B),
-                                               btype)
-                 : bType;
+        (transB)
+            ? Torch::ValueTensorType::get(
+                  context, ArrayRef<int64_t>(getTransposedShape2D(bShapedType)),
+                  bShapedType.getElementType())
+            : bType;
 
     Value transposeAVal =
         (transA) ? rewriter.create<AtenTOp>(loc, transposeAType, aTensor)
