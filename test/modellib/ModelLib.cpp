@@ -114,6 +114,7 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     printf("Can not open %s\n", sharedLibName.c_str());
     return false;
   }
+  /*
   typedef void (*FUNC)();
   FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
   if (addr == NULL) {
@@ -121,6 +122,7 @@ bool ModelLibBuilder::checkSharedLibInstruction(
         sharedLibName.c_str());
     return false;
   }
+  */
   FreeLibrary(handle);
 #else
   void *handle;
