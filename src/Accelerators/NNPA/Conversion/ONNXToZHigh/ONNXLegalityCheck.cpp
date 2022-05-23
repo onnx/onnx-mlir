@@ -485,9 +485,9 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   if (!aType.getElementType().isF32() || !bType.getElementType().isF32() ||
       (hasC && !cType.getElementType().isF32()))
     return false;
-  // A and B's rank must be 2 and C's rank must be 1.
+  // A and B's rank must be 2 and C's rank must be 1 or 2.
   if ((aShape.size() != 2) || (bShape.size() != 2) ||
-      (hasC && (cShape.size() != 1)))
+      (hasC && (cShape.size() != 1) && (cShape.size() != 2)))
     return false;
 
   ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
@@ -496,9 +496,9 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
     return false;
   }
   auto bShape1 = gemmOp.transB() ? bShape[0] : bShape[1];
-  // Only support B's second dim is the same with C's dim
+  // If C's rank is 1: Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
-  if (hasC) {
+  if (hasC && cShape.size() == 1) {
     // Cannot check broadcasting at compile time.
     if (cShape[0] == -1)
       return false;
