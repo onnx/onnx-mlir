@@ -109,12 +109,12 @@ bool ModelLibBuilder::checkSharedLibInstruction(
   if (instructionName.empty())
     return true;
 #ifdef _WIN32
+  /*
   HMODULE handle = LoadLibrary(sharedLibName.c_str());
   if (handle == NULL) {
     printf("Can not open %s\n", sharedLibName.c_str());
     return false;
   }
-  /*
   typedef void (*FUNC)();
   FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
   if (addr == NULL) {
@@ -122,8 +122,8 @@ bool ModelLibBuilder::checkSharedLibInstruction(
         sharedLibName.c_str());
     return false;
   }
-  */
   FreeLibrary(handle);
+  */
 #else
   void *handle;
   handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
