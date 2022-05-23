@@ -13,8 +13,6 @@ add_custom_target(check-onnx-numerical-nnpa
   DEPENDS numerical-nnpa
   )
 set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
-# Exclude the target from the default VS build
-set_target_properties(check-onnx-numerical-nnpa PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
 # add_numerical_unittest(test_name check_instruction sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
