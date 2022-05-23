@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(ONNX_NUMERICALTEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/numerical)
-set(ONNX_NUMERICALTEST_BIN_DIR ${ONNX_MLIR_BIN_ROOT}/test/numerical)
 
 add_custom_target(numerical-nnpa)
 set_target_properties(numerical-nnpa PROPERTIES FOLDER "Tests")
 
 add_custom_target(check-onnx-numerical-nnpa
   COMMENT "Running the ONNX-MLIR numerical regression tests for NNPA"
-  # To display error messages, add "--verbose" in following command
+  # To display logs for the tests, add "--verbose" in following command
   COMMAND "${CMAKE_CTEST_COMMAND}" -L numerical-nnpa --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS numerical-nnpa
