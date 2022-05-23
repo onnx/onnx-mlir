@@ -148,10 +148,10 @@ public:
   using OpRewritePattern<ONNXLoopOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXLoopOp loopOp, PatternRewriter &rewriter) const override {
-    Location loc = loopOp.getLoc();
-    Operation *genericLoopOp = loopOp.getOperation();
-    Value maxTripCountValue = genericLoopOp->getOperands()[0];
+      ONNXLoopOp onnxLoopOp, PatternRewriter &rewriter) const override {
+    Location loc = onnLoopOp.getLoc();
+    Operation *loopOp = onnxLoopOp.getOperation();
+    Value maxTripCountValue = loopOp->getOperands()[0];
 
     // Match the following pattern:
     // ```
@@ -253,10 +253,9 @@ private:
   //     cond = LessOp(newCounterValue, ubValue)
   //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
   // ```
-  std::pair<bool, int64_t> matchOp(ONNXLoopOp loopOp) const {
-    Location loc = loopOp.getLoc();
-    Operation *genericLoopOp = loopOp.getOperation();
-    Value maxTripCountValue = genericLoopOp->getOperands()[0];
+  std::pair<bool, int64_t> matchOp(ONNXLoopOp onnxLoopOp) const {
+    Operation *loopOp = onnxLoopOp.getOperation();
+    Value maxTripCountValue = loopOp->getOperands()[0];
 
     // The maximum trip count is a constant.
     if (!isDefinedByIntegerConstantOp(maxTripCountValue))
@@ -268,29 +267,18 @@ private:
     if (!loopBody.hasOneBlock())
       return std::make_pair(false, -1);
 
-    // Get the body block.
+    // Get ReturnOp of the body block.
     Block &bodyBlock = loopBody.front();
-
-    // Make sure that the loop body has only one ReturnOp.
-    ONNXReturnOp returnOp;
-    if (bodyBlock
-            .walk([&](ONNXReturnOp op) -> WalkResult {
-              if (returnOp)
-                return WalkResult::interrupt();
-              returnOp = op;
-              return WalkResult::advance();
-            })
-            .wasInterrupted() ||
-        !returnOp)
+    Operation *returnOp = bodyBlock.getTerminator();
+    if (!isa<ONNXReturnOp>(returnOp))
       return std::make_pair(false, -1);
-    Operation *genericReturnOp = returnOp.getOperation();
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
 
     // The break condition is the first argument of ReturnOp.
     // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
-    Value breakCond = genericReturnOp->getOperands()[0];
+    Value breakCond = returnOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
       return std::make_pair(false, -1);
     Operation *breakCondOp = breakCond.getDefiningOp();
@@ -314,7 +302,7 @@ private:
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
 
     // Check the upper bound of the break condition.
-    if (!isInvariantArgConstant(ubValue, genericReturnOp))
+    if (!isInvariantArgConstant(ubValue, returnOp))
       return std::make_pair(false, -1);
 
     // Check the lower bound of the break condition.
@@ -327,32 +315,28 @@ private:
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond = LessOp(newCounterValue, ubValue)
     //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
-    Operation *genericAddOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
-    Value counterValue = genericAddOp->getOperands()[0];
-    Value stepValue = genericAddOp->getOperands()[1];
+    Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
+    Value counterValue = addOp->getOperands()[0];
+    Value stepValue = addOp->getOperands()[1];
     // 1. Step is constant.
     if (!isDefinedByIntegerConstantOp(stepValue))
       return std::make_pair(false, -1);
     // 2. Counter is an block argument and updated at each iteration.
-    if (!isUpdatedArgByValue(counterValue, newCounterValue, genericReturnOp))
+    if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
       return std::make_pair(false, -1);
     // 3. Counter is initially fed by a constant.
-    Value startValue = getFedValue(counterValue, genericLoopOp);
+    Value startValue = getFedValue(counterValue, loopOp);
     if (!isDefinedByIntegerConstantOp(startValue))
       return std::make_pair(false, -1);
 
     // Check that the new trip count is smaller than the original trip count.
     int64_t lowerBound = getOneIntergerConstant(startValue);
-    int64_t upperBound =
-        getOneIntergerConstant(getFedValue(ubValue, genericLoopOp));
-    int64_t step =
-        getInvariantArgConstantInt(stepValue, genericLoopOp, genericReturnOp);
+    int64_t upperBound = getOneIntergerConstant(getFedValue(ubValue, loopOp));
+    int64_t step = getInvariantArgConstantInt(stepValue, loopOp, returnOp);
     int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
     int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
-    if (maxTripCount <= derivedTripCount)
-      return std::make_pair(false, -1);
 
-    return std::make_pair(true, derivedTripCount);
+    return std::make_pair(maxTripCount <= derivedTripCount, derivedTripCount);
   }
 };
 
