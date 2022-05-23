@@ -153,53 +153,120 @@ public:
     Operation *genericLoopOp = loopOp.getOperation();
     Value maxTripCountValue = genericLoopOp->getOperands()[0];
 
-    // A helper function to get a constant from a value.
-    auto getOneConstantValue = [&](Value v) -> int64_t {
-      if (v.isa<BlockArgument>())
-        return -1;
-      Operation *definingOp = v.getDefiningOp();
-      if (!isa<ONNXConstantOp>(definingOp))
-        return -1;
-      if (!cast<ONNXConstantOp>(definingOp)
-               .valueAttr()
-               .isa<DenseElementsAttr>())
-        return -1;
-      DenseElementsAttr valueAttr = cast<ONNXConstantOp>(definingOp)
-                                        .valueAttr()
-                                        .cast<DenseElementsAttr>();
-      return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
-    };
-
-    // A helper function to get a constant from a value. The value must be
-    // defined by ConstantOp inside the loop or fed by ConstantOp outside the
-    // loop.
-    auto constantOrFedByConstant = [&](Value v, Operation *loopOp,
-                                       Operation *returnOp) -> int64_t {
-      if (v.isa<BlockArgument>()) {
-        // Value is an block argument and its value is outside the loop.
-        // 1. is unchanged by iterations. By the definition of LoopOp, block
-        // arguments are shifted by 1 to the left in ReturnOp.
-        if (v !=
-            returnOp->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1])
-          return -1;
-        // 2. is fed with a constant.
-        Value vInput =
-            loopOp->getOperands()[v.cast<BlockArgument>().getArgNumber()];
-        return getOneConstantValue(vInput);
-      }
-      return getOneConstantValue(v);
-    };
-
-    // Only do this rewriting if the maximum trip count is a constant.
-    int64_t maxTripCount = getOneConstantValue(maxTripCountValue);
-    if (maxTripCount < 0)
+    // Match the following pattern:
+    // ```
+    // ubValue = ONNXConstantOp() {value = ...}
+    // startValue = ONNXConstantOp() {value = ...}
+    // ONNXLoop(max_trip_count, true, ..., ubValue, ..., startValue, ...)
+    //   ^bb(max_trip_count, cond, ..., ubValue, ..., counterValue, ...):
+    //     stepValue = ONNXConstantOp() {value = ...}
+    //     newCounterValue = ONNXAddOp(counterValue, stepValue).
+    //     cond = LessOp(newCounterValue, ubValue)
+    //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+    // ```
+    bool matched;
+    int64_t derivedTripCount;
+    std::tie(matched, derivedTripCount) = matchOp(loopOp);
+    if (!matched)
       return failure();
+
+    // Rewrite
+    SmallVector<int64_t, 1> values(1, derivedTripCount);
+    DenseElementsAttr valueAttr = DenseElementsAttr::get(
+        RankedTensorType::get({},
+            maxTripCountValue.getType().cast<ShapedType>().getElementType()),
+        makeArrayRef(values));
+    Value newMaxTripCountValue =
+        onnx_mlir::createONNXConstantOpWithDenseAttr(rewriter, loc, valueAttr);
+
+    maxTripCountValue.replaceAllUsesWith(newMaxTripCountValue);
+    return success();
+  }
+
+private:
+  bool isDefinedByIntegerConstantOp(Value v) const {
+    if (v.isa<BlockArgument>())
+      return false;
+    Operation *definingOp = v.getDefiningOp();
+    if (v.getType().cast<ShapedType>().getElementType().isa<IntegerType>() &&
+        isa<ONNXConstantOp>(definingOp) &&
+        cast<ONNXConstantOp>(definingOp).valueAttr().isa<DenseElementsAttr>())
+      return true;
+    return false;
+  }
+
+  // A helper function to check whether an block argument is invariant to
+  // iterations or not. By the definition of LoopOp, input block arguments are
+  // shifted by 1 to the left in ReturnOp. If a block argument is unchanged when
+  // being shifted in ReturnOp, then it is invariant to iterations.
+  bool isInvariantArgConstant(Value v, Operation *returnOp) const {
+    return v.isa<BlockArgument>() &&
+           (v ==
+               returnOp
+                   ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+  }
+
+  // A helper function to check whether an block argument is updated by a Value
+  // inside the loop or not.
+  bool isUpdatedArgByValue(Value v, Value newV, Operation *returnOp) const {
+    return v.isa<BlockArgument>() &&
+           (newV ==
+               returnOp
+                   ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+  }
+
+  // A helper function to get the value that is fed to an operattion's argument.
+  Value getFedValue(Value arg, Operation *op) const {
+    return op->getOperands()[arg.cast<BlockArgument>().getArgNumber()];
+  }
+
+  // A helper function to get an integer constant from a value.
+  int64_t getOneIntergerConstant(Value v) const {
+    Operation *definingOp = v.getDefiningOp();
+    DenseElementsAttr valueAttr =
+        cast<ONNXConstantOp>(definingOp).valueAttr().cast<DenseElementsAttr>();
+    return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
+  }
+
+  // A helper function to get an integer constant from a value that is unchanged
+  // by iterations. The value must be defined by ConstantOp inside the loop or
+  // fed by ConstantOp outside the loop.
+  int64_t getInvariantArgConstantInt(
+      Value v, Operation *loopOp, Operation *returnOp) const {
+    if (isInvariantArgConstant(v, returnOp))
+      return getOneIntergerConstant(getFedValue(v, loopOp));
+    return getOneIntergerConstant(v);
+  }
+
+  // A helper function to match the pattern of the given operation. It also
+  // returns a constant value for the max trip count during the matching, which
+  // is to avoid recomputing values in the rewriting phase.
+  //
+  // Pattern:
+  // ```
+  // ubValue = ONNXConstantOp() {value = ...}
+  // startValue = ONNXConstantOp() {value = ...}
+  // ONNXLoop(max_trip_count, true, ..., ubValue, ..., startValue, ...)
+  //   ^bb(max_trip_count, cond, ..., ubValue, ..., counterValue, ...):
+  //     stepValue = ONNXConstantOp() {value = ...}
+  //     newCounterValue = ONNXAddOp(counterValue, stepValue).
+  //     cond = LessOp(newCounterValue, ubValue)
+  //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+  // ```
+  std::pair<bool, int64_t> matchOp(ONNXLoopOp loopOp) const {
+    Location loc = loopOp.getLoc();
+    Operation *genericLoopOp = loopOp.getOperation();
+    Value maxTripCountValue = genericLoopOp->getOperands()[0];
+
+    // The maximum trip count is a constant.
+    if (!isDefinedByIntegerConstantOp(maxTripCountValue))
+      return std::make_pair(false, -1);
 
     // Get the loop region.
     Region &loopBody = loopOp.body();
     // Make sure the region has only one block.
     if (!loopBody.hasOneBlock())
-      return failure();
+      return std::make_pair(false, -1);
 
     // Get the body block.
     Block &bodyBlock = loopBody.front();
@@ -215,87 +282,77 @@ public:
             })
             .wasInterrupted() ||
         !returnOp)
-      return failure();
+      return std::make_pair(false, -1);
     Operation *genericReturnOp = returnOp.getOperation();
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
 
     // The break condition is the first argument of ReturnOp.
+    // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
     Value breakCond = genericReturnOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
-      return failure();
+      return std::make_pair(false, -1);
     Operation *breakCondOp = breakCond.getDefiningOp();
 
     // Only support LessOp as the op that defines the break condition at this
     // moment.
+    // `cond = LessOp(newCounterValue, ubValue)`
     if (!isa<ONNXLessOp>(breakCondOp))
-      return failure();
+      return std::make_pair(false, -1);
+    Value newCounterValue = breakCondOp->getOperands()[0];
+    Value ubValue = breakCondOp->getOperands()[1];
+    // Input type of Less must be interger.
+    if (!newCounterValue.getType()
+             .cast<ShapedType>()
+             .getElementType()
+             .isa<IntegerType>())
+      return std::make_pair(false, -1);
 
     // Compute a trip count from the break condition, given that the upper bound
     // is fixed and the lower bound is increased by a constant step at each
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
-    Value lbValue = breakCondOp->getOperands()[0];
-    Value ubValue = breakCondOp->getOperands()[1];
-    if (!lbValue.getType()
-             .cast<ShapedType>()
-             .getElementType()
-             .isa<IntegerType>())
-      return failure();
-    if (!ubValue.getType()
-             .cast<ShapedType>()
-             .getElementType()
-             .isa<IntegerType>())
-      return failure();
-
-    // Check the lower bound of the break condition.
-    // The lowerbound is updated by ONNXAddOp, given that ONNXAddOp is
-    // canonicalized to Add(lhs, rhs=constant).
-    if (lbValue.isa<BlockArgument>() ||
-        !isa<ONNXAddOp>(lbValue.getDefiningOp()))
-      return failure();
-    Value lhs = cast<ONNXAddOp>(lbValue.getDefiningOp())->getOperands()[0];
-    Value rhs = cast<ONNXAddOp>(lbValue.getDefiningOp())->getOperands()[1];
-    // 1. lhs is updated by AddOp at each iteration.
-    if (!lhs.isa<BlockArgument>())
-      return failure();
-    if (lbValue !=
-        genericReturnOp
-            ->getOperands()[lhs.cast<BlockArgument>().getArgNumber() - 1])
-      return failure();
-    // 2. lhs is increased by a constant step.
-    int64_t step = constantOrFedByConstant(rhs, genericLoopOp, genericReturnOp);
-    if (step < 0)
-      return failure();
-    // 3. lhs is initialized by a constant.
-    Value lhsInput =
-        genericLoopOp->getOperands()[lhs.cast<BlockArgument>().getArgNumber()];
-    int64_t lowerBound = getOneConstantValue(lhsInput);
-    if (lowerBound < 0)
-      return failure();
 
     // Check the upper bound of the break condition.
+    if (!isInvariantArgConstant(ubValue, genericReturnOp))
+      return std::make_pair(false, -1);
+
+    // Check the lower bound of the break condition.
+    if (newCounterValue.isa<BlockArgument>() ||
+        !isa<ONNXAddOp>(newCounterValue.getDefiningOp()))
+      return std::make_pair(false, -1);
+    // ONNXLoop(max_trip_count, true, ..., ubValue, ..., startValue, ...)
+    //   ^bb(max_trip_count, cond, ..., ubValue, ..., counterValue, ...):
+    //     stepValue = ONNXConstantOp() {value = ...}
+    //     newCounterValue = ONNXAddOp(counterValue, stepValue).
+    //     cond = LessOp(newCounterValue, ubValue)
+    //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+    Operation *genericAddOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
+    Value counterValue = genericAddOp->getOperands()[0];
+    Value stepValue = genericAddOp->getOperands()[1];
+    // 1. Step is constant.
+    if (!isDefinedByIntegerConstantOp(stepValue))
+      return std::make_pair(false, -1);
+    // 2. Counter is an block argument and updated at each iteration.
+    if (!isUpdatedArgByValue(counterValue, newCounterValue, genericReturnOp))
+      return std::make_pair(false, -1);
+    // 3. Counter is initially fed by a constant.
+    Value startValue = getFedValue(counterValue, genericLoopOp);
+    if (!isDefinedByIntegerConstantOp(startValue))
+      return std::make_pair(false, -1);
+
+    // Check that the new trip count is smaller than the original trip count.
+    int64_t lowerBound = getOneIntergerConstant(startValue);
     int64_t upperBound =
-        constantOrFedByConstant(ubValue, genericLoopOp, genericReturnOp);
-    if (upperBound < 0)
-      return failure();
-
-    // Replace the max trip count by a new trip count if the new trip count is
-    // smaller.
+        getOneIntergerConstant(getFedValue(ubValue, genericLoopOp));
+    int64_t step =
+        getInvariantArgConstantInt(stepValue, genericLoopOp, genericReturnOp);
     int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
+    int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
     if (maxTripCount <= derivedTripCount)
-      return failure();
+      return std::make_pair(false, -1);
 
-    SmallVector<int64_t, 1> values(1, derivedTripCount);
-    DenseElementsAttr valueAttr = DenseElementsAttr::get(
-        RankedTensorType::get({},
-            maxTripCountValue.getType().cast<ShapedType>().getElementType()),
-        makeArrayRef(values));
-    Value newMaxTripCountValue =
-        onnx_mlir::createONNXConstantOpWithDenseAttr(rewriter, loc, valueAttr);
-
-    maxTripCountValue.replaceAllUsesWith(newMaxTripCountValue);
-    return success();
+    return std::make_pair(true, derivedTripCount);
   }
 };
 
