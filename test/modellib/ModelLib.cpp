@@ -11,13 +11,13 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
-/*
+
 #ifdef _WIN32
-#include <windows.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+// #include <windows.h>
 #else
-#include <dlfcn.h>
-*/
-#ifndef _WIN32
 #include <dlfcn.h>
 #endif
 
