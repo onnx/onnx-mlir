@@ -114,8 +114,9 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     printf("Can not open %s\n", sharedLibName.c_str());
     return false;
   }
-  FARPROC proc = GetProcAddress(handle, instructionName.c_str());
-  if (proc == NULL) {
+  typedef void (*FUNC)();
+  FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
+  if (addr == NULL) {
     printf("%s not found in %s.\n", instructionName.c_str(),
         sharedLibName.c_str());
     return false;
