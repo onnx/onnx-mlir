@@ -167,21 +167,12 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
           rewriter.create<AtenTransposeIntOp>(loc, resultTy, att, f0v, f1v);
     else
       transposeAVal = att;
-    llvm::outs() << "\n transposeAVal : "
-                 << "\n"
-                 << transposeAVal << "\n"
-                 << "\n";
 
     if (transB)
       transposeBVal =
           rewriter.create<AtenTransposeIntOp>(loc, resultTy, btt, f0v, f1v);
     else
       transposeBVal = btt;
-
-    llvm::outs() << "\n transposeBVal : "
-                 << "\n"
-                 << transposeBVal << "\n"
-                 << "\n";
 
     // Compute Y = alpha * A’ * B’ + beta * C
     // Scalar multiplication with alpha(alpha * A’) 
@@ -190,19 +181,11 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     if (alpha)
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, resultTy, transposeAVal, alpha3v);
-    llvm::outs() << "alphaMulResult Value"
-                 << "\n"
-                 << alphaMulResult << "\n"
-                 << "\n";
 
     if (beta)
       betaMulResult =
           rewriter.create<AtenMulScalarOp>(loc, resultTy, ctt, beta3v);
 
-    llvm::outs() << "betaMulResult Value"
-                 << "\n"
-                 << betaMulResult << "\n"
-                 << "\n";
 
     // Bmm Operation ((alpha * A’) * B’)
     Value bmmValue;
@@ -212,11 +195,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     else
       bmmValue = rewriter.create<AtenBmmOp>(
           loc, resultTy, transposeAVal, transposeBVal);
-
-    llvm::outs() << "bmmValue operation creation"
-                 << "\n"
-                 << bmmValue << "\n"
-                 << "\n";
 
     // Addition ((alpha * A’ * B’) + (beta * C))
     Value addValue;
@@ -228,10 +206,6 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
       addValue =
           rewriter.create<AtenAddTensorOp>(loc, resultTy, bmmValue,
 			  transposeBVal, f1v);
-    llvm::outs() << "Gemm operation creation"
-                 << "\n"
-                 << addValue << "\n"
-                 << "\n";
 
     Value result = addValue;
 
