@@ -149,7 +149,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXLoopOp onnxLoopOp, PatternRewriter &rewriter) const override {
-    Location loc = onnLoopOp.getLoc();
+    Location loc = onnxLoopOp.getLoc();
     Operation *loopOp = onnxLoopOp.getOperation();
     Value maxTripCountValue = loopOp->getOperands()[0];
 
@@ -166,7 +166,7 @@ public:
     // ```
     bool matched;
     int64_t derivedTripCount;
-    std::tie(matched, derivedTripCount) = matchOp(loopOp);
+    std::tie(matched, derivedTripCount) = matchOp(onnxLoopOp);
     if (!matched)
       return failure();
 
@@ -262,7 +262,7 @@ private:
       return std::make_pair(false, -1);
 
     // Get the loop region.
-    Region &loopBody = loopOp.body();
+    Region &loopBody = onnxLoopOp.body();
     // Make sure the region has only one block.
     if (!loopBody.hasOneBlock())
       return std::make_pair(false, -1);
@@ -302,7 +302,10 @@ private:
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
 
     // Check the upper bound of the break condition.
-    if (!isInvariantArgConstant(ubValue, returnOp))
+    // UpperBound is a constant inside or outside the loop.
+    if (isInvariantArgConstant(ubValue, returnOp))
+      ubValue = getFedValue(ubValue, loopOp);
+    if (!isDefinedByIntegerConstantOp(ubValue))
       return std::make_pair(false, -1);
 
     // Check the lower bound of the break condition.
@@ -318,7 +321,9 @@ private:
     Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
-    // 1. Step is constant.
+    // 1. Step is a constant inside or outside the loop.
+    if (isInvariantArgConstant(stepValue, returnOp))
+      stepValue = getFedValue(stepValue, loopOp);
     if (!isDefinedByIntegerConstantOp(stepValue))
       return std::make_pair(false, -1);
     // 2. Counter is an block argument and updated at each iteration.
@@ -331,12 +336,12 @@ private:
 
     // Check that the new trip count is smaller than the original trip count.
     int64_t lowerBound = getOneIntergerConstant(startValue);
-    int64_t upperBound = getOneIntergerConstant(getFedValue(ubValue, loopOp));
-    int64_t step = getInvariantArgConstantInt(stepValue, loopOp, returnOp);
+    int64_t upperBound = getOneIntergerConstant(ubValue);
+    int64_t step = getOneIntergerConstant(stepValue);
     int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
     int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
 
-    return std::make_pair(maxTripCount <= derivedTripCount, derivedTripCount);
+    return std::make_pair(maxTripCount > derivedTripCount, derivedTripCount);
   }
 };
 
