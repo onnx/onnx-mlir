@@ -11,7 +11,11 @@
 // This file contains helper functions for all the models that can be built.
 //
 //===----------------------------------------------------------------------===//
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dlfcn.h>
+#endif
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -104,6 +108,20 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     std::string instructionName, std::string sharedLibName) {
   if (instructionName.empty())
     return true;
+#ifdef _WIN32
+  HMODULE handle = LoadLibrary(sharedLibName.c_str());
+  if (handle == NULL) {
+    printf("Can not open %s\n", sharedLibName.c_str());
+    return false;
+  }
+  FARPROC proc = GetProcAddress(handle, instructionName.c_str());
+  if (proc == NULL) {
+    printf("%s not found in %s.\n", instructionName.c_str(),
+        sharedLibName.c_str());
+    return false;
+  }
+  FreeLibrary(handle);
+#else
   void *handle;
   handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
   if (handle == NULL) {
@@ -117,6 +135,7 @@ bool ModelLibBuilder::checkSharedLibInstruction(
     return false;
   }
   dlclose(handle);
+#endif
   return true;
 }
 
