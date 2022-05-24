@@ -19,6 +19,8 @@
  * variables to to all the stages.
  */
 def call() {
+  def modelZooBuildBadge = addEmbeddableBadgeConfiguration(id: "modelzoo")
+
   pipeline {
     options { skipDefaultCheckout() }
 
@@ -79,6 +81,7 @@ def call() {
       JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
       JENKINS_BUILD_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-project.py"
       JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
+      JENKINS_CHECK_MODEL_ZOO="${JENKINS_SCRIPT_DIR}/jenkins-check-model-zoo.py"
       JENKINS_CLEANUP_BUILD_STATES="${JENKINS_SCRIPT_DIR}/jenkins-cleanup-build-states.py"
 
       /* Depending on the system, python3 default I/O encoding could be set to
@@ -104,6 +107,12 @@ def call() {
        */
       stage('Checkout PR source') {
         steps {
+          script {
+            env.CHECK_MODEL_ZOO_RESULT = sh(returnStdout: true,
+                                            script: "${JENKINS_CHECK_MODEL_ZOO}").trim()
+            modelZooBuildBadge.setStatus("${CHECK_MODEL_ZOO_RESULT}")
+          }
+
           /* uncomment for debugging */
           /*sh 'printenv'*/
           echo "BUILD_URL                = ${BUILD_URL}"
@@ -111,9 +120,10 @@ def call() {
           echo "JENKINS_SCRIPTSPACE_AT   = ${JENKINS_SCRIPTSPACE_AT}"
           echo "JENKINS_WORKSPACE        = ${JENKINS_WORKSPACE}"
           echo "JENKINS_WORKSPACE_AT     = ${JENKINS_WORKSPACE_AT}"
-	  echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
-	  echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
-	  echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
+          echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
+          echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
+          echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
+          echo "JENKINS_CHECK_MODEL_ZOO  = ${JENKINS_CHECK_MODEL_ZOO}"
           echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "GITHUB_CONTEXT           = ${GITHUB_CONTEXT}"
           echo "GITHUB_EVENT             = ${GITHUB_EVENT}"
@@ -129,7 +139,7 @@ def call() {
           echo "GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}"
           echo "GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}"
           echo "GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}"
-	  echo "GITHUB_PR_BASEREF        = ${GITHUB_PR_BASEREF}"
+          echo "GITHUB_PR_BASEREF        = ${GITHUB_PR_BASEREF}"
           echo "GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}"
           echo "GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}"
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
