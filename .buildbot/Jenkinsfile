@@ -19,7 +19,7 @@
  * variables to to all the stages.
  */
 def call() {
-  def modelZooBuildBadge = addEmbeddableBadgeConfiguration(id: "modelzoo")
+  def modelZooBuildBadge = addEmbeddableBadgeConfiguration(id: 'modelzoo', subject: 'Models')
 
   pipeline {
     options { skipDefaultCheckout() }
