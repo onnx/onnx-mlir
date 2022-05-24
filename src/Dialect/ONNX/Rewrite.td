@@ -95,7 +95,6 @@ def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 
 def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
 
-
 // Check whether an ArrayAttr contains non-zero values or not.
 def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
                                        "has non-zero elements">;
@@ -144,6 +143,15 @@ def HaveSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
           "$1.getType().dyn_cast<ShapedType>().getElementType())">,
     "has same element type">;
+
+def HaveSameElementTypeBitWidth: Constraint<
+    CPred<"($0.getType().dyn_cast<ShapedType>().getElementTypeBitWidth() == "
+          "$1.getType().dyn_cast<ShapedType>().getElementTypeBitWidth())">,
+    "has same element type bitwidth">;
+
+def  ElementTypeIsNotUnsigned: Constraint<
+    CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
+    "element type is not unsigned int">;
 
 def IsStaticShapeTensor:
   Constraint<
@@ -194,6 +202,9 @@ class RankXMinusRankYIs<int diff>: Constraint<
 
 def TransposeVariadicInput: NativeCodeCall<
   "onnx_mlir::transposeVariadicInput($_builder, $_loc, $0, $1)">;
+
+// Check whether two variables are equal.
+def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -698,6 +709,18 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXLessOp
+//===----------------------------------------------------------------------===//
+
+def LessOpSameCastPattern: Pat<
+   (ONNXLessOp (ONNXCastOp:$cast_a $a, $to1), (ONNXCastOp $b, $to2)),
+   (ONNXLessOp $a, $b),
+   [(HaveSameElementType $a, $b), (Equal $to1, $to2),
+    (HaveSameElementTypeBitWidth $a, $cast_a),
+    (ElementTypeIsNotUnsigned:$cast_a)]
 >;
 
 #endif // ONNX_REWRITE
