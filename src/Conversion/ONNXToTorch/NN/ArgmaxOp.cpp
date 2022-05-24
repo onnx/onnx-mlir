@@ -94,7 +94,6 @@ public:
       keepDimVal = rewriter.create<ConstantBoolOp>(loc, true);
     AtenArgmaxOp result = rewriter.replaceOpWithNewOp<AtenArgmaxOp>(op,
 		    resultTy, dataTorchTensor, dim, keepDimVal);
-    llvm::outs() <<"\n"<<"ATENARGMAX CREATED is " << result << "\n" << "\n";
     return success();
   }
 };
