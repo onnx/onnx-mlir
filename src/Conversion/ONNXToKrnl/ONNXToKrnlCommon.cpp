@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
@@ -340,10 +340,13 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     free(inputBuffer);
     return constVal;
   } else {
-    return rewriter
-        .create<ONNXSqueezeV11Op>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+        create(rewriter, loc);
+    return create.onnx.tomemref(
+        rewriter
+            .create<ONNXSqueezeV11Op>(loc, create.onnx.totensor(resultType),
+                create.onnx.totensor(input), rewriter.getI64ArrayAttr(axis))
+            .getResult());
   }
 }
 
@@ -363,10 +366,13 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     free(inputBuffer);
     return constVal;
   } else {
-    return rewriter
-        .create<ONNXUnsqueezeV11Op>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+        create(rewriter, loc);
+    return create.onnx.tomemref(
+        rewriter
+            .create<ONNXUnsqueezeV11Op>(loc, create.onnx.totensor(resultType),
+                create.onnx.totensor(input), rewriter.getI64ArrayAttr(axis))
+            .getResult());
   }
 }
 
@@ -410,11 +416,13 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     }
     free(inputBuffer);
   } else {
-    ONNXSplitV11Op split =
-        rewriter.create<ONNXSplitV11Op>(loc, resultTypes, input,
-            /*axis=*/axis, nullptr);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+        create(rewriter, loc);
+    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, resultTypes,
+        create.onnx.totensor(input),
+        /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(split.outputs()[i]);
+      resVals.emplace_back(create.onnx.tomemref(split.outputs()[i]));
   }
   return resVals;
 }
@@ -448,9 +456,15 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     free(resBuffer);
     free(inputBuffer);
     return constVal;
-  } else
-    return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
-        .getResult();
+  } else {
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+        create(rewriter, loc);
+    return create.onnx.tomemref(
+        rewriter
+            .create<ONNXTransposeOp>(loc, create.onnx.totensor(resultType),
+                create.onnx.totensor(input), permAttr)
+            .getResult());
+  }
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
