@@ -104,7 +104,7 @@ public:
   // Check whether a particular instruction is included in the library.
   // If not found, return false.
   static bool checkSharedLibInstruction(
-      std::string instructionName, std::string sharedLibName);
+      const std::string instructionName, const std::string sharedLibName);
 
 protected:
   // Create a function with an empty body.

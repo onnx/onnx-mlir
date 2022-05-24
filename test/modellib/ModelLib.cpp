@@ -113,7 +113,8 @@ bool ModelLibBuilder::checkSharedLibInstruction(
   if (instructionName.empty())
     return true;
 #ifdef _WIN32
-  HMODULE handle = LoadLibrary(sharedLibName.c_str());
+  const std::wstring ws(sharedLibName.begin(), sharedLibName.end());
+  HMODULE handle = LoadLibrary(ws.c_str());
   if (handle == NULL) {
     printf("Can not open %s\n", sharedLibName.c_str());
     return false;
