@@ -107,12 +107,6 @@ def call() {
        */
       stage('Checkout PR source') {
         steps {
-          script {
-            env.CHECK_MODEL_ZOO_RESULT = sh(returnStdout: true,
-                                            script: "${JENKINS_CHECK_MODEL_ZOO}").trim()
-            modelZooBuildBadge.setStatus("${CHECK_MODEL_ZOO_RESULT}")
-          }
-
           /* uncomment for debugging */
           /*sh 'printenv'*/
           echo "BUILD_URL                = ${BUILD_URL}"
@@ -123,7 +117,6 @@ def call() {
           echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
           echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
           echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
-          echo "JENKINS_CHECK_MODEL_ZOO  = ${JENKINS_CHECK_MODEL_ZOO}"
           echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "GITHUB_CONTEXT           = ${GITHUB_CONTEXT}"
           echo "GITHUB_EVENT             = ${GITHUB_EVENT}"
@@ -159,6 +152,9 @@ def call() {
 	  /* Set build result to UNKNOWN so we know we are starting up */
           script {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
+            env.JENKINS_MODELZOO_RESULT = sh(returnStdout: true,
+                                             script: "${JENKINS_CHECK_MODELZOO}").trim()
+            modelZooBuildBadge.setStatus("${JENKINS_MODELZOO_RESULT}")
           }
 
           /* The stopped build will post github status with 'aborted'.
