@@ -123,10 +123,6 @@ public:
     Value result = rewriter.create<Torch::ValueTensorLiteralOp>(
         loc, resultType, valueAttrFinalized);
 
-    llvm::outs() << "ValueTensorLiteralOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
     return success();

@@ -148,6 +148,9 @@ void populateLoweringONNXToTorchFlattenOpPattern (
 void populateLoweringONNXToTorchElementwiseOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
+void populateLoweringONNXToTorchConcatOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 void populateLoweringONNXToTorchBinaryOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
