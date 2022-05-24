@@ -26,6 +26,8 @@ config.test_exec_root = os.path.join(config.onnx_mlir_obj_root, 'test', 'mlir')
 
 if config.onnx_mlir_vendor != '':
     config.available_features.add('onnx-mlir-vendor')
+if config.llvm_append_vc_rev == 'OFF':
+    config.available_features.add('not-llvm-append-vc-rev')
 
 llvm_config.use_default_substitutions()
 
