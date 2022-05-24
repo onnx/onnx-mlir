@@ -45,12 +45,19 @@ using namespace mlir::torch::Torch;
  *    of bfloat16 type values or memref of any type values.
  *
  * Attributes 
- *     Attribute	MLIR Type	          Description
  *       axis	::mlir::IntegerAttr	64-bit signed integer attribute
  *     keepdims	  ::mlir::IntegerAttr 	64-bit signed integer attribute
  * select_last_index   ::mlir::IntegerAttr	64-bit signed integer
  * 								attribute 
  *
+ * Results:
+ *   reduced	tensor of 64-bit signless integer values or memref of 
+ *   			any type values.
+ *
+ * ArgMax op return type is i64 signless integer, but in Torch side, don't
+ * have support for 64-bit signless integer values.
+ * Because of this reason we have implemented type conversion from 64-bit
+ * signless integer to 64-bit signed integer.
  */
 
 class ONNXArgmaxOpToTorchLowering : public ConversionPattern {
@@ -63,7 +70,6 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
-    llvm::outs() << "ArgMax inside matchReview" << "\n" << "\n";
     Location loc = op->getLoc();
     mlir::MLIRContext *context =  op->getContext();
     ONNXArgMaxOp op1 = llvm::dyn_cast<ONNXArgMaxOp>(op);
@@ -79,23 +85,16 @@ public:
 		    loc, dataType, data);
     Value dim 	  = rewriter.create<ConstantIntOp>(loc,axis);
     Value keepDim = rewriter.create<ConstantIntOp>(loc,keepdims);
-
+    // type conversion from signless i64 to signed i64 type.
     auto resultTy = toSI64SignedType(context, op1.getType());
-    
     Value keepDimVal;
     if (keepdims == 0)
       keepDimVal = rewriter.create<ConstantBoolOp>(loc, false);
     else
       keepDimVal = rewriter.create<ConstantBoolOp>(loc, true);
-
-    //Value result = rewriter.create<AtenArgmaxOp>(loc,
-      //              resultTy, dataTorchTensor, dim, keepDimVal);
     AtenArgmaxOp result = rewriter.replaceOpWithNewOp<AtenArgmaxOp>(op,
 		    resultTy, dataTorchTensor, dim, keepDimVal);
-    llvm::outs() << "ATENARGMAX CREATED is " << result << "\n" << "\n";
-    
-    //rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-      //  op, op->getResult(0).getType(), result);
+    llvm::outs() <<"\n"<<"ATENARGMAX CREATED is " << result << "\n" << "\n";
     return success();
   }
 };
