@@ -109,7 +109,7 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
 }
 
 bool ModelLibBuilder::checkSharedLibInstruction(
-    std::string instructionName, std::string sharedLibName) {
+    const std::string instructionName, const std::string sharedLibName) {
   if (instructionName.empty())
     return true;
 #ifdef _WIN32
