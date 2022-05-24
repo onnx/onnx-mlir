@@ -5,8 +5,9 @@ typedef struct dim_pads {
   int dim_end;
 } dim_pads;
 
-std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
-    Location loc, ConversionPatternRewriter &rewriter) {
+std::vector<Value>
+createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
+                         ConversionPatternRewriter &rewriter) {
   // Reading the ONNX side pads values and store in the array.
   std::vector<Value> translatepadsList;
   if (!pads)
@@ -19,8 +20,6 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
       break;
     }
   }
-  assert(
-      is_symmetric && "Frontend transformations only handle symmetric padding");
 
   dim_pads dimArray[pads.size()];
   if (is_symmetric) {
@@ -64,13 +63,15 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
 }
 
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
-    Type ty, Location loc, ConversionPatternRewriter &rewriter,
-    int default_val) {
+                                        Type ty, Location loc,
+                                        ConversionPatternRewriter &rewriter,
+                                        int default_val) {
   std::vector<Value> operandArrayValues;
   if (onnxArrayAttr) {
     for (unsigned int i = 0; i < onnxArrayAttr.size(); i++) {
-      auto f1 = IntegerAttr::get(ty,
-        (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+      auto f1 = IntegerAttr::get(
+          ty,
+          (onnxArrayAttr[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       operandArrayValues.push_back(p1v);
     }
@@ -94,8 +95,9 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
 ///
 /// \returns Torch::ValueTensorType conversion from tensor
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
-   auto type = t.template dyn_cast<TensorType>();
-   return Torch::ValueTensorType::get(ctx, type.getShape(), type.getElementType());
+  auto type = t.template dyn_cast<TensorType>();
+  return Torch::ValueTensorType::get(ctx, type.getShape(),
+                                     type.getElementType());
 }
 
 /// Get Torch tensor from mlir::Value tensor
@@ -107,7 +109,7 @@ Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
 ///
 /// \returns mlir::Value tensor of torch type
 mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
-    mlir::MLIRContext *context, Location loc) {
+                           mlir::MLIRContext *context, Location loc) {
   auto operandType = toTorchType(context, operand.getType());
   return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
       loc, operandType, operand);
