@@ -109,8 +109,8 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   inputs.emplace_back(move(yInitTensor));
 
   onnx_mlir::ExecutionSession sess(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
-  std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str())); 
+ std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
     outputs = sess.run(move(inputs));
   } catch (const std::runtime_error &error) {

@@ -60,6 +60,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
+  printf("hi alex, output base name is %s\n\n\n", outputBaseName);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 

@@ -671,7 +671,7 @@ int emitOutputFiles(std::string outputBaseName,
       if (rc != NoCompilerError)
         return rc;
     }
-    if (VerboseOutput)
+    if (VerboseOutput || 1) // hi alex
       printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } break;
   case EmitJNI: {
