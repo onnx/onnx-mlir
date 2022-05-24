@@ -135,3 +135,18 @@ std::vector<int> toVector(mlir::ArrayAttr axesAttr) {
 
   return axes;
 }
+
+/// Get Torch tensor from mlir::Value tensor
+///
+/// \param operand: operand tensor
+/// \param rewriter: rewriter object related to the operator
+/// \param context: context related to operator
+/// \param loc: location related to operator
+///
+/// \returns mlir::Value tensor of torch type
+mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
+    mlir::MLIRContext *context, Location loc) {
+  auto operandType = toTorchType(context, operand.getType());
+  return rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+      loc, operandType, operand);
+}

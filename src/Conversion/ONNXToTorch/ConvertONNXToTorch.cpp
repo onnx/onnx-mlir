@@ -23,24 +23,26 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+                                          TypeConverter &typeConverter,
+                                          MLIRContext *ctx, bool enableTiling) {
 
   populateLoweringONNXToTorchConvOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchConstantPadNdOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConstantPadNdOpPattern(patterns, typeConverter,
+                                                    ctx);
   populateLoweringONNXToTorchLeakyReluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(patterns, typeConverter,
+                                                       ctx);
   populateLoweringONNXToTorchConstOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchGlobalAveragePoolOpPattern(patterns, typeConverter,
+                                                        ctx);
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchSoftmaxOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchAddOpPattern (patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchAddOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchElementwiseOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchSqueezeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConcatOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchBinaryOpPattern(patterns, typeConverter, ctx);
 }
 
@@ -52,7 +54,7 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
 namespace {
 struct FrontendToTorchLoweringPass
     : public PassWrapper<FrontendToTorchLoweringPass,
-          OperationPass<::mlir::ModuleOp>> {
+                         OperationPass<::mlir::ModuleOp>> {
 
   StringRef getArgument() const override { return "convert-onnx-to-torch"; }
 
@@ -90,14 +92,17 @@ public:
   // This flag is used in LIT tests to stop the lowering of the other
   // ONNX ops.
   // Usage: onnx-mlir-opt --convert-onnx-to-krnl='emit-intermediate-ir'
-  Option<bool> emitIntermediateIR{*this, "emit-intermediate-ir",
+  Option<bool> emitIntermediateIR{
+      *this, "emit-intermediate-ir",
       llvm::cl::desc(
           "Emit intermediate IR rather than lowering to the krnl dialect."),
       llvm::cl::init(false)};
-  Option<bool> emitDealloc{*this, "emit-dealloc",
+  Option<bool> emitDealloc{
+      *this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
-  Option<bool> enableTiling{*this, "enable-tiling",
+  Option<bool> enableTiling{
+      *this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
 };
@@ -113,12 +118,11 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets
   // for this lowering.
   target.addLegalDialect<Torch::TorchDialect>();
-  target
-      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
+  target.addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
 
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
-  //target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+  // target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
 
   // If `emitDealloc` is turned off, make sure we don't have buffer
   // deallocation at this level. Will use MLIR buffer-deallocation for
@@ -133,8 +137,8 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   // Convert types to legal types for the Krnl dialect.
   TorchTypeConverter torchTypeConverter;
   // Define patterns.
-  populateONNXToTorchConversionPattern(
-      patterns, torchTypeConverter, &getContext(), enableTiling);
+  populateONNXToTorchConversionPattern(patterns, torchTypeConverter,
+                                       &getContext(), enableTiling);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

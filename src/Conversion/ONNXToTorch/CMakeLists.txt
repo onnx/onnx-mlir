@@ -20,6 +20,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/FlattenOp.cpp
   NN/ElementwiseOp.cpp
   NN/SqueezeOp.cpp
+  NN/ConcatOp.cpp
   NN/BinaryOps.cpp
 
   LINK_LIBS PUBLIC
