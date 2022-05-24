@@ -62,7 +62,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
         /*transB=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
             APInt(64, 0, /*isSigned=*/true)));
-  return b.create<ONNXMatMulOp>(loc, Y, aValue, bValue);
+  return tomemref(b.create<ONNXMatMulOp>(loc, totensor(Y), aValue, bValue));
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
@@ -86,6 +86,27 @@ Value OnnxBuilder::totensor(Value input) const {
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.getType().cast<ShapedType>();
   auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
+  return b.create<UnrealizedConversionCastOp>(loc, aTensorTy, input)
+      .getResult(0);
+}
+
+Type OnnxBuilder::totensor(Type input) const {
+  if (input.isa<TensorType>())
+    return input;
+  assert(input.isa<MemRefType>() &&
+         "expect RankedMemref type when not a TensorType");
+  auto aTy = input.cast<ShapedType>();
+  auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
+  return aTensorTy;
+}
+
+Value OnnxBuilder::tomemref(Value input) const {
+  if (input.getType().isa<MemRefType>())
+    return input;
+  assert(input.getType().isa<RankedTensorType>() &&
+         "expect RankedMemref type when not a TensorType");
+  auto aTy = input.getType().cast<ShapedType>();
+  auto aTensorTy = MemRefType::get(aTy.getShape(), aTy.getElementType());
   return b.create<UnrealizedConversionCastOp>(loc, aTensorTy, input)
       .getResult(0);
 }
