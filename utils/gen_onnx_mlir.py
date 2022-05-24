@@ -267,6 +267,8 @@ OpsWithCanonicalizer = [
     'GlobalAveragePool',
     'GlobalMaxPool',
     'Identity',
+    'Less',
+    'Loop',
     'Mul',
     'Reshape',
     'Shape',
