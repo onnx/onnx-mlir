@@ -50,6 +50,17 @@ typedef enum {
   InstrumentReportMemory
 } InstrumentActions;
 
+/* Onnx Mlir Compiler return code on errors */
+typedef enum {
+  NoCompilerError = 0,     /* Zero is success. */
+  InvalidCompilerOption,   /* Could not process given compiler option. */
+  InvalidInputFile,        /* Got a file with an unexpected format. */
+  InvalidInputFileAccess,  /* Could not successfully open input file. */
+  InvalidOutputFileAccess, /* Could not successfully open output file. */
+  InvalidOnnxFormat,       /* Could not successfully parse ONNX file. */
+  CompilerFailure,         /* Failed to compile valid input file. */
+} OnnxMlirCompilerErrorCodes;
+
 #ifdef __cplusplus
 } // namespace onnx_mlir
 #endif
