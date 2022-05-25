@@ -15,6 +15,7 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include <math.h>
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
@@ -328,10 +329,10 @@ private:
     int64_t lowerBound = getOneIntergerConstant(startValue);
     int64_t upperBound = getOneIntergerConstant(ubValue);
     int64_t step = getOneIntergerConstant(stepValue);
-    if (step == 0)
+    if ((step <= 0) || (upperBound - lowerBound) <= 0)
       return std::make_pair(false, -1);
-    int64_t derivedTripCount = (upperBound - lowerBound) / step +
-                               ((upperBound - lowerBound) % step != 0);
+    int64_t derivedTripCount =
+        ceil((1.0 * (upperBound - lowerBound)) / (1.0 * step));
     int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
 
     return std::make_pair(maxTripCount > derivedTripCount, derivedTripCount);
