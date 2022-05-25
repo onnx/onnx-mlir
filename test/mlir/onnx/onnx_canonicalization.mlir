@@ -686,7 +686,7 @@ func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30x
   %3 = "onnx.Constant"() {value = dense<30> : tensor<i32>} : () -> tensor<i32>
   %4:4 = "onnx.Loop"(%0, %1, %2, %3, %arg0) ({
   ^bb0(%arg1: tensor<i64>, %arg2: tensor<i1>, %arg3: tensor<i32>, %arg4: tensor<i32>, %arg5: tensor<?x30xf32>):
-    %5 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+    %5 = "onnx.Constant"() {value = dense<4> : tensor<i32>} : () -> tensor<i32>
     %6 = "onnx.Add"(%arg3, %5) : (tensor<i32>, tensor<i32>) -> tensor<i32>
     %7 = "onnx.Relu"(%arg5) : (tensor<?x30xf32>) -> tensor<?x30xf32>
     %8 = "onnx.Less"(%6, %arg4) : (tensor<i32>, tensor<i32>) -> tensor<i1>
@@ -699,10 +699,10 @@ func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30x
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
   // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
   // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<30> : tensor<i32>} : () -> tensor<i32>
-  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<30> : tensor<i64>} : () -> tensor<i64>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<8> : tensor<i64>} : () -> tensor<i64>
   // CHECK:           [[VAR_4_:%.+]]:4 = "onnx.Loop"([[VAR_3_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[PARAM_0_]]) ({
   // CHECK:           ^bb0([[arg1_:%.+]]: tensor<i64>, [[arg2_:%.+]]: tensor<i1>, [[arg3_:%.+]]: tensor<i32>, [[arg4_:%.+]]: tensor<i32>, [[arg5_:%.+]]: tensor<?x30xf32>):
-  // CHECK:             [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  // CHECK:             [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<4> : tensor<i32>} : () -> tensor<i32>
   // CHECK-DAG:         [[VAR_6_:%.+]] = "onnx.Add"([[arg3_]], [[VAR_5_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
   // CHECK-DAG:         [[VAR_7_:%.+]] = "onnx.Relu"([[arg5_]]) : (tensor<?x30xf32>) -> tensor<?x30xf32>
   // CHECK:             [[VAR_8_:%.+]] = "onnx.Less"([[VAR_6_]], [[arg4_]]) : (tensor<i32>, tensor<i32>) -> tensor<i1>
