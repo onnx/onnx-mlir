@@ -67,10 +67,6 @@ add_onnx_mlir_library(CompilerPasses
   MLIRLLVMToLLVMIRTranslation
   )
 
-if (ONNX_MLIR_VENDOR)
-  list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
-endif()
-
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
 if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
   string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"

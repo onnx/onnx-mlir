@@ -77,16 +77,14 @@ std::string getLLVMFullRepositoryVersion() {
   return buf;
 }
 
-#define ONNX_MLIR_VERSION_STRING "0.3.0"
-
 std::string getOnnxMlirFullVersion(bool ToIncludeLLVM) {
   std::string buf;
   llvm::raw_string_ostream os(buf);
 #ifdef ONNX_MLIR_VENDOR
   os << ONNX_MLIR_VENDOR;
 #endif
-  os << "onnx-mlir version " ONNX_MLIR_VERSION_STRING;
-
+  os << "onnx-mlir version " ONNX_MLIR_VERSION;
+  os << ", onnx version " ONNX_VERSION;
   std::string repo = getOnnxMlirFullRepositoryVersion(ToIncludeLLVM);
   if (!repo.empty()) {
     os << " " << repo;
