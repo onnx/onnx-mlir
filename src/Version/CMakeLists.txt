@@ -53,9 +53,13 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
-set_property(SOURCE Version.cpp APPEND PROPERTY COMPILE_DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
+set_source_files_properties(Version.cpp
+  PROPERTIES COMPILE_DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
 
 add_onnx_mlir_library(OMVersion
   Version.cpp
   ${version_inc}
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
 )

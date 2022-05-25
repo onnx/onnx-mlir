@@ -1,4 +1,7 @@
 // RUN: onnx-mlir --version | FileCheck %s
-// XFAIL: onnx-mlir-vendor
 
-// CHECK: onnx-mlir version {{[.0-9]+}} ({{.*}}/onnx-mlir{{.*}} {{[a-zA-Z0-9]+}}, {{.*}}/llvm-project{{.*}} {{[a-zA-Z0-9]+}})
+// CHECK: onnx-mlir version {{[.0-9]+}}
+// CHECK:   {{[DEBUG|Optimized]}} build{{[ with assertions]*}}
+// CHECK:   Default target:
+// CHECK:   Host CPU:
+// CHECK:   LLVM version

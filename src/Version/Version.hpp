@@ -18,6 +18,37 @@
 #include <string>
 
 namespace onnx_mlir {
-std::string getOnnxMlirFullVersion();
+/// Retrieves the repository path from which onnx-mlir was built.
+std::string getOnnxMlirRepositoryPath();
+
+/// Retrieves the repository path from which LLVM was built.
+std::string getLLVMRepositoryPath();
+
+/// Retrieves the repository revision number (or identifier) from which
+/// this onnx-mlir was built.
+std::string getOnnxMlirRevision();
+
+/// Retrieves the repository revision number (or identifier) from which
+/// LLVM was built.
+std::string getLLVMRevision();
+
+/// Retrieves the full repository version that is an amalgamation of
+/// the information in getOnnxMlirRepositoryPath() and  getOnnxMlirRevision().
+/// And getLLVMRepositoryPath() and getLLVMRevision() if \p
+/// ToIncludeLLVM.
+std::string getOnnxMlirFullRepositoryVersion(bool ToIncludeLLVM);
+
+/// Retrieves the full repository version that is an amalgamation of
+/// the information in getLLVMRepositoryPath() and getLLVMRevision().
+std::string getLLVMFullRepositoryVersion();
+
+/// Retrieves a string representing the complete onnx-mlir version,
+/// which includes the onnx-mlir version number, the repository version,
+/// and the vendor tag. And LLVM repository version and vendor tag if \p
+/// ToIncludeLLVM.
+std::string getOnnxMlirFullVersion(bool ToIncludeLLVM = true);
+
+/// Defines a version printer used to print out the version when –version is
+/// given on the command line.
 void getVersionPrinter(llvm::raw_ostream &os);
-}
+} // namespace onnx_mlir

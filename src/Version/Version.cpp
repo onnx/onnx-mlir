@@ -17,20 +17,82 @@
 #include "VCSVersion.inc"
 #include "llvm/Support/Host.h"
 
-using namespace onnx_mlir;
+namespace onnx_mlir {
 
-std::string onnx_mlir::getOnnxMlirFullVersion() {
-  const std::string OnnxMlirVersion = "onnx-mlir version 0.3.0";
-  return
-#ifdef ONNX_MLIR_VENDOR
-      ONNX_MLIR_VENDOR ", " + OnnxMlirVersion;
-#elif defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&          \
-    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
-      OnnxMlirVersion + " (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
-                        ", " LLVM_REPOSITORY " " LLVM_REVISION ")";
+std::string getOnnxMlirRepositoryPath() {
+#if defined(ONNX_MLIR_REPOSITORY)
+  return ONNX_MLIR_REPOSITORY;
 #else
-      OnnxMlirVersion;
+  return "";
 #endif
+}
+
+std::string getLLVMRepositoryPath() {
+#ifdef LLVM_REPOSITORY
+  return LLVM_REPOSITORY;
+#else
+  return "";
+#endif
+}
+
+std::string getOnnxMlirRevision() {
+#ifdef ONNX_MLIR_REVISION
+  return ONNX_MLIR_REVISION;
+#else
+  return "";
+#endif
+}
+
+std::string getLLVMRevision() {
+#ifdef LLVM_REVISION
+  return LLVM_REVISION;
+#else
+  return "";
+#endif
+}
+
+std::string getOnnxMlirFullRepositoryVersion(bool ToIncludeLLVM) {
+  std::string buf;
+  llvm::raw_string_ostream os(buf);
+  std::string OnnxMlirPath = getOnnxMlirRepositoryPath();
+  std::string OnnxMlirRevision = getOnnxMlirRevision();
+  std::string LLVMPath = getLLVMRepositoryPath();
+  std::string LLVMRevision = getLLVMRevision();
+  if (!OnnxMlirPath.empty() && !OnnxMlirRevision.empty()) {
+    os << '(' << OnnxMlirPath << ' ' << OnnxMlirRevision;
+    if (ToIncludeLLVM && !LLVMPath.empty() && !LLVMRevision.empty())
+      os << ", " << LLVMPath << ' ' << LLVMRevision;
+    os << ')';
+  }
+  return buf;
+}
+
+std::string getLLVMFullRepositoryVersion() {
+  std::string buf;
+  llvm::raw_string_ostream os(buf);
+  std::string Path = getLLVMRepositoryPath();
+  std::string Revision = getLLVMRevision();
+  if (!Path.empty() && !Revision.empty())
+    os << '(' << Path << ' ' << Revision << ')';
+  return buf;
+}
+
+#define ONNX_MLIR_VERSION_STRING "0.3.0"
+
+std::string getOnnxMlirFullVersion(bool ToIncludeLLVM) {
+  std::string buf;
+  llvm::raw_string_ostream os(buf);
+#ifdef ONNX_MLIR_VENDOR
+  os << ONNX_MLIR_VENDOR;
+#endif
+  os << "onnx-mlir version " ONNX_MLIR_VERSION_STRING;
+
+  std::string repo = getOnnxMlirFullRepositoryVersion(ToIncludeLLVM);
+  if (!repo.empty()) {
+    os << " " << repo;
+  }
+
+  return buf;
 }
 
 #if defined(__GNUC__)
@@ -55,21 +117,24 @@ std::string onnx_mlir::getOnnxMlirFullVersion() {
 #define LLVM_IS_DEBUG_BUILD 0
 #endif
 
-void onnx_mlir::getVersionPrinter(llvm::raw_ostream &os) {
-    os << getOnnxMlirFullVersion() << "\n";
+void getVersionPrinter(llvm::raw_ostream &os) {
+  os << getOnnxMlirFullVersion(false) << "\n";
 #if LLVM_IS_DEBUG_BUILD
-    os << "  DEBUG build";
+  os << "  DEBUG build";
 #else
-    os << "  Optimized build";
+  os << "  Optimized build";
 #endif
 #ifndef NDEBUG
-    os << " with assertions";
+  os << " with assertions";
 #endif
-    std::string CPU = std::string(llvm::sys::getHostCPUName());
-    if (CPU == "generic")
-      CPU = "(unknown)";
-    os << ".\n";
-    os << "  Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
-       << "  Host CPU: " << CPU << '\n';
-    os << "  LLVM version " << LLVM_PACKAGE_VERSION << "\n";
+  std::string CPU = std::string(llvm::sys::getHostCPUName());
+  if (CPU == "generic")
+    CPU = "(unknown)";
+  os << ".\n";
+  os << "  Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
+     << "  Host CPU: " << CPU << '\n';
+  os << "  LLVM version " << LLVM_PACKAGE_VERSION << ' '
+     << getLLVMFullRepositoryVersion() << '\n';
 }
+
+} // namespace onnx_mlir
