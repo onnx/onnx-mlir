@@ -228,16 +228,6 @@ private:
     return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
   }
 
-  // A helper function to get an integer constant from a value that is unchanged
-  // by iterations. The value must be defined by ConstantOp inside the loop or
-  // fed by ConstantOp outside the loop.
-  int64_t getInvariantArgConstantInt(
-      Value v, Operation *loopOp, Operation *returnOp) const {
-    if (isInvariantArgConstant(v, returnOp))
-      return getOneIntergerConstant(getFedValue(v, loopOp));
-    return getOneIntergerConstant(v);
-  }
-
   // A helper function to match the pattern of the given operation. It also
   // returns a constant value for the max trip count during the matching, which
   // is to avoid recomputing values in the rewriting phase.
@@ -338,7 +328,10 @@ private:
     int64_t lowerBound = getOneIntergerConstant(startValue);
     int64_t upperBound = getOneIntergerConstant(ubValue);
     int64_t step = getOneIntergerConstant(stepValue);
-    int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
+    if (step == 0)
+      return std::make_pair(false, -1);
+    int64_t derivedTripCount = (upperBound - lowerBound) / step +
+                               ((upperBound - lowerBound) % step != 0);
     int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
 
     return std::make_pair(maxTripCount > derivedTripCount, derivedTripCount);
