@@ -1458,7 +1458,7 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
     return InvalidOnnxFormat;
   }
   ImportFrontendModelInternal(model, context, module, options);
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 // Return 0 on success, error otherwise.
@@ -1479,7 +1479,7 @@ int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     return InvalidOnnxFormat;
   }
   ImportFrontendModelInternal(model, context, module, options);
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

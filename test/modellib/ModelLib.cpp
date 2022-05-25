@@ -28,40 +28,41 @@ namespace test {
 ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
-      exec(nullptr) {
+      session(nullptr) {
   registerDialects(ctx);
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
   omTensorListDestroy(inputs);
   omTensorListDestroy(outputs);
-  if (exec)
-    delete exec;
+  if (session)
+    delete session;
 }
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) != 0)
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
+      CompilerSuccess)
     return false;
-  exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
-  return exec != nullptr;
+  session = new ExecutionSession(getSharedLibName(sharedLibBaseName));
+  return session != nullptr;
 }
 
 bool ModelLibBuilder::compileAndLoad(
     const onnx_mlir::CompilerOptionList &list) {
-  if (setCompilerOptions(list) != 0)
+  if (setCompilerOptions(list) != CompilerSuccess)
     return false;
   return compileAndLoad();
 }
 
 bool ModelLibBuilder::run() {
-  assert(inputs && exec && "expected successful compile and load");
+  assert(inputs && session && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs =  exec->run(inputs);
+    outputs = session->run(inputs);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;

@@ -125,7 +125,7 @@ protected:
 
   // Data for runing the model (freed in destructor).
   OMTensorList *inputs, *outputs;
-  onnx_mlir::ExecutionSession *exec;
+  onnx_mlir::ExecutionSession *session;
 };
 
 template <typename T1, typename T2>

@@ -17,14 +17,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgs\n");
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
@@ -32,7 +32,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgsAndEnv\n", nullptr, name);
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
@@ -48,6 +48,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **errorMessage) {
+  if (errorMessage)
+    *errorMessage = NULL;
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -55,12 +57,11 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   std::string internalErrorMessage;
   int rc = processInputFile(
       std::string(inputFilename), context, module, &internalErrorMessage);
-  if (rc != NoCompilerError) {
+  if (rc != CompilerSuccess) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  printf("hi alex, output base name is %s\n\n\n", outputBaseName);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
@@ -74,7 +75,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   std::string internalErrorMessage;
   int rc = processInputArray(
       inputBuffer, bufferSize, context, module, &internalErrorMessage);
-  if (rc != NoCompilerError) {
+  if (rc != CompilerSuccess) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;

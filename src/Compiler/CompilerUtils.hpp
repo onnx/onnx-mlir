@@ -34,40 +34,48 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<mlir::ModuleOp> &module);
-
-std::string compileModuleToObject(
-    const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputBaseName);
-std::string compileModuleToSharedLibrary(
-    const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputBaseName);
-void compileModuleToJniJar(const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputBaseName);
-
 void registerDialects(mlir::MLIRContext &context);
 
-// ProcessInput* return 0 on success, error code on error.
+// ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
 int processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string *errorMessage);
+
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
-// The following functions return 0 on success, error code on error.
+// Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
 int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module, std::string filename,
     std::string extension);
-int emitOutputFiles(std::string outputBaseName,
+
+// Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
+int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputNameNoExt,
+    onnx_mlir::EmissionTargetType emissionTarget);
+
+// =============================================================================
+// Functions below are actually only used in CompilerUtils.cpp
+// =============================================================================
+
+void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningOpRef<mlir::ModuleOp> &module);
+
+int compileModuleToObject(const mlir::OwningOpRef<mlir::ModuleOp> &module,
+    std::string outputNameNoExt, std::string &objNameWithExt);
+int compileModuleToSharedLibrary(
+    const mlir::OwningOpRef<mlir::ModuleOp> &module, std::string outputNameNoExt,
+    std::string &libNameWithExt);
+int compileModuleToJniJar(const mlir::OwningOpRef<mlir::ModuleOp> &module,
+    std::string outputNameNoExt);
+
+// The following functions return 0 on success, error code on error.
+int emitOutputFiles(std::string outputNameNoExt,
     onnx_mlir::EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
+    mlir::MLIRContext &context, std::string outputNameNoExt,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType emissionTarget);
 int setupModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName);
-int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
-    onnx_mlir::EmissionTargetType emissionTarget);
+    mlir::MLIRContext &context, std::string outputNameNoExt);
