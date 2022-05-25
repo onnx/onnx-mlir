@@ -34,8 +34,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-std::string getOnnxMlirFullVersion();
-
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 

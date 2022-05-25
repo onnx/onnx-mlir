@@ -127,7 +127,6 @@ add_onnx_mlir_library(CompilerUtils
   DEPENDS
   ExternalUtil
   MLIRIR
-  OMVersion
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -140,6 +139,7 @@ add_onnx_mlir_library(CompilerUtils
   CompilerPasses
   Accelerator
   InitAccelerators
+  OMVersion
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE

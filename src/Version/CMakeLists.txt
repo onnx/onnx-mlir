@@ -53,4 +53,9 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
-add_custom_target(OMVersion ALL DEPENDS ${version_inc})
+set_property(SOURCE Version.cpp APPEND PROPERTY COMPILE_DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
+
+add_onnx_mlir_library(OMVersion
+  Version.cpp
+  ${version_inc}
+)
