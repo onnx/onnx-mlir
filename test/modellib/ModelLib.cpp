@@ -60,6 +60,53 @@ bool ModelLibBuilder::compileAndLoad(
   return compileAndLoad();
 }
 
+bool ModelLibBuilder::checkInstructionFromEnv() {
+  std::string instructionName =
+      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
+  if (instructionName.empty())
+    return true;
+  return checkInstruction(instructionName);
+}
+
+bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+  if (instructionName.empty())
+    return true;
+  std::string sharedLibName = getSharedLibName(sharedLibBaseName);
+
+#ifdef _WIN32
+  const std::wstring ws(sharedLibName.begin(), sharedLibName.end());
+  HMODULE handle = LoadLibrary(ws.c_str());
+  if (handle == NULL) {
+    printf("Can not open %s\n", sharedLibName.c_str());
+    return false;
+  }
+  typedef void (*FUNC)();
+  FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
+  if (addr == NULL) {
+    printf("%s not found in %s.\n", instructionName.c_str(),
+        sharedLibName.c_str());
+    return false;
+  }
+  FreeLibrary(handle);
+#else
+  void *handle;
+  handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
+  if (handle == NULL) {
+    printf("%s\n", dlerror());
+    return false;
+  }
+  int *dptr;
+  dptr = (int *)dlsym(handle, instructionName.c_str());
+  if (dptr == NULL) {
+    printf("%s\n", dlerror());
+    dlclose(handle);
+    return false;
+  }
+  dlclose(handle);
+#endif
+  return true;
+}
+
 bool ModelLibBuilder::run() {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
@@ -103,44 +150,6 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
     std::cout << "Model can reuse the current seed by exporting \"" << envVar
               << "=" << seed << "\"\n";
   }
-}
-
-bool ModelLibBuilder::checkSharedLibInstruction(
-    const std::string instructionName, const std::string sharedLibName) {
-  if (instructionName.empty())
-    return true;
-#ifdef _WIN32
-  const std::wstring ws(sharedLibName.begin(), sharedLibName.end());
-  HMODULE handle = LoadLibrary(ws.c_str());
-  if (handle == NULL) {
-    printf("Can not open %s\n", sharedLibName.c_str());
-    return false;
-  }
-  typedef void (*FUNC)();
-  FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
-  if (addr == NULL) {
-    printf("%s not found in %s.\n", instructionName.c_str(),
-        sharedLibName.c_str());
-    return false;
-  }
-  FreeLibrary(handle);
-#else
-  void *handle;
-  handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
-  if (handle == NULL) {
-    printf("%s\n", dlerror());
-    return false;
-  }
-  int *dptr;
-  dptr = (int *)dlsym(handle, instructionName.c_str());
-  if (dptr == NULL) {
-    printf("%s\n", dlerror());
-    dlclose(handle);
-    return false;
-  }
-  dlclose(handle);
-#endif
-  return true;
 }
 
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(

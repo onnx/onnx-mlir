@@ -86,6 +86,13 @@ public:
   // dynamic library. It can run second or third.
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  // Check whether a particular instruction extracted from environment variable
+  // "TEST_CHECK_INSTRUCTION" is included in the dynamic library file name
+  // compiled here. If not found, return false.
+  bool checkInstructionFromEnv();
+  // Check whether a particular instruction is included in the dynamic library
+  // file name compiled here. If not found, return false.
+  bool checkInstruction(const std::string instructionName);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
@@ -101,10 +108,6 @@ public:
   // variable; if not found, use a random seed. Optional call to enable
   // reproducible random numbers.
   static void setRandomNumberGeneratorSeed(const std::string &envVar);
-  // Check whether a particular instruction is included in the library.
-  // If not found, return false.
-  static bool checkSharedLibInstruction(
-      const std::string instructionName, const std::string sharedLibName);
 
 protected:
   // Create a function with an empty body.

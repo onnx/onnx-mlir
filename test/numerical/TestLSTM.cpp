@@ -32,20 +32,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       isNoneC, isNoneP);
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
-  bool successBuild = lstm.build() && lstm.compileAndLoad();
-  if (!successBuild) {
-    printf("Fail to build.\n");
-    return false;
-  }
-  // Verify generated library
-  std::string instructionName =
-      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
-  std::string sharedLibName =
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str());
-  if (!ModelLibBuilder::checkSharedLibInstruction(
-          instructionName, sharedLibName))
-    return false;
-  return successBuild && lstm.prepareInputs() && lstm.run() &&
+  return lstm.build() && lstm.compileAndLoad() &&
+         lstm.checkInstructionFromEnv() && lstm.prepareInputs() && lstm.run() &&
          lstm.verifyOutputs();
 }
 
