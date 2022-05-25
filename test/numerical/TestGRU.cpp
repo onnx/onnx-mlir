@@ -99,18 +99,17 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
 
+#ifdef TEST_GRU_L1
+  int l_min = 1;
+#else
+  int l_min = 0;
+#endif
   // Exhaustive test case generation.
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++)
-        // clang-format off
-#ifdef TEST_GRU_L1
-          {
-            int64_t l = 1;
-#else
-          for (int64_t l = 0; l < 2; l++) {
-#endif
+          for (int64_t l = l_min; l < 2; l++) {
             // Static dimensions.
             // forward
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l));
@@ -130,6 +129,5 @@ int main(int argc, char *argv[]) {
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
 #endif
           }
-  // clang-format on
   return 0;
 }

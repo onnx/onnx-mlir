@@ -104,6 +104,11 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
 
+#ifdef TEST_NONEP_ONLY
+  int min_nonep = 1;
+#else
+  int min_nonep = 0;
+#endif
   // Exhaustive test case generation.
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
@@ -113,13 +118,7 @@ int main(int argc, char *argv[]) {
             for (int64_t dynb = 0; dynb < 2; dynb++)
               for (int64_t noneh = 0; noneh < 2; noneh++)
                 for (int64_t nonec = 0; nonec < 2; nonec++)
-                // clang-format off
-#ifdef TEST_NONEP_ONLY
-                  {
-                    int64_t nonep = 1;
-#else
-                  for (int64_t nonep = 0; nonep < 2; nonep++) {
-#endif
+                  for (int64_t nonep = min_nonep; nonep < 2; nonep++) {
                     // forward
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
@@ -132,6 +131,5 @@ int main(int argc, char *argv[]) {
                         2, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
 #endif
                   }
-  // clang-format on
   return 0;
 }
