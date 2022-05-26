@@ -53,8 +53,12 @@ int outputCode(
 
 // Process the input model given by its module and context into an output file
 // according to the emission target type. Name of the output file can be
-// constructed using the getTargetFilename function below.
-// Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
+// constructed using the getTargetFilename function below.  When  generating
+// libraries or jar files, the compiler will link in lightweight runtimes / jar
+// files. If these libraries / jar files are not in the system wide directory
+// (typically /usr/local/lib), the user can override the default location using
+// the ONNX_MLIR_RUNTIME_DIR environment variable.
+// Returns 0 on success,OnnxMlirCompilerErrorCodes on failure.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     onnx_mlir::EmissionTargetType emissionTarget);

@@ -109,7 +109,12 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
 
 /*!
- *  Compile an onnx model from a file containing MLIR or ONNX protobuf.
+ *  Compile an onnx model from a file containing MLIR or ONNX protobuf. When
+ *  generating libraries or jar files, the compiler will link in lightweight
+ *  runtimes / jar files. If these libraries / jar files are not in the system
+ *  wide directory (typically /usr/local/lib), the user can override the default
+ *  location using the ONNX_MLIR_RUNTIME_DIR environment variable.
+ *  
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
  *  @param outputBaseName File name without extension to write output.
@@ -127,7 +132,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     char **outputFilename, char **errorMessage);
 
 /*!
- *  Compile an onnx model from an ONNX protobuf array.
+ *  Compile an onnx model from an ONNX protobuf array. When
+ *  generating libraries or jar files, the compiler will link in lightweight
+ *  runtimes / jar files. If these libraries / jar files are not in the system
+ *  wide directory (typically /usr/local/lib), the user can override the default
+ *  location using the ONNX_MLIR_RUNTIME_DIR environment variable.
+ * 
  *  @param inputBuffer ONNX protobuf array.
  *  @param bufferSize Size of ONNX protobuf array.
  *  @param outputBaseName File name without extension to write output.
