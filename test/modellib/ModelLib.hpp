@@ -95,8 +95,6 @@ public:
   virtual bool verifyOutputs() = 0;
 
   // Helper functions.
-  // Get the dynamic library file name compiled here.
-  static std::string getSharedLibName(const std::string &sharedLibBaseName);
   // Set the random number generator seed to the value passed by the environment
   // variable; if not found, use a random seed. Optional call to enable
   // reproducible random numbers.

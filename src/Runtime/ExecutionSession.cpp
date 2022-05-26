@@ -21,8 +21,10 @@
 #include <sstream>
 #include <vector>
 
-#include "ExecutionSession.hpp"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
+
+#include "ExecutionSession.hpp"
 
 namespace onnx_mlir {
 const std::string ExecutionSession::_queryEntryPointsName =
@@ -32,6 +34,15 @@ const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
+
+  // For some reason, the call to get the permanent library requires a path, and
+  // when none is provided, it still does not look in the current directory. To
+  // remediate this situation, if no path is given, we add a "./" to the path to
+  // force looking in the current directory.
+  if (llvm::sys::path::parent_path(sharedLibPath).empty()) {
+    sharedLibPath = "./" + sharedLibPath;
+    std::cout << "hi alex, added local "<<sharedLibPath<<std::endl;
+  }
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())

@@ -47,9 +47,11 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **errorMessage) {
+    const char **outputFilename, const char **errorMessage) {
   if (errorMessage)
     *errorMessage = NULL;
+  if (outputFilename)
+    *outputFilename = NULL;
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -62,12 +64,23 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  return compileModule(module, context, outputBaseName, emissionTarget);
+  rc = compileModule(module, context, outputBaseName, emissionTarget);
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    *outputFilename =
+        strdup(getTargetFilename(outputBaseName, emissionTarget).c_str());
+  }
+  return rc;
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **errorMessage) {
+    EmissionTargetType emissionTarget, const char **outputFilename,
+    const char **errorMessage) {
+  if (errorMessage)
+    *errorMessage = NULL;
+  if (outputFilename)
+    *outputFilename = NULL;
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -80,7 +93,13 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  return compileModule(module, context, outputBaseName, emissionTarget);
+  rc = compileModule(module, context, outputBaseName, emissionTarget);
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    *outputFilename =
+        strdup(getTargetFilename(outputBaseName, emissionTarget).c_str());
+  }
+  return rc;
 }
 
 } // namespace onnx_mlir

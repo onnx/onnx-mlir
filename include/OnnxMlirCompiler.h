@@ -113,28 +113,35 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
  *  @param outputBaseName File name without extension to write output.
- *  Name may include a path, must include the file name, and should not include an extention.
+ *  Name may include a path, must include the file name, and should not include
+ * an extention.
  *  @param emissionTarget Target format to compile to.
- *  @param errorMessage Error message.
+ *  @param outputFilename Output file name of the compiled output for the given
+ * emission target.
+ *  @param errorMessage Output error message, if any.
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **errorMessage);
+    const char **outputFilename, const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array.
  *  @param inputBuffer ONNX protobuf array.
  *  @param bufferSize Size of ONNX protobuf array.
  *  @param outputBaseName File name without extension to write output.
- *  Name may include a path, must include the file name, and should not include an extention.
+ *  Name may include a path, must include the file name, and should not include
+ * an extention.
  *  @param emissionTarget Target format to compile to.
+ *  @param outputFilename Output file name of the compiled output for the given
+ * emission target.
  *  @param errorMessage Error message.
  *  @return 0 on success or OnnxMlirCompilerErrorCodes failure
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **errorMessage);
+    EmissionTargetType emissionTarget, const char **outputFilename,
+    const char **errorMessage);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

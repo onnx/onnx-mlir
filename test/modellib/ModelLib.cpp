@@ -44,7 +44,9 @@ bool ModelLibBuilder::compileAndLoad() {
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
-  session = new ExecutionSession(getSharedLibName(sharedLibBaseName));
+  std::string libFilename =
+      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
+  session = new ExecutionSession(libFilename);
   return session != nullptr;
 }
 
@@ -69,15 +71,6 @@ bool ModelLibBuilder::run() {
   }
   assert(outputs && "when no exception are issued, output should exist");
   return true;
-}
-
-std::string ModelLibBuilder::getSharedLibName(
-    const std::string &sharedLibBaseName) {
-#ifdef _WIN32
-  return sharedLibBaseName + ".dll";
-#else
-  return sharedLibBaseName + ".so";
-#endif
 }
 
 void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {

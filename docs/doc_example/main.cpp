@@ -7,6 +7,7 @@
 int main() {
   // Read compiler options from environment first, and ensure -O3 is used.
   int rc;
+  std::cout << "Start compiling add.onnx" << std::endl;
   rc = onnx_mlir::omSetCompilerOptionsFromEnv("TEST_DOC_EXAMPLE");
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to process TEST_DOC_EXAMPLE compiler options with "
@@ -22,8 +23,9 @@ int main() {
   }
   // Compile the doc example into a model library.
   const char *errorMessage;
-  rc = onnx_mlir::omCompileFromFile(
-      "./add.onnx", "./add-cppinterface", onnx_mlir::EmitLib, &errorMessage);
+  const char *compiledFilename;
+  rc = onnx_mlir::omCompileFromFile("./add.onnx", "./add-cppinterface",
+      onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to compile add.onnx with error code " << rc;
     if (errorMessage)
@@ -31,9 +33,11 @@ int main() {
     std::cerr << "." << std::endl;
     return 2;
   }
-
+  std::string libFilename(compiledFilename);
+  std::cout << "Compiled succeeded with results in file: " << libFilename
+            << std::endl;
   // Prepare the execution session.
-  onnx_mlir::ExecutionSession session("./add-cppinterface.so");
+  onnx_mlir::ExecutionSession session(libFilename);
   std::string inputSignature = session.inputSignature();
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
