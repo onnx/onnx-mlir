@@ -51,7 +51,7 @@ public:
   enum class Kind {
     // clang-format off
     NONE,
-    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM)
+    APPLY_TO_ACCELERATORS(CREATE_ACCEL_ENUM, dummy)
     // clang-format on
   };
 
