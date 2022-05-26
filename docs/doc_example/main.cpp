@@ -24,7 +24,7 @@ int main() {
   // Compile the doc example into a model library.
   char *errorMessage;
   char *compiledFilename;
-  rc = onnx_mlir::omCompileFromFile("./add.onnx", "./add-cppinterface",
+  rc = onnx_mlir::omCompileFromFile("add.onnx", "add-cppinterface",
       onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to compile add.onnx with error code " << rc;
