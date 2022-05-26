@@ -117,13 +117,14 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  * an extention.
  *  @param emissionTarget Target format to compile to.
  *  @param outputFilename Output file name of the compiled output for the given
- * emission target.
- *  @param errorMessage Output error message, if any.
+ * emission target. User is responsible for freeing the string.
+ *  @param errorMessage Output error message, if any. User is responsible for
+ * freeing the string.
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **outputFilename, const char **errorMessage);
+    char **outputFilename, char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array.
@@ -134,14 +135,15 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  * an extention.
  *  @param emissionTarget Target format to compile to.
  *  @param outputFilename Output file name of the compiled output for the given
- * emission target.
+ * emission target. User is responsible for freeing the string.
  *  @param errorMessage Error message.
- *  @return 0 on success or OnnxMlirCompilerErrorCodes failure
+ *  @return 0 on success or OnnxMlirCompilerErrorCodes failure. User is
+ * responsible for freeing the string.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **outputFilename,
-    const char **errorMessage);
+    EmissionTargetType emissionTarget, char **outputFilename,
+    char **errorMessage);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

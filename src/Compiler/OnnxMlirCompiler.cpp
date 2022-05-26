@@ -47,7 +47,7 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **outputFilename, const char **errorMessage) {
+    char **outputFilename, char **errorMessage) {
   if (errorMessage)
     *errorMessage = NULL;
   if (outputFilename)
@@ -75,8 +75,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **outputFilename,
-    const char **errorMessage) {
+    EmissionTargetType emissionTarget, char **outputFilename,
+    char **errorMessage) {
   if (errorMessage)
     *errorMessage = NULL;
   if (outputFilename)

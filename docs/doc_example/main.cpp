@@ -22,8 +22,8 @@ int main() {
     return 1;
   }
   // Compile the doc example into a model library.
-  const char *errorMessage;
-  const char *compiledFilename;
+  char *errorMessage;
+  char *compiledFilename;
   rc = onnx_mlir::omCompileFromFile("./add.onnx", "./add-cppinterface",
       onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
@@ -34,11 +34,26 @@ int main() {
     return 2;
   }
   std::string libFilename(compiledFilename);
+  free(compiledFilename);
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
   // Prepare the execution session.
-  onnx_mlir::ExecutionSession session(libFilename);
-  std::string inputSignature = session.inputSignature();
+  onnx_mlir::ExecutionSession *session;
+  try {
+    session = new onnx_mlir::ExecutionSession(libFilename);
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while creating execution session: " << error.what()
+              << std::endl;
+    return 3;
+  }
+  std::string inputSignature;
+  try {
+    inputSignature = session->inputSignature();
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while loading input signature: " << error.what()
+              << std::endl;
+    return 3;
+  }
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
 
@@ -56,8 +71,13 @@ int main() {
   OMTensorList *input = omTensorListCreate(list, 2);
   // Call the compiled onnx model function.
   OMTensorList *outputList;
-  // Try / catch.
-  outputList = session.run(input);
+  try {
+    outputList = session->run(input);
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while running model: " << error.what() << std::endl;
+    return 3;
+  }
+
   // Get the first omt as output.
   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
   float *outputPtr = (float *)omTensorGetDataPtr(y);
@@ -70,6 +90,7 @@ int main() {
       return 3;
     }
   }
+  delete session;
   std::cout << std::endl;
   return 0;
 }
