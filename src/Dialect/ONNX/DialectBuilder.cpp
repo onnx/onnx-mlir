@@ -30,12 +30,18 @@ Value OnnxBuilder::add(Value A, Value B) const {
   return b.create<ONNXAddOp>(loc, A, B);
 }
 
-Value OnnxBuilder::sub(Value A, Value B) const {
-  return b.create<ONNXSubOp>(loc, A, B);
+Value OnnxBuilder::cast(Value input, TypeAttr to) const {
+  Type resultType;
+  if (input.getType().cast<ShapedType>().hasRank())
+    resultType = RankedTensorType::get(
+        input.getType().cast<ShapedType>().getShape(), to.getValue());
+  else
+    resultType = UnrankedTensorType::get(to.getValue());
+  return b.create<ONNXCastOp>(loc, resultType, input, to);
 }
 
-Value OnnxBuilder::mul(Value A, Value B) const {
-  return b.create<ONNXMulOp>(loc, A, B);
+Value OnnxBuilder::constant(Attribute denseAttr) const {
+  return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {
@@ -62,17 +68,26 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
 
+Value OnnxBuilder::min(ValueRange inputs) const {
+  assert(inputs.size() >= 2 && "Expect at least two inputs");
+  return b.create<ONNXMinOp>(loc, inputs[0].getType(), inputs);
+}
+
+Value OnnxBuilder::mul(Value A, Value B) const {
+  return b.create<ONNXMulOp>(loc, A, B);
+}
+
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
   return b.create<ONNXReshapeOp>(loc, outputType, input, shape);
+}
+
+Value OnnxBuilder::sub(Value A, Value B) const {
+  return b.create<ONNXSubOp>(loc, A, B);
 }
 
 Value OnnxBuilder::transpose(
     Type outputType, Value input, ArrayAttr perm) const {
   return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
-}
-
-Value OnnxBuilder::constant(Attribute denseAttr) const {
-  return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 } // namespace onnx_mlir

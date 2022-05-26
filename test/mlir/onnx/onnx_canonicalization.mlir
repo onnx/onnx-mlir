@@ -679,6 +679,7 @@ func @test_less_should_not_remove_cast(%arg0 : tensor<f32>, %arg1 : tensor<f32>)
 // -----
 
 // Check deriving a new maximum trip count from the break condition of the loop.
+// In this test, the new maximum trip count is a constant.
 func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30xf32> {
   %0 = "onnx.Constant"() {value = dense<9223372036854775807> : tensor<i64>} : () -> tensor<i64>
   %1 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
@@ -709,5 +710,41 @@ func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30x
   // CHECK:             onnx.Return [[VAR_8_]], [[VAR_6_]], [[arg4_]], [[VAR_7_]] : tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>
   // CHECK:           }) : (tensor<i64>, tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>) -> (tensor<i32>, tensor<i32>, tensor<?x30xf32>, tensor<?x?x30xf32>)
   // CHECK:           return [[VAR_4_]]#3 : tensor<?x?x30xf32>
+  // CHECK:         }
+}
+
+// -----
+
+// Check deriving a new maximum trip count from the break condition of the loop.
+// In this test, the new maximum trip count is not a constant.
+func @test_loop_derive_max_trip_count_non_constant_ub(%arg0: tensor<?x30xf32>, %arg1: tensor<i32>) -> tensor<?x?x30xf32> {
+  %0 = "onnx.Constant"() {value = dense<9223372036854775807> : tensor<i64>} : () -> tensor<i64>
+  %1 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
+  %2 = "onnx.Constant"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
+  %3:4 = "onnx.Loop"(%0, %1, %2, %arg1, %arg0) ({
+  ^bb0(%arg2: tensor<i64>, %arg3: tensor<i1>, %arg4: tensor<i32>, %arg5: tensor<i32>, %arg6: tensor<?x30xf32>):
+    %4 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+    %5 = "onnx.Add"(%arg4, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+    %6 = "onnx.Relu"(%arg6) : (tensor<?x30xf32>) -> tensor<?x30xf32>
+    %7 = "onnx.Less"(%5, %arg5) : (tensor<i32>, tensor<i32>) -> tensor<i1>
+    onnx.Return %7, %5, %arg5, %6 : tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>
+  }) : (tensor<i64>, tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>) -> (tensor<i32>, tensor<i32>, tensor<?x30xf32>, tensor<?x?x30xf32>)
+  return %3#3 : tensor<?x?x30xf32>
+  // CHECK-LABEL:  func @test_loop_derive_max_trip_count_non_constant_ub
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x30xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<?x?x30xf32> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<9223372036854775807> : tensor<i64>} : () -> tensor<i64>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Cast"([[PARAM_1_]]) {to = i64} : (tensor<i32>) -> tensor<i64>
+  // CHECK:           [[VAR_4_:%.+]] = "onnx.Min"([[VAR_0_]], [[VAR_3_]]) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+  // CHECK:           [[VAR_5_:%.+]]:4 = "onnx.Loop"([[VAR_4_]], [[VAR_1_]], [[VAR_2_]], [[PARAM_1_]], [[PARAM_0_]]) ({
+  // CHECK:           ^bb0([[arg2_:%.+]]: tensor<i64>, [[arg3_:%.+]]: tensor<i1>, [[arg4_:%.+]]: tensor<i32>, [[arg5_:%.+]]: tensor<i32>, [[arg6_:%.+]]: tensor<?x30xf32>):
+  // CHECK:             [[VAR_6_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  // CHECK-DAG:         [[VAR_7_:%.+]] = "onnx.Add"([[arg4_]], [[VAR_6_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+  // CHECK-DAG:         [[VAR_8_:%.+]] = "onnx.Relu"([[arg6_]]) : (tensor<?x30xf32>) -> tensor<?x30xf32>
+  // CHECK:             [[VAR_9_:%.+]] = "onnx.Less"([[VAR_7_]], [[arg5_]]) : (tensor<i32>, tensor<i32>) -> tensor<i1>
+  // CHECK:             onnx.Return [[VAR_9_]], [[VAR_7_]], [[arg5_]], [[VAR_8_]] : tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>
+  // CHECK:           }) : (tensor<i64>, tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>) -> (tensor<i32>, tensor<i32>, tensor<?x30xf32>, tensor<?x?x30xf32>)
+  // CHECK:           return [[VAR_5_]]#3 : tensor<?x?x30xf32>
   // CHECK:         }
 }

@@ -13,9 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <math.h>
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
@@ -165,21 +168,14 @@ public:
     //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
     // ```
     bool matched;
-    int64_t derivedTripCount;
-    std::tie(matched, derivedTripCount) = matchOp(onnxLoopOp);
+    Value newMaxTripCountValue;
+    std::tie(matched, newMaxTripCountValue) =
+        matchOp(rewriter, loc, onnxLoopOp);
     if (!matched)
       return failure();
 
     // Rewrite
-    SmallVector<int64_t, 1> values(1, derivedTripCount);
-    DenseElementsAttr valueAttr = DenseElementsAttr::get(
-        RankedTensorType::get({},
-            maxTripCountValue.getType().cast<ShapedType>().getElementType()),
-        makeArrayRef(values));
-    Value newMaxTripCountValue =
-        onnx_mlir::createONNXConstantOpWithDenseAttr(rewriter, loc, valueAttr);
-
-    maxTripCountValue.replaceAllUsesWith(newMaxTripCountValue);
+    loopOp->replaceUsesOfWith(maxTripCountValue, newMaxTripCountValue);
     return success();
   }
 
@@ -199,7 +195,7 @@ private:
   // iterations or not. By the definition of LoopOp, input block arguments are
   // shifted by 1 to the left in ReturnOp. If a block argument is unchanged when
   // being shifted in ReturnOp, then it is invariant to iterations.
-  bool isInvariantArgConstant(Value v, Operation *returnOp) const {
+  bool isInvariantBlockArg(Value v, Operation *returnOp) const {
     return v.isa<BlockArgument>() &&
            (v ==
                returnOp
@@ -228,16 +224,6 @@ private:
     return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
   }
 
-  // A helper function to get an integer constant from a value that is unchanged
-  // by iterations. The value must be defined by ConstantOp inside the loop or
-  // fed by ConstantOp outside the loop.
-  int64_t getInvariantArgConstantInt(
-      Value v, Operation *loopOp, Operation *returnOp) const {
-    if (isInvariantArgConstant(v, returnOp))
-      return getOneIntergerConstant(getFedValue(v, loopOp));
-    return getOneIntergerConstant(v);
-  }
-
   // A helper function to match the pattern of the given operation. It also
   // returns a constant value for the max trip count during the matching, which
   // is to avoid recomputing values in the rewriting phase.
@@ -253,25 +239,27 @@ private:
   //     cond = LessOp(newCounterValue, ubValue)
   //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
   // ```
-  std::pair<bool, int64_t> matchOp(ONNXLoopOp onnxLoopOp) const {
+  std::pair<bool, Value> matchOp(
+      PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
+    onnx_mlir::OnnxBuilder onnx(rewriter, loc);
     Operation *loopOp = onnxLoopOp.getOperation();
     Value maxTripCountValue = loopOp->getOperands()[0];
 
     // The maximum trip count is a constant.
     if (!isDefinedByIntegerConstantOp(maxTripCountValue))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
 
     // Get the loop region.
     Region &loopBody = onnxLoopOp.body();
     // Make sure the region has only one block.
     if (!loopBody.hasOneBlock())
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
 
     // Get ReturnOp of the body block.
     Block &bodyBlock = loopBody.front();
     Operation *returnOp = bodyBlock.getTerminator();
     if (!isa<ONNXReturnOp>(returnOp))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
@@ -280,14 +268,14 @@ private:
     // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
     Value breakCond = returnOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
     Operation *breakCondOp = breakCond.getDefiningOp();
 
     // Only support LessOp as the op that defines the break condition at this
     // moment.
     // `cond = LessOp(newCounterValue, ubValue)`
     if (!isa<ONNXLessOp>(breakCondOp))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
     Value newCounterValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
     // Input type of Less must be interger.
@@ -295,23 +283,16 @@ private:
              .cast<ShapedType>()
              .getElementType()
              .isa<IntegerType>())
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
 
     // Compute a trip count from the break condition, given that the upper bound
     // is fixed and the lower bound is increased by a constant step at each
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
 
-    // Check the upper bound of the break condition.
-    // UpperBound is a constant inside or outside the loop.
-    if (isInvariantArgConstant(ubValue, returnOp))
-      ubValue = getFedValue(ubValue, loopOp);
-    if (!isDefinedByIntegerConstantOp(ubValue))
-      return std::make_pair(false, -1);
-
     // Check the lower bound of the break condition.
     if (newCounterValue.isa<BlockArgument>() ||
         !isa<ONNXAddOp>(newCounterValue.getDefiningOp()))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
     // ONNXLoop(max_trip_count, true, ..., ubValue, ..., startValue, ...)
     //   ^bb(max_trip_count, cond, ..., ubValue, ..., counterValue, ...):
     //     stepValue = ONNXConstantOp() {value = ...}
@@ -322,26 +303,67 @@ private:
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
     // 1. Step is a constant inside or outside the loop.
-    if (isInvariantArgConstant(stepValue, returnOp))
+    if (isInvariantBlockArg(stepValue, returnOp))
       stepValue = getFedValue(stepValue, loopOp);
     if (!isDefinedByIntegerConstantOp(stepValue))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
     // 2. Counter is an block argument and updated at each iteration.
     if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
     // 3. Counter is initially fed by a constant.
     Value startValue = getFedValue(counterValue, loopOp);
     if (!isDefinedByIntegerConstantOp(startValue))
-      return std::make_pair(false, -1);
+      return std::make_pair(false, maxTripCountValue);
 
-    // Check that the new trip count is smaller than the original trip count.
     int64_t lowerBound = getOneIntergerConstant(startValue);
-    int64_t upperBound = getOneIntergerConstant(ubValue);
     int64_t step = getOneIntergerConstant(stepValue);
-    int64_t derivedTripCount = (int64_t)((upperBound - lowerBound) / step);
-    int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
 
-    return std::make_pair(maxTripCount > derivedTripCount, derivedTripCount);
+    // Check the upper bound of the break condition.
+    // UpperBound must be a constant inside the loop or an invariant argument.
+    if ((ubValue.isa<BlockArgument>() &&
+            !isInvariantBlockArg(ubValue, returnOp)) ||
+        (!ubValue.isa<BlockArgument>() &&
+            !isDefinedByIntegerConstantOp(ubValue)))
+      return std::make_pair(false, maxTripCountValue);
+
+    if (isInvariantBlockArg(ubValue, returnOp))
+      ubValue = getFedValue(ubValue, loopOp);
+
+    // If the upper bound is fed by a constant, compute the trip count now.
+    if (isDefinedByIntegerConstantOp(ubValue)) {
+      int64_t upperBound = getOneIntergerConstant(ubValue);
+      if ((step <= 0) || (upperBound - lowerBound) <= 0)
+        return std::make_pair(false, maxTripCountValue);
+      int64_t derivedTripCount =
+          ceil((1.0 * (upperBound - lowerBound)) / (1.0 * step));
+      int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
+
+      // Check that the new trip count is smaller than the original trip count.
+      if (maxTripCount <= derivedTripCount)
+        return std::make_pair(false, maxTripCountValue);
+
+      SmallVector<int64_t, 1> values(1, derivedTripCount);
+      DenseElementsAttr valueAttr = DenseElementsAttr::get(
+          RankedTensorType::get({},
+              maxTripCountValue.getType().cast<ShapedType>().getElementType()),
+          makeArrayRef(values));
+      return std::make_pair(true, onnx.constant(valueAttr));
+    }
+
+    // If the upper bound is not fed by a constant.
+    // Only support the case wherein the lower bound is 0 and step is 1:
+    // - new_max_trip_count = min(old_max_trip_count, upper_bound)
+    if (lowerBound == 0 && step == 1) {
+      if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
+          ubValue.getType().cast<ShapedType>().getElementType())
+        ubValue = onnx.cast(ubValue, TypeAttr::get(maxTripCountValue.getType()
+                                                       .cast<ShapedType>()
+                                                       .getElementType()));
+      return std::make_pair(
+          true, onnx.min(ValueRange({maxTripCountValue, ubValue})));
+    }
+
+    return std::make_pair(false, maxTripCountValue);
   }
 };
 
