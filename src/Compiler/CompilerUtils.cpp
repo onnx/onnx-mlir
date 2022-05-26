@@ -554,8 +554,9 @@ static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-static int compileModuleToSharedLibrary(const mlir::OwningOpRef<ModuleOp> &module,
-    std::string outputNameNoExt, std::string &libNameWithExt) {
+static int compileModuleToSharedLibrary(
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt,
+    std::string &libNameWithExt) {
   std::string modelObjNameWithExt;
   int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
   if (rc != CompilerSuccess)
@@ -834,8 +835,8 @@ static std::string getDataLayout(const Location &loc) {
 }
 
 // Return 0 on success, error code on failure.
-static int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputNameNoExt) {
+static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputNameNoExt) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -872,9 +873,9 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &c
   return CompilerSuccess;
 }
 
-static int emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputNameNoExt, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget) {
+static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputNameNoExt,
+    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
   if (printIR) {
     mlir::OpPrintingFlags flags;
     if (preserveLocations)
