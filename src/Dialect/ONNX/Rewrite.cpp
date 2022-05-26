@@ -180,6 +180,8 @@ public:
   }
 
 private:
+  // A helper function to check whether a value is defined by ONNXConstantOp in
+  // the same block or not.
   bool isDefinedByIntegerConstantOp(Value v) const {
     if (v.isa<BlockArgument>())
       return false;
@@ -200,6 +202,13 @@ private:
            (v ==
                returnOp
                    ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+  }
+
+  // A helper function to check whether a value is defined by ONNXConstantOp in
+  // the same block or an invariant block argument.
+  bool isIntConstantOrInvariantBlockArg(Value v, Operation *returnOp) const {
+    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, returnOp)) ||
+            (!v.isa<BlockArgument>() && isDefinedByIntegerConstantOp(v)));
   }
 
   // A helper function to check whether an block argument is updated by a Value
@@ -289,7 +298,7 @@ private:
     // is fixed and the lower bound is increased by a constant step at each
     // iteration. So, the trip count will be `(upper_bound - lower_bound)/step`.
 
-    // Check the lower bound of the break condition.
+    // Only support ONNXAddOp at this moment.
     if (newCounterValue.isa<BlockArgument>() ||
         !isa<ONNXAddOp>(newCounterValue.getDefiningOp()))
       return std::make_pair(false, maxTripCountValue);
@@ -302,36 +311,44 @@ private:
     Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
-    // 1. Step is a constant inside or outside the loop.
-    if (isInvariantBlockArg(stepValue, returnOp))
-      stepValue = getFedValue(stepValue, loopOp);
-    if (!isDefinedByIntegerConstantOp(stepValue))
-      return std::make_pair(false, maxTripCountValue);
-    // 2. Counter is an block argument and updated at each iteration.
+    // Counter is an block argument and updated at each iteration.
     if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
       return std::make_pair(false, maxTripCountValue);
-    // 3. Counter is initially fed by a constant.
-    Value startValue = getFedValue(counterValue, loopOp);
-    if (!isDefinedByIntegerConstantOp(startValue))
+    // Step must be a constant inside the loop or an invariant argument.
+    if (!isIntConstantOrInvariantBlockArg(stepValue, returnOp))
       return std::make_pair(false, maxTripCountValue);
 
-    int64_t lowerBound = getOneIntergerConstant(startValue);
-    int64_t step = getOneIntergerConstant(stepValue);
+    // Check the lower bound of the break condition.
+    // LowerBound is the initial value of the counter.
+    Value lbValue = getFedValue(counterValue, loopOp);
 
     // Check the upper bound of the break condition.
     // UpperBound must be a constant inside the loop or an invariant argument.
-    if ((ubValue.isa<BlockArgument>() &&
-            !isInvariantBlockArg(ubValue, returnOp)) ||
-        (!ubValue.isa<BlockArgument>() &&
-            !isDefinedByIntegerConstantOp(ubValue)))
+    if (!isIntConstantOrInvariantBlockArg(ubValue, returnOp))
       return std::make_pair(false, maxTripCountValue);
 
+    // Get values for upper bound and step if they are invariant arguments.
+    // Otherwise, clone them to location outside the loop.
     if (isInvariantBlockArg(ubValue, returnOp))
       ubValue = getFedValue(ubValue, loopOp);
+    else
+      ubValue = cast<ONNXConstantOp>(rewriter.clone(*ubValue.getDefiningOp()))
+                    .getResult();
+    if (isInvariantBlockArg(stepValue, returnOp))
+      stepValue = getFedValue(stepValue, loopOp);
+    else
+      stepValue =
+          cast<ONNXConstantOp>(rewriter.clone(*stepValue.getDefiningOp()))
+              .getResult();
 
-    // If the upper bound is fed by a constant, compute the trip count now.
-    if (isDefinedByIntegerConstantOp(ubValue)) {
+    // Case 1: the upper bound, lower bound and step are constants.
+    // - Compute the new max trip count at the compile time.
+    if (isDefinedByIntegerConstantOp(lbValue) &&
+        isDefinedByIntegerConstantOp(ubValue) &&
+        isDefinedByIntegerConstantOp(stepValue)) {
+      int64_t lowerBound = getOneIntergerConstant(lbValue);
       int64_t upperBound = getOneIntergerConstant(ubValue);
+      int64_t step = getOneIntergerConstant(stepValue);
       if ((step <= 0) || (upperBound - lowerBound) <= 0)
         return std::make_pair(false, maxTripCountValue);
       int64_t derivedTripCount =
@@ -350,20 +367,31 @@ private:
       return std::make_pair(true, onnx.constant(valueAttr));
     }
 
-    // If the upper bound is not fed by a constant.
-    // Only support the case wherein the lower bound is 0 and step is 1:
-    // - new_max_trip_count = min(old_max_trip_count, upper_bound)
-    if (lowerBound == 0 && step == 1) {
-      if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
-          ubValue.getType().cast<ShapedType>().getElementType())
-        ubValue = onnx.cast(ubValue, TypeAttr::get(maxTripCountValue.getType()
-                                                       .cast<ShapedType>()
-                                                       .getElementType()));
-      return std::make_pair(
-          true, onnx.min(ValueRange({maxTripCountValue, ubValue})));
-    }
+    // Case 2: Not all of the lower bound, upper bound and step are constants,
+    // emit code to compute the new max trip count.
+    // - new_max_trip_count =
+    //      min(old_max_trip_count, ceil(upper_bound - lower_bound)/step)
+    TypeAttr tripCountType = TypeAttr::get(
+        maxTripCountValue.getType().cast<ShapedType>().getElementType());
 
-    return std::make_pair(false, maxTripCountValue);
+    // Cast the upper and lower bounds to the correct type.
+    if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
+        ubValue.getType().cast<ShapedType>().getElementType())
+      ubValue = onnx.cast(ubValue, tripCountType);
+    if (maxTripCountValue.getType().cast<ShapedType>().getElementType() !=
+        lbValue.getType().cast<ShapedType>().getElementType())
+      lbValue = onnx.cast(lbValue, tripCountType);
+
+    // Emit code to compute the max trip count.
+    Value range = onnx.sub(ubValue, lbValue);
+    Value rangeInFloat = onnx.cast(range, TypeAttr::get(rewriter.getF32Type()));
+    Value stepInFloat =
+        onnx.cast(stepValue, TypeAttr::get(rewriter.getF32Type()));
+    Value tripCountInFloat = onnx.ceil(onnx.div(rangeInFloat, stepInFloat));
+    Value newMaxTripCountValue = onnx.cast(tripCountInFloat, tripCountType);
+
+    return std::make_pair(
+        true, onnx.min(ValueRange({maxTripCountValue, newMaxTripCountValue})));
   }
 };
 

@@ -40,6 +40,10 @@ Value OnnxBuilder::cast(Value input, TypeAttr to) const {
   return b.create<ONNXCastOp>(loc, resultType, input, to);
 }
 
+Value OnnxBuilder::ceil(Value input) const {
+  return b.create<ONNXCeilOp>(loc, input.getType(), input);
+}
+
 Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }

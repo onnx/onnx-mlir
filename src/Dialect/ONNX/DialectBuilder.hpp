@@ -28,6 +28,7 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   mlir::Value add(mlir::Value A, mlir::Value B) const;
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
+  mlir::Value ceil(mlir::Value input) const;
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value div(mlir::Value A, mlir::Value B) const;
   mlir::Value matmul(
