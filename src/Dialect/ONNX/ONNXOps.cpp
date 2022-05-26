@@ -4015,6 +4015,11 @@ LogicalResult ONNXDetOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+LogicalResult ONNXEinsumOp::verify() {
+  // TODO: test that equation is well formed and matches Inputs
+  return success();
+}
+
 LogicalResult ONNXEinsumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXEinsumOpAdaptor operandAdaptor(*this);
