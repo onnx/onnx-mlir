@@ -102,11 +102,13 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 // Check the rank of a value is greater than a given integer.
 class HasRankGT<int rank> :
   Constraint<CPred<"$0.getType().isa<ShapedType>() && "
+                   "$0.getType().cast<ShapedType>().hasRank() && "
                    "$0.getType().cast<ShapedType>().getRank() > " # rank>>;
 
 // Check the rank of a value is of a given integer.
 class HasRankOf<int rank> :
   Constraint<CPred<"$0.getType().isa<ShapedType>() && "
+                   "$0.getType().cast<ShapedType>().hasRank() && "
                    "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
 
 def HaveSameLastDim: Constraint<
