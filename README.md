@@ -139,6 +139,9 @@ We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
 Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
 
+ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
+Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#step-7-commit--push) for specific instructions.
+
 ## Code of Conduct
 
 The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html.
