@@ -111,6 +111,14 @@ mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
       loc, operandType, operand);
 }
 
+/// Get mlir::Value from int
+///
+/// \param val: input integer
+/// \param rewriter: rewriter object related to the operator
+/// \param context: context related to operator
+/// \param loc: location related to operator
+///
+/// \returns mlir::Value of constant integer
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc) {
   auto iType = IntegerType::get(context, 64);
@@ -118,14 +126,22 @@ Value getIntValue(int val, ConversionPatternRewriter &rewriter,
   return rewriter.create<ConstantIntOp>(loc, iVal);
 }
 
-std::vector<int> toVector(mlir::ArrayAttr axesAttr) {
-  std::vector<int> axes;
+/// Get vector of ints from mlir::ArrayAttr<IntegerAttr>
+///
+/// \param operand: operand tensor
+/// \param rewriter: rewriter object related to the operator
+/// \param context: context related to operator
+/// \param loc: location related to operator
+///
+/// \returns vector of integers
+std::vector<int> toVector(mlir::ArrayAttr arr) {
+  std::vector<int> elements;
 
-  for (auto axis : axesAttr) {
-    auto j = axis.dyn_cast<IntegerAttr>();
+  for (auto element : arr) {
+    auto j = element.dyn_cast<IntegerAttr>();
     int64_t k = j.getValue().getSExtValue();
-    axes.push_back(k);
+    elements.push_back(k);
   }
 
-  return axes;
+  return elements;
 }
