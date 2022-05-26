@@ -20,7 +20,7 @@ set_target_properties(check-onnx-numerical PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
 #   )
-function(add_numerical_unittest test_name)
+function(add_numerical_unittest test_name check_instruction)
   add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
 
   add_dependencies(numerical ${test_name})
@@ -35,6 +35,7 @@ function(add_numerical_unittest test_name)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_CHECK_INSTRUCTION=${check_instruction}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -47,37 +48,37 @@ llvm_update_compile_flags(rapidcheck)
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-add_numerical_unittest(TestConv
+add_numerical_unittest(TestConv test_instruction
   TestConv.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestMatMul2D
+add_numerical_unittest(TestMatMul2D test_instruction
   TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemm
+add_numerical_unittest(TestGemm test_instruction
   TestGemm.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLSTM
+add_numerical_unittest(TestLSTM test_instruction
   TestLSTM.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestRNN
+add_numerical_unittest(TestRNN test_instruction
   TestRNN.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGRU
+add_numerical_unittest(TestGRU test_instruction
   TestGRU.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLoop
+add_numerical_unittest(TestLoop test_instruction
   TestLoop.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
