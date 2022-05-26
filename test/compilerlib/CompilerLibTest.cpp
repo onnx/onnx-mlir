@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
   }
 
   int retVal = 0;
-  const char *errorMessage = NULL;
-  const char *compiledFilename;
+  char *errorMessage = NULL;
+  char *compiledFilename;
   if (compileFromFile) {
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
