@@ -37,7 +37,8 @@ int main() {
   free(compiledFilename);
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
-  // Prepare the execution session.
+
+  // Prepare the execution session and get input signature.
   onnx_mlir::ExecutionSession *session;
   try {
     session = new onnx_mlir::ExecutionSession(libFilename);
@@ -52,12 +53,12 @@ int main() {
   } catch (const std::runtime_error &error) {
     std::cerr << "error while loading input signature: " << error.what()
               << std::endl;
-    return 3;
+    return 4;
   }
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
 
-  // Shared shape & rank.
+  // Build the inputs, starts with shared shape & rank.
   int64_t shape[] = {3, 2};
   int64_t rank = 2;
   // Construct x1 omt filled with 1.
@@ -69,13 +70,14 @@ int main() {
   // Construct a list of omts as input.
   OMTensor *list[2] = {x1, x2};
   OMTensorList *input = omTensorListCreate(list, 2);
+
   // Call the compiled onnx model function.
   OMTensorList *outputList;
   try {
     outputList = session->run(input);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running model: " << error.what() << std::endl;
-    return 3;
+    return 5;
   }
 
   // Get the first omt as output.
@@ -87,7 +89,7 @@ int main() {
     if (outputPtr[i] != 3.0) {
       std::cerr << "Iteration " << i << ": expected 3.0, got " << outputPtr[i]
                 << "." << std::endl;
-      return 3;
+      return 6;
     }
   }
   delete session;

@@ -91,14 +91,16 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
  *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value
  *  by calling this function after one of the above 3 setter functions.
  *  @param kind Describe which option kind is being set.
- *  @param val Value of the option being set. Empty string reset the
- *  option. Setting TargetAccel is different. When passing a valid
- *  accelerator, it is added to the list of target accelerators unless
- *  val="RESET", in which case the list is cleared.
- *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
+ *  @param val Value of the option being set.
+ *  @return 0 on success or OnnxMlirCompilerErrorCodes error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
     const OptionKind kind, const char *val);
+
+/*!
+ *  Clear the compiler option defined by the input parameter.
+ */
+ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
 
 /*!
  *  Get the compiler options.
@@ -114,7 +116,7 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *  runtimes / jar files. If these libraries / jar files are not in the system
  *  wide directory (typically /usr/local/lib), the user can override the default
  *  location using the ONNX_MLIR_RUNTIME_DIR environment variable.
- *  
+ *
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
  *  @param outputBaseName File name without extension to write output.
@@ -137,7 +139,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  runtimes / jar files. If these libraries / jar files are not in the system
  *  wide directory (typically /usr/local/lib), the user can override the default
  *  location using the ONNX_MLIR_RUNTIME_DIR environment variable.
- * 
+ *
  *  @param inputBuffer ONNX protobuf array.
  *  @param bufferSize Size of ONNX protobuf array.
  *  @param outputBaseName File name without extension to write output.
