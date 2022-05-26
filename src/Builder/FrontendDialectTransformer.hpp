@@ -61,20 +61,22 @@ struct ImportOptions {
  *  Import an ONNX model array into the ONNX Dialect.
  *  @param onnxBuffer buffer containing onnx model protobuf.
  *  @param bufferSize size of buffer containing onnx model protobuf.
- *  @return MLIR::module generated for the ONNX model.
+ *  @param MLIR::module generated for the ONNX model.
+ *  @return 0 on success, error number of failure.
  */
-void ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
+int ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
-    ImportOptions options = ImportOptions());
+    std::string *errorMessage, ImportOptions options = ImportOptions());
 
 /*!
  *  Import an ONNX model file into the ONNX Dialect.
  *  @param model_fname file name pointing to the onnx model protobuf.
- *  @return MLIR::module generated for the ONNX model.
+ *  @param MLIR::module generated for the ONNX model.
+ *  @return 0 on success, error number of failure.
  */
-void ImportFrontendModelFile(std::string model_fname,
-    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string *errorMessage, ImportOptions options = ImportOptions());
+int ImportFrontendModelFile(std::string model_fname, mlir::MLIRContext &context,
+    mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage,
+    ImportOptions options = ImportOptions());
 
 /*!
  *  Import an ONNX model proto into the ONNX Dialect.

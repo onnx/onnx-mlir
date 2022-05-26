@@ -17,14 +17,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
-  return !success; // Returns zero on success, nonzero on failure.
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgs\n");
-  return !success; // success result in 0, failure result in nonzero (1 here).
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
@@ -32,7 +32,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgsAndEnv\n", nullptr, name);
-  return !success; // success result in 0, failure result in nonzero (1 here).
+  return success ? NoCompilerError : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
@@ -56,11 +56,13 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   mlir::MLIRContext context;
   registerDialects(context);
 
-  std::string error_message;
-  processInputFile(std::string(inputFilename), context, module, &error_message);
-  if (errorMessage != NULL) {
-    *errorMessage = error_message.c_str();
-    return 1;
+  std::string internalErrorMessage;
+  int rc = processInputFile(
+      std::string(inputFilename), context, module, &internalErrorMessage);
+  if (rc != NoCompilerError) {
+    if (errorMessage != NULL)
+      *errorMessage = strdup(internalErrorMessage.c_str());
+    return rc;
   }
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
@@ -72,7 +74,14 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   mlir::MLIRContext context;
   registerDialects(context);
 
-  processInputArray(inputBuffer, bufferSize, context, module);
+  std::string internalErrorMessage;
+  int rc = processInputArray(
+      inputBuffer, bufferSize, context, module, &internalErrorMessage);
+  if (rc != NoCompilerError) {
+    if (errorMessage != NULL)
+      *errorMessage = strdup(internalErrorMessage.c_str());
+    return rc;
+  }
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
