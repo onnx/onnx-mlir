@@ -383,9 +383,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::TargetAccel:
     clearTargetAccel();
     break;
-  case OptionKind::CompilerOptLevel: {
+  case OptionKind::CompilerOptLevel:
     clearOptLevel();
-  } break;
+    break;
   case OptionKind::OPTFlag:
     clearXoptOption();
     break;
