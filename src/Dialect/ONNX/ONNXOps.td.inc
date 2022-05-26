@@ -2469,6 +2469,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 
 def ONNXLessOp:ONNX_Op<"Less",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Less operation";
   let description = [{
   "Returns the tensor resulted from performing the `less` logical operation"
@@ -2597,6 +2598,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 
 def ONNXLoopOp:ONNX_Op<"Loop",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Loop operation";
   let description = [{
   "Generic Looping construct. This loop has multiple termination conditions:"
@@ -3116,6 +3118,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 
 def ONNXMulOp:ONNX_Op<"Mul",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
   "Performs element-wise binary multiplication (with Numpy-style broadcasting support)."

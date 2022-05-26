@@ -307,12 +307,12 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     break;
   case OptionKind::TargetAccel:
     if (setTargetAccel(val) != 0)
-      return 1;
+      return InvalidCompilerOption;
     break;
   case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
     if (level < 0 || level > 3)
-      return 1;
+      return InvalidCompilerOption;
     setOptLevel((OptLevel)level);
   } break;
   case OptionKind::OPTFlag:
@@ -326,7 +326,7 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     break;
     // Ignore options that were added but are unknown.
   }
-  return 0;
+  return NoCompilerError;
 }
 
 std::string getCompilerOption(const OptionKind kind) {
@@ -354,10 +354,10 @@ std::string getCompilerOption(const OptionKind kind) {
 int setCompilerOptions(const CompilerOptionList &list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
-    if (rc != 0)
+    if (rc != NoCompilerError)
       return rc;
   }
-  return 0;
+  return NoCompilerError;
 }
 
 // Get the string vector associated with the specified key
