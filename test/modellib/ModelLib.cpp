@@ -20,12 +20,6 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -72,38 +66,18 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
   std::string sharedLibName = getSharedLibName(sharedLibBaseName);
-
-#ifdef _WIN32
-  const std::wstring ws(sharedLibName.begin(), sharedLibName.end());
-  HMODULE handle = LoadLibrary(ws.c_str());
-  if (handle == NULL) {
+  llvm::sys::DynamicLibrary sharedLibraryHandle =
+      llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibName.c_str());
+  if (!sharedLibraryHandle.isValid()) {
     printf("Can not open %s\n", sharedLibName.c_str());
     return false;
   }
-  typedef void (*FUNC)();
-  FUNC addr = (FUNC)GetProcAddress(handle, instructionName.c_str());
-  if (addr == NULL) {
+  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  if (!addr) {
     printf("%s not found in %s.\n", instructionName.c_str(),
         sharedLibName.c_str());
     return false;
   }
-  FreeLibrary(handle);
-#else
-  void *handle;
-  handle = dlopen(sharedLibName.c_str(), RTLD_LAZY);
-  if (handle == NULL) {
-    printf("%s\n", dlerror());
-    return false;
-  }
-  int *dptr;
-  dptr = (int *)dlsym(handle, instructionName.c_str());
-  if (dptr == NULL) {
-    printf("%s\n", dlerror());
-    dlclose(handle);
-    return false;
-  }
-  dlclose(handle);
-#endif
   return true;
 }
 
