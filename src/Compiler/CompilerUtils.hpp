@@ -65,31 +65,3 @@ int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
 std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target);
 } // namespace onnx_mlir
-
-#if 0
-// =============================================================================
-// Functions below are actually only used in CompilerUtils.cpp
-// =============================================================================
-
-void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<mlir::ModuleOp> &module);
-
-int compileModuleToObject(const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputNameNoExt, std::string &objectNameWithExt);
-int compileModuleToSharedLibrary(
-    const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputNameNoExt, std::string &libNameWithExt);
-int compileModuleToJniJar(const mlir::OwningOpRef<mlir::ModuleOp> &module,
-    std::string outputNameNoExt);
-
-// The following functions return 0 on success, error code on error.
-int emitOutputFiles(std::string outputNameNoExt,
-    onnx_mlir::EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-    mlir::OwningOpRef<mlir::ModuleOp> &module);
-int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputNameNoExt,
-    mlir::PassManager &pm, onnx_mlir::EmissionTargetType emissionTarget);
-int setupModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputNameNoExt);
-
-#endif

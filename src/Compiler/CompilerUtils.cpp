@@ -256,7 +256,7 @@ namespace onnx_mlir {
 // =============================================================================
 // Methods for compiling and file processing.
 
-void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -541,7 +541,7 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
+static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string outputNameWithoutExt, std::string &objectNameWithExt) {
   std::string bitcodeNameWithExt = outputNameWithoutExt + ".bc";
   int rc = genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt);
@@ -554,7 +554,7 @@ int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-int compileModuleToSharedLibrary(const mlir::OwningOpRef<ModuleOp> &module,
+static int compileModuleToSharedLibrary(const mlir::OwningOpRef<ModuleOp> &module,
     std::string outputNameNoExt, std::string &libNameWithExt) {
   std::string modelObjNameWithExt;
   int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
@@ -568,7 +568,7 @@ int compileModuleToSharedLibrary(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-int compileModuleToJniJar(
+static int compileModuleToJniJar(
     const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt) {
   std::string modelObjNameWithExt;
   int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
@@ -685,7 +685,7 @@ int outputCode(
 }
 
 // Return 0 on success, error code on failure.
-int emitOutputFiles(std::string outputNameNoExt,
+static int emitOutputFiles(std::string outputNameNoExt,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
@@ -834,7 +834,7 @@ static std::string getDataLayout(const Location &loc) {
 }
 
 // Return 0 on success, error code on failure.
-int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
+static int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputNameNoExt) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
@@ -872,7 +872,7 @@ int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
   return CompilerSuccess;
 }
 
-int emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
+static int emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputNameNoExt, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   if (printIR) {
