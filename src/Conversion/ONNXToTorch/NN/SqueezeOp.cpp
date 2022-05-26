@@ -35,7 +35,7 @@ std::vector<int> toUniqueAndNonNegative(std::vector<int> axes) {
   return axesNonNeg;
 }
 
-std::vector<int> getSortedWithNegativeAxes(mlir::ArrayAttr axesRaw) {
+std::vector<int> getSortedWithNonNegativeAxes(mlir::ArrayAttr axesRaw) {
   auto axesVector = toVector(axesRaw);
   auto axesNonNegative = toUniqueAndNonNegative(axesVector);
   auto axesSorted = axesNonNegative;
@@ -49,11 +49,11 @@ std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
   auto builder = mlir::Builder(squeezeOp.getContext());
   auto axesConstOp = getONNXConstantOp(squeezeOp.axes());
   auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
-  return getSortedWithNegativeAxes(axesAttr);
+  return getSortedWithNonNegativeAxes(axesAttr);
 }
 
 std::vector<int> getAxes(ONNXSqueezeV11Op squeezeOp) {
-  return getSortedWithNegativeAxes(squeezeOp.axesAttr());
+  return getSortedWithNonNegativeAxes(squeezeOp.axesAttr());
 }
 
 mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
