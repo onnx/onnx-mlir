@@ -30,7 +30,8 @@ Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
 template <>
 Value getIdentityValue<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 // Scalar operations
@@ -131,8 +132,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     int64_t kernelSize = 1;
     for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize *= kernelShape[i];
-    denominator =
-        emitConstantOp(rewriter, loc, numerator.getType(), kernelSize);
+    denominator = create.math.constant(numerator.getType(), kernelSize);
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)

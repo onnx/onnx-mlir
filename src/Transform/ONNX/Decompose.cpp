@@ -129,7 +129,8 @@ namespace {
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
 struct DecomposeONNXToONNXPass
-    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<FuncOp>> {
+    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -142,12 +143,12 @@ struct DecomposeONNXToONNXPass
 };
 
 void DecomposeONNXToONNXPass::runOnOperation() {
-  FuncOp function = getOperation();
+  func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
-      StandardOpsDialect>();
+      func::FuncDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
