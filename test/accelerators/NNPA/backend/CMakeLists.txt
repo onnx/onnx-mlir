@@ -81,17 +81,6 @@ else()
   set(BACKEND_TEST_ARGS "")
 endif()
 
-set(LD_PRELOADS $<TARGET_FILE:cruntime>)
-
-get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
-set(LIBSTDCXX_LIB "${CXX_BIN_DIR}/../lib64/libstdc++.so")
-if (EXISTS ${LIBSTDCXX_LIB})
-  set(LD_PRELOADS ${LIBSTDCXX_LIB}:${LD_PRELOADS})
-endif()
-
-set(ZDNN_LIBRARY_DIR $ENV{ZDNN_LIBRARY_DIR})
-set(ZDNN_LIB "${ZDNN_LIBRARY_DIR}/libzdnn.so")
-
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
 # Only test cases including operations supported by zDNN are listed.
 set(TEST_ABS "test_abs_cpu")
@@ -127,7 +116,7 @@ set(TEST_MODELS "test_inception_v1_cpu test_resnet50_cpu test_shufflenet_cpu tes
 
 set(NNPA_TESTS "${TEST_ABS} ${TEST_ADD} ${TEST_AVGPOOL} ${TEST_BNORM} ${TEST_CONV} ${TEST_DIV} ${TEST_EXP} ${TEST_GEMM} ${TEST_GAVGPOOL} ${TEST_GRU} ${TEST_LOG} ${TEST_LOGSOFTMAX} ${TEST_LSTM} ${TEST_MATMUL} ${TEST_MAX} ${TEST_MAXPOOL} ${TEST_MIN} ${TEST_MUL} ${TEST_REDUCEMEAN} ${TEST_RELU} ${TEST_SOFTMAX} ${TEST_SUB} ${TEST_SUM} ${TEST_MODELS}")
 
-set(NNPA_TESTS_ENVS TEST_MACCEL=NNPA TEST_CASE_BY_USER=${NNPA_TESTS} LD_PRELOAD=${ZDNN_LIB} TEST_ATOL=0.01 TEST_RTOL=0.05)
+set(NNPA_TESTS_ENVS TEST_MACCEL=NNPA TEST_CASE_BY_USER=${NNPA_TESTS} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
