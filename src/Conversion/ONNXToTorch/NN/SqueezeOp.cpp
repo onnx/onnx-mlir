@@ -12,8 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
+
 #include <cstdint>
 #include <set>
 #include <vector>
