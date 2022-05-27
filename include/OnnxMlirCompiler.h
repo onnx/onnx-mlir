@@ -91,14 +91,16 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
  *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value
  *  by calling this function after one of the above 3 setter functions.
  *  @param kind Describe which option kind is being set.
- *  @param val Value of the option being set. Empty string reset the
- *  option. Setting TargetAccel is different. When passing a valid
- *  accelerator, it is added to the list of target accelerators unless
- *  val="RESET", in which case the list is cleared.
+ *  @param val Value of the option being set.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
     const OptionKind kind, const char *val);
+
+/*!
+ *  Clear the compiler option defined by the input parameter.
+ */
+ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
 
 /*!
  *  Get the compiler options.
