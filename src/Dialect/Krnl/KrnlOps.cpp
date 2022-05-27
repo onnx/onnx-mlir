@@ -327,7 +327,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
 
   // Parse optimized loops:
-  SmallVector<OpAsmParser::OperandType, 4> optimizedLoopRefs;
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
   if (parser.parseOperandList(
           optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
       parser.resolveOperands(optimizedLoopRefs,
@@ -339,7 +339,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
       builder.getI64IntegerAttr(optimizedLoopRefs.size()));
 
   // Parse input loops and their lower and upper bounds.
-  SmallVector<OpAsmParser::OperandType, 4> inductionVarRefs;
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
   SmallVector<Attribute, 4> boundMaps;
 
   if (parser.parseKeyword("with") || parser.parseLParen())
@@ -417,7 +417,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
     parser.parseArrow();
 
     // Parse induction variable.
-    OpAsmParser::OperandType inductionVar;
+    OpAsmParser::UnresolvedOperand inductionVar;
     if (parser.parseRegionArgument(inductionVar) || parser.parseEqual())
       return failure();
     inductionVarRefs.emplace_back(inductionVar);
@@ -454,16 +454,6 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 }
 
 Region &KrnlIterateOp::getLoopBody() { return bodyRegion(); }
-
-LogicalResult KrnlIterateOp::moveOutOfLoop(ArrayRef<Operation *> ops) {
-  for (auto *op : ops)
-    op->moveBefore(*this);
-  return success();
-}
-
-bool KrnlIterateOp::isDefinedOutsideOfLoop(Value value) {
-  return !bodyRegion().isAncestor(value.getParentRegion());
-}
 
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of

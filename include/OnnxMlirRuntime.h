@@ -92,6 +92,10 @@
  *   OMTensorList *input = omTensorListCreate(list, 2);
  *   // Call the compiled onnx model function.
  *   OMTensorList *outputList = run_main_graph(input);
+ *   if (!outputList) {
+ *     // May inspect errno to get info about the error.
+ *     return 1;
+ *   }
  *   // Get the first omt as output.
  *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
  *   float *outputPtr = (float *)omTensorGetDataPtr(y);

@@ -58,11 +58,11 @@ struct ONNXSizeOpLowering : public ConversionPattern {
         allStaticDimensions = false;
     }
     // Accumulate the remaining dimensions that are unknown.
-    Value noElements = emitConstantOp(
-        rewriter, loc, memRefType.getElementType(), staticNumElement);
+    MathBuilder createMath(rewriter, loc);
+    Value noElements =
+        createMath.constant(memRefType.getElementType(), staticNumElement);
     if (!allStaticDimensions) {
       MemRefBuilder createMemRef(rewriter, loc);
-      MathBuilder createMath(createMemRef);
       for (size_t i = 0; i < dataShape.size(); i++) {
         if (dataShape[i] == -1) {
           Value index = createMemRef.dim(data, i);
