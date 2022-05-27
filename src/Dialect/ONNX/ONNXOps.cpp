@@ -3856,7 +3856,8 @@ LogicalResult ONNXBatchNormalizationOp::inferShapes(
 
 LogicalResult ONNXBitShiftOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForBroadcastingOps<ONNXBitShiftOp, ONNXBitShiftOpAdaptor>(*this);
+  return inferShapeForBroadcastingOps<ONNXBitShiftOp, ONNXBitShiftOpAdaptor>(
+      *this);
 }
 
 LogicalResult ONNXCeilOp::inferShapes(
