@@ -36,6 +36,10 @@ class HasRankOf<int rank> : Constraint<
   CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>
 >;
 
+def IsBiasNoneOr1D : Constraint<
+  CPred<"(($_self).getType().isa<NoneType>()) || (($_self).getType().isa<ShapedType>() && ($_self).getType().cast<ShapedType>().getRank() == 1)">
+>;
+
 class VariadicSizeIs<int N> : Constraint<
   CPred<"$0.size() == " # N>, "The variadic operand's size is N"
 >;
@@ -536,14 +540,15 @@ def normalizeONNXGemmTransBPattern : Pat<
   (addBenefit 1)
 >;
 
-def replaceONNXGemmBias1DPattern : Pat<
+
+def replaceONNXGemmBiasNoneOr1DPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $_, $_, $_, $_),
   (ZHighUnstickOp
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr)),
         (ZHighStickOp $c, (_1DLayoutAttr)))),
-  [(HasRankOf<1> $c)],
+  [(IsBiasNoneOr1D:$c)],
   (addBenefit 0)
 >;
 
