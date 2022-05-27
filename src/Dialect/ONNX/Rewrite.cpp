@@ -311,7 +311,7 @@ private:
     Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
-    // Counter is an block argument and updated at each iteration.
+    // Counter is a block argument and updated at each iteration.
     if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
       return std::make_pair(false, maxTripCountValue);
     // Step must be a constant inside the loop or an invariant argument.
@@ -349,7 +349,7 @@ private:
       int64_t lowerBound = getOneIntergerConstant(lbValue);
       int64_t upperBound = getOneIntergerConstant(ubValue);
       int64_t step = getOneIntergerConstant(stepValue);
-      if ((step <= 0) || (upperBound - lowerBound) <= 0)
+      if ((step <= 0) || (upperBound <= lowerBound))
         return std::make_pair(false, maxTripCountValue);
       int64_t derivedTripCount =
           ceil((1.0 * (upperBound - lowerBound)) / (1.0 * step));

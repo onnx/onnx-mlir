@@ -27,6 +27,9 @@ namespace onnx_mlir {
 //====-------------------------- ONNX Builder ---------------------------===//
 
 Value OnnxBuilder::add(Value A, Value B) const {
+  assert((A.getType().cast<ShapedType>().getElementType() ==
+             B.getType().cast<ShapedType>().getElementType()) &&
+         "A and B must have the same element type");
   return b.create<ONNXAddOp>(loc, A, B);
 }
 
@@ -49,6 +52,9 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {
+  assert((A.getType().cast<ShapedType>().getElementType() ==
+             B.getType().cast<ShapedType>().getElementType()) &&
+         "A and B must have the same element type");
   return b.create<ONNXDivOp>(loc, A, B);
 }
 
@@ -74,10 +80,21 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
 
 Value OnnxBuilder::min(ValueRange inputs) const {
   assert(inputs.size() >= 2 && "Expect at least two inputs");
-  return b.create<ONNXMinOp>(loc, inputs[0].getType(), inputs);
+  Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  assert(llvm::all_of(inputs, [elementType](Value v) {
+    return (v.getType().cast<ShapedType>().getElementType() == elementType);
+  }) && "All inputs must have the same element type");
+  Type outputType = inputs[0].getType();
+  for (uint64_t i = 1; i < inputs.size(); ++i)
+    outputType =
+        OpTrait::util::getBroadcastedType(outputType, inputs[i].getType());
+  return b.create<ONNXMinOp>(loc, outputType, inputs);
 }
 
 Value OnnxBuilder::mul(Value A, Value B) const {
+  assert((A.getType().cast<ShapedType>().getElementType() ==
+             B.getType().cast<ShapedType>().getElementType()) &&
+         "A and B must have the same element type");
   return b.create<ONNXMulOp>(loc, A, B);
 }
 
@@ -86,6 +103,9 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
 }
 
 Value OnnxBuilder::sub(Value A, Value B) const {
+  assert((A.getType().cast<ShapedType>().getElementType() ==
+             B.getType().cast<ShapedType>().getElementType()) &&
+         "A and B must have the same element type");
   return b.create<ONNXSubOp>(loc, A, B);
 }
 
