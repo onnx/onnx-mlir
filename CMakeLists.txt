@@ -38,12 +38,12 @@ if (MSVC)
 endif()
 
 # Enable ccache
-# LLVM_CCACHE_BUILD for consistency, but this currently has no effect
+# Set LLVM_CCACHE_BUILD for consistency, but this currently has no effect
 set(LLVM_CCACHE_BUILD ${ONNX_MLIR_CCACHE_BUILD})
-if(ONNX_MLIR_CCACHE_BUILD)
+if (ONNX_MLIR_CCACHE_BUILD)
   find_program(CCACHE_PROGRAM ccache)
-  if(CCACHE_PROGRAM)
-    if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+  if (CCACHE_PROGRAM)
+    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
       set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
       set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})     
     else()
