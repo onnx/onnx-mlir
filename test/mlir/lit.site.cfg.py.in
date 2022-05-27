@@ -8,8 +8,6 @@ config.targets_to_build = "@TARGETS_TO_BUILD@"
 config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
 config.onnx_mlir_obj_root = r"@ONNX_MLIR_BIN_ROOT@"
 
-config.onnx_mlir_vendor = r"@ONNX_MLIR_VENDOR@"
-
 config.enable_nnpa= 0x0@NNPA_LIT_ENABLED@
 
 # Support substitution of the tools_dir with user parameters. This is
