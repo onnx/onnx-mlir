@@ -41,8 +41,8 @@ bool isValidElementType(Value val) {
 /// detect whether the shapes are exactly the same or not. Hence, return false.
 /// Also, check the ranks of two tensors, they must be in range of (0, 4].
 bool haveSameStaticShape(Value value1, Value value2) {
-  auto valueType1 = value1.getType().cast<ShapedType>();
-  auto valueType2 = value2.getType().cast<ShapedType>();
+  ShapedType valueType1 = value1.getType().cast<ShapedType>();
+  ShapedType valueType2 = value2.getType().cast<ShapedType>();
   if (!valueType1.hasRank() || !valueType2.hasRank())
     return false;
   // Different rank, return false.
@@ -362,7 +362,7 @@ template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  auto inputType = op.getType().cast<ShapedType>();
+  ShapedType inputType = op.getType().cast<ShapedType>();
   return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
          (inputType.getRank() == 2);
 }
@@ -372,7 +372,7 @@ template <>
 bool isSuitableForZDNN<ONNXReluOp>(ONNXReluOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  auto xType = op.X().getType().cast<ShapedType>();
+  ShapedType xType = op.X().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
 }
 
@@ -381,7 +381,7 @@ template <>
 bool isSuitableForZDNN<ONNXTanhOp>(ONNXTanhOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  auto inputType = op.getType().cast<ShapedType>();
+  ShapedType inputType = op.getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
@@ -390,7 +390,7 @@ template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(ONNXSigmoidOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  auto xType = op.X().getType().cast<ShapedType>();
+  ShapedType xType = op.X().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
 }
 
@@ -399,7 +399,7 @@ template <>
 bool isSuitableForZDNN<ONNXLogOp>(ONNXLogOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  auto inputType = op.input().getType().cast<ShapedType>();
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
@@ -408,7 +408,7 @@ template <>
 bool isSuitableForZDNN<ONNXExpOp>(ONNXExpOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  auto inputType = op.input().getType().cast<ShapedType>();
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
