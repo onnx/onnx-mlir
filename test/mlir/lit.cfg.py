@@ -24,9 +24,6 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.onnx_mlir_obj_root, 'test', 'mlir')
 
-if config.onnx_mlir_vendor != '':
-    config.available_features.add('onnx-mlir-vendor')
-
 llvm_config.use_default_substitutions()
 
 # Tweak the PATH to include the tools dir.
