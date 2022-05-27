@@ -33,11 +33,16 @@ def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 def IsNotNoneType : Constraint<CPred<"(!($_self).getType().isa<NoneType>())">>;
 
 class HasRankOf<int rank> : Constraint<
-  CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>
+  CPred<"$0.getType().isa<ShapedType>() && "
+        "$0.getType().cast<ShapedType>().hasRank() && "
+        "$0.getType().cast<ShapedType>().getRank() == " # rank>
 >;
 
 def IsBiasNoneOr1D : Constraint<
-  CPred<"(($_self).getType().isa<NoneType>()) || (($_self).getType().isa<ShapedType>() && ($_self).getType().cast<ShapedType>().getRank() == 1)">
+  CPred<"$_self.getType().isa<NoneType>() || "
+        " ($_self.getType().isa<ShapedType>() && "
+	"  $_self.getType().cast<ShapedType>().hasRank() && "
+	"  $_self.getType().cast<ShapedType>().getRank() == 1)">
 >;
 
 class VariadicSizeIs<int N> : Constraint<
