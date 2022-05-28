@@ -35,8 +35,8 @@ std::string getLLVMRevision();
 /// Retrieves the full repository version that is an amalgamation of
 /// the information in getOnnxMlirRepositoryPath() and  getOnnxMlirRevision().
 /// And getLLVMRepositoryPath() and getLLVMRevision() if \p
-/// ToIncludeLLVM.
-std::string getOnnxMlirFullRepositoryVersion(bool ToIncludeLLVM);
+/// toIncludeLLVM.
+std::string getOnnxMlirFullRepositoryVersion(bool toIncludeLLVM);
 
 /// Retrieves the full repository version that is an amalgamation of
 /// the information in getLLVMRepositoryPath() and getLLVMRevision().
@@ -45,8 +45,8 @@ std::string getLLVMFullRepositoryVersion();
 /// Retrieves a string representing the complete onnx-mlir version,
 /// which includes the onnx-mlir version number, the repository version,
 /// and the vendor tag. And LLVM repository version and vendor tag if \p
-/// ToIncludeLLVM.
-std::string getOnnxMlirFullVersion(bool ToIncludeLLVM = true);
+/// toIncludeLLVM.
+std::string getOnnxMlirFullVersion(bool toIncludeLLVM = true);
 
 /// Defines a version printer used to print out the version when –version is
 /// given on the command line.

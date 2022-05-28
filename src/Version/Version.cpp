@@ -51,7 +51,7 @@ std::string getLLVMRevision() {
 #endif
 }
 
-std::string getOnnxMlirFullRepositoryVersion(bool ToIncludeLLVM) {
+std::string getOnnxMlirFullRepositoryVersion(bool toIncludeLLVM) {
   std::string buf;
   llvm::raw_string_ostream os(buf);
   std::string OnnxMlirPath = getOnnxMlirRepositoryPath();
@@ -60,7 +60,7 @@ std::string getOnnxMlirFullRepositoryVersion(bool ToIncludeLLVM) {
   std::string LLVMRevision = getLLVMRevision();
   if (!OnnxMlirPath.empty() && !OnnxMlirRevision.empty()) {
     os << '(' << OnnxMlirPath << ' ' << OnnxMlirRevision;
-    if (ToIncludeLLVM && !LLVMPath.empty() && !LLVMRevision.empty())
+    if (toIncludeLLVM && !LLVMPath.empty() && !LLVMRevision.empty())
       os << ", " << LLVMPath << ' ' << LLVMRevision;
     os << ')';
   }
@@ -77,7 +77,7 @@ std::string getLLVMFullRepositoryVersion() {
   return buf;
 }
 
-std::string getOnnxMlirFullVersion(bool ToIncludeLLVM) {
+std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
   std::string buf;
   llvm::raw_string_ostream os(buf);
 #ifdef ONNX_MLIR_VENDOR
@@ -85,7 +85,7 @@ std::string getOnnxMlirFullVersion(bool ToIncludeLLVM) {
 #endif
   os << "onnx-mlir version " ONNX_MLIR_VERSION;
   os << ", onnx version " ONNX_VERSION;
-  std::string repo = getOnnxMlirFullRepositoryVersion(ToIncludeLLVM);
+  std::string repo = getOnnxMlirFullRepositoryVersion(toIncludeLLVM);
   if (!repo.empty()) {
     os << " " << repo;
   }
@@ -97,27 +97,29 @@ std::string getOnnxMlirFullVersion(bool ToIncludeLLVM) {
 // GCC and GCC-compatible compilers define __OPTIMIZE__ when optimizations are
 // enabled.
 #if defined(__OPTIMIZE__)
-#define LLVM_IS_DEBUG_BUILD 0
+#define ONNX_MLIR_IS_DEBUG_BUILD 0
 #else
-#define LLVM_IS_DEBUG_BUILD 1
+#define ONNX_MLIR_IS_DEBUG_BUILD 1
 #endif
 #elif defined(_MSC_VER)
 // MSVC doesn't have a predefined macro indicating if optimizations are enabled.
 // Use _DEBUG instead. This macro actually corresponds to the choice between
 // debug and release CRTs, but it is a reasonable proxy.
 #if defined(_DEBUG)
-#define LLVM_IS_DEBUG_BUILD 1
+#define ONNX_MLIR_IS_DEBUG_BUILD 1
 #else
-#define LLVM_IS_DEBUG_BUILD 0
+#define ONNX_MLIR_IS_DEBUG_BUILD 0
 #endif
 #else
 // Otherwise, for an unknown compiler, assume this is an optimized build.
-#define LLVM_IS_DEBUG_BUILD 0
+#define ONNX_MLIR_IS_DEBUG_BUILD 0
 #endif
 
 void getVersionPrinter(llvm::raw_ostream &os) {
   os << getOnnxMlirFullVersion(false) << "\n";
-#if LLVM_IS_DEBUG_BUILD
+  os << "  LLVM version " << LLVM_PACKAGE_VERSION << ' '
+     << getLLVMFullRepositoryVersion() << '\n';
+#if ONNX_MLIR_IS_DEBUG_BUILD
   os << "  DEBUG build";
 #else
   os << "  Optimized build";
@@ -131,8 +133,6 @@ void getVersionPrinter(llvm::raw_ostream &os) {
   os << ".\n";
   os << "  Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
      << "  Host CPU: " << CPU << '\n';
-  os << "  LLVM version " << LLVM_PACKAGE_VERSION << ' '
-     << getLLVMFullRepositoryVersion() << '\n';
 }
 
 } // namespace onnx_mlir

@@ -53,6 +53,14 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
+add_onnx_mlir_library(OMVersion
+  Version.cpp
+  ${version_inc}
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
+)
+
 if (NOT DEFINED ONNX_MLIR_VERSION)
   set(ONNX_MLIR_VERSION "0.3.0")
 endif()
@@ -65,12 +73,4 @@ if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR }\"")
 endif()
 list(APPEND DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
-set_property(SOURCE Version.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
-
-add_onnx_mlir_library(OMVersion
-  Version.cpp
-  ${version_inc}
-
-  LINK_LIBS PUBLIC
-    LLVMSupport
-)
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
