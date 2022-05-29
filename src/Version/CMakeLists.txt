@@ -66,12 +66,13 @@ if (NOT DEFINED ONNX_MLIR_VERSION)
 endif()
 list(APPEND DEFINITIONS "ONNX_MLIR_VERSION=\"${ONNX_MLIR_VERSION}\"")
 execute_process(
-  COMMAND git tag --points-at HEAD
+  COMMAND cat VERSION_NUMBER
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/onnx
   OUTPUT_VARIABLE ONNX_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 if ("${ONNX_VERSION}" STREQUAL "")
+  message(STATUS "CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR}")
   message(WARNING "third_party/onnx version not detected, you may be on the wrong commit hash")
 else()
   # Strip leading "v"
