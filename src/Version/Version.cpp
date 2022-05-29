@@ -84,7 +84,9 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
   os << ONNX_MLIR_VENDOR;
 #endif
   os << "onnx-mlir version " ONNX_MLIR_VERSION;
+#ifdef ONNX_VERSION
   os << ", onnx version " ONNX_VERSION;
+#endif
   std::string repo = getOnnxMlirFullRepositoryVersion(toIncludeLLVM);
   if (!repo.empty()) {
     os << " " << repo;

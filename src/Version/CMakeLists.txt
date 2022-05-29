@@ -65,10 +65,20 @@ if (NOT DEFINED ONNX_MLIR_VERSION)
   set(ONNX_MLIR_VERSION "0.3.0")
 endif()
 list(APPEND DEFINITIONS "ONNX_MLIR_VERSION=\"${ONNX_MLIR_VERSION}\"")
-if (NOT DEFINED ONNX_VERSION)
-  set(ONNX_VERSION "1.11.0")
+execute_process(
+  COMMAND git tag --points-at HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/onnx
+  OUTPUT_VARIABLE ONNX_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+if ("${ONNX_VERSION}" STREQUAL "")
+  message(WARNING "third_party/onnx version not detected, you may be on the wrong commit hash")
+else()
+  # Strip leading "v"
+  STRING(REGEX REPLACE "^v" "" ONNX_VERSION ${ONNX_VERSION})
+  message(STATUS "Onnx version             : ${ONNX_VERSION}")
+  list(APPEND DEFINITIONS "ONNX_VERSION=\"${ONNX_VERSION}\"")
 endif()
-list(APPEND DEFINITIONS "ONNX_VERSION=\"${ONNX_VERSION}\"")
 if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR }\"")
 endif()
