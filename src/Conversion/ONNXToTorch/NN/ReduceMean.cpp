@@ -58,7 +58,6 @@ public:
                   ConversionPatternRewriter &rewriter) const final {
 
     ONNXReduceMeanOp reduceMean = llvm::dyn_cast_or_null<ONNXReduceMeanOp>(op);
-
     assert(reduceMean && "Expecting op to have a strong type");
 
     // **TODO**: reduceMean.axes is not being used currently. Probably use
@@ -68,7 +67,8 @@ public:
     Location loc = reduceMean.getLoc();
 
     auto axis = mlir::extractFromI64ArrayAttr(reduceMean.axesAttr());
-    assert(axis.size() == 2 && axis[0] == 2 && axis[1] == 3 && "Not implemented yet for general axis sizes");
+    if(!(axis.size() == 2 && axis[0] == 2 && axis[1] == 3))
+      op->emitError("Not implemented yet for general axis sizes");
 
     auto keepDims = reduceMean.keepdimsAttr(); // ::mlir::IntegerAttr
 
