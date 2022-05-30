@@ -20,12 +20,12 @@
  * ONNX Gemm operation
 
  * “General Matrix multiplication:” “https://en.wikipedia.org/wiki/
- * Basic_Linear_Algebra_Subprograms#Level_3” “” “A’ = transpose(A) if
- * transA else A” “” “B’ = transpose(B) if transB else B” “” “Compute
- * Y = alpha * A’ * B’ + beta * C, where input tensor A has shape (M, K)
- * or (K, M),” “input tensor B has shape (K, N) or (N, K), input tensor C
- * is broadcastable to shape (M, N),” “and output tensor Y has shape (M, N).
- * A will be transposed before doing the” “computation if attribute transA
+ * Basic_Linear_Algebra_Subprograms#Level_3 A' = transpose(A) if
+ * transA else A' B' = transpose(B) if transB else B'. Compute
+ * Y = alpha * A' * B' + beta * C, where input tensor A has shape (M, K)
+ * or (K, M), input tensor B has shape (K, N) or (N, K), input tensor C
+ * is broadcastable to shape (M, N), and output tensor Y has shape (M, N).
+ * A will be transposed before doing the computation if attribute transA
  * is non-zero, same for B and transB.
  *
  * Attributes:
@@ -96,7 +96,9 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     ONNXGemmOp gemmOp = llvm::dyn_cast_or_null<ONNXGemmOp>(op);
-    assert(gemmOp && "Expecting op to have a strong type");
+
+    if(!gemmOp)
+      return op->emitError("Expecting op to have a strong type");
 
     auto loc = gemmOp.getLoc();
     mlir::MLIRContext *context = gemmOp.getContext();
@@ -122,8 +124,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
-    assert((getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2) &&
-           "Checking input dimensions");
+    if(!(getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2))
+      return op->emitError("Checking input dimensions");
 
     auto aShapedType = A.getType().dyn_cast<ShapedType>();
     auto bShapedType = B.getType().dyn_cast<ShapedType>();
@@ -148,8 +150,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
         (transB) ? rewriter.create<AtenTOp>(loc, transposeBType, bTensor)
                  : bTensor;
 
-    // Compute Y = alpha * A’ * B’ + beta * C
-    // Scalar multiplication with alpha(alpha * A’)
+    // Compute Y = alpha * A' * B' + beta * C
+    // Scalar multiplication with alpha(alpha * A')
     // and beta(beta * C) values.
     Value alphaMulResult = NULL, betaMulResult = NULL;
     if (alpha) {
@@ -164,16 +166,16 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
           rewriter.create<AtenMulScalarOp>(loc, cType, cTensor, beta3v);
     }
 
-    // Bmm Operation ((alpha * A’) * B’)
+    // Bmm Operation ((alpha * A') * B')
     Value bmmValue;
     if (alphaMulResult)
-      bmmValue = rewriter.create<AtenBmmOp>(loc, resultType, alphaMulResult,
+      bmmValue = rewriter.create<AtenMmOp>(loc, resultType, alphaMulResult,
                                             transposeBVal);
     else
-      bmmValue = rewriter.create<AtenBmmOp>(loc, resultType, transposeAVal,
+      bmmValue = rewriter.create<AtenMmOp>(loc, resultType, transposeAVal,
                                             transposeBVal);
 
-    // Addition ((alpha * A’ * B’) + (beta * C))
+    // Addition ((alpha * A' * B') + (beta * C))
     Value result;
     if (betaMulResult)
       result = rewriter.create<AtenAddTensorOp>(loc, resultType, bmmValue,
