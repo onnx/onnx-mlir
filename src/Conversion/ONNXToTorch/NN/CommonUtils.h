@@ -58,6 +58,6 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
                                         int default_val = 0);
 Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t);
 mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
-                           mlir::MLIRContext *context, Location loc);
+    mlir::MLIRContext *context, Location loc);
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc);
