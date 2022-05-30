@@ -2,13 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- SqrtOp.cpp - ONNX Op Transform ------------------===//
+//===------- SqueezeOp.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2022, Helprack LLC.
 //
 // =============================================================================
 //
-// This file lowers most unary operators from torch to onnx using a template
+// This file lowers squeeze operator from onnx to torch using a template for
+// v11 and v13.
 //
 //===----------------------------------------------------------------------===//
 
