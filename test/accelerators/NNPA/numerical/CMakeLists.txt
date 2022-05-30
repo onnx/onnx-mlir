@@ -38,7 +38,7 @@ function(add_numerical_unittest test_name check_instruction)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;TEST_CHECK_INSTRUCTION=${check_instruction}")
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;${test_name}_INSTRUCTION=${check_instruction}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -52,29 +52,29 @@ llvm_update_compile_flags(rapidcheck)
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
 # TODO: Support tests for Conv
-# add_numerical_unittest(TestConv-NNPA
+# add_numerical_unittest(TestConvNNPA
 #   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
 #   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
 #   )
 
-add_numerical_unittest(TestMatMul2D-NNPA zdnn_matmul_op
+add_numerical_unittest(TestMatMul2DNNPA zdnn_matmul_op
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemm-NNPA zdnn_matmul_op
+add_numerical_unittest(TestGemmNNPA zdnn_matmul_op
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
-  DEFINE PRIVATE TEST_ALPHA_BETA_1
+  DEFINE PRIVATE TEST_GEMM_ALPHA_BETA_1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLSTM-NNPA zdnn_lstm
+add_numerical_unittest(TestLSTMNNPA zdnn_lstm
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-  DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_NONEP_ONLY
+  DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_LSTM_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGRU-NNPA zdnn_gru
+add_numerical_unittest(TestGRUNNPA zdnn_gru
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_GRU_L1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}

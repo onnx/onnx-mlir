@@ -54,11 +54,11 @@ bool ModelLibBuilder::compileAndLoad(
   return compileAndLoad();
 }
 
-bool ModelLibBuilder::checkInstructionFromEnv() {
-  std::string instructionName =
-      getenv("TEST_CHECK_INSTRUCTION") ? getenv("TEST_CHECK_INSTRUCTION") : "";
-  if (instructionName.empty())
-    return true;
+bool ModelLibBuilder::checkInstructionFromEnv(
+    const std::string envCheckInstruction) {
+  std::string instructionName = getenv(envCheckInstruction.c_str())
+                                    ? getenv(envCheckInstruction.c_str())
+                                    : "";
   return checkInstruction(instructionName);
 }
 

@@ -33,8 +33,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   return lstm.build() && lstm.compileAndLoad() &&
-         lstm.checkInstructionFromEnv() && lstm.prepareInputs() && lstm.run() &&
-         lstm.verifyOutputs();
+         lstm.checkInstructionFromEnv("TestLSTMNNPA_INSTRUCTION") &&
+         lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
 }
 
 } // namespace test
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     // Whether initial value of the cell(initial_c) is specified.
     const auto isNoneC = *rc::gen::element(0, 1);
     // Whether the weight tensor for peepholes(P) is specified.
-#ifdef TEST_NONEP_ONLY
+#ifdef TEST_LSTM_NONEP_ONLY
     const auto isNoneP = 1;
 #else
     const auto isNoneP = *rc::gen::element(0, 1);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
 
-#ifdef TEST_NONEP_ONLY
+#ifdef TEST_LSTM_NONEP_ONLY
   int min_nonep = 1;
 #else
   int min_nonep = 0;

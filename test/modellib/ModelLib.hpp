@@ -87,11 +87,12 @@ public:
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
   // Check whether a particular instruction extracted from environment variable
-  // "TEST_CHECK_INSTRUCTION" is included in the dynamic library file name
+  // specified in the argument is included in the dynamic library file name
   // compiled here. If not found, return false.
-  bool checkInstructionFromEnv();
-  // Check whether a particular instruction is included in the dynamic library
-  // file name compiled here. If not found, return false.
+  bool checkInstructionFromEnv(const std::string envCheckInstruction);
+  // Check whether a particular instruction specified in the argument is
+  // included in the dynamic library file name compiled here.
+  // If not found, return false.
   bool checkInstruction(const std::string instructionName);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.

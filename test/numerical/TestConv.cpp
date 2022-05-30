@@ -41,8 +41,8 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
       pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
   return conv.build() && conv.compileAndLoad() &&
-         conv.checkInstructionFromEnv() && conv.prepareInputs() && conv.run() &&
-         conv.verifyOutputs();
+         conv.checkInstructionFromEnv("TestConvNNPA_INSTRUCTION") &&
+         conv.prepareInputs() && conv.run() && conv.verifyOutputs();
 }
 
 } // namespace test

@@ -31,7 +31,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       isDynamicB);
   GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H,
       linearBeforeReset, isDynamicS, isDynamicB);
-  return gru.build() && gru.compileAndLoad() && gru.checkInstructionFromEnv() &&
+  return gru.build() && gru.compileAndLoad() &&
+         gru.checkInstructionFromEnv("TestGRUNNPA_INSTRUCTION") &&
          gru.prepareInputs() && gru.run() && gru.verifyOutputs();
 }
 

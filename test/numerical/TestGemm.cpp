@@ -62,8 +62,8 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
   return gemm.build() && gemm.compileAndLoad() &&
-         gemm.checkInstructionFromEnv() && gemm.prepareInputs() && gemm.run() &&
-         gemm.verifyOutputs();
+         gemm.checkInstructionFromEnv("TestGemmNNPA_INSTRUCTION") &&
+         gemm.prepareInputs() && gemm.run() && gemm.verifyOutputs();
 }
 
 } // namespace test
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
       const auto aTrans = *rc::gen::inRange(0, 2);
       const auto bTrans = *rc::gen::inRange(0, 2);
       const auto cRank = *rc::gen::inRange(1, 3);
-#ifdef TEST_ALPHA_BETA_1
+#ifdef TEST_GEMM_ALPHA_BETA_1
       float alpha = 1.0;
       float beta = 1.0;
 #else
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
   if (false) {
     // Was too slow on some machines, disable test.
     printf("\n\nIndividual test case generation (benchmarks).\n");
-#ifndef TEST_ALPHA_BETA_1
+#ifndef TEST_GEMM_ALPHA_BETA_1
     assert(isOMGemmTheSameAsNaiveImplFor(3, 5, 4, 0, 0, 2, 0.25, 0.35));
 #endif
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1, 1, 1.0, 1.0));
