@@ -54,6 +54,27 @@ bool ModelLibBuilder::compileAndLoad(
   return compileAndLoad();
 }
 
+bool ModelLibBuilder::checkInstructionFromEnv(
+    const std::string envCheckInstruction) {
+  std::string instructionName = getenv(envCheckInstruction.c_str())
+                                    ? getenv(envCheckInstruction.c_str())
+                                    : "";
+  return checkInstruction(instructionName);
+}
+
+bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+  if (instructionName.empty())
+    return true;
+  llvm::sys::DynamicLibrary sharedLibraryHandle =
+      exec->getSharedLibraryHandle();
+  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  if (!addr) {
+    printf("%s not found.\n", instructionName.c_str());
+    return false;
+  }
+  return true;
+}
+
 bool ModelLibBuilder::run() {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
