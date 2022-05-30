@@ -849,7 +849,7 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   pm.addNestedPass<FuncOp>(mlir::createCSEPass());
 
   // Remove unrealized conversion casts
-  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+  //pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
