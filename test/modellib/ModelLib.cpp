@@ -61,7 +61,7 @@ bool ModelLibBuilder::run() {
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs =  exec->run(inputs);
+    outputs = exec->run(inputs);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -117,9 +117,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 }
 
 void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getFunctionType();
-  auto entryPoint = ONNXEntryPointOp::create(
-      loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
+  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp);
   module.push_back(entryPoint);
 }
 
