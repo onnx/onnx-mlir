@@ -277,6 +277,10 @@ On supported platforms, currently s390x only, numerical tests can generate SIMD 
 TEST_ARGS="-mcpu=z14" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Release --target check-onnx-numerical
 ```
 
+### Testing of specific accelerators
+
+Currently we provide testing for accelerator NNPA. It is described [here](docs/AccelNNPAHowToUseAndTest.md).
+
 ## Use gdb
 ### Get source code for ONNX model
 When you compile an ONNX model, add option `--preserveMLIR`. A source code for the  model in MLIR format, named your_model_name.input.mlir,  will be created. The line information for operation will be attached and propagated all the way to binary.
