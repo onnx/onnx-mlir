@@ -84,173 +84,172 @@ endif()
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
 # Only test cases including operations supported by zDNN are listed.
 set(NNPA_TEST_LIST
-	# Abs
-        test_abs_cpu
-	# Add
-	test_add_cpu
-	test_add_bcast_cpu
-	# AveragePool
-	test_averagepool_1d_default_cpu
-	test_averagepool_2d_ceil_cpu
-	test_averagepool_2d_default_cpu
-	test_averagepool_2d_pads_count_include_pad_cpu
-	test_averagepool_2d_pads_cpu
-	test_averagepool_2d_precomputed_pads_count_include_pad_cpu
-	test_averagepool_2d_precomputed_pads_cpu
-	test_averagepool_2d_precomputed_same_upper_cpu
-	test_averagepool_2d_precomputed_strides_cpu
-	test_averagepool_2d_same_lower_cpu
-	test_averagepool_2d_same_upper_cpu
-	test_averagepool_2d_strides_cpu
-	test_averagepool_3d_default_cpu
-	# BatchNormalization (test mode)
-	test_batchnorm_epsilon_cpu
-	test_batchnorm_example_cpu
-	# Conv
-        # CONSTANT_INPUT for weight.
-	test_basic_conv_with_padding_cpu
-	test_basic_conv_without_padding_cpu
-	test_conv_with_autopad_same_cpu
-	test_conv_with_strides_no_padding_cpu
-	test_conv_with_strides_padding_cpu
-	test_conv_with_strides_and_asymmetric_padding_cpu
-	# Div
-	test_div_cpu test_div_bcast_cpu
-	test_div_example_cpu
-	# Exp
-        test_exp_cpu
-	test_exp_example_cpu
-	# Gemm
-        test_gemm_all_attributes_cpu
-	test_gemm_alpha_cpu
-	test_gemm_beta_cpu
-	test_gemm_default_matrix_bias_cpu
-	test_gemm_default_no_bias_cpu
-	test_gemm_default_scalar_bias_cpu
-	test_gemm_default_single_elem_vector_bias_cpu
-	test_gemm_default_vector_bias_cpu
-	test_gemm_default_zero_bias_cpu
-	test_gemm_transposeA_cpu
-	test_gemm_transposeB_cpu
-	# Global Average Pool
-	test_globalaveragepool_cpu
-	test_globalaveragepool_precomputed_cpu
-
-        test_globalmaxpool_cpu
-	test_globalmaxpool_precomputed_cpu
-        # GRU
-        # CONSTANT_INPUT for W and R.
-        test_gru_defaults_cpu
-	test_gru_seq_length_cpu
-	test_gru_with_initial_bias_cpu
-	# Log
-        test_log_example_cpu
-	test_log_cpu
-        # LogSoftmax accuracy error in test_logsoftmax_large_number_cpu
-        # test_logsoftmax_axis_0_cpu
-        # test_logsoftmax_axis_1_cpu
-        test_logsoftmax_axis_2_cpu
-	test_logsoftmax_example_1_cpu
-        # test_logsoftmax_default_axis_cpu
-	test_logsoftmax_negative_axis_cpu
-	# test_logsoftmax_large_number_cpu
-        # LSTM
-        # CONSTANT_INPUT for W and R.
-	test_lstm_defaults_cpu
-	test_lstm_with_initial_bias_cpu
-	test_lstm_with_peepholes_cpu
-        # Matmul
-        test_matmul_2d_cpu
-	test_matmul_3d_cpu
-	test_matmul_4d_cpu
-	# Max
-	test_max_example_cpu
-	test_max_one_input_cpu
-	test_max_two_inputs_cpu
-	# test_max_float16_cpu
-	test_max_float32_cpu
-	test_max_float64_cpu
-	test_max_int8_cpu
-	test_max_int16_cpu
-	test_max_int32_cpu
-	test_max_int64_cpu
-	# test_max_uint8_cpu
-        # test_max_uint16_cpu
-        # test_max_uint32_cpu
-        # test_max_uint64_cpu
-	# MaxPoolSigleOut
-        test_maxpool_1d_default_cpu
-	test_maxpool_2d_ceil_cpu
-	test_maxpool_2d_default_cpu
-	test_maxpool_2d_dilations_cpu
-	test_maxpool_2d_pads_cpu
-	test_maxpool_2d_precomputed_pads_cpu
-	test_maxpool_2d_precomputed_same_upper_cpu
-	test_maxpool_2d_precomputed_strides_cpu
-	test_maxpool_2d_same_lower_cpu
-	test_maxpool_2d_same_upper_cpu
-	test_maxpool_2d_strides_cpu
-	test_maxpool_3d_default_cpu
-	# Min
-	test_min_example_cpu
-	test_min_one_input_cpu
-	test_min_two_inputs_cpu
-	# test_min_float16_cpu
-	test_min_float32_cpu
-	test_min_float64_cpu
-	test_min_int8_cpu
-	test_min_int16_cpu
-	test_min_int32_cpu
-	test_min_int64_cpu
-        # test_min_uint8_cpu
-        # test_min_uint16_cpu
-        # test_min_uint32_cpu
-        # test_min_uint64_cpu
-	# Mul
-        test_mul_cpu
-	test_mul_bcast_cpu
-	test_mul_example_cpu
-        # ReduceMean
-        test_reduce_mean_default_axes_keepdims_example_cpu
-	test_reduce_mean_default_axes_keepdims_random_cpu
-	test_reduce_mean_do_not_keepdims_example_cpu
-	test_reduce_mean_do_not_keepdims_random_cpu
-	test_reduce_mean_keepdims_example_cpu
-	test_reduce_mean_keepdims_random_cpu
-	test_reduce_mean_negative_axes_keepdims_example_cpu
-	test_reduce_mean_negative_axes_keepdims_random_cpu
-	# Relu
-	test_relu_cpu
-	# Softmax  accuracy error : test_softmax_large_number_cpu
-        test_softmax_axis_0_cpu
-	test_softmax_axis_1_cpu
-	test_softmax_axis_2_cpu
-	test_softmax_default_axis_cpu
-	test_softmax_example_cpu
-	# test_softmax_large_number_cpu
-	# Sqrt
-	test_sqrt_cpu
-        test_sqrt_example_cpu
-	# Sub
-        test_sub_cpu
-	test_sub_bcast_cpu
-	test_sub_example_cpu
-	# Sum
-	test_sum_example_cpu
-	test_sum_one_input_cpu
-	test_sum_two_inputs_cpu
-	# Model test_densenet121_cpu: accurary error
-	# test_densenet121_cpu
-	test_inception_v1_cpu
-	test_resnet50_cpu
-	test_shufflenet_cpu
-	test_squeezenet_cpu
-	test_vgg19_cpu)
+    # Abs
+    test_abs_cpu
+    # Add
+    test_add_cpu
+    test_add_bcast_cpu
+    # AveragePool
+    test_averagepool_1d_default_cpu
+    test_averagepool_2d_ceil_cpu
+    test_averagepool_2d_default_cpu
+    test_averagepool_2d_pads_count_include_pad_cpu
+    test_averagepool_2d_pads_cpu
+    test_averagepool_2d_precomputed_pads_count_include_pad_cpu
+    test_averagepool_2d_precomputed_pads_cpu
+    test_averagepool_2d_precomputed_same_upper_cpu
+    test_averagepool_2d_precomputed_strides_cpu
+    test_averagepool_2d_same_lower_cpu
+    test_averagepool_2d_same_upper_cpu
+    test_averagepool_2d_strides_cpu
+    test_averagepool_3d_default_cpu
+    # BatchNormalization (test mode)
+    test_batchnorm_epsilon_cpu
+    test_batchnorm_example_cpu
+    # Conv
+    # CONSTANT_INPUT for weight.
+    test_basic_conv_with_padding_cpu
+    test_basic_conv_without_padding_cpu
+    test_conv_with_autopad_same_cpu
+    test_conv_with_strides_no_padding_cpu
+    test_conv_with_strides_padding_cpu
+    test_conv_with_strides_and_asymmetric_padding_cpu
+    # Div
+    test_div_cpu test_div_bcast_cpu
+    test_div_example_cpu
+    # Exp
+    test_exp_cpu
+    test_exp_example_cpu
+    # Gemm
+    test_gemm_all_attributes_cpu
+    test_gemm_alpha_cpu
+    test_gemm_beta_cpu
+    test_gemm_default_matrix_bias_cpu
+    test_gemm_default_no_bias_cpu
+    test_gemm_default_scalar_bias_cpu
+    test_gemm_default_single_elem_vector_bias_cpu
+    test_gemm_default_vector_bias_cpu
+    test_gemm_default_zero_bias_cpu
+    test_gemm_transposeA_cpu
+    test_gemm_transposeB_cpu
+    # Global Average Pool
+    test_globalaveragepool_cpu
+    test_globalaveragepool_precomputed_cpu
+    test_globalmaxpool_cpu
+    test_globalmaxpool_precomputed_cpu
+    # GRU
+    # CONSTANT_INPUT for W and R.
+    test_gru_defaults_cpu
+    test_gru_seq_length_cpu
+    test_gru_with_initial_bias_cpu
+    # Log
+    test_log_example_cpu
+    test_log_cpu
+    # LogSoftmax accuracy error in test_logsoftmax_large_number_cpu
+    # test_logsoftmax_axis_0_cpu
+    # test_logsoftmax_axis_1_cpu
+    test_logsoftmax_axis_2_cpu
+    test_logsoftmax_example_1_cpu
+    # test_logsoftmax_default_axis_cpu
+    test_logsoftmax_negative_axis_cpu
+    # test_logsoftmax_large_number_cpu
+    # LSTM
+    # CONSTANT_INPUT for W and R.
+    test_lstm_defaults_cpu
+    test_lstm_with_initial_bias_cpu
+    test_lstm_with_peepholes_cpu
+    # Matmul
+    test_matmul_2d_cpu
+    test_matmul_3d_cpu
+    test_matmul_4d_cpu
+    # Max
+    test_max_example_cpu
+    test_max_one_input_cpu
+    test_max_two_inputs_cpu
+    # test_max_float16_cpu
+    test_max_float32_cpu
+    test_max_float64_cpu
+    test_max_int8_cpu
+    test_max_int16_cpu
+    test_max_int32_cpu
+    test_max_int64_cpu
+    # test_max_uint8_cpu
+    # test_max_uint16_cpu
+    # test_max_uint32_cpu
+    # test_max_uint64_cpu
+    # MaxPoolSigleOut
+    test_maxpool_1d_default_cpu
+    test_maxpool_2d_ceil_cpu
+    test_maxpool_2d_default_cpu
+    test_maxpool_2d_dilations_cpu
+    test_maxpool_2d_pads_cpu
+    test_maxpool_2d_precomputed_pads_cpu
+    test_maxpool_2d_precomputed_same_upper_cpu
+    test_maxpool_2d_precomputed_strides_cpu
+    test_maxpool_2d_same_lower_cpu
+    test_maxpool_2d_same_upper_cpu
+    test_maxpool_2d_strides_cpu
+    test_maxpool_3d_default_cpu
+    # Min
+    test_min_example_cpu
+    test_min_one_input_cpu
+    test_min_two_inputs_cpu
+    # test_min_float16_cpu
+    test_min_float32_cpu
+    test_min_float64_cpu
+    test_min_int8_cpu
+    test_min_int16_cpu
+    test_min_int32_cpu
+    test_min_int64_cpu
+    # test_min_uint8_cpu
+    # test_min_uint16_cpu
+    # test_min_uint32_cpu
+    # test_min_uint64_cpu
+    # Mul
+    test_mul_cpu
+    test_mul_bcast_cpu
+    test_mul_example_cpu
+    # ReduceMean
+    test_reduce_mean_default_axes_keepdims_example_cpu
+    test_reduce_mean_default_axes_keepdims_random_cpu
+    test_reduce_mean_do_not_keepdims_example_cpu
+    test_reduce_mean_do_not_keepdims_random_cpu
+    test_reduce_mean_keepdims_example_cpu
+    test_reduce_mean_keepdims_random_cpu
+    test_reduce_mean_negative_axes_keepdims_example_cpu
+    test_reduce_mean_negative_axes_keepdims_random_cpu
+    # Relu
+    test_relu_cpu
+    # Softmax  accuracy error : test_softmax_large_number_cpu
+    test_softmax_axis_0_cpu
+    test_softmax_axis_1_cpu
+    test_softmax_axis_2_cpu
+    test_softmax_default_axis_cpu
+    test_softmax_example_cpu
+    # test_softmax_large_number_cpu
+    # Sqrt
+    test_sqrt_cpu
+    test_sqrt_example_cpu
+    # Sub
+    test_sub_cpu
+    test_sub_bcast_cpu
+    test_sub_example_cpu
+    # Sum
+    test_sum_example_cpu
+    test_sum_one_input_cpu
+    test_sum_two_inputs_cpu
+    # Model test_densenet121_cpu: accurary error
+    # test_densenet121_cpu
+    test_inception_v1_cpu
+    test_resnet50_cpu
+    test_shufflenet_cpu
+    test_squeezenet_cpu
+    test_vgg19_cpu)
 
 set(ENV_TEST_CASE_BY_USER "")
 foreach(test_name IN LISTS NNPA_TEST_LIST)
   set(ENV_TEST_CASE_BY_USER "${ENV_TEST_CASE_BY_USER} ${test_name}")
-endforeach()	
+endforeach()
 
 set(NNPA_TESTS_ENVS TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
