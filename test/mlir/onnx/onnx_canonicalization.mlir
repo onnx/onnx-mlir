@@ -506,6 +506,32 @@ func @test_should_not_remove_null_axes_squeezev11_unsqueezev11(%arg0 : tensor<1x
 
 // -----
 
+// COM: Test removing DepthToSpace/SpaceToDepth pairs when blocksize of the two operators are the same.
+
+func @test_remove_depth_to_space_space_to_depth(%arg0 : tensor<1x16x32x64xf32>) -> tensor<1x16x32x64xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.SpaceToDepth"(%arg0) {blocksize = 4 : si64} : (tensor<1x16x32x64xf32>) -> tensor<1x256x8x16xf32>
+  %1 = "onnx.DepthToSpace"(%0) {blocksize = 4 : si64, mode = "CRD"} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  "func.return"(%1) : (tensor<1x16x32x64xf32>) -> ()
+
+  // CHECK-LABEL: test_remove_depth_to_space_space_to_depth
+  // CHECK: return %arg0 : tensor<1x16x32x64xf32>
+}
+
+// -----
+
+func @test_remove_space_to_depth_depth_to_space(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x256x8x16xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64, mode = "CRD"} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  %1 = "onnx.SpaceToDepth"(%0) {blocksize = 4 : si64} : (tensor<1x16x32x64xf32>) -> tensor<1x256x8x16xf32>
+  "func.return"(%1) : (tensor<1x256x8x16xf32>) -> ()
+
+  // CHECK-LABEL: test_remove_space_to_depth_depth_to_space
+  // CHECK: return %arg0 : tensor<1x256x8x16xf32>
+}
+
+// -----
+
 func @test_constant_1() -> tensor<i64> {
   %0 = "onnx.Constant"() {value_int = 1 : si64} : () -> tensor<i64>
   return %0 : tensor<i64>
