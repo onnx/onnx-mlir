@@ -138,9 +138,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 }
 
 void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getFunctionType();
-  auto entryPoint = ONNXEntryPointOp::create(
-      loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
+  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp);
   module.push_back(entryPoint);
 }
 
