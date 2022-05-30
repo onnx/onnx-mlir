@@ -65,17 +65,11 @@ bool ModelLibBuilder::checkInstructionFromEnv(
 bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
-  std::string sharedLibName = getSharedLibName(sharedLibBaseName);
   llvm::sys::DynamicLibrary sharedLibraryHandle =
-      llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibName.c_str());
-  if (!sharedLibraryHandle.isValid()) {
-    printf("Can not open %s\n", sharedLibName.c_str());
-    return false;
-  }
+      exec->getSharedLibraryHandle();
   void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
   if (!addr) {
-    printf("%s not found in %s.\n", instructionName.c_str(),
-        sharedLibName.c_str());
+    printf("%s not found.\n", instructionName.c_str());
     return false;
   }
   return true;
