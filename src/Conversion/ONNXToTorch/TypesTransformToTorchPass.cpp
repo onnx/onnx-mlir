@@ -152,8 +152,10 @@ static void setupTorchFloatToF64Conversion(ConversionTarget &target,
 
 static void setupSignlessI64ToSignedI64Conversion(ConversionTarget &target,
                                          TypeConverter &typeConverter) {
-  target.addLegalOp<TorchConversion::ToSI64TensorOp,
-		TorchConversion::FromSI64TensorOp>();
+
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp,
+    TorchConversion::FromBuiltinTensorOp>();
+
   typeConverter.addConversion([](RankedTensorType type) -> Type {
     if (type.getElementType().isSignlessInteger()) {
       auto elementType =
@@ -170,15 +172,20 @@ static void setupSignlessI64ToSignedI64Conversion(ConversionTarget &target,
     // Other builtin integer types could be handled by other materializers.
     assert(inputs.size() == 1);
     assert(inputs[0].getType().isa<RankedTensorType>());
-    return builder.create<torch::TorchConversion::FromSI64TensorOp>(loc,
-		    type, inputs[0]).getResult();
+    if (type.getElementType().isSignlessInteger()) {
+      auto elementType = IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
+      return builder.create<UnrealizedConversionCastOp>(loc,
+                     elementType, inputs).getResult(0);
+    }
+    return llvm::None;
   });
+
   auto sourceMaterialization =
 	  [](OpBuilder &builder, Torch::ValueTensorType type,
                   ValueRange inputs, Location loc) -> Value {
     assert(inputs.size() == 1);
-    return builder.create<torch::TorchConversion::ToSI64TensorOp>(loc,
-		    type, inputs[0]);
+    return builder.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
+                   type, inputs[0]);
   };
   typeConverter.addSourceMaterialization(sourceMaterialization);
   typeConverter.addArgumentMaterialization(sourceMaterialization);
@@ -315,8 +322,7 @@ class ONNXToAtenFinalizeTypesTransformPass
     
     // Mark materializations as illegal in this pass (since we are finalizing)
     // and add patterns that eliminate them.
-    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp, ToSI64TensorOp,
-	    FromSI64TensorOp>(target, patterns, typeConverter);
+    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp>(target, patterns, typeConverter);
 
     // If all result types are legal, and all block arguments are legal, then
     // all types in the program are legal.

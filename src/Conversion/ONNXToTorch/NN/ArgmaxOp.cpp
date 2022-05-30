@@ -24,14 +24,14 @@ using namespace mlir::torch::Torch;
  * 
  * ONNX Argmax operation 
  *
- * “Computes the indices of the max elements of the input tensor’s element
- * along the” “provided axis. The resulting tensor has the same rank as the 
- * input if keepdims equal 1.” “If keepdims equal 0, then the resulting 
- * tensor have the reduced dimension pruned.” “If select_last_index is True
- * (default False), the index of the last occurrence of the max” “is 
+ * Computes the indices of the max elements of the input tensor's element
+ * along the provided axis. The resulting tensor has the same rank as the
+ * input if keepdims equal 1. If keepdims equal 0, then the resulting
+ * tensor have the reduced dimension pruned. If select_last_index is True
+ * (default False), the index of the last occurrence of the max is
  * selected if the max appears more than once in the input. Otherwise the
- * index of the” “first occurrence is selected.” “The type of the output
- * tensor is integer.”
+ * index of the first occurrence is selected. The type of the output
+ * tensor is integer.
  *
  * Operands :
  *  data    
