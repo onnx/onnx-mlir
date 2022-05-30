@@ -67,7 +67,7 @@ public:
     mlir::MLIRContext *context = reduceMean.getContext();
     Location loc = reduceMean.getLoc();
 
-    assert((reduceMean.axesAttr().size() != 0) && "Not implemented for axes size > 0");
+    assert((reduceMean.axesAttr().size() == 2) && "Not implemented yet for general axis sizes");
 
     auto keepDims = reduceMean.keepdimsAttr(); // ::mlir::IntegerAttr
 
