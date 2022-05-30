@@ -198,12 +198,14 @@ endfunction(add_onnx_mlir_library)
 #     Same semantics as target_include_directories().
 #   LINK_LIBS lib_targets...
 #     Same semantics as target_link_libraries().
+#   DEFINE define_targets...
+#     Same semantics as target_compile_definitions()
 #   )
 function(add_onnx_mlir_executable name)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     ""
-    "DEPENDS;INCLUDE_DIRS;LINK_LIBS"
+    "DEPENDS;INCLUDE_DIRS;LINK_LIBS;DEFINE"
     ${ARGN}
     )
 
@@ -229,5 +231,9 @@ function(add_onnx_mlir_executable name)
 
   if (NOT ARG_NO_INSTALL)
     install(TARGETS ${name} DESTINATION bin)
+  endif()
+
+  if (ARG_DEFINE)
+    target_compile_definitions(${name} ${ARG_DEFINE})
   endif()
 endfunction(add_onnx_mlir_executable)

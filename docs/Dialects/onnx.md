@@ -1777,9 +1777,6 @@ The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `func` | ::mlir::SymbolRefAttr | symbol reference attribute
-| `numInputs` | ::mlir::IntegerAttr | 32-bit signless integer attribute
-| `numOutputs` | ::mlir::IntegerAttr | 32-bit signless integer attribute
-| `signature` | ::mlir::StringAttr | string attribute
 
 ### `onnx.Equal` (::mlir::ONNXEqualOp)
 
