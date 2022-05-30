@@ -5,7 +5,7 @@ module attributes {}  {
     //CHECK: %[[CONST:.*]] = torch.constant.int 1
 %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<1x2048xf32>, tensor<1000x2048xf32>, tensor<1000xf32>) -> tensor<1x1000xf32>
 //CHECK: [[RES1:%.]] = torch.aten.t %arg1 : !torch.vtensor<[1000,2048],f32> -> !torch.vtensor<[2048,1000],f32>
-//CHECK: [[RES2:%.]] = torch.aten.bmm %arg0, [[RES1]] : !torch.vtensor<[1,2048],f32>, !torch.vtensor<[2048,1000],f32> -> !torch.vtensor<[1,1000],f32>
+//CHECK: [[RES2:%.]] = torch.aten.mm %arg0, [[RES1]] : !torch.vtensor<[1,2048],f32>, !torch.vtensor<[2048,1000],f32> -> !torch.vtensor<[1,1000],f32>
 //CHECK: [[RES3:%.]] = torch.aten.add.Tensor [[RES2]], %arg2, %[[CONST]] : !torch.vtensor<[1,1000],f32>, !torch.vtensor<[1000],f32>, !torch.int -> !torch.vtensor<[1,1000],f32>       
 return %0 : tensor<1x1000xf32>
   }

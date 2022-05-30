@@ -5,7 +5,7 @@ module attributes {}  {
 //CHECK: [[BETA:%[^ ]*]] = torch.constant.float 5.000000e-01
     %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {beta = 5.000000e-01 : f32} : (tensor<2x7xf32>, tensor<7x4xf32>, tensor<1x4xf32>) -> tensor<2x4xf32>
 //CHECK: [[RES1:%.]] = torch.aten.mul.Scalar %arg2, [[BETA]] : !torch.vtensor<[1,4],f32>, !torch.float -> !torch.vtensor<[1,4],f32>
-//CHECK: [[RES2:%.]] = torch.aten.bmm %arg0, %arg1 : !torch.vtensor<[2,7],f32>, !torch.vtensor<[7,4],f32> -> !torch.vtensor<[2,4],f32>
+//CHECK: [[RES2:%.]] = torch.aten.mm %arg0, %arg1 : !torch.vtensor<[2,7],f32>, !torch.vtensor<[7,4],f32> -> !torch.vtensor<[2,4],f32>
 //CHECK: [[RES3:%.]] = torch.aten.add.Tensor [[RES2]], [[RES1]], %[[CONST]] : !torch.vtensor<[2,4],f32>, !torch.vtensor<[1,4],f32>, !torch.int -> !torch.vtensor<[2,4],f32>
 return %0 : tensor<2x4xf32>
   }
