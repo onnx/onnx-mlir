@@ -41,8 +41,10 @@ bool isValidElementType(Value val) {
 /// detect whether the shapes are exactly the same or not. Hence, return false.
 /// Also, check the ranks of two tensors, they must be in range of (0, 4].
 bool haveSameStaticShape(Value value1, Value value2) {
-  auto valueType1 = value1.getType().cast<ShapedType>();
-  auto valueType2 = value2.getType().cast<ShapedType>();
+  ShapedType valueType1 = value1.getType().cast<ShapedType>();
+  ShapedType valueType2 = value2.getType().cast<ShapedType>();
+  if (!valueType1.hasRank() || !valueType2.hasRank())
+    return false;
   // Different rank, return false.
   if (valueType1.getRank() != valueType2.getRank())
     return false;
@@ -360,8 +362,9 @@ template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return ((op.axis() == 1 || op.axis() == -1) &&
-          (op.input().getType().cast<ShapedType>().getRank() == 2));
+  ShapedType inputType = op.getType().cast<ShapedType>();
+  return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
+         (inputType.getRank() == 2);
 }
 
 /// Check legality for ONNXRelu.
@@ -369,7 +372,8 @@ template <>
 bool isSuitableForZDNN<ONNXReluOp>(ONNXReluOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  return (op.X().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType xType = op.X().getType().cast<ShapedType>();
+  return xType.hasRank() && (xType.getRank() <= 4);
 }
 
 /// Check legality for ONNXTanh.
@@ -377,7 +381,8 @@ template <>
 bool isSuitableForZDNN<ONNXTanhOp>(ONNXTanhOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXSigmoid.
@@ -385,7 +390,8 @@ template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(ONNXSigmoidOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  return (op.X().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType xType = op.X().getType().cast<ShapedType>();
+  return xType.hasRank() && (xType.getRank() <= 4);
 }
 
 /// Check legality for ONNXLog.
@@ -393,7 +399,8 @@ template <>
 bool isSuitableForZDNN<ONNXLogOp>(ONNXLogOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXExp.
@@ -401,7 +408,8 @@ template <>
 bool isSuitableForZDNN<ONNXExpOp>(ONNXExpOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXMatMul.
