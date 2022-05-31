@@ -22,6 +22,7 @@ MEMORY_IN_GB               = (os.sysconf('SC_PAGE_SIZE') *
 NPROC                      = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
 
 DOCKER_DEV_IMAGE_WORKDIR   = '/workdir'
+ONNX_MLIR_HOME             = '/workdir/onnx-mlir/build/Debug'
 RUN_ONNX_MODEL_PY          = 'RunONNXModel.py'
 RUN_ONNX_MODELZOO_PY       = 'RunONNXModelZoo.py'
 
@@ -49,8 +50,7 @@ workspace_modelzoo         = os.path.join(jenkins_home, 'workspace',
 
 def main():
     cmd = [ 'docker', 'run', '--rm',
-            '-e', ('ONNX_MLIR_HOME=' +
-                   os.path.join(workspace, 'build', 'Debug')),
+            '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
             '-v', (workspace_modelzoo + ':' +
                    os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)),
             '-v', (os.path.join(workspace, 'utils', RUN_ONNX_MODEL_PY) + ':' +
@@ -64,8 +64,7 @@ def main():
             '-j', NPROC,
             '-w', modelzoo_workdir,
             '-H', modelzoo_html,
-            '-l', 'debug',
-            '-k' ]
+            '-l', 'debug' ]
 
     logging.info(' '.join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
