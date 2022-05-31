@@ -489,6 +489,12 @@ void ONNXSizeOp::getCanonicalizationPatterns(
   results.insert<SizeToConstantPattern>(context);
 }
 
+/// on the ONNXSpaceToDepthOp.
+void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveSpaceToDepthDepthToSpacePattern>(context);
+}
+
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -510,6 +516,12 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern4>(context);
   results.insert<ConstantOpNormalizationPattern5>(context);
   results.insert<ConstantOpNormalizationPattern6>(context);
+}
+
+/// on the ONNXDepthToSpaceOp.
+void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveDepthToSpaceSpaceToDepthPattern>(context);
 }
 
 /// on the ONNXLessOp.
