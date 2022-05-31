@@ -50,6 +50,7 @@ workspace_modelzoo         = os.path.join(jenkins_home, 'workspace',
 
 def main():
     cmd = [ 'docker', 'run', '--rm',
+            '-u', str(os.geteuid()) + ':' + str(os.getegid()),
             '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
             '-v', (workspace_modelzoo + ':' +
                    os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)),
@@ -64,14 +65,14 @@ def main():
             '-j', NPROC,
             '-w', modelzoo_workdir,
             '-H', modelzoo_html,
-            '-l', 'debug' ]
+            '-l', 'info' ]
 
     logging.info(' '.join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # print messages from RunONNXModelZoo.py and RunONNXModel.py
     for line in proc.stderr:
-        print(line.decode('utf-8'), file=sys.stderr)
+        print(line.decode('utf-8'), file=sys.stderr, end='', flush=True)
 
     proc.wait()
 
