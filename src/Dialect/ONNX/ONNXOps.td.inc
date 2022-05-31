@@ -1023,6 +1023,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX DepthToSpace operation";
   let description = [{
   "DepthToSpace rearranges (permutes) data from depth into blocks of spatial data."
@@ -5785,6 +5786,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
   "SpaceToDepth rearranges blocks of spatial data into depth. More specifically,"

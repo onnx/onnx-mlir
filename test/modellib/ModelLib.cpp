@@ -54,6 +54,27 @@ bool ModelLibBuilder::compileAndLoad(
   return compileAndLoad();
 }
 
+bool ModelLibBuilder::checkInstructionFromEnv(
+    const std::string envCheckInstruction) {
+  std::string instructionName = getenv(envCheckInstruction.c_str())
+                                    ? getenv(envCheckInstruction.c_str())
+                                    : "";
+  return checkInstruction(instructionName);
+}
+
+bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+  if (instructionName.empty())
+    return true;
+  llvm::sys::DynamicLibrary sharedLibraryHandle =
+      exec->getSharedLibraryHandle();
+  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  if (!addr) {
+    printf("%s not found.\n", instructionName.c_str());
+    return false;
+  }
+  return true;
+}
+
 bool ModelLibBuilder::run() {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
@@ -61,7 +82,7 @@ bool ModelLibBuilder::run() {
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs =  exec->run(inputs);
+    outputs = exec->run(inputs);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -117,9 +138,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 }
 
 void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getFunctionType();
-  auto entryPoint = ONNXEntryPointOp::create(
-      loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
+  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp);
   module.push_back(entryPoint);
 }
 

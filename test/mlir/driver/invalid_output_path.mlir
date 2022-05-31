@@ -24,5 +24,5 @@ module {
     %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x1xf32>, tensor<1x1xf32>) -> tensor<1x1xf32>
     return %0 : tensor<1x1xf32>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }

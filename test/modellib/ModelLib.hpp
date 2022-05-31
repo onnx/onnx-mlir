@@ -86,6 +86,15 @@ public:
   // dynamic library. It can run second or third.
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  // Check whether a particular instruction extracted from environment variable
+  // specified in the argument is included in the dynamic library file name
+  // compiled here. If not found, return false.
+  bool checkInstructionFromEnv(const std::string envCheckInstruction);
+  // Check whether a particular instruction specified in the argument is
+  // included in the dynamic library file name compiled here.
+  // If not found, return false.
+  // TODO: set multiple instructions
+  bool checkInstruction(const std::string instructionName);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
