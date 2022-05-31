@@ -38,8 +38,7 @@ if (MSVC)
 endif()
 
 # Enable ccache
-# Set LLVM_CCACHE_BUILD for consistency, but this currently has no effect
-set(LLVM_CCACHE_BUILD ${ONNX_MLIR_CCACHE_BUILD})
+# This setup is sufficient for Ninja and Makefiles, but not Xcode
 if (ONNX_MLIR_CCACHE_BUILD)
   find_program(CCACHE_PROGRAM ccache)
   if (CCACHE_PROGRAM)
