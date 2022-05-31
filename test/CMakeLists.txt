@@ -15,6 +15,7 @@ message(STATUS "Tests optimization level : ${ONNX_MLIR_TEST_OPTLEVEL}")
 
 # The backend tests require ONNX package installation.
 add_subdirectory(backend)
+add_subdirectory(accelerators)
 
 # The following do NOT require ONNX package installation.
 add_subdirectory(mlir)

@@ -8,6 +8,8 @@ Up to date info on how to build the project is located in the top directory [REA
 
 Since you are interested in contributing code, you should look in the [Workflow](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
 
+Contributors have to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org); make sure to check our [instructions](docs/Workflow.md#step-7-commit--push) prior to committing code to our repo.
+
 A comprehensive list of documents is found [here](docs/DocumentList.md).
 
 ## Guides for code generation for ONNX operations
@@ -19,6 +21,7 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 * To test new code, see [here](docs/Testing.md) for instructions.
 * A guide on how to do constant propagation for ONNX operations is found
   [here](docs/ConstPropagationPass.md).
+* To build and test for specialized accelerator, see [here](docs/AccelNNPAHowToUseAndTest.md)
 
 ## ONNX-MLIR specific dialects
 

@@ -1286,104 +1286,6 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  // construct JSON type from the argument type
-  // for example - a 3D array of f32 would produce something like
-  //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
-  // data type list:
-  //     "i1" / "i8" / "i16" / "i32" / "i64"
-  //     "ui8" / "ui16" / "ui32" / "ui64"
-  //     "f32" / "f64"
-  void concatTypeString(
-      Type argType, Attribute attr, llvm::raw_ostream &dstream) {
-    std::string comma = std::string("");
-
-    TypeSwitch<Type>(argType)
-        .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
-          auto et = seqTy.getElementType();
-          dstream << "   {\"seq\" : ";
-          concatTypeString(et, attr, dstream);
-        })
-        .Case<ShapedType>([&](ShapedType tensorTy) {
-          auto et = tensorTy.getElementType();
-          dstream << "   { \"type\" : ";
-          et.print(dstream);
-          dstream << " , \"dims\" : [";
-          if (tensorTy.hasRank()) {
-            int64_t rank = tensorTy.getRank();
-            for (int j = 0; j < rank; j++) {
-              dstream << comma << tensorTy.getDimSize(j);
-              comma = std::string(" , ");
-            }
-          } else {
-          }
-          dstream << "] ";
-          auto name = attr.cast<mlir::StringAttr>().getValue().str();
-          dstream << ", \"name\" : \"" << name << "\"";
-        })
-        .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
-    dstream << " }\n";
-  }
-
-  std::string getSignature(FunctionType funcType, Operation *op) {
-    auto inputs = funcType.getInputs();
-    auto outputs = funcType.getResults();
-
-    auto input_names = op->getAttrOfType<mlir::ArrayAttr>("input_names");
-    auto output_names = op->getAttrOfType<mlir::ArrayAttr>("output_names");
-
-    std::string const sf32 = std::string(" f32 ");
-    std::string const sf64 = std::string(" f64 ");
-    std::string const si32 = std::string(" i32 ");
-    std::string const si64 = std::string(" i64 ");
-    std::string const si16 = std::string(" i16 ");
-    std::string const si8 = std::string(" i8 ");
-    std::string const si1 = std::string(" i1 ");
-    std::string const sui32 = std::string(" ui32 ");
-    std::string const sui64 = std::string(" ui64 ");
-    std::string const sui16 = std::string(" ui16 ");
-    std::string const sui8 = std::string(" ui8 ");
-
-    std::map<std::string, std::string> typeMap = {
-        {sf32, std::string(" \"f32\" ")}, {sf64, std::string(" \"f64\" ")},
-        {si32, std::string(" \"i32\" ")}, {si64, std::string(" \"i64\" ")},
-        {si16, std::string(" \"i16\" ")}, {si8, std::string(" \"i8\" ")},
-        {si1, std::string(" \"i1\" ")}, {sui32, std::string(" \"ui32\" ")},
-        {sui64, std::string(" \"ui64\" ")}, {sui16, std::string(" \"ui16\" ")},
-        {sui8, std::string(" \"ui8\" ")}};
-    std::string dstring;
-    llvm::raw_string_ostream dstream(dstring);
-    dstream << "[ ";
-    std::string comma = std::string("");
-    for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
-      dstream << comma;
-      concatTypeString(inputs[i], input_names[i], dstream);
-      comma = std::string(" , ");
-    }
-    dstream << "\n]";
-    dstream.flush();
-    dstring.push_back('\0'); // null terminate the input signature string
-    dstream << "@[";
-    comma = std::string("");
-    for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
-      dstream << comma;
-      concatTypeString(outputs[i], output_names[i], dstream);
-      comma = std::string(" , ");
-    }
-    dstream << "\n]";
-    dstream.flush();
-    dstring.push_back('\0'); // null terminate the output signature string
-    for (auto const &x : typeMap) {
-      size_t start_pos = 0;
-      while (
-          (start_pos = dstring.find(x.first, start_pos)) != std::string::npos) {
-        dstring.replace(start_pos, x.first.length(), x.second);
-        start_pos += x.first.length();
-      }
-    }
-
-    return dstring;
-  }
-
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
@@ -1402,13 +1304,8 @@ private:
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
 
-    std::string sig = getSignature(funcType, mainFunc.getOperation());
-
     // Emit entry point op describing inference function signature.
-    auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/funcType.getNumInputs(),
-        /*numOutputs=*/funcType.getNumResults(),
-        /*signature=*/sig);
+    auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);
     module_.push_back(entryPoint);
 
     return mainFunc;

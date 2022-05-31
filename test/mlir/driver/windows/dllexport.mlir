@@ -16,6 +16,6 @@ module  {
     %0 = "onnx.Relu"(%arg0) : (tensor<1x1xf32>) -> tensor<1x1xf32>
     return %0 : tensor<1x1xf32>
   }
-  "onnx.EntryPoint"() {func = @main_graph_1, numInputs = 1 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
-  "onnx.EntryPoint"() {func = @main_graph_2, numInputs = 1 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph_1} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph_2} : () -> ()
 }
