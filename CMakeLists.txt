@@ -43,6 +43,8 @@ if (ONNX_MLIR_CCACHE_BUILD)
   find_program(CCACHE_PROGRAM ccache)
   if (CCACHE_PROGRAM)
     if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+      # RULE_LAUNCH_COMPILE is more powerful than C_COMPILER_LAUNCHER (ccache
+      # supports additional compilers) but has issues with cmd and MSVC tools
       set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
       set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})     
     else()
