@@ -208,6 +208,8 @@ def TransposeVariadicInput: NativeCodeCall<
 // Check whether two variables are equal.
 def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
+class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -665,6 +667,30 @@ def GlobalAveragePoolPattern: Pat<
 def GlobalMaxPoolPattern: Pat<
   (ONNXGlobalMaxPoolOp $x),
   (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXDepthToSpaceOp
+//===----------------------------------------------------------------------===//
+
+// Combine DepthToSpace and SpaceToDepth.
+// DepthToSpace (SpaceToDepth (%X)) = %X
+def RemoveDepthToSpaceSpaceToDepthPattern : Pat<
+        (ONNXDepthToSpaceOp (ONNXSpaceToDepthOp $v, $bs1), $bs2, $mode),
+        (replaceWithValue $v),
+        [(Equal $bs1, $bs2), (EqualString<"CRD"> $mode)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXSpaceToDepthOp
+//===----------------------------------------------------------------------===//
+
+// Combine SpaceToDepth and DepthToSpace.
+// DepthToSpace (SpaceToDepth (%X)) = %X
+def RemoveSpaceToDepthDepthToSpacePattern : Pat<
+        (ONNXSpaceToDepthOp (ONNXDepthToSpaceOp $v, $bs1, $mode), $bs2),
+        (replaceWithValue $v),
+        [(Equal $bs1, $bs2), (EqualString<"CRD"> $mode)]
 >;
 
 //===----------------------------------------------------------------------===//

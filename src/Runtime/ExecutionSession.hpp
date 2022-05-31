@@ -57,6 +57,10 @@ public:
   // defaultEntryPoint is false or there are multiple entry points in the model.
   void setEntryPoint(const std::string &entryPointName);
 
+  llvm::sys::DynamicLibrary &getSharedLibraryHandle() {
+    return _sharedLibraryHandle;
+  };
+
   // Use custom deleter since forward declared OMTensor hides destructor
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
 

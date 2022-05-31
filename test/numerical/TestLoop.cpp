@@ -37,7 +37,7 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
 std::string testLoopWithEarlyTermination = R"(
@@ -52,7 +52,7 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
 std::string testLoopWithParentScopeVariable = R"(
@@ -68,7 +68,7 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %y_final, %y_scan : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
 // Returns whether onnx-mlir compiled loop operation is producing the same
