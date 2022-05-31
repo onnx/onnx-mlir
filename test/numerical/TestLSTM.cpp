@@ -58,11 +58,7 @@ int main(int argc, char *argv[]) {
   bool success = rc::check("LSTM implementation correctness", []() {
   // The number of directions.
   // 1: forward, -1: reverse, 2: bidirectional
-#ifdef TEST_RNN_NO_BIDIR
-    const auto D = *rc::gen::element(1, -1);
-#else
     const auto D = *rc::gen::element(1, -1, 2);
-#endif
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
@@ -113,11 +109,9 @@ int main(int argc, char *argv[]) {
                     // reverse
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         -1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
-#ifndef TEST_RNN_NO_BIDIR
                     // bidirectional
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         2, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
-#endif
                   }
   return 0;
 }
