@@ -1,6 +1,8 @@
+#include <errno.h>
+#include <iostream>
+
 #include <OnnxMlirCompiler.h>
 #include <OnnxMlirRuntime.h>
-#include <iostream>
 
 #include "src/Runtime/ExecutionSession.hpp"
 
@@ -13,17 +15,18 @@ int main() {
     std::cerr << "Failed to process TEST_DOC_EXAMPLE compiler options with "
                  "error code "
               << rc << "." << std::endl;
-    return 1;
+    return rc;
   }
-  rc = onnx_mlir::omSetCompilerOption(onnx_mlir::CompilerOptLevel, "3");
+  rc = onnx_mlir::omSetCompilerOption(
+      onnx_mlir::OptionKind::CompilerOptLevel, "3");
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to process -O3 compiler option with error code " << rc
               << "." << std::endl;
-    return 1;
+    return rc;
   }
   // Compile the doc example into a model library.
-  char *errorMessage;
-  char *compiledFilename;
+  const char *errorMessage = NULL;
+  const char *compiledFilename;
   rc = onnx_mlir::omCompileFromFile("add.onnx", "add-cppinterface",
       onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
@@ -31,10 +34,9 @@ int main() {
     if (errorMessage)
       std::cerr << " and message \"" << errorMessage << "\"";
     std::cerr << "." << std::endl;
-    return 2;
+    return rc;
   }
   std::string libFilename(compiledFilename);
-  free(compiledFilename);
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
 
@@ -44,16 +46,16 @@ int main() {
     session = new onnx_mlir::ExecutionSession(libFilename);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while creating execution session: " << error.what()
-              << std::endl;
-    return 3;
+              << " and errno " << errno << std::endl;
+    return errno;
   }
   std::string inputSignature;
   try {
     inputSignature = session->inputSignature();
   } catch (const std::runtime_error &error) {
     std::cerr << "error while loading input signature: " << error.what()
-              << std::endl;
-    return 4;
+              << " and errno " << errno << std::endl;
+    return errno;
   }
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
@@ -76,8 +78,9 @@ int main() {
   try {
     outputList = session->run(input);
   } catch (const std::runtime_error &error) {
-    std::cerr << "error while running model: " << error.what() << std::endl;
-    return 5;
+    std::cerr << "error while running model: " << error.what() << " and errno "
+              << errno << std::endl;
+    return errno;
   }
 
   // Get the first omt as output.
@@ -89,7 +92,7 @@ int main() {
     if (outputPtr[i] != 3.0) {
       std::cerr << "Iteration " << i << ": expected 3.0, got " << outputPtr[i]
                 << "." << std::endl;
-      return 6;
+      return 100;
     }
   }
   delete session;

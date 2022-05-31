@@ -28,15 +28,15 @@ namespace test {
 ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
-      session(nullptr) {
+      exec(nullptr) {
   registerDialects(ctx);
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
   omTensorListDestroy(inputs);
   omTensorListDestroy(outputs);
-  if (session)
-    delete session;
+  if (exec)
+    delete exec;
 }
 
 bool ModelLibBuilder::compileAndLoad() {
@@ -46,8 +46,8 @@ bool ModelLibBuilder::compileAndLoad() {
     return false;
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
-  session = new ExecutionSession(libFilename);
-  return session != nullptr;
+  exec = new ExecutionSession(libFilename);
+  return exec != nullptr;
 }
 
 bool ModelLibBuilder::compileAndLoad(
@@ -57,14 +57,35 @@ bool ModelLibBuilder::compileAndLoad(
   return compileAndLoad();
 }
 
+bool ModelLibBuilder::checkInstructionFromEnv(
+    const std::string envCheckInstruction) {
+  std::string instructionName = getenv(envCheckInstruction.c_str())
+                                    ? getenv(envCheckInstruction.c_str())
+                                    : "";
+  return checkInstruction(instructionName);
+}
+
+bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+  if (instructionName.empty())
+    return true;
+  llvm::sys::DynamicLibrary sharedLibraryHandle =
+      exec->getSharedLibraryHandle();
+  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  if (!addr) {
+    printf("%s not found.\n", instructionName.c_str());
+    return false;
+  }
+  return true;
+}
+
 bool ModelLibBuilder::run() {
-  assert(inputs && session && "expected successful compile and load");
+  assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs = session->run(inputs);
+    outputs = exec->run(inputs);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -111,9 +132,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 }
 
 void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getFunctionType();
-  auto entryPoint = ONNXEntryPointOp::create(
-      loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
+  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp);
   module.push_back(entryPoint);
 }
 

@@ -62,15 +62,13 @@ int main(int argc, char *argv[]) {
   }
 
   int retVal = 0;
-  char *errorMessage = NULL;
-  char *compiledFilename;
+  const char *errorMessage = NULL;
+  const char *compiledFilename;
   if (compileFromFile) {
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
-    if (errorMessage != NULL) {
+    if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
-      retVal = 0xf;
-    }
   } else {
     std::ifstream inFile(
         testFileName, std::ios_base::in | std::ios_base::binary);
@@ -79,9 +77,8 @@ int main(int argc, char *argv[]) {
     retVal =
         omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
             onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
-    if (errorMessage != NULL) {
+    if (retVal != CompilerSuccess && errorMessage != NULL) {
       std::cerr << errorMessage;
-      retVal = 0xf;
     }
   }
   if (retVal != 0) {

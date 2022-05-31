@@ -223,6 +223,9 @@ struct Command {
     llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
     if (std::error_code ec = llvm::sys::fs::set_current_path(new_wdir)) {
       llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
+      // Since we return ec.value(), and because of the error, we expect the
+      // value to be nonzero, just testing here for safety that the value is
+      // indeed different than zero.
       assert(ec.value() != 0 && "Expected nonnull error return value");
       return ec.value();
     }

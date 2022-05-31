@@ -51,11 +51,7 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    char **outputFilename, char **errorMessage) {
-  if (errorMessage)
-    *errorMessage = NULL;
-  if (outputFilename)
-    *outputFilename = NULL;
+    const char **outputFilename, const char **errorMessage) {
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -71,20 +67,16 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   rc = compileModule(module, context, outputBaseName, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    *outputFilename =
-        strdup(getTargetFilename(outputBaseName, emissionTarget).c_str());
+    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    *outputFilename = strdup(name.c_str());
   }
   return rc;
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, char **outputFilename,
-    char **errorMessage) {
-  if (errorMessage)
-    *errorMessage = NULL;
-  if (outputFilename)
-    *outputFilename = NULL;
+    EmissionTargetType emissionTarget, const char **outputFilename,
+    const char **errorMessage) {
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -100,8 +92,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   rc = compileModule(module, context, outputBaseName, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    *outputFilename =
-        strdup(getTargetFilename(outputBaseName, emissionTarget).c_str());
+    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    *outputFilename = strdup(name.c_str());
   }
   return rc;
 }

@@ -27,7 +27,8 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   RNNLibBuilder rnn(
       SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS, isDynamicB);
   return rnn.build() && rnn.compileAndLoad() && rnn.prepareInputs() &&
-         rnn.run() && rnn.verifyOutputs();
+         rnn.checkInstructionFromEnv("TestRNNNNPA_INSTRUCTION") && rnn.run() &&
+         rnn.verifyOutputs();
 }
 
 } // namespace test

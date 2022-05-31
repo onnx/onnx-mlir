@@ -41,7 +41,6 @@ ExecutionSession::ExecutionSession(
   // force looking in the current directory.
   if (llvm::sys::path::parent_path(sharedLibPath).empty()) {
     sharedLibPath = "./" + sharedLibPath;
-    std::cout << "hi alex, added local " << sharedLibPath << std::endl;
   }
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
