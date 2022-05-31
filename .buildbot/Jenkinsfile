@@ -203,7 +203,8 @@ def call() {
                                      reportFiles:           "${MODELZOO_HTML}",
                                      reportName:            'Model Zoo Report',
                                      reportTitles:          'Model Zoo Report'])
-              def summary = readFile("${WORKSPACE}/${MODELZOO_WORKDIR}/${env.MODELZOO_STDOUT}")
+              def stdout = "${WORKSPACE}/${MODELZOO_WORKDIR}/${env.MODELZOO_STDOUT}"
+              def summary = readFile(stdout).trim()
 	      println('summary: ' + summary)
               modelZooBuildBadge.setStatus(summary)
             }

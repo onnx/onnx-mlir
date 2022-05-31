@@ -67,22 +67,16 @@ def main():
             '-H', modelzoo_html,
             '-l', 'info' ]
 
-    logging.info(' '.join(cmd))
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # print messages from RunONNXModelZoo.py and RunONNXModel.py
-    for line in proc.stderr:
-        print(line.decode('utf-8'), file=sys.stderr, end='', flush=True)
-
-    proc.wait()
-
-    if proc.returncode:
-        sys.exit(proc.returncode)
-
     # write summary line to file for Jenkinsfile to pickup
+    logging.info(' '.join(cmd))
     with open(os.path.join(workspace_modelzoo, modelzoo_stdout), 'w') as f:
-        f.write(proc.stdout.decode('utf-8'))
-    sys.exit(0)
+        proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE)
+
+        # print messages from RunONNXModelZoo.py and RunONNXModel.py
+        for line in proc.stderr:
+            print(line.decode('utf-8'), file=sys.stderr, end='', flush=True)
+
+        proc.wait()
 
 
 if __name__ == "__main__":
