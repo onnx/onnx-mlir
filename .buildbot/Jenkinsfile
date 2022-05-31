@@ -176,13 +176,35 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          script {
-            env.JENKINS_MODELZOO_RESULT = sh(returnStdout: true,
-                                             script: "${JENKINS_CHECK_MODEL_ZOO}").trim()
-            modelZooBuildBadge.setStatus("${JENKINS_MODELZOO_RESULT}")
-          }
-
           sh "${JENKINS_BUILD_PROJECT}"
+
+          /* Run model zoo tests,  create embedded summary badge,
+           * and publish generated report.
+           */
+          script {
+            env.MODELZOO_WORKDIR = 'modelzoo'
+            env.MODELZOO_HTML    = 'modelzoo.html'
+            env.MODELZOO_STDOUT  = 'modelzoo.stdout'
+
+            def status = sh(returnStatus: true,
+                            script: "${JENKINS_CHECK_MODEL_ZOO}");
+            if (status) {
+              modelZooBuildBadge.setStatus("failed")
+	      modelZooBuildBadge.setLink("${BUILD_URL}")
+	    }
+            else {
+              publishHTML (target : [allowMissing:          true,
+                                     alwaysLinkToLastBuild: false,
+                                     keepAll:               false,
+                                     reportDir:             "${MODELZOO_WORKDIR}",
+                                     reportFiles:           "${MODELZOO_HTML}",
+                                     reportName:            'Model Zoo Report',
+                                     reportTitles:          'Model Zoo Report'])
+              def summary = readFile("${WORKSPACE}/${MODELZOO_WORKDIR}/${env.MODELZOO_STDOUT}")
+	      println('summary: ' + summary)
+              modelZooBuildBadge.setStatus(summary)
+            }
+          }
         }
       }
 
