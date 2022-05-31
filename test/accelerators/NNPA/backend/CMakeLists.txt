@@ -82,7 +82,7 @@ else()
 endif()
 
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
-# Only test cases including operations supported by zDNN are listed.
+# Only test cases supported by zDNN are listed.
 set(NNPA_TEST_LIST
     # Abs
     test_abs_cpu
@@ -284,15 +284,6 @@ add_custom_target(check-onnx-backend-nnpa-constant
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
-add_custom_target(check-onnx-backend-nnpa-signature
-  COMMAND
-    TEST_SIGNATURE=true
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
-  DEPENDS
-    ${FILE_GENERATE_DIR}/test.py
-    ${FILE_GENERATE_DIR}/test_config.py
-  )
-
 add_custom_target(check-onnx-backend-nnpa-compilerlib
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
@@ -315,8 +306,6 @@ add_dependencies(check-onnx-backend-nnpa-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-nnpa-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-nnpa-constant onnx-mlir)
 add_dependencies(check-onnx-backend-nnpa-constant PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-signature onnx-mlir)
-add_dependencies(check-onnx-backend-nnpa-signature PyRuntime)
 add_dependencies(check-onnx-backend-nnpa-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-nnpa-compilerlib PyRuntime)
 
