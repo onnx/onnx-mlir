@@ -9,7 +9,9 @@
 // =============================================================================
 //
 // This file lowers squeeze operator from onnx to torch using a template for
-// v11 and v13.
+// v11 and v13. The only difference between opset v13 and v11 for squeeze is
+// that axes is operand in v13 and it is parameter in v11. Template is used
+// as most of the code is common to both versions.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,28 +26,23 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-std::vector<int> toUniqueAndNonNegative(std::vector<int> axes) {
-  std::set<int> axesSet(axes.begin(), axes.end());
-  std::vector<int> axesNonNeg;
-
-  for (auto x : axesSet) {
-    // positive integers are added as it
-    // negative integers are normarlized to positive
-    axesNonNeg.push_back((x > 0) ? x : (x + axesSet.size()));
-  }
-  return axesNonNeg;
-}
-
 std::vector<int> getSortedWithNonNegativeAxes(mlir::ArrayAttr axesRaw) {
   auto axesVector = toVector(axesRaw);
-  auto axesNonNegative = toUniqueAndNonNegative(axesVector);
-  auto axesSorted = axesNonNegative;
 
-  std::sort(axesSorted.begin(), axesSorted.end());
+  std::set<int> axesSet;
+  for (auto x : axesVector) {
+    // positive integers are added as it
+    // negative integers are normarlized to positive
+    axesSet.insert((x > 0) ? x : (x + axesSet.size()));
+  }
+  std::vector<int> axes(axesSet.begin(), axesSet.end());
 
-  return axesSorted;
+  return axes;
 }
 
+/* This is overloaded function that converts axes operand in v13 of squeeze
+ * and returns a vector of integers
+ */
 std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
   auto builder = mlir::Builder(squeezeOp.getContext());
   auto axesConstOp = getONNXConstantOp(squeezeOp.axes());
@@ -53,6 +50,9 @@ std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
   return getSortedWithNonNegativeAxes(axesAttr);
 }
 
+/* This is overloaded function that converts axesAttr parameter in v11 of
+ * squeeze and returns a vector of integers
+ */
 std::vector<int> getAxes(ONNXSqueezeV11Op squeezeOp) {
   return getSortedWithNonNegativeAxes(squeezeOp.axesAttr());
 }
