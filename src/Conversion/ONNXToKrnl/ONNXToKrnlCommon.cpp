@@ -48,6 +48,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   MemRefBuilder memRefBuilder(b, loc);
   KrnlBuilder krnlBuilder(memRefBuilder);
+  MathBuilder createMath(b, loc);
 
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the putput dimension
@@ -58,7 +59,7 @@ Value OnnxToKrnlBuilder::reshape(
       memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value index = createMath.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
     krnlBuilder.store(data, alloc, index);
   }
@@ -586,8 +587,6 @@ KrnlTypeConverter::KrnlTypeConverter() {
     // Acccelators may have special versions of TensorType. Call the conversions
     // of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;

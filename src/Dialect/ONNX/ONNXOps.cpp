@@ -680,24 +680,16 @@ LogicalResult ONNXArgMinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
-    mlir::OperationState &state, mlir::FuncOp function, int numInputs,
-    int numOutputs, std::string signature) {
+    mlir::OperationState &state, mlir::func::FuncOp function) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       SymbolRefAttr::get(function));
-  state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
-      builder.getI32IntegerAttr(numInputs));
-  state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
-      builder.getI32IntegerAttr(numOutputs));
-  state.addAttribute(ONNXEntryPointOp::getSignatureAttrName(),
-      builder.getStringAttr(signature));
 }
 
-ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-    mlir::FuncOp &func, int numInputs, int numOutputs, std::string signature) {
+ONNXEntryPointOp ONNXEntryPointOp::create(
+    mlir::Location location, mlir::func::FuncOp &func) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(
-      builder, state, func, numInputs, numOutputs, signature);
+  mlir::ONNXEntryPointOp::build(builder, state, func);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;
@@ -886,6 +878,17 @@ LogicalResult ONNXHardSigmoidOp::inferShapes(
 /// Infer the output shape of the ONNXSigmoidOp. This method is required by the
 /// shape inference interface.
 LogicalResult ONNXSigmoidOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Celu
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXCeluOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXCeluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
   return success();
@@ -3992,7 +3995,20 @@ LogicalResult ONNXEqualOp::inferShapes(
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::OpBuilder(getContext());
+  if (!hasShapeAndRank(input())) {
+    return success();
+  }
+  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  Type elementType;
+  if (dtypeAttr()) {
+    elementType = convertONNXTypeToMLIRType(builder,
+        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
+  } else {
+    elementType = inputType.getElementType();
+  }
+  getResult().setType(RankedTensorType::get(inputType.getShape(), elementType));
+  return success();
 }
 
 LogicalResult ONNXFloorOp::inferShapes(
@@ -5159,7 +5175,6 @@ LogicalResult ONNXZipMapOp::inferShapes(
 
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
@@ -5280,13 +5295,14 @@ LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
   if (!fnAttr)
     return emitOpError("requires a 'callee' symbol reference attribute");
-  FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+  func::FuncOp fn =
+      symbolTable.lookupNearestSymbolFrom<func::FuncOp>(*this, fnAttr);
   if (!fn)
     return emitOpError() << "'" << fnAttr.getValue()
                          << "' does not reference a valid function";
 
   // Verify that the operand and result types match the callee.
-  auto fnType = fn.getType();
+  auto fnType = fn.getFunctionType();
   if (fnType.getNumInputs() != getNumOperands())
     return emitOpError("incorrect number of operands for callee");
 
@@ -5312,6 +5328,26 @@ LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 
 FunctionType ONNXCallOp::getCalleeType() {
   return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+}
+
+//===----------------------------------------------------------------------===//
+// SeqType
+//===---------------------------------------------------------------------===//
+
+mlir::Type SeqType::parse(mlir::AsmParser &parser) {
+  Type elementType;
+  if (parser.parseLess() || parser.parseType(elementType) ||
+      parser.parseGreater() || !elementType.isa<ShapedType>())
+    return Type();
+
+  ShapedType ty = elementType.cast<ShapedType>();
+  return get(ty.getContext(), ty, -1);
+}
+
+void SeqType::print(mlir::AsmPrinter &printer) const {
+  // Previous implementation did not print/parse the length field
+  // May add the field in future
+  printer << "<" << getElementType() << ">";
 }
 
 //===----------------------------------------------------------------------===//

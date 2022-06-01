@@ -86,6 +86,15 @@ public:
   // dynamic library. It can run second or third.
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  // Check whether a particular instruction extracted from environment variable
+  // specified in the argument is included in the dynamic library file name
+  // compiled here. If not found, return false.
+  bool checkInstructionFromEnv(const std::string envCheckInstruction);
+  // Check whether a particular instruction specified in the argument is
+  // included in the dynamic library file name compiled here.
+  // If not found, return false.
+  // TODO: set multiple instructions
+  bool checkInstruction(const std::string instructionName);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
@@ -105,11 +114,11 @@ public:
 protected:
   // Create a function with an empty body.
   // This function will contain the model to be tested.
-  mlir::FuncOp createEmptyTestFunction(
+  mlir::func::FuncOp createEmptyTestFunction(
       const llvm::SmallVectorImpl<mlir::Type> &inputsType,
       const llvm::SmallVectorImpl<mlir::Type> &outputsType);
   // Create the entry point function (used to call the model test function).
-  void createEntryPoint(mlir::FuncOp &funcOp);
+  void createEntryPoint(mlir::func::FuncOp &funcOp);
   // Create a onnx constant op loaded with values in the tensor omt.
   mlir::ONNXConstantOp buildONNXConstantOp(
       const OMTensor *omt, const mlir::RankedTensorType resultType);
@@ -168,7 +177,7 @@ private:
 
   // Create the category mapper operator, and insert it into the test function.
   void createCategoryMapper(mlir::Type outputType,
-      const CMAttributes &attributes, mlir::FuncOp &funcOp);
+      const CMAttributes &attributes, mlir::func::FuncOp &funcOp);
 
   // Verify that the output tensor has the expected rank.
   bool verifyRank(const OMTensor &out, int64_t rank) const;

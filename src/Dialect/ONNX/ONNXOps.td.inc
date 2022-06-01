@@ -1023,6 +1023,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX DepthToSpace operation";
   let description = [{
   "DepthToSpace rearranges (permutes) data from depth into blocks of spatial data."
@@ -2469,6 +2470,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 
 def ONNXLessOp:ONNX_Op<"Less",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Less operation";
   let description = [{
   "Returns the tensor resulted from performing the `less` logical operation"
@@ -2597,6 +2599,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 
 def ONNXLoopOp:ONNX_Op<"Loop",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Loop operation";
   let description = [{
   "Generic Looping construct. This loop has multiple termination conditions:"
@@ -3116,6 +3119,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 
 def ONNXMulOp:ONNX_Op<"Mul",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
   "Performs element-wise binary multiplication (with Numpy-style broadcasting support)."
@@ -5782,6 +5786,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
   "SpaceToDepth rearranges blocks of spatial data into depth. More specifically,"

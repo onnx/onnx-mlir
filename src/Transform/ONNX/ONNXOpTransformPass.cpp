@@ -47,6 +47,7 @@ namespace {
 
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                  OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXOpTransformPass)
 
   StringRef getArgument() const override { return "onnx-op-transform"; }
 
@@ -132,10 +133,13 @@ void ONNXOpTransformPass::runOnOperation() {
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createDecomposeONNXToONNXPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     currentTag = createTagForIR(module);

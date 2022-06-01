@@ -65,8 +65,7 @@ public:
           create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
 
       // Store value in the new MemRef.
-      Value idxValue =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      Value idxValue = create.math.constant(rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
       rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
@@ -81,8 +80,10 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlShapePass)
+
   StringRef getArgument() const override { return "lower-krnl-shape"; }
 
   StringRef getDescription() const override {
