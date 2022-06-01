@@ -145,7 +145,7 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Type sliceType = RankedTensorType::get({1, D, B, H}, elementType);
     ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
         loc, sliceType, val, start, end, axis, step);
-    ret = rewriter.create<ONNXSqueezeV11Op>(
+    return rewriter.create<ONNXSqueezeV11Op>(
         loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
   } else if (directionStr.equals_insensitive("bidirectional")) {
     Type splitType = RankedTensorType::get({T, 1, B, H}, elementType);
@@ -161,7 +161,7 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value concatOp = rewriter.create<ONNXConcatOp>(loc, concatType,
         ValueRange({fwdLastSlice, bkwFirstSlice}), /*concatAxis=*/1);
     Type squeezeType = RankedTensorType::get({D, B, H}, elementType);
-    ret = rewriter.create<ONNXSqueezeV11Op>(
+    return rewriter.create<ONNXSqueezeV11Op>(
         loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
   } else {
     llvm_unreachable("Invalid direction.");

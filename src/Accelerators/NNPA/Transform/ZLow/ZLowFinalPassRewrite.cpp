@@ -2,13 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZLowRewrite.cpp - ZLow Rewrite Patterns ---------------------===//
+//===-------- ZLowFinalRewrite.cpp - ZLow Rewrite Patterns ----------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass implements optimizations for ZLow operations.
+// This pass investigates operation that generate the input, and set the
+// prev_layer attribute of zlow.lstm operation as follows.
+///   "none" if input tensor is not from a previous RNN layer
+///   "uni" if input tensor is uni-directional output from a previous RNN layer
+///   "bidir" if input tensor is bi-directional output from a previous RNN layer
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,36 +29,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
-/// This pattern rewrites
-/// ```mlir
-///   zlow.lstm(%input, %h0, %c0, %input_weights, %input_bias,
-///             %hidden_weights, %hidden_bias, %work_area, %shape,
-///             %hn_output, %cf_output,
-///             %direction, %return_all_steps, %prev_layer)
-///   ...
-///   zlow.lstm(%hn_output, %h0_, %c0_, %input_weights_, %input_bias_,
-///             %hidden_weights_, %hidden_bias_, %work_area_, %shape_,
-///             %hn_output_, %cf_output_,
-///             %direction_, %return_all_steps_, "none")
-/// ===>
-///   zlow.lstm(%input, %h0, %c0, %input_weights, %input_bias,
-///             %hidden_weights, %hidden_bias, %work_area, %shape,
-///             %hn_output, %cf_output,
-///             %direction, %return_all_steps, %prev_layer)
-///   ...
-///   zlow.lstm(%hn_output, %h0_, %c0_, %input_weights_, %input_bias_,
-///             %hidden_weights_, %hidden_bias_, %work_area_, %shape_,
-///             %hn_output_, %cf_output_,
-///             %direction_, %return_all_steps_,
-///             (%direction == "bidirectional) ? "bidir" : "uni") #was "none"
-///
-/// ```
-/// by changing the prev_layer parameter from "none" to "bidir" or "uni"
-/// according to the operation of the input argument.
-///   "none" if input tensor is not from a previous RNN layer
-///   "uni" if input tensor is uni-directional output from a previous RNN layer
-///   "bidir" if input tensor is bi-directional output from a previous RNN layer
-//
 class SetPrevLayerInLSTMOpPattern : public OpRewritePattern<ZLowLSTMOp> {
 public:
   using OpRewritePattern<ZLowLSTMOp>::OpRewritePattern;
