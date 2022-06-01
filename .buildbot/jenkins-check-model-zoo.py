@@ -45,10 +45,12 @@ docker_dev_image_name      = (github_repo_name + '-dev' +
                               ('.' + github_pr_baseref2
                                if github_pr_baseref != 'main' else ''))
 docker_dev_image_tag       = github_pr_number.lower()
-workspace_modelzoo         = os.path.join(jenkins_home, 'workspace',
-                                          job_name+'@'+modelzoo_workdir)
+
+workspace_modelzoo         = os.path.join(workspace, modelzoo_workdir)
 
 def main():
+    os.makedirs(workspace_modelzoo)
+
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
             '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
