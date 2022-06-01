@@ -64,17 +64,11 @@ add_onnx_mlir_library(OMVersion
 file(READ "${CMAKE_SOURCE_DIR}/VERSION_NUMBER" ONNX_MLIR_VERSION)
 string(STRIP "${ONNX_MLIR_VERSION}" ONNX_MLIR_VERSION)
 list(APPEND DEFINITIONS "ONNX_MLIR_VERSION=\"${ONNX_MLIR_VERSION}\"")
-execute_process(
-  COMMAND git tag --points-at HEAD
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/onnx
-  OUTPUT_VARIABLE ONNX_VERSION
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
+file(READ "${CMAKE_SOURCE_DIR}/third_party/onnx/VERSION_NUMBER" ONNX_VERSION)
+string(STRIP "${ONNX_VERSION}" ONNX_VERSION)
 if ("${ONNX_VERSION}" STREQUAL "")
   message(WARNING "third_party/onnx version not detected, you may be on the wrong commit hash")
 else()
-  # Strip leading "v"
-  STRING(REGEX REPLACE "^v" "" ONNX_VERSION ${ONNX_VERSION})
   message(STATUS "Onnx version             : ${ONNX_VERSION}")
   list(APPEND DEFINITIONS "ONNX_VERSION=\"${ONNX_VERSION}\"")
 endif()
