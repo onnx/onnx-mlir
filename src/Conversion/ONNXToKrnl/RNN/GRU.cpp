@@ -189,8 +189,8 @@ getWeightPack<ONNXGRUOp, GruWeightPack>(
   auto w2DTy = MemRefType::get({3 * hiddenSize, inputSize}, elementType);
   auto wTransposeTy = MemRefType::get({inputSize, 3 * hiddenSize}, elementType);
   auto wSplit2DTy = MemRefType::get({hiddenSize, inputSize}, elementType);
-  SmallVector<Type, 2> w3D2Ty(2, create.onnx.totensor(w3DTy));
-  SmallVector<Type, 3> wSplit2D3Ty(3, create.onnx.totensor(wSplit2DTy));
+  SmallVector<Type, 2> w3D2Ty(2, w3DTy);
+  SmallVector<Type, 3> wSplit2D3Ty(3, wSplit2DTy);
 
   // MemRef types for recurrence weights.
   auto r3DTy = MemRefType::get({1, 3 * hiddenSize, hiddenSize}, elementType);
@@ -199,8 +199,8 @@ getWeightPack<ONNXGRUOp, GruWeightPack>(
       MemRefType::get({hiddenSize, 3 * hiddenSize}, elementType);
   auto rSplit2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
   auto rTranspose2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
-  SmallVector<Type, 2> r3D2Ty(2, create.onnx.totensor(r3DTy));
-  SmallVector<Type, 3> rSplit2D3Ty(3, create.onnx.totensor(rSplit2DTy));
+  SmallVector<Type, 2> r3D2Ty(2, r3DTy);
+  SmallVector<Type, 3> rSplit2D3Ty(3, rSplit2DTy);
 
   ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
 
@@ -291,8 +291,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
     auto bType2D = MemRefType::get({1, 6 * hiddenSize}, elementType);
     auto bType1D = MemRefType::get({6 * hiddenSize}, elementType);
     auto bSplitType1D = MemRefType::get({hiddenSize}, elementType);
-    SmallVector<Type, 6> split1D6Ty(6, create.onnx.totensor(bSplitType1D));
-    SmallVector<Type, 2> split2D2Ty(2, create.onnx.totensor(bType2D));
+    SmallVector<Type, 6> split1D6Ty(6, bSplitType1D);
+    SmallVector<Type, 2> split2D2Ty(2, bType2D);
 
     // Squeeze the direction axis from B.
     Value fB, bB;

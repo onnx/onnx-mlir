@@ -381,8 +381,15 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// Only support evenly splitting.
 std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
-  std::vector<Value> resVals;
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
+  SmallVector<Type, 4> convertedTypes;
+  for (auto t : resultTypes) {
+    convertedTypes.emplace_back(create.onnx.totensor(t));
+  }
+
+  std::vector<Value> resVals;
   int outputNum = resultTypes.size();
   auto inputType = input.getType().cast<ShapedType>();
   auto inputShape = inputType.getShape();
@@ -396,8 +403,6 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-      create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -411,14 +416,14 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 
     for (int i = 0; i < outputNum; ++i) {
       Value constVal = createDenseONNXConstantOp(
-          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
+          rewriter, loc, convertedTypes[i].cast<ShapedType>(), resBuffers[i])
                            .getResult();
       resVals.emplace_back(create.onnx.tomemref(constVal));
       free(resBuffers[i]);
     }
     free(inputBuffer);
   } else {
-    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, resultTypes,
+    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
         create.onnx.totensor(input),
         /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)

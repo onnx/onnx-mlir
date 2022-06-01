@@ -89,9 +89,9 @@ Value OnnxBuilder::min(ValueRange inputs) const {
   }) && "All inputs must have the same element type");
   Type outputType = inputs[0].getType();
   for (uint64_t i = 1; i < inputs.size(); ++i)
-    outputType =
-        OpTrait::util::getBroadcastedType(outputType, inputs[i].getType());
-  return b.create<ONNXMinOp>(loc, outputType, inputs);
+    outputType = OpTrait::util::getBroadcastedType(
+        totensor(outputType), inputs[i].getType());
+  return b.create<ONNXMinOp>(loc, totensor(outputType), inputs);
 }
 
 Value OnnxBuilder::mul(Value A, Value B) const {
@@ -103,7 +103,7 @@ Value OnnxBuilder::mul(Value A, Value B) const {
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
   return b.create<ONNXReshapeOp>(
-      loc, outputType, totensor(input), totensor(shape));
+      loc, totensor(outputType), totensor(input), totensor(shape));
 }
 
 Value OnnxBuilder::sub(Value A, Value B) const {
