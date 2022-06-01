@@ -55,11 +55,10 @@ Directions to install MLIR and ONNX-MLIR are dependent on your OS.
 * [Linux or OSX](docs/BuildOnLinuxOSX.md).
 * [Windows](docs/BuildOnWindows.md).
 
-### Testing build and summary of custom environment variables
-
 After installation, an `onnx-mlir` executable should appear in the `build/Debug/bin` or `build/Release/bin` directory.
 
-There are several cmake targets that are used to verify the validity of the `onnx-mlir` compiler, which are listed [here](docs/TestingHighLevel.md).
+If you have difficulties building, rebuilding, or testing `onnx-mlir`, check this [page](docs/TestingHighLevel.md) for helpful hints.
+
 
 ## Using ONNX-MLIR
 
@@ -139,6 +138,9 @@ Do not use public channels to discuss any security-related issues; use instead t
 We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
 Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
+
+ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
+Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#step-7-commit--push) for specific instructions.
 
 ## Code of Conduct
 

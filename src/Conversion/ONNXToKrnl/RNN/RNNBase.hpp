@@ -36,12 +36,14 @@ bool isNoneType(Value val);
 int64_t dimAt(Value val, int index);
 
 /// Insert Allocate and Deallocate for the all hidden output.
-Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
-    Value W, Value R, Value output, bool insertDealloc = false);
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc = false);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    Value X, Value W, Value R, Value output, bool insertDealloc = false);
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc = false);
 
 /// Initialize the hidden and cell states.
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
@@ -107,7 +109,8 @@ std::tuple<B, B> getBiasPack(
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
-    RNNOp *op, typename RNNOp::Adaptor operandAdaptor);
+    TypeConverter *typeConverter, RNNOp *op,
+    typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
 template <typename S, typename A, typename W, typename B>
@@ -141,7 +144,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
-        rewriter, loc, &rnnOp, operandAdaptor);
+        rewriter, loc, typeConverter, &rnnOp, operandAdaptor);
 
     // Activation functions.
     A activationForward, activationReverse;
@@ -161,7 +164,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
     auto direction = rnnOp.direction();
 
-    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
@@ -178,7 +181,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value directionIV =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+                create.math.constant(rewriter.getIndexType(), 0);
             Value sequenceIV = loopInd[0];
             // Get a slice of X at the current timestep.
             Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
@@ -207,12 +210,12 @@ struct ONNXRNNOpLowering : public ConversionPattern {
                 rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) -
                     1);
 
-            Value directionIV = emitConstantOp(rewriter, loc,
+            Value directionIV = create.math.constant(
                 rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
             Value sequenceSize =
                 (sequenceDimSize != -1)
-                    ? emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                          sequenceDimSize)
+                    ? create.math.constant(
+                          rewriter.getIndexType(), sequenceDimSize)
                     : create.mem.dim(X, 0);
 
             Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,

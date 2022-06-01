@@ -7,6 +7,7 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
 3. [Numerical Tests](#numerical-tests)
 4. [Use gdb](#use-gdb)
+4. [ONNX Model Zoo](#onnx-model-zoo)
 
 ## ONNX Backend Tests
 
@@ -255,12 +256,30 @@ preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
 your model, input and output mlir files will be preserved, as well as
 unoptimized and optimized bytecode files as well as a few additional binaries.
 
+In case of failures, both RapidCheck (infrastructure used for numerical testing) and the onnx models allow a user to re-run a test with the same values. When running a test, you may get the following output.
+```
+Model will use the random number generator seed provided by "TEST_SEED=1440995966"
+RapidCheck Matrix-Vector test case generation.
+Using configuration: seed=4778673019411245358
+```
+
+By recording the seed values in the following two environment variables:
+```
+export RC_PARAMS="seed=4778673019411245358"
+export TEST_SEED=1440995966
+```
+you can force, respectively, the random seeds used in RapidCheck and the random seeds used to populate the ONNX input vectors to be the same. Set only the first one (`RC_PARAMS`) and you will see the same test configurations being run but with different input values. Set both and you will see the same configuration and the same input being used for a completely identical run.
+
 ### Enable SIMD instructions
 
 On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
 ```
 TEST_ARGS="-mcpu=z14" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Release --target check-onnx-numerical
 ```
+
+### Testing of specific accelerators
+
+Currently we provide testing for accelerator NNPA. It is described [here](docs/AccelNNPAHowToUseAndTest.md).
 
 ## Use gdb
 ### Get source code for ONNX model
@@ -331,3 +350,16 @@ Some examples that uses this support in the project are in these files.
 * src/Conversion/ONNXToKrnl/Math/Gemm/Gemm.cpp
 
 Again, these debug statements can then be activated by adding the `--debug-only=my_opt_name_here` option to `onnx-mlir` or `onnx-mlir-opt`.
+
+## ONNX Model Zoo
+
+We provide a Python script, i.e. [CheckONNXModelZoo.py](test/onnx-model-zoo/CheckONNXModelZoo.py), to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script must be invoked from the ONNX model zoo repository, not the onnx-mlir repository.
+
+Below is a quick start for checking the `mnist-8` model:
+```bash
+$ git clone https://github.com/onnx/models
+$ cd models
+$ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
+$ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
+$ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3"
+```

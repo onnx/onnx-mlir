@@ -43,9 +43,14 @@ struct ONNXPadOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+    Type resElementType = resMemRefType.getElementType();
+
     // Insert an allocation and deallocation for the output of this operation.
-    auto resMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto resElementType = resMemRefType.getElementType();
     Value resMemRef = insertAllocAndDeallocSimple(
         rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput());
 
@@ -66,10 +71,11 @@ struct ONNXPadOpLowering : public ConversionPattern {
       // This way is to avoid using `select` in computing indices as doing for
       // 'edge' and 'reflect' modes.
       Value cValue;
-      if (constantValue.getType().isa<NoneType>())
+      if (constantValue.getType().isa<NoneType>()) {
         // Default to 0 if constant_value is not specified.
-        cValue = emitConstantOp(rewriter, loc, resElementType, 0);
-      else
+        MathBuilder createMath(rewriter, loc);
+        cValue = createMath.constant(resElementType, 0);
+      } else
         cValue = createKrnl.load(constantValue, {});
 
       // Initialize the result to the constant value.

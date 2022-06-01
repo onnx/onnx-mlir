@@ -38,7 +38,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     auto outputMemRefShape = outputMemRefType.getShape();
     auto elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();
@@ -49,10 +54,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     float betaLit = lrnOp.beta().convertToFloat();
     int sizeLit = lrnOp.size();
     auto f32Type = FloatType::getF32(rewriter.getContext());
-    Value biasValue = emitConstantOp(rewriter, loc, f32Type, biasLit);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
-        emitConstantOp(rewriter, loc, f32Type, alphaLit / (float)sizeLit);
-    Value betaValue = emitConstantOp(rewriter, loc, f32Type, betaLit);
+        create.math.constant(f32Type, alphaLit / (float)sizeLit);
+    Value betaValue = create.math.constant(f32Type, betaLit);
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
@@ -73,8 +80,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
           // Compute the lower bound and upper bound for square_sum.
           constexpr int loopIndexForC = 1;
-          Value cValue = outputLoopInd[loopIndexForC];
-          DimIndexExpr cIE(cValue);
+          DimIndexExpr cIE(outputLoopInd[loopIndexForC]);
           MemRefBoundsIndexCapture inputBounds(input);
           DimIndexExpr CIE(inputBounds.getDim(loopIndexForC));
           SymbolIndexExpr sizeIE = LiteralIndexExpr(sizeLit);
@@ -91,27 +97,29 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
           // Initialize sum, single scalar, no need for default alignment.
           MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              rewriter, loc);
 
           Value sumAlloc = create.mem.alloc(scalarMemRefType);
-          createKrnl.store(
-              emitConstantOp(rewriter, loc, elementType, 0), sumAlloc);
+          createKrnl.store(create.math.constant(elementType, 0), sumAlloc);
 
           // Create the sum reduction loop
-          krnl::BuildKrnlLoop sumLoops(rewriter, loc, 1);
-          sumLoops.createDefineOp();
-          sumLoops.pushBounds(lbMaxList, ubMinList);
-          sumLoops.createIterateOp();
+          std::vector<Value> loop;
+          defineLoops(rewriter, loc, loop, 1);
+          krnl::KrnlIterateOperandPack pack(rewriter, loop);
+          pack.pushIndexExprsBound(lbMaxList);
+          pack.pushIndexExprsBound(ubMinList);
+          KrnlIterateOp iterateOp = createKrnl.iterate(pack);
+          Block &iterationBlock = iterateOp.bodyRegion().front();
+          SmallVector<Value, 4> sumLoopInd(
+              iterationBlock.getArguments().begin(),
+              iterationBlock.getArguments().end());
           auto outputLoopBody = rewriter.saveInsertionPoint();
-          rewriter.setInsertionPointToStart(sumLoops.getIterateBlock());
+          rewriter.setInsertionPointToStart(&iterationBlock);
 
           // Compute quare-sum value
           SmallVector<Value, 4> loadIndices;
           for (int i = 0; i < outputRank; i++)
-            loadIndices.emplace_back((i == loopIndexForC)
-                                         ? sumLoops.getInductionVar(0)
-                                         : outputLoopInd[i]);
+            loadIndices.emplace_back(
+                (i == loopIndexForC) ? sumLoopInd[0] : outputLoopInd[i]);
 
           Value loadVal = createKrnl.load(input, loadIndices);
           Value squareVal = create.math.mul(loadVal, loadVal);
@@ -124,9 +132,8 @@ struct ONNXLRNOpLowering : public ConversionPattern {
           // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)
           rewriter.restoreInsertionPoint(outputLoopBody);
           SmallVector<Value, 4> storeIndices;
-          for (int i = 0; i < outputRank; ++i) {
+          for (int i = 0; i < outputRank; ++i)
             storeIndices.emplace_back(outputLoopInd[i]);
-          }
           Value xValue = createKrnl.load(input, storeIndices);
           sumValue = createKrnl.load(sumAlloc);
           Value tempValue =

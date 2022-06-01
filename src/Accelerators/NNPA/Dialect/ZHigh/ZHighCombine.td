@@ -77,8 +77,8 @@ def StickUnstickRemovalPattern : Pat<
 >;
 
 def ProducedByUnstickOp: Constraint<
-  CPred<"areProducedByUnstickOp($0, $1)">,
-  "all values are produced by ZHighUnstickOp with the same layout"
+  CPred<"areProducedByUnstickOp($0)">,
+  "all values are produced by ZHighUnstickOp"
 >;
 
 def HaveNoPadsWhenStickified: Constraint<
@@ -106,7 +106,7 @@ def GetStickifiedInputs: NativeCodeCall<
 def ReplaceONNXConcatByZHighConcatPattern: Pat<
   (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
   (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
-  [(ProducedByUnstickOp $inputs, $layout),
+  [(ProducedByUnstickOp $inputs),
    (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
 >;
 

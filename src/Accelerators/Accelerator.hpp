@@ -27,15 +27,23 @@
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
 // generated file Accelerators.inc).
 #define CREATE_ACCEL_ENUM(name) name,
-#define DECLARE_ACCEL_INIT_FUNCTION(name) extern void create##name();
-#define INVOKE_ACCEL_INIT_FUNCTION(name) create##name();
+#define DECLARE_ACCEL_INIT_FUNCTION(name) extern Accelerator *create##name();
+#define INVOKE_ACCEL_INIT_FUNCTION(name, kinds)                                \
+  if (!kinds.empty() &&                                                        \
+      llvm::is_contained(kinds, accel::Accelerator::Kind::name))               \
+    create##name()->setName(#name);
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
   clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
+#define ACCEL_CL_ENUM_FROM_STRING(name, var, str)                              \
+  if (str.compare(std::string(#name)) == 0) {                                  \
+    var = accel::Accelerator::Kind::name;                                      \
+    return true;                                                               \
+  }
+#define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
+  map[accel::Accelerator::Kind::name] = #name;
 
 namespace onnx_mlir {
 namespace accel {
-
-extern void initAccelerators();
 
 class Accelerator {
 public:
@@ -56,8 +64,15 @@ public:
   /// Returns the set of accelerators available.
   static const llvm::SmallVectorImpl<Accelerator *> &getAccelerators();
 
-  /// Returns whether the accelerator is active.
-  virtual bool isActive() const = 0;
+  /// Getter for the name of this accelerator.
+  std::string getName() { return name; }
+
+  /// Setter for the name of this accelerator.
+  void setName(std::string _name) { name = _name; }
+
+  /// Returns the version number of the accelerator library.
+  /// Version number format: 0x[major][minor][patch]
+  virtual uint64_t getVersionNumber() const = 0;
 
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir driver
@@ -116,7 +131,18 @@ protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;
   /// Kind of accelerator.
   Kind kind;
+
+private:
+  /// Name of accelerator.
+  std::string name = "";
 };
+
+// Help to print accelerator kinds.
+std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind);
+llvm::raw_ostream &operator<<(
+    llvm::raw_ostream &out, const Accelerator::Kind kind);
+
+extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds);
 
 } // namespace accel
 } // namespace onnx_mlir

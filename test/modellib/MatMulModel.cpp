@@ -40,7 +40,7 @@ bool MatMul2DLibBuilder::build() {
   llvm::SmallVector<Type, 2> inputsType{aType, bType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
@@ -49,7 +49,7 @@ bool MatMul2DLibBuilder::build() {
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
 
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -99,7 +99,9 @@ bool MatMul2DLibBuilder::verifyOutputs() {
       }
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
 
 } // namespace test

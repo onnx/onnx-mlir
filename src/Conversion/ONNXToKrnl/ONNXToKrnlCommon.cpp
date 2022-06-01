@@ -48,6 +48,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   MemRefBuilder memRefBuilder(b, loc);
   KrnlBuilder krnlBuilder(memRefBuilder);
+  MathBuilder createMath(b, loc);
 
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the putput dimension
@@ -58,7 +59,7 @@ Value OnnxToKrnlBuilder::reshape(
       memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value index = createMath.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
     krnlBuilder.store(data, alloc, index);
   }
@@ -111,39 +112,16 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
-/// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
-MemRefType convertToMemRefType(Type type) {
-  // Convert the element type of the (tensor or memref) to a valid Krnl type.
-  auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<ONNXStringType>())
-      return krnl::StringType::get(elemType.getContext());
-    return elemType;
-  };
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
 
-  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    MemRefType memRefType = MemRefType::get(
-        tensorType.getShape(), convertElemType(tensorType.getElementType()));
-    return memRefType;
-  }
-
-  if (auto seqType = type.dyn_cast_or_null<SeqType>()) {
-    ShapedType seqElementType = seqType.getElementType();
-    Type seqElementMemRefType =
-        seqElementType.hasRank()
-            ? (Type)convertToMemRefType(seqElementType)
-            : (Type)UnrankedMemRefType::get(seqElementType.getElementType(), 0);
-    SmallVector<int64_t, 1> dims;
-    dims.emplace_back(seqType.getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType memRefType = MemRefType::get(shape, seqElementMemRefType);
-    return memRefType;
-  }
-
-  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
-  auto memRefType = type.cast<MemRefType>();
-  return MemRefType::get(
-      memRefType.getShape(), convertElemType(memRefType.getElementType()));
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -262,21 +240,21 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   }
   // If there is at least one result to investigate.
   if (currentOp->getNumResults() > 0) {
-    parentBlock->walk(
-        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
-          auto result = currentOp->getResult(resultIndex);
-          for (const auto &operand : op.getOperands()) {
-            // Determine if current function returns the result value of the
-            // current op.
-            if (operand == result)
-              insertDealloc = false;
-            // Determin if the result value of reinterpret_cast op whose operand
-            // is the result value of current op
-            for (const auto &castOpResult : castOpResults)
-              if (operand == castOpResult)
-                insertDealloc = false;
-          }
-        });
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          func::ReturnOp op) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &operand : op.getOperands()) {
+        // Determine if current function returns the result value of the
+        // current op.
+        if (operand == result)
+          insertDealloc = false;
+        // Determin if the result value of reinterpret_cast op whose operand
+        // is the result value of current op
+        for (const auto &castOpResult : castOpResults)
+          if (operand == castOpResult)
+            insertDealloc = false;
+      }
+    });
   }
   return insertDealloc;
 }
@@ -476,10 +454,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
   MemRefBuilder createMemRef(rewriter, loc);
   return createMemRef.reinterpretCast(data, outputDims);
 }
@@ -610,8 +587,6 @@ KrnlTypeConverter::KrnlTypeConverter() {
     // Acccelators may have special versions of TensorType. Call the conversions
     // of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      if (!accel->isActive())
-        continue;
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;

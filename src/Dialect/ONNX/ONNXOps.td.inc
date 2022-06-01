@@ -741,6 +741,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
@@ -1022,6 +1023,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX DepthToSpace operation";
   let description = [{
   "DepthToSpace rearranges (permutes) data from depth into blocks of spatial data."
@@ -1096,6 +1098,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return {7};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
@@ -1720,6 +1723,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
@@ -1793,6 +1797,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
@@ -1906,6 +1911,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
@@ -2464,6 +2470,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 
 def ONNXLessOp:ONNX_Op<"Less",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Less operation";
   let description = [{
   "Returns the tensor resulted from performing the `less` logical operation"
@@ -2587,10 +2594,12 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Loop operation";
   let description = [{
   "Generic Looping construct. This loop has multiple termination conditions:"
@@ -3110,6 +3119,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 
 def ONNXMulOp:ONNX_Op<"Mul",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
   "Performs element-wise binary multiplication (with Numpy-style broadcasting support)."
@@ -5776,6 +5786,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
   "SpaceToDepth rearranges blocks of spatial data into depth. More specifically,"
@@ -5834,6 +5845,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
@@ -5892,6 +5904,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -6410,6 +6423,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return {20,4,4,4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",

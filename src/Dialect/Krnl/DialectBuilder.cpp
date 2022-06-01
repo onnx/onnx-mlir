@@ -13,8 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -24,6 +24,38 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+static StringRef getFormat(const Type &inputType) {
+  StringRef format;
+  TypeSwitch<Type>(inputType)
+      .Case<Float16Type>([&](Float16Type) { format = "%g"; })
+      .Case<Float32Type>([&](Float32Type) { format = "%f"; })
+      .Case<Float64Type>([&](Float64Type) { format = "%f"; })
+      .Case<IntegerType>([&](IntegerType type) {
+        switch (type.getWidth()) {
+        case 1:
+        case 8:
+        case 16:
+        case 32:
+          format = type.isUnsigned() ? "%u" : "%d";
+          break;
+        case 64:
+          format = type.isUnsigned() ? "%llu" : "%lld";
+          break;
+        }
+      })
+      .Case<IndexType>([&](IndexType) { format = "%lld"; })
+      .Case<onnx_mlir::krnl::StringType>(
+          [&](onnx_mlir::krnl::StringType) { format = "%s"; })
+      .Case<LLVM::LLVMPointerType>(
+          [&](LLVM::LLVMPointerType) { format = "%s"; })
+      .Default([&](Type type) {
+        llvm::errs() << "type: " << type << "\n";
+        llvm_unreachable("Unhandled type");
+      });
+
+  return format;
+}
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
@@ -208,37 +240,14 @@ void KrnlBuilder::printf(StringRef msg) const {
 }
 
 void KrnlBuilder::printf(StringRef msg, Value input, Type inputType) const {
-  StringRef format;
-  TypeSwitch<Type>(inputType)
-      .Case<mlir::Float16Type>([&](mlir::Float16Type) { format = "%g\n"; })
-      .Case<mlir::Float32Type>([&](mlir::Float32Type) { format = "%g\n"; })
-      .Case<mlir::Float64Type>([&](mlir::Float64Type) { format = "%g\n"; })
-      .Case<IntegerType>([&](IntegerType type) {
-        switch (type.getWidth()) {
-        case 1:
-        case 8:
-        case 16:
-        case 32:
-          format = type.isUnsigned() ? "%u\n" : "%d\n";
-          break;
-        case 64:
-          format = type.isUnsigned() ? "%llu\n" : "%lld\n";
-          break;
-        }
-      })
-      .Case<IndexType>([&](IndexType) { format = "%lld\n"; })
-      .Case<onnx_mlir::krnl::StringType>(
-          [&](onnx_mlir::krnl::StringType) { format = "%s\n"; })
-      .Case<LLVM::LLVMPointerType>(
-          [&](LLVM::LLVMPointerType) { format = "%s\n"; })
-      .Default([&](Type type) {
-        llvm::errs() << "type: " << type << "\n";
-        llvm_unreachable("Unhandled type");
-      });
-
+  StringRef format = getFormat(inputType);
   std::string concat(msg.str() + format.str());
   StringRef newFormat(concat);
   b.create<KrnlPrintOp>(loc, newFormat, input);
+}
+void KrnlBuilder::printf(Value input, Type inputType) const {
+  StringRef format = getFormat(inputType);
+  b.create<KrnlPrintOp>(loc, format, input);
 }
 
 } // namespace onnx_mlir

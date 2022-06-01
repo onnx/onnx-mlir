@@ -29,8 +29,9 @@ int64_t dimAt(Value val, int index) {
 
 /// Insert Allocate and Deallocate for the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
-Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
-    Value W, Value R, Value output, bool insertDealloc) {
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc) {
   IndexExprScope scope(&rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
@@ -46,7 +47,13 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     dims.emplace_back(XBounds.getDim(1));
     // Get hidden_size from R.
     dims.emplace_back(RBounds.getDim(2));
-    auto memRefType = convertToMemRefType(output.getType());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(output.getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     alloc = insertAllocAndDeallocSimple(
         rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
@@ -82,9 +89,10 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
-  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-  Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-  Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value zeroIndex = createMath.constant(rewriter.getIndexType(), 0);
+  Value oneIndex = createMath.constant(rewriter.getIndexType(), 1);
 
   int nLoops = 2;
   IndexExprScope childScope(&rewriter, loc);
@@ -152,7 +160,8 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    Value X, Value W, Value R, Value output, bool insertDealloc) {
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
+    bool insertDealloc) {
   IndexExprScope scope(&rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
@@ -166,7 +175,12 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     dims.emplace_back(XBounds.getDim(1));
     // Get hidden_size from R.
     dims.emplace_back(RBounds.getDim(2));
-    MemRefType memRefType = convertToMemRefType(output.getType());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(output.getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     alloc = insertAllocAndDeallocSimple(
         rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {

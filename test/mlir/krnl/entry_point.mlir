@@ -229,3 +229,31 @@ module {
 // CHECK:           llvm.return [[VAR_20_2_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Generate calls that initialize accelerators.
+module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
+  func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
+    return %arg0 : memref<10xf32>
+  }
+  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
+// CHECK: llvm.func @OMInitCompatibleAccelNNPA(i64)
+// CHECK: llvm.func @OMInitCompatibleAccelPseudo(i64)
+// CHECK-LABEL: llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
+// CHECK-NEXT: [[FALSE:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-NEXT: [[VERSION_NUMBER:%.+]] = llvm.mlir.constant(65537 : i64) : i64
+// CHECK-NEXT: [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER]]) : (i64) -> i64
+// CHECK-NEXT: [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
+// CHECK-NEXT: llvm.cond_br [[FAILED]], ^bb1, ^bb2
+// CHECK-NEXT: ^bb1:  // 2 preds: ^bb0, ^bb2
+// CHECK-NEXT:   [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK-NEXT:   llvm.return [[NULL]] : !llvm.ptr<i8>
+// CHECK-NEXT: ^bb2:  // pred: ^bb0
+// CHECK-NEXT:  [[VERSION_NUMBER:%.+]] = llvm.mlir.constant(65536 : i64) : i64
+// CHECK-NEXT:  [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER]]) : (i64) -> i64
+// CHECK-NEXT:  [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
+// CHECK-NEXT:  llvm.cond_br [[FAILED]], ^bb1, ^bb3
+// CHECK-NEXT: ^bb3:  // pred: ^bb2
+// CHECK-NEXT:   {{.*}} = llvm.call @omTensorListGetOmtArray(%arg0) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
+}

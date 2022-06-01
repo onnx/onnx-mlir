@@ -77,7 +77,7 @@ bool LSTMLibBuilder::build() {
   llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
   llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
@@ -124,7 +124,7 @@ bool LSTMLibBuilder::build() {
   lstmOp.getResults()[1].setType(yHType);
   lstmOp.getResults()[2].setType(yCType);
 
-  builder.create<ReturnOp>(loc, lstmOp.getResults());
+  builder.create<func::ReturnOp>(loc, lstmOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -284,14 +284,12 @@ bool LSTMLibBuilder::verifyOutputs() {
   omTensorDestroy(HtRf);
   omTensorDestroy(HtRc);
 
-  if (!areCloseFloat(lstmY, refY))
-    return false;
-  if (!areCloseFloat(lstmYh, refYh))
-    return false;
-  if (!areCloseFloat(lstmYc, refYc))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(lstmY, refY) && areCloseFloat(lstmYh, refYh) &&
+            areCloseFloat(lstmYc, refYc);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  omTensorDestroy(refYc);
+  return ok;
 }
 
 } // namespace test

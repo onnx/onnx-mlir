@@ -11,8 +11,8 @@
 #pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
@@ -130,6 +130,10 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t align = -1) const;
 
+  // The alloca instruction allocates memory on the stack frame of the currently
+  // executing function, to be automatically released when this function returns
+  // to its caller. It is strongly suggested to place alloca instructions
+  // outside of a loop.
   mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
   mlir::memref::AllocaOp alignedAlloca(
       mlir::MemRefType type, int64_t align = -1) const;

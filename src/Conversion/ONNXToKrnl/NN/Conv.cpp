@@ -40,7 +40,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
     IndexExpr G = LiteralIndexExpr(groupNum);
-    Value fZero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
+    MathBuilder createMath(rewriter, loc);
+    Value fZero = createMath.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
     // where N is Batch Size,
@@ -75,6 +76,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
+    MemRefBuilder createMemRef(createKrnl);
+    // Create a local reduction value.
+    MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
+    // Single scalar, no need for default alignment.
+    Value reductionVal = createMemRef.alloca(tmpType);
+
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Compute the Channel In Indices.
@@ -101,12 +108,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
               outputSpacialLbs, outputSpacialUbs,
               [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
                 IndexExprScope outputSpacialScope(createKrnl);
-                MemRefBuilder createMemRef(createKrnl);
-                // Create a local reduction value and set to zero.
-                MemRefType tmpType =
-                    MemRefType::get({}, memRefType.getElementType());
-                // Single scalar, no need for default alignment.
-                Value reductionVal = createMemRef.alloca(tmpType);
+                // Reset reduction value to zero.
                 createKrnl.store(fZero, reductionVal);
 
                 // Bounds for reduction loops.
@@ -217,8 +219,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Insert an allocation and deallocation for the result of this operation.
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 

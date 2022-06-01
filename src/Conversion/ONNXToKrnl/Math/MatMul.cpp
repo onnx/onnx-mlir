@@ -42,10 +42,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Define loops and bounds.
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
     int outerLoopNum = shapeHelper.dimsForOutput().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
-    ValueRange loopDef = createKrnl.defineLoops(totLoopNum);
+    ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
@@ -58,15 +58,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
+    // Single scalar, no need for default alignment.
+    Value reductionVal =
+        create.mem.alignedAlloca(MemRefType::get({}, elementType));
 
     // Non-reduction loop iterations: output-rank.
-    createKrnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
+    create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
-          // Single scalar, no need for default alignment.
-          Value reductionVal =
-              create.mem.alignedAlloca(MemRefType::get({}, elementType));
           create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
@@ -297,14 +297,20 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+
     // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Get the constants: zero.
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value zero = createMath.constant(elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();

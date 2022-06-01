@@ -12,7 +12,7 @@ func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
   %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_constant_default_axes
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
@@ -37,7 +37,7 @@ func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32
   %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.NoValue"() {value} : () -> none
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, none) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_constant_default_steps
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x3xf32> {
@@ -61,7 +61,7 @@ func @test_slice_all_constant(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
   %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_all_constant
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
@@ -86,7 +86,7 @@ func @test_slice_all_constant_negative(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
   %ends = "onnx.Constant"() {value = dense<[2, -1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_all_constant_negative
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
@@ -111,7 +111,7 @@ func @test_slice_all_constant_end_outofbound(%arg0 : tensor<2x4xf32>) -> tensor<
   %ends = "onnx.Constant"() {value = dense<[5, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_all_constant_end_outofbound
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
@@ -136,7 +136,7 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
   %ends = "onnx.Constant"() {value = dense<[2, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_slice_all_constant_negative_steps
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
@@ -164,7 +164,7 @@ func @dyntest_slice_constant_dynshape_not_spliced(%arg0 : tensor<?x4x5xf32>) -> 
   %ends = "onnx.Constant"() {value = dense<[-1, -1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %steps = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %res = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<?x4x5xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%res) : (tensor<*xf32>) -> ()
+  "func.return"(%res) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @dyntest_slice_constant_dynshape_not_spliced
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>) -> memref<?x2x3xf32> {
@@ -320,7 +320,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // GEMM with everything constant
 func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<5x10xf32>, [[PARAM_1_:%.+]]: memref<5x10xf32>, [[PARAM_2_:%.+]]: memref<10xf32>) -> memref<10x10xf32> {
@@ -331,7 +331,7 @@ func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
 // Gemm with all dimensions dynamic
 func @test_gemm_all_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2: tensor<?xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<?x?xf32>, tensor<?x?xf32>, tensor<?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_all_dyn
 }
@@ -341,7 +341,7 @@ func @test_gemm_all_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2:
 // A[10, *] * B[*, 10] result in constant size output but dyn reduction.
 func @test_gemm_k_dyn(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<?x10xf32>, tensor<?x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_k_dyn
 }
@@ -351,7 +351,7 @@ func @test_gemm_k_dyn(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>, %arg2:
 // Broadcast bias C is dym, so we don't know if its 1 -> broadcast or 10. Dyn test for that.
 func @test_gemm_c_dyn(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<?xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gemm_c_dyn
 }
@@ -414,7 +414,7 @@ func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
 func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
-  "std.return"(%0) : (tensor<2x2x2xf32>) -> ()
+  "func.return"(%0) : (tensor<2x2x2xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gather_axis0
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x2xf32>) -> memref<2x2x2xf32> {
@@ -438,7 +438,7 @@ func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
-  "std.return"(%0) : (tensor<2x2x2xf32>) -> ()
+  "func.return"(%0) : (tensor<2x2x2xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gather_axis0neg
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x2xf32>) -> memref<2x2x2xf32> {
@@ -467,7 +467,7 @@ func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
-  "std.return"(%0) : (tensor<3x1x2xf32>) -> ()
+  "func.return"(%0) : (tensor<3x1x2xf32>) -> ()
 
 // CHECK-LABEL:  func @test_gather_axis1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x3xf32>) -> memref<3x1x2xf32> {
@@ -487,11 +487,88 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 
 // -----
 
+// COM: Test GatherElements along axis 0. Positive indices, so no select.
+func @test_gather_elements_axis0(%arg0 : tensor<3x3xf32>) -> tensor<2x3xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[1, 2, 0], [2, 0, 0]]> : tensor<2x3xi64>} : () -> tensor<2x3xi64>
+  %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<2x3xi64>) -> tensor<2x3xf32>
+  "func.return"(%0) : (tensor<2x3xf32>) -> ()
+
+// CHECK-LABEL:  func @test_gather_elements_axis0
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x3xf32>) -> memref<2x3xf32> {
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
+// CHECK-DAG:       [[INDICES:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2, 3], value = dense<{{.}}[1, 2, 0], [2, 0, 0]{{.}}> : tensor<2x3xi64>} : () -> memref<2x3xi64>
+// CHECK-DAG:       [[LOOP_0:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 3){
+// CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[INDEX:%.+]] = krnl.load [[INDICES]][[[IV]]#0, [[IV]]#1] : memref<2x3xi64>
+// CHECK:             [[INDEX_CAST:%.+]] = arith.index_cast [[INDEX]] : i64 to index
+// CHECK:             [[DATA_VAL:%.+]] = krnl.load [[PARAM_0]][[[INDEX_CAST]], [[IV]]#1] : memref<3x3xf32>
+// CHECK:             krnl.store [[DATA_VAL]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<2x3xf32>
+// CHECK:           }
+// CHECK:           return [[RES]] : memref<2x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test GatherElements along axis 0. Negative indices.
+func @test_gather_elements_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2xf32>
+  "func.return"(%0) : (tensor<2x2xf32>) -> ()
+
+// CHECK-LABEL:  func @test_gather_elements_axis0neg
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x2xf32>) -> memref<2x2xf32> {
+// CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_3:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<2x2xf32>
+// CHECK-DAG:       [[INDICES:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2, 2], value = dense<{{.}}[0, -1], [1, 2]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+// CHECK-DAG:       [[LOOP_0:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0:%.+]]#0, [[LOOP_0:%.+]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[INDEX:%.+]] = krnl.load [[INDICES]][[[IV]]#0, [[IV]]#1] : memref<2x2xi64>
+// CHECK:             [[INDEX_CAST:%.+]] = arith.index_cast [[INDEX]] : i64 to index
+// CHECK-DAG:         [[CMP:%.+]] = arith.cmpi slt, [[INDEX_CAST]], [[CST_0]] : index
+// CHECK-DAG:         [[VAR_1:%.+]] = arith.addi [[INDEX_CAST]], [[CST_3]] : index
+// CHECK:             [[SEL:%.+]] = arith.select [[CMP]], [[VAR_1]], [[INDEX_CAST]] : index
+// CHECK:             [[DATA_VAL:%.+]] = krnl.load [[PARAM_0]][[[SEL]], [[IV]]#1] : memref<3x2xf32>
+// CHECK:             krnl.store [[DATA_VAL]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<2x2xf32>
+// CHECK:           }
+// CHECK:           return [[RES]] : memref<2x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test GatherElements along axis 1. Positive indices, so no select.
+func @test_gather_elements_axis1(%arg0 : tensor<3x2xf32>) -> tensor<2x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, 0], [1, 0]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2xf32>
+  "func.return"(%0) : (tensor<2x2xf32>) -> ()
+
+// CHECK-LABEL:  func @test_gather_elements_axis1
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x2xf32>) -> memref<2x2xf32> {
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<2x2xf32>
+// CHECK-DAG:       [[INDICES:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2, 2], value = dense<{{.}}[0, 0], [1, 0]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+// CHECK-DAG:       [[LOOP_0:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 2){
+// CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[INDEX:%.+]] = krnl.load [[INDICES]][[[IV]]#0, [[IV]]#1] : memref<2x2xi64>
+// CHECK:             [[INDEX_CAST:%.+]] = arith.index_cast [[INDEX]] : i64 to index
+// CHECK:             [[DATA_VAL:%.+]] = krnl.load [[PARAM_0]][[[IV]]#0, [[INDEX_CAST]]] : memref<3x2xf32>
+// CHECK:             krnl.store [[DATA_VAL]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<2x2xf32>
+// CHECK:           }
+// CHECK:           return [[RES]] : memref<2x2xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: test split with unknown dimensions and explicit split.
 func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
   %0, %1 = "onnx.Split"(%arg0, %split) { axis = 1 : si64} : (tensor<?x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK:        [[MAP0:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK:        [[MAP1:#.+]] = affine_map<(d0) -> (d0 + 2)>
@@ -526,7 +603,7 @@ func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>
 func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 1 : si64 } : (tensor<?x?x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK:       [[MAP0:#.+]] = affine_map<()[s0] -> (s0 ceildiv 2)>
 // CHECK:       [[MAP1:#.+]] = affine_map<(d0) -> (d0)>
@@ -567,7 +644,7 @@ func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (t
 // COM: test split with unknown dimensions and explicit split.
 func @test_splitv11_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK:        [[MAP0:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK:        [[MAP1:#.+]] = affine_map<(d0) -> (d0 + 2)>
@@ -601,7 +678,7 @@ func @test_splitv11_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf
 // COM: test splitv11 with unknown dimensions and default split.
 func @test_splitv11_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64 } : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
-  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK:       [[MAP0:#.+]] = affine_map<()[s0] -> (s0 ceildiv 2)>
 // CHECK:       [[MAP1:#.+]] = affine_map<(d0) -> (d0)>
@@ -643,7 +720,7 @@ func @test_splitv11_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) ->
 /// when the input has unknown dimensions and is of i32.
 func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
   %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+  "func.return"(%0) : (tensor<*xi32>) -> ()
   // CHECK-LABEL: test_reducemean_i32_unknown_dims
   // CHECK: [[ONE:%.+]] = arith.constant 1 : index
   // CHECK: krnl.iterate
@@ -659,7 +736,7 @@ func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi3
 /// when the input has unknown dimensions and is of f32.
 func @test_reducemean_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_reducemean_f32_unknown_dims
   // CHECK: [[ONE:%.+]] = arith.constant 1 : index
   // CHECK: krnl.iterate
@@ -707,7 +784,7 @@ func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>,
 func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x1xf32>, %arg1: tensor<?x?x5xf32>, %arg2: tensor<?x1x5xf32>) -> tensor<?x4x5xf32> {
   %0 = "onnx.Max"(%arg0, %arg1, %arg2) : (tensor<?x4x1xf32>, tensor<?x?x5xf32>, tensor<?x1x5xf32>) -> tensor<?x4x5xf32>
   return %0 : tensor<?x4x5xf32>
-// CHECK-DAG: #map0 = affine_map<()[s0, s1] -> (s0, s1)>
+// CHECK-DAG: #map0 = affine_map<()[s0, s1] -> (s1, s0)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func @test_variadic_elementwise_op_template_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x1xf32>, [[PARAM_1_:%.+]]: memref<?x?x5xf32>, [[PARAM_2_:%.+]]: memref<?x1x5xf32>) -> memref<?x4x5xf32> {
@@ -806,7 +883,7 @@ func @test_prelu_broadcast_unknown_dims1(%arg0: tensor<?x2x?xf32>, %arg1: tensor
 /// Check ReduceMean with f32.
 func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducemean_f32
   // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0.000000e+00 : f32
@@ -839,7 +916,7 @@ func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 /// Check ReduceMean with i32.
 func private @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xi32>)-> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+  "func.return"(%0) : (tensor<*xi32>) -> ()
 
   // CHECK-LABEL: test_reducemean_i32
   // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0 : i32
@@ -871,7 +948,7 @@ func private @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
 
 func private @test_concat_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<5x5x9x32xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<5x5x9x32xf32>
-  "std.return"(%1) : (tensor<5x5x9x32xf32>) -> ()
+  "func.return"(%1) : (tensor<5x5x9x32xf32>) -> ()
 
   // CHECK-LABEL: test_concat_1
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<5x5x9x32xf32>
@@ -948,7 +1025,7 @@ func @test_prelu_broadcast4(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
 // COM: 2D matmul.
 func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<16x16xf32>, tensor<16x16xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 // mlir2FileCheck.py -a'["A", "B"]'
 // CHECK-LABEL:  func private @test_matmul1
 // CHECK-SAME:   ([[A_:%.+]]: memref<16x16xf32>, [[B_:%.+]]: memref<16x16xf32>) -> memref<16x16xf32> {
@@ -974,7 +1051,7 @@ func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>)
 // 2-D x N-D
 func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"0": "RES"}'
 // CHECK-LABEL:  func private @test_matmul2
@@ -982,21 +1059,21 @@ func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x10x10xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:5 = krnl.define_loops 5
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 10, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 10, [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_3_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]#4) with (){
 // CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#4) : (!krnl.loop) -> index
-// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_2_]]#2, [[VAR_5_]]{{.}} : memref<10x5xf32>
-// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_5_]], [[VAR_2_]]#3] : memref<2x3x5x10xf32>
+// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_3_]]#2, [[VAR_5_]]{{.}} : memref<10x5xf32>
+// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_5_]], [[VAR_3_]]#3] : memref<2x3x5x10xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:               [[VAR_9_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
 // CHECK:               [[VAR_10_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_9_]] : f32
 // CHECK:               krnl.store [[VAR_10_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<2x3x10x10xf32>
+// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2, [[VAR_3_]]#3] : memref<2x3x10x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x3x10x10xf32>
 // CHECK:         }
@@ -1007,28 +1084,28 @@ func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32
 // N-D x N-D
 func private @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<2x3x10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
   // mlir2FileCheck.py -a'["A", "B"]' -n'{"0": "RES"}'
 // CHECK-LABEL:  func private @test_matmul3
 // CHECK-SAME:   ([[A_:%.+]]: memref<2x3x10x5xf32>, [[B_:%.+]]: memref<2x3x5x10xf32>) -> memref<2x3x10x10xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x10x10xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:5 = krnl.define_loops 5
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 10, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 10, [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_3_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]#4) with (){
 // CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#4) : (!krnl.loop) -> index
-// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_5_]]{{.}} : memref<2x3x10x5xf32>
-// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_5_]], [[VAR_2_]]#3] : memref<2x3x5x10xf32>
+// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2, [[VAR_5_]]{{.}} : memref<2x3x10x5xf32>
+// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_5_]], [[VAR_3_]]#3] : memref<2x3x5x10xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:               [[VAR_9_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
 // CHECK:               [[VAR_10_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_9_]] : f32
 // CHECK:               krnl.store [[VAR_10_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<2x3x10x10xf32>
+// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2, [[VAR_3_]]#3] : memref<2x3x10x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x3x10x10xf32>
 // CHECK:         }
@@ -1039,7 +1116,7 @@ func private @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3x5x10
 // 1-D x 2-D
 func private @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"0": "RES"}'
 // CHECK-LABEL:  func private @test_matmul4
@@ -1047,21 +1124,21 @@ func private @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> t
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_2_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#0) : (!krnl.loop) -> index
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_3_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#0) : (!krnl.loop) -> index
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]#1) with (){
 // CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#1) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_5_]]{{.}} : memref<5xf32>
-// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_5_]], [[VAR_2_]]{{.}} : memref<5x10xf32>
+// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_5_]], [[VAR_3_]]{{.}} : memref<5x10xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:               [[VAR_9_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
 // CHECK:               [[VAR_10_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_9_]] : f32
 // CHECK:               krnl.store [[VAR_10_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_2_]]{{.}} : memref<10xf32>
+// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]{{.}} : memref<10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<10xf32>
 // CHECK:         }
@@ -1072,10 +1149,9 @@ func private @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> t
 // 1-D x N-D
 func private @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<?x5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"1": "RES"}'
-// CHECK-DAG: #map = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func private @test_matmul5
 // CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<?x5x10xf32>) -> memref<?x10xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
@@ -1083,21 +1159,21 @@ func private @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) ->
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[B_]], [[VAR_c0_]] : memref<?x5x10xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<?x10xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map([[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]#2) with (){
 // CHECK:               [[VAR_6_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#2) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_6_]]{{.}} : memref<5xf32>
-// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_3_]]#0, [[VAR_6_]], [[VAR_3_]]#1] : memref<?x5x10xf32>
+// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_4_]]#0, [[VAR_6_]], [[VAR_4_]]#1] : memref<?x5x10xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:               [[VAR_10_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
 // CHECK:               [[VAR_11_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_10_]] : f32
 // CHECK:               krnl.store [[VAR_11_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<?x10xf32>
+// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<?x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1108,7 +1184,7 @@ func private @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) ->
 // N-D x 1-D
 func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<?x10x5xf32>, tensor<5xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"1": "RES"}'
 // CHECK-DAG: #map = affine_map<(d0) -> (d0)>
@@ -1119,13 +1195,13 @@ func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) ->
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[A_]], [[VAR_c0_]] : memref<?x10x5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<?x10xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map([[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]#2) with (){
 // CHECK:               [[VAR_6_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#2) : (!krnl.loop) -> index
-// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_6_]]{{.}} : memref<?x10x5xf32>
+// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1, [[VAR_6_]]{{.}} : memref<?x10x5xf32>
 // CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_6_]]{{.}} : memref<5xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:               [[VAR_10_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
@@ -1133,7 +1209,7 @@ func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) ->
 // CHECK:               krnl.store [[VAR_11_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<?x10xf32>
+// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<?x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1144,16 +1220,16 @@ func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) ->
 // 1-D x 1-D
 func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"1": "RES"}'
 // CHECK-LABEL:  func private @test_matmul7
 // CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<5xf32>) -> memref<1xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1xf32>
 // CHECK-DAG:       [[RES_1_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:           krnl.iterate([[RES_1_]]#0) with ([[RES_1_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[RES_1_]]#1 -> [[I_1_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_2_:%.+]] = krnl.get_induction_var_value([[RES_1_]]#0) : (!krnl.loop) -> index
-// CHECK-DAG:         [[RES_2_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:             [[VAR_3_:%.+]] = krnl.get_induction_var_value([[RES_1_]]#0) : (!krnl.loop) -> index
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_2_]][] : memref<f32>
 // CHECK:             krnl.iterate([[RES_1_]]#1) with (){
 // CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[RES_1_]]#1) : (!krnl.loop) -> index
@@ -1165,7 +1241,7 @@ func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tens
 // CHECK:               krnl.store [[VAR_10_]], [[RES_2_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_2_MEM_1_]], [[RES_]]{{.}}[[VAR_2_]]{{.}} : memref<1xf32>
+// CHECK:             krnl.store [[LOAD_RES_2_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]{{.}} : memref<1xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1xf32>
 // CHECK:         }
@@ -1175,7 +1251,7 @@ func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tens
 
 func private @test_pool_unknown_dimensions(%arg0 : tensor<1x3x?x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x?x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (s0 - 1)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0)>
@@ -1193,10 +1269,10 @@ func private @test_pool_unknown_dimensions(%arg0 : tensor<1x3x?x32xf32>) -> tens
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<1x3x?x32xf32>
 // CHECK:           [[VAR_1_:%.+]] = affine.apply #map0(){{.}}[[VAR_0_]]{{.}}
 // CHECK-DAG:       [[VAR_2_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<1x3x?x31xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to #map1([[VAR_1_]]), [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 31){
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK:             [[VAR_4_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:             krnl.store [[CST_0_dot_000000_]], [[VAR_4_]][] : memref<f32>
 // CHECK-DAG:         [[VAR_5_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<1x3x?x32xf32>
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.max #map2([[IV]]#2)
@@ -1234,7 +1310,7 @@ func private @test_pool_unknown_dimensions(%arg0 : tensor<1x3x?x32xf32>) -> tens
 
 func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<?x?x?x?xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 
 
@@ -1253,6 +1329,7 @@ func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : 
 // CHECK-DAG:       [[VAR_3_:%.+]] = memref.dim [[IMAGE_]], [[CST_3_]] : memref<?x?x?x?xf32>
 // CHECK:           [[VAR_4_:%.+]] = affine.apply #map1(){{.}}[[VAR_3_]]{{.}}
 // CHECK-DAG:       [[VAR_5_:%.+]] = memref.alloc([[VAR_0_]], [[VAR_2_]], [[VAR_4_]]) {{.*}}: memref<?x5x?x?xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map2([[VAR_1_]], [[VAR_3_]], [[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_7_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -1260,7 +1337,6 @@ func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : 
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to #map4([[VAR_7_]]#1, [[VAR_7_]]#2){{.}}[[VAR_2_]]{{.}}, [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to #map5([[VAR_7_]]#1, [[VAR_7_]]#2){{.}}[[VAR_2_]], [[VAR_4_]]{{.}}){
 // CHECK-DAG:           [[VAR_10_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[VAR_11_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:               krnl.store [[CST_0_dot_000000_]], [[VAR_11_]][] : memref<f32>
 // CHECK-DAG:           [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK-DAG:           [[VAR_13_:%.+]] = memref.dim [[IMAGE_]], [[CST_2_]] : memref<?x?x?x?xf32>
@@ -1293,7 +1369,7 @@ func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : 
 // CHECK-DAG: #map = affine_map<()[s0] -> (s0 * 10)>
 func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func private @test_reshape
 // CHECK:          ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
@@ -1353,13 +1429,14 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
 func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["image", "filter", "bias"]'
 // CHECK-LABEL:  func private @test_conv_no_bias_no_pad
 // CHECK-SAME:   ([[IMAGE_:%.+]]: memref<1x2x32x64xf32>, [[FILTER_:%.+]]: memref<5x2x6x7xf32>) -> memref<1x5x27x58xf32> {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<1x5x27x58xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -1367,7 +1444,6 @@ func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : te
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 58){
 // CHECK-DAG:           [[VAR_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:               krnl.store [[CST_0_dot_000000_]], [[VAR_6_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max #map1([[VAR_5_]]#0) to min #map2([[VAR_5_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max #map3([[VAR_5_]]#0, [[VAR_5_]]#1) to min #map4([[VAR_5_]]#0, [[VAR_5_]]#1)){
@@ -1395,13 +1471,14 @@ func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : te
 
 func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["image", "filter", "bias"]'
 // CHECK-LABEL:  func private @test_conv_bias_no_pad
 // CHECK-SAME:   ([[IMAGE_:%.+]]: memref<1x2x32x64xf32>, [[FILTER_:%.+]]: memref<5x2x6x7xf32>, [[BIAS_:%.+]]: memref<5xf32>) -> memref<1x5x27x58xf32> {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<1x5x27x58xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -1409,7 +1486,6 @@ func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tenso
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 58){
 // CHECK-DAG:           [[VAR_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:               krnl.store [[CST_0_dot_000000_]], [[VAR_6_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = max #map1([[VAR_5_]]#0) to min #map2([[VAR_5_]]#0), [[LOOP_2_]]#2 -> [[I_7_:%.+]] = max #map3([[VAR_5_]]#0, [[VAR_5_]]#1) to min #map4([[VAR_5_]]#0, [[VAR_5_]]#1)){
@@ -1440,13 +1516,14 @@ func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tenso
 func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<6x3x6x7xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 3 : si64} : (tensor<1x9x32x64xf32>, tensor<6x3x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["image", "filter", "bias"]'
 // CHECK-LABEL:  func private @test_conv_no_bias_no_pad_w_group
 // CHECK-SAME:   ([[IMAGE_:%.+]]: memref<1x9x32x64xf32>, [[FILTER_:%.+]]: memref<6x3x6x7xf32>) -> memref<1x6x27x58xf32> {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<1x6x27x58xf32>
+// CHECK-DAG:         [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 2){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -1454,7 +1531,6 @@ func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %a
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 58){
 // CHECK-DAG:           [[VAR_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:               krnl.store [[CST_0_dot_000000_]], [[VAR_6_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max #map1([[VAR_5_]]#0) to min #map2([[VAR_5_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max #map3([[VAR_5_]]#0, [[VAR_5_]]#1) to min #map4([[VAR_5_]]#0, [[VAR_5_]]#1)){
@@ -1483,13 +1559,14 @@ func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %a
 func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x9x6x7xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 2]} : (tensor<1x9x32x64xf32>, tensor<5x9x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["image", "filter", "bias"]'
 // CHECK-LABEL:  func private @test_conv_no_bias_no_pad_w_strides
 // CHECK-SAME:   ([[IMAGE_:%.+]]: memref<1x9x32x64xf32>, [[FILTER_:%.+]]: memref<5x9x6x7xf32>) -> memref<1x5x14x29xf32> {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<1x5x14x29xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -1497,7 +1574,6 @@ func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, 
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 14, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 29){
 // CHECK-DAG:           [[VAR_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[VAR_6_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:               krnl.store [[CST_0_dot_000000_]], [[VAR_6_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 9, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max #map1([[VAR_5_]]#0) to min #map2([[VAR_5_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max #map3([[VAR_5_]]#0, [[VAR_5_]]#1) to min #map4([[VAR_5_]]#0, [[VAR_5_]]#1)){
@@ -1526,7 +1602,7 @@ func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, 
 // COM: if there is no opset information, we use opset 11.
 func private @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis=1: si64} : (tensor<10x20x30xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK:         func private @test_softmax([[arg0_:%.+]]: memref<10x20x30xf32>) -> memref<10x20x30xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0xFF800000 : f32
@@ -1578,7 +1654,7 @@ func private @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf32> {
 // COM: Lower Softmax opset 11.
 func private @test_softmax_v11(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis=1: si64, onnx_opset=11: si64} : (tensor<10x20x30xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK:         func private @test_softmax_v11([[arg0_:%.+]]: memref<10x20x30xf32>) -> memref<10x20x30xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0xFF800000 : f32
@@ -1631,7 +1707,7 @@ func private @test_softmax_v11(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf32> {
 
 func private @test_softmax_v13(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis=1: si64, onnx_opset=13: si64} : (tensor<10x20x30xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK:         func private @test_softmax_v13([[arg0_:%.+]]: memref<10x20x30xf32>) -> memref<10x20x30xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0xFF800000 : f32
@@ -1692,11 +1768,11 @@ func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: ten
 // CHECK-DAG:       [[CST_0_dot_00999999977_:%.+]] = arith.constant 0.00999999977 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4x5xf32>
 // CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3){
 // CHECK-DAG:         [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:             [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_2_:%.+]] = 0 to 4, [[LOOP_2_]]#1 -> [[I_3_:%.+]] = 0 to 5){
@@ -1786,11 +1862,11 @@ func @test_nonzero(%arg0: tensor<2x2xi1>) -> tensor<*xi64> attributes {input_nam
 // CHECK:           }
 // CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloca() : memref<index>
+// CHECK-DAG:       [[RES_5_:%.+]] = memref.alloca() : memref<index>
 // CHECK-DAG:       [[LOOP_3_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_4_:%.+]] = [[CST_0_]] to [[LOAD_RES_MEM_1_]]){
 // CHECK-DAG:         [[VAR_9_3_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[RES_4_:%.+]] = memref.alloca() : memref<index>
-// CHECK-DAG:         [[RES_5_:%.+]] = memref.alloca() : memref<index>
 // CHECK:             krnl.store [[CST_minus_1_]], [[RES_4_]][] : memref<index>
 // CHECK:             krnl.store [[CST_0_]], [[RES_5_]][] : memref<index>
 // CHECK:             [[LOOP_4_:%.+]] = krnl.define_loops 1
@@ -1810,25 +1886,23 @@ func @test_nonzero(%arg0: tensor<2x2xi1>) -> tensor<*xi64> attributes {input_nam
 // CHECK:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]][] : memref<index>
 // CHECK:             [[VAR_14_1_:%.+]] = arith.index_cast [[LOAD_RES_4_MEM_1_]] : index to i64
 // CHECK:             krnl.store [[VAR_14_1_]], [[RES_3_]]{{.}}[[CST_0_]], [[VAR_9_3_]]{{.}} : memref<2x?xi64>
-// CHECK-DAG:         [[RES_6_:%.+]] = memref.alloca() : memref<index>
-// CHECK-DAG:         [[RES_7_:%.+]] = memref.alloca() : memref<index>
-// CHECK:             krnl.store [[CST_minus_1_]], [[RES_6_]][] : memref<index>
-// CHECK:             krnl.store [[CST_0_]], [[RES_7_]][] : memref<index>
+// CHECK:             krnl.store [[CST_minus_1_]], [[RES_4_]][] : memref<index>
+// CHECK:             krnl.store [[CST_0_]], [[RES_5_]][] : memref<index>
 // CHECK:             [[LOOP_5_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_6_:%.+]] = [[CST_0_]] to [[CST_2_]]){
 // CHECK:               [[VAR_20_1_:%.+]] = krnl.get_induction_var_value([[LOOP_5_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_20_1_]]{{.}} : memref<2xindex>
-// CHECK-DAG:           [[LOAD_RES_5_MEM_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
-// CHECK-DAG:           [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
+// CHECK-DAG:           [[LOAD_RES_5_MEM_1_:%.+]] = krnl.load [[RES_5_]][] : memref<index>
+// CHECK-DAG:           [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]][] : memref<index>
 // CHECK:               [[VAR_24_1_:%.+]] = arith.addi [[LOAD_RES_5_MEM_1_]], [[LOAD_RES_2_MEM_1_]] : index
 // CHECK-DAG:           [[VAR_25_1_:%.+]] = arith.cmpi slt, [[VAR_9_3_]], [[VAR_24_1_]] : index
 // CHECK-DAG:           [[VAR_26_1_:%.+]] = arith.cmpi eq, [[LOAD_RES_4_MEM_2_]], [[CST_minus_1_]] : index
 // CHECK:               [[VAR_27_1_:%.+]] = arith.andi [[VAR_25_1_]], [[VAR_26_1_]] : i1
 // CHECK:               [[VAR_28_1_:%.+]] = arith.select [[VAR_27_1_]], [[VAR_20_1_]], [[LOAD_RES_4_MEM_2_]] : index
-// CHECK:               krnl.store [[VAR_28_1_]], [[RES_6_]][] : memref<index>
-// CHECK:               krnl.store [[VAR_24_1_]], [[RES_7_]][] : memref<index>
+// CHECK:               krnl.store [[VAR_28_1_]], [[RES_4_]][] : memref<index>
+// CHECK:               krnl.store [[VAR_24_1_]], [[RES_5_]][] : memref<index>
 // CHECK:             }
-// CHECK:             [[VAR_18_1_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
+// CHECK:             [[VAR_18_1_:%.+]] = krnl.load [[RES_4_]][] : memref<index>
 // CHECK:             [[VAR_19_:%.+]] = arith.index_cast [[VAR_18_1_]] : index to i64
 // CHECK:             krnl.store [[VAR_19_]], [[RES_3_]]{{.}}[[CST_1_]], [[VAR_9_3_]]{{.}} : memref<2x?xi64>
 // CHECK:           }
@@ -2204,7 +2278,7 @@ func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<18x20x
 func @test_expand_with_arith.constant(%arg0 : tensor<2x1x6x1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[7, 1, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
   %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<3xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  "func.return"(%1) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py -a'["input", "shape"]'
 // CHECK-LABEL:  func @test_expand_with_arith.constant
@@ -2909,7 +2983,7 @@ func @test_cumsum_dynamic_dims(%arg0: tensor<?x?xf64>, %arg1:tensor<i32>) -> ten
 // -----
 // Compress on axis 0, with enough conditions, test elided
 
-builtin.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x2xf32> {
+func.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x2xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 //  use arg names: ['input', 'condition']
@@ -2958,7 +3032,7 @@ builtin.func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> ten
 // -----
 // Compress on axis 0, with not enough conditions, test not elided
 
-builtin.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2xi1>) -> tensor<?x2xf32> {
+func.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2xi1>) -> tensor<?x2xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2xi1>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 // mlir2FileCheck.py -a'["input", "condition"]'
@@ -3010,7 +3084,7 @@ builtin.func @compress_axis0_not_enough(%arg0: tensor<3x2xf32>, %arg1: tensor<2x
 // -----
 // Compress on axis 1, with enough conditions, test elided
 
-builtin.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<3x?xf32> {
+func.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<3x?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<3x?xf32>
   return %0 : tensor<3x?xf32>
 // mlir2FileCheck.py -a'["input", "condition"]'
@@ -3058,7 +3132,7 @@ builtin.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> ten
 // -----
 // Compress witn no axis , with not enough conditions, test not elided
 
-builtin.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?xf32> {
+func.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?xf32>
   return %0 : tensor<?xf32>
 
@@ -3111,7 +3185,7 @@ builtin.func @compress_no_axis_not_elided(%arg0: tensor<3x2xf32>, %arg1: tensor<
 // -----
 // Compress witn no axis , with enough conditions, test elided
 
-builtin.func @compress_no_axis_enough_cond(%arg0: tensor<3x2xf32>, %arg1: tensor<6xi1>) -> tensor<?xf32> {
+func.func @compress_no_axis_enough_cond(%arg0: tensor<3x2xf32>, %arg1: tensor<6xi1>) -> tensor<?xf32> {
   %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<6xi1>) -> tensor<?xf32>
   return %0 : tensor<?xf32>
 // CHECK-LABEL:  func @compress_no_axis_enough_cond

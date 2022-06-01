@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "zdnn.h"
 
 #include <memory>
 
@@ -35,7 +36,7 @@ extern llvm::cl::OptionCategory OMNNPAPassOptions;
 namespace onnx_mlir {
 namespace accel {
 
-void createNNPA() { NNPAAccelerator::getInstance(); }
+Accelerator *createNNPA() { return NNPAAccelerator::getInstance(); }
 
 NNPAAccelerator *NNPAAccelerator::instance = nullptr;
 
@@ -48,22 +49,13 @@ NNPAAccelerator *NNPAAccelerator::getInstance() {
 NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
   LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
   acceleratorTargets.push_back(this);
-  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"zdnn"});
+  // Order is important! libRuntimeNNPA depends on libzdnn
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"RuntimeNNPA", "zdnn"});
 };
 
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
-bool NNPAAccelerator::isActive() const {
-  if (instance || llvm::any_of(maccel, [](Accelerator::Kind kind) {
-        return kind == Accelerator::Kind::NNPA;
-      })) {
-    LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is active\n");
-    return true;
-  }
-
-  LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is not active\n");
-  return false;
-}
+uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
 
 void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
   LLVM_DEBUG(llvm::dbgs() << "Loading dialects for NNPA accelerator\n");

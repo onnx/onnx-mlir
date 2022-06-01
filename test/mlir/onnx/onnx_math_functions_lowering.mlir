@@ -3,7 +3,7 @@
 /// onnx.Erf lowering to krnl.erf.
 func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Erf"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL erf_function
@@ -19,7 +19,7 @@ func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Acos lowering to krnl.acos.
 func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Acos"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL acos_function
@@ -36,7 +36,7 @@ func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Acosh lowering to krnl.acosh.
 func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Acosh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL acosh_function
@@ -53,7 +53,7 @@ func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Asin lowering to krnl.asin.
 func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Asin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL asin_function
@@ -70,7 +70,7 @@ func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Asinh lowering to krnl.asinh.
 func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Asinh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL asinh_function
@@ -86,7 +86,7 @@ func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Atan lowering to krnl.atan.
 func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Atan"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL atan_function
@@ -103,7 +103,7 @@ func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Atanh lowering to krnl.atanh.
 func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Atanh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL atanh_function
@@ -120,7 +120,7 @@ func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 /// onnx.Tan lowering to krnl.tan.
 func @tan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Tan"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "std.return"(%0) : (tensor<10x10xf32>) -> ()
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
 
 // CHECK-LABEL tan_function

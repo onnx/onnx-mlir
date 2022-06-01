@@ -91,12 +91,16 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
  *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value
  *  by calling this function after one of the above 3 setter functions.
  *  @param kind Describe which option kind is being set.
- *  @param val Value of the option being set. Null pointer reset the
- *  option.
+ *  @param val Value of the option being set.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
     const OptionKind kind, const char *val);
+
+/*!
+ *  Clear the compiler option defined by the input parameter.
+ */
+ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
 
 /*!
  *  Get the compiler options.

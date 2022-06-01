@@ -73,7 +73,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     llvm::ArrayRef<int64_t> memRefShape = memRefType.getShape();
     uint64_t outputRank = memRefShape.size();
 
@@ -129,8 +133,11 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     int64_t inputRank = inputShape.size();
     Value repeats = operandAdaptor.repeats();
 
-    // get output info
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
@@ -149,8 +156,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     for (int64_t ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
       pack.pushConstantBound(0);
-      Value indexVal =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
+      Value indexVal = create.math.constant(rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       Value repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(

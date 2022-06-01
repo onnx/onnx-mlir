@@ -33,8 +33,12 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
                          .getValue()
                          .cast<DenseElementsAttr>();
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto elementType = memRefType.getElementType();
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    Type elementType = memRefType.getElementType();
     size_t rank = memRefType.cast<ShapedType>().getRank();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -69,11 +73,11 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     if (elementType.isa<IntegerType>()) {
       auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
       auto valueInt = (*valueIt++).cast<IntegerAttr>().getInt();
-      constantVal = emitConstantOp(rewriter, loc, elementType, valueInt);
+      constantVal = create.math.constant(elementType, valueInt);
     } else if (elementType.isa<FloatType>()) {
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
-      constantVal = emitConstantOp(rewriter, loc, elementType, valueFloat);
+      constantVal = create.math.constant(elementType, valueFloat);
     } else
       llvm_unreachable("unsupported element type");
 

@@ -1,6 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
-set(NNPA_ENABLED 1 CACHE BOOL "flag indicating NNPA enabled")
+# When an accelerator is specified to be built in ONNX_MLIR_ACCELERATORS,
+# if for whatever reason we do not want to build it on a specific arch,
+# XX_ENABLED variable can be used to control that. For example, if we
+# only want to compile NNPA on s390x, we can do:
+#
+# if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
+#   set(NNPA_ENABLED 1 BOOL PARENT_SCOPE)
+#   ...
+# endif()
+
+set(NNPA_ENABLED 1 BOOL PARENT_SCOPE)
 
 set(NNPA_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 set(NNPA_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
@@ -30,11 +40,16 @@ add_subdirectory(Conversion)
 add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
+add_subdirectory(Runtime)
 
 add_onnx_mlir_library(NNPAAccel
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  libzdnn
+  RuntimeNNPA
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
@@ -42,7 +57,8 @@ add_onnx_mlir_library(NNPAAccel
   ${NNPA_ONNX_MLIR_SRC_ROOT}
   ${NNPA_SRC_ROOT}
   ${NNPA_BIN_ROOT}
-  
+  ${NNPA_INCLUDE_PATH}
+
   LINK_LIBS PUBLIC
   onnx
   NNPACompilerUtils

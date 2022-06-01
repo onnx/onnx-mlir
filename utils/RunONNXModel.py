@@ -1,3 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### RunONNXModel.py #########################################
+#
+# Copyright 2019-2022 The IBM Research Authors.
+#
+################################################################################
+#
+# This script is to run and debug an onnx model.
+
+################################################################################
+
 import os
 import sys
 import argparse
@@ -194,12 +206,12 @@ def generate_random_input(model, input_shapes):
                           "of the {} input is unknown.".format(ordinal(i + 1)),
                           "Use --shape_info to set.")
                     print(shape_proto)
-                    exit()
+                    exit(1)
             else:
                 print("The shape of the {} input".format(ordinal(i + 1)),
                       "is unknown. Use --shape_info to set.")
                 print(shape_proto)
-                exit()
+                exit(1)
         rinput = np.random.uniform(-1.0, 1.0,
                                    explicit_shape).astype(np.float32)
         print("  - {} input's shape {}".format(ordinal(i + 1), rinput.shape))
@@ -359,7 +371,7 @@ def main():
                 ref_outs = read_output_from_refs(model, args.data_folder)
             else:
                 print("Invalid verify option")
-                exit()
+                exit(1)
 
             # For each output tensor, compare results.
             for i, name in enumerate(output_names):
@@ -383,8 +395,9 @@ def main():
                 if mismatched_elements == 0:
                     print("  correct.\n".format(args.atol, args.rtol))
                 else:
-                    print("  mismatched elements {}/{}.\n".format(
-                        mismatched_elements, total_elements))
+                    raise AssertionError(
+                        "  mismatched elements {}/{}.\n".format(
+                            mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':

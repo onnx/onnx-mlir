@@ -40,9 +40,12 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    // reduced output
-    auto reducedMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto reducedElementType = reducedMemRefType.getElementType();
+    // Convert the reduced output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType reducedMemRefType = convertedType.cast<MemRefType>();
+    Type reducedElementType = reducedMemRefType.getElementType();
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input
@@ -69,8 +72,9 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
         rewriter, op, reducedMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Constant Value
-    auto minusOne = emitConstantOp(rewriter, loc, reducedElementType, -1);
-    auto zero = emitConstantOp(rewriter, loc, reducedElementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value minusOne = createMath.constant(reducedElementType, -1);
+    Value zero = createMath.constant(reducedElementType, 0);
     auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     KrnlBuilder createKrnl(rewriter, loc);
 

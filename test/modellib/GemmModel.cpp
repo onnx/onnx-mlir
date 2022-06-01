@@ -53,7 +53,7 @@ bool GemmLibBuilder::build() {
   llvm::SmallVector<Type, 3> inputsType{aType, bType, cType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto aVal = entryBlock.getArgument(0);
@@ -72,7 +72,7 @@ bool GemmLibBuilder::build() {
   gemmOp.getResult().setType(yType);
 
   llvm::SmallVector<Value, 1> results = {gemmOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -150,7 +150,9 @@ bool GemmLibBuilder::verifyOutputs() {
           alphaVal * omTensorGetElem<float>(ref, {i, j}) + betaVal * cVal;
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
 
 } // namespace test

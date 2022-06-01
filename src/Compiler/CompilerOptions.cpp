@@ -21,8 +21,12 @@
 #define DEBUG_TYPE "compiler_options"
 
 namespace onnx_mlir {
+// Options for onnx-mlir only.
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
+
+// Common options shared between onnx-mlir and onnx-mlir-opt.
+llvm::cl::OptionCategory OnnxMlirCommonOptions("ONNX-MLIR Common Options", "");
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -94,20 +98,22 @@ llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
       clEnumValN(accel::Accelerator::Kind::NONE, "NONE", "No accelerator")
     ),
     // clang-format on
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirCommonOptions), llvm::cl::ValueRequired);
 
 llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> Xopt("Xopt",
+llvm::cl::list<std::string> Xopt("Xopt",
     llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
+    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
-llvm::cl::opt<std::string> Xllc("Xllc",
+llvm::cl::list<std::string> Xllc("Xllc",
     llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'llc' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
+    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
 
 llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::desc(
@@ -121,7 +127,7 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O1, "Optimization level 1."),
         clEnumVal(O2, "Optimization level 2."),
         clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
     llvm::cl::desc("Specify onnx ops to be instrumented\n"
@@ -169,11 +175,14 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-// Triple.
+// Support for Triple.
 void setTargetTriple(const std::string &triple) {
+  assert(triple != "" && "Expecting valid target triple description");
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
   mtriple = triple;
 }
+
+void clearTargetTriple() { mtriple.clear(); }
 
 std::string getTargetTripleOption() {
   std::string targetOptions = "";
@@ -185,31 +194,84 @@ std::string getTargetTripleOption() {
   return targetOptions;
 }
 
-// Arch.
+// Support for Arch.
 void setTargetArch(const std::string &arch) {
+  assert(arch != "" && "Expecting valid target arch description");
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
   march = arch;
 }
+
+void clearTargetArch() { march.clear(); }
 
 std::string getTargetArchOption() {
   return (march != "") ? "--march=" + march : "";
 }
 
-// CPU.
+// Support for CPU.
 void setTargetCPU(const std::string &cpu) {
+  assert(cpu != "" && "Expecting valid target cpu description");
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
   mcpu = cpu;
 }
+
+void clearTargetCPU() { mcpu.clear(); }
 
 std::string getTargetCPUOption() {
   return (mcpu != "") ? "--mcpu=" + mcpu : "";
 }
 
-// Optimization level.
+// Support for Accel.
+static bool getAccelKindFromString(
+    accel::Accelerator::Kind &kind, const std::string &str) {
+  // Test each existing accelerator, returning its Kind when found.
+  APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_FROM_STRING, kind, str);
+  // No specific accelerator found, check if we have Kind::NONE
+  kind = accel::Accelerator::Kind::NONE;
+  return str.compare(std::string("NONE")) == 0;
+}
+
+// Return 0 on success, nonzero on error.
+int setTargetAccel(const std::string &str) {
+  assert(str != "" && "Expecting valid accelerator description");
+  accel::Accelerator::Kind accelKind;
+  if (getAccelKindFromString(accelKind, str)) {
+    setTargetAccel(accelKind);
+    return 0;
+  }
+  return 1;
+}
+
+void setTargetAccel(const accel::Accelerator::Kind accel) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set accel\"" << accel << "\"\n";);
+  // Add accel to maccel.
+  maccel.push_back(accel);
+}
+
+void clearTargetAccel() {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Clearing accel\n");
+  maccel.clear();
+}
+
+std::string getTargetAccel() {
+  std::stringstream ss;
+  int accelCount = 0;
+  for (accel::Accelerator::Kind accel : maccel) {
+    if (accelCount++)
+      ss << " ";
+    ss << "--maccel=" << accel;
+  }
+  if (!accelCount)
+    ss << "--maccel=NONE";
+  return ss.str();
+}
+
+// Support for Optimization level.
 void setOptLevel(const OptLevel level) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
   OptimizationLevel = level;
 }
+
+void clearOptLevel() { OptimizationLevel = OptLevel::O0; }
 
 std::string getOptimizationLevelOption() {
   switch (OptimizationLevel) {
@@ -226,19 +288,47 @@ std::string getOptimizationLevelOption() {
   return "";
 }
 
-// Xopt.
-void setXoptOption(const std::string &flag) { Xopt = flag; }
+// Support for Xopt.
+void setXoptOption(const std::vector<std::string> &flags) {
+  for (const std::string &flag : flags)
+    Xllc.addValue(flag);
+}
 
-std::string getXoptOption() { return (Xopt != "") ? Xopt : std::string(); }
+void clearXoptOption() { Xopt.clear(); }
 
-// Xllc.
-void setXllcOption(const std::string &flag) { Xllc = flag; }
+std::vector<std::string> getXoptOption() {
+  if (Xopt.empty())
+    return std::vector<std::string>();
 
-std::string getXllcOption() { return (Xllc != "") ? Xllc : std::string(); }
+  std::vector<std::string> flags;
+  for (std::string flag : Xopt)
+    flags.push_back(flag);
 
-// LLVM.
+  return flags;
+}
+
+// Support for Xllc.
+void setXllcOption(const std::vector<std::string> &flags) {
+  for (const std::string &flag : flags)
+    Xllc.addValue(flag);
+}
+
+void clearXllcOption() { Xllc.clear(); }
+
+std::vector<std::string> getXllcOption() {
+  if (Xllc.empty())
+    return std::vector<std::string>();
+
+  std::vector<std::string> flags;
+  for (std::string flag : Xllc)
+    flags.push_back(flag);
+
+  return flags;
+}
+
+// Support for LLVM.
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
-
+void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
 // =============================================================================
@@ -255,24 +345,58 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::TargetCPU:
     setTargetCPU(val);
     break;
+  case OptionKind::TargetAccel:
+    if (setTargetAccel(val) != 0)
+      return InvalidCompilerOption;
+    break;
   case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
     if (level < 0 || level > 3)
-      return 1;
+      return InvalidCompilerOption;
     setOptLevel((OptLevel)level);
   } break;
   case OptionKind::OPTFlag:
-    setXoptOption(val);
+    setXoptOption({val});
     break;
   case OptionKind::LLCFlag:
-    setXllcOption(val);
+    setXllcOption({val});
     break;
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
     // Ignore options that were added but are unknown.
   }
-  return 0;
+  return NoCompilerError;
+}
+
+void clearCompilerOption(const OptionKind kind) {
+  switch (kind) {
+  case OptionKind::TargetTriple:
+    clearTargetTriple();
+    break;
+  case OptionKind::TargetArch:
+    clearTargetArch();
+    break;
+  case OptionKind::TargetCPU:
+    clearTargetCPU();
+    break;
+  case OptionKind::TargetAccel:
+    clearTargetAccel();
+    break;
+  case OptionKind::CompilerOptLevel:
+    clearOptLevel();
+    break;
+  case OptionKind::OPTFlag:
+    clearXoptOption();
+    break;
+  case OptionKind::LLCFlag:
+    clearXllcOption();
+    break;
+  case OptionKind::LLVMFlag:
+    clearLLVMOption();
+    break;
+    // Ignore options that were added but are unknown.
+  }
 }
 
 std::string getCompilerOption(const OptionKind kind) {
@@ -283,12 +407,22 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetArchOption();
   case OptionKind::TargetCPU:
     return getTargetCPUOption();
+  case OptionKind::TargetAccel:
+    return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
   case OptionKind::OPTFlag:
-    return getXoptOption();
-  case OptionKind::LLCFlag:
-    return getXllcOption();
+  case OptionKind::LLCFlag: {
+    std::vector<std::string> flags =
+        (kind == OptionKind::OPTFlag) ? getXoptOption() : getXllcOption();
+    std::stringstream ss;
+    for (int i = 0, n = flags.size(); i < n; ++i) {
+      ss << flags.at(i);
+      if (i != n - 1)
+        ss << ' ';
+    }
+    return ss.str();
+  }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
   }
@@ -298,10 +432,10 @@ std::string getCompilerOption(const OptionKind kind) {
 int setCompilerOptions(const CompilerOptionList &list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
-    if (rc != 0)
+    if (rc != NoCompilerError)
       return rc;
   }
-  return 0;
+  return NoCompilerError;
 }
 
 // Get the string vector associated with the specified key
@@ -313,10 +447,9 @@ std::vector<std::string> getCompilerConfig(std::string k) {
 // with the specified key
 void addCompilerConfig(std::string k, std::vector<std::string> v) {
   std::vector<std::string> u = CompilerConfigMap[k];
-  std::vector<std::string> w;
 
-  std::set_union(u.begin(), u.end(), v.begin(), v.end(), std::back_inserter(w));
-  CompilerConfigMap[k] = w;
+  u.insert(u.end(), v.begin(), v.end());
+  CompilerConfigMap[k] = u;
 }
 
 // Delete strings in a vector from the string vector associated
