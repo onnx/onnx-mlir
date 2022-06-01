@@ -45,14 +45,19 @@ public:
     for (Operation *user : lstmInput.getUsers()) {
       if (isa<ZLowLSTMOp>(user)) {
         ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
-        if (userLstmOp != lstmOp) {
+        if ((userLstmOp != lstmOp) &&
+            ((userLstmOp.hn_output() == lstmInput) ||
+             (userLstmOp.cf_output() == lstmInput))) {
           directionAttr = userLstmOp.direction();
           break;
         }
       }
       if (isa<ZLowGRUOp>(user)) {
-        directionAttr = llvm::dyn_cast<ZLowGRUOp>(user).direction();
-        break;
+        ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
+        if (userGruOp.hn_output() == lstmInput) {
+          directionAttr = userGruOp.direction();
+          break;
+        }
       }
     }
     StringAttr prevLayerAttr;
