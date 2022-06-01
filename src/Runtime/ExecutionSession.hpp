@@ -29,6 +29,19 @@ using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
+/* ExecutionSession
+ * Class that supports executing compiled models.
+ *
+ * When the execution session does not work for known reasons, this class will
+ * throw std::runtime_error errors. Errno info will provide further info about
+ * the specific error that was raised.
+ *
+ * EFAULT when it could not load the library or a needed symbol was not found.
+ * EINVAL when it expected an entry point prior to executing a specific
+ * function.
+ * EPERM when the model executed on a machine without a compatible
+ * hardware/specialzed accelerator.
+ */
 class ExecutionSession {
 public:
   ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
@@ -44,6 +57,10 @@ public:
   // defaultEntryPoint is false or there are multiple entry points in the model.
   void setEntryPoint(const std::string &entryPointName);
 
+  llvm::sys::DynamicLibrary &getSharedLibraryHandle() {
+    return _sharedLibraryHandle;
+  };
+
   // Use custom deleter since forward declared OMTensor hides destructor
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
 
@@ -57,6 +74,15 @@ public:
   const std::string outputSignature() const;
 
   ~ExecutionSession();
+
+private:
+  // Error reporting processing when throwing runtime errors. Set errno as
+  // appropriate.
+  std::string reportLibraryOpeningError(const std::string &libraryName) const;
+  std::string reportSymbolLoadingError(const std::string &symbolName) const;
+  std::string reportUndefinedEntryPointIn(
+      const std::string &functionName) const;
+  std::string reportErrnoError() const;
 
 protected:
   // Handler to the shared library file being loaded.

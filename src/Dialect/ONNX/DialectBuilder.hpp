@@ -27,18 +27,19 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value add(mlir::Value A, mlir::Value B) const;
-  mlir::Value sub(mlir::Value A, mlir::Value B) const;
-  mlir::Value mul(mlir::Value A, mlir::Value B) const;
+  mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
+  mlir::Value ceil(mlir::Value input) const;
+  mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value div(mlir::Value A, mlir::Value B) const;
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
-
+  mlir::Value min(mlir::ValueRange inputs) const;
+  mlir::Value mul(mlir::Value A, mlir::Value B) const;
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  mlir::Value sub(mlir::Value A, mlir::Value B) const;
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
-
-  mlir::Value constant(mlir::Attribute denseAttr) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.

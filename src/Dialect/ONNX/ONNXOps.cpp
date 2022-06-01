@@ -680,25 +680,16 @@ LogicalResult ONNXArgMinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
-    mlir::OperationState &state, mlir::func::FuncOp function, int numInputs,
-    int numOutputs, std::string signature) {
+    mlir::OperationState &state, mlir::func::FuncOp function) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       SymbolRefAttr::get(function));
-  state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
-      builder.getI32IntegerAttr(numInputs));
-  state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
-      builder.getI32IntegerAttr(numOutputs));
-  state.addAttribute(ONNXEntryPointOp::getSignatureAttrName(),
-      builder.getStringAttr(signature));
 }
 
-ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-    mlir::func::FuncOp &func, int numInputs, int numOutputs,
-    std::string signature) {
+ONNXEntryPointOp ONNXEntryPointOp::create(
+    mlir::Location location, mlir::func::FuncOp &func) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(
-      builder, state, func, numInputs, numOutputs, signature);
+  mlir::ONNXEntryPointOp::build(builder, state, func);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;
@@ -4004,7 +3995,20 @@ LogicalResult ONNXEqualOp::inferShapes(
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::OpBuilder(getContext());
+  if (!hasShapeAndRank(input())) {
+    return success();
+  }
+  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  Type elementType;
+  if (dtypeAttr()) {
+    elementType = convertONNXTypeToMLIRType(builder,
+        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
+  } else {
+    elementType = inputType.getElementType();
+  }
+  getResult().setType(RankedTensorType::get(inputType.getShape(), elementType));
+  return success();
 }
 
 LogicalResult ONNXFloorOp::inferShapes(

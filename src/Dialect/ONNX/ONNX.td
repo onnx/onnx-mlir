@@ -87,23 +87,14 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let arguments = (ins SymbolRefAttr:$func,
-                       I32Attr:$numInputs,
-                       I32Attr:$numOutputs,
-                       StrAttr:$signature);
+  let arguments = (ins SymbolRefAttr:$func);
 
-  let builders = [OpBuilder<(ins "func::FuncOp":$function, "int":$numInputs,
-                                 "int":$numOutputs, "std::string":$signature)>];
+  let builders = [OpBuilder<(ins "func::FuncOp":$function)>];
 
   let extraClassDeclaration = [{
-    static ONNXEntryPointOp create(Location location, func::FuncOp& func,
-                                   int numInputs, int numOutputs,
-                                   std::string signature);
+    static ONNXEntryPointOp create(Location location, func::FuncOp& func);
 
     static StringRef getEntryPointFuncAttrName() { return "func"; }
-    static StringRef getNumInputsAttrName() { return "numInputs"; }
-    static StringRef getNumOutputsAttrName() { return "numOutputs"; }
-    static StringRef getSignatureAttrName() { return "signature"; }
   }];
 }
 
