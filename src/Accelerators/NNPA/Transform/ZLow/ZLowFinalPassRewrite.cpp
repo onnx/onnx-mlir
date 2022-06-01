@@ -64,13 +64,8 @@ public:
     } else {
       prevLayerAttr = rewriter.getStringAttr("uni");
     }
-    // Emit a ZLow operation.
-    rewriter.create<ZLowLSTMOp>(lstmOp.getLoc(), lstmOp.input(), lstmOp.h0(),
-        lstmOp.c0(), lstmOp.input_weights(), lstmOp.input_bias(),
-        lstmOp.hidden_weights(), lstmOp.hidden_bias(), lstmOp.work_area(),
-        lstmOp.shape(), lstmOp.hn_output(), lstmOp.cf_output(),
-        lstmOp.directionAttr(), lstmOp.return_all_stepsAttr(), prevLayerAttr);
-    rewriter.eraseOp(lstmOp);
+    // Update a zlow.LSTMOp operation.
+    lstmOp.prev_layerAttr(prevLayerAttr);
 
     return success();
   }
@@ -111,13 +106,8 @@ public:
     } else {
       prevLayerAttr = rewriter.getStringAttr("uni");
     }
-    // Emit a ZLow operation.
-    rewriter.create<ZLowGRUOp>(gruOp.getLoc(), gruOp.input(), gruOp.h0(),
-        gruOp.input_weights(), gruOp.input_bias(), gruOp.hidden_weights(),
-        gruOp.hidden_bias(), gruOp.work_area(), gruOp.shape(),
-        gruOp.hn_output(), gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
-        prevLayerAttr);
-    rewriter.eraseOp(gruOp);
+    // Update a zlow.GRUOp operation.
+    gruOp.prev_layerAttr(prevLayerAttr);
 
     return success();
   }
