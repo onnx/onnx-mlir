@@ -1691,12 +1691,8 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceL1Op, ONNXReduceL1OpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1705,12 +1701,8 @@ LogicalResult ONNXReduceL1Op::inferShapes(
 
 LogicalResult ONNXReduceL2Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceL2Op, ONNXReduceL2OpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1719,12 +1711,8 @@ LogicalResult ONNXReduceL2Op::inferShapes(
 
 LogicalResult ONNXReduceLogSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceLogSumOp,
+      ONNXReduceLogSumOpAdaptor>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1733,12 +1721,8 @@ LogicalResult ONNXReduceLogSumOp::inferShapes(
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceLogSumExpOp,
+      ONNXReduceLogSumExpOpAdaptor>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1747,12 +1731,8 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceSumSquareOp,
+      ONNXReduceSumSquareOpAdaptor>(*this);
 }
 
 //===----------------------------------------------------------------------===//
