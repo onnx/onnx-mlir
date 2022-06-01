@@ -57,11 +57,7 @@ int main(int argc, char *argv[]) {
   bool success = rc::check("GRU implementation correctness", []() {
   // The number of directions.
   // 1: forward, -1: reverse, 2: bidirectional
-#ifdef TEST_RNN_NO_BIDIR
-    const auto D = *rc::gen::element(1, -1);
-#else
     const auto D = *rc::gen::element(1, -1, 2);
-#endif
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
@@ -103,19 +99,15 @@ int main(int argc, char *argv[]) {
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l));
             // reverse
             assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l));
-#ifndef TEST_RNN_NO_BIDIR
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l));
-#endif
             // Dynamic dimensions for sequence, batch size.
             // forward
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true, true));
             // reverse
             assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true, true));
-#ifndef TEST_RNN_NO_BIDIR
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
-#endif
           }
   return 0;
 }
