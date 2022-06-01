@@ -843,8 +843,9 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
 
-  // Clean up any non-canonical code introduced above..
-  pm.addNestedPass<FuncOp>(mlir::createCanonicalizerPass());
+  // // Clean up any non-canonical code introduced above..
+  // pm.addNestedPass<FuncOp>(mlir::createCanonicalizerPass());
+
   // The resolution of `dim` ops tends to create identical ops. CSE them.
   pm.addNestedPass<FuncOp>(mlir::createCSEPass());
 
