@@ -200,7 +200,7 @@ def call() {
 	    }
             else {
               publishHTML(target : [allowMissing:          true,
-                                    alwaysLinkToLastBuild: false,
+                                    alwaysLinkToLastBuild: true,
                                     keepAll:               true,
                                     reportDir:             "${MODELZOO_WORKDIR}",
                                     reportFiles:           "${MODELZOO_HTML}",
