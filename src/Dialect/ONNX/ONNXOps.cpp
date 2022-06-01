@@ -68,6 +68,89 @@ void ONNXDialect::initialize() {
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
+// Get reduction type.
+static RankedTensorType getReductionOutputType(
+    ShapedType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> axes;
+  if (axesAttrs != llvm::None)
+    for (auto axisAttr : axesAttrs.getValue()) {
+      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (rank + axis);
+      assert(axis >= -rank && axis <= rank - 1);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+    }
+  else
+    for (decltype(rank) i = 0; i < rank; ++i)
+      axes.emplace_back(i);
+
+  // Mark reduction axes.
+  SmallVector<bool, 4> isReductionAxis;
+  for (decltype(rank) i = 0; i < rank; ++i)
+    isReductionAxis.emplace_back(
+        (std::find(axes.begin(), axes.end(), i) != axes.end()) ? true : false);
+
+  // KeepDims
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else
+      dims.emplace_back(operandTy.getShape()[i]);
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
+// Reduction with axes is from ConstantOp.
+// Only ReduceSum call this function now.
+static RankedTensorType getReductionOutputType(ShapedType operandTy,
+    DenseElementsAttr axesAttrs, uint64_t keepdims,
+    uint64_t noop_with_empty_axes) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> axes;
+  if (axesAttrs)
+    for (auto element : axesAttrs.getValues<IntegerAttr>()) {
+      int64_t axis = element.getInt();
+      if (axis < -rank || axis > rank - 1)
+        return RankedTensorType();
+
+      axis = axis >= 0 ? axis : (rank + axis);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+    }
+
+  if (axes.size() == 0 && !noop_with_empty_axes)
+    for (decltype(rank) i = 0; i < rank; ++i)
+      axes.emplace_back(i);
+
+  // Mark reduction axes.
+  SmallVector<bool, 4> isReductionAxis;
+  for (decltype(rank) i = 0; i < rank; ++i)
+    isReductionAxis.emplace_back(
+        (std::find(axes.begin(), axes.end(), i) != axes.end()) ? true : false);
+
+  // KeepDims
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else
+      dims.emplace_back(operandTy.getShape()[i]);
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
@@ -123,6 +206,20 @@ static LogicalResult inferShapeForBroadcastingOps(
   return success();
 }
 
+// Handle shape inference for reduction like operators.
+template <class OP, class ADAPTOR>
+static LogicalResult inferShapeForReductionOps(OP &op) {
+  ADAPTOR operandAdaptor(op);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success(); // cannot infer when the operands shape is not yet known.
+
+  auto operandTy = op.getOperand().getType().template cast<ShapedType>();
+  auto resultTy = getReductionOutputType(operandTy, op.axes(), op.keepdims());
+  op.getResult().setType(resultTy);
+  return success();
+}
+
 #define NOT_IMPLEMENTED_MESSAGE                                                \
   (getOperationName() +                                                        \
       ": is not supported at this time. Please open an issue on "              \
@@ -136,7 +233,7 @@ static LogicalResult inferShapeForBroadcastingOps(
 // This method substitutes any uses of dimensions and symbols (e.g.
 // dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
 // affine map, and returns an integer constant.
-int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
+static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
     ArrayRef<int64_t> dimReplacements, ArrayRef<int64_t> symReplacements,
     unsigned numResultDims, unsigned numResultSyms) {
   // Prepare affine expressions.
@@ -155,105 +252,6 @@ int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
       dimExprs, symExprs, numResultDims, numResultSyms);
   AffineMap simplifiedMap = simplifyAffineMap(replacedDimMap);
   return simplifiedMap.getSingleConstantResult();
-}
-
-//===----------------------------------------------------------------------===//
-// Get reduction type
-//===----------------------------------------------------------------------===//
-RankedTensorType getReductionOutputType(RankedTensorType operandTy,
-    Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
-  int64_t rank = operandTy.getRank();
-
-  SmallVector<int64_t, 4> axes;
-  if (axesAttrs != llvm::None) {
-    for (auto axisAttr : axesAttrs.getValue()) {
-      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-      axis = axis >= 0 ? axis : (rank + axis);
-      assert(axis >= -rank && axis <= rank - 1);
-      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-        axes.emplace_back(axis);
-    }
-  } else {
-    for (decltype(rank) i = 0; i < rank; ++i) {
-      axes.emplace_back(i);
-    }
-  }
-
-  // Mark reduction axes.
-  SmallVector<bool, 4> isReductionAxis;
-  for (decltype(rank) i = 0; i < rank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      isReductionAxis.emplace_back(true);
-    else
-      isReductionAxis.emplace_back(false);
-  }
-
-  // KeepDims
-  bool isKeepdims = (keepdims == 1) ? true : false;
-
-  SmallVector<int64_t, 4> dims;
-  for (decltype(rank) i = 0; i < rank; ++i) {
-    if (isReductionAxis[i]) {
-      if (isKeepdims)
-        dims.emplace_back(1); // reduction dimension
-    } else {
-      dims.emplace_back(operandTy.getShape()[i]);
-    }
-  }
-
-  return RankedTensorType::get(dims, operandTy.getElementType());
-}
-
-// Reduction with axes is from ConstantOp.
-// Only ReduceSum call this function now.
-static RankedTensorType getReductionOutputType(RankedTensorType operandTy,
-    DenseElementsAttr axesAttrs, uint64_t keepdims,
-    uint64_t noop_with_empty_axes) {
-  int64_t rank = operandTy.getRank();
-
-  SmallVector<int64_t, 4> axes;
-  if (axesAttrs) {
-    for (auto element : axesAttrs.getValues<IntegerAttr>()) {
-      int64_t axis = element.getInt();
-      if (axis < -rank || axis > rank - 1) {
-        return RankedTensorType();
-      }
-      axis = axis >= 0 ? axis : (rank + axis);
-      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-        axes.emplace_back(axis);
-    }
-  }
-  if (axes.size() == 0) {
-    if (!noop_with_empty_axes) {
-      for (decltype(rank) i = 0; i < rank; ++i) {
-        axes.emplace_back(i);
-      }
-    }
-  }
-
-  // Mark reduction axes.
-  SmallVector<bool, 4> isReductionAxis;
-  for (decltype(rank) i = 0; i < rank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      isReductionAxis.emplace_back(true);
-    else
-      isReductionAxis.emplace_back(false);
-  }
-
-  // KeepDims
-  bool isKeepdims = (keepdims == 1) ? true : false;
-
-  SmallVector<int64_t, 4> dims;
-  for (decltype(rank) i = 0; i < rank; ++i) {
-    if (isReductionAxis[i]) {
-      if (isKeepdims)
-        dims.emplace_back(1); // reduction dimension
-    } else {
-      dims.emplace_back(operandTy.getShape()[i]);
-    }
-  }
-
-  return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1653,12 +1651,8 @@ LogicalResult ONNXTransposeOp::inferShapes(
 
 LogicalResult ONNXReduceMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceMaxOp, ONNXReduceMaxOpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1667,12 +1661,8 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 
 LogicalResult ONNXReduceMeanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceMeanOp, ONNXReduceMeanOpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1681,12 +1671,8 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceMinOp, ONNXReduceMinOpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1695,12 +1681,8 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 
 LogicalResult ONNXReduceProdOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceProdOp, ONNXReduceProdOpAdaptor>(
+      *this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1762,12 +1744,8 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 
 LogicalResult ONNXReduceSumV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
-  return success();
+  return inferShapeForReductionOps<ONNXReduceSumV11Op,
+      ONNXReduceSumV11OpAdaptor>(*this);
 }
 
 //===----------------------------------------------------------------------===//
