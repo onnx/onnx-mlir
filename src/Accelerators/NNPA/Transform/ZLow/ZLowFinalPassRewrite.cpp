@@ -43,15 +43,14 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : lstmInput.getUsers()) {
-      const char *opName = user->getName().getStringRef().data();
-      if (!strcmp(opName, "zlow.lstm")) {
+      if (isa<ZLowLSTMOp>(user)) {
         ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
         if (userLstmOp != lstmOp) {
           directionAttr = userLstmOp.direction();
           break;
         }
       }
-      if (!strcmp(opName, "zlow.gru")) {
+      if (isa<ZLowGRUOp>(user)) {
         directionAttr = llvm::dyn_cast<ZLowGRUOp>(user).direction();
         break;
       }
@@ -85,15 +84,14 @@ public:
     // Search for LSTM/GRU op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : gruInput.getUsers()) {
-      const char *opName = user->getName().getStringRef().data();
-      if (!strcmp(opName, "zlow.gru")) {
+      if (isa<ZLowGRUOp>(user)) {
         ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
         if (userGruOp != gruOp) {
           directionAttr = userGruOp.direction();
           break;
         }
       }
-      if (!strcmp(opName, "zlow.lstm")) {
+      if (isa<ZLowLSTMOp>(user)) {
         directionAttr = llvm::dyn_cast<ZLowLSTMOp>(user).direction();
         break;
       }
