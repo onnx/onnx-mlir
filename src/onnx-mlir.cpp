@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Version/Version.hpp"
 #include <iostream>
 
 using namespace std;
@@ -54,6 +55,8 @@ int main(int argc, char *argv[]) {
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
+
+  llvm::cl::SetVersionPrinter(getVersionPrinter);
 
   // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
