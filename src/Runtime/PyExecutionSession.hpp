@@ -38,11 +38,13 @@ public:
 
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
-      .def(py::init<const std::string &>())
-      .def(py::init<const std::string &, const bool>())
+      .def(py::init<const std::string &>(), py::arg("shared_lib_path"))
+      .def(py::init<const std::string &, const bool>(),
+          py::arg("shared_lib_path"), py::arg("use_default_entry_point"))
       .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoints)
-      .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint)
-      .def("run", &onnx_mlir::PyExecutionSession::pyRun)
+      .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint,
+          py::arg("name"))
+      .def("run", &onnx_mlir::PyExecutionSession::pyRun, py::arg("input"))
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature);

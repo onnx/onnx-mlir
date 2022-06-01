@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
 func @test_matmul_2d(%arg0 : tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1 : tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none

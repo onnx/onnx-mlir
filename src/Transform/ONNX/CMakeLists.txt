@@ -37,6 +37,7 @@ add_onnx_mlir_library(OMShapeInference
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
+  MLIRFunc
   MLIRPass
   )
 

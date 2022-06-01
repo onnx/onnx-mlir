@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --constprop-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --constprop-zhigh %s -split-input-file | FileCheck %s
 
 // -----
 

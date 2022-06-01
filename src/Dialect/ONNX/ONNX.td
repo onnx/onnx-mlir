@@ -13,7 +13,9 @@
 #ifndef ONNX_OPS
 #define ONNX_OPS
 
+include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
+include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
@@ -90,11 +92,11 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
                        I32Attr:$numOutputs,
                        StrAttr:$signature);
 
-  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
+  let builders = [OpBuilder<(ins "func::FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];
 
   let extraClassDeclaration = [{
-    static ONNXEntryPointOp create(Location location, FuncOp& func,
+    static ONNXEntryPointOp create(Location location, func::FuncOp& func,
                                    int numInputs, int numOutputs,
                                    std::string signature);
 
@@ -238,26 +240,7 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
 
   let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
 
-  // Previous implementation did not print/parse the length field
-  // May add the field in future
-  let printer = [{
-    $_printer << "<" << getImpl()->ElementType << ">";
-  }];
-  let parser = [{
-    if ($_parser.parseLess())
-      return Type();
-    Type elementType;
-    if ($_parser.parseType(elementType))
-      return Type();
-    if ($_parser.parseGreater())
-      return Type();
-    if (!elementType.isa<ShapedType>()) 
-      return Type();
-    else {
-      ShapedType ty = elementType.cast<ShapedType>();
-      return get($_ctxt, ty, -1);
-    }
-  }];
+  let hasCustomAssemblyFormat = 1;
   let builders = [
     TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
                                         "int64_t":$length), [{
