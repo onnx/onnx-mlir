@@ -279,6 +279,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   // direction
   StringRef direction = op->direction();
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   // Split B.
   if (!isNoneType(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
@@ -289,8 +291,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
     auto bType2D = MemRefType::get({1, 6 * hiddenSize}, elementType);
     auto bType1D = MemRefType::get({6 * hiddenSize}, elementType);
     auto bSplitType1D = MemRefType::get({hiddenSize}, elementType);
-    SmallVector<Type, 6> split1D6Ty(6, bSplitType1D);
-    SmallVector<Type, 2> split2D2Ty(2, bType2D);
+    SmallVector<Type, 6> split1D6Ty(6, create.onnx.totensor(bSplitType1D));
+    SmallVector<Type, 2> split2D2Ty(2, create.onnx.totensor(bType2D));
 
     // Squeeze the direction axis from B.
     Value fB, bB;

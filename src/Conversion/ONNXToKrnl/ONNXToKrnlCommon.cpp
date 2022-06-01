@@ -328,6 +328,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -338,10 +340,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
                          .getResult();
     free(inputBuffer);
-    return constVal;
+    return create.onnx.tomemref(constVal);
   } else {
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-        create(rewriter, loc);
     return create.onnx.tomemref(
         rewriter
             .create<ONNXSqueezeV11Op>(loc, create.onnx.totensor(resultType),
@@ -354,6 +354,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -364,10 +366,8 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
                          .getResult();
     free(inputBuffer);
-    return constVal;
+    return create.onnx.tomemref(constVal);
   } else {
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-        create(rewriter, loc);
     return create.onnx.tomemref(
         rewriter
             .create<ONNXUnsqueezeV11Op>(loc, create.onnx.totensor(resultType),
@@ -396,6 +396,8 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -411,13 +413,11 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
       Value constVal = createDenseONNXConstantOp(
           rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
                            .getResult();
-      resVals.emplace_back(constVal);
+      resVals.emplace_back(create.onnx.tomemref(constVal));
       free(resBuffers[i]);
     }
     free(inputBuffer);
   } else {
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-        create(rewriter, loc);
     ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, resultTypes,
         create.onnx.totensor(input),
         /*axis=*/axis, nullptr);
@@ -441,6 +441,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   for (auto permVal : permAttr.getValue())
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -455,7 +457,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
                          .getResult();
     free(resBuffer);
     free(inputBuffer);
-    return constVal;
+    return create.onnx.tomemref(constVal);
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
         create(rewriter, loc);
