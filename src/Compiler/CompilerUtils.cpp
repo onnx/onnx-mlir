@@ -847,7 +847,7 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // pm.addNestedPass<FuncOp>(mlir::createCanonicalizerPass());
 
   // The resolution of `dim` ops tends to create identical ops. CSE them.
-  pm.addNestedPass<FuncOp>(mlir::createCSEPass());
+  //pm.addNestedPass<FuncOp>(mlir::createCSEPass());
 
   // Remove unrealized conversion casts
   //pm.addPass(mlir::createReconcileUnrealizedCastsPass());
