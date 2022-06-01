@@ -4082,13 +4082,21 @@ LogicalResult ONNXIsInfOp::inferShapes(
 //===------------------------------------------------------------------------===//
 // IsNaNOp
 //===------------------------------------------------------------------------===//
+
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  if (!hasShapeAndRank(X()))
+    return success();
+
   auto inputShape = X().getType().cast<ShapedType>().getShape();
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
   getResult().setType(RankedTensorType::get(inputShape, i1Type));
   return success();
 }
+
+//===------------------------------------------------------------------------===//
+// LRNOp
+//===------------------------------------------------------------------------===//
 
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
