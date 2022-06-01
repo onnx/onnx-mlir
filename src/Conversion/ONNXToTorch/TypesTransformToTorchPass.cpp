@@ -152,40 +152,38 @@ static void setupTorchFloatToF64Conversion(ConversionTarget &target,
 
 static void setupSignlessI64ToSignedI64Conversion(ConversionTarget &target,
                                          TypeConverter &typeConverter) {
-
+  /// Create tensor to value tensor type conversion and ensure that
+  /// we always use signed integer types.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp,
     TorchConversion::FromBuiltinTensorOp>();
-
   typeConverter.addConversion([](RankedTensorType type) -> Type {
-    if (type.getElementType().isSignlessInteger()) {
-      auto elementType =
-	IntegerType::get(type.getContext(), 64, IntegerType::Signed);
-      return Torch::ValueTensorType::get(type.getContext(),
-		      type.getShape(), elementType);
+    Type elementType = type.cast<TensorType>().getElementType();
+    if (type.getElementType().isSignlessInteger(64)) {
+      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
     }
-    return type;
+    return Torch::ValueTensorType::get(type.getContext(),
+      type.getShape(), elementType);
   });
 
   typeConverter.addTargetMaterialization([](OpBuilder &builder,
                               RankedTensorType type, ValueRange inputs,
                               Location loc) -> Optional<Value> {
-    // Other builtin integer types could be handled by other materializers.
+    /// Other builtin integer types could be handled by other materializers.
     assert(inputs.size() == 1);
     assert(inputs[0].getType().isa<RankedTensorType>());
-    if (type.getElementType().isSignlessInteger()) {
-      auto elementType = IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
-      return builder.create<UnrealizedConversionCastOp>(loc,
-                     elementType, inputs).getResult(0);
+    Type elementType = type.cast<TensorType>().getElementType();
+    if (type.getElementType().isSignlessInteger(64)) {
+      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
     }
-    return llvm::None;
+    return builder.create<UnrealizedConversionCastOp>(loc,
+      elementType, inputs).getResult(0);
   });
-
+  
   auto sourceMaterialization =
 	  [](OpBuilder &builder, Torch::ValueTensorType type,
-                  ValueRange inputs, Location loc) -> Value {
+                  ValueRange inputs, Location loc) -> Optional<Value> {
     assert(inputs.size() == 1);
-    return builder.create<torch::TorchConversion::FromBuiltinTensorOp>(loc,
-                   type, inputs[0]);
+    return builder.create<UnrealizedConversionCastOp>(loc, type, inputs).getResult(0);
   };
   typeConverter.addSourceMaterialization(sourceMaterialization);
   typeConverter.addArgumentMaterialization(sourceMaterialization);
