@@ -30,6 +30,8 @@ jobs:
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
     - name: install third_party/onnx
       run: |
+        cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
+        git fetch --prune --unshallow --tags
         cd ~/work/onnx-mlir/onnx-mlir
         pip3 install -e third_party/onnx
     - name: build onnx-mlir
