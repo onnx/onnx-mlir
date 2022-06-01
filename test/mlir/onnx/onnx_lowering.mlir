@@ -2937,7 +2937,7 @@ func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
 //===----------------------------------------------------------------------===//
 func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
   %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi1>
-  "std.return"(%0) : (tensor<*xi1>) -> ()
+  return %0 : tensor<*xi1>
 
   // CHECK-LABEL isnan_function
   // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xi1>
