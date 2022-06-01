@@ -47,7 +47,7 @@ public:
         ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
         if ((userLstmOp != lstmOp) &&
             ((userLstmOp.hn_output() == lstmInput) ||
-             (userLstmOp.cf_output() == lstmInput))) {
+                (userLstmOp.cf_output() == lstmInput))) {
           directionAttr = userLstmOp.direction();
           break;
         }
