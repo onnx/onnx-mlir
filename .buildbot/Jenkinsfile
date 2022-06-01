@@ -155,6 +155,9 @@ def call() {
 	  /* Set build result to UNKNOWN so we know we are starting up */
           script {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
+
+            modelZooBuildBadge.setStatus("running")
+            modelZooBuildBadge.setLink("${BUILD_URL}")
           }
 
           /* The stopped build will post github status with 'aborted'.
@@ -196,13 +199,13 @@ def call() {
 	      modelZooBuildBadge.setLink("${BUILD_URL}")
 	    }
             else {
-              publishHTML (target : [allowMissing:          true,
-                                     alwaysLinkToLastBuild: false,
-                                     keepAll:               false,
-                                     reportDir:             "${MODELZOO_WORKDIR}",
-                                     reportFiles:           "${MODELZOO_HTML}",
-                                     reportName:            'Model Zoo Report',
-                                     reportTitles:          'Model Zoo Report'])
+              publishHTML(target : [allowMissing:          true,
+                                    alwaysLinkToLastBuild: false,
+                                    keepAll:               false,
+                                    reportDir:             "${MODELZOO_WORKDIR}",
+                                    reportFiles:           "${MODELZOO_HTML}",
+                                    reportName:            'Model Zoo Report',
+                                    reportTitles:          'Model Zoo Report'])
               def stdout = "${WORKSPACE}/${MODELZOO_WORKDIR}/${env.MODELZOO_STDOUT}"
               def summary = readFile(stdout).trim()
 	      println('summary: ' + summary)
