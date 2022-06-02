@@ -225,7 +225,7 @@ def call() {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
 
           echo "MODELZOO_STATUS = ${MODELZOO_STATUS}"
-          if ("${MODELZOO_STATUS" == "1") {
+          if ("${MODELZOO_STATUS}" == "1") {
             modelZooBuildBadge.setStatus("failed")
             modelZooBuildBadge.setLink("${BUILD_URL}")
           }
