@@ -221,12 +221,9 @@ struct Command {
     SmallString<8> new_wdir(wdir);
     llvm::sys::fs::current_path(cur_wdir);
     llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
-    if (std::error_code ec = llvm::sys::fs::set_current_path(new_wdir)) {
+    std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
+    if (ec.value()) {
       llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
-      // Since we return ec.value(), and because of the error, we expect the
-      // value to be nonzero, just testing here for safety that the value is
-      // indeed different than zero.
-      assert(ec.value() != 0 && "Expected nonnull error return value");
       return ec.value();
     }
 
@@ -252,7 +249,7 @@ struct Command {
     llvm::sys::fs::set_current_path(cur_wdir);
     return 0;
   }
-};
+}; // namespace
 } // namespace
 
 namespace onnx_mlir {
