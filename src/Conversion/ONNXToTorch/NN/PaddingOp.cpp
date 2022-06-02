@@ -158,24 +158,12 @@ public:
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatePadsList});
 
-    for (auto p : padsList1.elements()) {
-      llvm::outs() << " padding list element: "
-                   << "\n"
-                   << p << "\n"
-                   << "\n";
-    }
-
     TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
         opTensorType.getShape(), opTensorType.getElementType());
 
     Value result = rewriter.create<AtenConstantPadNdOp>(
         loc, resultType, dataTorchTensor, padsList1, constTorchTensor);
-
-    llvm::outs() << "AtenConstantPadNdOp operation creation"
-                 << "\n"
-                 << result << "\n"
-                 << "\n";
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);

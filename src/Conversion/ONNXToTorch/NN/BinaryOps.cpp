@@ -71,13 +71,9 @@ struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
         rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
             loc, operandBType, operandB);
 
-    llvm::outs() << "Binary input is " << operandATensor << "\n"
-                 << operandBTensor << "\n";
-
     Value result = rewriter.create<TorchBinaryOp>(
         loc, resultType, operandATensor, operandBTensor);
 
-    llvm::outs() << "Binary CREATED is " << result << "\n";
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
 
