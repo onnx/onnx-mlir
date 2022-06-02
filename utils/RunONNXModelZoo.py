@@ -408,14 +408,20 @@ def main():
                        '  padding: 10px;\n' +
                        '  vertical-align: top;\n' +
                        '}\n' +
+                       'table.sticky {\n' +
+                       '  position: -webkit-sticky;\n' +
+                       '  position: sticky;\n' +
+                       '  top: 0;\n' +
+                       '  background-color: #FFF;\n' +
+                       '}\n' +
                        '</style>\n' +
                        '</head>\n' +
-                       '<table\n')
+                       '<table class="sticky">\n')
             t = [ 'Skipped', 'Passed', 'Failed' ]
             for i, s in enumerate([ skipped_models,
-                                    list(map(lambda m: ('<a href="'+m+'.html">'+m+'</a>'),
+                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
                                              passed_models)),
-                                    list(map(lambda m: ('<a href="'+m+'.html">'+m+'</a>'),
+                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
                                              failed_models)) ]):
                 html.write('  <tr>\n' +
                            '    <td>{}</td>\n'.format(t[i]) +
@@ -429,6 +435,7 @@ def main():
                        '    <td></td>\n' +
                        '  </tr>\n' +
                        '</table>\n' +
+                       '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
                        '</body>\n' +
                        '</html>\n')
         print('Total:{} Skipped:{} Passed:{} Failed:{}'.format(
