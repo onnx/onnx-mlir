@@ -155,9 +155,6 @@ def call() {
 	  /* Set build result to UNKNOWN so we know we are starting up */
           script {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
-
-            modelZooBuildBadge.setStatus("running")
-            modelZooBuildBadge.setLink("${BUILD_URL}")
           }
 
           /* The stopped build will post github status with 'aborted'.
@@ -194,6 +191,28 @@ def call() {
 
             env.MODELZOO_STATUS  = sh(returnStatus: true,
                                       script: "${JENKINS_CHECK_MODEL_ZOO}");
+
+            /* setLink currently has no effect since github transforms
+             * badge image url to its own githubusercontent.com url.
+             */
+            if ("${MODELZOO_STATUS}" == "1") {
+              modelZooBuildBadge.setStatus("failed")
+              modelZooBuildBadge.setLink("${BUILD_URL}")
+            }
+            else {
+              publishHTML(target : [allowMissing:          true,
+                                    alwaysLinkToLastBuild: false,
+                                    /* true: BUILD level, false: PROJECT level */
+                                    keepAll:               false,
+                                    reportDir:             "${MODELZOO_WORKDIR}",
+                                    reportFiles:           "${MODELZOO_HTML}",
+                                    reportName:            'Model Zoo Report',
+                                    reportTitles:          'Model Zoo Report'])
+              modelZooBuildBadge.setStatus(readFile(
+                "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}").trim())
+              modelZooBuildBadge.setLink(
+                "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
+            }
           }
         }
       }
@@ -223,27 +242,6 @@ def call() {
       cleanup {
         script {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
-
-          /* setLink currently has no effect since github transforms
-           * badge image url to its own githubusercontent.com url.
-	   */
-          if ("${MODELZOO_STATUS}" == "1") {
-            modelZooBuildBadge.setStatus("failed")
-            modelZooBuildBadge.setLink("${BUILD_URL}")
-          }
-          else {
-            publishHTML(target : [allowMissing:          true,
-                                  alwaysLinkToLastBuild: false,
-                                  /* true: BUILD level, false: PROJECT level */
-                                  keepAll:               false,
-                                  reportDir:             "${MODELZOO_WORKDIR}",
-                                  reportFiles:           "${MODELZOO_HTML}",
-                                  reportName:            'Model Zoo Report',
-                                  reportTitles:          'Model Zoo Report'])
-            modelZooBuildBadge.setStatus(readFile(
-              "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}").trim())
-            modelZooBuildBadge.setLink("${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
-          }
 
           try {
               sh "${JENKINS_CLEANUP_BUILD_STATES}"

@@ -311,7 +311,9 @@ def check_model(work_dir, model_path, model_name, compile_args):
         logger.debug("[{}] {}".format(model_name, msg))
         if args.Html:
             with open(os.path.join(work_dir, model_name + '.html'), 'w') as out:
+                out.write('<html><body><pre>\n')
                 out.write(msg)
+                out.write('</pre></body></html>\n')
 
     return state
 
