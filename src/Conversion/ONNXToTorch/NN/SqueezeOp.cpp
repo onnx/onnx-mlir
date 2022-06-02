@@ -45,8 +45,8 @@ std::vector<int> getSortedWithNonNegativeAxes(mlir::ArrayAttr axesRaw) {
  */
 std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
   auto builder = mlir::Builder(squeezeOp.getContext());
-  auto axesConstOp = getONNXConstantOp(squeezeOp.axes());
-  auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
+  auto axesConstOp = onnx_mlir::getONNXConstantOp(squeezeOp.axes());
+  auto axesAttr = onnx_mlir::createArrayAttrFromConstantOp(builder, axesConstOp);
   return getSortedWithNonNegativeAxes(axesAttr);
 }
 
