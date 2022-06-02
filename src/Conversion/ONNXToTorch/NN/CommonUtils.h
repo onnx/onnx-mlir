@@ -61,3 +61,4 @@ mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
     mlir::MLIRContext *context, Location loc);
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc);
+std::vector<int> toVector(mlir::ArrayAttr axesAttr);

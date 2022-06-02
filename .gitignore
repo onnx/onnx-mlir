@@ -195,3 +195,7 @@ GTAGS
 # Emacs save file
 
 \#*\#
+
+# MLIR files
+*.onnx.onnx.mlir
+*.tmp
