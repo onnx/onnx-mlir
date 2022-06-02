@@ -242,7 +242,7 @@ def call() {
                                   reportTitles:          'Model Zoo Report'])
             modelZooBuildBadge.setStatus(readFile(
               "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}").trim())
-            modelZooBuildBadge.setLink("${JENKINS_URL}"job/${JOB_NAME}/Model_20Zoo_20Report")
+            modelZooBuildBadge.setLink("${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
           }
 
           try {
