@@ -192,25 +192,8 @@ def call() {
             env.MODELZOO_HTML    = 'modelzoo.html'
             env.MODELZOO_STDOUT  = 'modelzoo.stdout'
 
-            def status = sh(returnStatus: true,
-                            script: "${JENKINS_CHECK_MODEL_ZOO}");
-            if (status) {
-              modelZooBuildBadge.setStatus("failed")
-	      modelZooBuildBadge.setLink("${BUILD_URL}")
-	    }
-            else {
-              publishHTML(target : [allowMissing:          true,
-                                    alwaysLinkToLastBuild: true,
-                                    keepAll:               true,
-                                    reportDir:             "${MODELZOO_WORKDIR}",
-                                    reportFiles:           "${MODELZOO_HTML}",
-                                    reportName:            'Model Zoo Report',
-                                    reportTitles:          'Model Zoo Report'])
-              def stdout = "${WORKSPACE}/${MODELZOO_WORKDIR}/${env.MODELZOO_STDOUT}"
-              def summary = readFile(stdout).trim()
-	      println('summary: ' + summary)
-              modelZooBuildBadge.setStatus(summary)
-            }
+            env.MODELZOO_STATUS  = sh(returnStatus: true,
+                                      script: "${JENKINS_CHECK_MODEL_ZOO}");
           }
         }
       }
@@ -240,6 +223,25 @@ def call() {
       cleanup {
         script {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
+
+          echo "MODELZOO_STATUS = ${MODELZOO_STATUS}"
+          if ("${MODELZOO_STATUS" == "1") {
+            modelZooBuildBadge.setStatus("failed")
+            modelZooBuildBadge.setLink("${BUILD_URL}")
+          }
+          else {
+            publishHTML(target : [allowMissing:          true,
+                                  alwaysLinkToLastBuild: true,
+                                  keepAll:               true,
+                                  reportDir:             "${MODELZOO_WORKDIR}",
+                                  reportFiles:           "${MODELZOO_HTML}",
+                                  reportName:            'Model Zoo Report',
+                                  reportTitles:          'Model Zoo Report'])
+            def stdout = "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}"
+            def summary = readFile(stdout).trim()
+            println('summary: ' + summary)
+            modelZooBuildBadge.setStatus(summary)
+          }
 
           try {
               sh "${JENKINS_CLEANUP_BUILD_STATES}"
