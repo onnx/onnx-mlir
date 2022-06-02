@@ -152,6 +152,7 @@ def compile_model(model, emit):
     # target_symbol_name = "zdnn_matmul_op"
     target_symbol_name = 'omTensorGetShape'
     # print(exec_name + " " + target_symbol_name)
-    check_instruction(exec_name, target_symbol_name)
+    if os.path.splitext(exec_name) == '.so':
+        check_instruction(exec_name, target_symbol_name)
 
     return exec_name
