@@ -28,11 +28,16 @@ bool compileFromFile = false;
     NAME = true;                                                               \
     return true;                                                               \
   }
+#define PARSE_UNSUPPORTED_FLAG(FLAG)                                           \
+  if (arg.find(FLAG) == 0) {                                                   \
+    return true;                                                               \
+  }
 
 // Return 1 if arg used, 0 if unused.
 bool readArg(const std::string &arg) {
   PARSE_ARG(outputBaseName, "-o");
   PARSE_FLAG(compileFromFile, "--fromfile");
+  PARSE_UNSUPPORTED_FLAG("--EmitLib");
   IGNORE_ARG("-"); // Ignore all other options.
   testFileName = arg;
   return true;
