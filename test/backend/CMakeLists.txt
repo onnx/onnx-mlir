@@ -85,7 +85,7 @@ endif()
 add_custom_target(check-onnx-backend
   COMMAND
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/cpp
-    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    TEST_CASE_BY_USER=\"test_matmul_2d_cpu test_matmul_3d_cpu test_matmul_4d_cpu\" ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py

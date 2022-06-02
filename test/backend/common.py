@@ -68,18 +68,19 @@ def execute_commands(cmds, dynamic_inputs_dims):
 
 
 def check_instruction(exec_name, symbol_name):
-    lib = ctypes.cdll.LoadLibrary(exec_name)
-    try:
-        symbol = getattr(lib, symbol_name)
-        print("Found symbol:" + symbol_name + " "
-              + str(ctypes.addressof(symbol)))
-    except AttributeError:
-        print("undefined symbol: " + symbol_name)
-    platform_name = platform.system()
-    if platform_name == 'Windows':
-        _ctypes.FreeLibrary(lib._handle)
-    else:
-        _ctypes.dlclose(lib._handle)
+    if symbol_name:
+        lib = ctypes.cdll.LoadLibrary(exec_name)
+        try:
+            symbol = getattr(lib, symbol_name)
+            print("Found symbol:" + symbol_name + " "
+                  + str(ctypes.addressof(symbol)))
+        except AttributeError:
+            print("undefined symbol: " + symbol_name)
+        platform_name = platform.system()
+        if platform_name == 'Windows':
+            _ctypes.FreeLibrary(lib._handle)
+        else:
+            _ctypes.dlclose(lib._handle)
 
 
 def compile_model(model, emit):
@@ -148,8 +149,9 @@ def compile_model(model, emit):
         print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
 
     # Check if specific instruction are included in the compiled model.
-    target_symbol_name = "zdnn_matmul_op"
-    print(exec_name + " " + target_symbol_name)
+    # target_symbol_name = "zdnn_matmul_op"
+    target_symbol_name = 'omTensorGetShape'
+    # print(exec_name + " " + target_symbol_name)
     check_instruction(exec_name, target_symbol_name)
 
     return exec_name
