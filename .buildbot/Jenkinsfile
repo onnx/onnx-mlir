@@ -224,23 +224,24 @@ def call() {
         script {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
 
-          echo "MODELZOO_STATUS = ${MODELZOO_STATUS}"
+          # setLink currently has no effect since github transforms
+          # badge image url to its own githubusercontent.com url
           if ("${MODELZOO_STATUS}" == "1") {
             modelZooBuildBadge.setStatus("failed")
             modelZooBuildBadge.setLink("${BUILD_URL}")
           }
           else {
             publishHTML(target : [allowMissing:          true,
-                                  alwaysLinkToLastBuild: true,
-                                  keepAll:               true,
+                                  alwaysLinkToLastBuild: false,
+                                  # true: BUILD level, false: PROJECT level
+                                  keepAll:               false,
                                   reportDir:             "${MODELZOO_WORKDIR}",
                                   reportFiles:           "${MODELZOO_HTML}",
                                   reportName:            'Model Zoo Report',
                                   reportTitles:          'Model Zoo Report'])
-            def stdout = "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}"
-            def summary = readFile(stdout).trim()
-            println('summary: ' + summary)
-            modelZooBuildBadge.setStatus(summary)
+            modelZooBuildBadge.setStatus(readFile(
+              "${WORKSPACE}/${MODELZOO_WORKDIR}/${MODELZOO_STDOUT}").trim())
+            modelZooBuildBadge.setLink("${JENKINS_URL}"job/${JOB_NAME}/Model_20Zoo_20Report")
           }
 
           try {

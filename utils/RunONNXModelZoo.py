@@ -310,7 +310,7 @@ def check_model(work_dir, model_path, model_name, compile_args):
         state = TEST_PASSED if ok else TEST_FAILED
         logger.debug("[{}] {}".format(model_name, msg))
         if args.Html:
-            with open(os.path.join(work_dir, model_name + '.out'), 'w') as out:
+            with open(os.path.join(work_dir, model_name + '.html'), 'w') as out:
                 out.write(msg)
 
     return state
@@ -411,11 +411,9 @@ def main():
                        '<table\n')
             t = [ 'Skipped', 'Passed', 'Failed' ]
             for i, s in enumerate([ skipped_models,
-                                    list(map(lambda m: ('<a href="' +
-                                                        m + '.out">' + m + '</a>'),
+                                    list(map(lambda m: ('<a href="'+m+'.html">'+m+'</a>'),
                                              passed_models)),
-                                    list(map(lambda m: ('<a href="' +
-                                                        m + '.out">' + m + '</a>'),
+                                    list(map(lambda m: ('<a href="'+m+'.html">'+m+'</a>'),
                                              failed_models)) ]):
                 html.write('  <tr>\n' +
                            '    <td>{}</td>\n'.format(t[i]) +
