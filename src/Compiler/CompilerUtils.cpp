@@ -845,6 +845,9 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // pm.addPass(mlir::createCanonicalizerPass());
   // pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
   // pm.addPass(mlir::createCanonicalizerPass());
+  
+  // The resolution of `dim` ops tends to create identical ops. CSE them.
+  pm.addNestedPass<FuncOp>(mlir::createCSEPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
