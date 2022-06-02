@@ -8,7 +8,6 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/Conv2D.cpp
   NN/ConstOp.cpp
   NN/ElementwiseOp.cpp
-  NN/GlobalAveragePool.cpp
   NN/LeakyReluOp.cpp
   NN/MaxPoolSingleOutOp.cpp
   NN/PaddingOp.cpp
@@ -20,6 +19,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ElementwiseOp.cpp
   NN/ConcatOp.cpp
   NN/BinaryOps.cpp
+  NN/ArgmaxOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper

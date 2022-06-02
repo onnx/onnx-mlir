@@ -124,9 +124,6 @@ void populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
 void populateLoweringONNXToTorchConstantPadNdOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
-void populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
-
 void populateLoweringONNXToTorchReduceMeanOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
@@ -152,4 +149,7 @@ void populateLoweringONNXToTorchConcatOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXToTorchBinaryOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchArgmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
