@@ -19,6 +19,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ElementwiseOp.cpp
   NN/ConcatOp.cpp
   NN/BinaryOps.cpp
+  NN/ArgmaxOp.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper

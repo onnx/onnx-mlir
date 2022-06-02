@@ -150,12 +150,52 @@ static void setupTorchFloatToF64Conversion(ConversionTarget &target,
   typeConverter.addArgumentMaterialization(sourceMaterialization);
 } */
 
+static void setupSignlessI64ToSignedI64Conversion(ConversionTarget &target,
+                                         TypeConverter &typeConverter) {
+  /// Create tensor to value tensor type conversion and ensure that
+  /// we always use signed integer types.
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp,
+    TorchConversion::FromBuiltinTensorOp>();
+  typeConverter.addConversion([](RankedTensorType type) -> Type {
+    Type elementType = type.cast<TensorType>().getElementType();
+    if (type.getElementType().isSignlessInteger(64)) {
+      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
+    }
+    return Torch::ValueTensorType::get(type.getContext(),
+      type.getShape(), elementType);
+  });
+
+  typeConverter.addTargetMaterialization([](OpBuilder &builder,
+                              RankedTensorType type, ValueRange inputs,
+                              Location loc) -> Optional<Value> {
+    /// Other builtin integer types could be handled by other materializers.
+    assert(inputs.size() == 1);
+    assert(inputs[0].getType().isa<RankedTensorType>());
+    Type elementType = type.cast<TensorType>().getElementType();
+    if (type.getElementType().isSignlessInteger(64)) {
+      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
+    }
+    return builder.create<UnrealizedConversionCastOp>(loc,
+      elementType, inputs).getResult(0);
+  });
+  
+  auto sourceMaterialization =
+	  [](OpBuilder &builder, Torch::ValueTensorType type,
+                  ValueRange inputs, Location loc) -> Optional<Value> {
+    assert(inputs.size() == 1);
+    return builder.create<UnrealizedConversionCastOp>(loc, type, inputs).getResult(0);
+  };
+  typeConverter.addSourceMaterialization(sourceMaterialization);
+  typeConverter.addArgumentMaterialization(sourceMaterialization);
+}
+
 void setupBackendTypeTransforms(
     ConversionTarget &target, TypeConverter &typeConverter) {
   setupValueTensorToBuiltinTensorConversion(target, typeConverter);
   //setupTorchBoolToI1Conversion(target, typeConverter);
   //setupTorchIntToI64Conversion(target, typeConverter);
   //setupTorchFloatToF64Conversion(target, typeConverter);
+  setupSignlessI64ToSignedI64Conversion(target, typeConverter);
 }
 
 //===----------------------------------------------------------------------===//
@@ -280,8 +320,7 @@ class ONNXToAtenFinalizeTypesTransformPass
     
     // Mark materializations as illegal in this pass (since we are finalizing)
     // and add patterns that eliminate them.
-    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp>(target, patterns,
-                                                              typeConverter);
+    setupFinalization<ToBuiltinTensorOp, FromBuiltinTensorOp>(target, patterns, typeConverter);
 
     // If all result types are legal, and all block arguments are legal, then
     // all types in the program are legal.

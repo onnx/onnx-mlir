@@ -842,9 +842,15 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
-  // pm.addPass(mlir::createCanonicalizerPass());
-  // pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-  // pm.addPass(mlir::createCanonicalizerPass());
+
+  // // Clean up any non-canonical code introduced above..
+  // pm.addNestedPass<FuncOp>(mlir::createCanonicalizerPass());
+
+  // The resolution of `dim` ops tends to create identical ops. CSE them.
+  //pm.addNestedPass<FuncOp>(mlir::createCSEPass());
+
+  // Remove unrealized conversion casts
+  //pm.addPass(mlir::createReconcileUnrealizedCastsPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {

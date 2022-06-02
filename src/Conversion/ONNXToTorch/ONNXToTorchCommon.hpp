@@ -150,3 +150,6 @@ void populateLoweringONNXToTorchConcatOpPattern(
 
 void populateLoweringONNXToTorchBinaryOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchArgmaxOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
