@@ -68,6 +68,9 @@ def execute_commands(cmds, dynamic_inputs_dims):
 
 
 def check_instruction(exec_name, symbol_name):
+#    if not args.check_instruction:
+#        return True
+    
     if symbol_name:
         lib = ctypes.cdll.LoadLibrary(exec_name)
         try:
@@ -150,7 +153,7 @@ def compile_model(model, emit):
 
     # Check if specific instruction are included in the compiled model.
     # target_symbol_name = "zdnn_matmul_op"
-    target_symbol_name = 'omTensorGetShape'
+    target_symbol_name = 'omTensorGetShap'
     # print(exec_name + " " + target_symbol_name)
     if os.path.splitext(exec_name) == '.so':
         check_instruction(exec_name, target_symbol_name)
