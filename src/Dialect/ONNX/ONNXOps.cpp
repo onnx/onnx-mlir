@@ -4063,10 +4063,11 @@ LogicalResult ONNXIsInfOp::inferShapes(
 
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  ONNXIsNaNOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.X()))
     return success();
 
-  auto inputShape = X().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> inputShape = X().getType().cast<ShapedType>().getShape();
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
   getResult().setType(RankedTensorType::get(inputShape, i1Type));
   return success();
