@@ -219,7 +219,6 @@ public:
     patterns.insert<SetPrevLayerInLSTMOpPattern>(&getContext());
     patterns.insert<SetPrevLayerInGRUOpPattern>(&getContext());
 
-
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
   }
