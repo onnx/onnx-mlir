@@ -65,9 +65,6 @@ workspace_modelzoo_py      = os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_
 container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
 
 def main():
-    os.makedirs(workspace_workdir)
-    os.makedirs(workspace_reportdir)
-
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
             '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
