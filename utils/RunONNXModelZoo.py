@@ -317,6 +317,7 @@ def check_model(model_path, model_name, compile_args, report_dir):
         if args.Html:
             with open(os.path.join(report_dir, model_name + '.html'), 'w') as out:
                 out.write('<html><body><pre>\n')
+                out.write(model_name + '\n\n')
                 out.write(msg)
                 out.write('</pre></body></html>\n')
 
