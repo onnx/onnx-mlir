@@ -89,6 +89,10 @@ void initOMPasses(int optLevel) {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerKrnlShapePass();
   });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createConvertONNXToTOSAPass();
+  });
 }
 
 } // namespace onnx_mlir
