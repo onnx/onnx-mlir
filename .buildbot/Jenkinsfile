@@ -220,21 +220,23 @@ def call() {
 
     post {
       always {
-        publishHTML(target : [allowMissing:          true,
-                              alwaysLinkToLastBuild: true,
-                              /* true: BUILD level, false: PROJECT level */
-                              keepAll:               false,
-                              reportDir:             "${MODELZOO_REPORTDIR}",
-                              reportFiles:           "${MODELZOO_HTML}",
-                              reportName:            'Model Zoo Report',
-                              reportTitles:          'Model Zoo Report'])
-        /* setLink currently has no effect since github transforms
-         * badge image url to its own githubusercontent.com url.
-         */
-        modelZooBuildBadge.setStatus(readFile(
-          "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
-        modelZooBuildBadge.setLink(
-          "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
+        script {
+          publishHTML(target : [allowMissing:          true,
+                                alwaysLinkToLastBuild: true,
+                                /* true: BUILD level, false: PROJECT level */
+                                keepAll:               false,
+                                reportDir:             "${MODELZOO_REPORTDIR}",
+                                reportFiles:           "${MODELZOO_HTML}",
+                                reportName:            'Model Zoo Report',
+                                reportTitles:          'Model Zoo Report'])
+          /* setLink currently has no effect since github transforms
+           * badge image url to its own githubusercontent.com url.
+           */
+          modelZooBuildBadge.setStatus(readFile(
+            "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
+          modelZooBuildBadge.setLink(
+            "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
+        }
       }
       success {
         post_build_status("${GITHUB_EVENT}", 'success')
