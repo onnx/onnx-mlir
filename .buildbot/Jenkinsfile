@@ -171,7 +171,7 @@ def call() {
             sh (script: """#!/bin/bash +x
                 mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
                 mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
-                rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/""")
+                rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
           }
 
           /* The stopped build will post github status with 'aborted'.
