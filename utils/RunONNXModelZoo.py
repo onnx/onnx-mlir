@@ -114,10 +114,14 @@ def get_args():
                         '--print-paths',
                         action='store_true',
                         help="Only print model paths in the model zoo.")
+    parser.add_argument('-r',
+                        '--reportdir',
+                        default=os.getcwd(),
+                        help="Report dir for generating tests results, default cwd.")
     parser.add_argument('-w',
                         '--workdir',
                         default=os.getcwd(),
-                        help="Work dir for cloning and testing, default cwd.")
+                        help="Work dir for cloning and downloading, default cwd.")
     return parser.parse_args()
 
 
@@ -252,7 +256,7 @@ def obtain_all_model_paths(repo_dir):
     return model_names, model_paths
 
 
-def check_model(work_dir, model_path, model_name, compile_args):
+def check_model(model_path, model_name, compile_args, report_dir):
     passed = TEST_SKIPPED
     with tempfile.TemporaryDirectory() as tmpdir:
         # untar
@@ -309,8 +313,9 @@ def check_model(work_dir, model_path, model_name, compile_args):
         ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + [onnx_file] + options)
         state = TEST_PASSED if ok else TEST_FAILED
         logger.debug("[{}] {}".format(model_name, msg))
+
         if args.Html:
-            with open(os.path.join(work_dir, model_name + '.html'), 'w') as out:
+            with open(os.path.join(report_dir, model_name + '.html'), 'w') as out:
                 out.write('<html><body><pre>\n')
                 out.write(msg)
                 out.write('</pre></body></html>\n')
@@ -318,7 +323,7 @@ def check_model(work_dir, model_path, model_name, compile_args):
     return state
 
 
-def pull_and_check_model(model_path, work_dir, compile_args, keep_model):
+def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_dir):
     state = TEST_SKIPPED
 
     # Must get logger again since this function is run by Parallel
@@ -341,7 +346,7 @@ def pull_and_check_model(model_path, work_dir, compile_args, keep_model):
                              cwd=work_dir)
 
     # check the model.
-    state = check_model(work_dir, model_tar_gz, model_name, compile_args)
+    state = check_model(model_tar_gz, model_name, compile_args, report_dir)
 
     if not keep_model:
         # remove the model to save the storage space.
@@ -386,9 +391,12 @@ def main():
                 target_model_paths.add(m)
 
     # Start processing the models.
+    report_dir = os.path.realpath(args.reportdir)
+
     results = Parallel(n_jobs=args.jobs,
                        verbose=VERBOSITY_LEVEL[args.log_level])(
-        delayed(pull_and_check_model)(path, work_dir, args.compile_args, args.keep_models)
+        delayed(pull_and_check_model)(
+            path, args.compile_args, args.keep_models, work_dir, report_dir)
         for path in target_model_paths)
 
     # Report the results.
@@ -398,7 +406,7 @@ def main():
     failed_models  = sorted({r[1] for r in results if r[0] == TEST_FAILED})
 
     if args.Html:
-        with open(os.path.join(args.workdir, args.Html), 'w') as html:
+        with open(os.path.join(report_dir, args.Html), 'w') as html:
             html.write('<html>\n' +
                        '<head>\n' +
                        '<style>\n' +
@@ -438,6 +446,8 @@ def main():
                        '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
                        '</body>\n' +
                        '</html>\n')
+
+        # Output summary to stdout for the badge text
         print('Total:{} Skipped:{} Passed:{} Failed:{}'.format(
             len(skipped_models) + len(tested_models),
             len(skipped_models), len(passed_models), len(failed_models)))

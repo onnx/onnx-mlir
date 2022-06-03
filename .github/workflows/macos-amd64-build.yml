@@ -1,4 +1,4 @@
-name: GitHub Action
+name: GitHub Action MacOS amd64
 
 on: [push, pull_request]
 

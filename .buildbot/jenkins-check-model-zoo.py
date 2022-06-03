@@ -38,6 +38,7 @@ jenkins_home               = os.getenv('JENKINS_HOME')
 job_name                   = os.getenv('JOB_NAME')
 workspace                  = os.getenv('WORKSPACE')
 modelzoo_workdir           = os.getenv('MODELZOO_WORKDIR')
+modelzoo_reportdir         = os.getenv('MODELZOO_REPORTDIR')
 modelzoo_html              = os.getenv('MODELZOO_HTML')
 modelzoo_stdout            = os.getenv('MODELZOO_STDOUT')
 
@@ -45,40 +46,56 @@ docker_dev_image_name      = (github_repo_name + '-dev' +
                               ('.' + github_pr_baseref2
                                if github_pr_baseref != 'main' else ''))
 docker_dev_image_tag       = github_pr_number.lower()
+docker_dev_image_full      = ((docker_registry_host_name +
+                               '/' if docker_registry_host_name else '') +
+                              (docker_registry_user_name +
+                               '/' if docker_registry_user_name else '') +
+                              docker_dev_image_name + ':' + docker_dev_image_tag)
 
-workspace_modelzoo         = os.path.join(workspace, modelzoo_workdir)
+workspace_workdir          = os.path.join(workspace, modelzoo_workdir)
+container_workdir          = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)
+
+workspace_reportdir        = os.path.join(workspace, modelzoo_reportdir)
+container_reportdir        = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_reportdir)
+
+workspace_model_py         = os.path.join(workspace, 'utils', RUN_ONNX_MODEL_PY)
+container_model_py         = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODEL_PY)
+
+workspace_modelzoo_py      = os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_PY)
+container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
 
 def main():
-    os.makedirs(workspace_modelzoo)
+    os.makedirs(workspace_workdir)
+    os.makedirs(workspace_reportdir)
 
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
             '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
-            '-v', (workspace_modelzoo + ':' +
-                   os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)),
-            '-v', (os.path.join(workspace, 'utils', RUN_ONNX_MODEL_PY) + ':' +
-                   os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODEL_PY)),
-            '-v', (os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_PY) + ':' +
-                   os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)),
-            ((docker_registry_host_name + '/' if docker_registry_host_name else '') +
-             (docker_registry_user_name + '/' if docker_registry_user_name else '') +
-             docker_dev_image_name + ':' + docker_dev_image_tag),
-            os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY),
-            '-j', NPROC,
-            '-w', modelzoo_workdir,
+            '-v', workspace_workdir     + ':' + container_workdir,
+            '-v', workspace_reportdir   + ':' + container_reportdir,
+            '-v', workspace_model_py    + ':' + container_model_py,
+            '-v', workspace_modelzoo_py + ':' + container_modelzoo_py,
+            docker_dev_image_full,
+            container_modelzoo_py,
             '-H', modelzoo_html,
-            '-l', 'info' ]
+            '-j', NPROC,
+            '-l', 'info',
+            '-r', container_reportdir,
+            '-w', container_workdir ]
 
     # write summary line to file for Jenkinsfile to pickup
     logging.info(' '.join(cmd))
-    with open(os.path.join(workspace_modelzoo, modelzoo_stdout), 'w') as f:
-        proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE)
+    with open(os.path.join(workspace_reportdir, modelzoo_stdout), 'w') as f:
+        try:
+            proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE)
 
-        # print messages from RunONNXModelZoo.py and RunONNXModel.py
-        for line in proc.stderr:
-            print(line.decode('utf-8'), file=sys.stderr, end='', flush=True)
+            # print messages from RunONNXModelZoo.py and RunONNXModel.py
+            for line in proc.stderr:
+                print(line.decode('utf-8'), file=sys.stderr, end='', flush=True)
 
-        proc.wait()
+            proc.wait()
+        except:
+            f.write('failed')
 
 
 if __name__ == "__main__":
