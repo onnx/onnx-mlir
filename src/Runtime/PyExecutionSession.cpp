@@ -26,8 +26,10 @@ namespace onnx_mlir {
 std::vector<py::array> PyExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
-
-  std::vector<OMTensor *> omts;
+  assert(inputsPyArray.size() > 0 &&
+         "Expected a vector of numpy arrays, got an empty list.");
+      std::vector<OMTensor *>
+          omts;
   for (auto inputPyArray : inputsPyArray) {
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
