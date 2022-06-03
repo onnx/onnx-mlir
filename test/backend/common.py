@@ -66,13 +66,13 @@ def execute_commands(cmds, dynamic_inputs_dims):
     subprocess.run(cmds, env=my_env)
 
 
-def check_instruction(exec_name, symbol_name):
-#    if symbol_name and args.check_instruction
-    if symbol_name:
+def check_instruction(test_name, exec_name):
+    if args.instruction_check:
+        symbol_name = variables.test_to_enable_symbol_dict[test_name]
         lib = ctypes.cdll.LoadLibrary(exec_name)
         # Raise AttributeError if symbol undefined
         symbol = getattr(lib, symbol_name)
-        _ctypes.dlclose(lib._handle) # For Windows, _ctypes.FreeLibrary(lib._handle)
+        _ctypes.dlclose(lib._handle)
 
 
 def compile_model(model, emit):
@@ -141,11 +141,6 @@ def compile_model(model, emit):
         print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
 
     # Check if specific instruction are included in the compiled model.
-    # target_symbol_name = "zdnn_matmul_op"
-    target_symbol_name = 'omTensorGetShap'
-    print(exec_name + " " + target_symbol_name)
-    path, ext = os.path.splitext(exec_name)
-    if ext == '.so':
-        check_instruction(exec_name, target_symbol_name)
+    check_instruction(name + "_cpu", exec_name)
 
     return exec_name

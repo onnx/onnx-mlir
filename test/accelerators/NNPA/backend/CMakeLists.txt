@@ -159,9 +159,9 @@ set(NNPA_TEST_LIST
 #    test_lstm_with_initial_bias_cpu
 #    test_lstm_with_peepholes_cpu
      # Matmul
-     test_matmul_2d_cpu
-     test_matmul_3d_cpu
-     test_matmul_4d_cpu
+     test_matmul_2d_cpu,zdnn_matmul_op
+     test_matmul_3d_cpu,zdnn_matmul_op
+#     test_matmul_4d_cpu,zdnn_matmul_op
 #    # Max
 #    test_max_example_cpu
 #    test_max_one_input_cpu
@@ -259,6 +259,7 @@ set(NNPA_TESTS_ENVS TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} 
 # ONNX_HOME to avoid conflicts.
 add_custom_target(check-onnx-backend-nnpa
   COMMAND
+    TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/cpp
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
