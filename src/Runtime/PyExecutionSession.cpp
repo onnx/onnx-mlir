@@ -26,7 +26,7 @@ namespace onnx_mlir {
 std::vector<py::array> PyExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
-
+  
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
     assert(inputPyArray.flags() && py::array::c_style &&
