@@ -43,6 +43,9 @@ class StickViewUnstickRemovalPattern : public OpRewritePattern<ZLowStickOp> {
 public:
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
 
+  StickViewUnstickRemovalPattern(MLIRContext *context)
+      : OpRewritePattern(context, /*benefit=*/2) {}
+
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
     Value stickInput = stickOp.X();
@@ -100,6 +103,103 @@ public:
   }
 };
 
+class SetPrevLayerInLSTMOpPattern : public OpRewritePattern<ZLowLSTMOp> {
+public:
+  using OpRewritePattern<ZLowLSTMOp>::OpRewritePattern;
+
+  // Set lower benefit than StickViewUnstickRemovalPattern's
+  // to schedule this pattern after StickViewUnstickRemovalPattern.
+  SetPrevLayerInLSTMOpPattern(MLIRContext *context)
+      : OpRewritePattern(context, /*benefit=*/1) {}
+
+  LogicalResult matchAndRewrite(
+      ZLowLSTMOp lstmOp, PatternRewriter &rewriter) const override {
+    Value lstmInput = lstmOp.input();
+    StringRef prevLayer = lstmOp.prev_layer();
+    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+      return failure();
+
+    // Search for LSTM/GRU op that generates the input argument.
+    StringRef directionAttr = "";
+    for (Operation *user : lstmInput.getUsers()) {
+      if (isa<ZLowLSTMOp>(user)) {
+        ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
+        if ((userLstmOp != lstmOp) &&
+            ((userLstmOp.hn_output() == lstmInput) ||
+                (userLstmOp.cf_output() == lstmInput))) {
+          directionAttr = userLstmOp.direction();
+          break;
+        }
+      }
+      if (isa<ZLowGRUOp>(user)) {
+        ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
+        if (userGruOp.hn_output() == lstmInput) {
+          directionAttr = userGruOp.direction();
+          break;
+        }
+      }
+    }
+    StringAttr prevLayerAttr;
+    if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
+      prevLayerAttr = rewriter.getStringAttr("none");
+    } else if (!strcmp(directionAttr.data(), "bidirectional")) {
+      prevLayerAttr = rewriter.getStringAttr("bidir");
+    } else {
+      prevLayerAttr = rewriter.getStringAttr("uni");
+    }
+    // Update a zlow.LSTMOp operation.
+    lstmOp.prev_layerAttr(prevLayerAttr);
+
+    return success();
+  }
+};
+
+class SetPrevLayerInGRUOpPattern : public OpRewritePattern<ZLowGRUOp> {
+public:
+  using OpRewritePattern<ZLowGRUOp>::OpRewritePattern;
+
+  // Set lower benefit than StickViewUnstickRemovalPattern's
+  // to schedule this pattern after StickViewUnstickRemovalPattern.
+  SetPrevLayerInGRUOpPattern(MLIRContext *context)
+      : OpRewritePattern(context, /*benefit=*/1) {}
+
+  LogicalResult matchAndRewrite(
+      ZLowGRUOp gruOp, PatternRewriter &rewriter) const override {
+    Value gruInput = gruOp.input();
+    StringRef prevLayer = gruOp.prev_layer();
+    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+      return failure();
+
+    // Search for LSTM/GRU op that generates the input argument.
+    StringRef directionAttr = "";
+    for (Operation *user : gruInput.getUsers()) {
+      if (isa<ZLowGRUOp>(user)) {
+        ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
+        if (userGruOp != gruOp) {
+          directionAttr = userGruOp.direction();
+          break;
+        }
+      }
+      if (isa<ZLowLSTMOp>(user)) {
+        directionAttr = llvm::dyn_cast<ZLowLSTMOp>(user).direction();
+        break;
+      }
+    }
+    StringAttr prevLayerAttr;
+    if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
+      prevLayerAttr = rewriter.getStringAttr("none");
+    } else if (!strcmp(directionAttr.data(), "bidirectional")) {
+      prevLayerAttr = rewriter.getStringAttr("bidir");
+    } else {
+      prevLayerAttr = rewriter.getStringAttr("uni");
+    }
+    // Update a zlow.GRUOp operation.
+    gruOp.prev_layerAttr(prevLayerAttr);
+
+    return success();
+  }
+};
+
 /*!
  *  Function pass that optimizes ZLowIR.
  */
@@ -116,6 +216,9 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
+    patterns.insert<SetPrevLayerInLSTMOpPattern>(&getContext());
+    patterns.insert<SetPrevLayerInGRUOpPattern>(&getContext());
+
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();

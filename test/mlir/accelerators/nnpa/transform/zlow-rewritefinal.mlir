@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --zlow-rewrite-final --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
 
