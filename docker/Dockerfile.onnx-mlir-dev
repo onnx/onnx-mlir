@@ -67,6 +67,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
           git fetch --unshallow && \
           git remote rename origin upstream; \
        fi \
+# Install joblib for model zoo tests
+    && pip3 install -q joblib \
     && rm -rf /tmp/*
 
 # Copy from onnx-mlir-dev-test to squash removed source layer and
