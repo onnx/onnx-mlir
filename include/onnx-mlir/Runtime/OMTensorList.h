@@ -102,10 +102,24 @@ OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
  *
  * @param list pointer to the OMTensorList
  * @param index index of the OMTensor
- * @reutrn pointer to the OMTensor, NULL if not found.
+ * @return pointer to the OMTensor, NULL if not found.
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
     OMTensorList *list, int64_t index);
+
+/**
+ * \brief OMTensorList verify by signature
+ *
+ * Signature must be in JSON format with keys `type`, `dims` and `name`, e.g.
+ *   [{"type" : "f32" , "dims" : [4, 8, 16] , "name": "t1"},
+ *    {"type" : "i32" , "dims" : [32, 64, 128] , "name": "t2"}]
+ *
+ * @param list pointer to the OMTensorList
+ * @param sig signature in JSON format for tensors in the list
+ * @return 1 if passed, 0 if failed.
+ */
+OM_EXTERNAL_VISIBILITY int64_t omTensorListVerifyType(
+    OMTensorList *list, const char *sig);
 
 #ifdef __cplusplus
 }

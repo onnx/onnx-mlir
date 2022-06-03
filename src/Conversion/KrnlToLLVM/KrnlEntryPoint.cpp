@@ -16,6 +16,7 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "llvm/ADT/Triple.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -30,17 +31,26 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+extern uint64_t KRNL_ENTRY_POINT_ID;
+
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
   ArrayRef<bool> outputOMTensorOwnerships;
   bool singleEntryPoint;
+  SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
+  SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
+  SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
-      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint)
+      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
+      SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
-        singleEntryPoint(singleEntryPoint) {}
+        singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
+        inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps) {}
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
@@ -75,6 +85,13 @@ public:
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
     if (singleEntryPoint)
       dynEntryPointName = DEFAULT_DYN_ENTRY_POINT;
+
+    // Record entry point name, input and output signatures in order to emit
+    // signature-related functions later.
+    recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
+        inSigGlobalOps, outSigGlobalOps);
+
+    // Start lowering the op.
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
@@ -155,6 +172,11 @@ public:
     // them to static mem refs.
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
+
+    // Emit code to verify every tensor in the wrapped input, e.g. verifying
+    // shape and data type.
+    emitVerificationCodeForInputTensors(
+        rewriter, loc, apiRegistry, wrappedInput, inSigGlobalOps);
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
@@ -371,7 +393,6 @@ private:
     rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
   }
 
-private:
   FlatSymbolRefAttr getOrInsertMalloc(
       PatternRewriter &rewriter, ModuleOp module) const {
     // Insert the malloc/aligned_alloc declaration if it is not already present.
@@ -426,13 +447,128 @@ private:
     }
     return SymbolRefAttr::get(ctx, funcName);
   }
+
+  void emitVerificationCodeForInputTensors(PatternRewriter &rewriter,
+      Location loc, const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+      const SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps) const {
+    Type int64Ty = rewriter.getI64Type();
+    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
+
+    // Split the current block into IF, THEN, ELSE blocks.
+    Block *ifBlock, *thenBlock, *elseBlock;
+    ifBlock = rewriter.getInsertionBlock();
+    thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
+    elseBlock = rewriter.createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+
+    // Emit code for the IF block.
+    rewriter.setInsertionPointToEnd(ifBlock);
+    LLVM::GlobalOp inSigGlobalOp = inSigGlobalOps[KRNL_ENTRY_POINT_ID - 1];
+    Value zeroI64 = rewriter.create<LLVM::ConstantOp>(
+        loc, int64Ty, rewriter.getI64IntegerAttr(0));
+    Value inSigGlobalPtrAddr =
+        rewriter.create<LLVM::AddressOfOp>(loc, inSigGlobalOp);
+    LLVM::GEPOp inSigGlobalPtr = rewriter.create<LLVM::GEPOp>(loc, opaquePtrTy,
+        inSigGlobalPtrAddr, ArrayRef<Value>({zeroI64, zeroI64}));
+    Value verifyResult = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+        RuntimeAPI::API::VERIFY_OMTENSOR_LIST_TYPE,
+        {wrappedInput, inSigGlobalPtr});
+    // Condition: if (omTensorListVerifyType() == 0) then ... else ...
+    Value failed = rewriter.create<LLVM::ICmpOp>(
+        loc, LLVM::ICmpPredicate::eq, verifyResult, zeroI64);
+    // Branch the block into the THEN and ELSE blocks.
+    rewriter.create<LLVM::CondBrOp>(
+        loc, failed, thenBlock, ValueRange(), elseBlock, ValueRange());
+
+    // Emit code for the THEN block: return NULL.
+    rewriter.setInsertionPointToStart(thenBlock);
+    Value nullPtr = rewriter.create<LLVM::NullOp>(loc, opaquePtrTy);
+    rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+
+    // Emit code for the ELSE block: continue with other generated code.
+    rewriter.setInsertionPointToStart(elseBlock);
+  }
+
+  void recordEntryPointSignatures(ModuleOp &module,
+      std::string currentEntryPointName, KrnlEntryPointOp entryOp,
+      SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) const {
+    Operation *op = entryOp.getOperation();
+    MLIRContext *context = module.getContext();
+    Location loc = module.getLoc();
+    OpBuilder b(context);
+
+    // Common information.
+    Type i8Type = IntegerType::get(context, 8);
+
+    // A helper function to emit a global constant operation storing a string.
+    auto emitGlobalOp = [&context, &b, &loc, &i8Type](
+                            std::string name, std::string value) {
+      mlir::StringAttr valueAttr = mlir::StringAttr::get(context, value);
+      Type valueArrayType = LLVM::LLVMArrayType::get(i8Type, value.size());
+      LLVM::GlobalOp globalOp = b.create<LLVM::GlobalOp>(loc, valueArrayType,
+          /*isConstant=*/true, LLVM::Linkage::External, name, valueAttr);
+      return globalOp;
+    };
+
+    bool zOS = false;
+    if (Attribute mtripleAttr =
+            module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
+      zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
+
+    // // NULL terminated entry point name.
+    std::string terminatedEntryPointName = currentEntryPointName + '\0';
+    terminatedEntryPointName = (zOS) ? krnl::a2e_s(terminatedEntryPointName)
+                                     : terminatedEntryPointName;
+
+    // Input/output signature strings.
+    StringAttr sigAttr =
+        op->getAttrOfType<StringAttr>(KrnlEntryPointOp::getSignatureAttrName());
+    llvm::StringRef signature = sigAttr.getValue();
+    auto splitSig = signature.split('@');
+    std::string inSignature =
+        (zOS) ? krnl::a2e_s(splitSig.first.str()) : splitSig.first.str();
+    std::string outSignature =
+        (zOS) ? krnl::a2e_s(splitSig.second.str()) : splitSig.second.str();
+
+    // For each entry point name, emit three global constants to store the entry
+    // point name and input/output signatures. For the i-th entry point, these
+    // constants are named as follows:
+    // - Entry point name: `_entry_point_i`.
+    // - Input signature: `_entry_point_i_in_sig`.
+    // - Output signature: `_entry_point_i_out_sig`.
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(module.getBody());
+    // Global constants for entry point names.
+    std::string entryVarName =
+        "_entry_point_" + std::to_string(KRNL_ENTRY_POINT_ID);
+    KRNL_ENTRY_POINT_ID++;
+    LLVM::GlobalOp entryGlobalOp =
+        emitGlobalOp(entryVarName, terminatedEntryPointName);
+    entryGlobalOps.emplace_back(entryGlobalOp);
+
+    // Global constants for input signatures.
+    std::string inSigVarName = entryVarName + "_in_sig";
+    LLVM::GlobalOp inSigGlobalOp = emitGlobalOp(inSigVarName, inSignature);
+    inSigGlobalOps.emplace_back(inSigGlobalOp);
+
+    // Global constants for output signatures.
+    std::string outSigVarName = entryVarName + "_out_sig";
+    LLVM::GlobalOp outSigGlobalOp = emitGlobalOp(outSigVarName, outSignature);
+    outSigGlobalOps.emplace_back(outSigGlobalOp);
+  }
 };
 
 void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
-  patterns.insert<KrnlEntryPointOpLowering>(
-      typeConverter, ctx, outputOMTensorOwnerships, singleEntryPoint);
+    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
+    SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+    SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) {
+  patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
+      outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
+      inSigGlobalOps, outSigGlobalOps);
 }
 
 } // namespace krnl

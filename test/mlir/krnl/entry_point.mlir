@@ -12,6 +12,21 @@ module {
 // CHECK:         llvm.mlir.global external constant @_entry_point_0("run_main_graph\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig]\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig]\00")
+
+// CHECK-LABEL:   llvm.func @run_main_graph
+// CHECK:             ([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
+// CHECK:           [[CST_0:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK:           [[IN_SIG:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<9 x i8>>
+// CHECK:           [[IN_SIG_GEP:%.+]] = llvm.getelementptr %1{{\[}}[[CST_0]], [[CST_0]]{{\]}} : (!llvm.ptr<array<9 x i8>>, i64, i64) -> !llvm.ptr<i8>
+// CHECK:           [[VERIFY_RESULT:%.+]] = llvm.call @omTensorListVerifyType([[ARG0]], [[IN_SIG_GEP]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i64
+// CHECK:           [[FAILED:%.+]] = llvm.icmp "eq" [[VERIFY_RESULT]], [[CST_0]] : i64
+// CHECK:           llvm.cond_br [[FAILED]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           llvm.return [[NULL]] : !llvm.ptr<i8>
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
+
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<2 x ptr<i8>> {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr<i8>>
 // CHECK:           [[VAR_1_:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -22,8 +37,6 @@ module {
 // CHECK:           [[VAR_6_:%.+]] = llvm.insertvalue [[VAR_5_]], [[VAR_4_]][1 : index] : !llvm.array<2 x ptr<i8>>
 // CHECK:           llvm.return [[VAR_6_]] : !llvm.array<2 x ptr<i8>>
 // CHECK:         }
-
-// CHECK-LABEL:   llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8>
 
 // CHECK:         llvm.func @omQueryEntryPoints([[arg0_:%.+]]: !llvm.ptr<i64>) -> !llvm.ptr<ptr<i8>> {
 // CHECK:           [[VAR_0_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i64>
@@ -109,12 +122,39 @@ module {
   "krnl.entry_point"() {func = @second_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig_1]\00@[out_sig_1]\00"} : () -> ()
 
 // CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
-// CHECK:         llvm.mlir.global external constant @_entry_point_0("run_first_entry\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig_0]\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig_0]\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_1("run_second_entry\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_1_in_sig("[in_sig_1]\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_1_out_sig("[out_sig_1]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0("run_first_entry\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig_0]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig_0]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1("run_second_entry\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_in_sig("[in_sig_1]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_out_sig("[out_sig_1]\00")
+
+// CHECK:         llvm.func @run_first_entry([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
+// CHECK:           [[CST_0:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK:           [[IN_SIG:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<11 x i8>>
+// CHECK:           [[IN_SIG_GEP:%.+]] = llvm.getelementptr %1{{\[}}[[CST_0]], [[CST_0]]{{\]}} : (!llvm.ptr<array<11 x i8>>, i64, i64) -> !llvm.ptr<i8>
+// CHECK:           [[VERIFY_RESULT:%.+]] = llvm.call @omTensorListVerifyType([[ARG0]], [[IN_SIG_GEP]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i64
+// CHECK:           [[FAILED:%.+]] = llvm.icmp "eq" [[VERIFY_RESULT]], [[CST_0]] : i64
+// CHECK:           llvm.cond_br [[FAILED]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           llvm.return [[NULL]] : !llvm.ptr<i8>
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
+
+// CHECK:         llvm.func @run_second_entry([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
+// CHECK:           [[CST_0:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK:           [[IN_SIG:%.+]] = llvm.mlir.addressof @_entry_point_1_in_sig : !llvm.ptr<array<11 x i8>>
+// CHECK:           [[IN_SIG_GEP:%.+]] = llvm.getelementptr %1{{\[}}[[CST_0]], [[CST_0]]{{\]}} : (!llvm.ptr<array<11 x i8>>, i64, i64) -> !llvm.ptr<i8>
+// CHECK:           [[VERIFY_RESULT:%.+]] = llvm.call @omTensorListVerifyType([[ARG0]], [[IN_SIG_GEP]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i64
+// CHECK:           [[FAILED:%.+]] = llvm.icmp "eq" [[VERIFY_RESULT]], [[CST_0]] : i64
+// CHECK:           llvm.cond_br [[FAILED]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           llvm.return [[NULL]] : !llvm.ptr<i8>
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
+
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<3 x ptr<i8>> {
 // CHECK:           [[VAR_0_6_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
 // CHECK:           [[VAR_1_7_:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -129,9 +169,6 @@ module {
 // CHECK:           [[VAR_10_3_:%.+]] = llvm.insertvalue [[VAR_9_3_]], [[VAR_8_3_]][2 : index] : !llvm.array<3 x ptr<i8>>
 // CHECK:           llvm.return [[VAR_10_3_]] : !llvm.array<3 x ptr<i8>>
 // CHECK:         }
-
-// CHECK-LABEL:   llvm.func @run_first_entry({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
-// CHECK-LABEL:   llvm.func @run_second_entry({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 
 // CHECK:         llvm.func @omQueryEntryPoints([[arg0_:%.+]]: !llvm.ptr<i64>) -> !llvm.ptr<ptr<i8>> {
 // CHECK:           [[VAR_0_11_:%.+]] = llvm.mlir.null : !llvm.ptr<i64>
@@ -246,7 +283,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK-NEXT: [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER]]) : (i64) -> i64
 // CHECK-NEXT: [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
 // CHECK-NEXT: llvm.cond_br [[FAILED]], ^bb1, ^bb2
-// CHECK-NEXT: ^bb1:  // 2 preds: ^bb0, ^bb2
+// CHECK-NEXT: ^bb1:  // 3 preds: ^bb0, ^bb2, ^bb3
 // CHECK-NEXT:   [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK-NEXT:   llvm.return [[NULL]] : !llvm.ptr<i8>
 // CHECK-NEXT: ^bb2:  // pred: ^bb0
@@ -255,5 +292,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK-NEXT:  [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
 // CHECK-NEXT:  llvm.cond_br [[FAILED]], ^bb1, ^bb3
 // CHECK-NEXT: ^bb3:  // pred: ^bb2
+// CHECK:        {{.*}} = llvm.call @omTensorListVerifyType(%arg0, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i64
+// CHECK:      ^bb4:  // pred: ^bb3
 // CHECK-NEXT:   {{.*}} = llvm.call @omTensorListGetOmtArray(%arg0) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
 }

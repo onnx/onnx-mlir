@@ -21,6 +21,11 @@ file(GENERATE
   )
 
 file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/input_verification_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/input_verification_backend.py
+  )
+
+file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/variables.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/variables.py
   )
@@ -126,6 +131,17 @@ add_custom_target(check-onnx-backend-signature
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+# Do not use pytest-xdist for this check because pytest-xdist swallows stdout
+# and this test cannot check messages from stdout.
+add_custom_target(check-onnx-backend-input-verification
+  COMMAND
+  TEST_INPUT_VERIFICATION=true
+    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(check-onnx-backend-compilerlib
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
@@ -150,6 +166,8 @@ add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
 add_dependencies(check-onnx-backend-signature onnx-mlir)
 add_dependencies(check-onnx-backend-signature PyRuntime)
+add_dependencies(check-onnx-backend-input-verification onnx-mlir)
+add_dependencies(check-onnx-backend-input-verification PyRuntime)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 

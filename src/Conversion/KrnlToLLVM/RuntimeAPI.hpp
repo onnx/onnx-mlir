@@ -44,6 +44,7 @@ public:
     GET_DATA_TYPE,
     GET_OMT_ARRAY,
     PRINT_OMTENSOR,
+    VERIFY_OMTENSOR_LIST_TYPE,
   };
 
   // Call the runtime API identified by \p apiId, return the SSA value
