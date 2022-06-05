@@ -25,6 +25,30 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
+static ZLowStickForLSTMOp getGeneratorZLowStickForLSTMOp(Value val) {
+  for (Operation *user : val.getUsers()) {
+    if (isa<ZLowStickForLSTMOp>(user)) {
+      ZLowStickForLSTMOp stickOp = llvm::dyn_cast<ZLowStickForLSTMOp>(user);
+      if (stickOp.out() == val) {
+        return stickOp;
+      }
+    }
+  }
+  return nullptr;
+}
+
+static ZLowStickForGRUOp getGeneratorZLowStickForGRUOp(Value val) {
+  for (Operation *user : val.getUsers()) {
+    if (isa<ZLowStickForGRUOp>(user)) {
+      ZLowStickForGRUOp stickOp = llvm::dyn_cast<ZLowStickForGRUOp>(user);
+      if (stickOp.out() == val) {
+        return stickOp;
+      }
+    }
+  }
+  return nullptr;
+}
+
 /// This pattern rewrites
 /// ```mlir
 ///   zlow.unstick(%input, %output)
@@ -119,7 +143,7 @@ public:
     if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
       return failure();
 
-    // Search for LSTM/GRU op that generates the input argument.
+    // Search for zlow.lstm/gru op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : lstmInput.getUsers()) {
       if (isa<ZLowLSTMOp>(user)) {
@@ -147,8 +171,24 @@ public:
     } else {
       prevLayerAttr = rewriter.getStringAttr("uni");
     }
-    // Update a zlow.LSTMOp operation.
+    // Update a zlow.lstm operation.
     lstmOp.prev_layerAttr(prevLayerAttr);
+
+    // Search for zlow.stickForLSTM op for input_weights, input_bias,
+    // hidden_weights, hidden_bais, and set their prev_layer attr.
+    ZLowStickForLSTMOp stickOp =
+        getGeneratorZLowStickForLSTMOp(lstmOp.input_weights());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.input_bias());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.hidden_weights());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.hidden_bias());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
 
     return success();
   }
@@ -170,7 +210,7 @@ public:
     if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
       return failure();
 
-    // Search for LSTM/GRU op that generates the input argument.
+    // Search for zlow.lstm/gru op that generates the input argument.
     StringRef directionAttr = "";
     for (Operation *user : gruInput.getUsers()) {
       if (isa<ZLowGRUOp>(user)) {
@@ -193,8 +233,24 @@ public:
     } else {
       prevLayerAttr = rewriter.getStringAttr("uni");
     }
-    // Update a zlow.GRUOp operation.
+    // Update a zlow.gru operation.
     gruOp.prev_layerAttr(prevLayerAttr);
+
+    // Search for zlow.stickForLSTM op for input_weights, input_bias,
+    // hidden_weights, hidden_bais, and set their prev_layer attr.
+    ZLowStickForGRUOp stickOp =
+        getGeneratorZLowStickForGRUOp(gruOp.input_weights());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForGRUOp(gruOp.input_bias());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForGRUOp(gruOp.hidden_weights());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
+    stickOp = getGeneratorZLowStickForGRUOp(gruOp.hidden_bias());
+    if (stickOp)
+      stickOp.prev_layerAttr(prevLayerAttr);
 
     return success();
   }

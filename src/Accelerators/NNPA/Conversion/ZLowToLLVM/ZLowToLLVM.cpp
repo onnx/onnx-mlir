@@ -169,14 +169,25 @@ public:
     // Get zDNN data layout and concatInfo
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowStickForLSTMOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.StickForLSTM");
+
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
       zDNNDataLayout = ZDNN_2DS;
-      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_BIASES | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_BIASES | prevLayer;
     } else if (dims.size() == 3) {
       // for stickify input/hidden weights.
       zDNNDataLayout = ZDNN_3DS;
-      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_WEIGHTS | prevLayer;
     } else {
       // Set invalid value to avoid uninitvar cppcheck warning.
       zDNNDataLayout = UNDEFINED_ZDNN_LAYOUT;
@@ -245,14 +256,24 @@ public:
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowStickForGRUOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.StickForLSTM");
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
       zDNNDataLayout = ZDNN_2DS;
-      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_BIASES | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_BIASES | prevLayer;
     } else if (dims.size() == 3) {
       // for stickify input/hidden weights.
       zDNNDataLayout = ZDNN_3DS;
-      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_WEIGHTS | prevLayer;
     } else {
       // Set invalid value to avoid uninitvar cppcheck warning.
       zDNNDataLayout = UNDEFINED_ZDNN_LAYOUT;

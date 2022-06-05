@@ -128,7 +128,7 @@ func @should_lower_to_zlow_fico(%arg0: tensor<1x5x7xf32>, %arg1: tensor<1x5x7xf3
 // CHECK-LABEL:  func @should_lower_to_zlow_fico
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x5x7xf32>, [[PARAM_1_:%.+]]: memref<1x5x7xf32>, [[PARAM_2_:%.+]]: memref<1x5x7xf32>, [[PARAM_3_:%.+]]: memref<1x5x7xf32>) -> memref<1x5x28xf16, #map> {
  // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x5x28xf16, #map>
- // CHECK:           "zlow.stickForLSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[RES_]]) : (memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x28xf16, #map>) -> ()
+ // CHECK:           "zlow.stickForLSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[RES_]]) {prev_layer = "none"} : (memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x7xf32>, memref<1x5x28xf16, #map>) -> ()
  // CHECK:           return [[RES_]] : memref<1x5x28xf16, #map>
  // CHECK:         }
 }
@@ -143,7 +143,7 @@ func @should_lower_to_zlow_fico_bidir(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x
 // CHECK-LABEL:  func @should_lower_to_zlow_fico_bidir
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x5x7xf32>, [[PARAM_1_:%.+]]: memref<2x5x7xf32>, [[PARAM_2_:%.+]]: memref<2x5x7xf32>, [[PARAM_3_:%.+]]: memref<2x5x7xf32>) -> memref<2x5x28xf16, #map> {
  // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x5x28xf16, #map>
- // CHECK:           "zlow.stickForLSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[RES_]]) : (memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x28xf16, #map>) -> ()
+ // CHECK:           "zlow.stickForLSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[RES_]]) {prev_layer = "none"} : (memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x28xf16, #map>) -> ()
  // CHECK:           return [[RES_]] : memref<2x5x28xf16, #map>
  // CHECK:         }
 }
@@ -158,7 +158,7 @@ func @should_lower_to_zlow_zrh(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x5x7xf32
 // CHECK-LABEL:  func @should_lower_to_zlow_zrh
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x5x7xf32>, [[PARAM_1_:%.+]]: memref<2x5x7xf32>, [[PARAM_2_:%.+]]: memref<2x5x7xf32>) -> memref<2x5x21xf16, #map> {
 // CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x5x21xf16, #map>
-// CHECK:           "zlow.stickForGRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_]]) : (memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x21xf16, #map>) -> ()
+// CHECK:           "zlow.stickForGRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_]]) {prev_layer = "none"} : (memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x7xf32>, memref<2x5x21xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<2x5x21xf16, #map>
 // CHECK:         }
 }

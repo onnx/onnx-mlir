@@ -290,7 +290,8 @@ def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$i_gate,
                        AnyTypeOf<[AnyMemRef]>:$c_gate,
                        AnyTypeOf<[AnyMemRef]>:$o_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out);
+                       AnyTypeOf<[AnyMemRef]>:$out,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
@@ -303,7 +304,8 @@ def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$z_gate,
                        AnyTypeOf<[AnyMemRef]>:$r_gate,
                        AnyTypeOf<[AnyMemRef]>:$h_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out);
+                       AnyTypeOf<[AnyMemRef]>:$out,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
