@@ -29,14 +29,11 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 ```
 
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
-
-    - Gemm
+   - Gemm
   Since `alpha` and `beta` should be one for Matmul of zDNN library, #ifdef directive `TEST_GEMM_ALPHA_BETA_1` are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
-
-    - LSTM
+   - LSTM
   Since LSTM of zDNN library does not support peephole tensor, #ifdef directive `TEST_LSTM_NONEP_ONLY` are added in `test/numerial/TestLSTM.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
-
-    - GRU
+   - GRU
   Since GRU of zDNN library does not support LinearBeforeReset, #ifdef directive `TEST_GRU_L1` are added in `test/numerial/TestGRU.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
 
 - Backend tests
