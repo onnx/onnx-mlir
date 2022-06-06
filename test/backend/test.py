@@ -66,9 +66,10 @@ else:
 
     # Ensure that test names specified in test_to_enable actually exist.
     for test_name_symbol in test_to_enable:
-        test_name = test_name_symbol.split(",")[0]
-        if args.instruction_check:
-            variables.test_to_enable_symbol_dict[test_name] = test_name_symbol.split(",")[1]
+        test_name_symbol_list = test_name_symbol.split(",")
+        test_name = test_name_symbol_list[0]
+        if args.instruction_check and len(test_name_symbol_list) == 2:
+            variables.test_to_enable_symbol_dict[test_name] = test_name_symbol_list[1]
         assert (
             test_name in all_test_names
         ), """test name {} not found, it is likely
