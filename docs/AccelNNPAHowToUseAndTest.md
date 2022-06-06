@@ -29,9 +29,20 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 ```
 
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
-- Gemm
+    - Gemm
   Since `alpha` and `beta` should be one for Matmul of zDNN library, #ifdef directive `TEST_GEMM_ALPHA_BETA_1` are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
-- LSTM
+    - LSTM
   Since LSTM of zDNN library does not support peephole tensor, #ifdef directive `TEST_LSTM_NONEP_ONLY` are added in `test/numerial/TestLSTM.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
-- GRU
+    - GRU
   Since GRU of zDNN library does not support LinearBeforeReset, #ifdef directive `TEST_GRU_L1` are added in `test/numerial/TestGRU.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
+
+- Backend tests
+
+Backend tests for NNPA are provided in `test/accelerators/NNPA/backend`. It can be run with following command. Test cases are listed in `test/accelerators/NNPA/backend/CMakeLists.txt`. 
+
+```
+cmake --build . --config Release --target check-onnx-backend-nnpa
+```
+
+ATOL and RTOL for NNPA are set using environment variables `TEST_ATOL` and `TEST_RTOL` in the `CMakeLists.txt`.
+Also, the environment variables `TEST_INSTRUCTION_CHECK` and `TEST_CASE_BY_USER` allow you to check if the NNPA instruction is generated in the shared library. In `CMakeLists.txt`, `TEST_INSTRUCTION_CHECK` is set to true and `TEST_CASE_BY_USER` contains the test case and instruction name. If the instruction name is not found in the shared library, the test will fail.
