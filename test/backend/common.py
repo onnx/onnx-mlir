@@ -67,12 +67,13 @@ def execute_commands(cmds, dynamic_inputs_dims):
 
 
 def check_instruction(test_name, exec_name):
-    if args.instruction_check:
+    if args.instruction_check and test_name in variables.test_to_enable_symbol_dict:
         symbol_name = variables.test_to_enable_symbol_dict[test_name]
-        lib = ctypes.cdll.LoadLibrary(exec_name)
-        # Raise AttributeError if symbol undefined
-        symbol = getattr(lib, symbol_name)
-        _ctypes.dlclose(lib._handle)
+        if symbol_name:
+            lib = ctypes.cdll.LoadLibrary(exec_name)
+            # Raise AttributeError if symbol undefined
+            symbol = getattr(lib, symbol_name)
+            _ctypes.dlclose(lib._handle)
 
 
 def compile_model(model, emit):
