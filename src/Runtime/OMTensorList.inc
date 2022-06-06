@@ -131,16 +131,12 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
 /* Helper function to create a sub-string between the start and end strings */
 static inline char *createSubStr(
     char *str, const char *start, const char *end) {
-  char *startPos = strstr(str, start) + strlen(start);
+  char *startPos = strstr(str, start);
   char *endPos = strstr(str, end);
-  if (startPos != NULL && endPos != NULL && (endPos > startPos)) {
-    unsigned len = (unsigned)(endPos - startPos);
-    char *subStr = (char *)malloc(len + 1);
-    strncpy(subStr, startPos, len);
-    subStr[len] = '\0';
-    return subStr;
-  }
-  return NULL;
+  char *p;
+  return (startPos && endPos && (p = startPos + strlen(start)) < endPos)
+             ? strndup(p, endPos - p)
+             : NULL;
 }
 
 /**
