@@ -169,7 +169,8 @@ public:
     // Get zDNN data layout and concatInfo
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
-    StringRef prevLayerStr = dyn_cast_or_null<ZLowStickForLSTMOp>(op).prev_layer();
+    StringRef prevLayerStr =
+        dyn_cast_or_null<ZLowStickForLSTMOp>(op).prev_layer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -178,7 +179,8 @@ public:
     } else if (prevLayerStr.equals_insensitive("bidir")) {
       prevLayer = PREV_LAYER_BIDIR;
     }
-    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.StickForLSTM");
+    assert((prevLayer >= 0) &&
+           "invalid prev_layer attribute in zlow.StickForLSTM");
 
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
@@ -256,7 +258,8 @@ public:
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
-    StringRef prevLayerStr = dyn_cast_or_null<ZLowStickForGRUOp>(op).prev_layer();
+    StringRef prevLayerStr =
+        dyn_cast_or_null<ZLowStickForGRUOp>(op).prev_layer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -265,7 +268,8 @@ public:
     } else if (prevLayerStr.equals_insensitive("bidir")) {
       prevLayer = PREV_LAYER_BIDIR;
     }
-    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.StickForLSTM");
+    assert((prevLayer >= 0) &&
+           "invalid prev_layer attribute in zlow.StickForLSTM");
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
       zDNNDataLayout = ZDNN_2DS;
