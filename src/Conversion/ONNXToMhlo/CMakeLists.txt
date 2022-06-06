@@ -15,7 +15,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   OMONNXOps
   OMSupport
   MhloDialect
-  MLIRStandardOpsTransforms
+  MLIRTransforms
   )
 
   target_include_directories(OMONNXToMhlo PUBLIC 
