@@ -224,23 +224,23 @@ Value MathBuilder::negativeInf(Type type) const {
           [&](Type) { value = -std::numeric_limits<double>::infinity(); })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
-        bool isSigned = type.isSigned();
+        bool isSignless = type.isSignlessInteger();
         switch (width) {
         case 8:
-          value = (isSigned) ? std::numeric_limits<int8_t>::min()
-                             : std::numeric_limits<uint8_t>::min();
+          value = (isSignless) ? std::numeric_limits<int8_t>::min()
+                               : std::numeric_limits<uint8_t>::min();
           break;
         case 16:
-          value = (isSigned) ? std::numeric_limits<int16_t>::min()
-                             : std::numeric_limits<uint16_t>::min();
+          value = (isSignless) ? std::numeric_limits<int16_t>::min()
+                               : std::numeric_limits<uint16_t>::min();
           break;
         case 32:
-          value = (isSigned) ? std::numeric_limits<int32_t>::min()
-                             : std::numeric_limits<uint32_t>::min();
+          value = (isSignless) ? std::numeric_limits<int32_t>::min()
+                               : std::numeric_limits<uint32_t>::min();
           break;
         case 64:
-          value = (isSigned) ? std::numeric_limits<int64_t>::min()
-                             : std::numeric_limits<uint64_t>::min();
+          value = (isSignless) ? std::numeric_limits<int64_t>::min()
+                               : std::numeric_limits<uint64_t>::min();
           break;
         default:
           llvm_unreachable("unsupported element type");
@@ -262,24 +262,24 @@ Value MathBuilder::positiveInf(Type type) const {
           [&](Type) { value = std::numeric_limits<double>::infinity(); })
       .Case<IntegerType>([&](IntegerType type) {
         size_t width = type.getWidth();
-        bool isSigned = type.isSigned();
+        bool isSignless = type.isSignlessInteger();
         switch (width) {
         case 8:
-          value = (isSigned) ? std::numeric_limits<int8_t>::max()
-                             : std::numeric_limits<uint8_t>::max();
+          value = (isSignless) ? std::numeric_limits<int8_t>::max()
+                               : std::numeric_limits<uint8_t>::max();
           break;
         case 16:
-          value = (isSigned) ? std::numeric_limits<int16_t>::max()
-                             : std::numeric_limits<uint16_t>::max();
+          value = (isSignless) ? std::numeric_limits<int16_t>::max()
+                               : std::numeric_limits<uint16_t>::max();
           break;
         case 32:
-          value = (isSigned) ? std::numeric_limits<int32_t>::max()
-                             : std::numeric_limits<uint32_t>::max();
+          value = (isSignless) ? std::numeric_limits<int32_t>::max()
+                               : std::numeric_limits<uint32_t>::max();
           break;
         case 64:
           value = static_cast<double>(
-              (isSigned) ? std::numeric_limits<int64_t>::max()
-                         : std::numeric_limits<uint64_t>::max());
+              (isSignless) ? std::numeric_limits<int64_t>::max()
+                           : std::numeric_limits<uint64_t>::max());
           break;
         default:
           llvm_unreachable("unsupported element type");
