@@ -73,6 +73,11 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
 endfunction()
 add_custom_target(onnx-mlir-docs)
 
+function(add_onnx-mlir-supported_ops input-file arch)
+set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} --todo --unsupported -i ${input-file} )
+endfunction()
+add_custom_target(onnx-mlir-supported-ops)
+
 # If an extra parameter, the dialect name, is provided,
 # this function will generate dialect and type from the td file
 function(add_onnx_mlir_dialect dialect dialect_name)

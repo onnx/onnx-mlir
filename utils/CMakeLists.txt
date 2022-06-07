@@ -27,3 +27,17 @@ add_custom_target(OMONNXOpsIncTranslation
 
 add_custom_target(OMONNXCheckVersion
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gen_onnx_mlir.py --check-operation-version)
+
+
+# Scan a file for labeling and geneate a MD table of supported ops. Add input file and redirect the output.
+set(supported_op_doc_cmd ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/documentOps.py --arch cpu --todo --unsupported)
+
+add_custom_target(OMONNXOpsDoc-cpu
+  COMMAND ${supported_op_doc_cmd} -i ${ONNX_MLIR_SRC_ROOT}/test/backend/inference_backend.py > ${CMAKE_CURRENT_BINARY_DIR}/SupportedONNXOpsCpu.md
+  DEPENDS ${ONNX_MLIR_SRC_ROOT}/test/backend/inference_backend.py
+)
+
+set_target_properties(OMONNXOpsDoc-cpu PROPERTIES FOLDER "utils")
+# Exclude the target from the default VS build
+set_target_properties(OMONNXOpsDoc-cpu PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+
