@@ -73,10 +73,21 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
 endfunction()
 add_custom_target(onnx-mlir-docs)
 
-function(add_onnx-mlir-supported_ops input-file arch)
-set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} --todo --unsupported -i ${input-file} )
+# Create the list of supported ops. Pass the input file to scan, and the target architecture.
+# Target will create a docs/SupportedONNXOps-<arch>.md file listed
+# Useful options are "--todo", "--unsupported". Check python documentOps.py -h for more info.
+function(add_onnx_mlir_supported_ops input_file arch)
+  set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/SupportedONNXOps-${arch}.md)
+  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} -i ${input_file})
+  add_custom_command(
+    OUTPUT ${GEN_DOC_FILE} 
+    COMMAND ${supported_ops_cmd}  --todo --unsupported > ${GEN_DOC_FILE}
+    DEPENDS ${input_file})
+  add_custom_target(onnx_mlir_supported_ops_${arch} DEPENDS ${GEN_DOC_FILE})
+  add_dependencies(onnx_mlir_supported_ops onnx_mlir_supported_ops_${arch})
 endfunction()
-add_custom_target(onnx-mlir-supported-ops)
+add_custom_target(onnx_mlir_supported_ops)
+set_target_properties(onnx_mlir_supported_ops PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
 # If an extra parameter, the dialect name, is provided,
 # this function will generate dialect and type from the td file
