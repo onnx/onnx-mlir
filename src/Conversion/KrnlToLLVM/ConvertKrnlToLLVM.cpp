@@ -483,9 +483,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   RewritePatternSet patterns(ctx);
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
-      outputOMTensorOwnerships,
-      /*singleEntryPoint=*/singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps);
+      outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
+      inSigGlobalOps, outSigGlobalOps);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())

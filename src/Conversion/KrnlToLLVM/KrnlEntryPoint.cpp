@@ -517,7 +517,7 @@ private:
             module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
       zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
 
-    // // NULL terminated entry point name.
+    // NULL terminated entry point name.
     std::string terminatedEntryPointName = currentEntryPointName + '\0';
     terminatedEntryPointName = (zOS) ? krnl::a2e_s(terminatedEntryPointName)
                                      : terminatedEntryPointName;

@@ -34,6 +34,20 @@
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+// strndup() is not available on Windows.
+char *strndup(const char *s, size_t n) {
+  size_t slen = (size_t)strlen(s);
+  int len = slen < n ? slen : n;
+  char *copy = (char *)malloc(len + 1);
+  if (copy) {
+    memcpy(copy, s, len);
+    copy[len] = '\0';
+  }
+  return copy;
+};
+#endif
+
 struct OMTensorList {
 #ifdef __cplusplus
   /**
