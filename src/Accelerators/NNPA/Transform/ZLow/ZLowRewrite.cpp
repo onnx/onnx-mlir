@@ -25,28 +25,99 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
-static ZLowStickForLSTMOp getGeneratorZLowStickForLSTMOp(Value val) {
+static void setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+    Value val, StringAttr prevLayerAttr) {
   for (Operation *user : val.getUsers()) {
     if (isa<ZLowStickForLSTMOp>(user)) {
       ZLowStickForLSTMOp stickOp = llvm::dyn_cast<ZLowStickForLSTMOp>(user);
       if (stickOp.out() == val) {
-        return stickOp;
+        stickOp.prev_layerAttr(prevLayerAttr);
+        return;
       }
     }
   }
-  return nullptr;
+  return;
 }
 
-static ZLowStickForGRUOp getGeneratorZLowStickForGRUOp(Value val) {
+static void setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+    Value val, StringAttr prevLayerAttr) {
   for (Operation *user : val.getUsers()) {
     if (isa<ZLowStickForGRUOp>(user)) {
       ZLowStickForGRUOp stickOp = llvm::dyn_cast<ZLowStickForGRUOp>(user);
       if (stickOp.out() == val) {
-        return stickOp;
+        stickOp.prev_layerAttr(prevLayerAttr);
       }
     }
   }
-  return nullptr;
+  return;
+}
+
+static void updatePrevLayerAttrs(
+    Operation *op, Value input, PatternRewriter &rewriter) {
+  // Check if op's input equals input.
+  Value lstmGruInput;
+  if (isa<ZLowLSTMOp>(op))
+    lstmGruInput = llvm::dyn_cast<ZLowLSTMOp>(op).input();
+  else if (isa<ZLowGRUOp>(op))
+    lstmGruInput = llvm::dyn_cast<ZLowGRUOp>(op).input();
+  else
+    return;
+  if (lstmGruInput != input) {
+    return;
+  }
+
+  // Search for zlow.lstm/gru op that generates the input argument.
+  StringRef directionAttr = "";
+  for (Operation *user : lstmGruInput.getUsers()) {
+    if (isa<ZLowLSTMOp>(user)) {
+      ZLowLSTMOp userLstmOp = llvm::dyn_cast<ZLowLSTMOp>(user);
+      if ((userLstmOp.hn_output() == lstmGruInput) ||
+          (userLstmOp.cf_output() == lstmGruInput)) {
+        directionAttr = userLstmOp.direction();
+        break;
+      }
+    }
+    if (isa<ZLowGRUOp>(user)) {
+      ZLowGRUOp userGruOp = llvm::dyn_cast<ZLowGRUOp>(user);
+      if (userGruOp.hn_output() == lstmGruInput) {
+        directionAttr = userGruOp.direction();
+        break;
+      }
+    }
+  }
+  StringAttr prevLayerAttr;
+  if (directionAttr.empty() || !strcmp(directionAttr.data(), ""))
+    prevLayerAttr = rewriter.getStringAttr("none");
+  else if (!strcmp(directionAttr.data(), "bidirectional"))
+    prevLayerAttr = rewriter.getStringAttr("bidir");
+  else
+    prevLayerAttr = rewriter.getStringAttr("uni");
+
+  // Update prev_flag attribute of zlow.lstm/gru operation, and
+  // zlow.StickForLSTM/GRU operations generating input of the zlow.lstm/gru.
+  if (isa<ZLowLSTMOp>(op)) {
+    ZLowLSTMOp lstmOp = llvm::dyn_cast<ZLowLSTMOp>(op);
+    lstmOp.prev_layerAttr(prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.input_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.input_bias(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.hidden_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.hidden_bias(), prevLayerAttr);
+  } else if (isa<ZLowGRUOp>(op)) {
+    ZLowGRUOp gruOp = llvm::dyn_cast<ZLowGRUOp>(op);
+    gruOp.prev_layerAttr(prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.input_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.input_bias(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.hidden_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.hidden_bias(), prevLayerAttr);
+  }
 }
 
 /// This pattern rewrites
@@ -66,9 +137,6 @@ static ZLowStickForGRUOp getGeneratorZLowStickForGRUOp(Value val) {
 class StickViewUnstickRemovalPattern : public OpRewritePattern<ZLowStickOp> {
 public:
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
-
-  StickViewUnstickRemovalPattern(MLIRContext *context)
-      : OpRewritePattern(context, /*benefit=*/2) {}
 
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
@@ -123,6 +191,15 @@ public:
     if (unstickOp.Out().hasOneUse())
       rewriter.eraseOp(unstickOp);
 
+    // Update the prev_layer attribute in zlow.lstm/gru operations using
+    // "stickRes" as their inputs, and update the prev_layer attribute
+    // in zlow.stickForLSTM/GRU generating inputs of the zlow.lstm/gru.
+    for (Operation *user : unstickInput.getUsers()) {
+      if (isa<ZLowLSTMOp>(user) || isa<ZLowGRUOp>(user)) {
+        updatePrevLayerAttrs(user, unstickInput, rewriter);
+      }
+    }
+
     return success();
   }
 };
@@ -131,17 +208,14 @@ class SetPrevLayerInLSTMOpPattern : public OpRewritePattern<ZLowLSTMOp> {
 public:
   using OpRewritePattern<ZLowLSTMOp>::OpRewritePattern;
 
-  // Set lower benefit than StickViewUnstickRemovalPattern's
-  // to schedule this pattern after StickViewUnstickRemovalPattern.
-  SetPrevLayerInLSTMOpPattern(MLIRContext *context)
-      : OpRewritePattern(context, /*benefit=*/1) {}
-
   LogicalResult matchAndRewrite(
       ZLowLSTMOp lstmOp, PatternRewriter &rewriter) const override {
     Value lstmInput = lstmOp.input();
     StringRef prevLayer = lstmOp.prev_layer();
-    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+    if (!strcmp(prevLayer.data(), "bidir") ||
+        !strcmp(prevLayer.data(), "uni")) {
       return failure();
+    }
 
     // Search for zlow.lstm/gru op that generates the input argument.
     StringRef directionAttr = "";
@@ -165,7 +239,7 @@ public:
     }
     StringAttr prevLayerAttr;
     if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
-      prevLayerAttr = rewriter.getStringAttr("none");
+      return failure();
     } else if (!strcmp(directionAttr.data(), "bidirectional")) {
       prevLayerAttr = rewriter.getStringAttr("bidir");
     } else {
@@ -173,22 +247,14 @@ public:
     }
     // Update a zlow.lstm operation.
     lstmOp.prev_layerAttr(prevLayerAttr);
-
-    // Search for zlow.stickForLSTM op for input_weights, input_bias,
-    // hidden_weights, hidden_bais, and set their prev_layer attr.
-    ZLowStickForLSTMOp stickOp =
-        getGeneratorZLowStickForLSTMOp(lstmOp.input_weights());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.input_bias());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.hidden_weights());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForLSTMOp(lstmOp.hidden_bias());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.input_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.input_bias(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.hidden_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForLSTMOp(
+        lstmOp.hidden_bias(), prevLayerAttr);
 
     return success();
   }
@@ -198,17 +264,14 @@ class SetPrevLayerInGRUOpPattern : public OpRewritePattern<ZLowGRUOp> {
 public:
   using OpRewritePattern<ZLowGRUOp>::OpRewritePattern;
 
-  // Set lower benefit than StickViewUnstickRemovalPattern's
-  // to schedule this pattern after StickViewUnstickRemovalPattern.
-  SetPrevLayerInGRUOpPattern(MLIRContext *context)
-      : OpRewritePattern(context, /*benefit=*/1) {}
-
   LogicalResult matchAndRewrite(
       ZLowGRUOp gruOp, PatternRewriter &rewriter) const override {
     Value gruInput = gruOp.input();
     StringRef prevLayer = gruOp.prev_layer();
-    if (strcmp(prevLayer.data(), "not_set")) // if prev_layer is set already
+    if (!strcmp(prevLayer.data(), "bidir") ||
+        !strcmp(prevLayer.data(), "uni")) {
       return failure();
+    }
 
     // Search for zlow.lstm/gru op that generates the input argument.
     StringRef directionAttr = "";
@@ -227,7 +290,7 @@ public:
     }
     StringAttr prevLayerAttr;
     if (directionAttr.empty() || !strcmp(directionAttr.data(), "")) {
-      prevLayerAttr = rewriter.getStringAttr("none");
+      return failure();
     } else if (!strcmp(directionAttr.data(), "bidirectional")) {
       prevLayerAttr = rewriter.getStringAttr("bidir");
     } else {
@@ -235,22 +298,14 @@ public:
     }
     // Update a zlow.gru operation.
     gruOp.prev_layerAttr(prevLayerAttr);
-
-    // Search for zlow.stickForLSTM op for input_weights, input_bias,
-    // hidden_weights, hidden_bais, and set their prev_layer attr.
-    ZLowStickForGRUOp stickOp =
-        getGeneratorZLowStickForGRUOp(gruOp.input_weights());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForGRUOp(gruOp.input_bias());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForGRUOp(gruOp.hidden_weights());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
-    stickOp = getGeneratorZLowStickForGRUOp(gruOp.hidden_bias());
-    if (stickOp)
-      stickOp.prev_layerAttr(prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.input_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.input_bias(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.hidden_weights(), prevLayerAttr);
+    setPrevLayerAttrOfGeneratorZLowStickForGRUOp(
+        gruOp.hidden_bias(), prevLayerAttr);
 
     return success();
   }
@@ -271,9 +326,9 @@ public:
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
-    patterns.insert<SetPrevLayerInLSTMOpPattern>(&getContext());
-    patterns.insert<SetPrevLayerInGRUOpPattern>(&getContext());
+    patterns.insert<StickViewUnstickRemovalPattern>(&getContext(), 2);
+    patterns.insert<SetPrevLayerInLSTMOpPattern>(&getContext(), 1);
+    patterns.insert<SetPrevLayerInGRUOpPattern>(&getContext(), 1);
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
