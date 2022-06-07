@@ -4064,7 +4064,7 @@ LogicalResult ONNXIsInfOp::inferShapes(
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXIsNaNOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(operandAdaptor.X()))
     return success();
 
   ArrayRef<int64_t> inputShape = X().getType().cast<ShapedType>().getShape();
