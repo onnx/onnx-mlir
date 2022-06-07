@@ -2929,3 +2929,23 @@ func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
 // CHECK:           return [[RES_3_]] : memref<3xi64>
 // CHECK:         }
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test krnl lowering for IsNaN.
+//===----------------------------------------------------------------------===//
+func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
+  %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL isnan_function
+  // CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xi1>
+  // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate
+  // CHECK: [[IV:%.+]]:3 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index) 
+  // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<2x3x4xf32>
+  // CHECK: [[ERF:%.+]]  = "krnl.isnan"([[LOAD]]) : (f32) -> i1
+  // CHECK: {{.*}}store [[ERF]], [[ALLOC]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<2x3x4xi1>
+  // CHECK: return [[ALLOC]] : memref<2x3x4xi1>
+}
