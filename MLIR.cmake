@@ -78,7 +78,7 @@ add_custom_target(onnx-mlir-docs)
 # Useful options are "--todo", "--unsupported". Check python documentOps.py -h for more info.
 function(add_onnx_mlir_supported_ops input_file arch)
   set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/SupportedONNXOps-${arch}.md)
-  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} -i ${input_file})
+  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} -i ${input_file} -p ${ONNX_MLIR_SRC_ROOT}/utils)
   add_custom_command(
     OUTPUT ${GEN_DOC_FILE} 
     COMMAND ${supported_ops_cmd}  --todo --unsupported > ${GEN_DOC_FILE}

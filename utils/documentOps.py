@@ -29,10 +29,7 @@ import subprocess
 #
 # ==OP== <op> <text>
 #   where <op> is the ONNX op name
-#   where <text> qualifies the opset currently being supported. When "current" is 
-#   provided, the postprocessing will automatically changed highest opset currently
-#   supported. When no <text> is provided, the operation is assumed to be fully 
-#   unsupported.
+#   where <text> is optional text, currently unused
 #
 # ==LIM== <text> 
 #   where <text> qualifies the current restrictions to the implementation.
@@ -40,8 +37,6 @@ import subprocess
 # ==TODO== <text>
 #   where <text> add "private" info about what needs to be fixed. 
 #
-# egrep pattern: (script automatically ignores any non-labels anyway).
-#   egrep "==ARCH==|==OP==|==LIM==|==TODO==" 
 #
 ################################################################################
 # Usage.
@@ -49,10 +44,11 @@ import subprocess
 def print_usage():
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
     print("For labeling format, consult the python script directly.")
-    print('documentOps [-a <arch>] [-dut] -i file>')
+    print('documentOps [-a <arch>] [-dut] -i <file> [-p <path>')
     print('  -a, --arch <arch>: report on "==ARCH== <arch>".')
     print('  -d, --debug: include debug.')
     print('  -i, --input <file name>: input file.')
+    print('  -p, --path <util path>: path to onnx-mlir util directory.')
     print('  -u, --unsupported: list unsupported ops.')
     print('  -t, --todo: include todos.')
     sys.exit()
@@ -60,7 +56,7 @@ def print_usage():
 ################################################################################
 # Handling of info: global dictionaries.
 
-current_opset = "16"   # Opset to substitute when opset is "current".
+hightest_opset = 1   # Highest opset is.
 opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
 todo_dict = {}         # <op> -> <text> in "==TODO== <text>".
@@ -78,6 +74,7 @@ def dotted_sentence(str):
     return str
 
 def parse_file(file_name):
+    global hightest_opset
     file = open(file_name, 'r')
     op = ""
     arch = ""
@@ -92,32 +89,23 @@ def parse_file(file_name):
             continue
         if arch != target_arch:
             continue
-        # Scan unsupported op (op followed by spaces only).
-        p = re.search(r'==OP==\s+(\w+)\s*$', l)
+        # Scan op (op followed by any text).
+        p = re.search(r'==OP==\s+(\w+)', l)
         if p is not None: 
             op = p[1]
             assert op not in opset_dict, "Redefinition of op " + op
-            opset_dict[op] = "unsupported"
-            if debug:
-                print("got unsupported op", op)
-            continue
-        # Supported op.
-        p = re.search(r'==OP==\s+(\w+)\s+(.*)\s*$', l)
-        if p is not None: 
-            op = p[1]
-            assert op not in opset_dict, "Redefinition of op " + op
-            #if (p[2] == "current"):
-            #    opset_dict[op] = -1
-            #else:
-            #    opset_dict[op] = p[2]
             if op in list_op_version:
-                print("hi alex,", list_op_version[op])
-                opset_dict[op] = ', '.join(map(lambda x: str(x), list_op_version[op]))
-            elif debug or True:
-                print("Got supported op", op, "at level", opset_dict[op],
-                    "without list_op_version")
-            if debug:
-                print("Got supported op", op, "at level", opset_dict[op])
+                versions = list_op_version[op]
+                opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
+                m = max(versions)
+                if m > hightest_opset:
+                    hightest_opset = m
+                if debug:
+                    print("got supported op", op, "at level", list_op_version[op])
+            else:
+                opset_dict[op] = "unsupported"
+                if debug:
+                    print("got unsupported op", op)
             continue
         # Limits.
         p = re.search(r'==LIM==\s+(.*)\s*$', l)
@@ -153,8 +141,8 @@ def print_md():
     # Title
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
-    print("Onnx-mlir currently support ONNX operations targeting " + 
-      "opset " + current_opset + ". Limitations are listed when applicable.\n")
+    print("Onnx-mlir currently support ONNX operations targeting up to " + 
+      "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
     # Table.
     header = ["Op", "Opset", "Limitations"]
     separator = ["---", "---", "---"]
@@ -186,12 +174,13 @@ def main(argv):
     target_arch = "cpu"
     emit_todos = 0
     emit_unsupported = 0
+    util_path = "."
     file_name = ""
     input_command = "python documentOps.py"
 
     try:
         opts, args = getopt.getopt(
-            argv, "a:dhi:tu", ["arch=", "debug", "help", "input=", "todo", "unsupported"])
+            argv, "a:dhi:p:tu", ["arch=", "debug", "help", "input=", "path=", "todo", "unsupported"])
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
@@ -205,6 +194,9 @@ def main(argv):
         elif opt in ('-i', "--input"):
             file_name = arg
             input_command += " --input " + file_name
+        elif opt in ('-p', "--path"):
+            util_path = arg
+            input_command += " --path " + util_path
         elif opt in ('-t', "--todo"):
             emit_todos = True
             input_command += " --todo"
@@ -217,13 +209,15 @@ def main(argv):
         print_usage()
 
     # Load gen_onnx_mlir operation version.
-    proc = subprocess.Popen(['python', 'gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(['python', util_path + '/gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
     str = ""
     for line in  proc.stdout:
         str += line.decode("utf-8").rstrip()
     list_op_version = eval(str)
     if debug:
         print("List op version is: ", list_op_version)
+
+    # Parse and print md table.
     parse_file(file_name)
     print_md()
 
