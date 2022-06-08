@@ -60,11 +60,13 @@ def print_usage():
 ################################################################################
 # Handling of info: global dictionaries.
 
-current_opset = "16" # opset to substitute when opset is "current".
-opset_dict = {}      # <op> -> <text> in "==OP== <op> <text>".
+current_opset = "16"   # Opset to substitute when opset is "current".
+opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
-todo_dict = {}       # <op> -> <text> in "==TODO== <text>".
-
+todo_dict = {}         # <op> -> <text> in "==TODO== <text>".
+list_op_version = {}   # List of operation versions from gen_onnx_mlir;
+                       # <op> -> [supported versions]
+              
 ################################################################################
 # Parse input file. Add only info if it is the proper target arch. Other entries
 # and non-relevant data is simply ignored. At this time, does not support 
@@ -104,10 +106,16 @@ def parse_file(file_name):
         if p is not None: 
             op = p[1]
             assert op not in opset_dict, "Redefinition of op " + op
-            if (p[2] == "current"):
-                opset_dict[op] = current_opset
-            else:
-                opset_dict[op] = p[2]
+            #if (p[2] == "current"):
+            #    opset_dict[op] = -1
+            #else:
+            #    opset_dict[op] = p[2]
+            if op in list_op_version:
+                print("hi alex,", list_op_version[op])
+                opset_dict[op] = ', '.join(map(lambda x: str(x), list_op_version[op]))
+            elif debug or True:
+                print("Got supported op", op, "at level", opset_dict[op],
+                    "without list_op_version")
             if debug:
                 print("Got supported op", op, "at level", opset_dict[op])
             continue
@@ -173,6 +181,7 @@ def print_md():
         
 def main(argv):
     global debug, target_arch, emit_todos, emit_unsupported, input_command
+    global list_op_version
     debug = 0
     target_arch = "cpu"
     emit_todos = 0
@@ -206,7 +215,15 @@ def main(argv):
     if not file_name:
         print("Command requires an input file name.\n")
         print_usage()
-    
+
+    # Load gen_onnx_mlir operation version.
+    proc = subprocess.Popen(['python', 'gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
+    str = ""
+    for line in  proc.stdout:
+        str += line.decode("utf-8").rstrip()
+    list_op_version = eval(str)
+    if debug:
+        print("List op version is: ", list_op_version)
     parse_file(file_name)
     print_md()
 
