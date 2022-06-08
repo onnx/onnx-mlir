@@ -27,7 +27,6 @@ With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and 
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
-
 ### Tests with unknown dimensions
 
 Testing with dynamic tensor sizes is most easily performed by using the following command, also used by our checkers. 

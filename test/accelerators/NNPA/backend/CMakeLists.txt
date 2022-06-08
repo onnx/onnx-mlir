@@ -276,7 +276,7 @@ add_custom_target(check-onnx-backend-nnpa-dynamic
 add_custom_target(check-onnx-backend-nnpa-constant
   COMMAND
     # In some test cases such as `test_add_cpu`, operations are removed by optimization and
-    # instruction check fails. So, currently it is disable in constant test.
+    # instruction check fails. So, currently instruction check is disabled in constant test.
     # TEST_INSTRUCTION_CHECK=true
     TEST_CONSTANT=true
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
