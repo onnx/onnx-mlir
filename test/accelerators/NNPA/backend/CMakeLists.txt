@@ -82,7 +82,9 @@ else()
 endif()
 
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
-# Only test cases supported by zDNN are listed.
+# Only test cases for operations supported by zDNN are listed. Non-supported cases are
+# commented out. This list is set in the environment variable `TEST_CASE_BY_USER`. So,
+# instruction name is added after test case name in each test case.
 set(NNPA_TEST_LIST
     # Add
     test_add_cpu,zdnn_add

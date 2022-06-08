@@ -6,7 +6,7 @@ Neural Network Processing Assist Facility (NNPA) is implemented on processor uni
 
 ## Build
 
-Add following CMake option to build onnx-mlir for NNPA. Regarding build command for Linux OS, see [here](https://github.com/onnx/onnx-mlir/blob/main/docs/BuildOnLinuxOSX.md/#build)
+Add following CMake option to build onnx-mlir for NNPA. Regarding build command for Linux OS, see [here](BuildOnLinuxOSX.md/#build)
 
 - `-DONNX_MLIR_ACCELERATORS=NNPA`
 
@@ -22,7 +22,7 @@ cmake --build . --target check-onnx-lit
 
 ### Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command.
+Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is generated in shared library in adition to accurary check.
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
@@ -41,7 +41,7 @@ Since GRU of zDNN library does not support LinearBeforeReset, #ifdef directive `
 
 ### Backend tests
 
-Backend tests for NNPA are provided in `test/accelerators/NNPA/backend`. It can be run with following command. Test cases are listed in `test/accelerators/NNPA/backend/CMakeLists.txt`. 
+Backend tests for NNPA are provided in `test/accelerators/NNPA/backend`. It can be run with following command. Only test cases supported by zDNN runs as listed in `test/accelerators/NNPA/backend/CMakeLists.txt`.
 
 ```
 cmake --build . --config Release --target check-onnx-backend-nnpa
