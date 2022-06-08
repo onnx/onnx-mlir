@@ -18,11 +18,12 @@ import base64
 import numpy as np
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
+from onnx.backend.test import BackendTest
 from onnx import numpy_helper
 import variables
 from variables import *
 from common import compile_model
-
+from typing import Sequence, Any
 
 def get_test_models():
     # Test directories:
@@ -975,6 +976,13 @@ def JniExecutionSession(jar_name, inputs):
     # print('outputs=' + str(outputs), file=sys.stderr)
     return outputs
 
+
+class InferenceBackendTest(BackendTest):
+    @classmethod
+    def assert_similar_outputs(cls, ref_outputs: Sequence[Any], outputs: Sequence[Any], rtol: float, atol: float) -> None:
+        rtol =float(os.getenv("TEST_RTOL", rtol))
+        atol =float(os.getenv("TEST_ATOL", atol))
+        super(InferenceBackendTest, cls).assert_similar_outputs(ref_outputs, outputs, rtol, atol)
 
 # There are two issues, which necessitates the adoption of this endianness
 # aware wrapper around Execution Session:
