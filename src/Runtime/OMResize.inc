@@ -16,21 +16,21 @@
  * This implementation can be improved in efficiency.
  **/
 
-static void linear_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void linear_coeffs(float ratio, float coeffs_buffer[2], int mode) {
   coeffs_buffer[0] = 1 - ratio;
   coeffs_buffer[1] = ratio;
 }
 
-static void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void nearest_coeffs(float ratio, float coeffs_buffer[2], int mode) {
   /* integer ratio is handled outside */
   switch (mode) {
   case 0: // round_prefer_float
-    coeffs_buffer[0] = ratio <= 0.5;
-    coeffs_buffer[1] = ratio > 0.5;
+    coeffs_buffer[0] = ratio <= 0.5 ? 1 : 0;
+    coeffs_buffer[1] = ratio > 0.5 ? 1 : 0;
     break;
   case 1: // round_prefer_ceil
-    coeffs_buffer[0] = ratio < 0.5;
-    coeffs_buffer[1] = ratio >= 0.5;
+    coeffs_buffer[0] = ratio < 0.5 ? 1 : 0;
+    coeffs_buffer[1] = ratio >= 0.5 ? 1: 0;
     break;
   case 2: // floor
     coeffs_buffer[0] = 1;
@@ -43,7 +43,7 @@ static void nearest_coeffs(float ratio, float *coeffs_buffer, int mode) {
   }
 }
 
-static void cubic_coeffs(float ratio, float *coeffs_buffer, int mode) {
+static void cubic_coeffs(float ratio, float coeffs_buffer[3], int mode) {
   float A = -0.75;
   // A may have different value for different coordinate_transformation_mode
   // Currently, only default mode is supported

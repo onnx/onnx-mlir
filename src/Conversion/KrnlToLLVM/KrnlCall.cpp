@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlCall.cpp - Lower KrnlCallOp -------------------===//
+//===-------------- KrnlCall.cpp - Lower KrnlCallOp -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -41,8 +41,8 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlCallOpAdaptor krnlCallAdaptor(operands);
-    auto loc = op->getLoc();
-    KrnlCallOp krnlCallOp = llvm::dyn_cast<KrnlCallOp>(op);
+    Location loc = op->getLoc();
+    KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
 
     // Get a symbol reference to the function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -85,8 +85,8 @@ private:
       Value parameter, Value original,
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList) {
-    auto *context = op->getContext();
-    auto loc = op->getLoc();
+    MLIRContext *context = op->getContext();
+    Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
 
@@ -155,7 +155,6 @@ private:
           // but failed in onnx-milr for the tensor type for the attribute
           const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
           auto tensorTy = denseAttr.getType().cast<TensorType>();
-          tensorTy.dump();
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
           memRefTy.dump();
@@ -184,8 +183,8 @@ private:
           parameterList.emplace_back(omTensor);
         })
         .Default([&](Attribute attr) {
-          llvm_unreachable(
-              "This type of Attribute used by krnl.call has not implemented");
+          llvm_unreachable("This type of Attribute used by krnl.call is not "
+                           "yet implemented");
         });
   }
 

@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------- OMResize.c - OMResize C Implementation ---------===//
+//===-------------- OMResize.c - OMResize C Implementation ----------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
