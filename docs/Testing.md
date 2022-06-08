@@ -23,7 +23,7 @@ The node and model tests in onnx that will be run by check-onnx-backend is defin
 ```
 TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
-With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging.
+With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging. If you need to check whether a particular instruction is included in the generated shared library, set the environment variable `TEST_INSTRUCTION_CHECK` to true and add the instruction name after the test name, like `TEST_CASE_BY_USER=selected_test_name,instruction_name`.
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
@@ -270,6 +270,8 @@ export TEST_SEED=1440995966
 ```
 you can force, respectively, the random seeds used in RapidCheck and the random seeds used to populate the ONNX input vectors to be the same. Set only the first one (`RC_PARAMS`) and you will see the same test configurations being run but with different input values. Set both and you will see the same configuration and the same input being used for a completely identical run.
 
+If you need to change ATOL and RTOL for accuracy checks, set the environment variables `TEST_ATOL` and `TEST_RTOL` to the new ones.
+
 ### Enable SIMD instructions
 
 On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
@@ -279,7 +281,7 @@ TEST_ARGS="-mcpu=z14" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Rel
 
 ### Testing of specific accelerators
 
-Currently we provide testing for accelerator NNPA. It is described [here](docs/AccelNNPAHowToUseAndTest.md).
+Currently we provide testing for accelerator NNPA. It is described [here](AccelNNPAHowToUseAndTest.md).
 
 ## Use gdb
 ### Get source code for ONNX model
