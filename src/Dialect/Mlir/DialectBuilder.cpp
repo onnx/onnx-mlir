@@ -214,80 +214,101 @@ Value MathBuilder::constantIndex(int64_t val) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  double value;
+  Value constant = nullptr;
   TypeSwitch<Type>(type)
-      .Case<Float16Type>(
-          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
-      .Case<Float32Type>(
-          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
-      .Case<Float64Type>(
-          [&](Type) { value = -std::numeric_limits<double>::infinity(); })
+      .Case<Float32Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getF32FloatAttr(-std::numeric_limits<float>::infinity()));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getF64FloatAttr(-std::numeric_limits<double>::infinity()));
+      })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
-        bool isSignless = type.isSignlessInteger();
+        bool isSignless = type.isSignless();
+        bool isSigned = type.isSigned();
+        int64_t value;
         switch (width) {
         case 8:
-          value = (isSignless) ? std::numeric_limits<int8_t>::min()
-                               : std::numeric_limits<uint8_t>::min();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int8_t>::min()
+                      : std::numeric_limits<uint8_t>::min();
           break;
         case 16:
-          value = (isSignless) ? std::numeric_limits<int16_t>::min()
-                               : std::numeric_limits<uint16_t>::min();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int16_t>::min()
+                      : std::numeric_limits<uint16_t>::min();
           break;
         case 32:
-          value = (isSignless) ? std::numeric_limits<int32_t>::min()
-                               : std::numeric_limits<uint32_t>::min();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int32_t>::min()
+                      : std::numeric_limits<uint32_t>::min();
           break;
         case 64:
-          value = (isSignless) ? std::numeric_limits<int64_t>::min()
-                               : std::numeric_limits<uint64_t>::min();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int64_t>::min()
+                      : std::numeric_limits<uint64_t>::min();
           break;
         default:
           llvm_unreachable("unsupported element type");
         }
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return constant(type, value);
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  double value;
+  Value constant = nullptr;
   TypeSwitch<Type>(type)
-      .Case<Float16Type>(
-          [&](Type) { value = std::numeric_limits<float>::infinity(); })
-      .Case<Float32Type>(
-          [&](Type) { value = std::numeric_limits<float>::infinity(); })
-      .Case<Float64Type>(
-          [&](Type) { value = std::numeric_limits<double>::infinity(); })
+      .Case<Float32Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getF32FloatAttr(std::numeric_limits<float>::infinity()));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getF64FloatAttr(std::numeric_limits<double>::infinity()));
+      })
       .Case<IntegerType>([&](IntegerType type) {
-        size_t width = type.getWidth();
-        bool isSignless = type.isSignlessInteger();
+        unsigned width = type.getWidth();
+        bool isSignless = type.isSignless();
+        bool isSigned = type.isSigned();
+        int64_t value;
         switch (width) {
         case 8:
-          value = (isSignless) ? std::numeric_limits<int8_t>::max()
-                               : std::numeric_limits<uint8_t>::max();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int8_t>::max()
+                      : std::numeric_limits<uint8_t>::max();
           break;
         case 16:
-          value = (isSignless) ? std::numeric_limits<int16_t>::max()
-                               : std::numeric_limits<uint16_t>::max();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int16_t>::max()
+                      : std::numeric_limits<uint16_t>::max();
           break;
         case 32:
-          value = (isSignless) ? std::numeric_limits<int32_t>::max()
-                               : std::numeric_limits<uint32_t>::max();
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int32_t>::max()
+                      : std::numeric_limits<uint32_t>::max();
           break;
         case 64:
-          value = static_cast<double>(
-              (isSignless) ? std::numeric_limits<int64_t>::max()
-                           : std::numeric_limits<uint64_t>::max());
+          value = (isSignless || isSigned)
+                      ? std::numeric_limits<int64_t>::max()
+                      : std::numeric_limits<uint64_t>::max();
           break;
         default:
           llvm_unreachable("unsupported element type");
         }
+        constant = b.create<arith::ConstantOp>(
+            loc, b.getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return constant(type, value);
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
 }
 
 Value MathBuilder::createArithCmp(
