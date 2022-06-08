@@ -53,4 +53,27 @@ set_source_files_properties("${version_inc}"
              HEADER_FILE_ONLY TRUE
   )
 
-add_custom_target(OMVersion ALL DEPENDS ${version_inc})
+add_onnx_mlir_library(OMVersion
+  Version.cpp
+  ${version_inc}
+
+  LINK_LIBS PUBLIC
+    LLVMSupport
+)
+
+file(READ "${ONNX_MLIR_SRC_ROOT}/VERSION_NUMBER" ONNX_MLIR_VERSION)
+string(STRIP "${ONNX_MLIR_VERSION}" ONNX_MLIR_VERSION)
+list(APPEND DEFINITIONS "ONNX_MLIR_VERSION=\"${ONNX_MLIR_VERSION}\"")
+file(READ "${ONNX_MLIR_SRC_ROOT}/third_party/onnx/VERSION_NUMBER" ONNX_VERSION)
+string(STRIP "${ONNX_VERSION}" ONNX_VERSION)
+if ("${ONNX_VERSION}" STREQUAL "")
+  message(WARNING "third_party/onnx version not detected, you may be on the wrong commit hash")
+else()
+  message(STATUS "Onnx version             : ${ONNX_VERSION}")
+  list(APPEND DEFINITIONS "ONNX_VERSION=\"${ONNX_VERSION}\"")
+endif()
+if (ONNX_MLIR_VENDOR)
+  list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR }\"")
+endif()
+list(APPEND DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})

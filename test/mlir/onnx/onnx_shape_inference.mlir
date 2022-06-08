@@ -2621,6 +2621,20 @@ func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for IsNaNOp.
+//===----------------------------------------------------------------------===//
+func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
+  %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: func @test_isnan
+  // CHECK: [[RES:%.+]] = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for Celu.
 //===----------------------------------------------------------------------===//
 
@@ -2632,5 +2646,3 @@ func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
 }
-
-// -----
