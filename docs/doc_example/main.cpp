@@ -43,7 +43,7 @@ int main() {
   // Prepare the execution session and get input signature.
   onnx_mlir::ExecutionSession *session;
   try {
-    session = new onnx_mlir::ExecutionSession(libFilename);
+    session = new onnx_mlir::ExecutionSession("./" + libFilename);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << " and errno " << errno << std::endl;
