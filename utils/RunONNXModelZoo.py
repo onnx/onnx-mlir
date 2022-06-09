@@ -319,8 +319,10 @@ def check_model(model_path, model_name, compile_args, report_dir):
         logger.debug("[{}] {}".format(model_name, msg))
 
         if args.Html:
+            from datetime import datetime
             with open(os.path.join(report_dir, model_name + '.html'), 'w') as out:
                 out.write('<html><body><pre>\n')
+                out.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '\n\n')
                 out.write(model_name + '\n\n')
                 out.write(msg)
                 out.write('</pre></body></html>\n')
