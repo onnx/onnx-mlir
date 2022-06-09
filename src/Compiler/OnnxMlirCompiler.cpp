@@ -17,14 +17,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgs\n");
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
@@ -32,7 +32,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgsAndEnv\n", nullptr, name);
-  return success ? NoCompilerError : InvalidCompilerOption;
+  return success ? CompilerSuccess : InvalidCompilerOption;
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
@@ -51,7 +51,7 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **errorMessage) {
+    const char **outputFilename, const char **errorMessage) {
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -59,17 +59,24 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   std::string internalErrorMessage;
   int rc = processInputFile(
       std::string(inputFilename), context, module, &internalErrorMessage);
-  if (rc != NoCompilerError) {
+  if (rc != CompilerSuccess) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  return compileModule(module, context, outputBaseName, emissionTarget);
+  rc = compileModule(module, context, outputBaseName, emissionTarget);
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    *outputFilename = strdup(name.c_str());
+  }
+  return rc;
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **errorMessage) {
+    EmissionTargetType emissionTarget, const char **outputFilename,
+    const char **errorMessage) {
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -77,12 +84,18 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   std::string internalErrorMessage;
   int rc = processInputArray(
       inputBuffer, bufferSize, context, module, &internalErrorMessage);
-  if (rc != NoCompilerError) {
+  if (rc != CompilerSuccess) {
     if (errorMessage != NULL)
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  return compileModule(module, context, outputBaseName, emissionTarget);
+  rc = compileModule(module, context, outputBaseName, emissionTarget);
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    *outputFilename = strdup(name.c_str());
+  }
+  return rc;
 }
 
 } // namespace onnx_mlir

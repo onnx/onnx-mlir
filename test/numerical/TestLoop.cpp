@@ -109,7 +109,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   inputs.emplace_back(move(yInitTensor));
 
   onnx_mlir::ExecutionSession sess(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
     outputs = sess.run(move(inputs));
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   using namespace onnx_mlir::test;
 
   llvm::FileRemover remover(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
