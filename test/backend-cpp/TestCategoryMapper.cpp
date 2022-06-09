@@ -63,7 +63,7 @@ static bool testStrToInt64() {
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
-      onnx_mlir::test::ModelLibBuilder::getSharedLibName(SharedLibBaseName));
+      onnx_mlir::getTargetFilename(SharedLibBaseName, onnx_mlir::EmitLib));
 
   setCompilerOption(onnx_mlir::OptionKind::CompilerOptLevel, "3");
   mlir::registerPassManagerCLOptions();
