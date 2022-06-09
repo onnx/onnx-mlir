@@ -205,7 +205,8 @@ print("input signature in json", session.input_signature())
 print("output signature in json", session.output_signature())
 # Create an input arbitrarily filled of 1.0 values (file has the actual values).
 input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
-# Run the model.
+# Run the model. It is best to always use the [] around the inputs as the inputs
+# are an vector of numpy arrays.
 outputs = session.run([input])
 ```
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
