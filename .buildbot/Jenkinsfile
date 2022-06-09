@@ -127,6 +127,7 @@ def call() {
         steps {
           /* uncomment for debugging */
           /*sh 'printenv'*/
+          echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "BUILD_URL                = ${BUILD_URL}"
           echo "JENKINS_SCRIPTSPACE      = ${JENKINS_SCRIPTSPACE}"
           echo "JENKINS_SCRIPTSPACE_AT   = ${JENKINS_SCRIPTSPACE_AT}"
@@ -135,7 +136,6 @@ def call() {
           echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
           echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
           echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
-          echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "GITHUB_CONTEXT           = ${GITHUB_CONTEXT}"
           echo "GITHUB_EVENT             = ${GITHUB_EVENT}"
           echo "GITHUB_PR_SENDER         = ${GITHUB_PR_SENDER}"
@@ -156,6 +156,12 @@ def call() {
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
           echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
+          echo "MODELZOO_PUBLISH_LOCK    = ${MODELZOO_PUBLISH_LOCK}"
+          echo "MODELZOO_WORKDIR         = ${MODELZOO_WORKDIR}"
+          echo "MODELZOO_REPORTDIR       = ${MODELZOO_WORKDIR}"
+          echo "MODELZOO_HTML            = ${MODELZOO_HTML}"
+          echo "MODELZOO_STDOUT          = ${MODELZOO_STDOUT}"
+          echo "MODELZOO_PUBLISH         = ${MODELZOO_PUBLISH}"
 
           checkout_pr_source("${GITHUB_PR_REPO_URL}",
                              "${GITHUB_PR_REMOTE}",
@@ -230,14 +236,14 @@ def call() {
       always {
         script {
           /* Acquire model zoo report lock */
-          sh "${JENKINS_RWLOCK} 'acquire' 'Acquiring write lock for publishing model zoo test report'"
+          sh "${JENKINS_RWLOCK} ${MODELZOO_PUBLISH_LOCK} 'acquire' 'Acquiring write lock for publishing model zoo test report'"
 
           try {
             /* Fake the report generation by copying from published report */
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
                 "${GITHUB_PR_PHRASE}" != 'publish' ||
                 "${currentBuild.currentResult}" != 'SUCCESS') {
-              echo 'Rsync model zoo test report'
+              echo 'rsync model zoo test report'
               sh (script: """#!/bin/bash +x
                   mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
                   mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
@@ -265,7 +271,7 @@ def call() {
             echo e.getMessage()
           } finally {
             /* Release model zoo report lock */
-            sh "${JENKINS_RWLOCK} 'release' 'Released write lock for publishing model zoo test report'"
+            sh "${JENKINS_RWLOCK} ${MODELZOO_PUBLISH_LOCK} 'release' 'Released write lock for publishing model zoo test report'"
           }
         }
       }

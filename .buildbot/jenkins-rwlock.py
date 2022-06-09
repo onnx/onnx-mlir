@@ -15,11 +15,11 @@ def main():
     rwlock = fasteners.InterProcessReaderWriterLock(sys.argv[1])
 
     if sys.argv[2] == 'acquire':
-        logging.info(sys.argv[3]) if sys.argv[3] else pass
+        logging.info(sys.argv[3]) if sys.argv[3] else None
         rwlock.acquire_write_lock()
     elif sys.argv[2] == 'release':
         rwlock.release_write_lock()
-        logging.info(sys.argv[3]) if sys.argv[3] else pass
+        logging.info(sys.argv[3]) if sys.argv[3] else None
     else:
         logging.warning('{} unknown, no rwlock acquired/released'.format(sys.argv[2]))
 
