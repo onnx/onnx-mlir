@@ -190,8 +190,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          echo 'Dummy llvm-project step'
-          /*sh "${JENKINS_BUILD_LLVM_PROJECT}"*/
+          sh "${JENKINS_BUILD_LLVM_PROJECT}"
         }
       }
 
@@ -199,32 +198,27 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          echo 'Dummy onnx-mlir step'
-          /*sh "${JENKINS_BUILD_PROJECT}"*/
+          sh "${JENKINS_BUILD_PROJECT}"
         }
       }
 
       stage('Publish') {
-        /*when { anyOf { environment name: 'GITHUB_PR_PHRASE',
+        when { anyOf { environment name: 'GITHUB_PR_PHRASE',
                        value: 'push';
                        environment name: 'GITHUB_PR_PHRASE',
                        value: 'publish' }
-        }*/
+        }
 
         /* Publish docker images and model zoo test report in parallel */
         parallel {
           stage('Publish docker images') {
             steps {
-              echo 'Publish docker images'
-	      sleep time: 60
-              /*sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"*/
+              sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
             }
           }
           stage('Publish model zoo test report') {
             steps {
-              echo 'Publish model zoo test report'
-	      sleep time: 60
-              /*sh "${JENKINS_CHECK_MODEL_ZOO}"*/
+              sh "${JENKINS_CHECK_MODEL_ZOO}"
             }
           }
         }
@@ -259,7 +253,7 @@ def call() {
           } catch (e) {
             echo e.getMessage()
           }
-        } // script
+        }
       } // cleanup
     } // post
   } // pipeline
@@ -359,7 +353,7 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
 /* Publish model zoo test report */
 def publish_modelzoo_report(badge) {
     /* Acquire model zoo publish lock, if lock doesn't exist, it will be created.
-     * when the last build releases the lock, it disappears.
+     * when no build is referencing the lock, it disappears.
      */
     lock(resource: 'modelzoo-publish-lock') {
         try {
