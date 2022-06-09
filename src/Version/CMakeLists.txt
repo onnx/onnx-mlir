@@ -61,10 +61,10 @@ add_onnx_mlir_library(OMVersion
     LLVMSupport
 )
 
-file(READ "${CMAKE_SOURCE_DIR}/VERSION_NUMBER" ONNX_MLIR_VERSION)
+file(READ "${ONNX_MLIR_SRC_ROOT}/VERSION_NUMBER" ONNX_MLIR_VERSION)
 string(STRIP "${ONNX_MLIR_VERSION}" ONNX_MLIR_VERSION)
 list(APPEND DEFINITIONS "ONNX_MLIR_VERSION=\"${ONNX_MLIR_VERSION}\"")
-file(READ "${CMAKE_SOURCE_DIR}/third_party/onnx/VERSION_NUMBER" ONNX_VERSION)
+file(READ "${ONNX_MLIR_SRC_ROOT}/third_party/onnx/VERSION_NUMBER" ONNX_VERSION)
 string(STRIP "${ONNX_VERSION}" ONNX_VERSION)
 if ("${ONNX_VERSION}" STREQUAL "")
   message(WARNING "third_party/onnx version not detected, you may be on the wrong commit hash")
