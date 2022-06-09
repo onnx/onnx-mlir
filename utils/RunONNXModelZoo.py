@@ -22,6 +22,7 @@ import sys
 import tarfile
 import tempfile
 
+from datetime import datetime
 from joblib import Parallel, delayed
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -285,9 +286,13 @@ def check_model(model_path, model_name, compile_args, report_dir):
         has_data_sets = False
         _, data_sets = execute_commands(
             ['find', tmpdir, '-type', 'd', '-name', 'test_data_set*'])
-        if (len(data_sets) > 0):
+        data_sets_list = [s for s in data_sets.split('\n') if s]
+        if (len(data_sets_list) > 0):
             has_data_sets = True
-            data_set = data_sets.split('\n')[0]
+            # Sort the list to get test_data_set_0 by default since other data
+            # sets are sometimes ill-formed.
+            data_sets_list.sort()
+            data_set = data_sets_list[0]
         else:
             # if there is no `test_data_set` subfolder, find a folder containing .pb files.
             _, pb_files = execute_commands(
@@ -297,7 +302,7 @@ def check_model(model_path, model_name, compile_args, report_dir):
                 data_set = pb_files.split('\n')[0]
         if (not has_data_sets):
             logger.warning(
-                "model {} does not have test data sets. Will check the model with random data."
+                "The model {} does not have test data sets. Will check the model with random data."
                 .format(model_name))
 
         # compile, run and verify.
@@ -317,6 +322,7 @@ def check_model(model_path, model_name, compile_args, report_dir):
         if args.Html:
             with open(os.path.join(report_dir, model_name + '.html'), 'w') as out:
                 out.write('<html><body><pre>\n')
+                out.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '\n\n')
                 out.write(model_name + '\n\n')
                 out.write(msg)
                 out.write('</pre></body></html>\n')
