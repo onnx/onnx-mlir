@@ -234,7 +234,7 @@ def call() {
 
     post {
       always {
-        publish_modelzoo_report()
+        publish_modelzoo_report(modelZooBuildBadge)
       }
       success {
         post_build_status("${GITHUB_EVENT}", 'success')
@@ -357,7 +357,7 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
 }
 
 /* Publish model zoo test report */
-def publish_modelzoo_report() {
+def publish_modelzoo_report(badge) {
     /* Acquire model zoo publish lock, if lock doesn't exist, it will be created.
      * when the last build releases the lock, it disappears.
      */
@@ -390,9 +390,9 @@ def publish_modelzoo_report() {
             /* setLink currently has no effect since github transforms
              * badge image url to its own githubusercontent.com url.
              */
-            modelZooBuildBadge.setStatus(readFile(
+            badge.setStatus(readFile(
               "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
-            modelZooBuildBadge.setLink(
+            badge.setLink(
               "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
         } catch(e) {
             echo e.getMessage()
