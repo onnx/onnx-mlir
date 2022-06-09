@@ -85,7 +85,6 @@ def call() {
        * do this because it appears that otherwise we would lose
        * the PROJECT level link to the report.
        */
-      MODELZOO_PUBLISH_LOCK = '/var/lock/jenkins-pipeline-modelzoo-publish.lock'
       MODELZOO_WORKDIR      = 'modelzoo'
       MODELZOO_REPORTDIR    = 'modelzoo_report'
       MODELZOO_HTML         = 'modelzoo.html'
@@ -156,9 +155,8 @@ def call() {
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
           echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
-          echo "MODELZOO_PUBLISH_LOCK    = ${MODELZOO_PUBLISH_LOCK}"
           echo "MODELZOO_WORKDIR         = ${MODELZOO_WORKDIR}"
-          echo "MODELZOO_REPORTDIR       = ${MODELZOO_WORKDIR}"
+          echo "MODELZOO_REPORTDIR       = ${MODELZOO_REPORTDIR}"
           echo "MODELZOO_HTML            = ${MODELZOO_HTML}"
           echo "MODELZOO_STDOUT          = ${MODELZOO_STDOUT}"
           echo "MODELZOO_PUBLISH         = ${MODELZOO_PUBLISH}"
@@ -192,7 +190,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          sh "${JENKINS_BUILD_LLVM_PROJECT}"
+          /*sh "${JENKINS_BUILD_LLVM_PROJECT}"*/
         }
       }
 
@@ -200,7 +198,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          sh "${JENKINS_BUILD_PROJECT}"
+          /*sh "${JENKINS_BUILD_PROJECT}"*/
         }
       }
 
@@ -236,8 +234,7 @@ def call() {
       always {
         script {
           /* Acquire model zoo report lock */
-          sh "${JENKINS_RWLOCK} ${MODELZOO_PUBLISH_LOCK} 'acquire' 'Acquiring write lock for publishing model zoo test report'"
-
+          lock(resource: 'modelzoo-publish-lock') {
           try {
             /* Fake the report generation by copying from published report */
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
@@ -269,9 +266,7 @@ def call() {
               "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
           } catch(e) {
             echo e.getMessage()
-          } finally {
-            /* Release model zoo report lock */
-            sh "${JENKINS_RWLOCK} ${MODELZOO_PUBLISH_LOCK} 'release' 'Released write lock for publishing model zoo test report'"
+          }
           }
         }
       }
