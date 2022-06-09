@@ -234,43 +234,7 @@ def call() {
 
     post {
       always {
-        script {
-          /* Acquire model zoo report lock */
-          lock(resource: 'modelzoo-publish-lock') {
-          try {
-            /* Fake the report generation by copying from published report */
-            if ("${GITHUB_PR_PHRASE}" != 'push' &&
-                "${GITHUB_PR_PHRASE}" != 'publish' ||
-                "${currentBuild.currentResult}" != 'SUCCESS') {
-              echo 'rsync model zoo test report'
-              sh (script: """#!/bin/bash +x
-                  mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
-                  mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
-                  rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
-            }
-
-            /* Publish the generated report */
-            publishHTML(target : [allowMissing:          true,
-                                  alwaysLinkToLastBuild: true,
-                                  /* true: BUILD level, false: PROJECT level */
-                                  keepAll:               false,
-                                  reportDir:             "${MODELZOO_REPORTDIR}",
-                                  reportFiles:           "${MODELZOO_HTML}",
-                                  reportName:            'Model Zoo Report',
-                                  reportTitles:          'Model Zoo Report'])
-
-            /* setLink currently has no effect since github transforms
-             * badge image url to its own githubusercontent.com url.
-             */
-            modelZooBuildBadge.setStatus(readFile(
-              "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
-            modelZooBuildBadge.setLink(
-              "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
-          } catch(e) {
-            echo e.getMessage()
-          }
-          }
-        }
+        publish_modelzoo_report()
       }
       success {
         post_build_status("${GITHUB_EVENT}", 'success')
@@ -390,6 +354,50 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
             [ $class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true ]
         ]
     ])
+}
+
+/* Publish model zoo test report */
+def publish_modelzoo_report() {
+    /* Acquire model zoo publish lock, if lock doesn't exist, it will be created.
+     * when the last build releases the lock, it disappears.
+     */
+    lock(resource: 'modelzoo-publish-lock') {
+        try {
+            /* For regular PRs not running the model zoo test, or for merging PR
+             * failing to run the model zoo test, the report is copied from the
+             * already published report and then published again.
+             */
+            if ("${GITHUB_PR_PHRASE}" != 'push' &&
+                "${GITHUB_PR_PHRASE}" != 'publish' ||
+                "${currentBuild.currentResult}" != 'SUCCESS') {
+                echo 'rsync model zoo test report'
+                sh (script: """#!/bin/bash +x
+                    mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
+                    mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
+                    rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
+            }
+
+            /* Publish the copied/generated report */
+            publishHTML(target : [allowMissing:          true,
+                                  alwaysLinkToLastBuild: true,
+                                  /* true: BUILD level, false: PROJECT level */
+                                  keepAll:               false,
+                                  reportDir:             "${MODELZOO_REPORTDIR}",
+                                  reportFiles:           "${MODELZOO_HTML}",
+                                  reportName:            'Model Zoo Report',
+                                  reportTitles:          'Model Zoo Report'])
+
+            /* setLink currently has no effect since github transforms
+             * badge image url to its own githubusercontent.com url.
+             */
+            modelZooBuildBadge.setStatus(readFile(
+              "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
+            modelZooBuildBadge.setLink(
+              "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
+        } catch(e) {
+            echo e.getMessage()
+        }
+    } // lock
 }
 
 /* Must return contents as an object to be assigned by load to a variable */
