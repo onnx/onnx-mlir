@@ -190,6 +190,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
+          echo 'Dummy llvm-project step'
           /*sh "${JENKINS_BUILD_LLVM_PROJECT}"*/
         }
       }
@@ -198,6 +199,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
+          echo 'Dummy onnx-mlir step'
           /*sh "${JENKINS_BUILD_PROJECT}"*/
         }
       }
