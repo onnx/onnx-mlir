@@ -479,6 +479,8 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
   IntegerAttr attr = builder.getI64IntegerAttr(opID);
   auto tagAttr = builder.getI64IntegerAttr(tag);
+  StringAttr nameAttr = builder.getStringAttr(StringRef(opName));
+  state.addAttribute("opName", nameAttr);
   state.addAttribute("opID", attr);
   state.addAttribute("tag", tagAttr);
 }
