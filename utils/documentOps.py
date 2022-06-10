@@ -157,7 +157,7 @@ def print_md():
         "associated with the \"Add\" operation.")
     print("\n")
     # Table.
-    header = ["Op", "Opset", "Limitations"]
+    header = ["Op", "Up to Opset", "Limitations"]
     separator = ["---", "---", "---"]
     if emit_notes:
         header.append("Notes")

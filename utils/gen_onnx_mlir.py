@@ -47,14 +47,11 @@ parser.add_argument("--list-operation-version",
 
 args = parser.parse_args()
 
-# Check_operation_version is on when we want to check or list; list_only turned on to
-# disable warnings and check when we are only interested in listing, not the checking
-# and testing.
-check_operation_version = args.check_operation_version or args.list_operation_version
-list_only = args.list_operation_version
+check_operation_version = args.check_operation_version
+list_operation_version = args.list_operation_version
 current_onnx_version = "1.11.0"
 # check the version of onnx package being used
-if (not check_operation_version) and current_onnx_version != onnx.__version__ :
+if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
           "while onnx package being used is {}".format(onnx.__version__))
     quit()
@@ -1183,15 +1180,14 @@ def build_operator_schemas():
                     processed_namemap.append((n, schema, versions))
 
                     # Add checks against version_dict
-                    if not list_only:
-                        if schema.name not in version_dict :
-                            print("Check-operation-version: Operation {} is new  with version {}"
-                                .format(schema.name, schema.since_version))
-                        elif schema.since_version >  version_dict[schema.name][0]:
-                            print("Check-operation-version: Operation {}"
-                                .format(schema.name)+
-                                " has a newer version {} over old version {}"
-                                .format(schema.since_version, version_dict[schema.name][0]))
+                    if schema.name not in version_dict :
+                        print("Check-operation-version: Operation {} is new  with version {}"
+                            .format(schema.name, schema.since_version))
+                    elif schema.since_version >  version_dict[schema.name][0]:
+                        print("Check-operation-version: Operation {}"
+                            .format(schema.name)+
+                            " has a newer version {} over old version {}"
+                            .format(schema.since_version, version_dict[schema.name][0]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :
@@ -1219,6 +1215,10 @@ def build_operator_schemas():
 
 
 def main(args):  # type: (Type[Args]) -> None
+    if list_operation_version:
+        pprint.pprint(version_dict)
+        return
+
     curr_utc_time = datetime.datetime.now(
         datetime.timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
     autogen_warning = (
@@ -1252,9 +1252,9 @@ def main(args):  # type: (Type[Args]) -> None
                     previous_name = schema.name
     if check_operation_version :
         for key in version_dict :
-            if not list_only and not key in new_version_dict :
+            if not key in new_version_dict :
                 print("op {} is not in the version".format(key))
-            # Assume the top version will be upgreaded to the latest version
+            # Assume the top version will be upgraded to the latest version
             # The existing extra version (from index 1) will be kept
             for x in version_dict[key][1:] :
                 new_version_dict[key].append(x)
