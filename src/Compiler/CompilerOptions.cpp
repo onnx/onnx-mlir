@@ -366,7 +366,7 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
     break;
     // Ignore options that were added but are unknown.
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 void clearCompilerOption(const OptionKind kind) {
@@ -432,10 +432,10 @@ std::string getCompilerOption(const OptionKind kind) {
 int setCompilerOptions(const CompilerOptionList &list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
-    if (rc != NoCompilerError)
+    if (rc != CompilerSuccess)
       return rc;
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 // Get the string vector associated with the specified key

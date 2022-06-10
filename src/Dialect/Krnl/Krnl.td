@@ -437,6 +437,16 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let results = (outs AnyFloat:$out);
 }
 
+def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
+  let summary = "Krnl isnan scalar operation";
+  let description = [{
+    Krnl isnan scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs I1:$out);
+}
+
 def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
   let summary = "Krnl acos scalar operation";
   let description = [{
@@ -1041,7 +1051,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
