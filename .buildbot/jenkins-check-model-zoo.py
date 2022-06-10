@@ -82,6 +82,8 @@ def main():
 
     # write summary line to file for Jenkinsfile to pickup
     logging.info(' '.join(cmd))
+    os.makedirs(workspace_workdir)
+    os.makedirs(workspace_reportdir)
     with open(os.path.join(workspace_reportdir, modelzoo_stdout), 'w') as f:
         try:
             proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE)
