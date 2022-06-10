@@ -75,13 +75,13 @@ add_custom_target(onnx-mlir-docs)
 
 # Create the list of supported ops. Pass the input file to scan, and the target architecture.
 # Target will create a docs/SupportedONNXOps-<arch>.md file listed
-# Useful options are "--todo", "--unsupported". Check python documentOps.py -h for more info.
+# Useful options are "--notes", "--unsupported". Check python documentOps.py -h for more info.
 function(add_onnx_mlir_supported_ops input_file arch)
   set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/SupportedONNXOps-${arch}.md)
-  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py --arch ${arch} -i ${input_file} -p ${ONNX_MLIR_SRC_ROOT}/utils)
+  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py -a ${arch} -i ${input_file} -p ${ONNX_MLIR_SRC_ROOT}/utils)
   add_custom_command(
     OUTPUT ${GEN_DOC_FILE} 
-    COMMAND ${supported_ops_cmd}  --todo --unsupported > ${GEN_DOC_FILE}
+    COMMAND ${supported_ops_cmd}  --notes --unsupported > ${GEN_DOC_FILE}
     DEPENDS ${input_file})
   add_custom_target(onnx_mlir_supported_ops_${arch} DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx_mlir_supported_ops onnx_mlir_supported_ops_${arch})

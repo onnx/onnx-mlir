@@ -8,10 +8,14 @@
 #
 ################################################################################
 #
-# This file convert .mlir from stdin into a FileCheck file format. It also
-# performs renaming of variables for better readability. In debug mode, it
-# can be used to simply better read mlir files as variables have more
-# comprehensive names
+# This file scans for certain patterns (listed below) and generate an md table,
+# which list the operations supported, and optionally the unsupported operations.
+# Among the options, we can also list the TODOs in the table.
+# Invoke with the `-h` argument to list options.
+#
+# Limitation: currently handle at most one OP/LIMIT/TODO line per operation.
+# Script currently invoked by the `onnx_mlir_supported_ops` make target.
+#
 ################################################################################
 
 import sys
@@ -44,13 +48,13 @@ import subprocess
 def print_usage():
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
     print("For labeling format, consult the python script directly.")
-    print('documentOps [-a <arch>] [-dut] -i <file> [-p <path>')
+    print('documentOps [-a <arch>] [-dnu] -i <file> [-p <path>')
     print('  -a, --arch <arch>: report on "==ARCH== <arch>".')
     print('  -d, --debug: include debug.')
     print('  -i, --input <file name>: input file.')
+    print('  -n, --notes: include notes/TODOs.')
     print('  -p, --path <util path>: path to onnx-mlir util directory.')
     print('  -u, --unsupported: list unsupported ops.')
-    print('  -t, --todo: include todos.')
     sys.exit()
 
 ################################################################################
@@ -89,7 +93,7 @@ def parse_file(file_name):
             continue
         if arch != target_arch:
             continue
-        # Scan op (op followed by any text).
+        # Scan op.
         p = re.search(r'==OP==\s+(\w+)', l)
         if p is not None: 
             op = p[1]
@@ -126,7 +130,7 @@ def parse_file(file_name):
             continue
 
 ################################################################################
-# Print info
+# Print info.
 
 def print_row(array):
     str = "| "
@@ -142,12 +146,21 @@ def print_md():
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
     print("Onnx-mlir currently support ONNX operations targeting up to " + 
-      "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
+        "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
+    print("* Operations are defined by the [ONNX Standard]" +
+        "(https://github.com/onnx/onnx/blob/main/docs/Operators.md).")
+    print("* Opset indicates, for each operation, the ONNX opset that " +
+        "(1) last modified that operation and " +
+        "(2) is supported by the current version of onnx-mlir. " +
+        "For example, \"Add\" was modified in Opset 14 and carries on unmodified" +
+        "to Opset 16. If onnx-mlir supports Opset 14, we thus list \"14\" as the Opset " +
+        "associated with the \"Add\" operation.")
+    print("\n")
     # Table.
     header = ["Op", "Opset", "Limitations"]
     separator = ["---", "---", "---"]
-    if emit_todos:
-        header.append("Todo")
+    if emit_notes:
+        header.append("Notes")
         separator.append("---")
     print_row(header)
     print_row(separator)
@@ -159,7 +172,7 @@ def print_md():
             info.append(limit_dict[op])
         else:
             info.append("")
-        if emit_todos:
+        if emit_notes:
             if op in todo_dict:
                 info.append(todo_dict[op])
             else:
@@ -168,11 +181,11 @@ def print_md():
 
         
 def main(argv):
-    global debug, target_arch, emit_todos, emit_unsupported, input_command
+    global debug, target_arch, emit_notes, emit_unsupported, input_command
     global list_op_version
     debug = 0
     target_arch = "cpu"
-    emit_todos = 0
+    emit_notes = 0
     emit_unsupported = 0
     util_path = "."
     file_name = ""
@@ -180,7 +193,7 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(
-            argv, "a:dhi:p:tu", ["arch=", "debug", "help", "input=", "path=", "todo", "unsupported"])
+            argv, "a:dhi:np:u", ["arch=", "debug", "help", "input=", "notes", "path=", "unsupported"])
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
@@ -194,12 +207,12 @@ def main(argv):
         elif opt in ('-i', "--input"):
             file_name = arg
             input_command += " --input " + file_name
+        elif opt in ('-n', "--notes"):
+            emit_notes = True
+            input_command += " --notes"
         elif opt in ('-p', "--path"):
             util_path = arg
             input_command += " --path " + util_path
-        elif opt in ('-t', "--todo"):
-            emit_todos = True
-            input_command += " --todo"
         elif opt in ('-u', "--unsupported"):
             emit_unsupported = True
             input_command += " --unsupported"

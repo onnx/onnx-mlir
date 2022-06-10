@@ -1,11 +1,15 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --todo --unsupported -->
+<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
 Onnx-mlir currently support ONNX operations targeting up to opset 16. Limitations are listed when applicable.
 
-| Op |Opset |Limitations |Todo |
+* Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
+* Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodifiedto Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
+
+
+| Op |Opset |Limitations |Implementor's notes |
 | --- |--- |--- |--- |
 | **Abs** |13 | | |
 | **Acos** |7 | | |

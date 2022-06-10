@@ -16,10 +16,10 @@ logging.basicConfig(
 # cc/c++ processes is going to quickly exhaust the memory.
 #
 # Algorithm: NPROC = min(2, # of CPUs) if memory < 8GB, otherwise
-#            NPROC = min(memory / 8, # of CPUs / 2)
+#            NPROC = min(memory / 8, # of CPUs)
 MEMORY_IN_GB               = (os.sysconf('SC_PAGE_SIZE') *
                               os.sysconf('SC_PHYS_PAGES') / (1024.**3))
-NPROC                      = str(math.ceil(min(max(2, MEMORY_IN_GB/8), os.cpu_count()/2)))
+NPROC                      = str(math.ceil(min(max(2, MEMORY_IN_GB/8), os.cpu_count())))
 
 DOCKER_DEV_IMAGE_WORKDIR   = '/workdir'
 ONNX_MLIR_HOME             = '/workdir/onnx-mlir/build/Debug'
@@ -82,6 +82,8 @@ def main():
 
     # write summary line to file for Jenkinsfile to pickup
     logging.info(' '.join(cmd))
+    os.makedirs(workspace_workdir)
+    os.makedirs(workspace_reportdir)
     with open(os.path.join(workspace_reportdir, modelzoo_stdout), 'w') as f:
         try:
             proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE)
