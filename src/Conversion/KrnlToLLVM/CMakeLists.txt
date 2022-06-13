@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMKrnlToLLVM
   ConvertKrnlToLLVM.cpp
   KrnlFindIndex.cpp
+  KrnlCall.cpp
   KrnlEntryPoint.cpp
   KrnlGetRef.cpp  
   KrnlGlobal.cpp
