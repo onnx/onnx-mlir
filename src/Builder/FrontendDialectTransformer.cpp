@@ -1019,11 +1019,6 @@ private:
     }
     auto current_opset = opset_map_.find(node.domain())->second;
 
-    if (current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "Warning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
-                   << ", which is quite old. Please consider regenerating your "
-                      "model with a newer Opset.\n";
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
@@ -1037,6 +1032,15 @@ private:
       // But the lowest opset in op_dialect_version_map_ is an exception.
       // It is the current opset when onnx-mlir project is started.
       // All opset lower than the last opset should use the last opset(version)
+
+      if (node.domain().compare("ai.onnx.ml") != 0 &&
+          current_opset < opset_list[opset_list.size() - 1] &&
+          current_opset < MINIMUM_SUPPORTED_OPSET)
+        llvm::outs()
+            << "Warning: ONNX " << node.op_type()
+            << " in your model is using Opset " << current_opset
+            << ", which is quite old. Please consider regenerating your "
+               "model with a newer Opset.\n";
       if (opset_list.size() == 1)
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
@@ -1046,6 +1050,9 @@ private:
           return "V" + std::to_string(opset_list[i]);
         }
       }
+    } else {
+      llvm::outs() << node.op_type();
+      llvm_unreachable(" this Op is not in the op_dialect_version_map_");
     }
     return std::string("");
   }
