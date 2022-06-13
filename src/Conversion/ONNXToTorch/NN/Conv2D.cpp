@@ -76,18 +76,19 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     // create vector of tensor list iterate through the ArrayAttribute
     // list.
+    auto sintType = IntegerType::get(op1.getContext(), 64, IntegerType::SignednessSemantics::Signed);
     std::vector<Value> translatepadsList =
-        createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
+        createPadsArrayAttribute(pads, sintType, loc, rewriter);
     std::vector<Value> dilationonnxList =
-        createArrayAttribute(dilations, group.getType(), loc, rewriter, 1);
+        createArrayAttribute(dilations, sintType, loc, rewriter, 1);
     std::vector<Value> kernalshapeonnxList =
-        createArrayAttribute(kernal_shape, group.getType(), loc, rewriter);
+        createArrayAttribute(kernal_shape, sintType, loc, rewriter);
     std::vector<Value> stridesonnxList =
-        createArrayAttribute(strides, group.getType(), loc, rewriter);
+        createArrayAttribute(strides, sintType, loc, rewriter);
 
     // If group Value is null, assigning default value.
-    auto zero = 0;
     auto intType = IntegerType::get(op1.getContext(), 64);
+    auto zero = 0;
     auto zeroAttr = IntegerAttr::get(intType, zero);
     Value zeroConstOp = rewriter.create<ConstantIntOp>(loc, zeroAttr);
     Value oneConstOp;
@@ -96,8 +97,9 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
       oneConstOp = rewriter.create<ConstantIntOp>(loc, group);
       groupVal = rewriter.create<ConstantIntOp>(loc, group);
     } else {
-      oneConstOp = rewriter.create<ConstantIntOp>(loc, zeroConstOp);
-      groupVal = rewriter.create<ConstantIntOp>(loc, zeroConstOp);
+      auto oneAttr = IntegerAttr::get(sintType, 1);
+      oneConstOp = rewriter.create<ConstantIntOp>(loc, oneAttr);
+      groupVal = rewriter.create<ConstantIntOp>(loc, oneAttr);
     }
 
     // create the Torch List type using above created vectors.
