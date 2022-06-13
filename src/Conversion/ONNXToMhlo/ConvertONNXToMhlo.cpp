@@ -22,6 +22,8 @@ namespace onnx_mlir {
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
+  // populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -48,14 +50,14 @@ struct FrontendToMhloLoweringPass
 
 void FrontendToMhloLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<mhlo::MhloDialect, func::FuncDialect>();
+  target.addLegalDialect<mhlo::MhloDialect, func::FuncDialect,
+      shape::ShapeDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();

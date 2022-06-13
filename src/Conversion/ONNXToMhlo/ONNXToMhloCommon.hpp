@@ -50,8 +50,12 @@ struct MhloDialectOp {
 template <typename Op>
 using MhloOp = typename MhloDialectOp<Op>::Op;
 
+
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
-
+void populateLoweringONNXSoftmaxOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+// void populateLoweringONNXGemmOpToMhloPattern(
+//     RewritePatternSet &, MLIRContext *);
 } // namespace onnx_mlir

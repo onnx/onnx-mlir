@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
 
   Math/Elementwise.cpp
+  Math/Softmax.cpp
 
   DEPENDS
   MhloDialect

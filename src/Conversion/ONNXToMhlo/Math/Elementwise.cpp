@@ -24,7 +24,61 @@ struct MhloDialectOp<ONNXAddOp> {
   using Op = mhlo::AddOp;
 };
 
-// Element-wise variadic ops lowering to Krnl dialect.
+namespace {
+
+// Element-wise unary ops lowering to Mhlo dialect.
+//===----------------------------------------------------------------------===//
+template <typename ElementwiseUnaryOp>
+struct ONNXElementwiseUnaryOpLoweringToMhlo : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseUnaryOp::getOperationName()),
+        op->getLoc());
+    auto mhloOp = rewriter.create<MhloOp<ElementwiseUnaryOp>>(
+        loc, op->getResultTypes(), op->getOperands());
+    rewriter.replaceOp(op, mhloOp->getResults());
+    return success();
+  }
+};
+
+template <>
+struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
+    : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXReluOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = NameLoc::get(
+        StringAttr::get(op->getContext(), ONNXReluOp::getOperationName()),
+        op->getLoc());
+    ONNXReluOpAdaptor adaptor(operands, op->getAttrDictionary());
+    Value inp = adaptor.X();
+    auto inpType = inp.getType().dyn_cast<ShapedType>();
+    if (inpType == nullptr)
+      return failure();
+    Type elemType = inpType.getElementType();
+    Type resultType = *op->result_type_begin();
+    Value broadcastedZero;
+    if (inpType.hasStaticShape()) {
+      broadcastedZero =
+          rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(inpType));
+    } else {
+      auto zero =
+          rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
+      auto shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
+      broadcastedZero = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+          loc, resultType, zero, shape, rewriter.getI64TensorAttr({}));
+    }
+    auto resultOp = rewriter.create<mhlo::MaxOp>(loc, inp, broadcastedZero);
+    rewriter.replaceOp(op, resultOp->getResults());
+    return success();
+  }
+};
+
+// Element-wise variadic ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
@@ -39,15 +93,19 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     // TODO: check whether ONNX dialect has explicit broadcast feature
     auto mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
         loc, op->getResultTypes(), op->getOperands());
-    rewriter.replaceOp(op, mhloOp.result());
+
+    rewriter.replaceOp(op, mhloOp->getResults());
 
     return success();
   }
 };
 
+} // namespace
+
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>>(ctx);
+  patterns.insert<ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>>(ctx);
 }
 
 } // namespace onnx_mlir
