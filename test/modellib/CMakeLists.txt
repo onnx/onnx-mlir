@@ -9,6 +9,7 @@ add_onnx_mlir_library(ModelLib
   MatMulModel.cpp
   ModelLib.cpp
   RNNModel.cpp
+  StackedLSTMModel.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
