@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------------------ KrnlOps.td - MLIR Operations ---------*- tablegen -===//
+//===--------------------- Krnl.td - MLIR Operations ---------*- tablegen -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -19,6 +19,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.td"
 include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -121,7 +122,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let skipDefaultBuilders = 1;
   let builders = [
     // Main builder.
-    OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
+    OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "llvm::None">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
@@ -132,7 +133,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
-      CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
+      CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
   ];
@@ -162,6 +163,37 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
+def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl load from a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op loads a tensor for the sequence 'seq' at position 'index',
+    and return the tensor, which will be freed by Bufferization::Deallocation.
+    The element in the sequence will become null.
+  }];
+  let arguments = (ins AnyMemRef:$seq,
+                       Index:$index);
+
+  let results = (outs AnyType:$output);
+}
+
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+  let summary = "Krnl store into a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op will copy the tensor to be stored, and cast the type if needed.
+    The motivation to introduce this Op is to help bufferization::deallocation
+    The experiment showed that memref will be freed after the memref is stored.
+    However, the store of memref only write out the pointer for the memref,
+    and its memory cannot be freed.
+  }];
+  let arguments = (ins AnyType:$input,
+                       AnyMemRef:$seq,
+                       Index:$index);
+}
+
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   let summary = "Krnl terminator operation";
   let description = [{
@@ -172,6 +204,25 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
     This operation does _not_ have a custom syntax. However, krnl control
     operations omit the terminator in their custom syntax for brevity.
   }];
+}
+
+def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
+    AffineScope]> {
+  let summary = "Affine Region for Krnl";
+  let description = [{
+    This Op has AffineScope trait and is used to limit the scope of affine.for.
+    Otherwise, the affine.for might be illegal if a symbol is not defined at
+    the top of function, which has the AffineScope trait. 
+  }];
+
+  let regions = (region SizedRegion<1>:$bodyRegion);
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    // Main builder.
+    OpBuilder<(ins 
+      CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
+  ];
 }
 
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {

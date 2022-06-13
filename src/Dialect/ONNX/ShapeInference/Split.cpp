@@ -11,6 +11,10 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
@@ -73,17 +77,6 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
   return success();
 }
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXSplitOpShapeHelper::computeShape(
     ONNXSplitOpAdaptor operandAdaptor) {
 
@@ -104,17 +97,6 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape(
   return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
 
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
 LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
     ONNXSplitV11OpAdaptor operandAdaptor) {
   auto splitAttr = op->split();
@@ -128,3 +110,5 @@ LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
   }
   return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
+
+} // namespace onnx_mlir

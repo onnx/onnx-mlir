@@ -14,7 +14,13 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -47,9 +53,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
 
+    // Convert the cond type to MemRefType.
+    Type convertedType =
+        typeConverter->convertType(loopOpAdapter.cond().getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType condMemRefTy = convertedType.cast<MemRefType>();
+
     // Create a memref for recording loop condition, initialize it with the
     // initial loop condition.
-    auto condMemRefTy = convertToMemRefType(loopOpAdapter.cond().getType());
     Value cond;
     if (hasAllConstantDimensions(condMemRefTy))
       cond = insertAllocAndDealloc(
@@ -57,155 +69,169 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     emitCopy(rewriter, loc, loopOpAdapter.cond(), cond);
 
     // Create the loop iteration.
-    BuildKrnlLoop loop(rewriter, loc, 1);
-    loop.createDefineOp();
+    IndexExprScope childScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     Value maxTripCount = createKrnl.load(loopOpAdapter.M());
-
     maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(), maxTripCount);
-    loop.pushBounds(0, maxTripCount);
-    loop.createIterateOp();
-    auto afterLoop = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(loop.getIterateBlock());
+    ValueRange loopDef = createKrnl.defineLoops(1);
+    Value zero = create.math.constantIndex(0);
+    createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          OpBuilder::InsertionGuard insertGuard(rewriter);
 
-    {
-      OpBuilder::InsertionGuard insertGuard(rewriter);
+          Value condReg = createKrnl.load(cond);
+          auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
+          rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
-      Value condReg = createKrnl.load(cond);
-      auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
-      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+          // Contain the ThenRegion with KrnlRegionOp
+          // The krnl loop inside may use symbol computed in LoopOp body
+          KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+          rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
 
-      // Create a scalar tensor out of loop iteration variable, as the first
-      // argument passed to the body graph function.
-      Value origIV = loop.getInductionVar(0);
-      auto iv =
-          rewriter
-              .create<arith::IndexCastOp>(loc, rewriter.getI64Type(), origIV)
-              .getResult();
-      MemRefBuilder createMemRef(rewriter, loc);
-      Value ivMemRef =
-          createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
-      createKrnl.store(iv, ivMemRef);
+          // Create a scalar tensor out of loop iteration variable, as the first
+          // argument passed to the body graph function.
+          Value origIV = loopInd[0];
+          auto iv = rewriter
+                        .create<arith::IndexCastOp>(
+                            loc, rewriter.getI64Type(), origIV)
+                        .getResult();
+          MemRefBuilder createMemRef(rewriter, loc);
+          Value ivMemRef =
+              createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
+          createKrnl.store(iv, ivMemRef);
 
-      // Make the call to loop body function.
-      SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
-      for (auto value : llvm::make_range(outputs.begin(),
-               outputs.begin() + loopOpAdapter.v_initial().size()))
-        params.emplace_back(value);
+          // Make the call to loop body function.
+          SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
+          for (auto value : llvm::make_range(outputs.begin(),
+                   outputs.begin() + loopOpAdapter.v_initial().size()))
+            params.emplace_back(value);
 
-      auto &loopBodyEntryBlock = loopBody.front();
-      BlockAndValueMapping mapper;
-      for (unsigned i = 0, e = params.size(); i != e; ++i) {
-        // Verify that the types of the provided values match the function
-        // argument types.
-        BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
-        mapper.map(regionArg, params[i]);
-      }
+          Block &loopBodyEntryBlock = loopBody.front();
+          BlockAndValueMapping mapper;
+          for (unsigned i = 0, e = params.size(); i != e; ++i) {
+            // Verify that the types of the provided values match the function
+            // argument types.
+            BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
+            mapper.map(regionArg, params[i]);
+          }
 
-      auto &thenRegion = ifOp.getThenRegion();
-      auto &thenBlock = thenRegion.front();
+          // Previous code is intended to create the loop body without RegionOp
+          // Current code just splice the loopBody into the RegionOp after it
+          // was built. ToDo: code could be simplified if not built on top of
+          // the previous code
 
-      // Split the insertion block into two, where the second block
-      // `postInsertBlock` contains only the terminator operation, insert loop
-      // body right before `postInsertBlock`, after all other operations created
-      // within the if Op.
-      Block *postInsertBlock = thenBlock.splitBlock(thenBlock.getTerminator());
-      assert(loopBody.getBlocks().size() == 1 &&
-             "Currently only support loop body with 1 block.");
-      thenRegion.getBlocks().splice(
-          postInsertBlock->getIterator(), loopBody.getBlocks());
-      auto newBlocks = llvm::make_range(
-          std::next(thenBlock.getIterator()), postInsertBlock->getIterator());
-      auto &loopBodyBlock = *newBlocks.begin();
+          Region &thenRegion = ifOp.getThenRegion();
+          Block &thenBlock = thenRegion.front();
 
-      auto loopBodyTerminator = loopBodyBlock.getTerminator();
+          // Split the insertion block into two, where the second block
+          // `postInsertBlock` contains only the terminator operation, insert
+          // loop body right before `postInsertBlock`, after all other
+          // operations created within the if Op.
+          Block *postInsertBlock =
+              thenBlock.splitBlock(thenBlock.getTerminator());
+          assert(loopBody.getBlocks().size() == 1 &&
+                 "Currently only support loop body with 1 block.");
+          thenRegion.getBlocks().splice(
+              postInsertBlock->getIterator(), loopBody.getBlocks());
 
-      // Within inlined blocks, substitute reference to block arguments with
-      // values produced by the lowered loop operation bootstrapping IR.
-      auto remapOperands = [&](Operation *op1) {
-        for (auto &operand : op1->getOpOperands())
-          if (auto mappedOp = mapper.lookupOrNull(operand.get()))
-            operand.set(mappedOp);
-      };
-      for (auto &block : thenRegion.getBlocks())
-        block.walk(remapOperands);
-      auto resultsRange =
-          llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
+          auto newBlocks = llvm::make_range(std::next(thenBlock.getIterator()),
+              postInsertBlock->getIterator());
+          Block &loopBodyBlock = *newBlocks.begin();
+
+          Operation *loopBodyTerminator = loopBodyBlock.getTerminator();
+
+          // Within inlined blocks, substitute reference to block arguments with
+          // values produced by the lowered loop operation bootstrapping IR.
+          auto remapOperands = [&](Operation *op1) {
+            for (auto &operand : op1->getOpOperands())
+              if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+                operand.set(mappedOp);
+          };
+          for (auto &block : thenRegion.getBlocks())
+            block.walk(remapOperands);
+          auto resultsRange = llvm::SmallVector<Value, 4>(
+              loopBodyTerminator->getOperands().begin(),
               loopBodyTerminator->getOperands().end());
-      rewriter.setInsertionPointToStart(postInsertBlock);
 
-      // Cast loop body outputs from tensor type to memref type in case it has
-      // not already been lowered. Eventually, 'UnrealizedConversionCastOp'
-      // becomes a cast from memref type to a memref type when everything is
-      // lowered and thus becomes redundant.
-      SmallVector<Value, 4> bodyOutputs(
-          resultsRange.begin(), resultsRange.end());
-      for (unsigned i = 0; i < bodyOutputs.size(); i++) {
-        auto output = bodyOutputs[i];
-        assert((output.getType().isa<TensorType>() ||
-                   output.getType().isa<MemRefType>()) &&
-               "Expecting loop body function output to consist of "
-               "tensors/memrefs.");
-        auto outputTy = output.getType().cast<ShapedType>();
-        bodyOutputs[i] = rewriter
-                             .create<UnrealizedConversionCastOp>(loc,
-                                 MemRefType::get(outputTy.getShape(),
-                                     outputTy.getElementType()),
-                                 output)
-                             .getResult(0);
-      }
+          // Add the loop end code into the loopBodyBlock
+          // Previous code adds them to postInsertBlock
+          // rewriter.setInsertionPointToStart(postInsertBlock);
+          rewriter.setInsertionPointToEnd(&loopBodyBlock);
 
-      // Copy the newly computed loop condition to pre-allocated buffer.
-      emitCopy(rewriter, loc, bodyOutputs[0], cond);
+          // Cast loop body outputs from tensor type to memref type in case it
+          // has not already been lowered. Eventually,
+          // 'UnrealizedConversionCastOp' becomes a cast from memref type to a
+          // memref type when everything is lowered and thus becomes redundant.
+          SmallVector<Value, 4> bodyOutputs(
+              resultsRange.begin(), resultsRange.end());
+          for (unsigned i = 0; i < bodyOutputs.size(); i++) {
+            Value output = bodyOutputs[i];
+            assert((output.getType().isa<TensorType>() ||
+                       output.getType().isa<MemRefType>()) &&
+                   "Expecting loop body function output to consist of "
+                   "tensors/memrefs.");
+            auto outputTy = output.getType().cast<ShapedType>();
+            bodyOutputs[i] = rewriter
+                                 .create<UnrealizedConversionCastOp>(loc,
+                                     MemRefType::get(outputTy.getShape(),
+                                         outputTy.getElementType()),
+                                     output)
+                                 .getResult(0);
+          }
 
-      // Copy intermediate values of scan outputs to their corresponding slice
-      // in the loop scan output tensor.
-      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
-      auto scanIntermediate =
-          llvm::make_range(vIntermediate.end(), bodyOutputs.end());
-      auto scanOutputs = llvm::make_range(
-          outputs.begin() + loopOpAdapter.v_initial().size(), outputs.end());
-      for (auto scanIntermediateToFinal :
-          llvm::zip(scanIntermediate, scanOutputs)) {
-        auto elementType = std::get<1>(scanIntermediateToFinal)
-                               .getType()
-                               .cast<MemRefType>()
-                               .getElementType();
-        if (elementType.dyn_cast<MemRefType>()) {
-          // accumulate dynamic tensor
-          // TODO: May need to copy the tensor
-          create.krnl.store(std::get<0>(scanIntermediateToFinal),
-              std::get<1>(scanIntermediateToFinal), origIV);
-        } else {
-          emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
-              std::get<1>(scanIntermediateToFinal),
-              /*writePrefix=*/{origIV});
-        }
-      }
+          // Copy the newly computed loop condition to pre-allocated buffer.
+          emitCopy(rewriter, loc, bodyOutputs[0], cond);
 
-      // Copy intermediate values of loop carried dependencies to MemRef outside
-      // the iteration scope so next iteration can use them as init value.
-      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
-        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
-            std::get<1>(vIntermediateToFinal));
+          // Copy intermediate values of scan outputs to their corresponding
+          // slice in the loop scan output tensor.
+          auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
+              bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
+          auto scanIntermediate =
+              llvm::make_range(vIntermediate.end(), bodyOutputs.end());
+          auto scanOutputs = llvm::make_range(
+              outputs.begin() + loopOpAdapter.v_initial().size(),
+              outputs.end());
+          for (auto scanIntermediateToFinal :
+              llvm::zip(scanIntermediate, scanOutputs)) {
+            Type elementType = std::get<1>(scanIntermediateToFinal)
+                                   .getType()
+                                   .cast<MemRefType>()
+                                   .getElementType();
+            if (elementType.dyn_cast<MemRefType>()) {
+              // accumulate dynamic tensor
+              rewriter.create<KrnlSeqStoreOp>(loc,
+                  std::get<0>(scanIntermediateToFinal),
+                  std::get<1>(scanIntermediateToFinal), origIV);
+            } else {
+              emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
+                  std::get<1>(scanIntermediateToFinal),
+                  /*writePrefix=*/{origIV});
+            }
+          }
 
-      // Remove loop body terminator op.
-      rewriter.eraseOp(loopBodyTerminator);
+          // Copy intermediate values of loop carried dependencies to MemRef
+          // outside the iteration scope so next iteration can use them as init
+          // value.
+          for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+            emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+                std::get<1>(vIntermediateToFinal));
 
-      // Merge the post insert block into the cloned entry block.
-      loopBodyBlock.getOperations().splice(
-          loopBodyBlock.end(), postInsertBlock->getOperations());
-      rewriter.eraseBlock(postInsertBlock);
+          // Remove loop body terminator op.
+          rewriter.eraseOp(loopBodyTerminator);
 
-      // Merge the loop body block into the then block.
-      thenBlock.getOperations().splice(
-          thenBlock.end(), loopBodyBlock.getOperations());
-      rewriter.eraseBlock(&loopBodyBlock);
-    }
+          // Merge the post block (with only Terminator) into the thenBody
+          thenBlock.getOperations().splice(
+              thenBlock.end(), postInsertBlock->getOperations());
+          rewriter.eraseBlock(postInsertBlock);
 
-    rewriter.restoreInsertionPoint(afterLoop);
+          // Merge the loop body block into the RegionOp.
+          regionOp.bodyRegion().front().getOperations().splice(
+              regionOp.bodyRegion().front().end(),
+              loopBodyBlock.getOperations());
+          rewriter.eraseBlock(&loopBodyBlock);
+        });
+
     // accumulate dynamic tensor
     // Convert the memref<?xmemref<>> to a memref
     SmallVector<Value, 4> newOutputs;
@@ -236,16 +262,19 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             shape, firstElement.getType().cast<MemRefType>().getElementType());
         auto alloc = create.mem.alignedAlloc(flatType, allocParams);
         // copy the value
-        BuildKrnlLoop loop(rewriter, loc, 1);
-        loop.createDefineOp();
-        loop.pushBounds(0, maxTripCount);
-        loop.createIterateOp();
-        auto afterCopyLoop = rewriter.saveInsertionPoint();
-        rewriter.setInsertionPointToStart(loop.getIterateBlock());
-        Value origIV = loop.getInductionVar(0);
-        auto src = create.krnl.load(output, origIV);
-        emitCopy(rewriter, loc, src, alloc, {origIV});
-        rewriter.restoreInsertionPoint(afterCopyLoop);
+        KrnlBuilder createKrnl(rewriter, loc);
+        ValueRange loopDef = createKrnl.defineLoops(1);
+        createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              // Wrap with KrnlRegionOp because emitCopy uses the result of
+              // SeqExtract for loop bound.
+              KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+              rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+              Value origIV = loopInd[0];
+              auto src = rewriter.create<KrnlSeqExtractOp>(
+                  loc, seqElementType, output, origIV);
+              emitCopy(rewriter, loc, src, alloc, {origIV});
+            });
         newOutputs.emplace_back(alloc);
       } else {
         newOutputs.emplace_back(output);
@@ -267,10 +296,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
+      // Convert vFinal's type to MemRefType.
+      Type convertedType = typeConverter->convertType(vFinal.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use their
       // initial value tensors as reference when allocating memory.
-      auto memRefType = convertToMemRefType(vFinal.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))
@@ -288,18 +322,24 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       SmallVectorImpl<mlir::Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
+      // Convert opScanOutput's type to MemRefType.
+      Type convertedType = typeConverter->convertType(opScanOutput.getType());
+      assert(convertedType && convertedType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType memRefType = convertedType.cast<MemRefType>();
+
       // Allocate memory for the scan outputs. There're no good "reference"
       // shape for scan outputs. So if the scan outputs do not have constant
       // dimensions in all except the leading dimensions, we simply give up. The
       // leading dimension is simply the number of iterations executed, which is
       // easier to obtain.
-      auto memRefType = convertToMemRefType(opScanOutput.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
-        MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+            rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
 
@@ -363,22 +403,27 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     OpBuilder::InsertionGuard insertGuard(rewriter);
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
-    if (srcTy.getRank() > 0) {
-      BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
-      // Do not create defineLoo
-      loop.createDefineOp();
-      for (int i = 0; i < srcTy.getRank(); i++)
-        loop.pushBounds(0, src, i);
-      loop.createIterateOp();
-      rewriter.setInsertionPointToStart(loop.getIterateBlock());
-      auto loopIVs = loop.getAllInductionVar();
-      readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
-    }
-    SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
-    writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
     KrnlBuilder createKrnl(rewriter, loc);
-    Value val = createKrnl.load(src, readIV);
-    createKrnl.store(val, dest, writeIV);
+    if (srcTy.getRank() > 0) {
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(srcTy.getRank());
+      SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      MemRefBoundsIndexCapture bounds(src);
+      for (int i = 0; i < srcTy.getRank(); i++)
+        ubs.emplace_back(bounds.getDim(i));
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            SmallVector<Value, 4> writeIV(
+                writePrefix.begin(), writePrefix.end());
+            writeIV.insert(writeIV.end(), loopInd.begin(), loopInd.end());
+            Value val = createKrnl.load(src, loopInd);
+            createKrnl.store(val, dest, writeIV);
+          });
+    } else {
+      Value val = createKrnl.load(src);
+      createKrnl.store(val, dest, writePrefix);
+    }
   }
 };
 
@@ -386,3 +431,5 @@ void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

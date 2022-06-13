@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-all-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // COM: Check the lowering of an zlow operation when its shape includes constant dims.
 // COM: In this case, the constant values will be passed directly to
@@ -6,7 +6,7 @@
 // COM: Using zlow.softmax as an example.
 func @test_zlow_softmax_constant_shape() -> () {
   // %0 = "onnx.Softmax"(%arg0) : (memref<5x10xf32>) -> memref<5x10xf32>
-  // "std.return"(%0) : (memref<5x10xf32>) -> ()
+  // "func.return"(%0) : (memref<5x10xf32>) -> ()
   %shape = "krnl.global"() {name = "constant_fold_std_alloc_0", shape = [3], value = dense<[1, 5, 10]> : tensor<3xi64>} : () -> memref<3xi64>
   %res = memref.alloc() {alignment = 4096 : i64} : memref<1x1x1x1x32x64xf16>
   %input = memref.alloc() {alignment = 4096 : i64} : memref<1x1x1x1x32x64xf16>

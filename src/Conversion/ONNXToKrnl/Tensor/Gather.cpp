@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------Gather.cpp - Lowering Gather Op----------------------=== //
+//===---------------- Gather.cpp - Lowering Gather Op ---------------------===//
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXGatherOpLowering : public ConversionPattern {
   ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -25,28 +27,47 @@ struct ONNXGatherOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXGatherOpAdaptor operandAdaptor(operands);
-    ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
-    auto loc = op->getLoc();
+    ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+    Location loc = op->getLoc();
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
-    // Scope for krnl ops
-    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
-    // Save axis and rank info.
+    // Operands and attributes.
+    Value data = operandAdaptor.data();
+    Value indices = operandAdaptor.indices();
     int64_t axisLit = gatherOp.axis();
-    int64_t dataRank = shapeHelper.dataDims.size();
-    int64_t indicesRank = shapeHelper.indicesDims.size();
-    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
+    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
+
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
+
+    // Negative value means counting dimensions from the back.
+    axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
+
+    int64_t outputRank = shapeHelper.dimsForOutput().size();
+    int iIndexStart = 0;
+    int jIndexStart = iIndexStart + axisLit;
+    int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
+
+    LiteralIndexExpr zeroIE(0);
+    MemRefBoundsIndexCapture dataBounds(data);
+    DimsExpr dataDims;
+    dataBounds.getDimList(dataDims);
 
     /*
       The pattern that we are using is that of numpy.take.
@@ -59,53 +80,45 @@ struct ONNXGatherOpLowering : public ConversionPattern {
             out[ii + jj + kk] = data[ii + (indices[jj],) + kk]
     */
     // Define loops and iteration trip counts (equivalent to size of output)
-    BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    int iIndexStart = 0;
-    int jIndexStart = iIndexStart + axisLit;
-    int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    DimsExpr lbs(outputRank, zeroIE);
+    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          // Insert code inside the loop.
+          IndexExprScope innerLoopScope(createKrnl);
+          SymbolIndexExpr axisDim(dataDims[axisLit]);
 
-    // Insert code inside the loop.
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-    IndexExprScope innerLoopScope(&rewriter, &outerScope);
-    LiteralIndexExpr zero(0);
-    LiteralIndexExpr axis(axisLit);
-    SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);
+          // compute the loop indices for the output
+          SmallVector<IndexExpr, 4> outputAccessFct;
+          getIndexExprList<DimIndexExpr>(loopInd, outputAccessFct);
 
-    // compute the loop indices for the output
-    SmallVector<IndexExpr, 4> outputAccessFct;
-    getIndexExprList<DimIndexExpr>(
-        outputLoops.getAllInductionVar(), outputAccessFct);
+          // Compute access function for indices[jjs].
+          SmallVector<IndexExpr, 4> indicesAccessFct;
+          for (int j = 0; j < indicesRank; ++j)
+            indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
+          Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
+          // Loaded value is an index that is not affine
+          IndexExpr index = NonAffineIndexExpr(indexVal);
+          // When index may be negative, add axis Dim to it.
+          if (indicesMayBeNegative)
+            index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
-    // Compute access function for indices[jjs].
-    SmallVector<IndexExpr, 4> indicesAccessFct;
-    for (int j = 0; j < indicesRank; ++j)
-      indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
-    Value indexVal =
-        createKrnl.loadIE(operandAdaptor.indices(), indicesAccessFct);
-    // Loaded value is an index that is not affine
-    IndexExpr index = NonAffineIndexExpr(indexVal);
-    // When index may be negative, add axis Dim to it.
-    if (!shapeHelper.positiveConstantIndices) {
-      index = index.selectOrSelf(index < zero, index + axisDim);
-    }
+          // Compute access function of data: data[ii + (indices[jj],) + kk]
+          SmallVector<IndexExpr, 4> dataAccessFct;
+          // First add indices iis
+          for (int i = 0; i < axisLit; ++i)
+            dataAccessFct.emplace_back(outputAccessFct[iIndexStart + i]);
+          // Then add indices[jj] (indexVal).
+          dataAccessFct.emplace_back(index);
+          // Then add kks.
+          for (int k = axisLit + 1; k < dataRank; ++k)
+            dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
+          Value dataVal = createKrnl.loadIE(data, dataAccessFct);
 
-    // Compute access function of data: data[ii + (indices[jj],) + kk]
-    SmallVector<IndexExpr, 4> dataAccessFct;
-    // First add indices iis
-    for (int i = 0; i < axisLit; ++i)
-      dataAccessFct.emplace_back(outputAccessFct[iIndexStart + i]);
-    // Then add indices[jj] (indexVal).
-    dataAccessFct.emplace_back(index);
-    // Then add kks.
-    for (int k = axisLit + 1; k < dataRank; ++k)
-      dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
-    Value data = createKrnl.loadIE(operandAdaptor.data(), dataAccessFct);
-
-    // Save data into output
-    createKrnl.storeIE(data, alloc, outputAccessFct);
+          // Save data into output
+          createKrnl.storeIE(dataVal, alloc, outputAccessFct);
+        });
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -115,3 +128,5 @@ void populateLoweringONNXGatherOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXGatherOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

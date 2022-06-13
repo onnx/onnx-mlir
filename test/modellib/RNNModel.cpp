@@ -17,14 +17,15 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
 
-RNNLibBuilder::RNNLibBuilder(const string &modelName, const int direction,
+namespace onnx_mlir {
+namespace test {
+
+RNNLibBuilder::RNNLibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H, const bool isDynamicS,
     const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
@@ -64,7 +65,7 @@ bool RNNLibBuilder::build() {
   llvm::SmallVector<Type, 5> inputsType{xType, hType};
   llvm::SmallVector<Type, 2> outputsType{yType, yHType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
@@ -102,7 +103,7 @@ bool RNNLibBuilder::build() {
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, rnnOp.getResults());
+  builder.create<func::ReturnOp>(loc, rnnOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -110,7 +111,7 @@ bool RNNLibBuilder::build() {
 }
 
 bool RNNLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
@@ -192,10 +193,11 @@ bool RNNLibBuilder::verifyOutputs() {
   omTensorDestroy(XtWi);
   omTensorDestroy(HtRi);
 
-  if (!areCloseFloat(rnnY, refY))
-    return false;
-  if (!areCloseFloat(rnnYh, refYh))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(rnnY, refY) && areCloseFloat(rnnYh, refYh);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  return ok;
 }
+
+} // namespace test
+} // namespace onnx_mlir

@@ -40,7 +40,8 @@ extern "C" {
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n);
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
+    OMTensor **tensors, int64_t n);
 
 /**
  * \brief OMTensorList creator with tensor array pointers ownership
@@ -61,7 +62,7 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n);
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-OMTensorList *omTensorListCreateWithOwnership(
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithOwnership(
     OMTensor **tensors, int64_t n, int64_t owning);
 
 /**
@@ -74,7 +75,7 @@ OMTensorList *omTensorListCreateWithOwnership(
  * simply returns when pointer is null.
  *
  */
-void omTensorListDestroy(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor array getter
@@ -85,7 +86,7 @@ void omTensorListDestroy(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return pointer to the array of OMTensor pointers.
  */
-OMTensor **omTensorListGetOmtArray(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY OMTensor **omTensorListGetOmtArray(OMTensorList *list);
 
 /**
  * \brief OMTensorList size getter
@@ -94,7 +95,7 @@ OMTensor **omTensorListGetOmtArray(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return number of elements in the OMTensor array.
  */
-int64_t omTensorListGetSize(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor getter by index
@@ -103,7 +104,8 @@ int64_t omTensorListGetSize(OMTensorList *list);
  * @param index index of the OMTensor
  * @reutrn pointer to the OMTensor, NULL if not found.
  */
-OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, int64_t index);
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
+    OMTensorList *list, int64_t index);
 
 #ifdef __cplusplus
 }

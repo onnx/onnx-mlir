@@ -10,26 +10,43 @@
 //
 // Accelerator base class.
 //
+// To enable a new accelerator, add the header include, an extern of the
+// subclass and pushback that subclass variable onto acceleratorTargets.
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "src/Accelerators/Accelerator.hpp"
-#include <iostream>
-#include <vector>
 
 namespace onnx_mlir {
 namespace accel {
 
-std::vector<Accelerator *> *Accelerator::acceleratorTargets;
+llvm::SmallVector<Accelerator *, 4> Accelerator::acceleratorTargets;
 
-Accelerator::Accelerator() {
-  if (acceleratorTargets == NULL)
-    acceleratorTargets = new std::vector<Accelerator *>();
+const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
+  assert(acceleratorTargets.size() <= 1 &&
+         "Only support at most one accelerator at this moment");
+  return acceleratorTargets;
 }
 
-Accelerator::~Accelerator() {}
+// Help to print accelerator kinds.
+static std::map<Accelerator::Kind, std::string> mapKind2Strings;
 
-std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
-  return acceleratorTargets;
+std::ostream &operator<<(std::ostream &out, const Accelerator::Kind kind) {
+  if (mapKind2Strings.empty()) {
+    APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_TO_STRING, mapKind2Strings);
+    mapKind2Strings[Accelerator::Kind::NONE] = "NONE";
+  }
+  return out << mapKind2Strings[kind];
+}
+
+llvm::raw_ostream &operator<<(
+    llvm::raw_ostream &out, const Accelerator::Kind kind) {
+  if (mapKind2Strings.empty()) {
+    APPLY_TO_ACCELERATORS(ACCEL_CL_ENUM_TO_STRING, mapKind2Strings);
+    mapKind2Strings[Accelerator::Kind::NONE] = "NONE";
+  }
+  return out << mapKind2Strings[kind];
 }
 
 } // namespace accel

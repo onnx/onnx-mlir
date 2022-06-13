@@ -2,21 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <iostream>
 #include <rapidcheck.h>
-#include <string>
 
 #include "llvm/Support/FileSystem.h"
 
 #include "include/OnnxMlirRuntime.h"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestGRU_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 // Returns whether onnx-mlir compiled GRU is producing the same results as a
 // naive implementation of GRU for a specific set of GRU
@@ -31,12 +30,22 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
          gru.run() && gru.verifyOutputs();
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

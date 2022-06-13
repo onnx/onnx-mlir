@@ -4,7 +4,7 @@
 
 //===-------------- KrnlMatmul.cpp - Lower KrnlMatmulOp -------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,10 +27,9 @@
 
 #define DEBUG_TYPE "krnl_to_affine"
 
-#define ENABLE_MAT_VECT_MUL 1
+static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -139,7 +138,7 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
-    bool matVectorProduct = ENABLE_MAT_VECT_MUL && jGlobalUB.isLiteral() &&
+    bool matVectorProduct = !DISABLE_MAT_VEC_PRODUCT && jGlobalUB.isLiteral() &&
                             jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD
@@ -152,9 +151,11 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0)
-          if (i == k && k == 4) {
-            vectorLen = kComputeTileSize;
+          VectorBuilder createVect(createAffine);
+          uint64_t mVL = createVect.getMachineVectorLength(elementType);
+          if (i % mVL == 0 && k % mVL == 0) {
+            // Right now, vector length must be mVL.
+            vectorLen = LiteralIndexExpr(mVL);
           } else {
             simdize = false;
             LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with bad sizes: i " << i
@@ -320,12 +321,12 @@ private:
     Value TmpC = createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // For i, j loops.
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
     Value jSaved;
     createAffine.forIE(
-        zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
+        zeroIE, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
           createAffine.forIE(
-              zero, J, 1, [&](AffineBuilderKrnlMem &createAffine, Value j) {
+              zeroIE, J, 1, [&](AffineBuilderKrnlMem &createAffine, Value j) {
                 MathBuilder createMath(createAffine);
                 // Defines induction variables, and possibly initialize C.
                 jSaved = j;
@@ -336,11 +337,11 @@ private:
                 cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
                 cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
                 Value initVal = createAffine.load(C, cAccess);
-                Value tmpCAccess = (unrollFactor > 1) ? j : zero.getValue();
+                Value tmpCAccess = (unrollFactor > 1) ? j : zeroIE.getValue();
                 createAffine.store(initVal, TmpC, tmpCAccess);
                 // TTmpC() = affine_load(C, cAccess);
                 // Sum over k.
-                createAffine.forIE(zero, K, 1,
+                createAffine.forIE(zeroIE, K, 1,
                     [&](AffineBuilderKrnlMem &createAffine, Value k) {
                       MathBuilder createMath(createAffine);
                       SmallVector<Value, 4> aAccess, bAccess;
@@ -383,50 +384,83 @@ private:
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if I & K is compile time
-    assert(I.isLiteral() && K.isLiteral() &&
+    assert(I.isLiteral() && K.isLiteral() && vectorLen.isLiteral() &&
            "can only simdize with compile time "
            "blocking factor on simd axis");
-
     MultiDialectBuilder<MathBuilder, VectorBuilder, AffineBuilderKrnlMem,
-        MemRefBuilder>
+        MemRefBuilder, KrnlBuilder>
         create(createAffine);
+    int64_t iLit(I.getLiteral()), VL(vectorLen.getLiteral());
+    int64_t mVL = create.vec.getMachineVectorLength(elementType);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size());
+    int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
 
     // Generate the vector type conversions.
-    int64_t VL = vectorLen.getLiteral();
+    assert(VL == mVL && "vector length and VL must be identical for now");
     VectorType vecType = VectorType::get({VL}, elementType);
-    int64_t iUnrollForReduction = K.getLiteral();
+    int64_t iUnrollFactor = iLit;
+    assert(iUnrollFactor % VL == 0 && "i blocking should be a multiple of VL");
 
-    // Iterates over the I indices (K is SIMD dim).
-    // First compute A[i,k]*B[k, 1] for i=0..iUnrollForReduction explicitly.
-    // We reuse B[k][0] vector for each iteration of i.
-    SmallVector<Value, 4> bAccess;
-    IndexExpr::getValues(bStart, bAccess);
-    // bAccess = {k=0 + bStart0.getValue(), bStart1.getValue()};
-    IndexExpr::getValues(bStart, bAccess);
-    Value vb = create.vec.load(vecType, B, bAccess);
-    SmallVector<Value, 8> vResList;
-    // Generate computation for each i, preserving the value in vResList.
-    for (int64_t i = 0; i < iUnrollForReduction; ++i) {
-      SmallVector<Value, 4> aAccess;
-      IndexExpr::getValues(aStart, aAccess);
-      LiteralIndexExpr iVal(i);
-      aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal.getValue());
-      Value va = create.vec.load(vecType, A, aAccess);
-      Value vres = create.math.mul(va, vb);
-      vResList.emplace_back(vres);
+    // Have to privatize CTmpType by unroll factor.
+    MemRefType CTmpType = MemRefType::get({iUnrollFactor}, vecType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
+           "alignment of buffers cannot be smaller than the default alignment "
+           "(which is set for SIMD correctness");
+    Value TmpProd = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    // Init with zero.
+    Value fZero = create.math.constant(elementType, 0);
+    Value vFZero = create.vec.broadcast(vecType, fZero);
+    create.krnl.memset(TmpProd, vFZero);
+
+    LiteralIndexExpr zeroIE(0);
+    create.affineKMem.forIE(
+        zeroIE, K, VL, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+          MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
+          // Iterates over the I indices (K is SIMD dim).
+          // First compute A[i,k]*B[k, 1] for i=0..iUnrollFactor explicitly.
+          // We reuse B[k][0] vector for each iteration of i.
+          SmallVector<Value, 4> bAccess;
+          IndexExpr::getValues(bStart, bAccess);
+          // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
+          bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+          Value vb = create.vec.load(vecType, B, bAccess);
+          // Generate computation for each i, manually unrolled for simplicity.
+          for (int64_t i = 0; i < iUnrollFactor; ++i) {
+            SmallVector<Value, 4> aAccess;
+            IndexExpr::getValues(aStart, aAccess);
+            Value iVal = create.math.constantIndex(i);
+            aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal);
+            aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
+            Value va = create.vec.load(vecType, A, aAccess);
+            Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
+            Value vres = create.vec.fma(va, vb, vTmpProd);
+            create.vec.store(vres, TmpProd, {iVal});
+          }
+        });
+
+    // Reduce each SIMD vector of length mVL using a SIMD parallel reduction.
+    SmallVector<Value, 8> vProdList;
+    for (int64_t i = 0; i < iUnrollFactor; ++i) {
+      Value iVal = create.math.constantIndex(i);
+      Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
+      vProdList.emplace_back(vTmpProd);
     }
-    // Reduce each SIMD vector of length VL==K using a SIMD parallel reduction.
-    Value vReduction = create.vec.multiReduction(vResList);
-    // Add the reduction to the previous value of C.
-    SmallVector<Value, 4> cAccess;
-    IndexExpr::getValues(cStart, cAccess);
-    Value vc = create.vec.load(vecType, C, cAccess);
-    vc = create.math.add(vc, vReduction);
-    create.vec.store(vc, C, cAccess);
+    SmallVector<Value, 8> vReductionList;
+    create.vec.multiReduction(vProdList, vReductionList);
+    // For each reduction in the list (vector of VL length), load C, add
+    // reduction, and store C.
+    uint64_t size = vReductionList.size();
+    for (uint64_t i = 0; i < size; ++i) {
+      SmallVector<Value, 4> cAccess;
+      IndexExpr::getValues(cStart, cAccess);
+      Value iVal = create.math.constantIndex(i * VL);
+      cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal);
+      Value vc = create.vec.load(vecType, C, cAccess);
+      vc = create.math.add(vc, vReductionList[i]);
+      create.vec.store(vc, C, cAccess);
+    }
   }
 
   // Simdize along J / memory rows in B and C.
@@ -454,9 +488,9 @@ private:
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
     createAffine.forIE(
-        zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
+        zeroIE, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           iSaved = i; // Saved for unroll and jam.
           // Alloca temp vector TmpC and save C(i)/0.0 into it.
@@ -465,11 +499,11 @@ private:
           IndexExpr::getValues(cStart, cAccess);
           cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
           Value initVal = create.vec.load(vecType, C, cAccess);
-          Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
+          Value tmpCAccess = (unrollFactor > 1) ? i : zeroIE.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
           createAffine.forIE(
-              zero, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+              zeroIE, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
                 MultiDialectBuilder<MathBuilder, VectorBuilder> create(
                     createAffine);
                 kSaved = k;

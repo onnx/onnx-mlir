@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #ifdef __cplusplus
+#include <array>
 #include <cassert>
 #include <complex>
 #include <map>
@@ -39,7 +40,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
 struct OMTensor {
@@ -161,10 +162,10 @@ static inline void printElement(
     printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_FLOAT:
-    printf("%g", ((float *)dataPtr)[elemOffset]);
+    printf("%f", ((float *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_DOUBLE:
-    printf("%g", ((double *)dataPtr)[elemOffset]);
+    printf("%f", ((double *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_STRING:
     printf("%s", ((const char **)dataPtr)[elemOffset]);
@@ -270,8 +271,9 @@ OMTensor *omTensorCreateEmpty(
   OMTensor *tensor;
   void *dataPtr;
   if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
-      NULL) || ((tensor = omTensorCreateWithOwnership(dataPtr, shape, rank,
-      dtype, /*owning=*/true)) == NULL)) {
+          NULL) ||
+      ((tensor = omTensorCreateWithOwnership(
+            dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL
     return NULL;
   }
@@ -422,63 +424,78 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   printf("\trank = %lld\n", (long long)rank);
   printf("\tdataType = %s\n", getDataTypeName(dataType));
   printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
+  printf("\tshape: ");
+  for (int64_t i = 0; i < rank; i++)
+    printf("[%lld]", (long long)shape[i]);
+  printf("\n");
   printf("\tstrides: ");
   for (int64_t i = 0; i < rank; i++)
     printf("[%lld]", (long long)strides[i]);
   printf("\n");
 
-  printf("\tdata: ([");
+#define LOOP_1(INDEX, IV, UB)                                                  \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    indexes[INDEX] = IV;                                                       \
+    int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);   \
+    printElement(dataPtr, elemOffset, dataType);                               \
+  }                                                                            \
+  printf("]");
+
+#define LOOP_2(INDEX, IV, UB, ...)                                             \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_1(INDEX + 1, __VA_ARGS__)                                             \
+  }                                                                            \
+  printf("]");
+
+#define LOOP_3(INDEX, IV, UB, ...)                                             \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_2(INDEX + 1, __VA_ARGS__)                                             \
+  }                                                                            \
+  printf("]");
+
+#define LOOP_4(INDEX, IV, UB, ...)                                             \
+  printf("[");                                                                 \
+  for (int64_t IV = 0; IV < UB; ++IV) {                                        \
+    if (IV)                                                                    \
+      printf(", ");                                                            \
+    indexes[INDEX] = IV;                                                       \
+    LOOP_3(INDEX + 1, __VA_ARGS__)                                             \
+  }                                                                            \
+  printf("]");
+
+  printf("\tdata: (");
   switch (rank) {
-  case 1:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      int64_t indexes[] = {i};
-      int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-      printElement(dataPtr, elemOffset, dataType);
-    }
-    break;
-  case 2:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      printf("[");
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        if (j)
-          printf(", ");
-        int64_t indexes[] = {i, j};
-        int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
-        printElement(dataPtr, elemOffset, dataType);
-      }
-      printf("]");
-    }
-    break;
-  case 3:
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        printf(", ");
-      printf("[");
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        if (j)
-          printf(", ");
-        printf("[");
-        for (int64_t k = 0; k < shape[2]; ++k) {
-          if (k)
-            printf(", ");
-          int64_t indexes[] = {i, j, k};
-          int64_t elemOffset =
-              computeElemOffset(tensor->_strides, indexes, rank);
-          printElement(dataPtr, elemOffset, dataType);
-        }
-        printf("]");
-      }
-      printf("]");
-    }
-    break;
+  case 1: {
+    int64_t indexes[1];
+    LOOP_1(0, i, shape[0])
+  } break;
+  case 2: {
+    int64_t indexes[2];
+    LOOP_2(0, i, shape[0], j, shape[1])
+  } break;
+  case 3: {
+    int64_t indexes[3];
+    LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
+  } break;
+  case 4: {
+    int64_t indexes[4];
+    LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
+  } break;
   default:
     assert(false && "not implemented");
   }
-  printf("])\n");
+  printf(")\n");
 }
 
 #ifdef __cplusplus
@@ -526,14 +543,33 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   return omt;
 }
 
+// Static variables used by omDefineSeed and omTensorCreateWithRandomData.
+static unsigned int omUseOneSeed = 0;
+static std::mt19937 omRandomGenerator(0);
+
+// When called, a single seed will be used, either from the given seed or from
+// another random number generator.
+unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue) {
+  /* Define our onw seed when requested. */
+  if (!hasSeedValue) {
+    std::random_device rd;
+    seed = rd();
+  }
+  omUseOneSeed = 1;
+  omRandomGenerator.seed(seed);
+  return seed;
+}
+
 /* OMTensor creator with data shape, element type and random data */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
     const std::vector<int64_t> &shape, T lbound, T ubound) {
-  // Will be used to obtain a seed for the random number engine
-  std::random_device rd;
-  // Standard mersenne_twister_engine seeded with rd()
-  std::mt19937 gen(rd());
+  if (!omUseOneSeed) {
+    // Will be used to obtain a seed for the random number engine.
+    std::random_device rd;
+    // Standard mersenne_twister_engine seeded with rd()
+    omRandomGenerator.seed(rd());
+  }
   std::uniform_real_distribution<> dis(lbound, ubound);
 
   auto omt = omTensorCreateWithShape<T>(shape);
@@ -542,7 +578,7 @@ OMTensor *omTensorCreateWithRandomData(
 
   std::generate((T *)omt->_alignedPtr,
       (T *)omt->_alignedPtr + getNumElems(omt->_shape, omt->_rank),
-      [&]() { return dis(gen); });
+      [&]() { return dis(omRandomGenerator); });
   return omt;
 }
 
@@ -610,31 +646,25 @@ inline bool omTensorAreTwoOmtsClose(
   }
 
   // Compute difference, verify it's within tolerable range.
-  // rtol * b + atol >= abs(a - b)
-  auto anum = omTensorGetNumElems(a);
-  auto bnum = omTensorGetNumElems(b);
-  auto rtolT = omTensorCreateWithShape<T>(aShape);
-  assert(rtolT && "failed to allocate memory");
-  auto atolT = omTensorCreateWithShape<T>(aShape);
-  assert(atolT && "failed to allocate memory");
-  for (const auto &idx : omTensorComputeIndexSet(rtolT)) {
-    omTensorGetElem<T>(rtolT, idx) = rtol;
-    omTensorGetElem<T>(atolT, idx) = atol;
-  }
-  std::vector<T> absoluteDiff(anum);
-  std::vector<T> eqAllclose(anum);
+  // rtol * abs(b) + atol >= abs(a - b)
+  auto nElems = omTensorGetNumElems(a);
+  std::vector<T> absoluteDiff(nElems);
+  std::vector<T> absb(nElems);
+  std::vector<T> eqAllclose(nElems);
+  std::vector<T> rtolT(nElems, rtol);
+  std::vector<T> atolT(nElems, atol);
   // abs(a - b)
-  std::transform((T *)a->_alignedPtr, (T *)a->_alignedPtr + anum,
+  std::transform((T *)a->_alignedPtr, (T *)a->_alignedPtr + nElems,
       (T *)b->_alignedPtr, absoluteDiff.begin(), std::minus<>());
   std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
       static_cast<T (*)(T)>(&std::abs));
   // rtol * abs(b)
-  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
-      (T *)b->_alignedPtr, static_cast<T (*)(T)>(&std::abs));
-  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
-      (T *)rtolT->_alignedPtr, eqAllclose.begin(), std::multiplies<>());
-  // rtol * abs(b) + atol
-  std::transform(eqAllclose.begin(), eqAllclose.end(), (T *)atolT->_alignedPtr,
+  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + nElems,
+      absb.begin(), static_cast<T (*)(T)>(&std::abs));
+  std::transform(rtolT.begin(), rtolT.end(), absb.begin(), eqAllclose.begin(),
+      std::multiplies<>());
+  // (rtol * abs(b)) + atol
+  std::transform(eqAllclose.begin(), eqAllclose.end(), atolT.begin(),
       eqAllclose.begin(), std::plus<>());
   // (rtol * abs(b) + atol) - abs(a - b)
   std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
@@ -643,8 +673,8 @@ inline bool omTensorAreTwoOmtsClose(
       eqAllclose.begin(), eqAllclose.end(), [&](T eq) { return eq >= 0; });
 
   if (!satisfied) {
-    // Figure out where and what went wrong, this can be slow; but hopefully we
-    // don't need this often.
+    // Figure out where and what went wrong, this can be slow; but hopefully
+    // we don't need this often.
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);
@@ -659,8 +689,6 @@ inline bool omTensorAreTwoOmtsClose(
       }
     }
   }
-  omTensorDestroy(rtolT);
-  omTensorDestroy(atolT);
   return satisfied;
 }
 

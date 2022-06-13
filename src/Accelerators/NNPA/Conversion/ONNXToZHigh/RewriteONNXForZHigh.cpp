@@ -60,7 +60,7 @@ Value getSqrtResultBatchNormA(
 //===----------------------------------------------------------------------===//
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.inc"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
@@ -89,8 +89,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target
-      .addLegalDialect<ONNXDialect, zhigh::ZHighDialect, StandardOpsDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());

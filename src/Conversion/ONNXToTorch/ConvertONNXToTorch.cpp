@@ -14,7 +14,7 @@
 //===------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "llvm/Support/CommandLine.h"
 
@@ -49,7 +49,7 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
 //===-----------------------------------------------------------------===//
 
 /// This is a partial lowering to Torch loops of the ONNX operations.
-namespace {
+namespace onnx_mlir {
 struct FrontendToTorchLoweringPass
     : public PassWrapper<FrontendToTorchLoweringPass,
           OperationPass<::mlir::ModuleOp>> {
@@ -102,8 +102,6 @@ public:
       llvm::cl::init(false)};
 };
 
-} // end anonymous namespace.
-
 void FrontendToTorchLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
   // The first thing to define is the conversion target. This will define the
@@ -144,10 +142,12 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass() {
+std::unique_ptr<Pass> createLowerToTorchPass() {
   return std::make_unique<FrontendToTorchLoweringPass>();
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass(int optLevel) {
+std::unique_ptr<Pass> createLowerToTorchPass(int optLevel) {
   return std::make_unique<FrontendToTorchLoweringPass>(optLevel);
 }
+
+} // namespace onnx_mlir

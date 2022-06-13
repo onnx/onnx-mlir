@@ -25,7 +25,7 @@
 namespace onnx_mlir {
 
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
-using queryEntryPointsFuncType = const char **(*)();
+using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
@@ -35,7 +35,9 @@ public:
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_substraction", NULL}
-  const std::string *queryEntryPoints() const;
+  // In order to get the number of entry points, pass an integer pointer to the
+  // function.
+  const std::string *queryEntryPoints(int64_t *numOfEntryPoints) const;
 
   // Set entry point for this session.
   // Call this before running the session or querying signatures if

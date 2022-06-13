@@ -20,7 +20,6 @@
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -52,10 +51,10 @@ public:
     Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
-      rewriter.create<CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
+      rewriter.create<func::CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
           ArrayRef<Value>({formatSpecPtr, input}));
     else
-      rewriter.create<CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
+      rewriter.create<func::CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
           ArrayRef<Value>({formatSpecPtr}));
 
     rewriter.eraseOp(op);

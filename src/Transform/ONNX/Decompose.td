@@ -43,34 +43,31 @@ def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
-def GetNullFloatAttr :
-        NativeCodeCall<"FloatAttr()">;
+def GetNullFloatAttr : NativeCodeCall<"FloatAttr()">;
 
-def GetNullIntegerAttr :
-        NativeCodeCall<"IntegerAttr()">;
+def GetNullIntegerAttr : NativeCodeCall<"IntegerAttr()">;
 
-def GetNullStringAttr :
-        NativeCodeCall<"StringAttr()">;
+def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
-    : NativeCodeCall<"createUnitConstant($_builder, $_loc)">;
+    : NativeCodeCall<"::onnx_mlir::createUnitConstant($_builder, $_loc)">;
 
 // Create a scalar DenseElementsAttr (rank 0) from a single attribute.
 // E.g return type is tensor<f32> instead of tensor<0xf32> or tensor<1xf32>
 def createScalarDenseAttrRank0
-    : NativeCodeCall<"createScalarDenseAttr($_builder, $0)">;
+    : NativeCodeCall<"::onnx_mlir::createScalarDenseAttr($_builder, $0)">;
 
 // Create a DenseElementsAttr from a single attribute.
 def createDenseArrayAttrFromSingleAttr
-    : NativeCodeCall<"createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
+    : NativeCodeCall<"::onnx_mlir::createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
 
 // Create a DenseElementsAttr from an ArrayAttr.
 def createDenseArrayAttr
-    : NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
+    : NativeCodeCall<"::onnx_mlir::createDenseArrayAttr($_builder, $0)">;
 
 def createDenseArrayAttrOrEmpty
-    : NativeCodeCall<"createDenseArrayAttrOrEmpty($_builder, $0)">;
+    : NativeCodeCall<"::onnx_mlir::createDenseArrayAttrOrEmpty($_builder, $0)">;
 
 def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
 
@@ -80,14 +77,14 @@ def noop_with_empty_axes
 
 // Check if value is a dense constant
 def IsDenseONNXConstant:
-   Constraint<CPred<"isDenseONNXConstant($_self)">, "not a dense constant">;
+   Constraint<CPred<"::onnx_mlir::isDenseONNXConstant($_self)">, "not a dense constant">;
 
 // Create an ArrayAttr from a dense ConstantOp
 def createArrayAttrFromConstantOp : NativeCodeCall<
-  "createArrayAttrFromConstantOp($_builder, $0)">;
+  "::onnx_mlir::createArrayAttrFromConstantOp($_builder, $0)">;
 
 def createSequenceConstructOp : NativeCodeCall<
-  "createSequenceConstructOp($_builder, $0, $1)">;
+  "::onnx_mlir::createSequenceConstructOp($_builder, $0, $1)">;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
@@ -342,6 +339,12 @@ def ClipV11Pattern : Pat<
 def ClipV12Pattern : Pat<
   (ONNXClipV12Op $x, $min, $max),
   (ONNXClipOp $x, $min, $max)
+>;
+
+// Express Scatter (deprecated) using ScatterElements.
+def ScatterPattern : Pat<
+  (ONNXScatterOp $data, $indices, $updates, $axis),
+  (ONNXScatterElementsOp $data, $indices, $updates, $axis)
 >;
 
 #endif // ONNX_DECOMPOSE

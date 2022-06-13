@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CONVERT_H_
-#define CONVERT_H_
+#pragma once
 
 #include <inttypes.h>
 
@@ -22,5 +21,3 @@ uint64_t fp32_to_dlf16(
     float *input_data, uint16_t *output_data, uint64_t nbr_fields_to_convert);
 uint64_t dlf16_to_fp32(
     uint16_t *input_data, float *output_data, uint64_t nbr_fields_to_convert);
-
-#endif /* CONVERT_H_ */

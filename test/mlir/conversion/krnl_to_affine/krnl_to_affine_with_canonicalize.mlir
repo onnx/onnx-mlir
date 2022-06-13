@@ -50,3 +50,26 @@ func private @memset_dyn(%p0 : index, %p1 : index) -> () {
 // CHECK:         }
 }
 
+// -----
+
+#map = affine_map<(d0) -> (d0 floordiv 64, d0 mod 64)>
+func private @memref_with_affine(%arg0: memref<3xf32, #map>) -> memref<3xf32, #map> {
+  %0 = memref.alloc() : memref<3xf32, #map>
+  %1 = krnl.define_loops 1
+  krnl.iterate(%1) with (%1 -> %arg1 = 0 to 3){
+    %2 = krnl.get_induction_var_value(%1) : (!krnl.loop) -> index
+    %3 = krnl.load %arg0[%2] : memref<3xf32, #map>
+    krnl.store %3, %0[%2] : memref<3xf32, #map>
+  }
+  return %0 : memref<3xf32, #map>
+// CHECK-DAG: #map = affine_map<(d0) -> (d0 floordiv 64, d0 mod 64)>
+// CHECK-LABEL:  func private @memref_with_affine
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3xf32, #map>) -> memref<3xf32, #map> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() : memref<3xf32, #map>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]]{{.}} : memref<3xf32, #map>
+// CHECK:             affine.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32, #map>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3xf32, #map>
+// CHECK:         }
+}

@@ -17,15 +17,16 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 MatMul2DLibBuilder::MatMul2DLibBuilder(
-    const string &modelName, const int I, const int J, const int K)
+    const std::string &modelName, const int I, const int J, const int K)
     : ModelLibBuilder(modelName), I(I), J(J), K(K) {}
 
 bool MatMul2DLibBuilder::build() {
@@ -39,7 +40,7 @@ bool MatMul2DLibBuilder::build() {
   llvm::SmallVector<Type, 2> inputsType{aType, bType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
@@ -48,7 +49,7 @@ bool MatMul2DLibBuilder::build() {
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
 
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -56,12 +57,23 @@ bool MatMul2DLibBuilder::build() {
 }
 
 bool MatMul2DLibBuilder::prepareInputs() {
-  const int num = 2;
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({I, K});
   list[1] = omTensorCreateWithRandomData<float>({K, J});
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1];
+}
+
+bool MatMul2DLibBuilder::prepareInputs(float dataRange) {
+  constexpr int num = 2;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>({I, K}, -dataRange, dataRange);
+  list[1] = omTensorCreateWithRandomData<float>({K, J}, -dataRange, dataRange);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
@@ -87,5 +99,10 @@ bool MatMul2DLibBuilder::verifyOutputs() {
       }
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
+
+} // namespace test
+} // namespace onnx_mlir

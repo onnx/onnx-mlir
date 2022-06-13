@@ -29,22 +29,12 @@ function(add_numerical_unittest test_name)
     set_property(TARGET ${test_name} PROPERTY FOLDER "${test_suite_folder}")
   endif ()
 
-  # Force -O3 when invoking the numerical tests, so that the models in the test
-  # are compiled with -O3. TODO: make that a runtime env variable.
-  add_test(NAME ${test_name} COMMAND ${test_name} -O3 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
+  add_test(NAME ${test_name}
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
-
-  if (WIN32)
-    # On Windows, we need a .def file to specify the export functions from a DLL.
-    # The name of the .def file must match the name of the DLL being created, so
-    # we follow the same naming convention as the tests (e.g. TestConv_main_graph)
-    # (see SHARED_LIB_BASE in each of the test files).
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/numerical.def
-      ${CMAKE_CURRENT_BINARY_DIR}/${test_name}_main_graph.def
-      COPYONLY
-      )
-  endif()
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their

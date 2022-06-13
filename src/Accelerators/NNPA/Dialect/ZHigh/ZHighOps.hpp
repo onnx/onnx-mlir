@@ -17,7 +17,7 @@
 #include <map>
 #include <string>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
@@ -74,7 +74,7 @@ public:
 /// Include the auto-generated header file containing the declarations of the
 /// ZHigh operations.
 #define GET_ATTRDEF_CLASSES
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.hpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.hpp.inc"
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"

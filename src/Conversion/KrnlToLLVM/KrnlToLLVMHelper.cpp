@@ -18,12 +18,11 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
 
-static const int32_t MinGlobalAlign = 16;
+static constexpr int32_t MinGlobalAlign = 16;
 
 // clang-format off
 // ASCII to EBCDIC IBM-1047 table.

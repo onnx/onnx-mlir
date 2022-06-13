@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXSequenceEraseOpLowering : public ConversionPattern {
   ONNXSequenceEraseOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -104,3 +106,5 @@ void populateLoweringONNXSequenceEraseOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSequenceEraseOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

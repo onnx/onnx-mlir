@@ -104,7 +104,7 @@ public:
  *  Function pass that optimizes ZLowIR.
  */
 class ZLowRewritePass
-    : public PassWrapper<ZLowRewritePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ZLowRewritePass, OperationPass<func::FuncOp>> {
 public:
   StringRef getArgument() const override { return "zlow-rewrite"; }
 

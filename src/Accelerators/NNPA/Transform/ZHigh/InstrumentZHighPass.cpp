@@ -15,7 +15,7 @@
 
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
@@ -60,8 +60,8 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             "instrument runtime reports memory usage")),
     llvm::cl::cat(OMNNPAPassOptions));
 
-class InstrumentZHighPass
-    : public mlir::PassWrapper<InstrumentZHighPass, OperationPass<FuncOp>> {
+class InstrumentZHighPass : public mlir::PassWrapper<InstrumentZHighPass,
+                                OperationPass<func::FuncOp>> {
 
 private:
   bool allOpsAllowed;

@@ -19,8 +19,12 @@ add_onnx_mlir_library(OMKrnlToLLVM
   RuntimeAPI.cpp
 
   LINK_LIBS PUBLIC
+  Accelerator
   OMSupport
   MLIRAffineToStandard
+  MLIRFunc
+  MLIRFuncToLLVM
+  MLIRFuncTransforms
   MLIRMathToLLVM
   MLIRMathTransforms
   MLIRMemRefToLLVM
@@ -28,8 +32,6 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRReconcileUnrealizedCasts
   MLIRSCFToControlFlow
   MLIRShapeToStandard
-  MLIRStandardOpsTransforms
-  MLIRStandardToLLVM
   MLIRVectorToLLVM
   onnx
   )

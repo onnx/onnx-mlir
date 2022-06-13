@@ -14,9 +14,11 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 /// Compute the intersection-over-union (IOU) score between two boxes.
 /// IOU tells us how much two boxes are overlapped.
@@ -107,6 +109,8 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   Value ss = ssIE.getValue();
   Value zero = create.math.constantIndex(0);
   Value one = create.math.constantIndex(1);
+  // Store the number of scores whose value is greater than the threshold.
+  Value topk = create.mem.alloca(MemRefType::get({}, indexType));
 
   // Compute the effective max output per class.
   Value effectiveMaxPerClass =
@@ -120,9 +124,8 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
             createKrnl);
         Value b(bcLoopInd[0]), c(bcLoopInd[1]);
 
-        // Store the number of scores whose value is greater than the
+        // Reset the number of scores whose value is greater than the
         // threshold. Counting is done per class.
-        Value topk = create.mem.alloca(MemRefType::get({}, indexType));
         create.krnl.store(zero, topk, {});
 
         // Count the number of scores whose value is greater than the
@@ -165,22 +168,22 @@ static Value tryToUnflip(
   IndexExpr ss = bbBounds.getDim(1); // spatial size.
   SmallVector<IndexExpr, 4> ubs;
   bbBounds.getDimList(ubs);
-  LiteralIndexExpr zero(0), one(1), two(2), three(3);
+  LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
       /*insertDealloc=*/false);
 
   ValueRange loopDef = createKrnl.defineLoops(2);
-  createKrnl.iterateIE(loopDef, loopDef, {zero, zero}, {bs, ss},
+  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
         DimIndexExpr b(loopInd[0]), s(loopInd[1]);
         // Load a bounding box.
-        Value y_min = createKrnl.loadIE(boundingBoxes, {b, s, zero});
-        Value x_min = createKrnl.loadIE(boundingBoxes, {b, s, one});
-        Value y_max = createKrnl.loadIE(boundingBoxes, {b, s, two});
-        Value x_max = createKrnl.loadIE(boundingBoxes, {b, s, three});
+        Value y_min = createKrnl.loadIE(boundingBoxes, {b, s, zeroIE});
+        Value x_min = createKrnl.loadIE(boundingBoxes, {b, s, oneIE});
+        Value y_max = createKrnl.loadIE(boundingBoxes, {b, s, twoIE});
+        Value x_max = createKrnl.loadIE(boundingBoxes, {b, s, threeIE});
 
         // Flip x.
         Value gtX = createMath.sgt(x_min, x_max);
@@ -193,10 +196,10 @@ static Value tryToUnflip(
         Value newYMax = createMath.select(gtY, y_min, y_max);
 
         // Update the bounding box.
-        createKrnl.storeIE(newYMin, resMemRef, {b, s, zero});
-        createKrnl.storeIE(newXMin, resMemRef, {b, s, one});
-        createKrnl.storeIE(newYMax, resMemRef, {b, s, two});
-        createKrnl.storeIE(newXMax, resMemRef, {b, s, three});
+        createKrnl.storeIE(newYMin, resMemRef, {b, s, zeroIE});
+        createKrnl.storeIE(newXMin, resMemRef, {b, s, oneIE});
+        createKrnl.storeIE(newYMax, resMemRef, {b, s, twoIE});
+        createKrnl.storeIE(newXMax, resMemRef, {b, s, threeIE});
       });
   return resMemRef;
 }
@@ -220,8 +223,13 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     // Common information.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
     Type indexType = rewriter.getIndexType();
     Type boolType = rewriter.getI1Type();
@@ -313,14 +321,14 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Suppress by using IOU.
     // Iterate over all bounding boxes in the descending order of scores.
+    Value effectiveMaxOutputPerClass =
+        create.mem.alloca(MemRefType::get({}, indexType));
     ValueRange bcLoopDef = create.krnl.defineLoops(2);
     create.krnl.iterate(bcLoopDef, bcLoopDef, {zero, zero}, {bs, cs},
         [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
               createKrnl);
           // Keep trace of the number of output boxes per class.
-          Value effectiveMaxOutputPerClass =
-              create.mem.alloca(MemRefType::get({}, indexType));
           create.krnl.store(zero, effectiveMaxOutputPerClass, {});
           // Keep trace of removed indices per class.
           DimIndexExpr ssIE(ss);
@@ -799,3 +807,5 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // # if __name__ == "__main__":
 // #     main()
 // clang-format on
+
+} // namespace onnx_mlir

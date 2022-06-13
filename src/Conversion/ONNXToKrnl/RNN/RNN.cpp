@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct RnnState {
   // returned states.
   Value allH;
@@ -256,7 +258,8 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 
 template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
-    ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op,
+    ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
 
@@ -265,11 +268,11 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y(),
       checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
       checkInsertDealloc(op->getOperation(), 1));
 
@@ -377,3 +380,5 @@ void populateLoweringONNXRNNOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack,
       RnnWeightPack, RnnBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

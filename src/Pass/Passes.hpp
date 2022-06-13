@@ -16,8 +16,6 @@
 
 #include <memory>
 
-using namespace mlir;
-
 namespace mlir {
 class Pass;
 }
@@ -25,75 +23,84 @@ class Pass;
 namespace onnx_mlir {
 
 /// Pass for ONNX graph level optimization
-std::unique_ptr<Pass> createONNXOpTransformPass();
-std::unique_ptr<Pass> createONNXOpTransformPass(int threshold);
+std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
+    int threshold, bool report);
 
 /// Pass for rewriting inside frontend dialect.
-std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
 
 /// pass for ONNX to Leaky relu
-std::unique_ptr<Pass> createONNXToAtenConstantOpTransformPass();
-std::unique_ptr<Pass> createONNXToAtenLeakyReluOpTransformPass();
-std::unique_ptr<Pass> createONNXToAtenMaxPool2dOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenConstantOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenLeakyReluOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenMaxPool2dOpTransformPass();
 
 /// Pass for ONNX to Aten conv2d operation
-std::unique_ptr<Pass> createONNXToAtenConv2DOpTransformPass();
-std::unique_ptr<Pass> createONNXToAtenConstantPadNdOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenConv2DOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenConstantPadNdOpTransformPass();
 
-std::unique_ptr<Pass> createShapeInferencePass(
+std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
-std::unique_ptr<Pass> createConstPropONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
 /// Pass for eliding the values of constant operations.
-std::unique_ptr<Pass> createElideConstantValuePass();
+std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 
 /// Pass for instrument the Onnx ops
-std::unique_ptr<Pass> createInstrumentONNXPass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
+    llvm::StringRef ops, int actions);
 
 /// Pass for verifying Onnx ops before lowering to Krnl
-std::unique_ptr<Pass> createONNXPreKrnlVerifyPass();
+std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
-std::unique_ptr<Pass> createLowerToKrnlPass();
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
-std::unique_ptr<Pass> createLowerToKrnlPass(
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass(int optLevel);
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
 
 /// Add pass for lowering to Torch IR.
-std::unique_ptr<Pass> createLowerToTorchPass();
-std::unique_ptr<Pass> createLowerToTorchPass(int optLevel);
+std::unique_ptr<mlir::Pass> createLowerToTorchPass();
+std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
 
 /// Pass for ONNX to Aten Types Transform
-std::unique_ptr<Pass> createONNXToAtenTypesTransformPass();
-std::unique_ptr<Pass> createONNXToAtenFinalizeTypesTransformPass();
-std::unique_ptr<Pass> createONNXToAtenModifyMainFunctionPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenTypesTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenFinalizeTypesTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
 
 /// Pass for lowering krnl.dim operations to standard dialect.
-std::unique_ptr<Pass> createDisconnectKrnlDimFromAllocPass();
+std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();
 
 /// Pass for lowering krnl.shape operation.
-std::unique_ptr<Pass> createLowerKrnlShapePass();
+std::unique_ptr<mlir::Pass> createLowerKrnlShapePass();
 
 /// Pass for eliding the values of global Krnl operations.
-std::unique_ptr<Pass> createElideConstGlobalValuePass();
+std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
 namespace krnl {
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<Pass> createConvertKrnlToAffinePass();
+std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
 
 /// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
+std::unique_ptr<mlir::Pass> createKrnlEnableMemoryPoolPass();
 
 /// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
+std::unique_ptr<mlir::Pass> createKrnlBundleMemoryPoolsPass();
 
 /// Pass for optimizing memory pools.
-std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
+std::unique_ptr<mlir::Pass> createKrnlOptimizeMemoryPoolsPass();
+
+/// Pass for lowering Seq in Krnl dialect.
+std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();
+
+/// Pass for lowering krnl.region operation.
+std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
+std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 
 } // namespace krnl
 

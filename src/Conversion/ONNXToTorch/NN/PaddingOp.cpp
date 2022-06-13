@@ -99,7 +99,7 @@ public:
     Value constValue = op1.constant_value(); // ONNX operands
 
     // creating the DenseElementsAttr using pads values.
-    DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
+    DenseElementsAttr denseAttr = onnx_mlir::getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
@@ -147,7 +147,7 @@ public:
             loc, dataType, data);
 
     DenseElementsAttr valueAttr =
-        getDenseElementAttributeFromONNXValue(constValue);
+        onnx_mlir::getDenseElementAttributeFromONNXValue(constValue);
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
     auto valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     auto floatVal =

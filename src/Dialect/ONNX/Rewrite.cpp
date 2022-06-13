@@ -21,20 +21,13 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// If 'lhs' is not NoneType, return 'lhs - rhs'.
-// Otherwise, return '-rhs'.
-Value subtractOrNeg(
-    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
-  if (lhs.getType().isa<NoneType>()) {
-    Value result = rewriter.create<ONNXNegOp>(loc, rhs);
-    return result;
-  } else {
-    Value result = rewriter.create<ONNXSubOp>(loc, lhs, rhs);
-    return result;
-  }
+// If 'A' is NoneType, return -B. Otherwise return A-B.
+Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
+  if (A.getType().isa<NoneType>())
+    return rewriter.create<ONNXNegOp>(loc, B);
+  return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
@@ -63,13 +56,50 @@ Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
       resShape, A.getType().cast<ShapedType>().getElementType());
 }
 
+// Get the index of the axis value in the given permutation array.
+IntegerAttr getIndexOfAxisInPerm(
+    PatternRewriter &rewriter, ArrayAttr permAttr, IntegerAttr axis) {
+  IntegerAttr result;
+  for (uint64_t i = 0; i < permAttr.getValue().size(); ++i) {
+    IntegerAttr attr = permAttr.getValue()[i].cast<IntegerAttr>();
+    assert(attr && "Element in ArrayAttr is not IntegerAttr");
+    if (attr.getValue().getSExtValue() == axis.getValue().getSExtValue())
+      return rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), i);
+  }
+  return result;
+}
+
+// Transpose a variadic input using a permutation array.
+SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
+    Location loc, ValueRange inputs, ArrayAttr permAttr) {
+  SmallVector<Value, 4> transposedInputs;
+  for (Value inp : inputs) {
+    ShapedType inpType = inp.getType().cast<ShapedType>();
+    assert(inpType && "Type is not ShapedType");
+    ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
+        loc, UnrankedTensorType::get(inpType.getElementType()), inp, permAttr);
+    (void)transposeOp.inferShapes([](Region &region) {});
+    transposedInputs.emplace_back(transposeOp.getResult());
+  }
+  return transposedInputs;
+}
+
+// Check if all values are produced by ONNXTransposeOp.
+bool areProducedByTransposeOp(ValueRange values) {
+  return llvm::all_of(values, [](Value v) {
+    if (v.isa<BlockArgument>())
+      return false;
+    return isa<ONNXTransposeOp>(v.getDefiningOp());
+  });
+}
+
+} // namespace onnx_mlir
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
-} // end anonymous namespace
-
 /// Register optimization patterns as "canonicalization" patterns
-/// on the ONNXMatMultOp.
+/// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeAddPattern>(context);
@@ -77,6 +107,13 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+/// on the ONNXMulOp.
+void ONNXMulOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeMulPattern>(context);
+  results.insert<FuseMulConvNullBiasPattern>(context);
 }
 
 /// on the ONNXIdentityOp.
@@ -96,6 +133,7 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
+  result.insert<SwapTransposeConcatPattern>(context);
 }
 
 /// on the ONNXReshapeOp.
@@ -166,7 +204,7 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
   results.insert<GlobalMaxPoolPattern>(context);
 }
 
-/// on the ONNXSizeOp.
+/// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConstantOpNormalizationPattern1>(context);

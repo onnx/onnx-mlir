@@ -21,7 +21,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/InitAllDialects.h"
-#include "mlir/Parser.h"
+#include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallVector.h"
@@ -29,23 +29,10 @@
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
-
-extern const std::string OnnxMlirEnvOptionName;
-extern llvm::cl::OptionCategory OnnxMlirOptions;
-extern llvm::cl::opt<std::string> instrumentONNXOps;
-
-// Options support for OMCompilerOptions.
-using CompilerOptionList =
-    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
-
-// Return 0 on success. These functions are not thread-safe and should be called
-// by a single program thread.
-int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
-int setCompilerOptions(const CompilerOptionList &list);
-
-std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module);

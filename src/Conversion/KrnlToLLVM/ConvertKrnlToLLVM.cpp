@@ -17,6 +17,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
@@ -24,16 +25,15 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -46,6 +46,7 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
@@ -61,8 +62,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-void checkConstantOutputs(
-    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
+void determineOwnershipForOutputOMTensors(
+    ModuleOp &module, SmallVectorImpl<bool> &outputOMTensorOwnerships) {
   Operation *entryPointOp;
   auto walkResult = module->walk([&](mlir::Operation *op) -> WalkResult {
     if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
@@ -86,7 +87,7 @@ void checkConstantOutputs(
 
   // Get entry function op.
   Operation *entryFunc;
-  module->walk([&](FuncOp op) -> WalkResult {
+  module->walk([&](func::FuncOp op) -> WalkResult {
     if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
       entryFunc = op;
       return WalkResult::interrupt();
@@ -98,7 +99,7 @@ void checkConstantOutputs(
   // Get ReturnOp of the entry function op.
   Operation *returnOp;
   entryFunc->walk([&](Operation *op) -> WalkResult {
-    if (llvm::dyn_cast<ReturnOp>(op)) {
+    if (llvm::dyn_cast<func::ReturnOp>(op)) {
       returnOp = op;
       return WalkResult::interrupt();
     }
@@ -106,13 +107,14 @@ void checkConstantOutputs(
   });
 
   // Check, for each output, if it was transitively produced by a constant or
-  // not.
+  // a block argument.
   for (Value v : returnOp->getOperands()) {
-    bool isConstant = false;
+    bool shouldOwn = true;
     Operation *definingOp = v.getDefiningOp();
     if (!definingOp)
-      // Block argument, not a constant.
-      isConstant = false;
+      // Block argument, do not own this since it is an input that can be owned
+      // by an input OMTensor.
+      shouldOwn = false;
     else {
       // If output is just a view, trace back to find which op was producing the
       // source memref.
@@ -124,15 +126,17 @@ void checkConstantOutputs(
           break;
       }
       if (!definingOp)
-        // Block argument, not a constant.
-        isConstant = false;
+        // Block argument, do not own this since it is an input that can be
+        // owned by an input OMTensor.
+        shouldOwn = false;
       else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
-        // A constant defined by KrnlGlobalOp.
-        isConstant = true;
+        // Do not own a constant that is defined by KrnlGlobalOp.
+        shouldOwn = false;
     }
-    constantOutputs.emplace_back(isConstant);
+    outputOMTensorOwnerships.emplace_back(shouldOwn);
     LLVM_DEBUG(llvm::dbgs()
-               << "Is entry function output constant? " << isConstant << "\n");
+               << "Should the OMTensor own the entry function output? "
+               << shouldOwn << "\n");
   }
 }
 
@@ -162,7 +166,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateMathPolynomialApproximationPatterns(patterns);
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
@@ -228,8 +232,8 @@ void recordEntryPointSignatures(ModuleOp &module,
 
 /// This function emits three functions: omQueryEntryPoints, omInputSignature
 /// and omOutputSignature.
-/// - omQueryEntryPoints has type of `**i8 ()` to query an array of entry point
-/// names.
+/// - omQueryEntryPoints has type of `**i8 (*i64)` to query an array of entry
+/// point names.
 /// - omInputSignature and omOutputSignature have type of type `*i8 (*i8)` to
 /// return input and output signatures of the given entry point.
 void genSignatureFunction(ModuleOp module,
@@ -244,6 +248,7 @@ void genSignatureFunction(ModuleOp module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
+  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
   Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
   Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
   IntegerAttr zeroI32Attr = b.getI32IntegerAttr(0);
@@ -327,19 +332,54 @@ void genSignatureFunction(ModuleOp module,
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
   }
 
-  // Emit a function, omQueryEntryPoints, of type `**8 ()` to query an array of
-  // entry point names.
+  // Emit a function, omQueryEntryPoints, of type `**i8 (*i64)` to query an
+  // array of entry point names.
   {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
     // Emit the function type.
-    Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrPtrTy, {}, false);
+    Type llvmFnType =
+        LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
     LLVM::LLVMFuncOp funcOp =
         b.create<LLVM::LLVMFuncOp>(loc, "omQueryEntryPoints", llvmFnType);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
+    Value numOfEntryPoints = entryBlock->getArgument(0);
+    // If the argument is not NULL, update its value to return the number of
+    // entry points.
+    Block *condBlock = b.getInsertionBlock();
+    Block *trueBlock = condBlock->splitBlock(b.getInsertionPoint());
+    Block *falseBlock = b.createBlock(
+        trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
+    Block *endBlock = b.createBlock(
+        falseBlock->getParent(), std::next(Region::iterator(falseBlock)));
+    // Emit code for the condition block: test NULL.
+    b.setInsertionPointToEnd(condBlock);
+    Value nullPtr = b.create<LLVM::NullOp>(loc, i64PtrTy);
+    Value found = b.create<LLVM::ICmpOp>(
+        loc, LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
+    // Branch the block into the true and false blocks.
+    b.create<LLVM::CondBrOp>(
+        loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
+
+    // Emit code for the true block: update the value.
+    b.setInsertionPointToStart(trueBlock);
+    Value zero = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
+    Value numOfEntryPointsPtr = b.create<LLVM::GEPOp>(
+        loc, i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
+    Value noep = b.create<LLVM::ConstantOp>(
+        loc, i64Type, b.getI64IntegerAttr(entryOps.size()));
+    b.create<LLVM::StoreOp>(loc, noep, numOfEntryPointsPtr);
+    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
+
+    // Emit code for the false block: do nothing.
+    b.setInsertionPointToStart(falseBlock);
+    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
+
+    // Emit code for the end block to return the entry point array.
+    b.setInsertionPointToStart(endBlock);
     Value entryAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
     Value entryI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, entryAddr);
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({entryI8Ptr}));
@@ -412,7 +452,6 @@ void genSignatureFunction(ModuleOp module,
       // Equal if strncmp returns `0`.
       Value found = b.create<LLVM::ICmpOp>(
           loc, LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
-      llvm::SmallVector<Value, 1> results = {entryI8Ptr};
       // Branch the block into the true and false blocks.
       b.create<LLVM::CondBrOp>(
           loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
@@ -426,9 +465,11 @@ void genSignatureFunction(ModuleOp module,
 
       // Emit code for the false block.
       b.setInsertionPointToStart(falseBlock);
-      if (j == numOfEntryPoints - 1)
-        b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-      else {
+      if (j == numOfEntryPoints - 1) {
+        // Return NULL if the entry point name is not found.
+        Value nullPtr = b.create<LLVM::NullOp>(loc, i8PtrTy);
+        b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+      } else {
         // Recursively do with the other entry point names.
         condBlock = b.getInsertionBlock();
         trueBlock = condBlock->splitBlock(b.getInsertionPoint());
@@ -445,6 +486,7 @@ void genSignatureFunction(ModuleOp module,
 
 struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToLLVMPass)
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
 
@@ -462,9 +504,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
   options.emitCWrappers = true;
 
-  // Determine, for each output, whether it is a constant or not.
-  SmallVector<bool, 4> constantOutputs;
-  checkConstantOutputs(module, constantOutputs);
+  // Determine whether an output OMTensor should own the underlying buffer or
+  // not.
+  SmallVector<bool, 4> outputOMTensorOwnerships;
+  determineOwnershipForOutputOMTensors(module, outputOMTensorOwnerships);
 
   // Record entry point names and their input/output signatures.
   // This info is used to generate global signature functions.
@@ -477,6 +520,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
+
+  // Conversion target for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->conversionTargetKrnlToLLVM(target);
 
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(ctx, options);
@@ -503,8 +550,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   RewritePatternSet patterns(ctx);
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
-      constantOutputs,
+      outputOMTensorOwnerships,
       /*singleEntryPoint=*/entryPointNames.size() == 1);
+
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
@@ -525,14 +576,16 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> constantOutputs, bool singleEntryPoint) {
+    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
   krnl::populateLoweringKrnlEntryPointOpPattern(
-      typeConverter, patterns, ctx, constantOutputs, singleEntryPoint);
+      typeConverter, patterns, ctx, outputOMTensorOwnerships, singleEntryPoint);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlPrintTensorOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlVectorTypeCastOpPattern(
       typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlRandomNormalOpPattern(typeConverter, patterns, ctx);

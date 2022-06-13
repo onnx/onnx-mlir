@@ -94,6 +94,10 @@ struct TransformValueToONNXData<bool> {
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+  // Return an emtpy array if the raw data is empty.
+  if (initializer.dims().size() == 1 && initializer.dims().data()[0] == 0)
+    return std::vector<T>();
+
   size_t size;
   if (initializer.raw_data().size()) {
     // Copy & take care of endianness.

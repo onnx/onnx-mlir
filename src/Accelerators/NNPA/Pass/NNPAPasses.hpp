@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <memory>
+#include "mlir/Pass/Pass.h"
 
 namespace onnx_mlir {
 
@@ -34,16 +34,6 @@ std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
 
 namespace zhigh {
 
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass();
-
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass(int optLevel);
-
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass(
-    bool emitDealloc, bool enableTiling);
-
 /// Pass for layout propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 
@@ -60,11 +50,8 @@ namespace zlow {
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
 
-/// Add pass for lowering ZLow ops to LLVM.
-std::unique_ptr<mlir::Pass> createZLowToLLVMPass();
-
-/// Add pass for lowering ZLow ops to LLVM.
-std::unique_ptr<mlir::Pass> createZLowToLLVMPass();
+/// Add pass for rewriting ZLow ops.
+std::unique_ptr<mlir::Pass> createZLowDummyOpForMultiDerefPass();
 
 } // namespace zlow
 } // namespace onnx_mlir

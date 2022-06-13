@@ -77,6 +77,9 @@ def CreateNegOfConst :
 def CreateSqrtOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSqrtOp>($_builder, $0, $1)">;
 
+def CreateReluOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReluOp>($_builder, $0, $1)">;
+
 def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
@@ -197,6 +200,14 @@ def SqrtofConst :  Pat<
     (ONNXSqrtOp:$sqrtOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To sqrt(c)
     (CreateSqrtOfConst $sqrtOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Relu
+def ReluofConst :  Pat<
+    // From  onnx.Relu(c)
+    (ONNXReluOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To relu(c)
+    (CreateReluOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
  
 //===----------------------------------------------------------------------===//

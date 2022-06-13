@@ -19,10 +19,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
@@ -30,6 +31,7 @@
 #include "ElideKrnlGlobalConstants.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 constexpr uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold;
 
@@ -79,9 +81,11 @@ namespace {
 /*!
  *  Function pass that performs constant value elision of Krnl globals.
  */
-class ElideConstGlobalValuePass
-    : public PassWrapper<ElideConstGlobalValuePass, OperationPass<FuncOp>> {
+class ElideConstGlobalValuePass : public PassWrapper<ElideConstGlobalValuePass,
+                                      OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstGlobalValuePass)
+
   StringRef getArgument() const override { return "elide-krnl-constants"; }
 
   StringRef getDescription() const override {

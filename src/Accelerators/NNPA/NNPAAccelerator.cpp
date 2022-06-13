@@ -12,60 +12,134 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Support/OMOptions.hpp"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "NNPACompiler"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
+#include "zdnn.h"
+
+#include <memory>
+
+#define DEBUG_TYPE "NNPAAccelerator"
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
 
 namespace onnx_mlir {
 namespace accel {
-namespace nnpa {
 
-NNPAAccelerator::NNPAAccelerator() : Accelerator() {
-  LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
+Accelerator *createNNPA() { return NNPAAccelerator::getInstance(); }
 
-  if (!initialized) {
-    initialized = true;
-    // getAcceleratorList()->push_back(this);
-  } // else
-    // getAcceleratorList()->push_back(this);
+NNPAAccelerator *NNPAAccelerator::instance = nullptr;
+
+NNPAAccelerator *NNPAAccelerator::getInstance() {
+  if (instance == nullptr)
+    instance = new NNPAAccelerator();
+  return instance;
+}
+
+NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
+  LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
+  acceleratorTargets.push_back(this);
+  // Order is important! libRuntimeNNPA depends on libzdnn
+  addCompilerConfig(CCM_SHARED_LIB_DEPS, {"RuntimeNNPA", "zdnn"});
 };
 
-bool NNPAAccelerator::isActive() const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "check if NNPA is active" << acceleratorTarget << "\n");
-  if (acceleratorTarget.compare("NNPA") == 0) {
-    LLVM_DEBUG(llvm::dbgs() << "Targeting NNPA accelerator\n");
-    return true;
-  }
+NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
-  return false;
-}
+uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType emissionTarget) const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
-
-  // Load our Dialect in this MLIR Context.
+void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
+  LLVM_DEBUG(llvm::dbgs() << "Loading dialects for NNPA accelerator\n");
   context.getOrLoadDialect<zhigh::ZHighDialect>();
   context.getOrLoadDialect<zlow::ZLowDialect>();
-  addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
 
-bool NNPAAccelerator::initialized = false;
-NNPAAccelerator nnpaAccelerator;
+void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType &emissionTarget) const {
+  LLVM_DEBUG(llvm::dbgs() << "Adding passes for NNPA accelerator\n");
+  addPassesNNPA(module, pm, emissionTarget);
+}
 
-} // namespace nnpa
+void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
+  LLVM_DEBUG(llvm::dbgs() << "Registering dialects for NNPA accelerator\n");
+  registry.insert<zhigh::ZHighDialect>();
+  registry.insert<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::initPasses(int optLevel) const {
+  LLVM_DEBUG(llvm::dbgs() << "Initializing passes for NNPA accelerator\n");
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createONNXToZHighPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createRewriteONNXForZHighPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowRewritePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowDummyOpForMultiDerefPass();
+  });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighConstPropagationPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighLayoutPropagationPass();
+  });
+}
+
+mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
+    const mlir::TensorType tensorType) const {
+  assert(tensorType.hasRank() && "expected only ranked shapes");
+  if (tensorType.cast<mlir::RankedTensorType>()
+          .getEncoding()
+          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>()) {
+    onnx_mlir::zhigh::ZMemRefType zMemRefType =
+        onnx_mlir::zhigh::convertZTensorToMemRefType(tensorType);
+    return zMemRefType.value;
+  }
+  return nullptr;
+}
+
+void NNPAAccelerator::conversionTargetONNXToKrnl(
+    mlir::ConversionTarget &target) const {
+  target.addLegalDialect<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::rewritePatternONNXToKrnl(
+    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
+    mlir::MLIRContext *ctx) const {
+  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
+      patterns, typeConverter, ctx);
+}
+
+void NNPAAccelerator::conversionTargetKrnlToLLVM(
+    mlir::ConversionTarget &target) const {}
+
+void NNPAAccelerator::rewritePatternKrnlToLLVM(
+    mlir::RewritePatternSet &patterns, mlir::LLVMTypeConverter &typeConverter,
+    mlir::MLIRContext *ctx) const {
+  onnx_mlir::zlow::populateZLowToLLVMConversionPattern(
+      patterns, typeConverter, ctx);
+}
+
 } // namespace accel
 } // namespace onnx_mlir

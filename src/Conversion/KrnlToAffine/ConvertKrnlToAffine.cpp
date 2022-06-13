@@ -13,15 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -568,6 +569,31 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   return success();
 }
 
+AffineTypeConverter::AffineTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
@@ -576,7 +602,8 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
-    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToAffinePass);
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
 
@@ -586,8 +613,8 @@ struct ConvertKrnlToAffinePass
 };
 
 void ConvertKrnlToAffinePass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (funcOp.body().empty()) // external function: nothing to do
+  func::FuncOp funcOp = getOperation();
+  if (funcOp.getBody().empty()) // external function: nothing to do
     return;
 
   MLIRContext *ctx = &getContext();
@@ -601,14 +628,12 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    LogicalResult res =
-        moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
-    assert(succeeded(res) && "failed to move loop invariant code");
+    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
 
   // We use the end of the function body as a staging area for movable ops.
-  builder.setInsertionPoint(
-      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
+  builder.setInsertionPoint(&funcOp.getBody().front(),
+      funcOp.getBody().front().without_terminator().end());
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
@@ -660,13 +685,12 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::memref::MemRefDialect, func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Patterns.
   RewritePatternSet patterns(ctx);
-  LLVMTypeConverter typeConverter(ctx, options);
-  customizeTypeConverter(typeConverter);
+  AffineTypeConverter typeConverter;
 
   populateKrnlToAffineConversion(typeConverter, patterns, ctx);
 
@@ -708,7 +732,7 @@ std::unique_ptr<Pass> createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }
 
-void populateKrnlToAffineConversion(LLVMTypeConverter &typeConverter,
+void populateKrnlToAffineConversion(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   krnl::populateLoweringKrnlCopyFromBufferOpPattern(
       typeConverter, patterns, ctx);
