@@ -83,14 +83,6 @@ else()
   set(BACKEND_TEST_ARGS "")
 endif()
 
-set(LD_PRELOADS $<TARGET_FILE:cruntime>)
-
-get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
-set(LIBSTDCXX_LIB "${CXX_BIN_DIR}/../lib64/libstdc++.so")
-if (EXISTS ${LIBSTDCXX_LIB})
-  set(LD_PRELOADS ${LIBSTDCXX_LIB}:${LD_PRELOADS})
-endif()
-
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
 # C/C++ and JNI tests run in parallel so they must use a different

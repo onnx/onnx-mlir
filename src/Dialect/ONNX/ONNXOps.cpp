@@ -1686,6 +1686,56 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ReduceL1
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceL1Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForReductionOps<ONNXReduceL1Op, ONNXReduceL1OpAdaptor>(
+      *this);
+}
+
+//===----------------------------------------------------------------------===//
+// ReduceL2
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceL2Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForReductionOps<ONNXReduceL2Op, ONNXReduceL2OpAdaptor>(
+      *this);
+}
+
+//===----------------------------------------------------------------------===//
+// ReduceLogSum
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceLogSumOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForReductionOps<ONNXReduceLogSumOp,
+      ONNXReduceLogSumOpAdaptor>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// ReduceLogSumExp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceLogSumExpOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForReductionOps<ONNXReduceLogSumExpOp,
+      ONNXReduceLogSumExpOpAdaptor>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// ReduceSumSquare
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceSumSquareOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForReductionOps<ONNXReduceSumSquareOp,
+      ONNXReduceSumSquareOpAdaptor>(*this);
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceSum
 //===----------------------------------------------------------------------===//
 
@@ -3755,7 +3805,8 @@ LogicalResult ONNXBatchNormalizationOp::inferShapes(
 
 LogicalResult ONNXBitShiftOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  return inferShapeForBroadcastingOps<ONNXBitShiftOp, ONNXBitShiftOpAdaptor>(
+      *this);
 }
 
 LogicalResult ONNXCeilOp::inferShapes(
@@ -4064,7 +4115,7 @@ LogicalResult ONNXIsInfOp::inferShapes(
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXIsNaNOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(operandAdaptor.X()))
     return success();
 
   ArrayRef<int64_t> inputShape = X().getType().cast<ShapedType>().getShape();
@@ -4108,12 +4159,14 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXLpNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXLpPoolOp::inferShapes(
@@ -4148,7 +4201,8 @@ LogicalResult ONNXMeanOp::inferShapes(
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXModOp::verify() {
@@ -4519,31 +4573,6 @@ LogicalResult ONNXReverseSequenceOp::verify() {
   return success();
 }
 
-LogicalResult ONNXReduceL1Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReduceL2Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReduceLogSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReduceLogSumExpOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -4751,6 +4780,24 @@ LogicalResult ONNXScatterElementsOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXScatter
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXScatterOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer the shape of the output if the input shape is not yet known.
+  if (!hasShapeAndRank(data()))
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXScatterElements
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the input shape is not yet known.
@@ -4862,7 +4909,8 @@ LogicalResult ONNXScatterNDOp::inferShapes(
 
 LogicalResult ONNXShrinkOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -4924,7 +4972,8 @@ LogicalResult ONNXTfIdfVectorizerOp::inferShapes(
 
 LogicalResult ONNXThresholdedReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -5173,7 +5222,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXScatterOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)

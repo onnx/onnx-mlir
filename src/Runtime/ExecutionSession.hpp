@@ -40,14 +40,16 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * EINVAL when it expected an entry point prior to executing a specific
  * function.
  * EPERM when the model executed on a machine without a compatible
- * hardware/specialzed accelerator.
+ * hardware/specialized accelerator.
  */
 class ExecutionSession {
 public:
+  // Create an execution session using the model given in sharedLibPath.
+  // This path must point to the actual file, local directory is not searched.
   ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
-  // For example {"run_addition, "run_substraction", NULL}
+  // For example {"run_addition, "run_subtraction", NULL}
   // In order to get the number of entry points, pass an integer pointer to the
   // function.
   const std::string *queryEntryPoints(int64_t *numOfEntryPoints) const;

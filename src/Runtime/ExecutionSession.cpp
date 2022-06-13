@@ -21,8 +21,10 @@
 #include <sstream>
 #include <vector>
 
-#include "ExecutionSession.hpp"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
+
+#include "ExecutionSession.hpp"
 
 namespace onnx_mlir {
 const std::string ExecutionSession::_queryEntryPointsName =
@@ -32,6 +34,7 @@ const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
+
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
