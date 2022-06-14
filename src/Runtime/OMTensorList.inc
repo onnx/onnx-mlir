@@ -17,36 +17,15 @@
 #include <stdlib.h>
 #else
 #include <malloc.h>
-#include <stdlib.h>
 #endif
 
 #ifdef __cplusplus
 #include <cassert>
-#include <cerrno>
-#include <cstdio>
-#include <cstring>
 #else
 #include <assert.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
 #endif
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
-
-#if defined(_WIN32) || defined(_WIN64)
-// strndup() is not available on Windows.
-char *strndup(const char *s, size_t n) {
-  size_t slen = (size_t)strlen(s);
-  int len = slen < n ? slen : n;
-  char *copy = (char *)malloc(len + 1);
-  if (copy) {
-    memcpy(copy, s, len);
-    copy[len] = '\0';
-  }
-  return copy;
-};
-#endif
 
 struct OMTensorList {
 #ifdef __cplusplus
@@ -140,15 +119,4 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
   assert(index >= 0);
   assert(index < rlist->_size);
   return rlist->_omts[index];
-}
-
-/* Helper function to create a sub-string between the start and end strings */
-static inline char *createSubStr(
-    char *str, const char *start, const char *end) {
-  char *startPos = strstr(str, start);
-  char *endPos = strstr(str, end);
-  char *p;
-  return (startPos && endPos && (p = startPos + strlen(start)) < endPos)
-             ? strndup(p, endPos - p)
-             : NULL;
 }

@@ -105,14 +105,14 @@ private:
     if (!inputNames) {
       SmallVector<StringRef, 4> names;
       for (uint64_t i = 0; i < inputs.size(); ++i)
-        names.emplace_back(StringRef("input" + std::to_string(i)));
+        names.emplace_back(StringRef("input_" + std::to_string(i)));
       inputNames = b.getStrArrayAttr(names);
     }
     ArrayAttr outputNames = op->getAttrOfType<ArrayAttr>("output_names");
     if (!outputNames) {
       SmallVector<StringRef, 4> names;
       for (uint64_t i = 0; i < outputs.size(); ++i)
-        names.emplace_back(StringRef("output" + std::to_string(i)));
+        names.emplace_back(StringRef("output_" + std::to_string(i)));
       outputNames = b.getStrArrayAttr(names);
     }
 
