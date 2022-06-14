@@ -16,7 +16,9 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Parser/Parser.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Support/JSON.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -177,9 +179,14 @@ public:
 
     // Emit code to verify every tensor in the wrapped input, e.g. verifying
     // shape and data type.
-    if (verifyInputTensors)
+    if (verifyInputTensors) {
+      StringAttr sigAttr = op->getAttrOfType<StringAttr>(
+          KrnlEntryPointOp::getSignatureAttrName());
+      llvm::StringRef inSigJSON;
+      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
       emitVerificationCodeForInputTensors(
-          rewriter, loc, apiRegistry, wrappedInput, inSigGlobalOps);
+          rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
+    }
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
@@ -451,45 +458,111 @@ private:
     return SymbolRefAttr::get(ctx, funcName);
   }
 
-  void emitVerificationCodeForInputTensors(PatternRewriter &rewriter,
-      Location loc, const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
-      const SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps) const {
-    Type int64Ty = rewriter.getI64Type();
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
-
-    // Split the current block into IF, THEN, ELSE blocks.
-    Block *ifBlock, *thenBlock, *elseBlock;
+  // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
+  void equalOrFailed(
+      PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) const {
+    // Split the current block into IF, THEN, END blocks.
+    Block *ifBlock, *thenBlock, *endBlock;
     ifBlock = rewriter.getInsertionBlock();
     thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
-    elseBlock = rewriter.createBlock(
+    endBlock = rewriter.createBlock(
         thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
 
     // Emit code for the IF block.
     rewriter.setInsertionPointToEnd(ifBlock);
-    LLVM::GlobalOp inSigGlobalOp = inSigGlobalOps[KRNL_ENTRY_POINT_ID - 1];
-    Value zeroI64 = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(0));
-    Value inSigGlobalPtrAddr =
-        rewriter.create<LLVM::AddressOfOp>(loc, inSigGlobalOp);
-    LLVM::GEPOp inSigGlobalPtr = rewriter.create<LLVM::GEPOp>(loc, opaquePtrTy,
-        inSigGlobalPtrAddr, ArrayRef<Value>({zeroI64, zeroI64}));
-    Value verifyResult = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::VERIFY_OMTENSOR_LIST_TYPE,
-        {wrappedInput, inSigGlobalPtr});
-    // Condition: if (omTensorListVerifyType() == 0) then ... else ...
-    Value failed = rewriter.create<LLVM::ICmpOp>(
-        loc, LLVM::ICmpPredicate::eq, verifyResult, zeroI64);
-    // Branch the block into the THEN and ELSE blocks.
+    Value failed =
+        rewriter.create<LLVM::ICmpOp>(loc, LLVM::ICmpPredicate::ne, lhs, rhs);
+
+    // Branch the block into the THEN and END blocks.
     rewriter.create<LLVM::CondBrOp>(
-        loc, failed, thenBlock, ValueRange(), elseBlock, ValueRange());
+        loc, failed, thenBlock, ValueRange(), endBlock, ValueRange());
 
     // Emit code for the THEN block: return NULL.
     rewriter.setInsertionPointToStart(thenBlock);
-    Value nullPtr = rewriter.create<LLVM::NullOp>(loc, opaquePtrTy);
+    Value nullPtr = rewriter.create<LLVM::NullOp>(
+        loc, LLVM::LLVMPointerType::get(rewriter.getI8Type()));
     rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
 
-    // Emit code for the ELSE block: continue with other generated code.
-    rewriter.setInsertionPointToStart(elseBlock);
+    // Emit code for the END block: continue with other generated code.
+    rewriter.setInsertionPointToStart(endBlock);
+  }
+
+  void emitVerificationCodeForInputTensors(PatternRewriter &rewriter,
+      Location loc, const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+      StringRef inSigJSON) const {
+    Type int64Ty = rewriter.getI64Type();
+    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
+
+    auto JSONInput = llvm::json::parse(inSigJSON.data());
+    assert(JSONInput && "failed to parse json");
+    auto JSONArray = JSONInput->getAsArray();
+    assert(JSONArray && "failed to parse json as array");
+    int64_t inputNum = JSONArray->size();
+
+    // Verify the number of inputs.
+    equalOrFailed(rewriter, loc,
+        rewriter.create<LLVM::ConstantOp>(
+            loc, int64Ty, rewriter.getI64IntegerAttr(inputNum)),
+        RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}));
+
+    // Get a pointer to the list of input omTensors.
+    Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
+    for (int i = 0; i < inputNum; ++i) {
+      // Call API function to retrieve the i-th omTensor.
+      Value idxVal = rewriter.create<LLVM::ConstantOp>(
+          loc, int64Ty, rewriter.getI64IntegerAttr(i));
+      Value omTensorPtrAddr =
+          rewriter
+              .create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(opaquePtrTy),
+                  omTensorPtrArr, ArrayRef<Value>({idxVal}))
+              .getResult();
+      Value omTensorPtr =
+          rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omTensorPtrAddr)
+              .getResult();
+
+      // Verify data type.
+      auto JSONItem = (*JSONArray)[i].getAsObject();
+      auto JSONItemType = JSONItem->getString("type");
+      assert(JSONItemType && "failed to get type");
+      Type elemTy = parseType(JSONItemType.getValue(), rewriter.getContext());
+      onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
+      equalOrFailed(rewriter, loc,
+          rewriter.create<LLVM::ConstantOp>(
+              loc, int64Ty, rewriter.getI64IntegerAttr(dtype)),
+          RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+              RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}));
+
+      // Verify data rank.
+      auto JSONDimArray = JSONItem->getArray("dims");
+      int64_t rank = JSONDimArray->size();
+      equalOrFailed(rewriter, loc,
+          rewriter.create<LLVM::ConstantOp>(
+              loc, int64Ty, rewriter.getI64IntegerAttr(rank)),
+          RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+              RuntimeAPI::API::GET_DATA_RANK, {omTensorPtr}));
+
+      // Verify dimensions.
+      Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+          RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
+      for (int d = 0; d < rank; ++d) {
+        auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
+        assert(JSONDimValue && "failed to get value");
+        int64_t dim = JSONDimValue.getValue();
+        if (dim == -1)
+          continue; // do not verify dynamic dimensions.
+        Value dimIdx = rewriter.create<LLVM::ConstantOp>(
+            loc, int64Ty, rewriter.getI64IntegerAttr(d));
+        equalOrFailed(rewriter, loc,
+            rewriter.create<LLVM::ConstantOp>(
+                loc, int64Ty, rewriter.getI64IntegerAttr(dim)),
+            rewriter.create<LLVM::LoadOp>(loc, int64Ty,
+                rewriter.create<LLVM::GEPOp>(loc,
+                    LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
+                    ArrayRef<Value>({dimIdx}))));
+      }
+    }
   }
 
   void recordEntryPointSignatures(ModuleOp &module,
