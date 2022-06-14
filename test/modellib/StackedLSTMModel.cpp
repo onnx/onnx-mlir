@@ -48,7 +48,7 @@ StackedLSTMLibBuilder::~StackedLSTMLibBuilder() {
 }
 
 bool StackedLSTMLibBuilder::build() {
-  int DBidir = 2;
+  int D = abs(direction);
   int DFwd = 1;
   int S1 = isDynamicS ? -1 : S;
   int B1 = isDynamicB ? -1 : B;
@@ -56,23 +56,23 @@ bool StackedLSTMLibBuilder::build() {
   // tensor shapes
   llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
   llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
-  llvm::SmallVector<int64_t, 3> wShape = {DBidir, 4 * H, I};
-  llvm::SmallVector<int64_t, 3> rShape = {DBidir, 4 * H, H};
-  llvm::SmallVector<int64_t, 2> bShape = {DBidir, 8 * H};
-  llvm::SmallVector<int64_t, 3> hShape = {DBidir, B, H};
-  llvm::SmallVector<int64_t, 3> hShapeSymbol = {DBidir, B1, H};
-  llvm::SmallVector<int64_t, 3> cShape = {DBidir, B, H};
-  llvm::SmallVector<int64_t, 3> cShapeSymbol = {DBidir, B1, H};
-  llvm::SmallVector<int64_t, 2> pShape = {DBidir, 3 * H};
-  llvm::SmallVector<int64_t, 4> yShape = {S, DBidir, B1, H};
-  llvm::SmallVector<int64_t, 3> yHShape = {DBidir, B1, H};
-  llvm::SmallVector<int64_t, 3> yCShape = {DBidir, B1, H};
+  llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
+  llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
+  llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
+  llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
+  llvm::SmallVector<int64_t, 3> cShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> cShapeSymbol = {D, B1, H};
+  llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
+  llvm::SmallVector<int64_t, 4> yShape = {S, D, B1, H};
+  llvm::SmallVector<int64_t, 3> yHShape = {D, B1, H};
+  llvm::SmallVector<int64_t, 3> yCShape = {D, B1, H};
   llvm::SmallVector<int64_t, 3> yHFwdShape = {DFwd, B1, H};
   llvm::SmallVector<int64_t, 3> yCFwdShape = {DFwd, B1, H};
-  llvm::SmallVector<int64_t, 4> transposedShape = {S, DBidir, B, H};
-  llvm::SmallVector<int64_t, 3> reshapedShape = {S, B, H * DBidir};
-  llvm::SmallVector<int64_t, 3> xFwdShape = {S, B, H * DBidir};
-  llvm::SmallVector<int64_t, 3> wFwdShape = {DFwd, 4 * H, H * DBidir};
+  llvm::SmallVector<int64_t, 4> transposedShape = {S, D, B, H};
+  llvm::SmallVector<int64_t, 3> reshapedShape = {S, B, H * D};
+  llvm::SmallVector<int64_t, 3> xFwdShape = {S, B, H * D};
+  llvm::SmallVector<int64_t, 3> wFwdShape = {DFwd, 4 * H, H * D};
 
   // input types
   auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
@@ -104,7 +104,7 @@ bool StackedLSTMLibBuilder::build() {
   Block &entryBlock = funcOp.getBody().front();
 
   //
-  // create bidirectional ONNXLSTMOp
+  // create the first ONNXLSTMOp
   //
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
@@ -160,7 +160,7 @@ bool StackedLSTMLibBuilder::build() {
   MemRefType memrefConst = MemRefType::get(constShape, builder.getF32Type());
   ShapedType constShapedType =
       RankedTensorType::get(constShape, builder.getI64Type());
-  SmallVector<int64_t, 4> constVal = {S, B, H * DBidir};
+  SmallVector<int64_t, 4> constVal = {S, B, H * D};
   ArrayRef<int64_t> constArray(constVal);
   DenseElementsAttr denseAttr = DenseElementsAttr::get<int64_t>(
       constShapedType, llvm::makeArrayRef(constVal));
@@ -176,7 +176,7 @@ bool StackedLSTMLibBuilder::build() {
   reshapeOp.getResult().setType(reshapedType);
 
   //
-  // create forward ONNXLSTMOp
+  // create the second ONNXLSTMOp (forward)
   //
   wFwdOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wFwdShape), 0, 1);
   auto wFwdConstant = buildONNXConstantOp(wFwdOmt, wFwdType);
@@ -219,9 +219,9 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  OMTensor *refY = omTensorCreateWithShape<float>({S, DBidir, B, H});
-  OMTensor *refYh = omTensorCreateWithShape<float>({DBidir, B, H});
-  OMTensor *refYc = omTensorCreateWithShape<float>({DBidir, B, H});
+  OMTensor *refY = omTensorCreateWithShape<float>({S, D, B, H});
+  OMTensor *refYh = omTensorCreateWithShape<float>({D, B, H});
+  OMTensor *refYc = omTensorCreateWithShape<float>({D, B, H});
 
   // Naive LSTM implementation.
   // Equations for LSTM.
@@ -253,7 +253,7 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
 
 #if 1
   // Initialize refYh and refYc.
-  for (int64_t d = 0; d < DBidir; d++)
+  for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++) {
         omTensorGetElem<float>(refYh, {d, b, h}) =
@@ -263,21 +263,22 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
       }
 #endif
 
-  // bidirectional LSTM
-  for (int64_t d = 0; d < DBidir; ++d) {
+  auto XtWi = omTensorCreateWithShape<float>({B, H});
+  auto XtWo = omTensorCreateWithShape<float>({B, H});
+  auto XtWf = omTensorCreateWithShape<float>({B, H});
+  auto XtWc = omTensorCreateWithShape<float>({B, H});
+  auto HtRi = omTensorCreateWithShape<float>({B, H});
+  auto HtRo = omTensorCreateWithShape<float>({B, H});
+  auto HtRf = omTensorCreateWithShape<float>({B, H});
+  auto HtRc = omTensorCreateWithShape<float>({B, H});
+
+  // first LSTM
+  for (int64_t d = 0; d < D; ++d) {
     for (int64_t s = 0; s < S; ++s) {
       int64_t seq = s;
       if (d == 1)
         // reverse
         seq = S - s - 1;
-      auto XtWi = omTensorCreateWithShape<float>({B, H});
-      auto XtWo = omTensorCreateWithShape<float>({B, H});
-      auto XtWf = omTensorCreateWithShape<float>({B, H});
-      auto XtWc = omTensorCreateWithShape<float>({B, H});
-      auto HtRi = omTensorCreateWithShape<float>({B, H});
-      auto HtRo = omTensorCreateWithShape<float>({B, H});
-      auto HtRf = omTensorCreateWithShape<float>({B, H});
-      auto HtRc = omTensorCreateWithShape<float>({B, H});
       for (int64_t b = 0; b < B; b++) {
         for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
@@ -353,9 +354,10 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
     }
   }
 
-  // new feature size = h(hidden_size) * D(num_directions)
-  auto IFwd = H * DBidir;
+  // second LSTM (forward)
 
+  // new feature size = h(hidden_size) * D(num_directions)
+  auto IFwd = H * D;
   auto refYFwd = omTensorCreateWithShape<float>({S, DFwd, B, H});
   auto refYhFwd = omTensorCreateWithShape<float>({DFwd, B, H});
   auto refYcFwd = omTensorCreateWithShape<float>({DFwd, B, H});
@@ -379,14 +381,6 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
       if (d == 1)
         // reverse
         seq = S - s - 1;
-      auto XtWi = omTensorCreateWithShape<float>({B, H});
-      auto XtWo = omTensorCreateWithShape<float>({B, H});
-      auto XtWf = omTensorCreateWithShape<float>({B, H});
-      auto XtWc = omTensorCreateWithShape<float>({B, H});
-      auto HtRi = omTensorCreateWithShape<float>({B, H});
-      auto HtRo = omTensorCreateWithShape<float>({B, H});
-      auto HtRf = omTensorCreateWithShape<float>({B, H});
-      auto HtRc = omTensorCreateWithShape<float>({B, H});
       for (int64_t b = 0; b < B; b++) {
         for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
@@ -462,8 +456,22 @@ bool StackedLSTMLibBuilder::verifyOutputs() {
     }
   }
 
+  omTensorDestroy(XtWi);
+  omTensorDestroy(XtWo);
+  omTensorDestroy(XtWf);
+  omTensorDestroy(XtWc);
+  omTensorDestroy(HtRi);
+  omTensorDestroy(HtRo);
+  omTensorDestroy(HtRf);
+  omTensorDestroy(HtRc);
+
   bool ok = areCloseFloat(lstmY, refYFwd) && areCloseFloat(lstmYh, refYhFwd) &&
             areCloseFloat(lstmYc, refYcFwd);
+
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  omTensorDestroy(refYc);
+
   return ok;
 }
 
