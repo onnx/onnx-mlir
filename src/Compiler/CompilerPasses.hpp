@@ -20,7 +20,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm);
 void addONNXToKrnlPasses(
     mlir::PassManager &pm, int optLevel, bool enableCSE = true);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE = true);
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE = true,
+    bool verifyInputTensors = false);
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,

@@ -29,14 +29,16 @@ void populateAffineAndKrnlToLLVMConversion(mlir::RewritePatternSet &patterns,
     llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
-    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps);
+    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    bool verifyInputTensors);
 
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
     llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
-    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps);
+    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    bool verifyInputTensors);
 
 void populateLoweringKrnlCallOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
@@ -46,7 +48,8 @@ void populateLoweringKrnlEntryPointOpPattern(mlir::TypeConverter &typeConverter,
     llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
-    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps);
+    llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    bool verifyInputTensors);
 
 void populateLoweringKrnlFindIndexOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);

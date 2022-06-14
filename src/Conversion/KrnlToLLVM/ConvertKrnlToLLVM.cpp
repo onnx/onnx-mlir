@@ -146,7 +146,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -178,7 +178,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps);
+      outSigGlobalOps, verifyInputTensors);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -418,6 +418,15 @@ struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToLLVMPass)
 
+  // Make sure that we have a valid default constructor and copy
+  // constructor to make sure that the options are initialized properly.
+  ConvertKrnlToLLVMPass() = default;
+  ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
+      : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
+  ConvertKrnlToLLVMPass(bool verifyInputTensors) {
+    this->verifyInputTensors = verifyInputTensors;
+  }
+
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
 
   StringRef getDescription() const override {
@@ -425,6 +434,13 @@ struct ConvertKrnlToLLVMPass
   }
 
   void runOnOperation() final;
+
+  Option<bool> verifyInputTensors{*this, "verify-input-tensors",
+      llvm::cl::desc(
+          "Verify input tensors whenever the entry point function is called.\n"
+          "Data type and shape are verified. Enable this may introduce "
+          "overhead in inferencing."),
+      llvm::cl::init(false)};
 };
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
@@ -484,7 +500,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps);
+      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -507,16 +523,19 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors) {
+  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors);
+}
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps);
+      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);

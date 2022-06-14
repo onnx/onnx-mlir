@@ -41,16 +41,18 @@ public:
   SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
+  bool verifyInputTensors;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
       ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
       SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
       SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps)
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
         singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
-        inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps) {}
+        inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps),
+        verifyInputTensors(verifyInputTensors) {}
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
@@ -175,8 +177,9 @@ public:
 
     // Emit code to verify every tensor in the wrapped input, e.g. verifying
     // shape and data type.
-    emitVerificationCodeForInputTensors(
-        rewriter, loc, apiRegistry, wrappedInput, inSigGlobalOps);
+    if (verifyInputTensors)
+      emitVerificationCodeForInputTensors(
+          rewriter, loc, apiRegistry, wrappedInput, inSigGlobalOps);
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
@@ -565,10 +568,10 @@ void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
   patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps);
+      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
 }
 
 } // namespace krnl
