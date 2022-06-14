@@ -103,7 +103,10 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
+  // onnxop: list of versions for dialect
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
+  // onnxop: the top version in third_part/onnx
+  std::map<std::string, int> op_dialect_top_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -1052,7 +1055,14 @@ private:
       }
     } else {
       llvm::outs() << node.op_type();
-      llvm_unreachable(" this Op is not in the op_dialect_version_map_");
+      if (op_dialect_top_version_map_.find(node.op_type()) !=
+          op_dialect_top_version_map_.end()) {
+        llvm_unreachable(
+            " this Op is not found in the onnx version being used");
+      } else {
+        llvm_unreachable(
+            " this Op is not supported by onnx-mlir's onnx dialect");
+      }
     }
     return std::string("");
   }
