@@ -34,7 +34,7 @@ def load_model_tests(kind):
         (
             "wrong_number_of_inputs_less",
             [np.ones((3, 4, 5)).astype('float32')],
-            'Wrong number of input tensors: expect more input tensors',
+            'Wrong number of input tensors: expect 2, but got 1',
         ),
         (
             "wrong_number_of_inputs_more",
@@ -43,7 +43,7 @@ def load_model_tests(kind):
                 np.ones((3, 4, 5)).astype('float32'),
                 np.ones((3, 4, 5)).astype('float32')
             ],
-            'Wrong number of input tensors: expect 2, but got 3.',
+            'Wrong number of input tensors: expect 2, but got 3',
         ),
         (
             "wrong_rank_less",
@@ -51,7 +51,7 @@ def load_model_tests(kind):
                 np.ones((3, 4, 5)).astype('float32'),
                 np.ones((3, 4)).astype('float32')
             ],
-            'Wrong rank for the input 1: expect more dimensions',
+            'Wrong rank for the input 1: expect 3, but got 2',
         ),
         (
             "wrong_rank_more",
@@ -59,7 +59,7 @@ def load_model_tests(kind):
                 np.ones((3, 4, 5)).astype('float32'),
                 np.ones((3, 4, 5, 1)).astype('float32')
             ],
-            'Wrong rank for the input 1: expect 3, but got 4.',
+            'Wrong rank for the input 1: expect 3, but got 4',
         ),
         (
             "wrong_data_type",
@@ -67,7 +67,7 @@ def load_model_tests(kind):
                 np.ones((3, 4, 5)).astype('int32'),
                 np.ones((3, 4, 5)).astype('float32')
             ],
-            'Wrong data type for the input 0: expect f32, but got int32_t',
+            'Wrong data type for the input 0: expect f32',
         ),
         (
             "wrong_dim_size",

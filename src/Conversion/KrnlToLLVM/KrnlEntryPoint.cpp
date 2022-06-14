@@ -22,6 +22,7 @@
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "llvm/Support/Debug.h"
@@ -459,8 +460,8 @@ private:
   }
 
   // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
-  void equalOrFailed(
-      PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) const {
+  void equalOrFailed(PatternRewriter &rewriter, Location loc, Value lhs,
+      Value rhs, std::string errorMsg = "", bool appendRHS = true) const {
     // Split the current block into IF, THEN, END blocks.
     Block *ifBlock, *thenBlock, *endBlock;
     ifBlock = rewriter.getInsertionBlock();
@@ -479,6 +480,11 @@ private:
 
     // Emit code for the THEN block: return NULL.
     rewriter.setInsertionPointToStart(thenBlock);
+    KrnlBuilder createKrnl(rewriter, loc);
+    if (appendRHS)
+      createKrnl.printf(StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
+    else
+      createKrnl.printf(StringRef(errorMsg + "\n"));
     Value nullPtr = rewriter.create<LLVM::NullOp>(
         loc, LLVM::LLVMPointerType::get(rewriter.getI8Type()));
     rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
@@ -504,8 +510,9 @@ private:
         rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(inputNum)),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}));
-
+            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
+        "Wrong number of input tensors: expect " + std::to_string(inputNum) +
+            ", but got ");
     // Get a pointer to the list of input omTensors.
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
@@ -527,12 +534,19 @@ private:
       auto JSONItemType = JSONItem->getString("type");
       assert(JSONItemType && "failed to get type");
       Type elemTy = parseType(JSONItemType.getValue(), rewriter.getContext());
+      std::string elemTyStr;
+      llvm::raw_string_ostream dstream(elemTyStr);
+      dstream << elemTy;
+      dstream.flush();
       onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
       equalOrFailed(rewriter, loc,
           rewriter.create<LLVM::ConstantOp>(
               loc, int64Ty, rewriter.getI64IntegerAttr(dtype)),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-              RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}));
+              RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
+          "Wrong data type for the input " + std::to_string(i) + ": expect " +
+              elemTyStr,
+          false);
 
       // Verify data rank.
       auto JSONDimArray = JSONItem->getArray("dims");
@@ -541,7 +555,9 @@ private:
           rewriter.create<LLVM::ConstantOp>(
               loc, int64Ty, rewriter.getI64IntegerAttr(rank)),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-              RuntimeAPI::API::GET_DATA_RANK, {omTensorPtr}));
+              RuntimeAPI::API::GET_DATA_RANK, {omTensorPtr}),
+          "Wrong rank for the input " + std::to_string(i) + ": expect " +
+              std::to_string(rank) + ", but got ");
 
       // Verify dimensions.
       Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -560,7 +576,10 @@ private:
             rewriter.create<LLVM::LoadOp>(loc, int64Ty,
                 rewriter.create<LLVM::GEPOp>(loc,
                     LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
-                    ArrayRef<Value>({dimIdx}))));
+                    ArrayRef<Value>({dimIdx}))),
+            "Wrong size for the dimension " + std::to_string(d) +
+                " of the input " + std::to_string(i) + ": expect " +
+                std::to_string(dim) + ", but got ");
       }
     }
   }

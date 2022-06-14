@@ -128,7 +128,7 @@ add_custom_target(check-onnx-backend-signature
 add_custom_target(check-onnx-backend-input-verification
   COMMAND
   TEST_INPUT_VERIFICATION=true
-    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py
+    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py --input_verification
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
