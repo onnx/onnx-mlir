@@ -40,13 +40,18 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
+parser.add_argument("--list-operation-version",
+                    help="list the version stored in  version_dicts without performing checks",
+                    action="store_true",
+                    default=False)
 
 args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
+list_operation_version = args.list_operation_version
 current_onnx_version = "1.11.0"
 # check the version of onnx package being used
-if (not check_operation_version) and current_onnx_version != onnx.__version__ :
+if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
           "while onnx package being used is {}".format(onnx.__version__))
     quit()
@@ -1169,7 +1174,7 @@ def build_operator_schemas():
                 if schema.name in exsting_ops:
                     continue
 
-                if check_operation_version :
+                if check_operation_version:
                     # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
@@ -1210,6 +1215,10 @@ def build_operator_schemas():
 
 
 def main(args):  # type: (Type[Args]) -> None
+    if list_operation_version:
+        pprint.pprint(version_dict)
+        return
+
     curr_utc_time = datetime.datetime.now(
         datetime.timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
     autogen_warning = (
@@ -1245,7 +1254,7 @@ def main(args):  # type: (Type[Args]) -> None
         for key in version_dict :
             if not key in new_version_dict :
                 print("op {} is not in the version".format(key))
-            # Assume the top version will be upgreaded to the latest version
+            # Assume the top version will be upgraded to the latest version
             # The existing extra version (from index 1) will be kept
             for x in version_dict[key][1:] :
                 new_version_dict[key].append(x)
