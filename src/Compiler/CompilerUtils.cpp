@@ -360,7 +360,7 @@ std::string getTargetFilename(
   case EmitONNXBasic:
   case EmitONNXIR:
   case EmitMLIR:
-    return filenameNoExt + "onnx.mlir";
+    return filenameNoExt + ".onnx.mlir";
   }
   llvm_unreachable("all cases should be handled in switch");
 }
