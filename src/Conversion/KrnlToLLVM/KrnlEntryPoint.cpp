@@ -513,6 +513,7 @@ private:
             RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
         "Wrong number of input tensors: expect " + std::to_string(inputNum) +
             ", but got ");
+
     // Get a pointer to the list of input omTensors.
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});

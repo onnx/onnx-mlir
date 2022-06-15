@@ -24,7 +24,7 @@ module {
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @omTensorListGetOmtArray([[arg0_]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
 // CHECK-DAG:       [[VAR_8_1_:%.+]] = llvm.load [[VAR_7_2_]] : !llvm.ptr<ptr<i8>>
 // CHECK-DAG:       [[VAR_9_2_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-// CHECK:           [[LOAD_arg2_MEM_1_:%.+]] = llvm.call @omTensorGetDataType([[VAR_8_1_]]) : (!llvm.ptr<i8>) -> i64
+// CHECK-DAG:       [[LOAD_arg2_MEM_1_:%.+]] = llvm.call @omTensorGetDataType([[VAR_8_1_]]) : (!llvm.ptr<i8>) -> i64
 // CHECK:           [[VAR_11_1_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_arg2_MEM_1_]] : i64
 // CHECK:           llvm.cond_br [[VAR_11_1_]], ^bb3, ^bb4
 // CHECK:         ^bb3:  // pred: ^bb2
@@ -51,7 +51,7 @@ module {
 // CHECK:         ^bb6:  // pred: ^bb4
 // CHECK-DAG:       [[VAR_23_:%.+]] = llvm.call @omTensorGetShape([[VAR_8_1_]]) : (!llvm.ptr<i8>) -> !llvm.ptr<i64>
 // CHECK-DAG:       [[VAR_24_:%.+]] = llvm.mlir.constant(3 : i64) : i64
-// CHECK:           [[LOAD_VAR_23_MEM_:%.+]] = llvm.load [[VAR_23_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_23_MEM_:%.+]] = llvm.load [[VAR_23_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_26_:%.+]] = llvm.icmp "ne" [[VAR_24_]], [[LOAD_VAR_23_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_26_]], ^bb7, ^bb8
 // CHECK:         ^bb7:  // pred: ^bb6
@@ -65,8 +65,8 @@ module {
 // CHECK:         ^bb8:  // pred: ^bb6
 // CHECK-DAG:       [[VAR_31_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-DAG:       [[VAR_32_:%.+]] = llvm.mlir.constant(4 : i64) : i64
-// CHECK:           [[VAR_33_:%.+]] = llvm.getelementptr [[VAR_23_]]{{.}}[[VAR_31_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
-// CHECK:           [[LOAD_VAR_33_MEM_:%.+]] = llvm.load [[VAR_33_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_33_:%.+]] = llvm.getelementptr [[VAR_23_]]{{.}}[[VAR_31_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_33_MEM_:%.+]] = llvm.load [[VAR_33_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_35_:%.+]] = llvm.icmp "ne" [[VAR_32_]], [[LOAD_VAR_33_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_35_]], ^bb9, ^bb10
 // CHECK:         ^bb9:  // pred: ^bb8
@@ -80,8 +80,8 @@ module {
 // CHECK:         ^bb10:  // pred: ^bb8
 // CHECK-DAG:       [[VAR_40_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK-DAG:       [[VAR_41_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-// CHECK:           [[VAR_42_:%.+]] = llvm.getelementptr [[VAR_23_]]{{.}}[[VAR_40_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
-// CHECK:           [[LOAD_VAR_42_MEM_:%.+]] = llvm.load [[VAR_42_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_42_:%.+]] = llvm.getelementptr [[VAR_23_]]{{.}}[[VAR_40_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_42_MEM_:%.+]] = llvm.load [[VAR_42_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_44_:%.+]] = llvm.icmp "ne" [[VAR_41_]], [[LOAD_VAR_42_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_44_]], ^bb11, ^bb12
 // CHECK:         ^bb11:  // pred: ^bb10
@@ -97,7 +97,7 @@ module {
 // CHECK:           [[VAR_50_:%.+]] = llvm.getelementptr [[VAR_7_2_]]{{.}}[[VAR_49_]]{{.}} : (!llvm.ptr<ptr<i8>>, i64) -> !llvm.ptr<ptr<i8>>
 // CHECK-DAG:       [[LOAD_VAR_50_MEM_:%.+]] = llvm.load [[VAR_50_]] : !llvm.ptr<ptr<i8>>
 // CHECK-DAG:       [[VAR_52_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-// CHECK:           [[VAR_53_:%.+]] = llvm.call @omTensorGetDataType([[LOAD_VAR_50_MEM_]]) : (!llvm.ptr<i8>) -> i64
+// CHECK-DAG:       [[VAR_53_:%.+]] = llvm.call @omTensorGetDataType([[LOAD_VAR_50_MEM_]]) : (!llvm.ptr<i8>) -> i64
 // CHECK:           [[VAR_54_:%.+]] = llvm.icmp "ne" [[VAR_52_]], [[VAR_53_]] : i64
 // CHECK:           llvm.cond_br [[VAR_54_]], ^bb13, ^bb14
 // CHECK:         ^bb13:  // pred: ^bb12
@@ -124,7 +124,7 @@ module {
 // CHECK:         ^bb16:  // pred: ^bb14
 // CHECK-DAG:       [[VAR_66_:%.+]] = llvm.call @omTensorGetShape([[LOAD_VAR_50_MEM_]]) : (!llvm.ptr<i8>) -> !llvm.ptr<i64>
 // CHECK-DAG:       [[VAR_67_:%.+]] = llvm.mlir.constant(3 : i64) : i64
-// CHECK:           [[LOAD_VAR_66_MEM_:%.+]] = llvm.load [[VAR_66_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_66_MEM_:%.+]] = llvm.load [[VAR_66_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_69_:%.+]] = llvm.icmp "ne" [[VAR_67_]], [[LOAD_VAR_66_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_69_]], ^bb17, ^bb18
 // CHECK:         ^bb17:  // pred: ^bb16
@@ -138,8 +138,8 @@ module {
 // CHECK:         ^bb18:  // pred: ^bb16
 // CHECK-DAG:       [[VAR_74_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-DAG:       [[VAR_75_:%.+]] = llvm.mlir.constant(4 : i64) : i64
-// CHECK:           [[VAR_76_:%.+]] = llvm.getelementptr [[VAR_66_]]{{.}}[[VAR_74_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
-// CHECK:           [[LOAD_VAR_76_MEM_:%.+]] = llvm.load [[VAR_76_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_76_:%.+]] = llvm.getelementptr [[VAR_66_]]{{.}}[[VAR_74_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_76_MEM_:%.+]] = llvm.load [[VAR_76_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_78_:%.+]] = llvm.icmp "ne" [[VAR_75_]], [[LOAD_VAR_76_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_78_]], ^bb19, ^bb20
 // CHECK:         ^bb19:  // pred: ^bb18
@@ -153,8 +153,8 @@ module {
 // CHECK:         ^bb20:  // pred: ^bb18
 // CHECK-DAG:       [[VAR_83_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK-DAG:       [[VAR_84_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-// CHECK:           [[VAR_85_:%.+]] = llvm.getelementptr [[VAR_66_]]{{.}}[[VAR_83_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
-// CHECK:           [[LOAD_VAR_85_MEM_:%.+]] = llvm.load [[VAR_85_]] : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_85_:%.+]] = llvm.getelementptr [[VAR_66_]]{{.}}[[VAR_83_]]{{.}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
+// CHECK-DAG:       [[LOAD_VAR_85_MEM_:%.+]] = llvm.load [[VAR_85_]] : !llvm.ptr<i64>
 // CHECK:           [[VAR_87_:%.+]] = llvm.icmp "ne" [[VAR_84_]], [[LOAD_VAR_85_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_87_]], ^bb21, ^bb22
 // CHECK:         ^bb21:  // pred: ^bb20
