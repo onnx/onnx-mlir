@@ -74,6 +74,12 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto pads = op1.padsAttr();                 // ::mlir::ArrayAttr
     auto strides = op1.stridesAttr();           // ::mlir::ArrayAttr
 
+    // NOTE: we would like if inferShapes() had filled in explicit padding
+    // but currently inferShapes() does not do this for ConvOp (it does for
+    // ConvTransposeOp). We have not implemented code for autopad so fail.
+    if (autopad && autopad != "NOTSET")
+      return rewriter.notifyMatchFailure(op, "padding must be explicit");
+
     // create vector of tensor list iterate through the ArrayAttribute
     // list.
     auto sintType = IntegerType::get(op1.getContext(), 64, IntegerType::SignednessSemantics::Signed);
