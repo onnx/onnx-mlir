@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <errno.h>
+
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -186,7 +188,7 @@ public:
       llvm::StringRef inSigJSON;
       std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
       emitVerificationCodeForInputTensors(
-          rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
+          module, rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
     }
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -460,8 +462,9 @@ private:
   }
 
   // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
-  void equalOrFailed(PatternRewriter &rewriter, Location loc, Value lhs,
-      Value rhs, std::string errorMsg = "", bool appendRHS = true) const {
+  void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
+      Value lhs, Value rhs, std::string errorMsg = "",
+      bool appendRHS = true) const {
     // Split the current block into IF, THEN, END blocks.
     Block *ifBlock, *thenBlock, *endBlock;
     ifBlock = rewriter.getInsertionBlock();
@@ -480,11 +483,15 @@ private:
 
     // Emit code for the THEN block: return NULL.
     rewriter.setInsertionPointToStart(thenBlock);
+    // Print an error message.
     KrnlBuilder createKrnl(rewriter, loc);
     if (appendRHS)
       createKrnl.printf(StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
     else
       createKrnl.printf(StringRef(errorMsg + "\n"));
+    // Set errno.
+    krnl::emitErrNo(module, rewriter, loc, EINVAL);
+    // Return NULL.
     Value nullPtr = rewriter.create<LLVM::NullOp>(
         loc, LLVM::LLVMPointerType::get(rewriter.getI8Type()));
     rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
@@ -493,8 +500,9 @@ private:
     rewriter.setInsertionPointToStart(endBlock);
   }
 
-  void emitVerificationCodeForInputTensors(PatternRewriter &rewriter,
-      Location loc, const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+  void emitVerificationCodeForInputTensors(ModuleOp &module,
+      PatternRewriter &rewriter, Location loc,
+      const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
       StringRef inSigJSON) const {
     Type int64Ty = rewriter.getI64Type();
     Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
@@ -506,7 +514,7 @@ private:
     int64_t inputNum = JSONArray->size();
 
     // Verify the number of inputs.
-    equalOrFailed(rewriter, loc,
+    equalOrFailed(module, rewriter, loc,
         rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(inputNum)),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -540,7 +548,7 @@ private:
       dstream << elemTy;
       dstream.flush();
       onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
-      equalOrFailed(rewriter, loc,
+      equalOrFailed(module, rewriter, loc,
           rewriter.create<LLVM::ConstantOp>(
               loc, int64Ty, rewriter.getI64IntegerAttr(dtype)),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -552,7 +560,7 @@ private:
       // Verify data rank.
       auto JSONDimArray = JSONItem->getArray("dims");
       int64_t rank = JSONDimArray->size();
-      equalOrFailed(rewriter, loc,
+      equalOrFailed(module, rewriter, loc,
           rewriter.create<LLVM::ConstantOp>(
               loc, int64Ty, rewriter.getI64IntegerAttr(rank)),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -571,7 +579,7 @@ private:
           continue; // do not verify dynamic dimensions.
         Value dimIdx = rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(d));
-        equalOrFailed(rewriter, loc,
+        equalOrFailed(module, rewriter, loc,
             rewriter.create<LLVM::ConstantOp>(
                 loc, int64Ty, rewriter.getI64IntegerAttr(dim)),
             rewriter.create<LLVM::LoadOp>(loc, int64Ty,

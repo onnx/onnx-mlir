@@ -338,5 +338,37 @@ std::string e2a_s(std::string e_s) {
   return r;
 }
 
+void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
+  Type int32Ty = builder.getI32Type();
+  Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
+  constexpr const char *funcName = "__errno_location";
+
+  FlatSymbolRefAttr errnoSymbolRef;
+  Optional<FlatSymbolRefAttr> optFuncDecl =
+      krnl::getFunctionDeclaration(module, funcName);
+  if (optFuncDecl.hasValue())
+    errnoSymbolRef = optFuncDecl.getValue();
+  else {
+    // Create '__errno_location' function signature: `i32 *()`
+    MLIRContext *ctx = module.getContext();
+    Type fnType =
+        LLVM::LLVMFunctionType::get(int32PtrTy, {}, /*isVarArg=*/false);
+
+    // Insert the function declaration the module.
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(module.getBody());
+    builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+    errnoSymbolRef = SymbolRefAttr::get(ctx, funcName);
+  }
+
+  Value errNoPos = builder
+                       .create<LLVM::CallOp>(
+                           loc, int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}))
+                       .getResult(0);
+  Value errNoVal = builder.create<LLVM::ConstantOp>(
+      loc, int32Ty, builder.getI32IntegerAttr(errCode));
+  builder.create<LLVM::StoreOp>(loc, errNoVal, errNoPos);
+}
+
 } // namespace krnl
 } // namespace onnx_mlir

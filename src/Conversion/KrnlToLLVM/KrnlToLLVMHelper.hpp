@@ -67,5 +67,8 @@ std::string a2e_s(std::string a_s);
 /// This is not in-place conversion and a new string in ASCII is returned.
 std::string e2a_s(std::string e_s);
 
+void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
+    mlir::Location loc, int err);
+
 } // namespace krnl
 } // namespace onnx_mlir
