@@ -87,19 +87,15 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         createArrayAttribute(strides, sintType, loc, rewriter);
 
     // If group Value is null, assigning default value.
-    auto intType = IntegerType::get(op1.getContext(), 64);
-    auto zero = 0;
-    auto zeroAttr = IntegerAttr::get(intType, zero);
-    Value zeroConstOp = rewriter.create<ConstantIntOp>(loc, zeroAttr);
-    Value oneConstOp;
-    Value groupVal;
+    Value groupTorchInt;
     if (group) {
-      oneConstOp = rewriter.create<ConstantIntOp>(loc, group);
-      groupVal = rewriter.create<ConstantIntOp>(loc, group);
+      groupTorchInt = rewriter.create<ConstantIntOp>(loc, group);
     } else {
+      // NOTE: we would like if inferShapes() had filled in default values
+      // so we could assume `group` is always set, but currently inferShapes()
+      // does not do this for ConvOp (it does for ConvTransposeOp).
       auto oneAttr = IntegerAttr::get(sintType, 1);
-      oneConstOp = rewriter.create<ConstantIntOp>(loc, oneAttr);
-      groupVal = rewriter.create<ConstantIntOp>(loc, oneAttr);
+      groupTorchInt = rewriter.create<ConstantIntOp>(loc, oneAttr);
     }
 
     // create the Torch List type using above created vectors.
@@ -114,10 +110,6 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     Value padsList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatepadsList});
-
-    Value kernalShapeList = rewriter.create<PrimListConstructOp>(loc,
-        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{kernalshapeonnxList});
 
     // create a tensor types using onnx operands.
     TensorType xTensorType = x.getType().cast<TensorType>();
@@ -152,7 +144,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     // emit the Conv2d operation in Torch side using "AtenConv2dOp".
     Value result = rewriter.create<AtenConv2dOp>(loc, resultType, xTorchTensor,
         wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
-        oneConstOp);
+        groupTorchInt);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
