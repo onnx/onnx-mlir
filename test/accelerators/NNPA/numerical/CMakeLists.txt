@@ -65,6 +65,7 @@ set(TestConvNNPA_instruction zdnn_conv2d)
 set(TestConvNNPA_data_range 0.001)
 add_numerical_unittest(TestConvNNPA
    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
+   DEFINE PRIVATE TEST_CONV_STATIC TEST_CONV_D1 TEST_CONV_VALID_UPPER
    LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
    )
 
