@@ -244,6 +244,8 @@ public:
       const int isDynamic);
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
   static const std::string getAutoPadName(const ConvAutoPad autoPad);

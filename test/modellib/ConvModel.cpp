@@ -119,6 +119,19 @@ bool Conv2DLibBuilder::build() {
   return true;
 }
 
+bool Conv2DLibBuilder::prepareInputs(float dataRange) {
+  constexpr int num = 2;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] =
+      omTensorCreateWithRandomData<float>({N, C, H, W}, -dataRange, dataRange);
+  list[1] = omTensorCreateWithRandomData<float>(
+      {C, C, kH, kW}, -dataRange, dataRange);
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1];
+}
+
 bool Conv2DLibBuilder::prepareInputs() {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
@@ -128,6 +141,12 @@ bool Conv2DLibBuilder::prepareInputs() {
   list[1] = omTensorCreateWithRandomData<float>({C, C, kH, kW});
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool Conv2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  return getenv(envDataRange.c_str())
+             ? prepareInputs(std::stof(getenv(envDataRange.c_str())))
+             : prepareInputs();
 }
 
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {

@@ -23,7 +23,7 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 #   The check_instruction is an instruction name which should be included in
 #   generated library.
 #   )
-function(add_numerical_unittest test_name check_instruction)
+function(add_numerical_unittest test_name)
   add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
 
   add_dependencies(numerical-nnpa ${test_name})
@@ -38,7 +38,16 @@ function(add_numerical_unittest test_name check_instruction)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;${test_name}_INSTRUCTION=${check_instruction}")
+
+  # Set environment variables
+  set(TEST_ENV_VAR "TEST_ATOL=0.01;TEST_RTOL=0.05")
+  if (${test_name}_data_range)
+    set(TEST_ENV_VAR "${TEST_ENV_VAR};${test_name}_INSTRUCTION=${${test_name}_instruction}")
+  endif ()
+  if (${test_name}_data_range)
+     set(TEST_ENV_VAR "${TEST_ENV_VAR};${test_name}_DATARANGE=${${test_name}_data_range}")
+  endif ()
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "${TEST_ENV_VAR}")
 endfunction()
 
 # All libraries and executables coming from llvm or ONNX-MLIR have had their
@@ -51,30 +60,41 @@ llvm_update_compile_flags(rapidcheck)
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-# TODO: Support tests for Conv
-# add_numerical_unittest(TestConvNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
+# Conv2D
+set(TestConvNNPA_instruction zdnn_conv2d)
+set(TestConvNNPA_data_range 0.001)
+add_numerical_unittest(TestConvNNPA
+   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
+   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+   )
 
-add_numerical_unittest(TestMatMul2DNNPA zdnn_matmul_op
+# MatMul2D
+set(TestMatMul2DNNPA_instruction zdnn_matmul_op)
+add_numerical_unittest(TestMatMul2DNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemmNNPA zdnn_matmul_op
+# Gemm
+set(TestGemmNNPA_instruction zdnn_matmul_op)
+add_numerical_unittest(TestGemmNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
   DEFINE PRIVATE TEST_GEMM_ALPHA_BETA_1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLSTMNNPA zdnn_lstm
+
+# LSTM
+set(TestLSTMNNPA_instruction zdnn_lstm)
+add_numerical_unittest(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
   DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_LSTM_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGRUNNPA zdnn_gru
+# GRU
+set(TestGRUNNPA_instruction zdnn_gru)
+add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_GRU_L1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
