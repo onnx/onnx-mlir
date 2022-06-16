@@ -67,5 +67,9 @@ std::string a2e_s(std::string a_s);
 /// This is not in-place conversion and a new string in ASCII is returned.
 std::string e2a_s(std::string e_s);
 
+/// Generate LLVM code to set errno to the given value.
+void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
+    mlir::Location loc, int err);
+
 } // namespace krnl
 } // namespace onnx_mlir
