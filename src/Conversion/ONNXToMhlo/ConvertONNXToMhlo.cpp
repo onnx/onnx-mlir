@@ -23,7 +23,7 @@ void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
   populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
-  // populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//

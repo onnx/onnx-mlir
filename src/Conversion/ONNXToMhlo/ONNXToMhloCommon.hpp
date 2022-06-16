@@ -56,6 +56,6 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXSoftmaxOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
-// void populateLoweringONNXGemmOpToMhloPattern(
-//     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXGemmOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 } // namespace onnx_mlir
