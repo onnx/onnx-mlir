@@ -41,7 +41,7 @@ function(add_numerical_unittest test_name)
 
   # Set environment variables
   set(TEST_ENV_VAR "TEST_ATOL=0.01;TEST_RTOL=0.05")
-  if (${test_name}_data_range)
+  if (${test_name}_instruction)
     set(TEST_ENV_VAR "${TEST_ENV_VAR};${test_name}_INSTRUCTION=${${test_name}_instruction}")
   endif ()
   if (${test_name}_data_range)
