@@ -22,13 +22,17 @@ cmake --build . --target check-onnx-lit
 
 ### Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is generated in shared library in adition to accurary check.
+Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is generated in shared library in adition to accurary check.
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
 ```
 
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
+
+##### Conv2D
+Since Conv2D of zDNN library does not support the case where dilations equal to one, #ifdef directive  `TEST_CONV_D1` are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, #ifdef directive `TEST_CONV_VALID_UPPER` is prepared to use the pading type.
+To set data range for input data and weightsi n Conv2D, an environment variable `TestConvNNPA_DATARANGE` are used. Currently the value is 0.001 written in cmake file to pass the test.
 
 ##### Gemm
 Since `alpha` and `beta` should be one for Matmul of zDNN library, #ifdef directive `TEST_GEMM_ALPHA_BETA_1` are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
