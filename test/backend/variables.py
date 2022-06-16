@@ -33,6 +33,7 @@ def get_args_from_env():
     # to do the conversion. But note that strtobool can't take an emtpy string.
 
     TEST_VERBOSE = os.getenv("TEST_VERBOSE")
+    TEST_CASE_CHECK = os.getenv("TEST_CASE_CHECK")
     TEST_INVOKECONVERTER = os.getenv("TEST_INVOKECONVERTER")
     TEST_IMPORTER_FORCE_DYNAMIC = os.getenv("TEST_IMPORTER_FORCE_DYNAMIC")
     # Force input tensors to constants. Set this to a list of input indices.
@@ -148,6 +149,13 @@ def get_args_from_env():
         default=(strtobool(TEST_VERBOSE) if TEST_VERBOSE else False),
         help="verbose output (default: false if TEST_VERBOSE env var not set)",
     )
+    parser.add_argument(
+        "--case-check",
+        action="store_true",
+        default=(strtobool(TEST_CASE_CHECK) if TEST_CASE_CHECK else False),
+        help="report the change of test cases (default: false if TEST_CASE_CHECK env var not set)",
+    )
+        
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     return args
