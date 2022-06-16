@@ -103,7 +103,6 @@ class AddModel:
 
         x1 = helper.make_tensor_value_info("x1", TensorProto.FLOAT, [3, 4, 5])
         x2 = helper.make_tensor_value_info("x2", TensorProto.FLOAT, [3, 4, 5])
-        # x2 = helper.make_tensor_value_info("x2", TensorProto.FLOAT, [None, 4, 5])
         y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 4, 5])
 
         # Create the graph (GraphProto)
