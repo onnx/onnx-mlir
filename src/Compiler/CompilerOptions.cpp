@@ -164,6 +164,13 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
+    llvm::cl::desc(
+        "Verify input tensors whenever the entry point function is called.\n"
+        "Data type and shape are verified. Enable this may introduce overhead "
+        "in inferencing."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
