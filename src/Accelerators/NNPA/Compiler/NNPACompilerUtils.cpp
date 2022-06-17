@@ -158,7 +158,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addKrnlToLLVMPasses(pm);
+    addKrnlToLLVMPasses(pm, /*enableCSE=*/true, verifyInputTensors);
 }
 
 } // namespace onnx_mlir

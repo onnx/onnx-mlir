@@ -38,6 +38,7 @@ from inference_backend import (
     get_test_models,
 )
 from signature_backend import SignatureBackendTest, SignatureBackend
+from input_verification_backend import InputVerificationBackendTest, InputVerificationBackend
 import variables
 from variables import args
 
@@ -46,6 +47,8 @@ sys.argv[1:] = args.unittest_args
 
 if args.signature:
     backend_test = SignatureBackendTest(SignatureBackend, __name__)
+elif args.input_verification:
+    backend_test = InputVerificationBackendTest(InputVerificationBackend, __name__)
 else:
     # Models to test
     test_to_enable = get_test_models()
