@@ -134,8 +134,8 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
   void printf(mlir::StringRef msg) const;
-  void printf(
-      mlir::StringRef msg, mlir::Value input, mlir::Type inputType) const;
+  void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
+      bool endsWithNewLine = false) const;
   void printf(mlir::Value input, mlir::Type inputType) const;
 
   // Onnx-mlir runtime functions.

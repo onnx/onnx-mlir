@@ -77,7 +77,7 @@ public:
 
   ~ExecutionSession();
 
-private:
+protected:
   // Error reporting processing when throwing runtime errors. Set errno as
   // appropriate.
   std::string reportLibraryOpeningError(const std::string &libraryName) const;
