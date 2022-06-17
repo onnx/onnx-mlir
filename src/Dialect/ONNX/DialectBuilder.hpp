@@ -38,9 +38,9 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
-  mlir::Value totensor(mlir::Value input) const;
-  mlir::Type totensor(mlir::Type input) const;
-  mlir::Value tomemref(mlir::Value input) const;
+  mlir::Value toTensor(mlir::Value input) const;
+  mlir::Type toTensor(mlir::Type input) const;
+  mlir::Value toMemref(mlir::Value input) const;
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
 };

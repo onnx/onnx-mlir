@@ -77,7 +77,7 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(create.onnx.tomemref(reshapeRes),
+  Value castRes = memRefBuilder.cast(create.onnx.toMemref(reshapeRes),
       MemRefType::get(castOutputShape, elementType));
 
   return castRes;
@@ -342,12 +342,12 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
                          .getResult();
     free(inputBuffer);
-    return create.onnx.tomemref(constVal);
+    return create.onnx.toMemref(constVal);
   } else {
-    return create.onnx.tomemref(
+    return create.onnx.toMemref(
         rewriter
-            .create<ONNXSqueezeV11Op>(loc, create.onnx.totensor(resultType),
-                create.onnx.totensor(input), rewriter.getI64ArrayAttr(axis))
+            .create<ONNXSqueezeV11Op>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
             .getResult());
   }
 }
@@ -368,12 +368,12 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
                          .getResult();
     free(inputBuffer);
-    return create.onnx.tomemref(constVal);
+    return create.onnx.toMemref(constVal);
   } else {
-    return create.onnx.tomemref(
+    return create.onnx.toMemref(
         rewriter
-            .create<ONNXUnsqueezeV11Op>(loc, create.onnx.totensor(resultType),
-                create.onnx.totensor(input), rewriter.getI64ArrayAttr(axis))
+            .create<ONNXUnsqueezeV11Op>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
             .getResult());
   }
 }
@@ -388,7 +388,7 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
       create(rewriter, loc);
   SmallVector<Type, 4> convertedTypes;
   for (auto t : resultTypes) {
-    convertedTypes.emplace_back(create.onnx.totensor(t));
+    convertedTypes.emplace_back(create.onnx.toTensor(t));
   }
 
   std::vector<Value> resVals;
@@ -420,16 +420,16 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
       Value constVal = createDenseONNXConstantOp(
           rewriter, loc, convertedTypes[i].cast<ShapedType>(), resBuffers[i])
                            .getResult();
-      resVals.emplace_back(create.onnx.tomemref(constVal));
+      resVals.emplace_back(create.onnx.toMemref(constVal));
       free(resBuffers[i]);
     }
     free(inputBuffer);
   } else {
     ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
-        create.onnx.totensor(input),
+        create.onnx.toTensor(input),
         /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(create.onnx.tomemref(split.outputs()[i]));
+      resVals.emplace_back(create.onnx.toMemref(split.outputs()[i]));
   }
   return resVals;
 }
@@ -464,14 +464,14 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
                          .getResult();
     free(resBuffer);
     free(inputBuffer);
-    return create.onnx.tomemref(constVal);
+    return create.onnx.toMemref(constVal);
   } else {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
         create(rewriter, loc);
-    return create.onnx.tomemref(
+    return create.onnx.toMemref(
         rewriter
-            .create<ONNXTransposeOp>(loc, create.onnx.totensor(resultType),
-                create.onnx.totensor(input), permAttr)
+            .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), permAttr)
             .getResult());
   }
 }

@@ -78,7 +78,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
         /*transB=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
             APInt(64, 0, /*isSigned=*/true)));
-  return tomemref(b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue));
+  return toMemref(b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue));
 }
 
 Value OnnxBuilder::min(ValueRange inputs) const {
@@ -143,7 +143,7 @@ Type OnnxBuilder::toTensor(Type input) const {
   return aTensorTy;
 }
 
-Value OnnxBuilder::tomemref(Value input) const {
+Value OnnxBuilder::toMemref(Value input) const {
   if (input.getType().isa<MemRefType>())
     return input;
   assert(input.getType().isa<RankedTensorType>() &&
