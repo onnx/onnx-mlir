@@ -260,6 +260,22 @@ using AffineBuilder =
     GenericAffineBuilder<mlir::AffineLoadOp, mlir::AffineStoreOp>;
 
 //===----------------------------------------------------------------------===//
+// LLVM Builder
+//===----------------------------------------------------------------------===//
+
+struct LLVMBuilder final : DialectBuilder {
+  LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  LLVMBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  mlir::Value _alloca(
+      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+  mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+  mlir::Value load(mlir::Value addr) const;
+  void store(mlir::Value val, mlir::Value addr) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Multi Dialect Builder
 //===----------------------------------------------------------------------===//
 
@@ -341,7 +357,7 @@ struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   SCFBuilder scf;
 };
 
-// Recursive class specialized for VectorBuilder refereed to as scf.
+// Recursive class specialized for VectorBuilder refereed to as vec.
 template <class... Ts>
 struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -349,6 +365,16 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), vec(db) {}
   VectorBuilder vec;
+};
+
+// Recursive class specialized for LLVMBuilder refereed to as scf.
+template <class... Ts>
+struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), llvm(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), llvm(db) {}
+  LLVMBuilder llvm;
 };
 
 // Include template implementations.

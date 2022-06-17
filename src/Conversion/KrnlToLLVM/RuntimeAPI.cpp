@@ -12,8 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+
+#include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
 
@@ -52,6 +54,7 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
 
 FlatSymbolRefAttr RuntimeAPI::getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::Type funcType, OpBuilder &builder) {
+  onnx_mlir::LLVMBuilder createLLVM(builder, module.getLoc());
   MLIRContext *context = module.getContext();
   if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
     assert(sym.getFunctionType() == funcType && "wrong symbol type");
@@ -61,7 +64,7 @@ FlatSymbolRefAttr RuntimeAPI::getOrInsertExternFunc(StringRef funcName,
   // Insert the function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(builder);
   builder.setInsertionPointToStart(module.getBody());
-  builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
+  createLLVM.func(funcName, funcType);
   return SymbolRefAttr::get(context, funcName);
 }
 

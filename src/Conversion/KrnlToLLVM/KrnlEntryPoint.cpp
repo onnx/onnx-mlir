@@ -27,6 +27,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -61,12 +62,13 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
+    auto loc = op.getLoc();
 
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     auto module = op->getParentOfType<ModuleOp>();
     auto *context = module.getContext();
     const RuntimeAPIRegistry &apiRegistry =
         RuntimeAPIRegistry::build(module, rewriter);
-    auto loc = op.getLoc();
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();
@@ -102,8 +104,8 @@ public:
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
-    auto dynamicEntryPointFunc = rewriter.create<LLVM::LLVMFuncOp>(
-        loc, dynEntryPointName, dynEntryPointFuncTy);
+    LLVM::LLVMFuncOp dynamicEntryPointFunc =
+        create.llvm.func(dynEntryPointName, dynEntryPointFuncTy);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
@@ -199,31 +201,28 @@ public:
     // Create a memref type for the return argument of the iface call
     Type memRefOutPtrTy = staticEntryPointTy.getParamType(0);
     Value ptrToOutMemRef =
-        rewriter.create<LLVM::AllocaOp>(loc, memRefOutPtrTy, one,
-            /*alignment=*/0);
+        create.llvm._alloca(memRefOutPtrTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
 
     // Start with param 1 because 0 is the return value
     for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
-      auto idxVal = rewriter.create<LLVM::ConstantOp>(
+      Value idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int64Ty, rewriter.getI64IntegerAttr(i - 1));
 
-      auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      auto omTensorPtrAddr = rewriter
-                                 .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
-                                     omTensorPtrArr, ArrayRef<Value>({idxVal}))
-                                 .getResult();
-      auto omTensorPtr =
-          rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omTensorPtrAddr)
-              .getResult();
+      Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+      Value omTensorPtrAddr = rewriter
+                                  .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
+                                      omTensorPtrArr, ArrayRef<Value>({idxVal}))
+                                  .getResult();
+      Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
       // the inference function on stack, and load it to memRef.
-      auto memRefPtrTy = staticEntryPointTy.getParamType(i);
+      Type memRefPtrTy = staticEntryPointTy.getParamType(i);
 
-      Value ptrToMemRef = rewriter.create<LLVM::AllocaOp>(loc, memRefPtrTy, one,
-          /*alignment=*/0);
+      Value ptrToMemRef =
+          create.llvm._alloca(memRefPtrTy, one, /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from omTensorPtr.
@@ -237,7 +236,7 @@ public:
     // Call static entry point with the memref ptrs created, and get output.
     rewriter.create<LLVM::CallOp>(
         loc, ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
-    auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
+    Value outMemRefs = create.llvm.load(ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
     std::vector<mlir::Value> outMemRefList;
@@ -312,7 +311,7 @@ public:
                                      outOmtPtrsArr, ArrayRef<Value>{idxVal})
                                  .getResult();
 
-      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, omTensorPtrAddr);
+      create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
     // Create wrapped output.
@@ -346,6 +345,7 @@ private:
   void fillPtrToMemRefWithOMTensor(Value &rtMemRef, Value &ptrToMemRef,
       PatternRewriter &rewriter, const Location &loc,
       const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) const {
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     auto *context = module.getContext();
     auto memRefPtrTy = ptrToMemRef.getType().dyn_cast<LLVM::LLVMPointerType>();
     auto memRefTy = memRefPtrTy.getElementType();
@@ -382,10 +382,10 @@ private:
           loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       // Insert size of the dimension.
-      auto dimSizePtr =
+      Value dimSizePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimSize = rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimSizePtr);
+      Value dimSize = create.llvm.load(dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimSize,
           rewriter.getArrayAttr(
@@ -395,19 +395,19 @@ private:
       auto dimStridePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimStride =
-          rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimStridePtr);
+      auto dimStride = create.llvm.load(dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimStride,
           rewriter.getArrayAttr(
               {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
     }
 
-    rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
+    create.llvm.store(memRef, ptrToMemRef);
   }
 
   FlatSymbolRefAttr getOrInsertMalloc(
       PatternRewriter &rewriter, ModuleOp module) const {
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     // Insert the malloc/aligned_alloc declaration if it is not already present.
     auto allocFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("malloc");
     auto ctx = rewriter.getContext();
@@ -419,16 +419,16 @@ private:
       // aligned_alloc(size_t alignment, size_t size)
       auto voidPtrType = LLVM::LLVMPointerType::get(
           IntegerType::get(&converter.getContext(), 8));
-      allocFunc =
-          rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "malloc",
-              LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
-                  /*isVarArg=*/false));
+      allocFunc = createLLVM.func(
+          "malloc", LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
+                        /*isVarArg=*/false));
     }
     return SymbolRefAttr::get(ctx, "malloc");
   }
 
   FlatSymbolRefAttr getOrInsertOMInitAccel(
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     std::string funcName = "OMInitAccel" + accelName.str();
     // OMInitAccelX's signature is `void ()`.
     auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
@@ -436,7 +436,7 @@ private:
     if (!func) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
-      func = rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName,
+      func = createLLVM.func(funcName,
           LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx), {}));
     }
     return SymbolRefAttr::get(ctx, funcName);
@@ -444,6 +444,7 @@ private:
 
   FlatSymbolRefAttr getOrInsertOMInitCompatibleAccel(
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     std::string funcName = "OMInitCompatibleAccel" + accelName.str();
     // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
@@ -455,8 +456,7 @@ private:
           LLVM::LLVMFunctionType::get(IntegerType::get(ctx, 64),
               ArrayRef<mlir::Type>({IntegerType::get(ctx, 64)}),
               /*isVarArg=*/false);
-      func = rewriter.create<LLVM::LLVMFuncOp>(
-          module.getLoc(), funcName, funcType);
+      func = createLLVM.func(funcName, funcType);
     }
     return SymbolRefAttr::get(ctx, funcName);
   }
@@ -504,6 +504,7 @@ private:
       PatternRewriter &rewriter, Location loc,
       const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
       StringRef inSigJSON) const {
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
     Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
 
@@ -534,9 +535,7 @@ private:
               .create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(opaquePtrTy),
                   omTensorPtrArr, ArrayRef<Value>({idxVal}))
               .getResult();
-      Value omTensorPtr =
-          rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omTensorPtrAddr)
-              .getResult();
+      Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Verify data type.
       auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -582,10 +581,9 @@ private:
         equalOrFailed(module, rewriter, loc,
             rewriter.create<LLVM::ConstantOp>(
                 loc, int64Ty, rewriter.getI64IntegerAttr(dim)),
-            rewriter.create<LLVM::LoadOp>(loc, int64Ty,
-                rewriter.create<LLVM::GEPOp>(loc,
-                    LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
-                    ArrayRef<Value>({dimIdx}))),
+            create.llvm.load(rewriter.create<LLVM::GEPOp>(loc,
+                LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
+                ArrayRef<Value>({dimIdx}))),
             "Wrong size for the dimension " + std::to_string(d) +
                 " of the input " + std::to_string(i) + ": expect " +
                 std::to_string(dim) + ", but got ");

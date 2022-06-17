@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -774,6 +775,27 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     // Completed the machineVL x machineVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+//===----------------------------------------------------------------------===//
+// LLVM Builder
+//===----------------------------------------------------------------------===//
+
+Value LLVMBuilder::_alloca(
+    Type resultType, Value size, int64_t alignment) const {
+  return b.create<LLVM::AllocaOp>(loc, resultType, size, alignment);
+}
+
+LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
+  return b.create<LLVM::LLVMFuncOp>(loc, name, type);
+}
+
+Value LLVMBuilder::load(Value addr) const {
+  return b.create<LLVM::LoadOp>(loc, addr);
+}
+
+void LLVMBuilder::store(Value val, Value addr) const {
+  b.create<LLVM::StoreOp>(loc, val, addr);
 }
 
 } // namespace onnx_mlir

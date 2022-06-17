@@ -191,6 +191,7 @@ private:
   FlatSymbolRefAttr getOrInsertCall(PatternRewriter &rewriter, ModuleOp module,
       llvm::StringRef funcName, ArrayRef<Type> parameterTypeList) const {
     auto *context = module.getContext();
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
       return SymbolRefAttr::get(context, funcName);
     auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
@@ -199,7 +200,7 @@ private:
 
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
+    createLLVM.func(funcName, llvmFnType);
     return SymbolRefAttr::get(context, funcName);
   }
 };

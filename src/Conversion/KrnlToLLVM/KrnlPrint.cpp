@@ -67,6 +67,7 @@ private:
     // Insert the printf declaration if it is not already present.
     auto printfFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("printf");
     MLIRContext *ctx = rewriter.getContext();
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
 
     if (!printfFunc) {
       OpBuilder::InsertionGuard guard(rewriter);
@@ -74,10 +75,9 @@ private:
       auto voidType = LLVM::LLVMVoidType::get(ctx);
       Type i8Type = IntegerType::get(ctx, 8);
       Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-      printfFunc =
-          rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "printf",
-              LLVM::LLVMFunctionType::get(voidType, i8PtrType,
-                  /*isVarArg=*/true));
+      printfFunc = createLLVM.func(
+          "printf", LLVM::LLVMFunctionType::get(voidType, i8PtrType,
+                        /*isVarArg=*/true));
     }
     return SymbolRefAttr::get(ctx, "printf");
   }

@@ -68,6 +68,7 @@ private:
   FlatSymbolRefAttr getOrInsertRandomNormal(
       PatternRewriter &rewriter, ModuleOp module, Type inType) const {
     MLIRContext *context = module.getContext();
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
                                             : "get_random_normal_value_f32";
     if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
@@ -95,8 +96,7 @@ private:
     // Insert the random normal function into the body of the parent module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), functionName.str(), llvmFnType);
+    createLLVM.func(functionName.str(), llvmFnType);
     return SymbolRefAttr::get(context, functionName.str());
   }
 };

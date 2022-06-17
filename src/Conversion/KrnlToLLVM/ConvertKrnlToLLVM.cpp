@@ -204,6 +204,7 @@ void genSignatureFunction(ModuleOp &module,
   MLIRContext *context = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(context);
+  LLVMBuilder createLLVM(b, loc);
 
   // Common information.
   Type i8Type = IntegerType::get(context, 8);
@@ -267,8 +268,7 @@ void genSignatureFunction(ModuleOp &module,
     // Emit the function type.
     Type llvmFnType =
         LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp =
-        b.create<LLVM::LLVMFuncOp>(loc, "omQueryEntryPoints", llvmFnType);
+    LLVM::LLVMFuncOp funcOp = createLLVM.func("omQueryEntryPoints", llvmFnType);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
@@ -298,7 +298,7 @@ void genSignatureFunction(ModuleOp &module,
         loc, i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
     Value noep = b.create<LLVM::ConstantOp>(
         loc, i64Type, b.getI64IntegerAttr(entryGlobalOps.size()));
-    b.create<LLVM::StoreOp>(loc, noep, numOfEntryPointsPtr);
+    createLLVM.store(noep, numOfEntryPointsPtr);
     b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 
     // Emit code for the false block: do nothing.
@@ -321,8 +321,7 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp =
-        b.create<LLVM::LLVMFuncOp>(loc, funcNames[i], llvmFnType);
+    LLVM::LLVMFuncOp funcOp = createLLVM.func(funcNames[i], llvmFnType);
 
     // 2. Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
@@ -333,8 +332,8 @@ void genSignatureFunction(ModuleOp &module,
     Value oneI64 = b.create<LLVM::ConstantOp>(loc, i64Type, oneI64Attr);
 
     // 2.1 A buffer to keep a pointer pointing to the return signature string.
-    Value ptrToReturnSig = b.create<LLVM::AllocaOp>(loc, i8PtrPtrTy, oneI64,
-        /*alignment=*/0);
+    Value ptrToReturnSig =
+        createLLVM._alloca(i8PtrPtrTy, oneI64, /*alignment=*/0);
 
     // 2.2 The name of the entry point that we want to return its signature.
     Value input = entryBlock->getArgument(0);
@@ -356,7 +355,7 @@ void genSignatureFunction(ModuleOp &module,
 
     // Emit code for the end block.
     b.setInsertionPointToStart(endBlock);
-    Value res = b.create<LLVM::LoadOp>(loc, i8PtrTy, ptrToReturnSig);
+    Value res = createLLVM.load(ptrToReturnSig);
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({res}));
 
     // Emit code for the condition, true and false blocks.
@@ -390,7 +389,7 @@ void genSignatureFunction(ModuleOp &module,
       b.setInsertionPointToStart(trueBlock);
       Value sigAddr = b.create<LLVM::AddressOfOp>(loc, globalSignature);
       Value sigI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrTy, sigAddr);
-      b.create<LLVM::StoreOp>(loc, sigI8Ptr, ptrToReturnSig);
+      createLLVM.store(sigI8Ptr, ptrToReturnSig);
       b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 
       // Emit code for the false block.

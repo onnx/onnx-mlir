@@ -68,6 +68,7 @@ private:
   /// module if necessary.
   static FlatSymbolRefAttr getOrInsertStrlen(
       PatternRewriter &rewriter, ModuleOp module) {
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     constexpr const char *funcName = "strlen";
     Optional<FlatSymbolRefAttr> optFuncDecl =
         krnl::getFunctionDeclaration(module, funcName);
@@ -85,7 +86,7 @@ private:
     // Insert the function declaration the module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+    createLLVM.func(funcName, fnType);
 
     return SymbolRefAttr::get(ctx, funcName);
   }

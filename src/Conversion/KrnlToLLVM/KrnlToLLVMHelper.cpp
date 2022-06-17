@@ -176,6 +176,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
+  LLVMBuilder createLLVM(rewriter, loc);
 
   // Set ownership, i.e., free after OMTensor is destroyed.
   Value owning = rewriter.create<LLVM::ConstantOp>(
@@ -228,7 +229,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
     auto dimSizePtr =
         rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-    rewriter.create<LLVM::StoreOp>(loc, dimSize, dimSizePtr);
+    createLLVM.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     auto dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
@@ -238,7 +239,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
     auto dimStridePtr =
         rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-    rewriter.create<LLVM::StoreOp>(loc, dimStride, dimStridePtr);
+    createLLVM.store(dimStride, dimStridePtr);
   }
 }
 
@@ -303,6 +304,7 @@ Optional<FlatSymbolRefAttr> getFunctionDeclaration(
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
+  LLVMBuilder createLLVM(builder, module.getLoc());
   constexpr const char *funcName = "strncmp";
   Optional<FlatSymbolRefAttr> optFuncDecl =
       krnl::getFunctionDeclaration(module, funcName);
@@ -319,7 +321,7 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   // Insert the function declaration the module.
   PatternRewriter::InsertionGuard insertGuard(builder);
   builder.setInsertionPointToStart(module.getBody());
-  builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+  createLLVM.func(funcName, fnType);
 
   return SymbolRefAttr::get(ctx, funcName);
 }
@@ -342,6 +344,8 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
   Type int32Ty = builder.getI32Type();
   Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
   constexpr const char *funcName = "__errno_location";
+  LLVMBuilder createLLVM(builder, loc);
+  LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
 
   FlatSymbolRefAttr errnoSymbolRef;
   Optional<FlatSymbolRefAttr> optFuncDecl =
@@ -357,7 +361,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
     // Insert the function declaration the module.
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(module.getBody());
-    builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+    createLLVMModuleLoc.func(funcName, fnType);
     errnoSymbolRef = SymbolRefAttr::get(ctx, funcName);
   }
 
@@ -367,7 +371,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
                        .getResult(0);
   Value errNoVal = builder.create<LLVM::ConstantOp>(
       loc, int32Ty, builder.getI32IntegerAttr(errCode));
-  builder.create<LLVM::StoreOp>(loc, errNoVal, errNoPos);
+  createLLVM.store(errNoVal, errNoPos);
 }
 
 } // namespace krnl

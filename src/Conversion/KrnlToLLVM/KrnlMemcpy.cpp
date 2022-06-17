@@ -92,6 +92,7 @@ private:
   FlatSymbolRefAttr getOrInsertMemcpy(
       PatternRewriter &rewriter, ModuleOp module) const {
     auto *context = module.getContext();
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
       return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
     // Create a function declaration for memcpy, the signature is:
@@ -107,8 +108,7 @@ private:
     // Insert the memcpy function into the body of the parent module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
+    createLLVM.func("llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
     return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
   }
 };

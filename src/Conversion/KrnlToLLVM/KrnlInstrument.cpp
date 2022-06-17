@@ -70,6 +70,7 @@ private:
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
     auto *context = module.getContext();
+    LLVMBuilder createLLVM(rewriter, module.getLoc());
     std::string funcName("OMInstrumentPoint");
     if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
       return SymbolRefAttr::get(context, funcName);
@@ -80,7 +81,7 @@ private:
 
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
+    createLLVM.func(funcName, llvmFnType);
     return SymbolRefAttr::get(context, funcName);
   }
 };
