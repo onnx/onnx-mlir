@@ -210,6 +210,26 @@ private:
   llvm::SmallVector<int64_t, 2> aShape, bShape, cShape;
 };
 
+class ScanLibBuilder : public ModelLibBuilder {
+public:
+  ScanLibBuilder(const std::string &modelName, const int /*batch=*/B,
+      const int /*seq=*/S, const int /*inner-dim=*/I);
+  bool build() final;
+  bool compileAndLoad();
+  bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int B, S, I;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> initialShape, xShape;
+  // model definition in std::string
+  std::string moduleIR;
+};
+
 class MatMul2DLibBuilder : public ModelLibBuilder {
 public:
   MatMul2DLibBuilder(
