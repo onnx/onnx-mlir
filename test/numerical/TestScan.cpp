@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   using namespace onnx_mlir::test;
 
   llvm::FileRemover remover(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
@@ -76,19 +76,16 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestScan\n", nullptr, "TEST_ARGS");
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-#if 1
-  RC_ASSERT(isOMScanTheSameAsNaiveImplFor(/*batch=*/1, /*seq=*/3,
-      /*inner-dim=*/2));
-  RC_ASSERT(isOMScanTheSameAsNaiveImplFor(/*batch=*/2, /*seq=*/3,
-      /*inner-dim=*/2));
-  exit(0);
-#endif
 
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Scan implementation correctness", []() {
       const int maxRange = 50;
+#if 0
       const auto B = *rc::gen::inRange(1, maxRange);
+#else
+      const auto B = *rc::gen::inRange(1, 2);
+#endif
       const auto S = *rc::gen::inRange(1, maxRange);
       const auto I = *rc::gen::inRange(1, maxRange);
       RC_ASSERT(isOMScanTheSameAsNaiveImplFor(B, S, I));

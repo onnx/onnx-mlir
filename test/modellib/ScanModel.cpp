@@ -94,33 +94,7 @@ ScanLibBuilder::ScanLibBuilder(const std::string &modelName,
 bool ScanLibBuilder::build() {
   initialShape = {B, I};
   xShape = {B, S, I};
-  llvm::SmallVector<int64_t, 2> yShape = {B, I};
-  llvm::SmallVector<int64_t, 3> zShape = {B, S, I};
-#if 0
-  auto initialType = RankedTensorType::get(initialShape, builder.getF32Type());
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
-  auto yType = RankedTensorType::get(yShape, builder.getF32Type());
-  auto zType = RankedTensorType::get(zShape, builder.getF32Type());
 
-  llvm::SmallVector<Type, 2> inputsType{initialType, xType};
-  llvm::SmallVector<Type, 2> outputsType{yType, zType};
-
-  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
-  Block &entryBlock = funcOp.getBody().front();
-
-  auto initialVal = entryBlock.getArgument(0);
-  auto xVal = entryBlock.getArgument(1);
-  int num_scan_inputs = 1;
-  IntegerAttr num_scan_inputsAttr =
-      IntegerAttr::get(builder.getIntegerType(64, true), num_scan_inputs);
-  auto scanOp = builder.create<ONNXScanOp>(loc, yType, /*initial=*/initialVal, 
-      num_scan_inputsAttr, ArrayAttr(), ArrayAttr(), ArrayAttr(), ArrayAttr());
-  llvm::SmallVector<Value, 2> results = {scanOp.getResults()};
-  builder.create<func::ReturnOp>(loc, results);
-  module.push_back(funcOp);
-
-  createEntryPoint(funcOp);
-#endif
   moduleIR = std::regex_replace(
       testScanIdentityAdd9, std::regex("%B"), std::to_string(B));
   moduleIR = std::regex_replace(moduleIR, std::regex("%S"), std::to_string(S));
@@ -134,7 +108,8 @@ bool ScanLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> module(std::move(moduleOp));
   if (compileModule(module, ctx, sharedLibBaseName, onnx_mlir::EmitLib) != 0)
     return false;
-  exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
+  exec = new ExecutionSession(
+      onnx_mlir::getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib));
   return exec != nullptr;
 }
 
@@ -152,7 +127,6 @@ bool ScanLibBuilder::prepareInputs() {
   list[0] =
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(initialShape));
   list[1] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape));
-#if 1
   // Compute reference. Scan with onnx.Add
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
@@ -167,7 +141,6 @@ bool ScanLibBuilder::prepareInputs() {
       }
     }
   }
-#endif
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
