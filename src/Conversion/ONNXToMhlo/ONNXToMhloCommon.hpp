@@ -58,4 +58,7 @@ void populateLoweringONNXSoftmaxOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGemmOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
+// `NN` directory methods:
+void populateLoweringONNXPoolingOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 } // namespace onnx_mlir

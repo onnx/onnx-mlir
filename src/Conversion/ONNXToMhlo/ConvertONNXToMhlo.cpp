@@ -21,9 +21,12 @@ namespace onnx_mlir {
 
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
+  // Math
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
   populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
+  // Neural network
+  populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//

@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Softmax.cpp
+  NN/Pooling.cpp
 
   DEPENDS
   MhloDialect
