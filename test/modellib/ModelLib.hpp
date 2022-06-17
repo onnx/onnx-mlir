@@ -335,7 +335,7 @@ private:
   // Computed parameters.
   int D, DFwd;
   llvm::SmallVector<int64_t, 3> xShape, hShape, cShape;
-  OMTensor *wOmt, *rOmt, *bOmt, *pOmt, *wFwdOmt;
+  OMTensor *wOmt, *rOmt, *bOmt, *pOmt, *wFwdOmt, *rFwdOmt, *bFwdOmt, *pFwdOmt;
 };
 
 } // namespace test
