@@ -271,6 +271,8 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value _alloca(
       mlir::Type resultType, mlir::Value size, int64_t alignment) const;
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+  mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
+      llvm::ArrayRef<mlir::Value> indices) const;
   mlir::Value load(mlir::Value addr) const;
   void store(mlir::Value val, mlir::Value addr) const;
 };

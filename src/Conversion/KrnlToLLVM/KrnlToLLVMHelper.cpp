@@ -218,26 +218,26 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
 
   for (decltype(rank) i = 0; i < rank; i++) {
-    auto dimIdx = rewriter.create<LLVM::ConstantOp>(
+    Value dimIdx = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
     // Transfer size of dimension from memref to dynamic memref.
-    auto dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
+    Value dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
         outMemRef,
         rewriter.getArrayAttr(
             {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
-    auto dimSizePtr =
-        rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+    Value dimSizePtr =
+        createLLVM.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     createLLVM.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
-    auto dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
+    Value dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
         outMemRef,
         rewriter.getArrayAttr(
             {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
-    auto dimStridePtr =
-        rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+    Value dimStridePtr =
+        createLLVM.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
     createLLVM.store(dimStride, dimStridePtr);
   }
@@ -266,6 +266,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 // Return a pointer to the first character in a global string.
 Value getPtrToGlobalString(
     const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) {
+  LLVMBuilder createLLVM(builder, loc);
   Type i8Type = IntegerType::get(builder.getContext(), 8);
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
   Type i64Type = IntegerType::get(builder.getContext(), 64);
@@ -273,8 +274,8 @@ Value getPtrToGlobalString(
   Value zero =
       builder.create<LLVM::ConstantOp>(loc, i64Type, builder.getIndexAttr(0));
 
-  return builder.create<LLVM::GEPOp>(
-      loc, i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
+  return createLLVM.getElemPtr(
+      i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,

@@ -43,6 +43,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto loc = op->getLoc();
+    LLVMBuilder createLLVM(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
 
@@ -66,8 +67,8 @@ public:
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
-    auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
-        loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
+    auto outputMemPoolTypePtrAlloc = createLLVM.getElemPtr(
+        llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.

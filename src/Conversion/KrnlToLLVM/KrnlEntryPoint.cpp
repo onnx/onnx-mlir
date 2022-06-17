@@ -211,10 +211,8 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(i - 1));
 
       Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      Value omTensorPtrAddr = rewriter
-                                  .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
-                                      omTensorPtrArr, ArrayRef<Value>({idxVal}))
-                                  .getResult();
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
+          omTensorPtrAddrTy, omTensorPtrArr, ArrayRef<Value>({idxVal}));
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
@@ -306,10 +304,8 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      auto omTensorPtrAddr = rewriter
-                                 .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
-                                     outOmtPtrsArr, ArrayRef<Value>{idxVal})
-                                 .getResult();
+      auto omTensorPtrAddr = create.llvm.getElemPtr(
+          omTensorPtrAddrTy, outOmtPtrsArr, ArrayRef<Value>{idxVal});
 
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
@@ -383,7 +379,7 @@ private:
 
       // Insert size of the dimension.
       Value dimSizePtr =
-          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
       Value dimSize = create.llvm.load(dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
@@ -393,7 +389,7 @@ private:
 
       // Insert stride of the dimension.
       auto dimStridePtr =
-          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
       auto dimStride = create.llvm.load(dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
@@ -531,10 +527,8 @@ private:
       Value idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int64Ty, rewriter.getI64IntegerAttr(i));
       Value omTensorPtrAddr =
-          rewriter
-              .create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(opaquePtrTy),
-                  omTensorPtrArr, ArrayRef<Value>({idxVal}))
-              .getResult();
+          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(opaquePtrTy),
+              omTensorPtrArr, ArrayRef<Value>({idxVal}));
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Verify data type.
@@ -581,9 +575,9 @@ private:
         equalOrFailed(module, rewriter, loc,
             rewriter.create<LLVM::ConstantOp>(
                 loc, int64Ty, rewriter.getI64IntegerAttr(dim)),
-            create.llvm.load(rewriter.create<LLVM::GEPOp>(loc,
-                LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
-                ArrayRef<Value>({dimIdx}))),
+            create.llvm.load(
+                create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
+                    sizesArrayPtr, ArrayRef<Value>({dimIdx}))),
             "Wrong size for the dimension " + std::to_string(d) +
                 " of the input " + std::to_string(i) + ": expect " +
                 std::to_string(dim) + ", but got ");

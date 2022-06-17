@@ -220,12 +220,12 @@ void genSignatureFunction(ModuleOp &module,
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
   // A helper function to get a pointer to the first element in an array.
-  auto getGlobalOpGEP = [&loc, &b, &i8PtrTy, &i64Type, &zeroI64Attr](
-                            LLVM::GlobalOp op) {
+  auto getGlobalOpGEP = [&loc, &b, &i8PtrTy, &i64Type, &zeroI64Attr,
+                            &createLLVM](LLVM::GlobalOp op) {
     Value zeroI64 = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
     Value address = b.create<LLVM::AddressOfOp>(loc, op);
-    LLVM::GEPOp gepOp = b.create<LLVM::GEPOp>(
-        loc, i8PtrTy, address, ArrayRef<Value>({zeroI64, zeroI64}));
+    Value gepOp = createLLVM.getElemPtr(
+        i8PtrTy, address, ArrayRef<Value>({zeroI64, zeroI64}));
     return gepOp;
   };
 
@@ -248,7 +248,7 @@ void genSignatureFunction(ModuleOp &module,
     uint32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : entryGlobalOps) {
-      LLVM::GEPOp strAddr = getGlobalOpGEP(globalOp);
+      Value strAddr = getGlobalOpGEP(globalOp);
       lastValue = b.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
           strAddr, b.getArrayAttr({b.getIndexAttr(index++)}));
     }
@@ -294,8 +294,8 @@ void genSignatureFunction(ModuleOp &module,
     // Emit code for the true block: update the value.
     b.setInsertionPointToStart(trueBlock);
     Value zero = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
-    Value numOfEntryPointsPtr = b.create<LLVM::GEPOp>(
-        loc, i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
+    Value numOfEntryPointsPtr = createLLVM.getElemPtr(
+        i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
     Value noep = b.create<LLVM::ConstantOp>(
         loc, i64Type, b.getI64IntegerAttr(entryGlobalOps.size()));
     createLLVM.store(noep, numOfEntryPointsPtr);
@@ -370,7 +370,7 @@ void genSignatureFunction(ModuleOp &module,
       // Emit code for the condition block.
       b.setInsertionPointToEnd(condBlock);
       // Read an entry point name.
-      Value entryI8Ptr = getGlobalOpGEP(globalEntryPoint).getResult();
+      Value entryI8Ptr = getGlobalOpGEP(globalEntryPoint);
       // Compare it with the user's entry point name.
       FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
       Value length = b.create<LLVM::ConstantOp>(loc, i64Type,
