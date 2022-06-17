@@ -14,8 +14,8 @@
 
 #include "mlir/IR/TypeUtilities.h"
 
-#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
@@ -115,7 +115,8 @@ Value OnnxBuilder::sub(Value A, Value B) const {
 
 Value OnnxBuilder::transpose(
     Type outputType, Value input, ArrayAttr perm) const {
-  return b.create<ONNXTransposeOp>(loc, outputType, totensor(input), perm);
+  return b.create<ONNXTransposeOp>(
+      loc, totensor(outputType), totensor(input), perm);
 }
 
 Value OnnxBuilder::totensor(Value input) const {
@@ -135,7 +136,10 @@ Type OnnxBuilder::totensor(Type input) const {
   assert(input.isa<MemRefType>() &&
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.cast<ShapedType>();
-  auto aTensorTy = RankedTensorType::get(aTy.getShape(), aTy.getElementType());
+  mlir::Type elementTy = aTy.getElementType();
+  if (elementTy.isa<IndexType>())
+    elementTy = b.getIntegerType(64);
+  auto aTensorTy = RankedTensorType::get(aTy.getShape(), elementTy);
   return aTensorTy;
 }
 

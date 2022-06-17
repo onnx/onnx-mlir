@@ -77,8 +77,8 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(
-      reshapeRes, MemRefType::get(castOutputShape, elementType));
+  Value castRes = memRefBuilder.cast(create.onnx.tomemref(reshapeRes),
+      MemRefType::get(castOutputShape, elementType));
 
   return castRes;
 }
