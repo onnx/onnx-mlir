@@ -123,6 +123,15 @@ add_custom_target(check-onnx-backend-signature
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+add_custom_target(check-onnx-backend-case
+  COMMAND
+    TEST_CASE_CHECK=true
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 # Do not use pytest-xdist for this check because pytest-xdist swallows stdout
 # and this test cannot check messages from stdout.
 add_custom_target(check-onnx-backend-input-verification

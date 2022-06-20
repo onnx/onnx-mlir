@@ -16,6 +16,8 @@ import warnings
 import json
 import base64
 import numpy as np
+import re
+import onnx
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
 from onnx.backend.test import BackendTest
@@ -1260,3 +1262,13 @@ class InferenceBackend(Backend):
         if d.type == DeviceType.CPU:
             return True
         return False
+
+def save_all_test_names(all_test_names):
+    filename = "new_all_test_names.txt"
+    print("all test names supported by current onnx are listed in "+os.getcwd()+"/"+filename+"\n")
+    with open("./"+filename,"w") as f:
+        f.write("from onnx {}\n".format(onnx.__version__))
+        for test_name in all_test_names:
+            if re.match("^test_", test_name) and re.match("^aduc_", test_name[::-1]) is None:
+                f.write(test_name)
+                f.write("\n")
