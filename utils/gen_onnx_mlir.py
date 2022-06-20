@@ -607,40 +607,6 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
     for i, value in enumerate(value_list):
         types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
-        '''
-        structure, elem_types = get_allowed_elem_types(schema, type_str_dict,  value)
-
-        if structure == 'tensor' :
-            if elem_types is None:
-                types = ["AnyMemRef", "AnyTensor"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'seq' :
-            # Seq is not supported yet.
-            # Use of TensorOf<[AnyTensor]> as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TensorOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'map' :
-            # Map is not supported yet.
-            # Use of TupleOf as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TupleOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TupleOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        else:
-            types = ["AnyMemRef", "AnyTensor"]
-        '''
-
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
         elif OpSchema.FormalParameterOption.Variadic == value.option:
@@ -869,8 +835,6 @@ def parse_a_type_constraint(constraint):
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    # MemRef is always needed
-    mlirTypes.append("AnyMemRef")
     return mlirTypes
 
 def parse_type_constraints(schema):
@@ -884,7 +848,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             return [parse_type_str(input.typeStr), "AnyMemRef"]
+             return [parse_type_str(input.typeStr)]
          else :
              return type_str_dict[input.typeStr]
     else :
