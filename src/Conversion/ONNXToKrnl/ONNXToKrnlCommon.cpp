@@ -356,8 +356,7 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-      create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -384,8 +383,7 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
 std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
 
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-      create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   SmallVector<Type, 4> convertedTypes;
   for (auto t : resultTypes) {
     convertedTypes.emplace_back(create.onnx.toTensor(t));
@@ -448,8 +446,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   for (auto permVal : permAttr.getValue())
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-      create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -466,8 +463,6 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     free(inputBuffer);
     return create.onnx.toMemref(constVal);
   } else {
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
-        create(rewriter, loc);
     return create.onnx.toMemref(
         rewriter
             .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
