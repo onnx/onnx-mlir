@@ -2,7 +2,7 @@
 
 In general, onnx-mlir handles custom accelerators as pluggins which can be turned on/off when building onnx-mlir and compiling a model. The handling is via `cmake` and we will outline its procedure in this document.
 
-Besides this document, [NNPA accelerator](src/Accelerators/NNPA) can be used as an example that has been deployed in onnx-mlir.
+Besides this document, [NNPA accelerator](../src/Accelerators/NNPA) can be used as an example that has been deployed in onnx-mlir.
 
 ## 1. Code folder
 In onnx-mlir, all code for an accelerator should be put inside a separate folder under `src/Accelerators`. Thus, the first step to support an accelerator is to create a folder for it inside `src/Accelerators`.
