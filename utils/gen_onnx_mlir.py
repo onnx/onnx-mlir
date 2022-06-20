@@ -611,7 +611,9 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         # In case the type string is used more than once
         types = str_types.copy()
 
-        types.append("AnyMemRef")
+        # No need to add AnyMemRef type. Keep the code in case.
+        # types.append("AnyMemRef")
+
         # ToFix: In Opset 16, the parameter of IdentityOp has optionalType
         # but this Optional flag is not set 
         if OpSchema.FormalParameterOption.Optional == value.option:

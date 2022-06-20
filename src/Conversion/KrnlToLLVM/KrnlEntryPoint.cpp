@@ -12,13 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <errno.h>
+
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Parser/Parser.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Support/JSON.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "llvm/Support/Debug.h"
@@ -30,17 +36,28 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+extern uint64_t KRNL_ENTRY_POINT_ID;
+
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
   ArrayRef<bool> outputOMTensorOwnerships;
   bool singleEntryPoint;
+  SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
+  SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
+  SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
+  bool verifyInputTensors;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
-      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint)
+      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
+      SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
-        singleEntryPoint(singleEntryPoint) {}
+        singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
+        inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps),
+        verifyInputTensors(verifyInputTensors) {}
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
@@ -75,6 +92,13 @@ public:
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
     if (singleEntryPoint)
       dynEntryPointName = DEFAULT_DYN_ENTRY_POINT;
+
+    // Record entry point name, input and output signatures in order to emit
+    // signature-related functions later.
+    recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
+        inSigGlobalOps, outSigGlobalOps);
+
+    // Start lowering the op.
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
@@ -155,6 +179,17 @@ public:
     // them to static mem refs.
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
+
+    // Emit code to verify every tensor in the wrapped input, e.g. verifying
+    // shape and data type.
+    if (verifyInputTensors) {
+      StringAttr sigAttr = op->getAttrOfType<StringAttr>(
+          KrnlEntryPointOp::getSignatureAttrName());
+      llvm::StringRef inSigJSON;
+      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
+      emitVerificationCodeForInputTensors(
+          module, rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
+    }
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
@@ -371,7 +406,6 @@ private:
     rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
   }
 
-private:
   FlatSymbolRefAttr getOrInsertMalloc(
       PatternRewriter &rewriter, ModuleOp module) const {
     // Insert the malloc/aligned_alloc declaration if it is not already present.
@@ -426,13 +460,219 @@ private:
     }
     return SymbolRefAttr::get(ctx, funcName);
   }
+
+  // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
+  void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
+      Value lhs, Value rhs, std::string errorMsg = "",
+      bool appendRHS = true) const {
+    // Split the current block into IF, THEN, END blocks.
+    Block *ifBlock, *thenBlock, *endBlock;
+    ifBlock = rewriter.getInsertionBlock();
+    thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
+    endBlock = rewriter.createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+
+    // Emit code for the IF block.
+    rewriter.setInsertionPointToEnd(ifBlock);
+    Value failed =
+        rewriter.create<LLVM::ICmpOp>(loc, LLVM::ICmpPredicate::ne, lhs, rhs);
+
+    // Branch the block into the THEN and END blocks.
+    rewriter.create<LLVM::CondBrOp>(
+        loc, failed, thenBlock, ValueRange(), endBlock, ValueRange());
+
+    // Emit code for the THEN block: return NULL.
+    rewriter.setInsertionPointToStart(thenBlock);
+    // Print an error message.
+    KrnlBuilder createKrnl(rewriter, loc);
+    if (appendRHS)
+      createKrnl.printf(StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
+    else
+      createKrnl.printf(StringRef(errorMsg + "\n"));
+    // Set errno.
+    krnl::emitErrNo(module, rewriter, loc, EINVAL);
+    // Return NULL.
+    Value nullPtr = rewriter.create<LLVM::NullOp>(
+        loc, LLVM::LLVMPointerType::get(rewriter.getI8Type()));
+    rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+
+    // Emit code for the END block: continue with other generated code.
+    rewriter.setInsertionPointToStart(endBlock);
+  }
+
+  void emitVerificationCodeForInputTensors(ModuleOp &module,
+      PatternRewriter &rewriter, Location loc,
+      const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+      StringRef inSigJSON) const {
+    Type int64Ty = rewriter.getI64Type();
+    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
+
+    auto JSONInput = llvm::json::parse(inSigJSON.data());
+    assert(JSONInput && "failed to parse json");
+    auto JSONArray = JSONInput->getAsArray();
+    assert(JSONArray && "failed to parse json as array");
+    int64_t inputNum = JSONArray->size();
+
+    // Verify the number of inputs.
+    equalOrFailed(module, rewriter, loc,
+        rewriter.create<LLVM::ConstantOp>(
+            loc, int64Ty, rewriter.getI64IntegerAttr(inputNum)),
+        RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
+        "Wrong number of input tensors: expect " + std::to_string(inputNum) +
+            ", but got ");
+
+    // Get a pointer to the list of input omTensors.
+    Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
+    for (int i = 0; i < inputNum; ++i) {
+      // Call API function to retrieve the i-th omTensor.
+      Value idxVal = rewriter.create<LLVM::ConstantOp>(
+          loc, int64Ty, rewriter.getI64IntegerAttr(i));
+      Value omTensorPtrAddr =
+          rewriter
+              .create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(opaquePtrTy),
+                  omTensorPtrArr, ArrayRef<Value>({idxVal}))
+              .getResult();
+      Value omTensorPtr =
+          rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omTensorPtrAddr)
+              .getResult();
+
+      // Verify data type.
+      auto JSONItem = (*JSONArray)[i].getAsObject();
+      auto JSONItemType = JSONItem->getString("type");
+      assert(JSONItemType && "failed to get type");
+      Type elemTy = parseType(JSONItemType.getValue(), rewriter.getContext());
+      std::string elemTyStr;
+      llvm::raw_string_ostream dstream(elemTyStr);
+      dstream << elemTy;
+      dstream.flush();
+      onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
+      equalOrFailed(module, rewriter, loc,
+          rewriter.create<LLVM::ConstantOp>(
+              loc, int64Ty, rewriter.getI64IntegerAttr(dtype)),
+          RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+              RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
+          "Wrong data type for the input " + std::to_string(i) + ": expect " +
+              elemTyStr,
+          false);
+
+      // Verify data rank.
+      auto JSONDimArray = JSONItem->getArray("dims");
+      int64_t rank = JSONDimArray->size();
+      equalOrFailed(module, rewriter, loc,
+          rewriter.create<LLVM::ConstantOp>(
+              loc, int64Ty, rewriter.getI64IntegerAttr(rank)),
+          RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+              RuntimeAPI::API::GET_DATA_RANK, {omTensorPtr}),
+          "Wrong rank for the input " + std::to_string(i) + ": expect " +
+              std::to_string(rank) + ", but got ");
+
+      // Verify dimensions.
+      Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+          RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
+      for (int d = 0; d < rank; ++d) {
+        auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
+        assert(JSONDimValue && "failed to get value");
+        int64_t dim = JSONDimValue.getValue();
+        if (dim == -1)
+          continue; // do not verify dynamic dimensions.
+        Value dimIdx = rewriter.create<LLVM::ConstantOp>(
+            loc, int64Ty, rewriter.getI64IntegerAttr(d));
+        equalOrFailed(module, rewriter, loc,
+            rewriter.create<LLVM::ConstantOp>(
+                loc, int64Ty, rewriter.getI64IntegerAttr(dim)),
+            rewriter.create<LLVM::LoadOp>(loc, int64Ty,
+                rewriter.create<LLVM::GEPOp>(loc,
+                    LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr,
+                    ArrayRef<Value>({dimIdx}))),
+            "Wrong size for the dimension " + std::to_string(d) +
+                " of the input " + std::to_string(i) + ": expect " +
+                std::to_string(dim) + ", but got ");
+      }
+    }
+  }
+
+  void recordEntryPointSignatures(ModuleOp &module,
+      std::string currentEntryPointName, KrnlEntryPointOp entryOp,
+      SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps) const {
+    Operation *op = entryOp.getOperation();
+    MLIRContext *context = module.getContext();
+    Location loc = module.getLoc();
+    OpBuilder b(context);
+
+    // Common information.
+    Type i8Type = IntegerType::get(context, 8);
+
+    // A helper function to emit a global constant operation storing a string.
+    auto emitGlobalOp = [&context, &b, &loc, &i8Type](
+                            std::string name, std::string value) {
+      mlir::StringAttr valueAttr = mlir::StringAttr::get(context, value);
+      Type valueArrayType = LLVM::LLVMArrayType::get(i8Type, value.size());
+      LLVM::GlobalOp globalOp = b.create<LLVM::GlobalOp>(loc, valueArrayType,
+          /*isConstant=*/true, LLVM::Linkage::External, name, valueAttr);
+      return globalOp;
+    };
+
+    bool zOS = false;
+    if (Attribute mtripleAttr =
+            module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
+      zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
+
+    // NULL terminated entry point name.
+    std::string terminatedEntryPointName = currentEntryPointName + '\0';
+    terminatedEntryPointName = (zOS) ? krnl::a2e_s(terminatedEntryPointName)
+                                     : terminatedEntryPointName;
+
+    // Input/output signature strings.
+    StringAttr sigAttr =
+        op->getAttrOfType<StringAttr>(KrnlEntryPointOp::getSignatureAttrName());
+    llvm::StringRef signature = sigAttr.getValue();
+    auto splitSig = signature.split('@');
+    std::string inSignature =
+        (zOS) ? krnl::a2e_s(splitSig.first.str()) : splitSig.first.str();
+    std::string outSignature =
+        (zOS) ? krnl::a2e_s(splitSig.second.str()) : splitSig.second.str();
+
+    // For each entry point name, emit three global constants to store the entry
+    // point name and input/output signatures. For the i-th entry point, these
+    // constants are named as follows:
+    // - Entry point name: `_entry_point_i`.
+    // - Input signature: `_entry_point_i_in_sig`.
+    // - Output signature: `_entry_point_i_out_sig`.
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(module.getBody());
+    // Global constants for entry point names.
+    std::string entryVarName =
+        "_entry_point_" + std::to_string(KRNL_ENTRY_POINT_ID);
+    KRNL_ENTRY_POINT_ID++;
+    LLVM::GlobalOp entryGlobalOp =
+        emitGlobalOp(entryVarName, terminatedEntryPointName);
+    entryGlobalOps.emplace_back(entryGlobalOp);
+
+    // Global constants for input signatures.
+    std::string inSigVarName = entryVarName + "_in_sig";
+    LLVM::GlobalOp inSigGlobalOp = emitGlobalOp(inSigVarName, inSignature);
+    inSigGlobalOps.emplace_back(inSigGlobalOp);
+
+    // Global constants for output signatures.
+    std::string outSigVarName = entryVarName + "_out_sig";
+    LLVM::GlobalOp outSigGlobalOp = emitGlobalOp(outSigVarName, outSignature);
+    outSigGlobalOps.emplace_back(outSigGlobalOp);
+  }
 };
 
 void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
-  patterns.insert<KrnlEntryPointOpLowering>(
-      typeConverter, ctx, outputOMTensorOwnerships, singleEntryPoint);
+    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
+    SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+    SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+  patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
+      outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
+      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
 }
 
 } // namespace krnl
