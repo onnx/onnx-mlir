@@ -786,6 +786,34 @@ Value LLVMBuilder::_alloca(
   return b.create<LLVM::AllocaOp>(loc, resultType, size, alignment);
 }
 
+Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
+    ArrayRef<Value> inputs) const {
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  LLVM::CallOp callOp =
+      b.create<LLVM::CallOp>(loc, resultTypes, funcName, inputs);
+  // CallOp may return either 0 or 1 value.
+  if (resultTypes.empty()) {
+    Value none;
+    return none;
+  }
+  return callOp.getResult(0);
+}
+
+Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
+    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs) const {
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  LLVM::CallOp callOp =
+      b.create<LLVM::CallOp>(loc, resultTypes, funcSymbol, inputs);
+  // CallOp may return either 0 or 1 value.
+  if (resultTypes.empty()) {
+    Value none;
+    return none;
+  }
+  return callOp.getResult(0);
+}
+
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b.create<LLVM::LLVMFuncOp>(loc, name, type);
 }
@@ -797,6 +825,15 @@ Value LLVMBuilder::getElemPtr(
 
 Value LLVMBuilder::load(Value addr) const {
   return b.create<LLVM::LoadOp>(loc, addr);
+}
+
+Value LLVMBuilder::nullPtr() const {
+  Type I8PtrTy = LLVM::LLVMPointerType::get(b.getI8Type());
+  return b.create<LLVM::NullOp>(loc, I8PtrTy);
+}
+
+void LLVMBuilder::_return(Value val) const {
+  b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({val}));
 }
 
 void LLVMBuilder::store(Value val, Value addr) const {

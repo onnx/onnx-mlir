@@ -143,10 +143,8 @@ public:
         // Call OMInitCompatibleAccelX.
         LLVM::ConstantOp versionNumberVal = rewriter.create<LLVM::ConstantOp>(
             loc, int64Ty, rewriter.getI64IntegerAttr(versionNumberInHex));
-        Value isCompatible = rewriter
-                                 .create<LLVM::CallOp>(loc, int64Ty, funcRef,
-                                     ArrayRef<Value>({versionNumberVal}))
-                                 .getResult(0);
+        Value isCompatible = create.llvm.call(
+            int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
         // Condition: if (OMInitCompatibleAccelX() != 0)
         Value notCompatible = rewriter.create<LLVM::ICmpOp>(
             loc, LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
@@ -156,10 +154,9 @@ public:
 
         // Emit code for the THEN block: return NULL.
         rewriter.setInsertionPointToStart(thenBlock);
-        Value nullPtr = rewriter.create<LLVM::NullOp>(loc, opaquePtrTy);
-        rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+        create.llvm._return(create.llvm.nullPtr());
 
-        // Emit code for the ELSE block: deal with other accelerators if any.
+        // Emit code for thenELSE block: deal with other accelerators if any.
         rewriter.setInsertionPointToStart(elseBlock);
       }
     }
@@ -232,8 +229,8 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    rewriter.create<LLVM::CallOp>(
-        loc, ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
+    create.llvm.call(
+        ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
     Value outMemRefs = create.llvm.load(ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
@@ -265,13 +262,9 @@ public:
     size_t kPtrSize = 8;
     auto outputOmtPtrsArraySizeInByte = rewriter.create<LLVM::ConstantOp>(loc,
         int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size() * kPtrSize));
-    auto outOmtPtrsArr =
-        rewriter
-            .create<LLVM::CallOp>(loc,
-                LLVM::LLVMPointerType::get(
-                    IntegerType::get(module.getContext(), 8)),
-                mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte))
-            .getResult(0);
+    auto outOmtPtrsArr = create.llvm.call(
+        LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
+        mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
     outOmtPtrsArr = rewriter
                         .create<LLVM::BitcastOp>(loc,
                             LLVM::LLVMPointerType::get(
@@ -315,8 +308,7 @@ public:
         RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
     // Return wrapped output.
-    rewriter.create<LLVM::ReturnOp>(
-        loc, SmallVector<Value, 1>(1, wrappedOutput));
+    create.llvm._return(wrappedOutput);
     return success();
   }
 
@@ -461,6 +453,7 @@ private:
   void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
       Value lhs, Value rhs, std::string errorMsg = "",
       bool appendRHS = true) const {
+    LLVMBuilder createLLVM(rewriter, loc);
     // Split the current block into IF, THEN, END blocks.
     Block *ifBlock, *thenBlock, *endBlock;
     ifBlock = rewriter.getInsertionBlock();
@@ -488,9 +481,7 @@ private:
     // Set errno.
     krnl::emitErrNo(module, rewriter, loc, EINVAL);
     // Return NULL.
-    Value nullPtr = rewriter.create<LLVM::NullOp>(
-        loc, LLVM::LLVMPointerType::get(rewriter.getI8Type()));
-    rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+    createLLVM._return(createLLVM.nullPtr());
 
     // Emit code for the END block: continue with other generated code.
     rewriter.setInsertionPointToStart(endBlock);

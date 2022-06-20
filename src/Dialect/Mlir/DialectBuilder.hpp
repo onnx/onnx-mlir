@@ -270,10 +270,17 @@ struct LLVMBuilder final : DialectBuilder {
 
   mlir::Value _alloca(
       mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::FlatSymbolRefAttr funcSymbol,
+      mlir::ArrayRef<mlir::Value> inputs) const;
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
       llvm::ArrayRef<mlir::Value> indices) const;
   mlir::Value load(mlir::Value addr) const;
+  mlir::Value nullPtr() const;
+  void _return(mlir::Value val) const;
   void store(mlir::Value val, mlir::Value addr) const;
 };
 
