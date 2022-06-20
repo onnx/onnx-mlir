@@ -27,16 +27,6 @@ TorchTypeConverter::TorchTypeConverter() {
     return Torch::StringType::get(stringType.getContext());
   });
 
-  addConversion([](TensorType tensorType) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<StringType>()) {
-      Type elementType = Torch::StringType::get(tensorType.getContext());
-      return MemRefType::get(tensorType.getShape(), elementType);
-    }
-    return MemRefType::get(tensorType.getShape(), 
-		    tensorType.getElementType());
-  });
-
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
