@@ -20,6 +20,8 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
+#undef PRINT_TENSORS
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -50,25 +52,14 @@ namespace test {
 //   y<BxI>(=last-state) : [9, 12]
 //   z<BxSxI>(scan-output) : [[1, 4, 9], [2, 6, 12]]
 // : [0, 0]<1x2>
-std::string testScanIdentityAdd = R"(
-module {
-  func @main_graph(%arg0: tensor<%Bx%Ixf32>, %arg1: tensor<%Bx%Sx%Ixf32>) ->
-                   (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>) {
-    %1:2 = "onnx.Scan"(%arg0, %arg1) ({
-    ^bb0(%body_arg0: tensor<%Bx%Ixf32>, %body_arg1: tensor<%Bx%Ixf32>):
-      %2 = "onnx.Add"(%body_arg0, %body_arg1) :
-           (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
-      %3 = "onnx.Identity"(%2) : (tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
-      "onnx.Return"(%2, %3) : (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> ()
-    }) {num_scan_inputs = 1 : si64} :
-        (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
-        -> (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
-    "func.return"(%1#0, %1#1) : (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>) -> ()
-  }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
-})";
 
-std::string testScanIdentityAdd9 = R"(
+//
+// Similar to the onnx.Loop numerical test code, we use a model builder
+// based on MLIR-representation in order to define onnx.Scan's body part
+// in the simplest way.
+// 
+
+std::string testScanIdentityAdd = R"(
 module {
   func @main_graph(%arg0: tensor<%Ixf32>, %arg1: tensor<%Sx%Ixf32>) ->
                    (tensor<%Ixf32>, tensor<%Sx%Ixf32>) {
@@ -86,7 +77,6 @@ module {
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
 })";
 
-
 ScanLibBuilder::ScanLibBuilder(const std::string &modelName,
     const int /*batch=*/B, const int /*seq=*/S, const int /*inner-dim=*/I)
     : ModelLibBuilder(modelName), B(B), S(S), I(I) {}
@@ -96,7 +86,7 @@ bool ScanLibBuilder::build() {
   xShape = {B, S, I};
 
   moduleIR = std::regex_replace(
-      testScanIdentityAdd9, std::regex("%B"), std::to_string(B));
+      testScanIdentityAdd, std::regex("%B"), std::to_string(B));
   moduleIR = std::regex_replace(moduleIR, std::regex("%S"), std::to_string(S));
   moduleIR = std::regex_replace(moduleIR, std::regex("%I"), std::to_string(I));
   return true;
@@ -170,7 +160,7 @@ bool ScanLibBuilder::verifyOutputs() {
   OMTensor *refz = omTensorCreateWithShape<float>({S, I});
   if (!init || !x || !resy || !refy || !resz || !refz)
     return false;
-#if 0
+#ifdef PRINT_TENSORS
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
       printf("init<b=%ld, i=%ld>: %f\n", b, i,
@@ -198,7 +188,7 @@ bool ScanLibBuilder::verifyOutputs() {
     }
     omTensorGetElem<float>(refy, {i}) = refVal;
   }
-#if 0
+#ifdef PRINT_TENSORS
   for (int64_t i = 0; i < I; ++i) {
     printf("resy/refy<i=%ld>: %f %f\n", i,
         omTensorGetElem<float>(resy, {i}),
