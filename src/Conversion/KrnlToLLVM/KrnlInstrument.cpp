@@ -43,19 +43,16 @@ public:
     KrnlInstrumentOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value nodeName =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value nodeName = create.llvm.constant(
+        IntegerType::get(context, 64), instrumentOp.opID());
     Value tag =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.tag()));
+        create.llvm.constant(IntegerType::get(context, 64), instrumentOp.tag());
 
     rewriter.create<func::CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
         ArrayRef<Value>({nodeName, tag}));

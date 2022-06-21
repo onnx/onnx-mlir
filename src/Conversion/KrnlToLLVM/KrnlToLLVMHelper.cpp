@@ -176,11 +176,10 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
-  LLVMBuilder createLLVM(rewriter, loc);
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   // Set ownership, i.e., free after OMTensor is destroyed.
-  Value owning = rewriter.create<LLVM::ConstantOp>(
-      loc, int64Ty, rewriter.getI64IntegerAttr(outOwning));
+  Value owning = create.llvm.constant(int64Ty, outOwning);
 
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
@@ -206,8 +205,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
   onnx::TensorProto::DataType onnxTy = krnl::mlirTypeToOnnxType(elemTy);
-  auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-      loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
+  Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
 
@@ -218,18 +216,16 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
 
   for (decltype(rank) i = 0; i < rank; i++) {
-    Value dimIdx = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(i));
-
+    Value dimIdx = create.llvm.constant(int64Ty, i);
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
         outMemRef,
         rewriter.getArrayAttr(
             {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
     Value dimSizePtr =
-        createLLVM.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-    createLLVM.store(dimSize, dimSizePtr);
+    create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
@@ -237,9 +233,9 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
         rewriter.getArrayAttr(
             {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
     Value dimStridePtr =
-        createLLVM.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-    createLLVM.store(dimStride, dimStridePtr);
+    create.llvm.store(dimStride, dimStridePtr);
   }
 }
 
@@ -266,15 +262,14 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 // Return a pointer to the first character in a global string.
 Value getPtrToGlobalString(
     const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) {
-  LLVMBuilder createLLVM(builder, loc);
+  MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   Type i8Type = IntegerType::get(builder.getContext(), 8);
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
   Type i64Type = IntegerType::get(builder.getContext(), 64);
   Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, global);
-  Value zero =
-      builder.create<LLVM::ConstantOp>(loc, i64Type, builder.getIndexAttr(0));
+  Value zero = create.llvm.constant(i64Type, 0);
 
-  return createLLVM.getElemPtr(
+  return create.llvm.getElemPtr(
       i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
 }
 
@@ -305,7 +300,7 @@ Optional<FlatSymbolRefAttr> getFunctionDeclaration(
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
-  LLVMBuilder createLLVM(builder, module.getLoc());
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
   constexpr const char *funcName = "strncmp";
   Optional<FlatSymbolRefAttr> optFuncDecl =
       krnl::getFunctionDeclaration(module, funcName);
@@ -322,7 +317,7 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   // Insert the function declaration the module.
   PatternRewriter::InsertionGuard insertGuard(builder);
   builder.setInsertionPointToStart(module.getBody());
-  createLLVM.func(funcName, fnType);
+  create.llvm.func(funcName, fnType);
 
   return SymbolRefAttr::get(ctx, funcName);
 }
@@ -370,8 +365,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
                        .create<LLVM::CallOp>(
                            loc, int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}))
                        .getResult(0);
-  Value errNoVal = builder.create<LLVM::ConstantOp>(
-      loc, int32Ty, builder.getI32IntegerAttr(errCode));
+  Value errNoVal = createLLVM.constant(int32Ty, errCode);
   createLLVM.store(errNoVal, errNoPos);
 }
 

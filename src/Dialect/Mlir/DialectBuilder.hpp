@@ -275,6 +275,7 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       mlir::FlatSymbolRefAttr funcSymbol,
       mlir::ArrayRef<mlir::Value> inputs) const;
+  mlir::Value constant(mlir::Type type, double val) const;
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
       llvm::ArrayRef<mlir::Value> indices) const;
@@ -376,7 +377,7 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   VectorBuilder vec;
 };
 
-// Recursive class specialized for LLVMBuilder refereed to as scf.
+// Recursive class specialized for LLVMBuilder refereed to as llvm.
 template <class... Ts>
 struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)

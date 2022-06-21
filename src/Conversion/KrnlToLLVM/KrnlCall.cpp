@@ -89,6 +89,7 @@ private:
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
@@ -96,8 +97,7 @@ private:
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-      auto memRefRankVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int64Ty, rewriter.getI64IntegerAttr(memRefRank));
+      auto memRefRankVal = create.llvm.constant(int64Ty, memRefRank);
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
@@ -191,7 +191,7 @@ private:
   FlatSymbolRefAttr getOrInsertCall(PatternRewriter &rewriter, ModuleOp module,
       llvm::StringRef funcName, ArrayRef<Type> parameterTypeList) const {
     auto *context = module.getContext();
-    LLVMBuilder createLLVM(rewriter, module.getLoc());
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
       return SymbolRefAttr::get(context, funcName);
     auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
@@ -200,7 +200,7 @@ private:
 
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    createLLVM.func(funcName, llvmFnType);
+    create.llvm.func(funcName, llvmFnType);
     return SymbolRefAttr::get(context, funcName);
   }
 };

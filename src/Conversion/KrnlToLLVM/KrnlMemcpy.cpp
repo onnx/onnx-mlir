@@ -41,6 +41,7 @@ public:
     auto *context = op->getContext();
     KrnlMemcpyOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
@@ -73,9 +74,7 @@ public:
         loc, IntegerType::get(context, 64), operandAdaptor.size());
 
     // Is volatile (set to false).
-    Value isVolatile =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+    Value isVolatile = create.llvm.constant(IntegerType::get(context, 1), 0);
 
     // Memcpy call
     rewriter.create<func::CallOp>(loc, memcpyRef, ArrayRef<Type>({}),

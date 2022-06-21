@@ -814,6 +814,45 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   return callOp.getResult(0);
 }
 
+Value LLVMBuilder::constant(Type type, double val) const {
+  Value constant = nullptr;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF16FloatAttr(val));
+      })
+      .Case<Float32Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF32FloatAttr(val));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF64FloatAttr(val));
+      })
+      .Case<IntegerType>([&](IntegerType type) {
+        assert(val == (int64_t)val && "value is ambiguous");
+        unsigned width = type.getWidth();
+
+        if (width == 1)
+          constant =
+              b.create<LLVM::ConstantOp>(loc, type, b.getBoolAttr(val != 0));
+        else {
+          assert(type.isSignless() &&
+                 "LLVM::ConstantOp requires a signless type.");
+          constant = b.create<LLVM::ConstantOp>(
+              loc, type, b.getIntegerAttr(type, APInt(width, (int64_t)val)));
+        }
+      })
+      .Case<IndexType>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getIntegerAttr(type, val));
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b.create<LLVM::LLVMFuncOp>(loc, name, type);
 }

@@ -15,7 +15,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_3]], ^bb1, ^bb2
 // CHECK:         ^bb1:
 // CHECK-DAG:       %[[VAL_4:.*]] = llvm.mlir.addressof @"Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr<array<54 x i8>>
-// CHECK-DAG:       %[[VAL_5:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_5:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_6:.*]] = llvm.getelementptr %[[VAL_4]]{{\[}}%[[VAL_5]], %[[VAL_5]]] : (!llvm.ptr<array<54 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_6]], %[[VAL_2]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_7:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -33,7 +33,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_14]], ^bb3, ^bb4
 // CHECK:         ^bb3:
 // CHECK-DAG:       %[[VAL_15:.*]] = llvm.mlir.addressof @"Wrong data type for the input 0: expect f32\0A" : !llvm.ptr<array<44 x i8>>
-// CHECK-DAG:       %[[VAL_16:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_16:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_17:.*]] = llvm.getelementptr %[[VAL_15]]{{\[}}%[[VAL_16]], %[[VAL_16]]] : (!llvm.ptr<array<44 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_17]]) : (!llvm.ptr<i8>) -> ()
 // CHECK-DAG:       %[[VAL_18:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -49,7 +49,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_23]], ^bb5, ^bb6
 // CHECK:         ^bb5:
 // CHECK-DAG:       %[[VAL_24:.*]] = llvm.mlir.addressof @"Wrong rank for the input 0: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<51 x i8>>
-// CHECK-DAG:       %[[VAL_25:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_25:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_26:.*]] = llvm.getelementptr %[[VAL_24]]{{\[}}%[[VAL_25]], %[[VAL_25]]] : (!llvm.ptr<array<51 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_26]], %[[VAL_22]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_27:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -66,7 +66,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_33]], ^bb7, ^bb8
 // CHECK:         ^bb7:
 // CHECK-DAG:       %[[VAL_34:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 0 of the input 0: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_35:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_35:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_36:.*]] = llvm.getelementptr %[[VAL_34]]{{\[}}%[[VAL_35]], %[[VAL_35]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_36]], %[[VAL_32]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_37:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -84,7 +84,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_44]], ^bb9, ^bb10
 // CHECK:         ^bb9:
 // CHECK-DAG:       %[[VAL_45:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 1 of the input 0: expect 4, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_46:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_46:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_47:.*]] = llvm.getelementptr %[[VAL_45]]{{\[}}%[[VAL_46]], %[[VAL_46]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_47]], %[[VAL_43]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_48:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -102,7 +102,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_55]], ^bb11, ^bb12
 // CHECK:         ^bb11:
 // CHECK-DAG:       %[[VAL_56:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 2 of the input 0: expect 5, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_57:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_57:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_58:.*]] = llvm.getelementptr %[[VAL_56]]{{\[}}%[[VAL_57]], %[[VAL_57]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_58]], %[[VAL_54]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_59:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -121,7 +121,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_67]], ^bb13, ^bb14
 // CHECK:         ^bb13:
 // CHECK-DAG:       %[[VAL_68:.*]] = llvm.mlir.addressof @"Wrong data type for the input 1: expect f32\0A" : !llvm.ptr<array<44 x i8>>
-// CHECK-DAG:       %[[VAL_69:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_69:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_70:.*]] = llvm.getelementptr %[[VAL_68]]{{\[}}%[[VAL_69]], %[[VAL_69]]] : (!llvm.ptr<array<44 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_70]]) : (!llvm.ptr<i8>) -> ()
 // CHECK-DAG:       %[[VAL_71:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -137,7 +137,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_76]], ^bb15, ^bb16
 // CHECK:         ^bb15:
 // CHECK-DAG:       %[[VAL_77:.*]] = llvm.mlir.addressof @"Wrong rank for the input 1: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<51 x i8>>
-// CHECK-DAG:       %[[VAL_78:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_78:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_79:.*]] = llvm.getelementptr %[[VAL_77]]{{\[}}%[[VAL_78]], %[[VAL_78]]] : (!llvm.ptr<array<51 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_79]], %[[VAL_75]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_80:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -154,7 +154,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_86]], ^bb17, ^bb18
 // CHECK:         ^bb17:
 // CHECK-DAG:       %[[VAL_87:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 0 of the input 1: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_88:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_88:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_89:.*]] = llvm.getelementptr %[[VAL_87]]{{\[}}%[[VAL_88]], %[[VAL_88]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_89]], %[[VAL_85]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_90:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -172,7 +172,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_97]], ^bb19, ^bb20
 // CHECK:         ^bb19:
 // CHECK-DAG:       %[[VAL_98:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 1 of the input 1: expect 4, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_99:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_99:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_100:.*]] = llvm.getelementptr %[[VAL_98]]{{\[}}%[[VAL_99]], %[[VAL_99]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_100]], %[[VAL_96]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_101:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
@@ -190,7 +190,7 @@ module {
 // CHECK:           llvm.cond_br %[[VAL_108]], ^bb21, ^bb22
 // CHECK:         ^bb21:
 // CHECK-DAG:       %[[VAL_109:.*]] = llvm.mlir.addressof @"Wrong size for the dimension 2 of the input 1: expect 5, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
-// CHECK-DAG:       %[[VAL_110:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK-DAG:       %[[VAL_110:.*]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       %[[VAL_111:.*]] = llvm.getelementptr %[[VAL_109]]{{\[}}%[[VAL_110]], %[[VAL_110]]] : (!llvm.ptr<array<70 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           llvm.call @printf(%[[VAL_111]], %[[VAL_107]]) : (!llvm.ptr<i8>, i64) -> ()
 // CHECK-DAG:       %[[VAL_112:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr<i32>
