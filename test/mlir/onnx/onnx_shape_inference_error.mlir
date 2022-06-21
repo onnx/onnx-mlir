@@ -133,7 +133,7 @@ func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi64>) -> tensor<*
 // -----
 
 func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi32>) -> tensor<*x!onnx.String> {
-  // expected-error @+1 {{'onnx.CategoryMapper' op operand #0 must be tensor of string type values or tensor of 64-bit signless integer values or memref of any type values, but got 'tensor<20x1xi32>'}}      
+  // expected-error @+1 {{'onnx.CategoryMapper' op operand #0 must be tensor of string type values or tensor of 64-bit signless integer values, but got 'tensor<20x1xi32>'}}      
   %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1], cats_strings = ["cat"]} : (tensor<20x1xi32>) -> tensor<*x!onnx.String>
   "func.return"(%0) : (tensor<*x!onnx.String>) -> ()
 }
