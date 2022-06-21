@@ -38,12 +38,14 @@ public:
     CREATE_OMTENSOR,
     GET_DATA,
     SET_DATA,
+    GET_DATA_RANK,
     GET_DATA_SHAPE,
     GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
     GET_OMT_ARRAY,
     PRINT_OMTENSOR,
+    GET_OMTENSOR_LIST_SIZE,
   };
 
   // Call the runtime API identified by \p apiId, return the SSA value

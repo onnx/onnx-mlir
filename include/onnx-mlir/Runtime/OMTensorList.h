@@ -102,7 +102,7 @@ OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
  *
  * @param list pointer to the OMTensorList
  * @param index index of the OMTensor
- * @reutrn pointer to the OMTensor, NULL if not found.
+ * @return pointer to the OMTensor, NULL if not found.
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
     OMTensorList *list, int64_t index);

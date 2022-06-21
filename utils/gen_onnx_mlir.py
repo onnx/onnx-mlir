@@ -40,13 +40,18 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
+parser.add_argument("--list-operation-version",
+                    help="list the version stored in  version_dicts without performing checks",
+                    action="store_true",
+                    default=False)
 
 args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
+list_operation_version = args.list_operation_version
 current_onnx_version = "1.11.0"
 # check the version of onnx package being used
-if (not check_operation_version) and current_onnx_version != onnx.__version__ :
+if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
           "while onnx package being used is {}".format(onnx.__version__))
     quit()
@@ -56,13 +61,14 @@ if (not check_operation_version) and current_onnx_version != onnx.__version__ :
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
+ 
 version_dict = {
  'Abs': [13],
  'Acos': [7],
  'Acosh': [9],
  'Adagrad': [1],
  'Adam': [1],
- 'Add': [13],
+ 'Add': [14],
  'And': [7],
  'ArgMax': [13],
  'ArgMin': [13],
@@ -91,12 +97,12 @@ version_dict = {
  'ConvTranspose': [11],
  'Cos': [7],
  'Cosh': [9],
- 'CumSum': [11],
+ 'CumSum': [14],
  'DepthToSpace': [13],
  'DequantizeLinear': [13],
  'Det': [11],
  'DictVectorizer': [1],
- 'Div': [13],
+ 'Div': [14],
  'Dropout': [13],
  'DynamicQuantizeLinear': [11],
  'Einsum': [12],
@@ -119,11 +125,11 @@ version_dict = {
  'GlobalMaxPool': [1],
  'Gradient': [1],
  'Greater': [13],
- 'GreaterOrEqual': [12],
+ 'GreaterOrEqual': [16],
  'HardSigmoid': [6],
  'Hardmax': [13],
- 'Identity': [13],
- 'If': [13],
+ 'Identity': [16],
+ 'If': [16],
  'Imputer': [1],
  'InstanceNormalization': [6],
  'IsInf': [10],
@@ -131,14 +137,14 @@ version_dict = {
  'LRN': [13],
  'LSTM': [7],
  'LabelEncoder': [2],
- 'LeakyRelu': [6],
+ 'LeakyRelu': [16],
  'Less': [13],
- 'LessOrEqual': [12],
+ 'LessOrEqual': [16],
  'LinearClassifier': [1],
  'LinearRegressor': [1],
  'Log': [13],
  'LogSoftmax': [13],
- 'Loop': [13],
+ 'Loop': [16],
  'LpNormalization': [1],
  'LpPool': [11],
  'MatMul': [13],
@@ -152,7 +158,7 @@ version_dict = {
  'Min': [13],
  'Mod': [13],
  'Momentum': [1],
- 'Mul': [13],
+ 'Mul': [14],
  'Multinomial': [7],
  'Neg': [13],
  'NegativeLogLikelihoodLoss': [13],
@@ -163,13 +169,13 @@ version_dict = {
  'OneHot': [11],
  'OneHotEncoder': [1],
  'Or': [7],
- 'PRelu': [9],
+ 'PRelu': [16],
  'Pad': [13, 11, 2],
- 'Pow': [13],
+ 'Pow': [15],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
  'QuantizeLinear': [13],
- 'RNN': [7],
+ 'RNN': [14],
  'RandomNormal': [1],
  'RandomNormalLike': [1],
  'RandomUniform': [1],
@@ -186,7 +192,7 @@ version_dict = {
  'ReduceProd': [13],
  'ReduceSum': [13, 11],
  'ReduceSumSquare': [13],
- 'Relu': [13],
+ 'Relu': [14],
  'Reshape': [13],
  'Resize': [13, 11, 10],
  'ReverseSequence': [10],
@@ -195,10 +201,10 @@ version_dict = {
  'SVMClassifier': [1],
  'SVMRegressor': [1],
  'Scaler': [1],
- 'Scan': [11],
+ 'Scan': [16],
  'Scatter': [11],
  'ScatterElements': [13],
- 'ScatterND': [13],
+ 'ScatterND': [16],
  'Selu': [6],
  'SequenceAt': [11],
  'SequenceConstruct': [11],
@@ -224,7 +230,7 @@ version_dict = {
  'Sqrt': [13],
  'Squeeze': [13, 11],
  'StringNormalizer': [10],
- 'Sub': [13],
+ 'Sub': [14],
  'Sum': [13],
  'Tan': [7],
  'Tanh': [13],
@@ -238,7 +244,7 @@ version_dict = {
  'Unique': [11],
  'Unsqueeze': [13, 11],
  'Upsample': [10, 9, 7],
- 'Where': [9],
+ 'Where': [16],
  'Xor': [7],
  'ZipMap': [1]}
 
@@ -600,43 +606,19 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        types = get_onnx_mlir_types(schema, type_str_dict,  value)
+        (str_types,isOptional) = get_onnx_mlir_types(schema, type_str_dict,  value)
 
-        '''
-        structure, elem_types = get_allowed_elem_types(schema, type_str_dict,  value)
+        # In case the type string is used more than once
+        types = str_types.copy()
 
-        if structure == 'tensor' :
-            if elem_types is None:
-                types = ["AnyMemRef", "AnyTensor"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'seq' :
-            # Seq is not supported yet.
-            # Use of TensorOf<[AnyTensor]> as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TensorOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'map' :
-            # Map is not supported yet.
-            # Use of TupleOf as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TupleOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TupleOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        else:
-            types = ["AnyMemRef", "AnyTensor"]
-        '''
+        # No need to add AnyMemRef type. Keep the code in case.
+        # types.append("AnyMemRef")
 
+        # ToFix: In Opset 16, the parameter of IdentityOp has optionalType
+        # but this Optional flag is not set 
         if OpSchema.FormalParameterOption.Optional == value.option:
+            types.append("NoneType")
+        elif isOptional :
             types.append("NoneType")
         elif OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
@@ -818,6 +800,9 @@ def get_type_inference_func(s, indent, type_inference_code):
 def parse_type_str(allowedType):
     # AnyI may be used for uint because the onnx_mlir is not generating uint output
     # This will be fixed later and UI will be replace AnyI
+    # ToFix: the optional type should use MLIR Optional
+    # The issue is Optional accepts Type not type list
+    # Need more complicated replacement code 
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
@@ -845,28 +830,40 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
+    # onnx v1.11.0 added optional on individual type, not just a flag to
+    # parameter. MILR supports Optional<Type>, but not AnyType<[Optional<Type>
+    # Keep using AnyTye<[Type, ..., NoneType] for optional.   
+    # Convert "optional" in type str to empty and a separate flag
+    isOptional = False
+    if allowedType.find("optional") == 0 :
+      allowedType = allowedType.replace("optional(", "", 1);
+      allowedType = allowedType[:-1]
+
     # Apply substitutions in decreasing order of key-length, so that float16 is replaced
     # before float, and uint16 is replaced before int16, etc.
     mapping = list(onnx_to_mlir_type_dict.items())
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
         allowedType = allowedType.replace(key, item)
-    return allowedType
+    return (allowedType, isOptional)
 
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
+    isOptional = False
     for allowedType in allowedTypes:
-        mlirType = parse_type_str(allowedType)
+        (mlirType, optional) = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
+        if optional :
+          isOptional = True
+
     # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
+    # optional type may introduce redundant, but it doesnot matter
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    # MemRef is always needed
-    mlirTypes.append("AnyMemRef")
-    return mlirTypes
+    return (mlirTypes, isOptional)
 
 def parse_type_constraints(schema):
     type_str_dict = dict()
@@ -879,7 +876,9 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             return [parse_type_str(input.typeStr), "AnyMemRef"]
+             (type_str, isOptional) = parse_type_str(input.typeStr)
+             # throw away optional flag
+             return [[type_str], isOptional]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -1094,6 +1093,16 @@ def gen_op_versions(file) :
         s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
     file.write(s)
 
+# create the top opset value of each op for current onnx
+
+def gen_op_new_version(file, new_version_dict) :
+    indent = inc_indent()
+    s = ""
+    for key, item in new_version_dict.items() :
+        s += indent + 'op_dialect_top_version_map_["' + key +'"] = '
+        s +=  "{}".format(", ".join(str(x) for x in item)) + ";\n"
+    file.write(s)
+
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1169,7 +1178,7 @@ def build_operator_schemas():
                 if schema.name in exsting_ops:
                     continue
 
-                if check_operation_version :
+                if check_operation_version:
                     # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
@@ -1210,6 +1219,10 @@ def build_operator_schemas():
 
 
 def main(args):  # type: (Type[Args]) -> None
+    if list_operation_version:
+        pprint.pprint(version_dict)
+        return
+
     curr_utc_time = datetime.datetime.now(
         datetime.timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
     autogen_warning = (
@@ -1233,19 +1246,20 @@ def main(args):  # type: (Type[Args]) -> None
             # Generate Op with version number if not the latest version
             previous_name = ""
             for op_type, schema, versions in namemap:
-                if check_operation_version:
-                    new_version_dict[schema.name] = [schema.since_version]
-                else:
+                new_version_dict[schema.name] = [schema.since_version]
+                if not check_operation_version :
                     with_version = previous_name == schema.name
                     gen_op_importer(schema, op_importer, with_version)
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
+
+    gen_op_new_version(op_importer, new_version_dict)
     if check_operation_version :
         for key in version_dict :
             if not key in new_version_dict :
                 print("op {} is not in the version".format(key))
-            # Assume the top version will be upgreaded to the latest version
+            # Assume the top version will be upgraded to the latest version
             # The existing extra version (from index 1) will be kept
             for x in version_dict[key][1:] :
                 new_version_dict[key].append(x)
