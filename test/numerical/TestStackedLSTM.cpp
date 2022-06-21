@@ -32,13 +32,9 @@ bool isOMStackedLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       isNoneC, isNoneP);
   StackedLSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H,
       isDynamicS, isDynamicB, isNoneH, isNoneC, isNoneP);
-#if 0
   return lstm.build() && lstm.compileAndLoad() &&
          lstm.checkInstructionFromEnv("TestSTACKEDLSTMNNPA_INSTRUCTION") &&
          lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
-#else
-  return lstm.build() && lstm.compileAndLoad();
-#endif
 }
 
 } // namespace test
@@ -58,6 +54,11 @@ int main(int argc, char *argv[]) {
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
+#if 1
+  RC_ASSERT(isOMStackedLSTMTheSameAsNaiveImplFor(2, 3, 5, 7, 3, /*isDynS*/ 0,
+      /*isDynB*/ 0, /*isNoneH*/ 1, /*isNoneC*/ 1, /*isNoneP*/ 1));
+  exit (0);
+#endif
   // RapidCheck test case generation.
   bool success = rc::check("Stacked LSTM implementation correctness", []() {
   // The number of directions.
