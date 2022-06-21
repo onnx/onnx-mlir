@@ -81,11 +81,8 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Scan implementation correctness", []() {
       const int maxRange = 50;
-#if 0
+      // Comment: Tests cause no errors with B=1, but cause errors with B!=1.
       const auto B = *rc::gen::inRange(1, maxRange);
-#else
-      const auto B = *rc::gen::inRange(1, 2);
-#endif
       const auto S = *rc::gen::inRange(1, maxRange);
       const auto I = *rc::gen::inRange(1, maxRange);
       RC_ASSERT(isOMScanTheSameAsNaiveImplFor(B, S, I));

@@ -109,14 +109,21 @@ bool ScanLibBuilder::compileAndLoad(const onnx_mlir::CompilerOptionList &list) {
   return compileAndLoad();
 }
 
+const static float omDefaultRangeBound = 1.0;
 bool ScanLibBuilder::prepareInputs() {
+  return ScanLibBuilder::prepareInputs(omDefaultRangeBound);
+}
+
+bool ScanLibBuilder::prepareInputs(float dataRange) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(initialShape));
-  list[1] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape));
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(initialShape), -dataRange, dataRange);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), -dataRange, dataRange);
+#ifdef SET_KNOWN_INPUT_VALUE
   // Compute reference. Scan with onnx.Add
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
@@ -131,19 +138,7 @@ bool ScanLibBuilder::prepareInputs() {
       }
     }
   }
-  inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs && list[0] && list[1];
-}
-
-bool ScanLibBuilder::prepareInputs(float dataRange) {
-  constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
-  if (!list)
-    return false;
-  list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(initialShape), -dataRange, dataRange);
-  list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), -dataRange, dataRange);
+#endif
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
