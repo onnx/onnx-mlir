@@ -23,6 +23,7 @@ To help debugging and performance tuning, onnx-mlir supports [instrumentation](I
 at the ONNX operand level.
 * All the passes may be controlled with [options](Options.md).
 * How to handle errors can be found [here](ErrorHandling.md).
+* How to support a new accelerator can be found [here](AddCustomAccelerators).
 
 # Execution
 The compiled ONNX model can be executed with either [c/c++ driver](document missing)
