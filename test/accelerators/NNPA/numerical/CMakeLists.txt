@@ -74,12 +74,6 @@ add_numerical_unittest(TestLSTMNNPA zdnn_lstm
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestStackedLSTMNNPA zdnn_lstm
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestStackedLSTM.cpp
-  DEFINE PRIVATE TEST_LSTM_NONEP_ONLY
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
 add_numerical_unittest(TestGRUNNPA zdnn_gru
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   DEFINE PRIVATE TEST_GRU_L1
