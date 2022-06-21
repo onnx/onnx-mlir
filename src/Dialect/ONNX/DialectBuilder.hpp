@@ -38,6 +38,12 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
+  // Convert a Value to TensorType if it is of MemRefType.
+  mlir::Value toTensor(mlir::Value input) const;
+  // Convert a Type to TensorType if it is of MemRefType.
+  mlir::Type toTensor(mlir::Type input) const;
+  // Convert a Value to MemrefType if it is of TensorType.
+  mlir::Value toMemref(mlir::Value input) const;
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
 };
