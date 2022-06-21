@@ -33,6 +33,9 @@ def get_test_models():
     # In our directories, the python files that generate the tests are found here
     # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
 
+    # For your convenience, all the test cases can be found in file:
+    #       ./all_test_names.txt
+
     # Each benchmark is defined by a dictionary element: `key:value`, where
     # - key: the ONNX testname
     # - value: a dictionary accepting only three key "static", "dynamic", and
@@ -1264,7 +1267,7 @@ class InferenceBackend(Backend):
         return False
 
 def save_all_test_names(all_test_names):
-    filename = "new_all_test_names.txt"
+    filename = "all_test_names.txt"
     print("all test names supported by current onnx are listed in "+os.getcwd()+"/"+filename+"\n")
     with open("./"+filename,"w") as f:
         f.write("from onnx {}\n".format(onnx.__version__))
