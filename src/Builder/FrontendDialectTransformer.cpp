@@ -103,7 +103,10 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
+  // onnxop: list of versions for dialect
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
+  // onnxop: the top version in third_part/onnx
+  std::map<std::string, int> op_dialect_top_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -1019,11 +1022,6 @@ private:
     }
     auto current_opset = opset_map_.find(node.domain())->second;
 
-    if (current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "Warning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
-                   << ", which is quite old. Please consider regenerating your "
-                      "model with a newer Opset.\n";
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
@@ -1037,6 +1035,15 @@ private:
       // But the lowest opset in op_dialect_version_map_ is an exception.
       // It is the current opset when onnx-mlir project is started.
       // All opset lower than the last opset should use the last opset(version)
+
+      if (node.domain().compare("ai.onnx.ml") != 0 &&
+          current_opset < opset_list[opset_list.size() - 1] &&
+          current_opset < MINIMUM_SUPPORTED_OPSET)
+        llvm::outs()
+            << "Warning: ONNX " << node.op_type()
+            << " in your model is using Opset " << current_opset
+            << ", which is quite old. Please consider regenerating your "
+               "model with a newer Opset.\n";
       if (opset_list.size() == 1)
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
@@ -1045,6 +1052,16 @@ private:
                                   << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
+      }
+    } else {
+      llvm::outs() << node.op_type();
+      if (op_dialect_top_version_map_.find(node.op_type()) !=
+          op_dialect_top_version_map_.end()) {
+        llvm_unreachable(
+            " this Op is not found in the onnx version being used");
+      } else {
+        llvm_unreachable(
+            " this Op is not supported by onnx-mlir's onnx dialect");
       }
     }
     return std::string("");

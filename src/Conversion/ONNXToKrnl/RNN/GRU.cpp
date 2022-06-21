@@ -163,6 +163,8 @@ template <>
 std::tuple<GruWeightPack, GruWeightPack>
 getWeightPack<ONNXGRUOp, GruWeightPack>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   // Return values.
   GruWeightPack weightForward, weightReverse;
 
@@ -277,6 +279,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   // direction
   StringRef direction = op->direction();
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   // Split B.
   if (!isNoneType(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
