@@ -54,8 +54,8 @@ public:
     Value tag =
         create.llvm.constant(IntegerType::get(context, 64), instrumentOp.tag());
 
-    rewriter.create<func::CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName, tag}));
+    create.llvm.call(
+        ArrayRef<Type>({}), instrumentRef, ArrayRef<Value>({nodeName, tag}));
 
     rewriter.eraseOp(op);
     return success();
@@ -66,20 +66,13 @@ private:
   //   `void (i64, i64)`
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    LLVMBuilder createLLVM(rewriter, module.getLoc());
-    std::string funcName("OMInstrumentPoint");
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-      return SymbolRefAttr::get(context, funcName);
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    createLLVM.func(funcName, llvmFnType);
-    return SymbolRefAttr::get(context, funcName);
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("OMInstrumentPoint"), llvmVoidTy,
+        ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}));
   }
 };
 

@@ -64,22 +64,14 @@ public:
 private:
   static FlatSymbolRefAttr getOrInsertPrintf(
       PatternRewriter &rewriter, ModuleOp module) {
-    // Insert the printf declaration if it is not already present.
-    auto printfFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("printf");
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     MLIRContext *ctx = rewriter.getContext();
-    LLVMBuilder createLLVM(rewriter, module.getLoc());
-
-    if (!printfFunc) {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-      auto voidType = LLVM::LLVMVoidType::get(ctx);
-      Type i8Type = IntegerType::get(ctx, 8);
-      Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-      printfFunc = createLLVM.func(
-          "printf", LLVM::LLVMFunctionType::get(voidType, i8PtrType,
-                        /*isVarArg=*/true));
-    }
-    return SymbolRefAttr::get(ctx, "printf");
+    Type voidType = LLVM::LLVMVoidType::get(ctx);
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    return create.llvm.getOrInsertSymbolRef(module, StringRef("printf"),
+        voidType, {i8PtrType},
+        /*isVarArg=*/true);
   }
 };
 

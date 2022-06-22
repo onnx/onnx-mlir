@@ -323,7 +323,7 @@ struct LLVMBuilder final : DialectBuilder {
   void store(mlir::Value val, mlir::Value addr) const;
 
   //===--------------------------------------------------------------------===//
-  // Support functions
+  // Helper functions
   //===--------------------------------------------------------------------===//
 
   // Get or insert a function declaration at the beginning of the module.

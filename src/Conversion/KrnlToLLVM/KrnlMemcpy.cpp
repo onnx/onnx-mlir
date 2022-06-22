@@ -73,7 +73,7 @@ public:
     Value isVolatile = create.llvm.constant(IntegerType::get(context, 1), 0);
 
     // Memcpy call
-    rewriter.create<func::CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
+    create.llvm.call(ArrayRef<Type>({}), memcpyRef,
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 
@@ -86,25 +86,17 @@ private:
   /// module if necessary.
   FlatSymbolRefAttr getOrInsertMemcpy(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    LLVMBuilder createLLVM(rewriter, module.getLoc());
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-      return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmI1Ty = IntegerType::get(context, 1);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-        ArrayRef<mlir::Type>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
-        false);
-
-    // Insert the memcpy function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    createLLVM.func("llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-    return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI1Ty = IntegerType::get(context, 1);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("llvm.memcpy.p0i8.p0i8.i64"), llvmVoidTy,
+        ArrayRef<mlir::Type>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}));
   }
 };
 

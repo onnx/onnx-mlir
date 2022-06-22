@@ -72,33 +72,23 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
                                             : "get_random_normal_value_f32";
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
-      return SymbolRefAttr::get(context, functionName.str());
-
     // Signature of the input is:
     //  "krnl.random_normal"(%0, %c60, %cst, %cst_0, %cst_1)
     // with types:
     //  (memref<3x4x5xf32>, index, f32, f32, f32)
     // or
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmOptionsTy = FloatType::getF32(context);
-    auto llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmOptionsTy = FloatType::getF32(context);
+    Type llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
     if (inType.isF64()) {
       llvmOptionsTy = FloatType::getF64(context);
       llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
     }
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,
         ArrayRef<mlir::Type>({llvmOutputTy, llvmI64Ty, llvmOptionsTy,
-            llvmOptionsTy, llvmOptionsTy}),
-        false);
-
-    // Insert the random normal function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    create.llvm.func(functionName.str(), llvmFnType);
-    return SymbolRefAttr::get(context, functionName.str());
+            llvmOptionsTy, llvmOptionsTy}));
   }
 };
 

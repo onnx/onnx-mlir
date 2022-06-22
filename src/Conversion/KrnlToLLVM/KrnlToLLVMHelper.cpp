@@ -277,37 +277,17 @@ void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
     global.setAlignmentAttr(builder.getI64IntegerAttr(MinGlobalAlign));
 }
 
-Optional<FlatSymbolRefAttr> getFunctionDeclaration(
-    ModuleOp module, StringRef funcName) {
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-    return SymbolRefAttr::get(module.getContext(), funcName);
-  else
-    return None;
-}
-
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
-  constexpr const char *funcName = "strncmp";
-  Optional<FlatSymbolRefAttr> optFuncDecl =
-      krnl::getFunctionDeclaration(module, funcName);
-  if (optFuncDecl.hasValue())
-    return optFuncDecl.getValue();
-
-  // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
   MLIRContext *ctx = module.getContext();
   Type i8Type = IntegerType::get(ctx, 8);
   Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type fnType = LLVM::LLVMFunctionType::get(builder.getI32Type(),
-      ArrayRef<Type>({i8PtrTy, i8PtrTy, builder.getI64Type()}), false);
-
-  // Insert the function declaration the module.
-  PatternRewriter::InsertionGuard insertGuard(builder);
-  builder.setInsertionPointToStart(module.getBody());
-  create.llvm.func(funcName, fnType);
-
-  return SymbolRefAttr::get(ctx, funcName);
+  // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
+  return create.llvm.getOrInsertSymbolRef(module, StringRef("strncmp"),
+      builder.getI32Type(),
+      ArrayRef<Type>({i8PtrTy, i8PtrTy, builder.getI64Type()}));
 }
 
 std::string a2e_s(std::string a_s) {
@@ -327,32 +307,13 @@ std::string e2a_s(std::string e_s) {
 void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
   Type int32Ty = builder.getI32Type();
   Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
-  constexpr const char *funcName = "__errno_location";
   LLVMBuilder createLLVM(builder, loc);
   LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
-
-  FlatSymbolRefAttr errnoSymbolRef;
-  Optional<FlatSymbolRefAttr> optFuncDecl =
-      krnl::getFunctionDeclaration(module, funcName);
-  if (optFuncDecl.hasValue())
-    errnoSymbolRef = optFuncDecl.getValue();
-  else {
-    // Create '__errno_location' function signature: `i32 *()`
-    MLIRContext *ctx = module.getContext();
-    Type fnType =
-        LLVM::LLVMFunctionType::get(int32PtrTy, {}, /*isVarArg=*/false);
-
-    // Insert the function declaration the module.
-    PatternRewriter::InsertionGuard insertGuard(builder);
-    builder.setInsertionPointToStart(module.getBody());
-    createLLVMModuleLoc.func(funcName, fnType);
-    errnoSymbolRef = SymbolRefAttr::get(ctx, funcName);
-  }
-
-  Value errNoPos = builder
-                       .create<LLVM::CallOp>(
-                           loc, int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}))
-                       .getResult(0);
+  // Create '__errno_location' function signature: `i32 *()`
+  FlatSymbolRefAttr errnoSymbolRef = createLLVMModuleLoc.getOrInsertSymbolRef(
+      module, StringRef("__errno_location"), int32PtrTy, {});
+  Value errNoPos =
+      createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
   Value errNoVal = createLLVM.constant(int32Ty, errCode);
   createLLVM.store(errNoVal, errNoPos);
 }

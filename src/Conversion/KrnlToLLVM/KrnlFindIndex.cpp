@@ -74,10 +74,10 @@ public:
 
     // Generate the call to the runtime function.
     Type retType = IntegerType::get(ctx, 64);
-    auto funcCall = rewriter.create<func::CallOp>(loc, findIndexRef, retType,
+    Value funcCall = create.llvm.call(retType, findIndexRef,
         ArrayRef<Value>({firstOperand, extractedGPtr, extractedVPtr, length}));
 
-    rewriter.replaceOp(op, funcCall.getResults()[0]);
+    rewriter.replaceOp(op, funcCall);
     return success();
   }
 
@@ -92,6 +92,7 @@ private:
     Type i64Type = IntegerType::get(ctx, 64);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
     Type i32PtrType = LLVM::LLVMPointerType::get(i32Type);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
 
     // Select the runtime function to use based on the input type.
     std::string funcName = "find_index_";
@@ -111,21 +112,10 @@ private:
           llvm_unreachable("unexpected type");
         });
 
-    Optional<FlatSymbolRefAttr> optFuncDecl =
-        krnl::getFunctionDeclaration(module, funcName);
-    if (optFuncDecl.hasValue())
-      return optFuncDecl.getValue();
-
     // Create 'find_index_*' signature: `i64 ([i8*|i64], i32*, i32*, i32)`
-    Type fnType = LLVM::LLVMFunctionType::get(i64Type,
-        ArrayRef<Type>({firstArgType, i32PtrType, i32PtrType, i32Type}), false);
-
-    // Insert the function declaration the module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
-
-    return SymbolRefAttr::get(ctx, funcName);
+    return create.llvm.getOrInsertSymbolRef(module, StringRef(funcName),
+        i64Type,
+        ArrayRef<Type>({firstArgType, i32PtrType, i32PtrType, i32Type}));
   }
 };
 
