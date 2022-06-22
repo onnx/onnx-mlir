@@ -268,6 +268,9 @@ struct LLVMBuilder final : DialectBuilder {
       : DialectBuilder(b, loc) {}
   LLVMBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  // AddressOfOp
+  mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
+
   // AllocaOp
   mlir::Value _alloca(
       mlir::Type resultType, mlir::Value size, int64_t alignment) const;
@@ -289,7 +292,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // ExtractValueOp
   mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
-      llvm::ArrayRef<int64_t> positions) const;
+      llvm::ArrayRef<int64_t> position) const;
 
   // FuncOp
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
@@ -297,6 +300,14 @@ struct LLVMBuilder final : DialectBuilder {
   // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
       llvm::ArrayRef<mlir::Value> indices) const;
+
+  // ICmpOp
+  mlir::Value icmp(
+      mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
+
+  // InsertValueOp
+  mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
+      mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
   // LoadOp
   mlir::Value load(mlir::Value addr) const;

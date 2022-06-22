@@ -781,6 +781,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // LLVM Builder
 //===----------------------------------------------------------------------===//
 
+Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
+  return b.create<LLVM::AddressOfOp>(loc, op);
+}
+
 Value LLVMBuilder::_alloca(
     Type resultType, Value size, int64_t alignment) const {
   return b.create<LLVM::AllocaOp>(loc, resultType, size, alignment);
@@ -865,8 +869,8 @@ Value LLVMBuilder::constant(Type type, double val) const {
 }
 
 Value LLVMBuilder::extractValue(
-    Type resultType, Value container, ArrayRef<int64_t> positions) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(positions);
+    Type resultType, Value container, ArrayRef<int64_t> position) const {
+  ArrayAttr posAttr = b.getI64ArrayAttr(position);
   return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
 }
 
@@ -877,6 +881,17 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
 Value LLVMBuilder::getElemPtr(
     Type resultType, Value base, ArrayRef<Value> indices) const {
   return b.create<LLVM::GEPOp>(loc, resultType, base, indices);
+}
+
+Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
+  return b.create<LLVM::ICmpOp>(loc, cond, lhs, rhs);
+}
+
+Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
+    llvm::ArrayRef<int64_t> position) const {
+  ArrayAttr posAttr = b.getI64ArrayAttr(position);
+  return b.create<LLVM::InsertValueOp>(
+      loc, resultType, container, val, posAttr);
 }
 
 Value LLVMBuilder::load(Value addr) const {

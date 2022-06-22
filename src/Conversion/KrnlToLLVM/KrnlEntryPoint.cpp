@@ -145,8 +145,8 @@ public:
         Value isCompatible = create.llvm.call(
             int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
         // Condition: if (OMInitCompatibleAccelX() != 0)
-        Value notCompatible = rewriter.create<LLVM::ICmpOp>(
-            loc, LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
+        Value notCompatible =
+            create.llvm.icmp(LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
         // Branch the block into the THEN and ELSE blocks.
         rewriter.create<LLVM::CondBrOp>(loc, notCompatible, thenBlock,
             ValueRange(), elseBlock, ValueRange());
@@ -263,9 +263,9 @@ public:
       // Get the i-th memref returned, convert to a dynamic memref and store it
       // in the wrappedOutput.
 
-      auto memRef = outMemRefList.at(i);
+      Value memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
-      auto outMemRefRank = krnl::getRankFromMemRefType(outMemRefTy);
+      int64_t outMemRefRank = krnl::getRankFromMemRefType(outMemRefTy);
       Value outMemRefRankVal = create.llvm.constant(int64Ty, outMemRefRank);
       Value outOMTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {outMemRefRankVal});
@@ -279,8 +279,8 @@ public:
 
       Value idxVal = create.llvm.constant(int64Ty, i);
 
-      auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      auto omTensorPtrAddr = create.llvm.getElemPtr(
+      Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
           omTensorPtrAddrTy, outOmtPtrsArr, ArrayRef<Value>{idxVal});
 
       create.llvm.store(outOMTensor, omTensorPtrAddr);
@@ -329,15 +329,12 @@ private:
         rewriter, loc, apiRegistry, RuntimeAPI::API::GET_DATA, {rtMemRef});
     dataPtr = create.llvm.bitcast(
         memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
-    memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
-    memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
+    memRef = create.llvm.insertValue(memRefTy, memRef, dataPtr, {0});
+    memRef = create.llvm.insertValue(memRefTy, memRef, dataPtr, {1});
 
     // Use zero offset now.
     Value zero = create.llvm.constant(int64Ty, 0);
-    memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef, zero,
-        rewriter.getArrayAttr({rewriter.getI64IntegerAttr(2)}));
+    memRef = create.llvm.insertValue(memRefTy, memRef, zero, {2});
 
     // Get rank, sizes array ptr and strides array ptr.
     auto rank =
@@ -354,20 +351,14 @@ private:
           create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
       Value dimSize = create.llvm.load(dimSizePtr);
-      memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-          dimSize,
-          rewriter.getArrayAttr(
-              {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
+      memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
       auto dimStridePtr =
           create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
       auto dimStride = create.llvm.load(dimStridePtr);
-      memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-          dimStride,
-          rewriter.getArrayAttr(
-              {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
+      memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
 
     create.llvm.store(memRef, ptrToMemRef);
@@ -443,8 +434,7 @@ private:
 
     // Emit code for the IF block.
     rewriter.setInsertionPointToEnd(ifBlock);
-    Value failed =
-        rewriter.create<LLVM::ICmpOp>(loc, LLVM::ICmpPredicate::ne, lhs, rhs);
+    Value failed = create.llvm.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
 
     // Branch the block into the THEN and END blocks.
     rewriter.create<LLVM::CondBrOp>(

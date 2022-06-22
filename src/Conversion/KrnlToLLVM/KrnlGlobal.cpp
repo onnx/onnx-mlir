@@ -44,13 +44,15 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
+    Location loc = krnlGlobalOp.getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // The element type of the array.
-    const auto type = op->getResult(0).getType();
-    const auto memRefTy = type.cast<mlir::MemRefType>();
-    const auto constantElementType =
+    const Type type = op->getResult(0).getType();
+    const MemRefType memRefTy = type.cast<mlir::MemRefType>();
+    const Type constantElementType =
         typeConverter->convertType(memRefTy.getElementType());
-    auto globalType = constantElementType;
+    Type globalType = constantElementType;
 
     // The llvm type of the global (example: [2 x [8 x float]]).
     const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
@@ -85,10 +87,9 @@ public:
         *getTypeConverter());
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    Value globalOpAddr =
-        rewriter.create<LLVM::AddressOfOp>(krnlGlobalOp.getLoc(), global);
-    MemRefDescriptor memRefDescr = createMemRefDescriptor(
-        globalOpAddr, memRefTy, krnlGlobalOp.getLoc(), rewriter);
+    Value globalOpAddr = create.llvm.addressOf(global);
+    MemRefDescriptor memRefDescr =
+        createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
 
     rewriter.replaceOp(op, {memRefDescr});
 
@@ -251,8 +252,8 @@ private:
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : globalOps) {
       Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder);
-      lastValue = builder.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
-          strAddr, builder.getArrayAttr({builder.getIndexAttr(index++)}));
+      lastValue =
+          create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
 
     create.llvm._return(lastValue);
