@@ -301,6 +301,11 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
       llvm::ArrayRef<mlir::Value> indices) const;
 
+  // GlobalOp
+  mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
+      mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
+      uint64_t alignment = 0) const;
+
   // ICmpOp
   mlir::Value icmp(
       mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;

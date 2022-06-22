@@ -115,6 +115,7 @@ private:
     MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
@@ -128,7 +129,7 @@ private:
     StringAttr llvmStringAttr = StringAttr::get(context, data);
     auto llvmArrayI8Ty =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-    LLVM::GlobalOp global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+    LLVM::GlobalOp global = create.llvm.globalOp(llvmArrayI8Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
         llvmStringAttr);
 
@@ -146,6 +147,7 @@ private:
     MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
@@ -163,14 +165,14 @@ private:
       StringAttr llvmStringAttr = StringAttr::get(context, data);
       auto llvmArrayI8Ty =
           LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-      global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+      global = create.llvm.globalOp(llvmArrayI8Ty,
           /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
           llvmStringAttr);
     } else {
       if (denseAttr.getElementType().isa<StringType>())
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
       else
-        global = rewriter.create<LLVM::GlobalOp>(loc, globalType,
+        global = create.llvm.globalOp(globalType,
             /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
             krnlGlobalOp.value().getValue());
     }
@@ -238,7 +240,7 @@ private:
     // Generate an LLVM GlobalOps with an initializer region containing one
     // block.
     auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, globalOps.size());
-    auto global = builder.create<LLVM::GlobalOp>(loc, arrayType,
+    auto global = create.llvm.globalOp(arrayType,
         /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
         Attribute());
     Region &region = global.getInitializerRegion();

@@ -883,6 +883,13 @@ Value LLVMBuilder::getElemPtr(
   return b.create<LLVM::GEPOp>(loc, resultType, base, indices);
 }
 
+LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
+    LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
+    uint64_t alignment) const {
+  return b.create<LLVM::GlobalOp>(loc, resultType,
+      /*isConstant=*/isConstant, linkage, name, valueAttr, alignment);
+}
+
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
   return b.create<LLVM::ICmpOp>(loc, cond, lhs, rhs);
 }

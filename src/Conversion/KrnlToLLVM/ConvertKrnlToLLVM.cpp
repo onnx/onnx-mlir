@@ -229,7 +229,7 @@ void genSignatureFunction(ModuleOp &module,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToEnd(module.getBody());
   auto arrayType = LLVM::LLVMArrayType::get(i8PtrTy, entryGlobalOps.size() + 1);
-  auto entryArrayOp = b.create<LLVM::GlobalOp>(loc, arrayType,
+  LLVM::GlobalOp entryArrayOp = create.llvm.globalOp(arrayType,
       /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays",
       Attribute());
   { // Fill the initializer with pointers to entry point constants.

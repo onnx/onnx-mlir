@@ -522,16 +522,17 @@ private:
     MLIRContext *context = module.getContext();
     Location loc = module.getLoc();
     OpBuilder b(context);
+    MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
     // Common information.
     Type i8Type = IntegerType::get(context, 8);
 
     // A helper function to emit a global constant operation storing a string.
-    auto emitGlobalOp = [&context, &b, &loc, &i8Type](
+    auto emitGlobalOp = [&context, &i8Type, &create](
                             std::string name, std::string value) {
       mlir::StringAttr valueAttr = mlir::StringAttr::get(context, value);
       Type valueArrayType = LLVM::LLVMArrayType::get(i8Type, value.size());
-      LLVM::GlobalOp globalOp = b.create<LLVM::GlobalOp>(loc, valueArrayType,
+      LLVM::GlobalOp globalOp = create.llvm.globalOp(valueArrayType,
           /*isConstant=*/true, LLVM::Linkage::External, name, valueAttr);
       return globalOp;
     };

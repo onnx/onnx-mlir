@@ -229,6 +229,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
 
 LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
+  MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
   LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str);
   if (!global) {
@@ -236,9 +237,9 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(module.getBody());
 
-    auto i8Type = IntegerType::get(builder.getContext(), 8);
-    auto type = LLVM::LLVMArrayType::get(i8Type, str.size());
-    global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+    Type i8Type = IntegerType::get(builder.getContext(), 8);
+    Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
+    global = create.llvm.globalOp(type, /*isConstant=*/true,
         LLVM::Linkage::Internal, str, builder.getStringAttr(str));
 
     krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
@@ -254,7 +255,7 @@ Value getPtrToGlobalString(
   Type i8Type = IntegerType::get(builder.getContext(), 8);
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
   Type i64Type = IntegerType::get(builder.getContext(), 64);
-  Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, global);
+  Value globalPtr = create.llvm.addressOf(global);
   Value zero = create.llvm.constant(i64Type, 0);
 
   return create.llvm.getElemPtr(
