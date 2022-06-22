@@ -40,6 +40,7 @@ public:
     KrnlRandomNormalOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     mlir::Type inType = op->getOperand(2).getType();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
@@ -51,11 +52,11 @@ public:
                           .getType()
                           .cast<LLVM::LLVMStructType>()
                           .getBody()[1];
-    Value alignedOutput = rewriter.create<LLVM::ExtractValueOp>(
-        loc, outputType, operandAdaptor.output(), rewriter.getI64ArrayAttr(1));
+    Value alignedOutput =
+        create.llvm.extractValue(outputType, operandAdaptor.output(), {1});
 
     // Memcpy call
-    rewriter.create<func::CallOp>(loc, randomNormalFuncRef, ArrayRef<Type>({}),
+    create.llvm.call(ArrayRef<Type>({}), randomNormalFuncRef,
         ArrayRef<Value>({alignedOutput, operandAdaptor.numberOfValues(),
             operandAdaptor.mean(), operandAdaptor.scale(),
             operandAdaptor.seed()}));
@@ -68,7 +69,7 @@ private:
   FlatSymbolRefAttr getOrInsertRandomNormal(
       PatternRewriter &rewriter, ModuleOp module, Type inType) const {
     MLIRContext *context = module.getContext();
-    LLVMBuilder createLLVM(rewriter, module.getLoc());
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
                                             : "get_random_normal_value_f32";
     if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
@@ -96,7 +97,7 @@ private:
     // Insert the random normal function into the body of the parent module.
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
-    createLLVM.func(functionName.str(), llvmFnType);
+    create.llvm.func(functionName.str(), llvmFnType);
     return SymbolRefAttr::get(context, functionName.str());
   }
 };

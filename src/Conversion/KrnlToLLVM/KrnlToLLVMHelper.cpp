@@ -183,19 +183,13 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
 
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
-      rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[0],
-          outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
-  outMemRefAllocatedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-      LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-      outMemRefAllocatedPtr);
+      create.llvm.extractValue(outMemRefTy.getBody()[0], outMemRef, {0});
+  outMemRefAllocatedPtr = create.llvm.bitcastI8Ptr(outMemRefAllocatedPtr);
 
   // Extract the aligned pointer.
   Value outMemRefAlignedPtr =
-      rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[1],
-          outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
-  outMemRefAlignedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-      LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-      outMemRefAlignedPtr);
+      create.llvm.extractValue(outMemRefTy.getBody()[1], outMemRef, {1});
+  outMemRefAlignedPtr = create.llvm.bitcastI8Ptr(outMemRefAlignedPtr);
 
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
@@ -218,20 +212,14 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   for (decltype(rank) i = 0; i < rank; i++) {
     Value dimIdx = create.llvm.constant(int64Ty, i);
     // Transfer size of dimension from memref to dynamic memref.
-    Value dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-        outMemRef,
-        rewriter.getArrayAttr(
-            {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
+    Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
         create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
-    Value dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-        outMemRef,
-        rewriter.getArrayAttr(
-            {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
+    Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
         create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));

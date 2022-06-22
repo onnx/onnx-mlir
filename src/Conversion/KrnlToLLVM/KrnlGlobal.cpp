@@ -197,11 +197,12 @@ private:
     Type elementType = memRefType.getElementType();
     LLVMTypeConverter &typeConverter = *getTypeConverter();
     Type llvmElemType = typeConverter.convertType(elementType);
+    MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     auto ptrType = LLVM::LLVMPointerType::get(llvmElemType);
     // Bitcast the address to the MemRefType's element type.
-    Value bitCastOp = builder.create<LLVM::BitcastOp>(loc, ptrType, address);
+    Value bitCastOp = create.llvm.bitcast(ptrType, address);
     // Create llvm MemRef from original MemRef and fill the data pointers.
     return MemRefDescriptor::fromStaticShape(
         builder, loc, typeConverter, memRefType, bitCastOp);
@@ -215,6 +216,8 @@ private:
            "Expecting a dense value");
 
     Location loc = krnlGlobalOp.getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(builder, loc);
+
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
     DenseElementsAttr denseAttr =
         krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
@@ -252,7 +255,7 @@ private:
           strAddr, builder.getArrayAttr({builder.getIndexAttr(index++)}));
     }
 
-    builder.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
+    create.llvm._return(lastValue);
     return global;
   }
 };

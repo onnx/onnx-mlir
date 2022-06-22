@@ -250,10 +250,10 @@ void genSignatureFunction(ModuleOp &module,
     }
 
     // The last element of the array is NULL.
-    Value nullPtr = b.create<LLVM::NullOp>(loc, i8PtrTy);
+    Value nullPtr = create.llvm.nullI8Ptr();
     lastValue = b.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
         nullPtr, b.getArrayAttr({b.getIndexAttr(index++)}));
-    b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
+    create.llvm._return(lastValue);
   }
 
   // Emit a function, omQueryEntryPoints, of type `**i8 (*i64)` to query an
@@ -304,7 +304,7 @@ void genSignatureFunction(ModuleOp &module,
     // Emit code for the end block to return the entry point array.
     b.setInsertionPointToStart(endBlock);
     Value entryAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
-    Value entryI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, entryAddr);
+    Value entryI8Ptr = create.llvm.bitcastI8PtrPtr(entryAddr);
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({entryI8Ptr}));
   }
 
@@ -384,7 +384,7 @@ void genSignatureFunction(ModuleOp &module,
       // Emit code for the true block.
       b.setInsertionPointToStart(trueBlock);
       Value sigAddr = b.create<LLVM::AddressOfOp>(loc, globalSignature);
-      Value sigI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrTy, sigAddr);
+      Value sigI8Ptr = create.llvm.bitcastI8Ptr(sigAddr);
       create.llvm.store(sigI8Ptr, ptrToReturnSig);
       b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 
@@ -392,7 +392,7 @@ void genSignatureFunction(ModuleOp &module,
       b.setInsertionPointToStart(falseBlock);
       if (j == numOfEntryPoints - 1) {
         // Return NULL if the entry point name is not found.
-        Value nullPtr = b.create<LLVM::NullOp>(loc, i8PtrTy);
+        Value nullPtr = create.llvm.nullI8Ptr();
         b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
       } else {
         // Recursively do with the other entry point names.

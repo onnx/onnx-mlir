@@ -52,22 +52,18 @@ public:
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
-    Value alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, dstType, operandAdaptor.dest(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedDstMemory);
+    Value alignedDstMemory =
+        create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
+    Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
     Type srcType = operandAdaptor.src()
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
-    Value alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, srcType, operandAdaptor.src(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedSrcMemory);
+    Value alignedSrcMemory =
+        create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
+    Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
     Value int64Size = rewriter.create<LLVM::SExtOp>(

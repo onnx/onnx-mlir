@@ -268,20 +268,47 @@ struct LLVMBuilder final : DialectBuilder {
       : DialectBuilder(b, loc) {}
   LLVMBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  // AllocaOp
   mlir::Value _alloca(
       mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+
+  // BitcastOp
+  mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
+  mlir::Value bitcastI8Ptr(mlir::Value val) const;
+  mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
+
+  // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       mlir::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       mlir::FlatSymbolRefAttr funcSymbol,
       mlir::ArrayRef<mlir::Value> inputs) const;
+
+  // ConstantOp
   mlir::Value constant(mlir::Type type, double val) const;
+
+  // ExtractValueOp
+  mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
+      llvm::ArrayRef<int64_t> positions) const;
+
+  // FuncOp
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+
+  // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
       llvm::ArrayRef<mlir::Value> indices) const;
+
+  // LoadOp
   mlir::Value load(mlir::Value addr) const;
-  mlir::Value nullPtr() const;
+
+  // NullOp
+  mlir::Value null(mlir::Type type) const;
+  mlir::Value nullI8Ptr() const;
+
+  // ReturnOp
   void _return(mlir::Value val) const;
+
+  // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
 };
 

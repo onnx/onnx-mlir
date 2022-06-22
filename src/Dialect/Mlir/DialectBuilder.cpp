@@ -786,6 +786,21 @@ Value LLVMBuilder::_alloca(
   return b.create<LLVM::AllocaOp>(loc, resultType, size, alignment);
 }
 
+Value LLVMBuilder::bitcast(Type type, Value val) const {
+  return b.create<LLVM::BitcastOp>(loc, type, val);
+}
+
+Value LLVMBuilder::bitcastI8Ptr(Value val) const {
+  return b.create<LLVM::BitcastOp>(
+      loc, LLVM::LLVMPointerType::get(b.getI8Type()), val);
+}
+
+Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
+  return b.create<LLVM::BitcastOp>(loc,
+      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b.getI8Type())),
+      val);
+}
+
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
     ArrayRef<Value> inputs) const {
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
@@ -793,10 +808,8 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
   LLVM::CallOp callOp =
       b.create<LLVM::CallOp>(loc, resultTypes, funcName, inputs);
   // CallOp may return either 0 or 1 value.
-  if (resultTypes.empty()) {
-    Value none;
-    return none;
-  }
+  if (resultTypes.empty())
+    return nullptr;
   return callOp.getResult(0);
 }
 
@@ -807,10 +820,8 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   LLVM::CallOp callOp =
       b.create<LLVM::CallOp>(loc, resultTypes, funcSymbol, inputs);
   // CallOp may return either 0 or 1 value.
-  if (resultTypes.empty()) {
-    Value none;
-    return none;
-  }
+  if (resultTypes.empty())
+    return nullptr;
   return callOp.getResult(0);
 }
 
@@ -853,6 +864,12 @@ Value LLVMBuilder::constant(Type type, double val) const {
   return constant;
 }
 
+Value LLVMBuilder::extractValue(
+    Type resultType, Value container, ArrayRef<int64_t> positions) const {
+  ArrayAttr posAttr = b.getI64ArrayAttr(positions);
+  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
+}
+
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b.create<LLVM::LLVMFuncOp>(loc, name, type);
 }
@@ -866,7 +883,11 @@ Value LLVMBuilder::load(Value addr) const {
   return b.create<LLVM::LoadOp>(loc, addr);
 }
 
-Value LLVMBuilder::nullPtr() const {
+Value LLVMBuilder::null(Type type) const {
+  return b.create<LLVM::NullOp>(loc, type);
+}
+
+Value LLVMBuilder::nullI8Ptr() const {
   Type I8PtrTy = LLVM::LLVMPointerType::get(b.getI8Type());
   return b.create<LLVM::NullOp>(loc, I8PtrTy);
 }

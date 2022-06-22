@@ -153,7 +153,7 @@ public:
 
         // Emit code for the THEN block: return NULL.
         rewriter.setInsertionPointToStart(thenBlock);
-        create.llvm._return(create.llvm.nullPtr());
+        create.llvm._return(create.llvm.nullI8Ptr());
 
         // Emit code for thenELSE block: deal with other accelerators if any.
         rewriter.setInsertionPointToStart(elseBlock);
@@ -191,7 +191,7 @@ public:
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
-    auto one = create.llvm.constant(int64Ty, 1);
+    Value one = create.llvm.constant(int64Ty, 1);
 
     // Create a memref type for the return argument of the iface call
     Type memRefOutPtrTy = staticEntryPointTy.getParamType(0);
@@ -241,13 +241,9 @@ public:
       // is a struct. Multiple tensors' memref descriptors are packed into the
       // same struct. So we unpack them iteratively to outMemRefList.
       for (int i = 0; i < numOutputs; i++) {
-        auto position = rewriter.getArrayAttr({rewriter.getI64IntegerAttr(i)});
-        auto type = outMemRefsType.getBody()[i];
-        auto extractOp = rewriter.create<LLVM::ExtractValueOp>(loc,
-            /*res=*/type,
-            /*type=*/outMemRefs,
-            /*position=*/position);
-        outMemRefList.emplace_back(extractOp.getResult());
+        Type type = outMemRefsType.getBody()[i];
+        Value extractOp = create.llvm.extractValue(type, outMemRefs, {i});
+        outMemRefList.emplace_back(extractOp);
       }
     }
 
@@ -261,14 +257,7 @@ public:
     Value outOmtPtrsArr = create.llvm.call(
         LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
         mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
-    outOmtPtrsArr = rewriter
-                        .create<LLVM::BitcastOp>(loc,
-                            LLVM::LLVMPointerType::get(
-                                LLVM::LLVMPointerType::get(
-                                    IntegerType::get(module.getContext(), 8)),
-                                0),
-                            outOmtPtrsArr)
-                        .getResult();
+    outOmtPtrsArr = create.llvm.bitcastI8PtrPtr(outOmtPtrsArr);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
@@ -338,8 +327,8 @@ private:
     // Set dataPtr and alignedDataPtr;
     Value dataPtr = RuntimeAPI::callApi(
         rewriter, loc, apiRegistry, RuntimeAPI::API::GET_DATA, {rtMemRef});
-    dataPtr = rewriter.create<LLVM::BitcastOp>(
-        loc, memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
+    dataPtr = create.llvm.bitcast(
+        memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
         dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
@@ -472,7 +461,7 @@ private:
     // Set errno.
     krnl::emitErrNo(module, rewriter, loc, EINVAL);
     // Return NULL.
-    create.llvm._return(create.llvm.nullPtr());
+    create.llvm._return(create.llvm.nullI8Ptr());
 
     // Emit code for the END block: continue with other generated code.
     rewriter.setInsertionPointToStart(endBlock);

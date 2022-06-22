@@ -33,6 +33,7 @@ public:
     MLIRContext *ctx = findIndexOp.getContext();
     Location loc = findIndexOp.getLoc();
     KrnlFindIndexOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
@@ -65,10 +66,10 @@ public:
         operandAdaptor.V().getType().cast<LLVM::LLVMStructType>().getBody()[1];
 
     // Remaining operands.
-    Value extractedGPtr = rewriter.create<LLVM::ExtractValueOp>(
-        loc, GType, operandAdaptor.G(), rewriter.getI64ArrayAttr(1));
-    Value extractedVPtr = rewriter.create<LLVM::ExtractValueOp>(
-        loc, VType, operandAdaptor.V(), rewriter.getI64ArrayAttr(1));
+    Value extractedGPtr =
+        create.llvm.extractValue(GType, operandAdaptor.G(), {1});
+    Value extractedVPtr =
+        create.llvm.extractValue(VType, operandAdaptor.V(), {1});
     Value length = operandAdaptor.len();
 
     // Generate the call to the runtime function.
