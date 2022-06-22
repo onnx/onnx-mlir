@@ -217,6 +217,7 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
   "  - 5th item: hiddenSize"
   "direction accepts "forward", "reverse", or "bidirectional"
   "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+  "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
                        AnyTypeOf<[AnyMemRef]>:$h0,
@@ -230,7 +231,8 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$hn_output,
                        AnyTypeOf<[AnyMemRef]>:$cf_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
@@ -246,6 +248,7 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
   "  - 5th item: hiddenSize"
   "direction accepts "forward", "reverse", or "bidirectional"
   "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+  "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
                        AnyTypeOf<[AnyMemRef]>:$h0,
@@ -257,7 +260,8 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
                        AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
                        AnyTypeOf<[AnyMemRef]>:$hn_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
@@ -286,7 +290,8 @@ def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$i_gate,
                        AnyTypeOf<[AnyMemRef]>:$c_gate,
                        AnyTypeOf<[AnyMemRef]>:$o_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out);
+                       AnyTypeOf<[AnyMemRef]>:$out,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
@@ -299,7 +304,8 @@ def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$z_gate,
                        AnyTypeOf<[AnyMemRef]>:$r_gate,
                        AnyTypeOf<[AnyMemRef]>:$h_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out);
+                       AnyTypeOf<[AnyMemRef]>:$out,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
 def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
