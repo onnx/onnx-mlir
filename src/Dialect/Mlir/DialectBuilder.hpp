@@ -282,7 +282,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
-      mlir::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       mlir::FlatSymbolRefAttr funcSymbol,
       mlir::ArrayRef<mlir::Value> inputs) const;
@@ -321,6 +321,15 @@ struct LLVMBuilder final : DialectBuilder {
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
+
+  //===--------------------------------------------------------------------===//
+  // Support functions
+  //===--------------------------------------------------------------------===//
+
+  // Get or insert a function declaration at the beginning of the module.
+  mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
+      llvm::StringRef symName, mlir::Type resultType,
+      llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
 };
 
 //===----------------------------------------------------------------------===//

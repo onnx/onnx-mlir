@@ -915,4 +915,17 @@ void LLVMBuilder::store(Value val, Value addr) const {
   b.create<LLVM::StoreOp>(loc, val, addr);
 }
 
+FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
+    StringRef funcName, Type resultType, ArrayRef<Type> operandTypes,
+    bool isVarArg) const {
+  if (!module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(module.getBody());
+    LLVM::LLVMFunctionType funcType =
+        LLVM::LLVMFunctionType::get(resultType, operandTypes, isVarArg);
+    b.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
+  }
+  return SymbolRefAttr::get(b.getContext(), funcName);
+}
+
 } // namespace onnx_mlir

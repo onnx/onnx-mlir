@@ -368,21 +368,13 @@ private:
       PatternRewriter &rewriter, ModuleOp module) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     // Insert the malloc/aligned_alloc declaration if it is not already present.
-    auto allocFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("malloc");
-    auto ctx = rewriter.getContext();
-    LLVMTypeConverter converter(ctx);
-    if (!allocFunc) {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-      SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
-      // aligned_alloc(size_t alignment, size_t size)
-      auto voidPtrType = LLVM::LLVMPointerType::get(
-          IntegerType::get(&converter.getContext(), 8));
-      allocFunc = create.llvm.func(
-          "malloc", LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
-                        /*isVarArg=*/false));
-    }
-    return SymbolRefAttr::get(ctx, "malloc");
+    LLVMTypeConverter converter(rewriter.getContext());
+    SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
+    // aligned_alloc(size_t alignment, size_t size)
+    Type voidPtrType = LLVM::LLVMPointerType::get(
+        IntegerType::get(&converter.getContext(), 8));
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef("malloc"), voidPtrType, callArgTypes);
   }
 
   FlatSymbolRefAttr getOrInsertOMInitAccel(
@@ -390,15 +382,9 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     std::string funcName = "OMInitAccel" + accelName.str();
     // OMInitAccelX's signature is `void ()`.
-    auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
     MLIRContext *ctx = rewriter.getContext();
-    if (!func) {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-      func = create.llvm.func(funcName,
-          LLVM::LLVMFunctionType::get(LLVM::LLVMVoidType::get(ctx), {}));
-    }
-    return SymbolRefAttr::get(ctx, funcName);
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef(funcName), LLVM::LLVMVoidType::get(ctx), {});
   }
 
   FlatSymbolRefAttr getOrInsertOMInitCompatibleAccel(
@@ -406,18 +392,8 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     std::string funcName = "OMInitCompatibleAccel" + accelName.str();
     // OMInitCompatibleAccelX's signature is `i64 (i64)`.
-    auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName);
-    MLIRContext *ctx = rewriter.getContext();
-    if (!func) {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-      LLVM::LLVMFunctionType funcType =
-          LLVM::LLVMFunctionType::get(IntegerType::get(ctx, 64),
-              ArrayRef<mlir::Type>({IntegerType::get(ctx, 64)}),
-              /*isVarArg=*/false);
-      func = create.llvm.func(funcName, funcType);
-    }
-    return SymbolRefAttr::get(ctx, funcName);
+    return create.llvm.getOrInsertSymbolRef(module, StringRef(funcName),
+        rewriter.getI64Type(), ArrayRef<mlir::Type>({rewriter.getI64Type()}));
   }
 
   // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
