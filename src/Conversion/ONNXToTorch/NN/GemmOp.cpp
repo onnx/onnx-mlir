@@ -120,40 +120,40 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto bTensor = getTorchTensor(B, rewriter, context, loc);
     auto bType = toTorchType(context, B.getType());
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
-
+    auto cTensor = getTorchTensor(C, rewriter, context, loc);
 
     // `gemmOp.C()` does not consider batch sizes. Construct a value tensor
-    // from the result type instead. We are assuming matchin number of
-    // elements and data types for c and result tensor.
-    auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
-        .cast<TensorType>();
-    auto cTensorOpShape = cTensorOp.getShape();
-    auto cTensorOpType = cTensorOp.getElementType();
+    // from the result type instead. XTen later on expects correct shapes
+    // and does not allow broadcasting.
+    if (C.getDefiningOp()->hasAttr("value")) {
+      auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
+          .cast<TensorType>();
+      auto cTensorOpShape = cTensorOp.getShape();
+      auto cTensorOpType = cTensorOp.getElementType();
 
-    auto resultOp = op->getResult(0).getType().cast<TensorType>();
-    auto resultOpShape = resultOp.getShape();
-    auto resultOpType = resultOp.getElementType();
+      auto resultOp = op->getResult(0).getType().cast<TensorType>();
+      auto resultOpShape = resultOp.getShape();
+      auto resultOpType = resultOp.getElementType();
 
-    int cShapeElements = std::accumulate(cTensorOpShape.begin(),
-        cTensorOpShape.end(), 1, std::multiplies<int>());
-    int resultOpShapeElements = std::accumulate(resultOpShape.begin(),
-        resultOpShape.end(), 1, std::multiplies<int>());
+      int cShapeElements = std::accumulate(cTensorOpShape.begin(),
+          cTensorOpShape.end(), 1, std::multiplies<int>());
+      int resultOpShapeElements = std::accumulate(resultOpShape.begin(),
+          resultOpShape.end(), 1, std::multiplies<int>());
 
-    assert((cShapeElements == resultOpShapeElements) &&
-        "C and result tensor shapes do not match");
-    assert((cTensorOpType == resultOpType) &&
-        "C and result tensor types do not match");
+      assert((cShapeElements == resultOpShapeElements) &&
+          "C and result tensor shapes do not match");
+      assert((cTensorOpType == resultOpType) &&
+          "C and result tensor types do not match");
 
-    auto denseElementType = ::mlir::FloatType::getF32(context);
-    ShapedType denseValueType = RankedTensorType::get(resultOpShape,
-        denseElementType);
-    DenseElementsAttr denseValueAttr =
-        C.getDefiningOp()->getAttr("value").cast<DenseElementsAttr>()
-        .reshape(denseValueType);
-    auto cTensor = rewriter.create<Torch::ValueTensorLiteralOp>(loc,
-        resultType, denseValueAttr);
-    auto cType = cTensor.getType();
-
+      auto denseElementType = ::mlir::FloatType::getF32(context);
+      ShapedType denseValueType = RankedTensorType::get(resultOpShape,
+          denseElementType);
+      DenseElementsAttr denseValueAttr =
+          C.getDefiningOp()->getAttr("value").cast<DenseElementsAttr>()
+          .reshape(denseValueType);
+      cTensor = rewriter.create<Torch::ValueTensorLiteralOp>(loc,
+          resultType, denseValueAttr);
+    }
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
     if(!(getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2))
@@ -195,7 +195,7 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     if (beta) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult =
-          rewriter.create<AtenMulScalarOp>(loc, cType, cTensor, beta3v);
+          rewriter.create<AtenMulScalarOp>(loc, cTensor.getType(), cTensor, beta3v);
     }
 
     // Bmm Operation ((alpha * A') * B')
