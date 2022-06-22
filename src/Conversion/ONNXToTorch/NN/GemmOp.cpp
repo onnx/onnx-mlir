@@ -15,11 +15,12 @@
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include <vector>
+#include <numeric>
 
 /*
  * ONNX Gemm operation
 
- * “General Matrix multiplication:” “https://en.wikipedia.org/wiki/
+ * General Matrix multiplication: https://en.wikipedia.org/wiki/
  * Basic_Linear_Algebra_Subprograms#Level_3 A' = transpose(A) if
  * transA else A' B' = transpose(B) if transB else B'. Compute
  * Y = alpha * A' * B' + beta * C, where input tensor A has shape (M, K)
@@ -103,10 +104,10 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto loc = gemmOp.getLoc();
     mlir::MLIRContext *context = gemmOp.getContext();
 
-    auto alpha = gemmOp.alphaAttr();   // ::mlir::FloatAttr
-    auto beta = gemmOp.betaAttr();     // ::mlir::FloatAttr
-    auto transA = gemmOp.transAAttr(); // ::mlir::IntegerAttr
-    auto transB = gemmOp.transBAttr(); // ::mlir::IntegerAttr
+    auto alpha = gemmOp.alphaAttr(); // ::mlir::FloatAttr
+    auto beta = gemmOp.betaAttr();   // ::mlir::FloatAttr
+    auto transA = gemmOp.transA();
+    auto transB = gemmOp.transB();
 
     Value iOne = getIntValue(1, rewriter, context, loc);
 
@@ -115,39 +116,70 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto C = gemmOp.C();
 
     auto aTensor = getTorchTensor(A, rewriter, context, loc);
-    auto bTensor = getTorchTensor(B, rewriter, context, loc);
-    auto cTensor = getTorchTensor(C, rewriter, context, loc);
-
     auto aType = toTorchType(context, A.getType());
+    auto bTensor = getTorchTensor(B, rewriter, context, loc);
     auto bType = toTorchType(context, B.getType());
-    auto cType = toTorchType(context, C.getType());
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
+
+
+    // `gemmOp.C()` does not consider batch sizes. Construct a value tensor
+    // from the result type instead. We are assuming matchin number of
+    // elements and data types for c and result tensor.
+    auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
+        .cast<TensorType>();
+    auto cTensorOpShape = cTensorOp.getShape();
+    auto cTensorOpType = cTensorOp.getElementType();
+
+    auto resultOp = op->getResult(0).getType().cast<TensorType>();
+    auto resultOpShape = resultOp.getShape();
+    auto resultOpType = resultOp.getElementType();
+
+    int cShapeElements = std::accumulate(cTensorOpShape.begin(),
+        cTensorOpShape.end(), 1, std::multiplies<int>());
+    int resultOpShapeElements = std::accumulate(resultOpShape.begin(),
+        resultOpShape.end(), 1, std::multiplies<int>());
+
+    assert((cShapeElements == resultOpShapeElements) &&
+        "C and result tensor shapes do not match");
+    assert((cTensorOpType == resultOpType) &&
+        "C and result tensor types do not match");
+
+    auto denseElementType = ::mlir::FloatType::getF32(context);
+    ShapedType denseValueType = RankedTensorType::get(resultOpShape,
+        denseElementType);
+    DenseElementsAttr denseValueAttr =
+        C.getDefiningOp()->getAttr("value").cast<DenseElementsAttr>()
+        .reshape(denseValueType);
+    auto cTensor = rewriter.create<Torch::ValueTensorLiteralOp>(loc,
+        resultType, denseValueAttr);
+    auto cType = cTensor.getType();
+
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
     if(!(getRank(A) == 2 && getRank(B) == 2 && getRank(C) <= 2))
-      return op->emitError("Checking input dimensions");
+      return op->emitError("Gemm only supports rank 2 tensors");
 
     auto aShapedType = A.getType().dyn_cast<ShapedType>();
     auto bShapedType = B.getType().dyn_cast<ShapedType>();
 
     mlir::Type transposeAType =
-        (transA)
+        (transA != 0)
             ? Torch::ValueTensorType::get(
                   context, ArrayRef<int64_t>(getTransposedShape2D(aShapedType)),
                   aShapedType.getElementType())
             : aType;
     mlir::Type transposeBType =
-        (transB)
+        (transB != 0)
             ? Torch::ValueTensorType::get(
                   context, ArrayRef<int64_t>(getTransposedShape2D(bShapedType)),
                   bShapedType.getElementType())
             : bType;
 
     Value transposeAVal =
-        (transA) ? rewriter.create<AtenTOp>(loc, transposeAType, aTensor)
+        (transA != 0) ? rewriter.create<AtenTOp>(loc, transposeAType, aTensor)
                  : aTensor;
     Value transposeBVal =
-        (transB) ? rewriter.create<AtenTOp>(loc, transposeBType, bTensor)
+        (transB != 0) ? rewriter.create<AtenTOp>(loc, transposeBType, bTensor)
                  : bTensor;
 
     // Compute Y = alpha * A' * B' + beta * C
