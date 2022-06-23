@@ -1,4 +1,3 @@
-
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -43,6 +42,7 @@ public:
     KrnlCallOpAdaptor krnlCallAdaptor(operands);
     Location loc = op->getLoc();
     KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -71,10 +71,10 @@ public:
           parameterTypeList, parameterList);
     }
 
-    auto callRef = getOrInsertCall(
-        rewriter, module, krnlCallOp.funcName(), parameterTypeList);
-    rewriter.create<func::CallOp>(
-        loc, callRef, ArrayRef<Type>({}), parameterList);
+    FlatSymbolRefAttr callRef =
+        create.llvm.getOrInsertSymbolRef(module, krnlCallOp.funcName(),
+            LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
+    create.llvm.call({}, callRef, parameterList);
 
     rewriter.eraseOp(op);
     return success();
@@ -89,6 +89,7 @@ private:
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
@@ -96,8 +97,7 @@ private:
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-      auto memRefRankVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int64Ty, rewriter.getI64IntegerAttr(memRefRank));
+      auto memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
@@ -120,6 +120,7 @@ private:
     auto *context = op->getContext();
     auto loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
 
     TypeSwitch<Attribute>(attribute)
         .Case<StringAttr>([&](StringAttr strAttr) {
@@ -158,7 +159,6 @@ private:
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
           memRefTy.dump();
-          MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
           Value constantGlobal =
               create.krnl.constant(memRefTy, "constant_", denseAttr);
           Value convertedConstantGlobal =
@@ -170,8 +170,8 @@ private:
 
           auto int64Ty = IntegerType::get(context, 64);
           auto memRefRank = memRefTy.getRank();
-          auto memRefRankVal = rewriter.create<LLVM::ConstantOp>(
-              loc, int64Ty, rewriter.getI64IntegerAttr(memRefRank));
+          auto memRefRankVal =
+              create.llvm.constant(int64Ty, (int64_t)memRefRank);
           Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
@@ -186,21 +186,6 @@ private:
           llvm_unreachable("This type of Attribute used by krnl.call is not "
                            "yet implemented");
         });
-  }
-
-  FlatSymbolRefAttr getOrInsertCall(PatternRewriter &rewriter, ModuleOp module,
-      llvm::StringRef funcName, ArrayRef<Type> parameterTypeList) const {
-    auto *context = module.getContext();
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-      return SymbolRefAttr::get(context, funcName);
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmFnType =
-        LLVM::LLVMFunctionType::get(llvmVoidTy, parameterTypeList, false);
-
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
-    return SymbolRefAttr::get(context, funcName);
   }
 };
 

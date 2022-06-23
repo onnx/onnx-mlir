@@ -84,17 +84,17 @@ func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.strin
   // CHECK:     llvm.mlir.global internal constant @cats_strings{{.*}}() {alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:       [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[CAT_ADDR:%.+]] = llvm.mlir.addressof @cat : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64
+  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK:       [[CAT_GEP:%.+]] = llvm.getelementptr [[CAT_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:       [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:       [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0] : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[DOG_ADDR:%.+]] = llvm.mlir.addressof @dog : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64  
+  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64  
   // CHECK:       [[DOG_GEP:%.+]] = llvm.getelementptr [[DOG_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:       [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:       [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1] : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[COW_ADDR:%.+]] = llvm.mlir.addressof @cow : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64    
+  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64    
   // CHECK:       [[COW_GEP:%.+]] = llvm.getelementptr [[COW_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:       [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:       [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:       llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:     }
   // CHECK-DAG: llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {alignment = 16 : i64} : !llvm.array<3 x i64>
@@ -169,17 +169,17 @@ func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> me
   // CHECK:      llvm.mlir.global internal constant @cats_strings{{.*}}() {alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:        [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[CAT_ADDR:%.+]] = llvm.mlir.addressof @cat : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64
+  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK:        [[CAT_GEP:%.+]] = llvm.getelementptr [[CAT_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:        [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:        [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0] : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[DOG_ADDR:%.+]] = llvm.mlir.addressof @dog : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64  
+  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64  
   // CHECK:        [[DOG_GEP:%.+]] = llvm.getelementptr [[DOG_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:        [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:        [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1] : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[COW_ADDR:%.+]] = llvm.mlir.addressof @cow : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : index) : i64    
+  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64    
   // CHECK:        [[COW_GEP:%.+]] = llvm.getelementptr [[COW_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK:        [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2 : index] : !llvm.array<3 x ptr<i8>>
+  // CHECK:        [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:        llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:      }
   // CHECK-DAG:  llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {alignment = 16 : i64} : !llvm.array<3 x i64>
