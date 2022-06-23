@@ -288,6 +288,7 @@ struct LLVMBuilder final : DialectBuilder {
       mlir::ArrayRef<mlir::Value> inputs) const;
 
   // ConstantOp
+  mlir::Value constant(mlir::Type type, int64_t val) const;
   mlir::Value constant(mlir::Type type, double val) const;
 
   // ExtractValueOp

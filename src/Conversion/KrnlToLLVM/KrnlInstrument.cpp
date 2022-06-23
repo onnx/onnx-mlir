@@ -50,12 +50,11 @@ public:
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     Value nodeName = create.llvm.constant(
-        IntegerType::get(context, 64), instrumentOp.opID());
-    Value tag =
-        create.llvm.constant(IntegerType::get(context, 64), instrumentOp.tag());
+        IntegerType::get(context, 64), (int64_t)instrumentOp.opID());
+    Value tag = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
 
-    create.llvm.call(
-        ArrayRef<Type>({}), instrumentRef, ArrayRef<Value>({nodeName, tag}));
+    create.llvm.call({}, instrumentRef, {nodeName, tag});
 
     rewriter.eraseOp(op);
     return success();
@@ -71,8 +70,7 @@ private:
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module,
-        StringRef("OMInstrumentPoint"), llvmVoidTy,
-        ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}));
+        StringRef("OMInstrumentPoint"), llvmVoidTy, {llvmI64Ty, llvmI64Ty});
   }
 };
 

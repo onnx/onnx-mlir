@@ -67,8 +67,8 @@ public:
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
-    auto outputMemPoolTypePtrAlloc = create.llvm.getElemPtr(
-        llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
+    auto outputMemPoolTypePtrAlloc =
+        create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.

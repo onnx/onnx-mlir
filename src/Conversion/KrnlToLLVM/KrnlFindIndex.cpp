@@ -114,8 +114,7 @@ private:
 
     // Create 'find_index_*' signature: `i64 ([i8*|i64], i32*, i32*, i32)`
     return create.llvm.getOrInsertSymbolRef(module, StringRef(funcName),
-        i64Type,
-        ArrayRef<Type>({firstArgType, i32PtrType, i32PtrType, i32Type}));
+        i64Type, {firstArgType, i32PtrType, i32PtrType, i32Type});
   }
 };
 

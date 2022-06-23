@@ -216,14 +216,6 @@ void genSignatureFunction(ModuleOp &module,
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
-  // A helper function to get a pointer to the first element in an array.
-  auto getGlobalOpGEP = [&](LLVM::GlobalOp op) {
-    Value zeroI64 = create.llvm.constant(i64Type, 0);
-    Value address = create.llvm.addressOf(op);
-    return create.llvm.getElemPtr(
-        i8PtrTy, address, ArrayRef<Value>({zeroI64, zeroI64}));
-  };
-
   // Emit a global constant to store an array of pointers pointing to each entry
   // point constants. The array ends with NULL.
   OpBuilder::InsertionGuard guard(b);
@@ -243,7 +235,10 @@ void genSignatureFunction(ModuleOp &module,
     uint32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : entryGlobalOps) {
-      Value strAddr = getGlobalOpGEP(globalOp);
+      Value address = create.llvm.addressOf(globalOp);
+      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
+      Value strAddr =
+          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
@@ -289,10 +284,10 @@ void genSignatureFunction(ModuleOp &module,
 
     // Emit code for the true block: update the value.
     b.setInsertionPointToStart(trueBlock);
-    Value zero = create.llvm.constant(i64Type, 0);
-    Value numOfEntryPointsPtr = create.llvm.getElemPtr(
-        i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
-    Value noep = create.llvm.constant(i64Type, entryGlobalOps.size());
+    Value zero = create.llvm.constant(i64Type, (int64_t)0);
+    Value numOfEntryPointsPtr =
+        create.llvm.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+    Value noep = create.llvm.constant(i64Type, (int64_t)entryGlobalOps.size());
     create.llvm.store(noep, numOfEntryPointsPtr);
     b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 
@@ -323,8 +318,8 @@ void genSignatureFunction(ModuleOp &module,
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
 
-    Value zeroI32 = create.llvm.constant(i32Type, 0);
-    Value oneI64 = create.llvm.constant(i64Type, 1);
+    Value zeroI32 = create.llvm.constant(i32Type, (int64_t)0);
+    Value oneI64 = create.llvm.constant(i64Type, (int64_t)1);
 
     // 2.1 A buffer to keep a pointer pointing to the return signature string.
     Value ptrToReturnSig =
@@ -365,11 +360,14 @@ void genSignatureFunction(ModuleOp &module,
       // Emit code for the condition block.
       b.setInsertionPointToEnd(condBlock);
       // Read an entry point name.
-      Value entryI8Ptr = getGlobalOpGEP(globalEntryPoint);
+      Value address = create.llvm.addressOf(globalEntryPoint);
+      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
+      Value entryI8Ptr =
+          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
       // Compare it with the user's entry point name.
       FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
-      Value length =
-          create.llvm.constant(i64Type, entryPointValueAttr.getValue().size());
+      Value length = create.llvm.constant(
+          i64Type, (int64_t)entryPointValueAttr.getValue().size());
       Value strncmpResult = create.llvm.call(
           i32Type, StrncmpRef, ArrayRef<Value>({input, entryI8Ptr, length}));
       // Equal if strncmp returns `0`.

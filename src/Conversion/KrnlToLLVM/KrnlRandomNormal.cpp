@@ -56,10 +56,9 @@ public:
         create.llvm.extractValue(outputType, operandAdaptor.output(), {1});
 
     // Memcpy call
-    create.llvm.call(ArrayRef<Type>({}), randomNormalFuncRef,
-        ArrayRef<Value>({alignedOutput, operandAdaptor.numberOfValues(),
-            operandAdaptor.mean(), operandAdaptor.scale(),
-            operandAdaptor.seed()}));
+    create.llvm.call({}, randomNormalFuncRef,
+        {alignedOutput, operandAdaptor.numberOfValues(), operandAdaptor.mean(),
+            operandAdaptor.scale(), operandAdaptor.seed()});
 
     rewriter.eraseOp(op);
     return success();
@@ -87,8 +86,7 @@ private:
     }
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,
-        ArrayRef<mlir::Type>({llvmOutputTy, llvmI64Ty, llvmOptionsTy,
-            llvmOptionsTy, llvmOptionsTy}));
+        {llvmOutputTy, llvmI64Ty, llvmOptionsTy, llvmOptionsTy, llvmOptionsTy});
   }
 };
 

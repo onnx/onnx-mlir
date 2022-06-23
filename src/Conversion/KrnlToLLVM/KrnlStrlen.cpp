@@ -74,8 +74,8 @@ private:
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    return create.llvm.getOrInsertSymbolRef(module, StringRef("strlen"),
-        rewriter.getI64Type(), ArrayRef<Type>({i8PtrType}));
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef("strlen"), rewriter.getI64Type(), {i8PtrType});
   }
 };
 

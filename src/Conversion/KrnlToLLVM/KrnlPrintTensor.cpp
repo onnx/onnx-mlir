@@ -52,7 +52,7 @@ public:
     auto int64Ty = IntegerType::get(context, 64);
     auto memRefTy = input.getType().dyn_cast<LLVM::LLVMStructType>();
     auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-    Value memRefRankVal = create.llvm.constant(int64Ty, memRefRank);
+    Value memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 

@@ -174,8 +174,8 @@ private:
   FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
       ModuleOp module, std::string mathFuncName, mlir::Type llvmType) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    return create.llvm.getOrInsertSymbolRef(module, StringRef(mathFuncName),
-        llvmType, ArrayRef<mlir::Type>({llvmType}));
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef(mathFuncName), llvmType, {llvmType});
   }
 };
 

@@ -36,6 +36,7 @@ public:
     auto printOp = cast<KrnlPrintOp>(op);
     Location loc = printOp.getLoc();
     KrnlPrintOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Value input = operandAdaptor.input();
     StringRef format = printOp.format();
@@ -51,11 +52,9 @@ public:
     Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
-      rewriter.create<func::CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
-          ArrayRef<Value>({formatSpecPtr, input}));
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});
     else
-      rewriter.create<func::CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
-          ArrayRef<Value>({formatSpecPtr}));
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr});
 
     rewriter.eraseOp(op);
     return success();

@@ -118,7 +118,7 @@ public:
       assert(
           maccelAttr.isa<ArrayAttr>() && "onnx-mlir.accels must be ArrayAttr");
       ArrayAttr accels = maccelAttr.cast<ArrayAttr>();
-      Value zeroI64 = create.llvm.constant(int64Ty, 0);
+      Value zeroI64 = create.llvm.constant(int64Ty, (int64_t)0);
 
       // Split the current block into IF, THEN, ELSE blocks.
       Block *ifBlock, *thenBlock, *elseBlock;
@@ -141,7 +141,7 @@ public:
         rewriter.setInsertionPointToEnd(ifBlock);
         // Call OMInitCompatibleAccelX.
         Value versionNumberVal =
-            create.llvm.constant(int64Ty, versionNumberInHex);
+            create.llvm.constant(int64Ty, (int64_t)versionNumberInHex);
         Value isCompatible = create.llvm.call(
             int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
         // Condition: if (OMInitCompatibleAccelX() != 0)
@@ -191,7 +191,7 @@ public:
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
-    Value one = create.llvm.constant(int64Ty, 1);
+    Value one = create.llvm.constant(int64Ty, (int64_t)1);
 
     // Create a memref type for the return argument of the iface call
     Type memRefOutPtrTy = staticEntryPointTy.getParamType(0);
@@ -202,11 +202,11 @@ public:
     // Start with param 1 because 0 is the return value
     for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
-      Value idxVal = create.llvm.constant(int64Ty, i - 1);
+      Value idxVal = create.llvm.constant(int64Ty, (int64_t)(i - 1));
 
       Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      Value omTensorPtrAddr = create.llvm.getElemPtr(
-          omTensorPtrAddrTy, omTensorPtrArr, ArrayRef<Value>({idxVal}));
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr(omTensorPtrAddrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
@@ -226,8 +226,7 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    create.llvm.call(
-        ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
+    create.llvm.call({}, wrappedStaticEntryPointFuncName, staticInputs);
     Value outMemRefs = create.llvm.load(ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
@@ -247,13 +246,14 @@ public:
       }
     }
 
-    Value numOutput = create.llvm.constant(int64Ty, outMemRefList.size());
+    Value numOutput =
+        create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
 
     auto mallocSym = getOrInsertMalloc(rewriter, module);
     // TODO(tjingrant): get pointer size from data layout.
     size_t kPtrSize = 8;
-    Value outputOmtPtrsArraySizeInByte =
-        create.llvm.constant(int64Ty, outMemRefList.size() * kPtrSize);
+    Value outputOmtPtrsArraySizeInByte = create.llvm.constant(
+        int64Ty, (int64_t)(outMemRefList.size() * kPtrSize));
     Value outOmtPtrsArr = create.llvm.call(
         LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
         mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
@@ -266,7 +266,8 @@ public:
       Value memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
       int64_t outMemRefRank = krnl::getRankFromMemRefType(outMemRefTy);
-      Value outMemRefRankVal = create.llvm.constant(int64Ty, outMemRefRank);
+      Value outMemRefRankVal =
+          create.llvm.constant(int64Ty, (int64_t)outMemRefRank);
       Value outOMTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {outMemRefRankVal});
       // If output is a constant tensor or a block argument, OMTensor does not
@@ -277,11 +278,11 @@ public:
       krnl::fillOMTensorWithMemRef(
           memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
-      Value idxVal = create.llvm.constant(int64Ty, i);
+      Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
 
       Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      Value omTensorPtrAddr = create.llvm.getElemPtr(
-          omTensorPtrAddrTy, outOmtPtrsArr, ArrayRef<Value>{idxVal});
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr(omTensorPtrAddrTy, outOmtPtrsArr, {idxVal});
 
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
@@ -333,7 +334,7 @@ private:
     memRef = create.llvm.insertValue(memRefTy, memRef, dataPtr, {1});
 
     // Use zero offset now.
-    Value zero = create.llvm.constant(int64Ty, 0);
+    Value zero = create.llvm.constant(int64Ty, (int64_t)0);
     memRef = create.llvm.insertValue(memRefTy, memRef, zero, {2});
 
     // Get rank, sizes array ptr and strides array ptr.
@@ -345,18 +346,16 @@ private:
         RuntimeAPI::API::GET_DATA_STRIDES, {rtMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
-      Value dimIdx = create.llvm.constant(int64Ty, i);
+      Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
-      Value dimSizePtr =
-          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
-              sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+      Value dimSizePtr = create.llvm.getElemPtr(
+          LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx});
       Value dimSize = create.llvm.load(dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
-      auto dimStridePtr =
-          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
-              stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+      auto dimStridePtr = create.llvm.getElemPtr(
+          LLVM::LLVMPointerType::get(int64Ty), stridesArrayPtr, {dimIdx});
       auto dimStride = create.llvm.load(dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
@@ -393,7 +392,7 @@ private:
     std::string funcName = "OMInitCompatibleAccel" + accelName.str();
     // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     return create.llvm.getOrInsertSymbolRef(module, StringRef(funcName),
-        rewriter.getI64Type(), ArrayRef<mlir::Type>({rewriter.getI64Type()}));
+        rewriter.getI64Type(), {rewriter.getI64Type()});
   }
 
   // Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
@@ -449,7 +448,7 @@ private:
 
     // Verify the number of inputs.
     equalOrFailed(module, rewriter, loc,
-        create.llvm.constant(int64Ty, inputNum),
+        create.llvm.constant(int64Ty, (int64_t)inputNum),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
             RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
         "Wrong number of input tensors: expect " + std::to_string(inputNum) +
@@ -460,10 +459,9 @@ private:
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
     for (int i = 0; i < inputNum; ++i) {
       // Call API function to retrieve the i-th omTensor.
-      Value idxVal = create.llvm.constant(int64Ty, i);
-      Value omTensorPtrAddr =
-          create.llvm.getElemPtr(LLVM::LLVMPointerType::get(opaquePtrTy),
-              omTensorPtrArr, ArrayRef<Value>({idxVal}));
+      Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
+          LLVM::LLVMPointerType::get(opaquePtrTy), omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Verify data type.
@@ -476,7 +474,8 @@ private:
       dstream << elemTy;
       dstream.flush();
       onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
-      equalOrFailed(module, rewriter, loc, create.llvm.constant(int64Ty, dtype),
+      equalOrFailed(module, rewriter, loc,
+          create.llvm.constant(int64Ty, (int64_t)dtype),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
           "Wrong data type for the input " + std::to_string(i) + ": expect " +
@@ -486,7 +485,8 @@ private:
       // Verify data rank.
       auto JSONDimArray = JSONItem->getArray("dims");
       int64_t rank = JSONDimArray->size();
-      equalOrFailed(module, rewriter, loc, create.llvm.constant(int64Ty, rank),
+      equalOrFailed(module, rewriter, loc,
+          create.llvm.constant(int64Ty, (int64_t)rank),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::GET_DATA_RANK, {omTensorPtr}),
           "Wrong rank for the input " + std::to_string(i) + ": expect " +
@@ -501,11 +501,11 @@ private:
         int64_t dim = JSONDimValue.getValue();
         if (dim == -1)
           continue; // do not verify dynamic dimensions.
-        Value dimIdx = create.llvm.constant(int64Ty, d);
-        equalOrFailed(module, rewriter, loc, create.llvm.constant(int64Ty, dim),
-            create.llvm.load(
-                create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
-                    sizesArrayPtr, ArrayRef<Value>({dimIdx}))),
+        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
+        equalOrFailed(module, rewriter, loc,
+            create.llvm.constant(int64Ty, (int64_t)dim),
+            create.llvm.load(create.llvm.getElemPtr(
+                LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx})),
             "Wrong size for the dimension " + std::to_string(d) +
                 " of the input " + std::to_string(i) + ": expect " +
                 std::to_string(dim) + ", but got ");

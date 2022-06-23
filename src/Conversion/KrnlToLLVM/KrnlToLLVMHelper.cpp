@@ -179,7 +179,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   // Set ownership, i.e., free after OMTensor is destroyed.
-  Value owning = create.llvm.constant(int64Ty, outOwning);
+  Value owning = create.llvm.constant(int64Ty, (int64_t)outOwning);
 
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
@@ -199,7 +199,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
   onnx::TensorProto::DataType onnxTy = krnl::mlirTypeToOnnxType(elemTy);
-  Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);
+  Value onnxTyVal = create.llvm.constant(int64Ty, (int64_t)onnxTy);
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
 
@@ -210,7 +210,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
 
   for (decltype(rank) i = 0; i < rank; i++) {
-    Value dimIdx = create.llvm.constant(int64Ty, i);
+    Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
@@ -256,10 +256,8 @@ Value getPtrToGlobalString(
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
   Type i64Type = IntegerType::get(builder.getContext(), 64);
   Value globalPtr = create.llvm.addressOf(global);
-  Value zero = create.llvm.constant(i64Type, 0);
-
-  return create.llvm.getElemPtr(
-      i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
+  Value zero = create.llvm.constant(i64Type, (int64_t)0);
+  return create.llvm.getElemPtr(i8PtrType, globalPtr, {zero, zero});
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
@@ -287,8 +285,7 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
   // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
   return create.llvm.getOrInsertSymbolRef(module, StringRef("strncmp"),
-      builder.getI32Type(),
-      ArrayRef<Type>({i8PtrTy, i8PtrTy, builder.getI64Type()}));
+      builder.getI32Type(), {i8PtrTy, i8PtrTy, builder.getI64Type()});
 }
 
 std::string a2e_s(std::string a_s) {
@@ -315,7 +312,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
       module, StringRef("__errno_location"), int32PtrTy, {});
   Value errNoPos =
       createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
-  Value errNoVal = createLLVM.constant(int32Ty, errCode);
+  Value errNoVal = createLLVM.constant(int32Ty, (int64_t)errCode);
   createLLVM.store(errNoVal, errNoPos);
 }
 

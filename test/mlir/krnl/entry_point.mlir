@@ -19,8 +19,8 @@ module {
 
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<2 x ptr<i8>> {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr<i8>>
-// CHECK:           [[VAR_1_:%.+]] = llvm.mlir.constant(0 : i64) : i64
-// CHECK:           [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK:           [[VAR_3_:%.+]] = llvm.getelementptr [[VAR_2_]]{{.}}[[VAR_1_]], [[VAR_1_]]{{.}} : (!llvm.ptr<array<15 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_3_]], [[VAR_0_]][0] : !llvm.array<2 x ptr<i8>>
 // CHECK:           [[VAR_5_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
@@ -127,12 +127,12 @@ module {
 
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<3 x ptr<i8>> {
 // CHECK:           [[VAR_0_6_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
-// CHECK:           [[VAR_1_7_:%.+]] = llvm.mlir.constant(0 : i64) : i64
-// CHECK:           [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
+// CHECK-DAG:       [[VAR_1_7_:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
 // CHECK:           [[VAR_3_5_:%.+]] = llvm.getelementptr [[VAR_2_6_]]{{.}}[[VAR_1_7_]], [[VAR_1_7_]]{{.}} : (!llvm.ptr<array<16 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           [[VAR_4_6_:%.+]] = llvm.insertvalue [[VAR_3_5_]], [[VAR_0_6_]][0] : !llvm.array<3 x ptr<i8>>
-// CHECK:           [[VAR_5_6_:%.+]] = llvm.mlir.constant(0 : i64) : i64
-// CHECK:           [[VAR_6_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
+// CHECK-DAG:       [[VAR_5_6_:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-DAG:       [[VAR_6_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
 // CHECK:           [[VAR_7_3_:%.+]] = llvm.getelementptr [[VAR_6_5_]]{{.}}[[VAR_5_6_]], [[VAR_5_6_]]{{.}} : (!llvm.ptr<array<17 x i8>>, i64, i64) -> !llvm.ptr<i8>
 // CHECK:           [[VAR_8_3_:%.+]] = llvm.insertvalue [[VAR_7_3_]], [[VAR_4_6_]][1] : !llvm.array<3 x ptr<i8>>
 // CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>

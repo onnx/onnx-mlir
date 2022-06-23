@@ -74,7 +74,7 @@ public:
     FlatSymbolRefAttr callRef =
         create.llvm.getOrInsertSymbolRef(module, krnlCallOp.funcName(),
             LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
-    create.llvm.call(ArrayRef<Type>({}), callRef, parameterList);
+    create.llvm.call({}, callRef, parameterList);
 
     rewriter.eraseOp(op);
     return success();
@@ -97,7 +97,7 @@ private:
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-      auto memRefRankVal = create.llvm.constant(int64Ty, memRefRank);
+      auto memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
@@ -170,7 +170,8 @@ private:
 
           auto int64Ty = IntegerType::get(context, 64);
           auto memRefRank = memRefTy.getRank();
-          auto memRefRankVal = create.llvm.constant(int64Ty, memRefRank);
+          auto memRefRankVal =
+              create.llvm.constant(int64Ty, (int64_t)memRefRank);
           Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 

@@ -70,12 +70,13 @@ public:
         loc, IntegerType::get(context, 64), operandAdaptor.size());
 
     // Is volatile (set to false).
-    Value isVolatile = create.llvm.constant(IntegerType::get(context, 1), 0);
+    Value isVolatile =
+        create.llvm.constant(IntegerType::get(context, 1), (int64_t)0);
 
     // Memcpy call
-    create.llvm.call(ArrayRef<Type>({}), memcpyRef,
-        ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
-            int64Size, isVolatile}));
+    create.llvm.call({}, memcpyRef,
+        {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
+            isVolatile});
 
     rewriter.eraseOp(op);
     return success();
@@ -96,7 +97,7 @@ private:
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("llvm.memcpy.p0i8.p0i8.i64"), llvmVoidTy,
-        ArrayRef<mlir::Type>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}));
+        {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty});
   }
 };
 
