@@ -125,7 +125,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     // `gemmOp.C()` does not consider batch sizes. Construct a value tensor
     // from the result type instead. XTen later on expects correct shapes
     // and does not allow broadcasting.
-    if (C.getDefiningOp()->hasAttr("value")) {
+    if (mlir::isa<ONNXConstantOp>(C.getDefiningOp()) &&
+        C.getDefiningOp()->hasAttr("value")) {
       auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
           .cast<TensorType>();
       auto cTensorOpShape = cTensorOp.getShape();
