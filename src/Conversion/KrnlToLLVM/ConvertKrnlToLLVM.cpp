@@ -304,16 +304,11 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToStart(entryBlock);
 
     Value zeroI32 = create.llvm.constant(i32Type, (int64_t)0);
-    Value oneI64 = create.llvm.constant(i64Type, (int64_t)1);
 
-    // 2.1 A buffer to keep a pointer pointing to the return signature string.
-    Value ptrToReturnSig =
-        create.llvm._alloca(i8PtrPtrTy, oneI64, /*alignment=*/0);
-
-    // 2.2 The name of the entry point that we want to return its signature.
+    // 2.1 The name of the entry point that we want to return its signature.
     Value input = entryBlock->getArgument(0);
 
-    // 2.3 Emit code to find the signature of the given entry point.
+    // 2.2 Emit code to find the signature of the given entry point.
     // Iterate over the list of the entry points and check string equality.
     for (uint64_t j = 0; j < numOfEntryPoints; ++j) {
       LLVM::GlobalOp globalEntryPoint = entryGlobalOps[j];
@@ -345,9 +340,7 @@ void genSignatureFunction(ModuleOp &module,
           [&](LLVMBuilder &createLLVM) {
             Value sigAddr = createLLVM.addressOf(globalSignature);
             Value sigI8Ptr = createLLVM.bitcastI8Ptr(sigAddr);
-            createLLVM.store(sigI8Ptr, ptrToReturnSig);
-            Value res = createLLVM.load(ptrToReturnSig);
-            createLLVM._return(res);
+            createLLVM._return(sigI8Ptr);
           });
     }
 
