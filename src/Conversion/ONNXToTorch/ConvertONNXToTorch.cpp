@@ -25,12 +25,14 @@ using namespace mlir::torch::Torch;
 void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
 
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
+  populateCallOpTypeConversionPattern(patterns, typeConverter);
+  populateReturnOpTypeConversionPattern(patterns, typeConverter);
+
   populateLoweringONNXToTorchConvOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchConstantPadNdOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConstantPadNdOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchLeakyReluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchConstOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
@@ -42,6 +44,45 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXToTorchConcatOpPattern (patterns, typeConverter, ctx);
   populateLoweringONNXToTorchBinaryOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXToTorchArgmaxOpPattern(patterns, typeConverter, ctx);
+}
+
+//===----------------------------------------------------------------------===//
+// FinalizingBackendTypeConversionPass
+//===----------------------------------------------------------------------===//
+
+namespace {
+// In a finalizing conversion, we know that all of the source types have been
+// converted to the destination types, so the materialization becomes an
+// identity.
+template <typename OpTy>
+class FinalizeMaterialization : public OpConversionPattern<OpTy> {
+public:
+  using OpConversionPattern<OpTy>::OpConversionPattern;
+  using OpAdaptor = typename OpTy::Adaptor;
+  LogicalResult
+  matchAndRewrite(OpTy op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOp(op, adaptor.getOperands()[0]);
+    return success();
+  }
+};
+} // namespace
+
+template <typename OpTy>
+static void setupFinalization(ConversionTarget &target,
+                              RewritePatternSet &patterns,
+                              TypeConverter &typeConverter) {
+  target.addIllegalOp<OpTy>();
+  patterns.add<FinalizeMaterialization<OpTy>>(typeConverter,
+                                              patterns.getContext());
+}
+
+template <typename OpTy, typename OpTy2, typename... OpTys>
+static void setupFinalization(ConversionTarget &target,
+                              RewritePatternSet &patterns,
+                              TypeConverter &typeConverter) {
+  setupFinalization<OpTy>(target, patterns, typeConverter);
+  setupFinalization<OpTy2, OpTys...>(target, patterns, typeConverter);
 }
 
 //===-----------------------------------------------------------------===//
@@ -110,29 +151,45 @@ void FrontendToTorchLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets
   // for this lowering.
-  target.addLegalDialect<Torch::TorchDialect>();
-  target
-      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
-
-  // Needed to support unsigned int computations. To be removed if we use a
-  // scheme that does not rely on the UnrealizedConversionCastOp.
-  //target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
-
-  // If `emitDealloc` is turned off, make sure we don't have buffer
-  // deallocation at this level. Will use MLIR buffer-deallocation for
-  // this purpose instead.
-  if (!emitDealloc)
-    target.addIllegalOp<mlir::memref::DeallocOp>();
+  target.addLegalDialect<Torch::TorchDialect,
+      torch::TorchConversion::TorchConversionDialect>();
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
 
-  // Convert types to legal types for the Krnl dialect.
+  // Convert types to legal types for the Torch dialect.
   TorchTypeConverter torchTypeConverter;
+
+  /// Legalize ops
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+    return torchTypeConverter.isSignatureLegal(op.getFunctionType()) &&
+           torchTypeConverter.isLegal(&op.getBody());
+  });
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
+    return torchTypeConverter.isLegal(op);
+  });
+  target.addLegalOp<ModuleOp>();
+  target.markUnknownOpDynamicallyLegal([&](Operation *op) {
+    return isNotBranchOpInterfaceOrReturnLikeOp(op) ||
+           isLegalForBranchOpInterfaceTypeConversionPattern(op, torchTypeConverter) ||
+           isLegalForReturnOpTypeConversionPattern(op, torchTypeConverter);
+  });
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp,
+      TorchConversion::FromBuiltinTensorOp,
+      TorchConversion::ToBuiltinTensorOp>();
+  target.markUnknownOpDynamicallyLegal([&](Operation *op) {
+    return torchTypeConverter.isLegal(op);
+  });
+
   // Define patterns.
   populateONNXToTorchConversionPattern(
       patterns, torchTypeConverter, &getContext(), enableTiling);
+
+  // Mark materializations as illegal in this pass (since we are finalizing)
+  // and add patterns that eliminate them.
+  setupFinalization<TorchConversion::ToBuiltinTensorOp,
+      TorchConversion::FromBuiltinTensorOp>(target, patterns, torchTypeConverter);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -149,5 +206,4 @@ std::unique_ptr<Pass> createLowerToTorchPass() {
 std::unique_ptr<Pass> createLowerToTorchPass(int optLevel) {
   return std::make_unique<FrontendToTorchLoweringPass>(optLevel);
 }
-
 } // namespace onnx_mlir

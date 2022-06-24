@@ -162,14 +162,10 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
-
-  pm.addPass(createONNXToAtenModifyMainFunctionPass());
-  pm.addNestedPass<func::FuncOp>(createONNXToAtenTypesTransformPass());
   
+  pm.addPass(createONNXToAtenModifyMainFunctionPass());
   pm.addPass(createLowerToTorchPass(optLevel));
 
-  pm.addNestedPass<func::FuncOp>(createONNXToAtenFinalizeTypesTransformPass());
-  
   // The resolution of `dim` ops tends to create identical ops. CSE them.
   pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
 
