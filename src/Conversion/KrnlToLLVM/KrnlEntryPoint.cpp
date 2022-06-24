@@ -471,13 +471,18 @@ private:
       Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
       for (int d = 0; d < rank; ++d) {
+        // Get actual dimension size.
+        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
+        Value actualDim = create.llvm.load(create.llvm.getElemPtr(
+            LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx}));
+        // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.getValue();
-        Value actualDim = create.llvm.constant(int64Ty, (int64_t)dim);
+        // Verify.
         if (dim == -1) {
-          // In case of dynamic dimension, verify that the dimension size is
-          // a non-negative value.
+          // In case that the reference dimension size is unknown, verify that
+          // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/
               [&](LLVMBuilder &createLLVM) {
                 Value zero = createLLVM.constant(int64Ty, (int64_t)d);
@@ -491,21 +496,20 @@ private:
                 StringRef errorMsg("Wrong size for the dimension " +
                                    std::to_string(d) + " of the input " +
                                    std::to_string(i) +
-                                   ": expect a non-nagative value\n");
+                                   ": expect a non-negative value\n");
                 create.krnl.printf(errorMsg);
                 // Set errno.
                 krnl::emitErrNo(module, rewriter, loc, EINVAL);
                 // Return NULL.
                 create.llvm._return(create.llvm.nullI8Ptr());
               });
+        } else {
+          Value referenceDim = create.llvm.constant(int64Ty, (int64_t)dim);
+          equalOrFailed(module, rewriter, loc, referenceDim, actualDim,
+              "Wrong size for the dimension " + std::to_string(d) +
+                  " of the input " + std::to_string(i) + ": expect " +
+                  std::to_string(dim) + ", but got ");
         }
-        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
-        equalOrFailed(module, rewriter, loc, actualDim,
-            create.llvm.load(create.llvm.getElemPtr(
-                LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx})),
-            "Wrong size for the dimension " + std::to_string(d) +
-                " of the input " + std::to_string(i) + ": expect " +
-                std::to_string(dim) + ", but got ");
       }
     }
   }
