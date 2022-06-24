@@ -280,12 +280,21 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value bitcastI8Ptr(mlir::Value val) const;
   mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
 
+  // BrOp
+  void br(
+      llvm::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
+
   // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
       mlir::FlatSymbolRefAttr funcSymbol,
       mlir::ArrayRef<mlir::Value> inputs) const;
+
+  // CondBrOp
+  void condBr(mlir::Value cond, mlir::Block *trueBlock,
+      llvm::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
+      llvm::ArrayRef<mlir::Value> falseOperands) const;
 
   // ConstantOp
   mlir::Value constant(mlir::Type type, int64_t val) const;
@@ -336,6 +345,21 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
       llvm::StringRef symName, mlir::Type resultType,
       llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
+
+  /// Generate code that looks like "if then with optional else" at LLVM.
+  /// The following prototype code will be generated:
+  /// ```
+  /// llvm.condBr cond, ^thenBlock, ^elseBlock
+  /// ^thenBlock:
+  ///   thenBody
+  /// ^elseBlock:
+  ///   elseBody
+  /// ^mainBlock
+  ///   ...
+  /// ```
+  void ifThenElse(mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)> cond,
+      mlir::function_ref<void(LLVMBuilder &createLLVM)> thenFn,
+      mlir::function_ref<void(LLVMBuilder &createLLVM)> elseFn = nullptr) const;
 };
 
 //===----------------------------------------------------------------------===//

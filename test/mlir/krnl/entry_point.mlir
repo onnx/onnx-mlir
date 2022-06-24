@@ -35,10 +35,8 @@ module {
 // CHECK:         ^bb1:  // pred: ^bb0
 // CHECK:           [[VAR_2_4_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK:           llvm.store [[VAR_2_4_]], [[arg0_]] : !llvm.ptr<i64>
-// CHECK:           llvm.br ^bb3
-// CHECK:         ^bb2:  // pred: ^bb0
-// CHECK:           llvm.br ^bb3
-// CHECK:         ^bb3:  // 2 preds: ^bb1, ^bb2
+// CHECK:           llvm.br ^bb2
+// CHECK:         ^bb2:  // 2 preds: ^bb0, ^bb1
 // CHECK:           [[VAR_3_3_:%.+]] = llvm.mlir.addressof @_entry_point_arrays : !llvm.ptr<array<2 x ptr<i8>>>
 // CHECK:           [[VAR_4_4_:%.+]] = llvm.bitcast [[VAR_3_3_]] : !llvm.ptr<array<2 x ptr<i8>>> to !llvm.ptr<ptr<i8>>
 // CHECK:           llvm.return [[VAR_4_4_]] : !llvm.ptr<ptr<i8>>
@@ -61,13 +59,11 @@ module {
 // CHECK:           [[VAR_9_1_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<9 x i8>>
 // CHECK:           [[VAR_10_1_:%.+]] = llvm.bitcast [[VAR_9_1_]] : !llvm.ptr<array<9 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[VAR_10_1_]], [[VAR_2_5_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb3
+// CHECK:           [[VAR_12_1_:%.+]] = llvm.load [[VAR_2_5_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_11_1_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_11_1_]] : !llvm.ptr<i8>
-// CHECK:         ^bb3:  // pred: ^bb1
-// CHECK:           [[VAR_12_1_:%.+]] = llvm.load [[VAR_2_5_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
@@ -87,13 +83,11 @@ module {
 // CHECK:           [[VAR_9_2_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<10 x i8>>
 // CHECK:           [[VAR_10_2_:%.+]] = llvm.bitcast [[VAR_9_2_]] : !llvm.ptr<array<10 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[VAR_10_2_]], [[VAR_2_6_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb3
+// CHECK:           [[VAR_12_1_:%.+]] = llvm.load [[VAR_2_6_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_11_2_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_11_2_]] : !llvm.ptr<i8>
-// CHECK:         ^bb3:  // pred: ^bb1
-// CHECK:           [[VAR_12_1_:%.+]] = llvm.load [[VAR_2_6_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 
 }
@@ -147,10 +141,8 @@ module {
 // CHECK:         ^bb1:  // pred: ^bb0
 // CHECK:           [[VAR_2_14_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK:           llvm.store [[VAR_2_14_]], [[arg0_]] : !llvm.ptr<i64>
-// CHECK:           llvm.br ^bb3
-// CHECK:         ^bb2:  // pred: ^bb0
-// CHECK:           llvm.br ^bb3
-// CHECK:         ^bb3:  // 2 preds: ^bb1, ^bb2
+// CHECK:           llvm.br ^bb2
+// CHECK:         ^bb2:  // 2 preds: ^bb0, ^bb1
 // CHECK:           [[VAR_3_11_:%.+]] = llvm.mlir.addressof @_entry_point_arrays : !llvm.ptr<array<3 x ptr<i8>>>
 // CHECK:           [[VAR_4_14_:%.+]] = llvm.bitcast [[VAR_3_11_]] : !llvm.ptr<array<3 x ptr<i8>>> to !llvm.ptr<ptr<i8>>
 // CHECK:           llvm.return [[VAR_4_14_]] : !llvm.ptr<ptr<i8>>
@@ -173,7 +165,8 @@ module {
 // CHECK:           [[VAR_9_6_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<11 x i8>>
 // CHECK:           [[VAR_10_6_:%.+]] = llvm.bitcast [[VAR_9_6_]] : !llvm.ptr<array<11 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[VAR_10_6_]], [[VAR_2_15_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb5
+// CHECK:           [[VAR_20_2_:%.+]] = llvm.load [[VAR_2_15_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_20_2_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK-DAG:       [[VAR_11_5_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_12_4_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
@@ -187,13 +180,11 @@ module {
 // CHECK:           [[VAR_17_3_:%.+]] = llvm.mlir.addressof @_entry_point_1_in_sig : !llvm.ptr<array<11 x i8>>
 // CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_3_]] : !llvm.ptr<array<11 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[LOAD_VAR_2_3_MEM_1_1_]], [[VAR_2_15_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb5
+// CHECK:           [[VAR_20_2_:%.+]] = llvm.load [[VAR_2_15_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_20_2_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_19_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_19_3_]] : !llvm.ptr<i8>
-// CHECK:         ^bb5:  // 2 preds: ^bb1, ^bb3
-// CHECK:           [[VAR_20_2_:%.+]] = llvm.load [[VAR_2_15_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.return [[VAR_20_2_]] : !llvm.ptr<i8>
 // CHECK:         }
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
@@ -213,7 +204,8 @@ module {
 // CHECK:           [[VAR_9_7_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<12 x i8>>
 // CHECK:           [[VAR_10_7_:%.+]] = llvm.bitcast [[VAR_9_7_]] : !llvm.ptr<array<12 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[VAR_10_7_]], [[VAR_2_16_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb5
+// CHECK:           [[VAR_20_2_1_:%.+]] = llvm.load [[VAR_2_16_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_20_2_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK-DAG:       [[VAR_11_6_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_12_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
@@ -227,13 +219,11 @@ module {
 // CHECK:           [[VAR_17_4_:%.+]] = llvm.mlir.addressof @_entry_point_1_out_sig : !llvm.ptr<array<12 x i8>>
 // CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_4_]] : !llvm.ptr<array<12 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.store [[LOAD_VAR_2_3_MEM_1_1_]], [[VAR_2_16_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.br ^bb5
+// CHECK:           [[VAR_20_2_1_:%.+]] = llvm.load [[VAR_2_16_]] : !llvm.ptr<ptr<i8>>
+// CHECK:           llvm.return [[VAR_20_2_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_19_4_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_19_4_]] : !llvm.ptr<i8>
-// CHECK:         ^bb5:  // 2 preds: ^bb1, ^bb3
-// CHECK:           [[VAR_20_2_1_:%.+]] = llvm.load [[VAR_2_16_]] : !llvm.ptr<ptr<i8>>
-// CHECK:           llvm.return [[VAR_20_2_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 }
 

@@ -805,6 +805,10 @@ Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
       val);
 }
 
+void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
+  b.create<LLVM::BrOp>(loc, destOperands, destBlock);
+}
+
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
     ArrayRef<Value> inputs) const {
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
@@ -827,6 +831,13 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   if (resultTypes.empty())
     return nullptr;
   return callOp.getResult(0);
+}
+
+void LLVMBuilder::condBr(Value cond, Block *trueBlock,
+    llvm::ArrayRef<Value> trueOperands, Block *falseBlock,
+    llvm::ArrayRef<Value> falseOperands) const {
+  b.create<LLVM::CondBrOp>(
+      loc, cond, trueBlock, trueOperands, falseBlock, falseOperands);
 }
 
 Value LLVMBuilder::constant(Type type, int64_t val) const {
@@ -940,6 +951,49 @@ FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
     b.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
   }
   return SymbolRefAttr::get(b.getContext(), funcName);
+}
+
+void LLVMBuilder::ifThenElse(
+    mlir::function_ref<Value(LLVMBuilder &createLLVM)> cond,
+    mlir::function_ref<void(LLVMBuilder &createLLVM)> thenFn,
+    mlir::function_ref<void(LLVMBuilder &createLLVM)> elseFn) const {
+  LLVMBuilder createLLVM(b, loc);
+
+  // Split the current block into IF, THEN, ELSE and END blocks.
+  Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
+  ifBlock = b.getInsertionBlock();
+  thenBlock = ifBlock->splitBlock(b.getInsertionPoint());
+  elseBlock = b.createBlock(
+      thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  if (elseFn)
+    endBlock = b.createBlock(
+        elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
+  else
+    endBlock = elseBlock;
+
+  // Emit code for the IF block.
+  b.setInsertionPointToEnd(ifBlock);
+  Value condVal = cond(createLLVM);
+
+  // Branch the block into the THEN and ELSE blocks.
+  condBr(condVal, thenBlock, {}, elseBlock, {});
+
+  // Emit code for the THEN block.
+  b.setInsertionPointToStart(thenBlock);
+  thenFn(createLLVM);
+  if (thenBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(thenBlock->back()))
+    br({}, endBlock);
+
+  // Emit code for the ELSE block if required.
+  b.setInsertionPointToStart(elseBlock);
+  if (elseFn) {
+    elseFn(createLLVM);
+    if (elseBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(elseBlock->back()))
+      br({}, endBlock);
+  }
+
+  // End if-then-else and return to the main body.
+  b.setInsertionPointToStart(endBlock);
 }
 
 } // namespace onnx_mlir
