@@ -264,6 +264,9 @@ using AffineBuilder =
 //===----------------------------------------------------------------------===//
 
 struct LLVMBuilder final : DialectBuilder {
+  using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
+  using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
+
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   LLVMBuilder(DialectBuilder &db) : DialectBuilder(db) {}
@@ -357,9 +360,8 @@ struct LLVMBuilder final : DialectBuilder {
   /// ^mainBlock
   ///   ...
   /// ```
-  void ifThenElse(mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)> cond,
-      mlir::function_ref<void(LLVMBuilder &createLLVM)> thenFn,
-      mlir::function_ref<void(LLVMBuilder &createLLVM)> elseFn = nullptr) const;
+  void ifThenElse(valueFuncRef cond, voidFuncRef thenFn,
+      voidFuncRef elseFn = nullptr) const;
 };
 
 //===----------------------------------------------------------------------===//

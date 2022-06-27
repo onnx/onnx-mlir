@@ -954,9 +954,7 @@ FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
 }
 
 void LLVMBuilder::ifThenElse(
-    mlir::function_ref<Value(LLVMBuilder &createLLVM)> cond,
-    mlir::function_ref<void(LLVMBuilder &createLLVM)> thenFn,
-    mlir::function_ref<void(LLVMBuilder &createLLVM)> elseFn) const {
+    valueFuncRef cond, voidFuncRef thenFn, voidFuncRef elseFn) const {
   LLVMBuilder createLLVM(b, loc);
 
   // Split the current block into IF, THEN, ELSE and END blocks.
@@ -976,7 +974,7 @@ void LLVMBuilder::ifThenElse(
   Value condVal = cond(createLLVM);
 
   // Branch the block into the THEN and ELSE blocks.
-  condBr(condVal, thenBlock, {}, elseBlock, {});
+  createLLVM.condBr(condVal, thenBlock, {}, elseBlock, {});
 
   // Emit code for the THEN block.
   b.setInsertionPointToStart(thenBlock);
