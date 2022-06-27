@@ -27,6 +27,9 @@ void populateONNXToMhloConversionPattern(
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
   // Neural network
   populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
+  // Tensor
+  populateLoweringONNXConstantOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXReshapeOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//

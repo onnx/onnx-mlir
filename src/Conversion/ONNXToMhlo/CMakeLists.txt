@@ -8,6 +8,8 @@ add_onnx_mlir_library(OMONNXToMhlo
   Math/Gemm.cpp
   Math/Softmax.cpp
   NN/Pooling.cpp
+  Tensor/Constant.cpp
+  Tensor/Reshape.cpp
 
   DEPENDS
   MhloDialect

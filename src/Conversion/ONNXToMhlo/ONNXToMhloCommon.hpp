@@ -61,4 +61,9 @@ void populateLoweringONNXGemmOpToMhloPattern(
 // `NN` directory methods:
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
+// `Tensor` directory methods:
+void populateLoweringONNXConstantOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXReshapeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 } // namespace onnx_mlir
