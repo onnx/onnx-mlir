@@ -23,9 +23,9 @@ Onnx-mlir currently support ONNX operations targeting up to opset 14. Limitation
 | **LSTM** |7 |direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2. | |
 | **Log** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
 | **LogSoftmax** |13 | | |
-| **Matmul** |unsupported |(Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2). | |
+| **MatMul** |13 |(Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2). | |
 | **Max** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **MaxPoolSingleOut** |unsupported | | |
+| **MaxPool** |12 | | |
 | **Min** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
 | **Mul** |14 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
 | **Softmax** |13 |Rank of input tensor must be 2. axis must be 1 or -1. | |
