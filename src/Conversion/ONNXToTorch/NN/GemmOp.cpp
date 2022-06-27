@@ -122,9 +122,11 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     auto resultType = toTorchType(context, gemmOp.getResult().getType());
     auto cTensor = getTorchTensor(C, rewriter, context, loc);
 
-    // `gemmOp.C()` does not consider batch sizes. Construct a value tensor
-    // from the result type instead. XTen later on expects correct shapes
-    // and does not allow broadcasting.
+    // TODO: `gemmOp.C()` can broadcast its shape. XTen does not expect broadcast
+    // so for now we arrange the broadcast here. When this is fixed in XTen we
+    // will remove the explicit broadcasting from here. The fix is only applied
+    // to constant ops and will not work in a generalized case.
+  
     if (mlir::isa<ONNXConstantOp>(C.getDefiningOp()) &&
         C.getDefiningOp()->hasAttr("value")) {
       auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
@@ -187,13 +189,13 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     // Scalar multiplication with alpha(alpha * A')
     // and beta(beta * C) values.
     Value alphaMulResult = NULL, betaMulResult = NULL;
-    if (alpha) {
+    if (alpha && alpha.getValueAsDouble() != 1.) {
       Value alpha3v = getFloatValue(alpha, rewriter, loc);
       alphaMulResult = rewriter.create<AtenMulScalarOp>(loc, transposeAType,
                                                         transposeAVal, alpha3v);
     }
 
-    if (beta) {
+    if (beta && beta.getValueAsDouble() != 1.) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult =
           rewriter.create<AtenMulScalarOp>(loc, cTensor.getType(), cTensor, beta3v);
