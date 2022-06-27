@@ -51,36 +51,32 @@ using namespace mlir::torch::Torch;
  *
  */
 
-class ONNXLeakyReluOpToTorchLowering : public ConversionPattern {
+class ONNXLeakyReluOpToTorchLowering : public OpConversionPattern<ONNXLeakyReluOp> {
 public:
-  ONNXLeakyReluOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, mlir::ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
+        ConversionPatternRewriter &rewriter) const override {
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    ONNXLeakyReluOp op_ = llvm::dyn_cast<ONNXLeakyReluOp>(op);
-    ONNXLeakyReluOpAdaptor adapter(op_);
-
-    Location loc = op->getLoc();
+    Location loc = op.getLoc();
     mlir::MLIRContext *context = op->getContext();
+    auto operands = adaptor.getOperands();
 
-    auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
+    auto alpha = adaptor.alphaAttr(); // mlir::FloatAttr
     auto negSlope = alpha.getValue(); // APSFloat
     auto negSlopeFloatValue = FloatAttr::get(
-        mlir::FloatType::getF64(op->getContext()), negSlope.convertToFloat());
+        mlir::FloatType::getF64(op.getContext()), negSlope.convertToFloat());
     Value negSlopeConstFloat =
         rewriter.create<ConstantFloatOp>(loc, negSlopeFloatValue);
 
-    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
-
+    TensorType opTensorType = op.getResult().getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op->getContext(),
         opTensorType.getShape(), opTensorType.getElementType());
+
     Value result = rewriter.create<AtenLeakyReluOp>(
         loc, resultType, operands[0], negSlopeConstFloat);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType(), result);
+        op, op.getResult().getType(), result);
     return success();
   }
 };
