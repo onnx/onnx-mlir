@@ -173,21 +173,9 @@ private:
   //
   FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
       ModuleOp module, std::string mathFuncName, mlir::Type llvmType) const {
-    auto *context = module.getContext();
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
-      return SymbolRefAttr::get(context, mathFuncName);
-
-    // Create function declaration.
-    // auto llvmF32Ty = FloatType::get(context);
-    auto llvmFnType =
-        LLVM::LLVMFunctionType::get(llvmType, ArrayRef<mlir::Type>({llvmType}));
-
-    // Insert the unary math function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), mathFuncName, llvmFnType);
-    return SymbolRefAttr::get(context, mathFuncName);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef(mathFuncName), llvmType, {llvmType});
   }
 };
 

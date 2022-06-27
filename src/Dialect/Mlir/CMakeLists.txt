@@ -10,4 +10,5 @@ add_onnx_mlir_library(OMMlirDialects
   MLIRAffine
   MLIRSCF
   MLIRVector
+  MLIRLLVMIR
   )
