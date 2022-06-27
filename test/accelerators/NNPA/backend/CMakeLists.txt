@@ -86,10 +86,17 @@ endif()
 # commented out. This list is set in the environment variable `TEST_CASE_BY_USER`. So,
 # instruction name is added after test case name in each test case.
 set(NNPA_TEST_LIST
-    # Add
+
+    # ==ARCH== NNPA
+
+    # ==OP== Add
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # Scalar tensor not supported.
     test_add_cpu,zdnn_add
     # test_add_bcast_cpu # bcast not supported
-    # AveragePool
+
+    # ==OP== AveragePool
+    # ==LIM== Support padding type of VALID and SAME UPPER. ceil_mode not supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. count_include_pad must be default value. ceil_mode not supported.
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
     test_averagepool_2d_default_cpu,zdnn_avgpool2d
@@ -103,24 +110,33 @@ set(NNPA_TEST_LIST
     test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
     test_averagepool_2d_strides_cpu,zdnn_avgpool2d
     # test_averagepool_3d_default_cpu
-    # BatchNormalization (test mode)
+    # ==OP== BatchNormalization (test mode)
+    # ==LIM== 4D tensors(N x C x H x W) are supported as input and output.
     test_batchnorm_epsilon_cpu,zdnn_mul
     test_batchnorm_example_cpu,zdnn_mul
-    # Conv
+
+    # ==OP== Conv
+    # ==LIM== Support padding type of VALID and SAME UPPER. Not supported if height and weight dims are unknown. Defult group(=1) and default dilations(=1) are supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
     # test_conv_with_autopad_same_cpu
     test_conv_with_strides_no_padding_cpu,zdnn_conv2d
     test_conv_with_strides_padding_cpu,zdnn_conv2d
     # test_conv_with_strides_and_asymmetric_padding_cpu
-    # Div
+
+    # ==OP== Div
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     test_div_cpu,zdnn_div
     # test_div_bcast_cpu
     test_div_example_cpu,zdnn_div
-    # Exp
+
+    # ==OP== Exp
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
-    # Gemm
+
+    # ==OP== Gemm
+    # ==LIM== Alpha and beta must be 1. Rank of input tensor A and B must be 2, and rank of C must be 1 or 2. If rank of C is 1, second dim of B must be the same with dim of C.
     # test_gemm_all_attributes_cpu
     # test_gemm_alpha_cpu
     # test_gemm_beta_cpu
@@ -132,20 +148,24 @@ set(NNPA_TEST_LIST
     test_gemm_default_zero_bias_cpu,zdnn_matmul_op
     test_gemm_transposeA_cpu,zdnn_matmul_op
     test_gemm_transposeB_cpu,zdnn_matmul_op
-    # Global Average Pool
+    # ==OP== GlobalAveragePool
+    # ==LIM== Input shape must be HCHW. Unknown dim in height and width not supported.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
     test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
-    # Global Max Pool
+    # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
-    # GRU
+    # ==OP== GRU
+    # ==LIM== direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2. sequence_lens, activation_alpha, and activation_beta not supported. The default activations (["Sigmoid", "Tanh", "Tanh"]) are supported. clip(Cell clip threshold) not supported. hidden_size should be equal to the hidden size in other inputs. linear_before_reset must be 1.
     # test_gru_defaults_cpu
     # test_gru_seq_length_cpu
     # test_gru_with_initial_bias_cpu
-    # Log
+
+    # ==OP== Log
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     test_log_example_cpu,zdnn_log
     test_log_cpu,zdnn_log
-    # LogSoftmax
+    # ==OP== LogSoftmax
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
     test_logsoftmax_axis_2_cpu,zdnn_log
@@ -153,15 +173,21 @@ set(NNPA_TEST_LIST
     # test_logsoftmax_default_axis_cpu
     test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
-    # LSTM
+    # ==OP== LSTM
+    # ==LIM== direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2.
+    # zDNN does not support P(peepholes), activation_alpha and activation_beta. zDNN does not support activation_alpha and activation_beta. zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only. zDNN does not supprt clip(Cell clip threshold).  zDNN does not support hidden_size not equal to the hidden size in other inputs.   // zDNN does not support input_forgaet.
     test_lstm_defaults_cpu,zdnn_lstm
     test_lstm_with_initial_bias_cpu,zdnn_lstm
     # test_lstm_with_peepholes_cpu
-    # Matmul
+
+    # ==OP== Matmul
+    # ==LIM== (Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2).
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
     # test_matmul_4d_cpu,zdnn_matmul_op # 4d not supported
-    # Max
+
+    # ==OP== Max
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     # test_max_example_cpu
     #test_max_one_input_cpu
     test_max_two_inputs_cpu,zdnn_max
@@ -176,7 +202,9 @@ set(NNPA_TEST_LIST
     # test_max_uint16_cpu
     # test_max_uint32_cpu
     # test_max_uint64_cpu
-    # MaxPoolSigleOut
+
+    # ==OP== MaxPoolSingleOut
+    # zDNN limitation: count_include_pad not supported.
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
     test_maxpool_2d_default_cpu,zdnn_avgpool2d
@@ -189,7 +217,9 @@ set(NNPA_TEST_LIST
     test_maxpool_2d_same_upper_cpu,zdnn_avgpool2d
     test_maxpool_2d_strides_cpu,zdnn_avgpool2d
     # test_maxpool_3d_default_cpu
-    # Min
+
+    # ==OP== Min
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     # test_min_example_cpu
     # test_min_one_input_cpu
     test_min_two_inputs_cpu,zdnn_min
@@ -204,7 +234,9 @@ set(NNPA_TEST_LIST
     # test_min_uint16_cpu
     # test_min_uint32_cpu
     # test_min_uint64_cpu
-    # Mul
+
+    # ==OP== Mul
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     test_mul_cpu,zdnn_mul
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul
@@ -219,18 +251,21 @@ set(NNPA_TEST_LIST
     # test_reduce_mean_negative_axes_keepdims_random_cpu
     # Relu
     test_relu_cpu,zdnn_relu
-    # Softmax
+    # ==OP== Softmax
+    # ==LIM== Rank of input tensor must be 2. axis must be 1 or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
     # test_softmax_default_axis_cpu
     test_softmax_example_cpu,zdnn_softmax
     # test_softmax_large_number_cpu #  accuracy error
-    # Sub
+    # ==OP== Sub
+    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
     test_sub_cpu,zdnn_sub
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub
-    # Sum
+    # ==OP== Sum
+    # ==LIM== All inputs must have the same static shape (Broadcasting not supported.) Single input not supported.
     test_sum_example_cpu,zdnn_add
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add
