@@ -73,7 +73,7 @@ list_op_version = {}   # List of operation versions from gen_onnx_mlir;
 # multiple entries of any kind. Everything is case sensitive.
 
 def dotted_sentence(str):
-    if re.match(r'.*\.\s*$', str) is None and re.match(r'.*</ul>\s*$', str) is None:
+    if re.match(r'.*\.\s*$', str) is None:
         return str + "."
     return str
 
