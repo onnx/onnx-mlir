@@ -31,7 +31,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
-    ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
+    ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
+
+    if (needWhile(op)) {
+      return rewriteWithWhile(op, operands, rewriter);
+    }
 
     auto &loopBody = loopOp.body();
 
@@ -40,8 +44,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // - scan output (all intermediate values returned from body func
     // concatenated together).
     SmallVector<Value, 4> outputs;
-    allocateMemoryForVFinal(loc, rewriter, op, loopOpAdapter, outputs);
-    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdapter, outputs);
+    allocateMemoryForVFinal(loc, rewriter, op, loopOpAdaptor, outputs);
+    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 
@@ -49,13 +53,13 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // values produced by loop body function invocation in a scope accessible by
     // all loop iterations.
     for (const auto &vInitAndFinal :
-        llvm::zip(loopOpAdapter.v_initial(), outputs))
+        llvm::zip(loopOpAdaptor.v_initial(), outputs))
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
 
     // Convert the cond type to MemRefType.
     Type convertedType =
-        typeConverter->convertType(loopOpAdapter.cond().getType());
+        typeConverter->convertType(loopOpAdaptor.cond().getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType condMemRefTy = convertedType.cast<MemRefType>();
@@ -66,12 +70,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(condMemRefTy))
       cond = insertAllocAndDealloc(
           condMemRefTy, loc, rewriter, /*insertDealloc=*/true);
-    emitCopy(rewriter, loc, loopOpAdapter.cond(), cond);
+    emitCopy(rewriter, loc, loopOpAdaptor.cond(), cond);
 
     // Create the loop iteration.
     IndexExprScope childScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
-    Value maxTripCount = createKrnl.load(loopOpAdapter.M());
+    Value maxTripCount = createKrnl.load(loopOpAdaptor.M());
     maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(), maxTripCount);
     ValueRange loopDef = createKrnl.defineLoops(1);
@@ -102,9 +106,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           createKrnl.store(iv, ivMemRef);
 
           // Make the call to loop body function.
-          SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
+          SmallVector<Value, 4> params = {ivMemRef, loopOpAdaptor.cond()};
           for (auto value : llvm::make_range(outputs.begin(),
-                   outputs.begin() + loopOpAdapter.v_initial().size()))
+                   outputs.begin() + loopOpAdaptor.v_initial().size()))
             params.emplace_back(value);
 
           Block &loopBodyEntryBlock = loopBody.front();
@@ -186,11 +190,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Copy intermediate values of scan outputs to their corresponding
           // slice in the loop scan output tensor.
           auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-              bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
+              bodyOutputs.begin() + 1 + loopOpAdaptor.v_initial().size());
           auto scanIntermediate =
               llvm::make_range(vIntermediate.end(), bodyOutputs.end());
           auto scanOutputs = llvm::make_range(
-              outputs.begin() + loopOpAdapter.v_initial().size(),
+              outputs.begin() + loopOpAdaptor.v_initial().size(),
               outputs.end());
           for (auto scanIntermediateToFinal :
               llvm::zip(scanIntermediate, scanOutputs)) {
@@ -288,11 +292,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   void allocateMemoryForVFinal(mlir::Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor loopOpAdapter,
+      ONNXLoopOpAdaptor loopOpAdaptor,
       SmallVectorImpl<mlir::Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &ioPair :
-        llvm::zip(loopOpAdapter.v_initial(), loopOp.v_final())) {
+        llvm::zip(loopOpAdaptor.v_initial(), loopOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
@@ -318,7 +322,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   void allocateMemoryForScanOutput(mlir::Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor loopOpAdapter,
+      ONNXLoopOpAdaptor loopOpAdaptor,
       SmallVectorImpl<mlir::Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
@@ -349,9 +353,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // loop operation scan output to have the leading dimension extent
           // equal to the max trip count, due to the possibility of early
           // termination.
-          assert(!loopOpAdapter.M().getType().isa<NoneType>());
+          assert(!loopOpAdaptor.M().getType().isa<NoneType>());
           Value maxTripCount =
-              rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.M()).getResult();
           allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), maxTripCount));
         }
@@ -424,6 +428,174 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value val = createKrnl.load(src);
       createKrnl.store(val, dest, writePrefix);
     }
+  }
+
+  // Check whether scf.While has to be used to Loop instead of krnl loop
+  // krnl loop can be used only when the condition for LoopOp iteration 
+  // is a loop invariant. In LoopOp structure, the condition at the end
+  // of loop body (the first operand in returnOp) is the condition passed to
+  // loop body at the beginning (the second argument of loop body)
+
+  // If there is a seq in the loop carried variable list, scf.while is
+  // needed. This is a temporary implementation issue: the krnl.iterate 
+  // does not support return of loop-carried variable other than the 
+  // iteration variable
+
+  bool needWhile(Operation *op) const {
+    auto onnxLoopOp = dyn_cast<ONNXLoopOp>(op);
+    
+    // Check whether continue condition is modified or not
+    // Code copied from src/Dialect/ONNX/Rewrite.cpp
+
+    // Check whether the condition is optional
+    if (isFromNone(onnxLoopOp.cond()))
+      return false;
+
+    // Get the loop region.
+    Region &loopBody = onnxLoopOp.body();
+    // Make sure the region has only one block.
+    if (!loopBody.hasOneBlock())
+      return true;
+
+    // Get ReturnOp of the body block.
+    Block &bodyBlock = loopBody.front();
+    Operation *returnOp = bodyBlock.getTerminator();
+    if (!isa<ONNXReturnOp>(returnOp))
+      return true;
+
+    // The break condition is the first argument of ReturnOp.
+    // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
+    // which means the condition is loop invariant.
+    Value breakCond = returnOp->getOperands()[0];
+    if (breakCond.isa<BlockArgument>() && breakCond.cast<BlockArgument>().getArgNumber() == 1) {
+    } else
+      return true;
+
+    for(auto v: returnOp->getOperands()) {
+      if (v.getType().isa<SeqType>())
+        return true;
+    }
+    
+    return true;
+    return false;
+  }
+
+  LogicalResult rewriteWithWhile(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const {
+    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    auto loopOp = dyn_cast<ONNXLoopOp>(op);
+    ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
+    // Construct inputs for While. They should be (0, cond, v_initial)
+    // The initial value for iteration should be zero
+    SmallVector<Value, 4> whileInputValues;
+    SmallVector<Type, 4> whileInputTypes;
+    SmallVector<Location, 4> locs;
+    bool hasM = false;
+    bool hasCond = false;
+    //Value index0 = create.math.constantIndex(0);
+    //Value index1 = create.math.constantIndex(1);
+    Value c0 = create.math.constant(rewriter.getI64Type(), 0);
+    Value c1 = create.math.constant(rewriter.getI64Type(), 1);
+    Value ubV;
+    if (!isFromNone(loopOp.M())) {
+      hasM = true;
+   
+      Value mInitial = c0;
+      whileInputValues.emplace_back(mInitial);
+      whileInputTypes.emplace_back(mInitial.getType());
+      ubV = create.krnl.load(loopOpAdaptor.M());
+      locs.emplace_back(loc);
+    }
+
+    if (!isFromNone(loopOp.cond())) {
+      hasCond = true;
+      whileInputValues.emplace_back(loopOpAdaptor.cond());
+      whileInputTypes.emplace_back(loopOpAdaptor.cond().getType());
+      locs.emplace_back(loc);
+    }
+
+    // add v_initial
+    for(auto v  : loopOpAdaptor.v_initial())  {
+      whileInputValues.emplace_back(v);
+      whileInputTypes.emplace_back(v.getType());
+      locs.emplace_back(loc);
+    }
+
+    SmallVector<Value, 4> outputs;
+    allocateMemoryForVFinal(loc, rewriter, op, loopOpAdaptor, outputs);
+    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs);
+    SmallVector<Type, 4> outputTypes;
+    for (auto v : outputs) {
+      outputTypes.emplace_back(v.getType());
+    }
+
+    // Create the skeleton of WhileOp
+    //auto whileOp = rewriter.create<scf::WhileOp>(loc, outputTypes, whileInputValues);
+    auto whileOp = rewriter.create<scf::WhileOp>(loc, whileInputTypes, whileInputValues);
+    Block *beforeBlock = 
+        rewriter.createBlock(&whileOp.getBefore(), {}, whileInputTypes, locs);
+    Block *afterBlock = 
+        rewriter.createBlock(&whileOp.getAfter(), {}, whileInputTypes, locs);
+
+    // Construct the condition block
+    {
+      auto arguments = beforeBlock->getArguments();
+      rewriter.setInsertionPointToStart(&whileOp.getBefore().front());
+      Value mCond;
+      int argIndex = 0;
+      if (hasM) {
+        auto iv = beforeBlock->getArgument(argIndex);
+        mCond = create.math.slt(iv, ubV);
+        argIndex++;
+      }
+
+      Value condV;
+      if (hasCond) {
+        condV = create.krnl.load(beforeBlock->getArgument(argIndex));
+      }
+
+      Value combinedV;
+      if (hasM && hasCond) {
+        combinedV = create.math.andi(mCond, condV);
+      } else if (hasM) {
+        combinedV = mCond;
+      } else {
+        combinedV = condV;
+      }
+
+      //SmallVector<Value, 4> returnValues(beforeBlock->getArguments().begin()+argIndex, beforeBlock->getArguments().end());
+      rewriter.create<scf::ConditionOp>(loc, combinedV, arguments);
+    }
+
+    // Construct the body of while loop
+    {
+      rewriter.setInsertionPointToStart(&whileOp.getAfter().front());
+      
+      SmallVector<Value> yieldList;
+      bool skip = false;
+      if (hasM) {
+        Value newIV = create.math.add(afterBlock->getArgument(0), c1);
+        yieldList.emplace_back(newIV);
+        skip = true;
+      }
+
+      // I think it should be the return of loop body
+      for(auto v : afterBlock->getArguments()) {
+        if (skip)
+          skip = false;
+        else
+          yieldList.emplace_back(v);
+      }
+      // Has to construct the yield list
+      rewriter.create<scf::YieldOp>(loc, yieldList);
+    }
+
+    whileOp.dump();
+    rewriter.replaceOp(op, outputs);
+    return success();
   }
 };
 
