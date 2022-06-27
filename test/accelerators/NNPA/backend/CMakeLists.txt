@@ -180,7 +180,7 @@ set(NNPA_TEST_LIST
     test_lstm_with_initial_bias_cpu,zdnn_lstm
     # test_lstm_with_peepholes_cpu
 
-    # ==OP== Matmul
+    # ==OP== MatMul
     # ==LIM== (Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2).
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
@@ -203,7 +203,7 @@ set(NNPA_TEST_LIST
     # test_max_uint32_cpu
     # test_max_uint64_cpu
 
-    # ==OP== MaxPoolSingleOut
+    # ==OP== MaxPool
     # zDNN limitation: count_include_pad not supported.
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
