@@ -90,7 +90,7 @@ set(NNPA_TEST_LIST
     # ==ARCH== NNPA
 
     # ==OP== Add
-    # ==LIM== <ul><li>Shape of input tensors should be the same since broadcasting is not supported.</li><li>Unknown dimensions in input tensor is not supported.</li></ul>
+    # ==LIM== <ul><li>Shape of input tensors should be the same since broadcasting is not supported</li><li>Unknown dimensions in input tensor is not supported</li></ul>
     # Scalar tensor not supported.
     test_add_cpu,zdnn_add
     # test_add_bcast_cpu # bcast not supported
