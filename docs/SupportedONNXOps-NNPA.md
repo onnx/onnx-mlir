@@ -11,7 +11,7 @@ Onnx-mlir currently support ONNX operations targeting up to opset 14. Limitation
 
 | Op |Up to Opset |Limitations |Notes |
 | --- |--- |--- |--- |
-| **Add** |14 |<ul><li>Shape of input tensors should be the same since broadcasting is not supported.</li><li>Unknown dimensions in input tensor is not supported.</li></ul>. | |
+| **Add** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Unknown dimensions in input tensor is not supported. | |
 | **AveragePool** |11 |Support padding type of VALID and SAME UPPER. ceil_mode not supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. count_include_pad must be default value. ceil_mode not supported. | |
 | **BatchNormalization** |9 |4D tensors(N x C x H x W) are supported as input and output. | |
 | **Conv** |11 |Support padding type of VALID and SAME UPPER. Not supported if height and weight dims are unknown. Defult group(=1) and default dilations(=1) are supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. | |
