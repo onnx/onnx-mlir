@@ -322,8 +322,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   void allocateMemoryForScanOutput(mlir::Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
-      ONNXLoopOpAdaptor loopOpAdaptor,
-      SmallVectorImpl<mlir::Value> &outputs,
+      ONNXLoopOpAdaptor loopOpAdaptor, SmallVectorImpl<mlir::Value> &outputs,
       bool isWhile = false) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
@@ -437,19 +436,19 @@ struct ONNXLoopOpLowering : public ConversionPattern {
   }
 
   // Check whether scf.While has to be used to Loop instead of krnl loop
-  // krnl loop can be used only when the condition for LoopOp iteration 
+  // krnl loop can be used only when the condition for LoopOp iteration
   // is a loop invariant. In LoopOp structure, the condition at the end
   // of loop body (the first operand in returnOp) is the condition passed to
   // loop body at the beginning (the second argument of loop body)
 
   // If there is a seq in the loop carried variable list, scf.while is
-  // needed. This is a temporary implementation issue: the krnl.iterate 
-  // does not support return of loop-carried variable other than the 
+  // needed. This is a temporary implementation issue: the krnl.iterate
+  // does not support return of loop-carried variable other than the
   // iteration variable
 
   bool needWhile(Operation *op) const {
     auto onnxLoopOp = dyn_cast<ONNXLoopOp>(op);
-    
+
     // Check whether continue condition is modified or not
     // Code copied from src/Dialect/ONNX/Rewrite.cpp
 
@@ -473,16 +472,16 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
     // which means the condition is loop invariant.
     Value breakCond = returnOp->getOperands()[0];
-    if (breakCond.isa<BlockArgument>() && breakCond.cast<BlockArgument>().getArgNumber() == 1) {
+    if (breakCond.isa<BlockArgument>() &&
+        breakCond.cast<BlockArgument>().getArgNumber() == 1) {
     } else
       return true;
 
-    for(auto v: returnOp->getOperands()) {
+    for (auto v : returnOp->getOperands()) {
       if (v.getType().isa<SeqType>())
         return true;
     }
-   
-    return true; 
+
     return false;
   }
 
@@ -508,14 +507,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     SmallVector<Location, 4> locs;
     bool hasM = false;
     bool hasCond = false;
-    //Value index0 = create.math.constantIndex(0);
-    //Value index1 = create.math.constantIndex(1);
+    // Value index0 = create.math.constantIndex(0);
+    // Value index1 = create.math.constantIndex(1);
     Value c0 = create.math.constant(rewriter.getI64Type(), 0);
     Value c1 = create.math.constant(rewriter.getI64Type(), 1);
     Value ubV;
     if (!isFromNone(loopOp.M())) {
       hasM = true;
-   
+
       Value mInitial = c0;
       whileInputValues.emplace_back(mInitial);
       whileInputTypes.emplace_back(mInitial.getType());
@@ -531,7 +530,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
 
     // add v_initial
-    for(auto v  : loopOpAdaptor.v_initial())  {
+    for (auto v : loopOpAdaptor.v_initial()) {
       whileInputValues.emplace_back(v);
       whileInputTypes.emplace_back(v.getType());
       locs.emplace_back(loc);
@@ -542,18 +541,21 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
     // Need to handle the scan out specially because the trip count cannot
     // be expressed for a while loop
-    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs, true);
+    allocateMemoryForScanOutput(
+        loc, rewriter, op, loopOpAdaptor, outputs, true);
     SmallVector<Type, 4> outputTypes;
     for (auto v : outputs) {
       outputTypes.emplace_back(v.getType());
     }
 
     // Create the skeleton of WhileOp
-    //auto whileOp = rewriter.create<scf::WhileOp>(loc, outputTypes, whileInputValues);
-    auto whileOp = rewriter.create<scf::WhileOp>(loc, whileInputTypes, whileInputValues);
-    Block *beforeBlock = 
+    // auto whileOp = rewriter.create<scf::WhileOp>(loc, outputTypes,
+    // whileInputValues);
+    auto whileOp =
+        rewriter.create<scf::WhileOp>(loc, whileInputTypes, whileInputValues);
+    Block *beforeBlock =
         rewriter.createBlock(&whileOp.getBefore(), {}, whileInputTypes, locs);
-    Block *afterBlock = 
+    Block *afterBlock =
         rewriter.createBlock(&whileOp.getAfter(), {}, whileInputTypes, locs);
 
     // Construct the condition block
@@ -582,7 +584,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         combinedV = condV;
       }
 
-      //SmallVector<Value, 4> returnValues(beforeBlock->getArguments().begin()+argIndex, beforeBlock->getArguments().end());
+      // SmallVector<Value, 4>
+      // returnValues(beforeBlock->getArguments().begin()+argIndex,
+      // beforeBlock->getArguments().end());
       rewriter.create<scf::ConditionOp>(loc, combinedV, arguments);
     }
 
@@ -608,35 +612,39 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
       if (hasM) {
-          Value iv = afterBlock->getArgument(0);
-          create.krnl.store(iv, ivMemRef);
-          params.emplace_back(ivMemRef);
-          argIndex++;
+        Value iv = afterBlock->getArgument(0);
+        create.krnl.store(iv, ivMemRef);
+        params.emplace_back(ivMemRef);
+        argIndex++;
       }
 
-      for (auto v : llvm::make_range(afterBlock->getArguments().begin()+ argIndex, afterBlock->getArguments().end())) {
+      for (auto v :
+          llvm::make_range(afterBlock->getArguments().begin() + argIndex,
+              afterBlock->getArguments().end())) {
         params.emplace_back(v);
       }
 
       auto &loopBody = loopOp.body();
       Block &loopBodyEntryBlock = loopBody.front();
-          BlockAndValueMapping mapper;
-          for (unsigned i = 0, e = params.size(); i != e; ++i) {
-            // Verify that the types of the provided values match the function
-            // argument types.
-            BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
-            mapper.map(regionArg, params[i]);
+      BlockAndValueMapping mapper;
+      for (unsigned i = 0, e = params.size(); i != e; ++i) {
+        // Verify that the types of the provided values match the function
+        // argument types.
+        BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
+        mapper.map(regionArg, params[i]);
       }
 
-      //Region &containRegion = whileOp.getAfter();
+      // Region &containRegion = whileOp.getAfter();
       Region &containRegion = regionOp.bodyRegion();
       Block &firstBlock = containRegion.front();
       assert(loopBody.getBlocks().size() == 1 &&
-                 "Currently only support loop body with 1 block.");
-      containRegion.getBlocks().splice(containRegion.getBlocks().end(), loopBody.getBlocks());
+             "Currently only support loop body with 1 block.");
+      containRegion.getBlocks().splice(
+          containRegion.getBlocks().end(), loopBody.getBlocks());
 
-      //auto newBlocks = llvm::make_range(std::next(firstBlock.getIterator()), postInsertBlock->getIterator());
-      //auto newBlocks = containRegion.getBlocks();
+      // auto newBlocks = llvm::make_range(std::next(firstBlock.getIterator()),
+      // postInsertBlock->getIterator()); auto newBlocks =
+      // containRegion.getBlocks();
       Block &loopBodyBlock = *std::next(firstBlock.getIterator());
 
       Operation *loopBodyTerminator = loopBodyBlock.getTerminator();
@@ -644,13 +652,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Within inlined blocks, substitute reference to block arguments with
       // values produced by the lowered loop operation bootstrapping IR.
       auto remapOperands = [&](Operation *op1) {
-          for (auto &operand : op1->getOpOperands())
-            if (auto mappedOp = mapper.lookupOrNull(operand.get()))
-              operand.set(mappedOp);
+        for (auto &operand : op1->getOpOperands())
+          if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+            operand.set(mappedOp);
       };
-      for(auto &block : containRegion.getBlocks())
+      for (auto &block : containRegion.getBlocks())
         block.walk(remapOperands);
-      auto resultsRange = llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(), loopBodyTerminator->getOperands().end());
+      auto resultsRange =
+          llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
+              loopBodyTerminator->getOperands().end());
 
       // Add Ops at the end of the loopBody
       rewriter.setInsertionPointToEnd(&loopBodyBlock);
@@ -683,7 +693,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // This copy is needed for KrnlRegion, otherwise the symbol created
       // in loop body cannot be exported out of KrnlRegion
       // ToDo(chentong): extend KrnlRegion to generate output
-      
+
       // Copy the newly computed loop condition to pre-allocated buffer.
       // It can be assumed that hasCond
       int condIndex = 0;
@@ -699,8 +709,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
-          outputs.begin() + loopOpAdaptor.v_initial().size(),
-          outputs.end());
+          outputs.begin() + loopOpAdaptor.v_initial().size(), outputs.end());
 
       for (auto scanIntermediateToFinal :
           llvm::zip(scanIntermediate, scanOutputs)) {
@@ -728,7 +737,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Erase the returnOp of loopBody
       rewriter.eraseOp(loopBodyTerminator);
       // Move the Ops in loopBody into the afterBlock of while
-      firstBlock.getOperations().splice(firstBlock.end(), loopBodyBlock.getOperations());
+      firstBlock.getOperations().splice(
+          firstBlock.end(), loopBodyBlock.getOperations());
       rewriter.eraseBlock(&loopBodyBlock);
 
       // Add YieldOp for WhileOp
@@ -743,14 +753,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       if (hasCond) {
         yieldList.emplace_back(cond);
       }
-      for(auto v : outputs) {
-          yieldList.emplace_back(v);
+      for (auto v : outputs) {
+        yieldList.emplace_back(v);
       }
       rewriter.create<scf::YieldOp>(loc, yieldList);
-
     }
 
-    whileOp.dump();
     rewriter.replaceOp(op, outputs);
     return success();
   }
