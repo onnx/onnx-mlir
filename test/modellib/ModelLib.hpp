@@ -216,7 +216,6 @@ public:
       const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
   bool build() final;
   bool compileAndLoad();
-  bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
   bool prepareInputs() final;
   bool prepareInputs(float dataRange);
   bool verifyOutputs() final;

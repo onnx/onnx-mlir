@@ -128,12 +128,6 @@ bool ScanLibBuilder::compileAndLoad() {
   return exec != nullptr;
 }
 
-bool ScanLibBuilder::compileAndLoad(const onnx_mlir::CompilerOptionList &list) {
-  if (setCompilerOptions(list) != 0)
-    return false;
-  return compileAndLoad();
-}
-
 const static float omDefaultRangeBound = 1.0;
 bool ScanLibBuilder::prepareInputs() {
   return ScanLibBuilder::prepareInputs(omDefaultRangeBound);
