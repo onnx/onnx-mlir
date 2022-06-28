@@ -25,9 +25,9 @@ Onnx-mlir currently support ONNX operations targeting up to opset 14. Limitation
 | **LogSoftmax** |13 | | |
 | **MatMul** |13 |Ranks of input tensors must be (Rank of A, Rank of B) = (2, 2), (3, 3), and (3, 2). | |
 | **Max** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
-| **MaxPool** |12 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1). | |
+| **MaxPool** |12 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1). | |
 | **Min** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Mul** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
-| **Softmax** |13 |Rank of input tensor must be 2. `axis` must be 1 or -1. | |
+| **Softmax** |13 |- Rank of input tensor must be 2.<br>- `axis` must be 1 or -1. | |
 | **Sub** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
-| **Sum** |13 |All inputs must have the same static shape (Broadcasting not supported.) Single input not supported. | |
+| **Sum** |13 |- All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported. | |

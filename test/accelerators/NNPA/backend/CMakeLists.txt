@@ -203,8 +203,7 @@ set(NNPA_TEST_LIST
     # test_max_uint64_cpu
 
     # ==OP== MaxPool
-    # ==LIM==
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1).
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
     test_maxpool_2d_default_cpu,zdnn_avgpool2d
@@ -252,7 +251,7 @@ set(NNPA_TEST_LIST
     # Relu
     test_relu_cpu,zdnn_relu
     # ==OP== Softmax
-    # ==LIM== Rank of input tensor must be 2. `axis` must be 1 or -1.
+    # ==LIM== - Rank of input tensor must be 2.<br>- `axis` must be 1 or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
@@ -265,7 +264,7 @@ set(NNPA_TEST_LIST
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub
     # ==OP== Sum
-    # ==LIM== All inputs must have the same static shape (Broadcasting not supported.) Single input not supported.
+    # ==LIM== - All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported.
     test_sum_example_cpu,zdnn_add
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add
