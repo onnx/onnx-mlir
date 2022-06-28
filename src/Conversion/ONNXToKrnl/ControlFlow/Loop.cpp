@@ -323,7 +323,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
   void allocateMemoryForScanOutput(mlir::Location loc,
       ConversionPatternRewriter &rewriter, Operation *op,
       ONNXLoopOpAdaptor loopOpAdaptor,
-      SmallVectorImpl<mlir::Value> &outputs) const {
+      SmallVectorImpl<mlir::Value> &outputs,
+      bool isWhile = false) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &opScanOutput : loopOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
@@ -353,6 +354,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // loop operation scan output to have the leading dimension extent
           // equal to the max trip count, due to the possibility of early
           // termination.
+          // TODO(chentong): will use dynamic data structure(e.g. Sequence)
+          // to support the scan output for while.
+          if (isWhile) {
+            llvm_unreachable("Scan output for while loop is not supported");
+          }
           assert(!loopOpAdaptor.M().getType().isa<NoneType>());
           Value maxTripCount =
               rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.M()).getResult();
@@ -475,8 +481,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       if (v.getType().isa<SeqType>())
         return true;
     }
-    
-    return true;
+   
+    return true; 
     return false;
   }
 
@@ -526,7 +532,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
     SmallVector<Value, 4> outputs;
     allocateMemoryForVFinal(loc, rewriter, op, loopOpAdaptor, outputs);
-    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs);
+
+    // Need to handle the scan out specially because the trip count cannot
+    // be expressed for a while loop
+    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs, true);
     SmallVector<Type, 4> outputTypes;
     for (auto v : outputs) {
       outputTypes.emplace_back(v.getType());
@@ -573,24 +582,125 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Construct the body of while loop
     {
       rewriter.setInsertionPointToStart(&whileOp.getAfter().front());
-      
+
+      // Handle loop body
+      // Most code is copied from the lamda function of krnl.iterate
+      // for LoopOp
+
+      // Differences: no need to construct scf.if since the condition
+      // is checked with iteratation variable in the first block of
+      // WhileOp
+
+      // Contain the ThenRegion with KrnlRegionOp
+      // The krnl loop inside may use symbol computed in LoopOp body
+      //KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      //rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+
+      SmallVector<Value, 4> params;
+      int argIndex = 0;
+      // Create a scalar tensor out of loop iteration variable, as the first
+      // argument passed to the body graph function.
+      if (hasM) {
+          Value iv = afterBlock->getArgument(0);
+          MemRefBuilder createMemRef(rewriter, loc);
+          Value ivMemRef =
+              createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
+          create.krnl.store(iv, ivMemRef);
+          params.emplace_back(ivMemRef);
+          argIndex++;
+      }
+
+      for (auto v : llvm::make_range(afterBlock->getArguments().begin()+ argIndex, afterBlock->getArguments().end())) {
+        params.emplace_back(v);
+      }
+
+      auto &loopBody = loopOp.body();
+      Block &loopBodyEntryBlock = loopBody.front();
+          BlockAndValueMapping mapper;
+          for (unsigned i = 0, e = params.size(); i != e; ++i) {
+            // Verify that the types of the provided values match the function
+            // argument types.
+            BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
+            mapper.map(regionArg, params[i]);
+      }
+
+      Region &containRegion = whileOp.getAfter();
+      Block &firstBlock = containRegion.front();
+      assert(loopBody.getBlocks().size() == 1 &&
+                 "Currently only support loop body with 1 block.");
+      containRegion.getBlocks().splice(containRegion.getBlocks().end(), loopBody.getBlocks());
+
+      //auto newBlocks = llvm::make_range(std::next(firstBlock.getIterator()), postInsertBlock->getIterator());
+      //auto newBlocks = containRegion.getBlocks();
+      Block &loopBodyBlock = *std::next(firstBlock.getIterator());
+
+      Operation *loopBodyTerminator = loopBodyBlock.getTerminator();
+
+      // Within inlined blocks, substitute reference to block arguments with
+      // values produced by the lowered loop operation bootstrapping IR.
+      auto remapOperands = [&](Operation *op1) {
+          for (auto &operand : op1->getOpOperands())
+            if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+              operand.set(mappedOp);
+      };
+      for(auto &block : containRegion.getBlocks())
+        block.walk(remapOperands);
+      auto resultsRange = llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(), loopBodyTerminator->getOperands().end());
+
+      // Add Ops at the end of the loopBody
+      rewriter.setInsertionPointToEnd(&loopBodyBlock);
+
+      // Cast loop body outputs from tensor type to memref type in case it
+      // has not already been lowered. Eventually,
+      // 'UnrealizedConversionCastOp' becomes a cast from memref type to a
+      // memref type when everything is lowered and thus becomes redundant.
+      SmallVector<Value, 4> bodyOutputs(
+          resultsRange.begin(), resultsRange.end());
+      for (unsigned i = 0; i < bodyOutputs.size(); i++) {
+        Value output = bodyOutputs[i];
+        assert((output.getType().isa<TensorType>() ||
+                   output.getType().isa<MemRefType>()) &&
+               "Expecting loop body function output to consist of "
+               "tensors/memrefs.");
+        auto outputTy = output.getType().cast<ShapedType>();
+        bodyOutputs[i] = rewriter
+                             .create<UnrealizedConversionCastOp>(loc,
+                                 MemRefType::get(outputTy.getShape(),
+                                     outputTy.getElementType()),
+                                 output)
+                             .getResult(0);
+      }
+
+      // In while loop, the scan output has to be supported with dynamic
+      // sequence because a static-sized sequence can not be allocated
+      // due to the dynamic iteration count of loop. Another PR.
+
+#if 0
+      // Copy the newly computed loop condition to pre-allocated buffer.
+      emitCopy(rewriter, loc, bodyOutputs[0], cond);
+
+      // Copy intermediate values of scan outputs to their corresponding
+      // slice in the loop scan output tensor.
+#endif
+
+      // Add YieldOp for WhileOp
       SmallVector<Value> yieldList;
-      bool skip = false;
+      // Add the IV for WhileOp, which is not explicitly in the output
+      // of loop body of LoopOp
       if (hasM) {
         Value newIV = create.math.add(afterBlock->getArgument(0), c1);
         yieldList.emplace_back(newIV);
-        skip = true;
       }
-
-      // I think it should be the return of loop body
-      for(auto v : afterBlock->getArguments()) {
-        if (skip)
-          skip = false;
-        else
+      for(auto v : bodyOutputs) {
           yieldList.emplace_back(v);
       }
-      // Has to construct the yield list
       rewriter.create<scf::YieldOp>(loc, yieldList);
+
+      // Erase the returnOp of loopBody
+      rewriter.eraseOp(loopBodyTerminator);
+      // Move the Ops in loopBody into the afterBlock of while
+      firstBlock.getOperations().splice(firstBlock.end(), loopBodyBlock.getOperations());
+      rewriter.eraseBlock(&loopBodyBlock);
     }
 
     whileOp.dump();
