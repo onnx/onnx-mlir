@@ -490,11 +490,18 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const {
     auto loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
-    ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 
-    // Construct inputs for While. They should be (0, cond, v_initial)
+    // Create memref object for induction variable and outputs
+    // As a result, there is no memref object returned from LoopOp,
+    // just the value in these "global" memref objects.
+    Value ivMemRef =
+        create.mem.alloc(MemRefType::get({}, rewriter.getI64Type()));
+    Value cond = create.mem.alloc(MemRefType::get({}, rewriter.getI1Type()));
+    ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
+
+    // Construct inputs for WhileOp, which should be (0, cond, v_initial)
     // The initial value for iteration should be zero
     SmallVector<Value, 4> whileInputValues;
     SmallVector<Type, 4> whileInputTypes;
@@ -593,8 +600,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
       // Contain the ThenRegion with KrnlRegionOp
       // The krnl loop inside may use symbol computed in LoopOp body
-      //KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-      //rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
 
       SmallVector<Value, 4> params;
       int argIndex = 0;
@@ -602,9 +609,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // argument passed to the body graph function.
       if (hasM) {
           Value iv = afterBlock->getArgument(0);
-          MemRefBuilder createMemRef(rewriter, loc);
-          Value ivMemRef =
-              createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
           create.krnl.store(iv, ivMemRef);
           params.emplace_back(ivMemRef);
           argIndex++;
@@ -624,7 +628,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             mapper.map(regionArg, params[i]);
       }
 
-      Region &containRegion = whileOp.getAfter();
+      //Region &containRegion = whileOp.getAfter();
+      Region &containRegion = regionOp.bodyRegion();
       Block &firstBlock = containRegion.front();
       assert(loopBody.getBlocks().size() == 1 &&
                  "Currently only support loop body with 1 block.");
@@ -675,15 +680,59 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // sequence because a static-sized sequence can not be allocated
       // due to the dynamic iteration count of loop. Another PR.
 
-#if 0
+      // This copy is needed for KrnlRegion, otherwise the symbol created
+      // in loop body cannot be exported out of KrnlRegion
+      // ToDo(chentong): extend KrnlRegion to generate output
+      
       // Copy the newly computed loop condition to pre-allocated buffer.
-      emitCopy(rewriter, loc, bodyOutputs[0], cond);
+      // It can be assumed that hasCond
+      int condIndex = 0;
+      if (hasCond) {
+        emitCopy(rewriter, loc, bodyOutputs[0], cond);
+        condIndex++;
+      }
 
       // Copy intermediate values of scan outputs to their corresponding
       // slice in the loop scan output tensor.
-#endif
+      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + condIndex,
+          bodyOutputs.begin() + condIndex + loopOpAdaptor.v_initial().size());
+      auto scanIntermediate =
+          llvm::make_range(vIntermediate.end(), bodyOutputs.end());
+      auto scanOutputs = llvm::make_range(
+          outputs.begin() + loopOpAdaptor.v_initial().size(),
+          outputs.end());
+
+      for (auto scanIntermediateToFinal :
+          llvm::zip(scanIntermediate, scanOutputs)) {
+        Type elementType = std::get<1>(scanIntermediateToFinal)
+                               .getType()
+                               .cast<MemRefType>()
+                               .getElementType();
+        if (elementType.dyn_cast<MemRefType>()) {
+          // TODO(chentong): handle dynamic scan output for while loop
+          llvm_unreachable("Not implemented yet");
+        } else {
+          emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
+              std::get<1>(scanIntermediateToFinal),
+              /*writePrefix=*/{ivMemRef});
+        }
+      }
+
+      // Copy intermediate values of loop carried dependencies to MemRef
+      // outside the iteration scope so next iteration can use them as init
+      // value.
+      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+            std::get<1>(vIntermediateToFinal));
+
+      // Erase the returnOp of loopBody
+      rewriter.eraseOp(loopBodyTerminator);
+      // Move the Ops in loopBody into the afterBlock of while
+      firstBlock.getOperations().splice(firstBlock.end(), loopBodyBlock.getOperations());
+      rewriter.eraseBlock(&loopBodyBlock);
 
       // Add YieldOp for WhileOp
+      rewriter.setInsertionPointToEnd(&whileOp.getAfter().front());
       SmallVector<Value> yieldList;
       // Add the IV for WhileOp, which is not explicitly in the output
       // of loop body of LoopOp
@@ -691,16 +740,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         Value newIV = create.math.add(afterBlock->getArgument(0), c1);
         yieldList.emplace_back(newIV);
       }
-      for(auto v : bodyOutputs) {
+      if (hasCond) {
+        yieldList.emplace_back(cond);
+      }
+      for(auto v : outputs) {
           yieldList.emplace_back(v);
       }
       rewriter.create<scf::YieldOp>(loc, yieldList);
 
-      // Erase the returnOp of loopBody
-      rewriter.eraseOp(loopBodyTerminator);
-      // Move the Ops in loopBody into the afterBlock of while
-      firstBlock.getOperations().splice(firstBlock.end(), loopBodyBlock.getOperations());
-      rewriter.eraseBlock(&loopBodyBlock);
     }
 
     whileOp.dump();
