@@ -43,7 +43,7 @@ static void nearest_coeffs(float ratio, float coeffs_buffer[2], int mode) {
   }
 }
 
-static void cubic_coeffs(float ratio, float coeffs_buffer[3], int mode) {
+static void cubic_coeffs(float ratio, float coeffs_buffer[4], int mode) {
   float A = -0.75;
   // A may have different value for different coordinate_transformation_mode
   // Currently, only default mode is supported

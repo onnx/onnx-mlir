@@ -260,6 +260,85 @@ using AffineBuilder =
     GenericAffineBuilder<mlir::AffineLoadOp, mlir::AffineStoreOp>;
 
 //===----------------------------------------------------------------------===//
+// LLVM Builder
+//===----------------------------------------------------------------------===//
+
+struct LLVMBuilder final : DialectBuilder {
+  LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  LLVMBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  // AddressOfOp
+  mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
+
+  // AllocaOp
+  mlir::Value _alloca(
+      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+
+  // BitcastOp
+  mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
+  mlir::Value bitcastI8Ptr(mlir::Value val) const;
+  mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
+
+  // CallOp
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::FlatSymbolRefAttr funcSymbol,
+      mlir::ArrayRef<mlir::Value> inputs) const;
+
+  // ConstantOp
+  mlir::Value constant(mlir::Type type, int64_t val) const;
+  mlir::Value constant(mlir::Type type, double val) const;
+
+  // ExtractValueOp
+  mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
+      llvm::ArrayRef<int64_t> position) const;
+
+  // FuncOp
+  mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+
+  // GEPOp
+  mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
+      llvm::ArrayRef<mlir::Value> indices) const;
+
+  // GlobalOp
+  mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
+      mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
+      uint64_t alignment = 0) const;
+
+  // ICmpOp
+  mlir::Value icmp(
+      mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
+
+  // InsertValueOp
+  mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
+      mlir::Value val, llvm::ArrayRef<int64_t> position) const;
+
+  // LoadOp
+  mlir::Value load(mlir::Value addr) const;
+
+  // NullOp
+  mlir::Value null(mlir::Type type) const;
+  mlir::Value nullI8Ptr() const;
+
+  // ReturnOp
+  void _return(mlir::Value val) const;
+
+  // StoreOp
+  void store(mlir::Value val, mlir::Value addr) const;
+
+  //===--------------------------------------------------------------------===//
+  // Helper functions
+  //===--------------------------------------------------------------------===//
+
+  // Get or insert a function declaration at the beginning of the module.
+  mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
+      llvm::StringRef symName, mlir::Type resultType,
+      llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Multi Dialect Builder
 //===----------------------------------------------------------------------===//
 
@@ -341,7 +420,7 @@ struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   SCFBuilder scf;
 };
 
-// Recursive class specialized for VectorBuilder refereed to as scf.
+// Recursive class specialized for VectorBuilder refereed to as vec.
 template <class... Ts>
 struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -349,6 +428,16 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), vec(db) {}
   VectorBuilder vec;
+};
+
+// Recursive class specialized for LLVMBuilder refereed to as llvm.
+template <class... Ts>
+struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), llvm(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), llvm(db) {}
+  LLVMBuilder llvm;
 };
 
 // Include template implementations.

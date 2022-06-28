@@ -43,22 +43,18 @@ public:
     KrnlInstrumentOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value nodeName =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.opID()));
-    Value tag =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.tag()));
+    Value nodeName = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.opID());
+    Value tag = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
 
-    rewriter.create<func::CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName, tag}));
+    create.llvm.call({}, instrumentRef, {nodeName, tag});
 
     rewriter.eraseOp(op);
     return success();
@@ -69,19 +65,12 @@ private:
   //   `void (i64, i64)`
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    std::string funcName("OMInstrumentPoint");
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-      return SymbolRefAttr::get(context, funcName);
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
-    return SymbolRefAttr::get(context, funcName);
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("OMInstrumentPoint"), llvmVoidTy, {llvmI64Ty, llvmI64Ty});
   }
 };
 
