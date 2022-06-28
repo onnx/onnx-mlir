@@ -28,10 +28,10 @@ namespace onnx_mlir {
 namespace test {
 
 //
-// Functions to build onnx.Scan and onnx.Scan9 op for testing.
+// Functions to build onnx.ScanV8 and onnx.Scan op for testing.
 //
 // Operation:
-//   onnx.Scan9
+//   onnx.ScanV8
 // Attribute:
 //   Body: {onnx.Add}
 //   num_scan_inputs: 1
@@ -57,7 +57,25 @@ namespace test {
 // Similar to the onnx.Loop numerical test code, we use a model builder
 // based on MLIR-representation in order to define onnx.Scan's body part
 // in the simplest way.
-// 
+//
+
+std::string testScanIdentityAddV8 = R"(
+module {
+  func @main_graph(%arg0: tensor<%Bx%Ixf32>, %arg1: tensor<%Bx%Sx%Ixf32>) ->
+                   (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>) {
+    %1:2 = "onnx.ScanV8"(%arg0, %arg1) ({
+    ^bb0(%body_arg0: tensor<%Bx%Ixf32>, %body_arg1: tensor<%Bx%Ixf32>):
+      %2 = "onnx.Add"(%body_arg0, %body_arg1) :
+           (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
+      %3 = "onnx.Identity"(%2) : (tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
+      "onnx.Return"(%2, %3) : (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> ()
+    }) {num_scan_inputs = 1 : si64} :
+        (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
+        -> (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
+    "func.return"(%1#0, %1#1) : (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>) -> ()
+  }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+})";
 
 std::string testScanIdentityAdd = R"(
 module {
@@ -78,15 +96,22 @@ module {
 })";
 
 ScanLibBuilder::ScanLibBuilder(const std::string &modelName,
-    const int /*batch=*/B, const int /*seq=*/S, const int /*inner-dim=*/I)
-    : ModelLibBuilder(modelName), B(B), S(S), I(I) {}
+    const int /*seq=*/S, const int /*inner-dim=*/I, const int /*batch=*/B,
+    const bool is_v8)
+    : ModelLibBuilder(modelName), S(S), I(I), B(B), is_v8(is_v8) {}
 
 bool ScanLibBuilder::build() {
-  initialShape = {B, I};
-  xShape = {B, S, I};
+  if (is_v8) {
+    initialShape = {B, I};
+    xShape = {B, S, I};
+    moduleIR = testScanIdentityAddV8;
+  } else {
+    initialShape = {I};
+    xShape = {S, I};
+    moduleIR = testScanIdentityAdd;
+  }
 
-  moduleIR = std::regex_replace(
-      testScanIdentityAdd, std::regex("%B"), std::to_string(B));
+  moduleIR = std::regex_replace(moduleIR, std::regex("%B"), std::to_string(B));
   moduleIR = std::regex_replace(moduleIR, std::regex("%S"), std::to_string(S));
   moduleIR = std::regex_replace(moduleIR, std::regex("%I"), std::to_string(I));
   return true;
@@ -123,22 +148,6 @@ bool ScanLibBuilder::prepareInputs(float dataRange) {
       llvm::makeArrayRef(initialShape), -dataRange, dataRange);
   list[1] = omTensorCreateWithRandomData<float>(
       llvm::makeArrayRef(xShape), -dataRange, dataRange);
-#ifdef SET_KNOWN_INPUT_VALUE
-  // Compute reference. Scan with onnx.Add
-  for (int64_t b = 0; b < B; ++b) {
-    for (int64_t i = 0; i < I; ++i) {
-      omTensorGetElem<float>(list[0], {b, i}) = 0;
-    }
-  }
-  int n = 1;
-  for (int64_t b = 0; b < B; ++b) {
-    for (int64_t s = 0; s < S; ++s) {
-      for (int64_t i = 0; i < I; ++i) {
-        omTensorGetElem<float>(list[1], {b, s, i}) = (float) n++;
-      }
-    }
-  }
-#endif
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
@@ -151,49 +160,79 @@ bool ScanLibBuilder::verifyOutputs() {
   OMTensor *x = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *resy = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *resz = omTensorListGetOmtByIndex(outputs, 1);
-  OMTensor *refy = omTensorCreateWithShape<float>({I});
-  OMTensor *refz = omTensorCreateWithShape<float>({S, I});
+  OMTensor *refy = is_v8 ? omTensorCreateWithShape<float>({B, I}) :
+      omTensorCreateWithShape<float>({I});
+  OMTensor *refz = is_v8 ? omTensorCreateWithShape<float>({B, S, I}) :
+      omTensorCreateWithShape<float>({S, I});
   if (!init || !x || !resy || !refy || !resz || !refz)
     return false;
 #ifdef PRINT_TENSORS
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
-      printf("init<b=%ld, i=%ld>: %f\n", b, i,
-          omTensorGetElem<float>(init, {b, i}));
+      if (is_v8)
+        printf("init<b=%ld, i=%ld>: %f\n", b, i,
+            omTensorGetElem<float>(init, {b, i}));
+      else
+        printf("init<i=%ld>: %f\n", i, omTensorGetElem<float>(init, {i}));
     }
   }
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t s = 0; s < S; ++s) {
       for (int64_t i = 0; i < I; ++i) {
-        printf("x<b=%ld, s=%ld, i=%ld>: %f\n", b, s, i,
-            omTensorGetElem<float>(x, {b, s, i}));
+        if (is_v8)
+          printf("x<b=%ld, s=%ld, i=%ld>: %f\n", b, s, i,
+              omTensorGetElem<float>(x, {b, s, i}));
+        else
+          printf("x<s=%ld, i=%ld>: %f\n", s, i,
+              omTensorGetElem<float>(x, {s, i}));
       }
     }
   }
 #endif
   // Compute reference. Scan with onnx.Add
-  for (int64_t i = 0; i < I; ++i) {
-    float refVal = 0.0;
-    for (int64_t b = 0; b < B; ++b) {
-      refVal = omTensorGetElem<float>(init, {b, i});
+  for (int64_t b = 0; b < B; ++b) {
+    for (int64_t i = 0; i < I; ++i) {
+      float refVal = 0.0;
+      refVal = is_v8 ? omTensorGetElem<float>(init, {b, i}) :
+          omTensorGetElem<float>(init, {i});
       for (int64_t s = 0; s < S; s++) {
-        refVal += omTensorGetElem<float>(x, {b, s, i});
-        omTensorGetElem<float>(refz, {s, i}) = refVal;
+        if (is_v8) {
+          refVal += omTensorGetElem<float>(x, {b, s, i});
+          omTensorGetElem<float>(refz, {b, s, i}) = refVal;
+        } else {
+          refVal += omTensorGetElem<float>(x, {s, i});
+          omTensorGetElem<float>(refz, {s, i}) = refVal;
+        }
       }
+      if (is_v8)
+        omTensorGetElem<float>(refy, {b, i}) = refVal;
+      else
+        omTensorGetElem<float>(refy, {i}) = refVal;
     }
-    omTensorGetElem<float>(refy, {i}) = refVal;
   }
 #ifdef PRINT_TENSORS
-  for (int64_t i = 0; i < I; ++i) {
-    printf("resy/refy<i=%ld>: %f %f\n", i,
-        omTensorGetElem<float>(resy, {i}),
-        omTensorGetElem<float>(refy, {i}));
-  }
-  for (int64_t s = 0; s < S; ++s) {
+  for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
-      printf("resz/refz<s=%ld, i=%ld>: %f %f\n", s, i,
-          omTensorGetElem<float>(resz, {s, i}),
-          omTensorGetElem<float>(refz, {s, i}));
+      if (is_v8)
+        printf("resy/refy<b=%ld, i=%ld>: %f %f\n", b, i,
+            omTensorGetElem<float>(resy, {b, i}), omTensorGetElem<float>(refy, {b, i}));
+      else
+        printf("resy/refy<i=%ld>: %f %f\n", i,
+            omTensorGetElem<float>(resy, {i}), omTensorGetElem<float>(refy, {i}));
+    }
+  }
+  for (int64_t b = 0; b < B; ++b) {
+    for (int64_t s = 0; s < S; ++s) {
+      for (int64_t i = 0; i < I; ++i) {
+        if (is_v8)
+          printf("resz/refz<b=%ld, s=%ld, i=%ld>: %f %f\n", b, s, i,
+              omTensorGetElem<float>(resz, {b, s, i}),
+              omTensorGetElem<float>(refz, {b, s, i}));
+        else
+          printf("resz/refz<s=%ld, i=%ld>: %f %f\n", s, i,
+              omTensorGetElem<float>(resz, {s, i}),
+              omTensorGetElem<float>(refz, {s, i}));
+      }
     }
   }
 #endif

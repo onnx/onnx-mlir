@@ -50,12 +50,16 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
 // as a naive implementation of Scan for a specific set of Scan
 // parameters/configuration.
 static bool isOMScanTheSameAsNaiveImplFor(
-    const int B, const int S, const int I) {
+    const int S, const int I, const int B = 1, const bool is_v8 = false) {
 
   static int testNum = 0;
-  printf("attempt %d with B=%d, S=%d, I=%d\n", ++testNum, B, S, I);
+  if (is_v8)
+    printf("attempt %d with S=%d, I=%d, B=%d, is_v8=%d\n", ++testNum, S, I, B,
+        is_v8);
+  else
+    printf("attempt %d with S=%d, I=%d, is_v8=%d\n", ++testNum, S, I, is_v8);
 
-  ScanLibBuilder scan(SHARED_LIB_BASE.str(), B, S, I);
+  ScanLibBuilder scan(SHARED_LIB_BASE.str(), S, I, B, is_v8);
   return scan.build() && scan.compileAndLoad() && scan.prepareInputs() &&
          scan.run() && scan.verifyOutputs();
 }
@@ -81,11 +85,9 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Scan implementation correctness", []() {
       const int maxRange = 50;
-      // Comment: Tests cause no errors with B=1, but cause errors with B!=1.
-      const auto B = *rc::gen::inRange(1, maxRange);
       const auto S = *rc::gen::inRange(1, maxRange);
       const auto I = *rc::gen::inRange(1, maxRange);
-      RC_ASSERT(isOMScanTheSameAsNaiveImplFor(B, S, I));
+      RC_ASSERT(isOMScanTheSameAsNaiveImplFor(S, I));
     });
     if (!success)
       return 1;

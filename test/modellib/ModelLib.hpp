@@ -212,8 +212,8 @@ private:
 
 class ScanLibBuilder : public ModelLibBuilder {
 public:
-  ScanLibBuilder(const std::string &modelName, const int /*batch=*/B,
-      const int /*seq=*/S, const int /*inner-dim=*/I);
+  ScanLibBuilder(const std::string &modelName, const int /*seq=*/S,
+      const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
   bool build() final;
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
@@ -223,7 +223,8 @@ public:
 
 private:
   // Data that defines model.
-  const int B, S, I;
+  const int S, I, B;
+  const bool is_v8;
   // Derived data that defines model.
   llvm::SmallVector<int64_t, 2> initialShape, xShape;
   // model definition in std::string
