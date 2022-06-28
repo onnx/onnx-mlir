@@ -16,7 +16,7 @@
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
 //===-----------------------------------------------------------------===//
-// Type conversion from Onnx types to Torch types.
+// Type conversion from ONNX to torch types.
 //===-----------------------------------------------------------------===//
 
 TorchTypeConverter::TorchTypeConverter() {
@@ -27,22 +27,13 @@ TorchTypeConverter::TorchTypeConverter() {
     return Torch::StringType::get(stringType.getContext());
   });
 
-  addConversion([](TensorType tensorType) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<StringType>()) {
-      Type elementType = Torch::StringType::get(tensorType.getContext());
-      return MemRefType::get(tensorType.getShape(), elementType);
-    }
-    return MemRefType::get(tensorType.getShape(), 
-		    tensorType.getElementType());
-  });
-
+   // Use UnrealizedConversionCast as the bridge so that we don't need to pull in
+   // patterns for other dialects.
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
       return llvm::None;
-
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
@@ -52,7 +43,6 @@ TorchTypeConverter::TorchTypeConverter() {
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
       return llvm::None;
-
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
