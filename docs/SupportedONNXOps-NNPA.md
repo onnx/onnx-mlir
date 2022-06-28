@@ -11,23 +11,23 @@ Onnx-mlir currently support ONNX operations targeting up to opset 14. Limitation
 
 | Op |Up to Opset |Limitations |Notes |
 | --- |--- |--- |--- |
-| **Add** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Unknown dimensions in input tensor is not supported. | |
-| **AveragePool** |11 |Support padding type of VALID and SAME UPPER. ceil_mode not supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. count_include_pad must be default value. ceil_mode not supported. | |
-| **BatchNormalization** |9 |4D tensors(N x C x H x W) are supported as input and output. | |
-| **Conv** |11 |Support padding type of VALID and SAME UPPER. Not supported if height and weight dims are unknown. Defult group(=1) and default dilations(=1) are supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. | |
-| **Div** |14 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **Exp** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **GRU** |7 |direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2. sequence_lens, activation_alpha, and activation_beta not supported. The default activations (["Sigmoid", "Tanh", "Tanh"]) are supported. clip(Cell clip threshold) not supported. hidden_size should be equal to the hidden size in other inputs. linear_before_reset must be 1. | |
-| **Gemm** |13 |Alpha and beta must be 1. Rank of input tensor A and B must be 2, and rank of C must be 1 or 2. If rank of C is 1, second dim of B must be the same with dim of C. | |
-| **GlobalAveragePool** |1 |Input shape must be HCHW. Unknown dim in height and width not supported. | |
-| **LSTM** |7 |direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2. | |
-| **Log** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
+| **Add** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **AveragePool** |11 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(= 0).<br>- `ceil_mode` must be default value(=0). | |
+| **BatchNormalization** |9 |Input and output tensor must be 4D(N x C x H x W). | |
+| **Conv** |11 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(=1).<br>- `dilations` must be default value(=1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static. | |
+| **Div** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Exp** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **GRU** |7 |- `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `sequence_lens`, `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1. | |
+| **Gemm** |13 |- `alpha` and `beta` must be default value(= 1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`. | |
+| **GlobalAveragePool** |1 |- Input shape must be 4D tensor(HCHW).<br>- Dimensions in `H` and `W` must be static. | |
+| **LSTM** |7 |- `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be defult value(= 0). | |
+| **Log** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **LogSoftmax** |13 | | |
-| **MatMul** |13 |(Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2). | |
-| **Max** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **MaxPool** |12 | | |
-| **Min** |13 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **Mul** |14 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
-| **Softmax** |13 |Rank of input tensor must be 2. axis must be 1 or -1. | |
-| **Sub** |14 |Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported. | |
+| **MatMul** |13 |Ranks of input tensors must be (Rank of A, Rank of B) = (2, 2), (3, 3), and (3, 2). | |
+| **Max** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **MaxPool** |12 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1). | |
+| **Min** |13 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Mul** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
+| **Softmax** |13 |Rank of input tensor must be 2. `axis` must be 1 or -1. | |
+| **Sub** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Sum** |13 |All inputs must have the same static shape (Broadcasting not supported.) Single input not supported. | |

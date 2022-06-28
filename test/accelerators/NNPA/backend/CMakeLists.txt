@@ -90,13 +90,13 @@ set(NNPA_TEST_LIST
     # ==ARCH== NNPA
 
     # ==OP== Add
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # Scalar tensor not supported.
     test_add_cpu,zdnn_add
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
-    # ==LIM== Support padding type of VALID and SAME UPPER. ceil_mode not supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported. count_include_pad must be default value. ceil_mode not supported.
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(= 0).<br>- `ceil_mode` must be default value(=0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
     test_averagepool_2d_default_cpu,zdnn_avgpool2d
@@ -110,13 +110,13 @@ set(NNPA_TEST_LIST
     test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
     test_averagepool_2d_strides_cpu,zdnn_avgpool2d
     # test_averagepool_3d_default_cpu
-    # ==OP== BatchNormalization (test mode)
-    # ==LIM== 4D tensors(N x C x H x W) are supported as input and output.
+    # ==OP== BatchNormalization
+    # ==LIM== Input and output tensor must be 4D(N x C x H x W).
     test_batchnorm_epsilon_cpu,zdnn_mul
     test_batchnorm_example_cpu,zdnn_mul
 
     # ==OP== Conv
-    # ==LIM== Support padding type of VALID and SAME UPPER. Not supported if height and weight dims are unknown. Defult group(=1) and default dilations(=1) are supported. 4D tensors(N x C x H x W) are supported as input and output. static kernel shape is supported.
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(=1).<br>- `dilations` must be default value(=1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
     # test_conv_with_autopad_same_cpu
@@ -125,18 +125,18 @@ set(NNPA_TEST_LIST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== Div
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_div_cpu,zdnn_div
     # test_div_bcast_cpu
     test_div_example_cpu,zdnn_div
 
     # ==OP== Exp
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
 
     # ==OP== Gemm
-    # ==LIM== Alpha and beta must be 1. Rank of input tensor A and B must be 2, and rank of C must be 1 or 2. If rank of C is 1, second dim of B must be the same with dim of C.
+    # ==LIM== - `alpha` and `beta` must be default value(= 1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`.
     # test_gemm_all_attributes_cpu
     # test_gemm_alpha_cpu
     # test_gemm_beta_cpu
@@ -149,20 +149,20 @@ set(NNPA_TEST_LIST
     test_gemm_transposeA_cpu,zdnn_matmul_op
     test_gemm_transposeB_cpu,zdnn_matmul_op
     # ==OP== GlobalAveragePool
-    # ==LIM== Input shape must be HCHW. Unknown dim in height and width not supported.
+    # ==LIM== - Input shape must be 4D tensor(HCHW).<br>- Dimensions in `H` and `W` must be static.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
     test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
     # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
     # ==OP== GRU
-    # ==LIM== direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2. sequence_lens, activation_alpha, and activation_beta not supported. The default activations (["Sigmoid", "Tanh", "Tanh"]) are supported. clip(Cell clip threshold) not supported. hidden_size should be equal to the hidden size in other inputs. linear_before_reset must be 1.
+    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `sequence_lens`, `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.
     # test_gru_defaults_cpu
     # test_gru_seq_length_cpu
     # test_gru_with_initial_bias_cpu
 
     # ==OP== Log
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_log_example_cpu,zdnn_log
     test_log_cpu,zdnn_log
     # ==OP== LogSoftmax
@@ -174,20 +174,19 @@ set(NNPA_TEST_LIST
     test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
     # ==OP== LSTM
-    # ==LIM== direction and hidden_size in W must have static dimensions. R must have static dimensions. B and initial_h have static dimensions if given. B's direction dim must be 1 or 2.
-    # zDNN does not support P(peepholes), activation_alpha and activation_beta. zDNN does not support activation_alpha and activation_beta. zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only. zDNN does not supprt clip(Cell clip threshold).  zDNN does not support hidden_size not equal to the hidden size in other inputs.   // zDNN does not support input_forgaet.
+    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be defult value(= 0).
     test_lstm_defaults_cpu,zdnn_lstm
     test_lstm_with_initial_bias_cpu,zdnn_lstm
     # test_lstm_with_peepholes_cpu
 
     # ==OP== MatMul
-    # ==LIM== (Rank of A, Rank of B) must be (2, 2), (3, 3), and (3, 2).
+    # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (2, 2), (3, 3), and (3, 2).
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
     # test_matmul_4d_cpu,zdnn_matmul_op # 4d not supported
 
     # ==OP== Max
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_max_example_cpu
     #test_max_one_input_cpu
     test_max_two_inputs_cpu,zdnn_max
@@ -204,7 +203,8 @@ set(NNPA_TEST_LIST
     # test_max_uint64_cpu
 
     # ==OP== MaxPool
-    # zDNN limitation: count_include_pad not supported.
+    # ==LIM==
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
     test_maxpool_2d_default_cpu,zdnn_avgpool2d
@@ -219,7 +219,7 @@ set(NNPA_TEST_LIST
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_min_example_cpu
     # test_min_one_input_cpu
     test_min_two_inputs_cpu,zdnn_min
@@ -236,7 +236,7 @@ set(NNPA_TEST_LIST
     # test_min_uint64_cpu
 
     # ==OP== Mul
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_mul_cpu,zdnn_mul
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul
@@ -252,7 +252,7 @@ set(NNPA_TEST_LIST
     # Relu
     test_relu_cpu,zdnn_relu
     # ==OP== Softmax
-    # ==LIM== Rank of input tensor must be 2. axis must be 1 or -1.
+    # ==LIM== Rank of input tensor must be 2. `axis` must be 1 or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
@@ -260,7 +260,7 @@ set(NNPA_TEST_LIST
     test_softmax_example_cpu,zdnn_softmax
     # test_softmax_large_number_cpu #  accuracy error
     # ==OP== Sub
-    # ==LIM== Shape of input tensors should be the same since broadcasting is not supported. Unknown dimensions in input tensor is not supported.
+    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_sub_cpu,zdnn_sub
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub
