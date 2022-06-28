@@ -59,8 +59,8 @@ public:
 
     Location loc = op.getLoc();
     mlir::MLIRContext *context = op->getContext();
-    auto operands = adaptor.getOperands();
 
+    auto x = adaptor.X();
     auto alpha = adaptor.alphaAttr(); // mlir::FloatAttr
     auto negSlope = alpha.getValue(); // APSFloat
     auto negSlopeFloatValue = FloatAttr::get(
@@ -73,8 +73,7 @@ public:
         opTensorType.getShape(), opTensorType.getElementType());
 
     Value result = rewriter.create<AtenLeakyReluOp>(
-        loc, resultType, operands[0], negSlopeConstFloat);
-
+        loc, resultType, x, negSlopeConstFloat);
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op.getResult().getType(), result);
     return success();
