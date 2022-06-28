@@ -96,7 +96,7 @@ set(NNPA_TEST_LIST
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(= 0).<br>- `ceil_mode` must be default value(=0).
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(= 0).<br>- `ceil_mode` must be default value(=0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
     test_averagepool_2d_default_cpu,zdnn_avgpool2d
@@ -116,7 +116,7 @@ set(NNPA_TEST_LIST
     test_batchnorm_example_cpu,zdnn_mul
 
     # ==OP== Conv
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(=1).<br>- `dilations` must be default value(=1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(=1).<br>- `dilations` must be default value(=1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
     # test_conv_with_autopad_same_cpu
