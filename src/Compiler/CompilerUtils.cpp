@@ -652,11 +652,14 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
 }
 
 // Return 0 on success, error code on error.
-int outputCode(
-    mlir::OwningOpRef<ModuleOp> &module, std::string filenameWithExt) {
+int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filenameWithExt,
+    int64_t largeElementLimit) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
+
+  if (largeElementLimit >= 0)
+    flags.elideLargeElementsAttrs(largeElementLimit);
 
   std::string errorMessage;
   auto output = openOutputFile(filenameWithExt, &errorMessage);
@@ -747,22 +750,11 @@ static int emitOutputFiles(std::string outputNameNoExt,
     if (rc != CompilerSuccess)
       return rc;
 
-    // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(
-        &context, mlir::OpPassManager::Nesting::Implicit);
-    if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createElideConstantValuePass());
-    if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createElideConstGlobalValuePass());
-
+    // Elide element attributes if larger than 100.
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {
-      if (mlir::failed(cleanSourcePM.run(*module)))
-        llvm::errs() << "Could not apply simplification passes.\n";
       std::string tempNameWithExt = outputNameNoExt + ".tmp";
-      int rc = outputCode(module, tempNameWithExt);
+      int rc = outputCode(module, tempNameWithExt, /*largeElementLimit=*/100);
       if (VerboseOutput) {
         printf("Constant-free MLIR Code written to: \n\t%s\n\n",
             tempNameWithExt.c_str());
