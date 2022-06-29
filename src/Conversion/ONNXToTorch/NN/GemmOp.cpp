@@ -127,7 +127,8 @@ struct ONNXGemmOpToTorchLowering : public ConversionPattern {
     // will remove the explicit broadcasting from here. The fix is only applied
     // to constant ops and will not work in a generalized case.
   
-    if (mlir::isa<ONNXConstantOp>(C.getDefiningOp()) &&
+    if (C.getDefiningOp() != nullptr &&
+        mlir::isa<ONNXConstantOp>(C.getDefiningOp()) &&
         C.getDefiningOp()->hasAttr("value")) {
       auto cTensorOp = C.getDefiningOp()->getAttr("value").getType()
           .cast<TensorType>();
