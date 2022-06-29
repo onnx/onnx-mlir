@@ -146,10 +146,10 @@ bool ScanLibBuilder::verifyOutputs() {
   OMTensor *x = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *resy = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *resz = omTensorListGetOmtByIndex(outputs, 1);
-  OMTensor *refy = is_v8 ? omTensorCreateWithShape<float>({B, I}) :
-      omTensorCreateWithShape<float>({I});
-  OMTensor *refz = is_v8 ? omTensorCreateWithShape<float>({B, S, I}) :
-      omTensorCreateWithShape<float>({S, I});
+  OMTensor *refy = is_v8 ? omTensorCreateWithShape<float>({B, I})
+                         : omTensorCreateWithShape<float>({I});
+  OMTensor *refz = is_v8 ? omTensorCreateWithShape<float>({B, S, I})
+                         : omTensorCreateWithShape<float>({S, I});
   if (!init || !x || !resy || !refy || !resz || !refz)
     return false;
 #ifdef PRINT_TENSORS
@@ -169,8 +169,8 @@ bool ScanLibBuilder::verifyOutputs() {
           printf("x<b=%ld, s=%ld, i=%ld>: %f\n", b, s, i,
               omTensorGetElem<float>(x, {b, s, i}));
         else
-          printf("x<s=%ld, i=%ld>: %f\n", s, i,
-              omTensorGetElem<float>(x, {s, i}));
+          printf(
+              "x<s=%ld, i=%ld>: %f\n", s, i, omTensorGetElem<float>(x, {s, i}));
       }
     }
   }
@@ -179,8 +179,8 @@ bool ScanLibBuilder::verifyOutputs() {
   for (int64_t b = 0; b < B; ++b) {
     for (int64_t i = 0; i < I; ++i) {
       float refVal = 0.0;
-      refVal = is_v8 ? omTensorGetElem<float>(init, {b, i}) :
-          omTensorGetElem<float>(init, {i});
+      refVal = is_v8 ? omTensorGetElem<float>(init, {b, i})
+                     : omTensorGetElem<float>(init, {i});
       for (int64_t s = 0; s < S; s++) {
         if (is_v8) {
           refVal += omTensorGetElem<float>(x, {b, s, i});
@@ -201,10 +201,12 @@ bool ScanLibBuilder::verifyOutputs() {
     for (int64_t i = 0; i < I; ++i) {
       if (is_v8)
         printf("resy/refy<b=%ld, i=%ld>: %f %f\n", b, i,
-            omTensorGetElem<float>(resy, {b, i}), omTensorGetElem<float>(refy, {b, i}));
+            omTensorGetElem<float>(resy, {b, i}),
+            omTensorGetElem<float>(refy, {b, i}));
       else
         printf("resy/refy<i=%ld>: %f %f\n", i,
-            omTensorGetElem<float>(resy, {i}), omTensorGetElem<float>(refy, {i}));
+            omTensorGetElem<float>(resy, {i}),
+            omTensorGetElem<float>(refy, {i}));
     }
   }
   for (int64_t b = 0; b < B; ++b) {
