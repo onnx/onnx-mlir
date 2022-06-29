@@ -75,7 +75,7 @@ public:
 			loc, inputType, input);
     Value constAxisValue = rewriter.create<ConstantIntOp>(loc,axis);
     auto resultType = toTorchType (context, op->getResult(0).getType());
-    Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, true);
+    Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, false);
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType, 
 		    inputTorchTensor, constAxisValue, halfToFloat);
 
