@@ -829,6 +829,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
           [](IndexExpr val) { return !val.isLiteral(); }))
     return false;
 
+  int64_t inputShapeC = shapeInput[1];
   int64_t inputShapeH = shapeInput[2];
   int64_t inputShapeW = shapeInput[3];
   int64_t outputShapeH = shapeOutput[2];
@@ -846,6 +847,10 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
   bool isWOK = checkConv2DParamRestrictions(
       inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
   if (!isWOK)
+    return false;
+
+  // Workaround for issue #1517 Accuracy issue  at C != 1, kH = 1, kW=1
+  if (inputShapeC > 1 && kernelShapeH == 1 && kernelShapeW == 1)
     return false;
 
   return true;
