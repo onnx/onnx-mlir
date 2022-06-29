@@ -30,6 +30,8 @@
 namespace onnx_mlir {
 namespace test {
 
+const static float omDefaultRangeBound = 1.0;
+
 /*
    Superclass that defines a template to create models, creating an ONNX
    function programatically, then compiling, loading, runing and testing the
@@ -215,7 +217,6 @@ public:
   ScanLibBuilder(const std::string &modelName, const int /*seq=*/S,
       const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
   bool build() final;
-  bool compileAndLoad();
   bool prepareInputs() final;
   bool prepareInputs(float dataRange);
   bool verifyOutputs() final;

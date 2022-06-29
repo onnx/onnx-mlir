@@ -114,21 +114,13 @@ bool ScanLibBuilder::build() {
   moduleIR = std::regex_replace(moduleIR, std::regex("%B"), std::to_string(B));
   moduleIR = std::regex_replace(moduleIR, std::regex("%S"), std::to_string(S));
   moduleIR = std::regex_replace(moduleIR, std::regex("%I"), std::to_string(I));
+  OwningOpRef<ModuleOp> moduleRef =
+      mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
+  module = moduleRef.get(); // XXXXXX
+  moduleRef.release();
   return true;
 }
 
-bool ScanLibBuilder::compileAndLoad() {
-  OwningOpRef<ModuleOp> moduleOp =
-      mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
-  OwningOpRef<ModuleOp> module(std::move(moduleOp));
-  if (compileModule(module, ctx, sharedLibBaseName, onnx_mlir::EmitLib) != 0)
-    return false;
-  exec = new ExecutionSession(
-      onnx_mlir::getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib));
-  return exec != nullptr;
-}
-
-const static float omDefaultRangeBound = 1.0;
 bool ScanLibBuilder::prepareInputs() {
   return ScanLibBuilder::prepareInputs(omDefaultRangeBound);
 }
