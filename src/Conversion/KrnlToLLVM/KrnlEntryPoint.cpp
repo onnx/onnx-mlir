@@ -120,8 +120,6 @@ public:
       ArrayAttr accels = maccelAttr.cast<ArrayAttr>();
       Value zeroI64 = create.llvm.constant(int64Ty, (int64_t)0);
 
-      // Split the current block into IF, THEN, ELSE blocks.
-      Block *ifBlock, *thenBlock, *elseBlock;
       for (uint64_t i = 0; i < accels.size(); ++i) {
         assert(accels[i].isa<StringAttr>() && "Attribute must be StringAttr");
         StringRef accelStr = accels.getValue()[i].cast<StringAttr>().getValue();
@@ -131,32 +129,22 @@ public:
         FlatSymbolRefAttr funcRef = getOrInsertOMInitCompatibleAccel(
             rewriter, module, NameAndVersion.first);
 
-        // Split the current block into IF, THEN, ELSE blocks.
-        ifBlock = rewriter.getInsertionBlock();
-        thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
-        elseBlock = rewriter.createBlock(
-            thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
-
-        // Emit code for the IF block.
-        rewriter.setInsertionPointToEnd(ifBlock);
-        // Call OMInitCompatibleAccelX.
-        Value versionNumberVal =
-            create.llvm.constant(int64Ty, (int64_t)versionNumberInHex);
-        Value isCompatible = create.llvm.call(
-            int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
-        // Condition: if (OMInitCompatibleAccelX() != 0)
-        Value notCompatible =
-            create.llvm.icmp(LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
-        // Branch the block into the THEN and ELSE blocks.
-        rewriter.create<LLVM::CondBrOp>(loc, notCompatible, thenBlock,
-            ValueRange(), elseBlock, ValueRange());
-
-        // Emit code for the THEN block: return NULL.
-        rewriter.setInsertionPointToStart(thenBlock);
-        create.llvm._return(create.llvm.nullI8Ptr());
-
-        // Emit code for thenELSE block: deal with other accelerators if any.
-        rewriter.setInsertionPointToStart(elseBlock);
+        // Emit code for `if (OMInitCompatibleAccelX() == 0) then return NULL`.
+        create.llvm.ifThenElse(/*cond=*/
+            [&](LLVMBuilder &createLLVM) {
+              // Call OMInitCompatibleAccelX.
+              Value versionNumberVal =
+                  createLLVM.constant(int64Ty, (int64_t)versionNumberInHex);
+              Value isCompatible = createLLVM.call(
+                  int64Ty, funcRef, ArrayRef<Value>({versionNumberVal}));
+              // Condition: if (OMInitCompatibleAccelX() == 0)
+              return createLLVM.icmp(
+                  LLVM::ICmpPredicate::eq, isCompatible, zeroI64);
+            }, /*then=*/
+            [&](LLVMBuilder &createLLVM) {
+              // return NULL.
+              createLLVM._return(createLLVM.nullI8Ptr());
+            });
       }
     }
 
@@ -400,36 +388,23 @@ private:
       Value lhs, Value rhs, std::string errorMsg = "",
       bool appendRHS = true) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    // Split the current block into IF, THEN, END blocks.
-    Block *ifBlock, *thenBlock, *endBlock;
-    ifBlock = rewriter.getInsertionBlock();
-    thenBlock = ifBlock->splitBlock(rewriter.getInsertionPoint());
-    endBlock = rewriter.createBlock(
-        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
-
-    // Emit code for the IF block.
-    rewriter.setInsertionPointToEnd(ifBlock);
-    Value failed = create.llvm.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
-
-    // Branch the block into the THEN and END blocks.
-    rewriter.create<LLVM::CondBrOp>(
-        loc, failed, thenBlock, ValueRange(), endBlock, ValueRange());
-
-    // Emit code for the THEN block: return NULL.
-    rewriter.setInsertionPointToStart(thenBlock);
-    // Print an error message.
-    KrnlBuilder createKrnl(rewriter, loc);
-    if (appendRHS)
-      createKrnl.printf(StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
-    else
-      createKrnl.printf(StringRef(errorMsg + "\n"));
-    // Set errno.
-    krnl::emitErrNo(module, rewriter, loc, EINVAL);
-    // Return NULL.
-    create.llvm._return(create.llvm.nullI8Ptr());
-
-    // Emit code for the END block: continue with other generated code.
-    rewriter.setInsertionPointToStart(endBlock);
+    create.llvm.ifThenElse(/*cond=*/
+        [&](LLVMBuilder &createLLVM) {
+          return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
+        }, /*then=*/
+        [&](LLVMBuilder &createLLVM) {
+          MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+          // Print an error message.
+          if (appendRHS)
+            create.krnl.printf(
+                StringRef(errorMsg), rhs, rewriter.getI64Type(), true);
+          else
+            create.krnl.printf(StringRef(errorMsg + "\n"));
+          // Set errno.
+          krnl::emitErrNo(module, rewriter, loc, EINVAL);
+          // Return NULL.
+          create.llvm._return(create.llvm.nullI8Ptr());
+        });
   }
 
   void emitVerificationCodeForInputTensors(ModuleOp &module,
@@ -496,19 +471,46 @@ private:
       Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
       for (int d = 0; d < rank; ++d) {
+        // Get actual dimension size.
+        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
+        Value actualDim = create.llvm.load(create.llvm.getElemPtr(
+            LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx}));
+        // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.getValue();
-        if (dim == -1)
-          continue; // do not verify dynamic dimensions.
-        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
-        equalOrFailed(module, rewriter, loc,
-            create.llvm.constant(int64Ty, (int64_t)dim),
-            create.llvm.load(create.llvm.getElemPtr(
-                LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx})),
-            "Wrong size for the dimension " + std::to_string(d) +
-                " of the input " + std::to_string(i) + ": expect " +
-                std::to_string(dim) + ", but got ");
+        // Verify.
+        if (dim == -1) {
+          // In case that the reference dimension size is unknown, verify that
+          // the actual dimension size is a non-negative value.
+          create.llvm.ifThenElse(/*cond=*/
+              [&](LLVMBuilder &createLLVM) {
+                Value zero = createLLVM.constant(int64Ty, (int64_t)d);
+                return createLLVM.icmp(
+                    LLVM::ICmpPredicate::slt, actualDim, zero);
+              }, /*then=*/
+              [&](LLVMBuilder &createLLVM) {
+                MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
+                    createLLVM);
+                // Print an error message.
+                std::string msg = "Wrong size for the dimension " +
+                                  std::to_string(d) + " of the input " +
+                                  std::to_string(i) +
+                                  ": expect a non-negative value\n";
+                StringRef errorMsg(msg);
+                create.krnl.printf(errorMsg);
+                // Set errno.
+                krnl::emitErrNo(module, rewriter, loc, EINVAL);
+                // Return NULL.
+                create.llvm._return(create.llvm.nullI8Ptr());
+              });
+        } else {
+          Value referenceDim = create.llvm.constant(int64Ty, (int64_t)dim);
+          equalOrFailed(module, rewriter, loc, referenceDim, actualDim,
+              "Wrong size for the dimension " + std::to_string(d) +
+                  " of the input " + std::to_string(i) + ": expect " +
+                  std::to_string(dim) + ", but got ");
+        }
       }
     }
   }
