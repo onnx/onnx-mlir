@@ -49,7 +49,7 @@ private:
   void *inputBuffer = nullptr;
   int64_t inputBufferSize = 0;
 };
-} // namespace onnx_mlir 
+} // namespace onnx_mlir
 
 PYBIND11_MODULE(PyOnnxMlirCompiler, m) {
   py::class_<onnx_mlir::PyOnnxMirCompiler>(m, "OnnxMlirCompiler")

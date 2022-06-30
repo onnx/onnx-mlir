@@ -712,7 +712,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);
-    if (rc != CompilerSuccess) 
+    if (rc != CompilerSuccess)
       return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
       rc = outputCode(module, outputNameNoExt + ".llvm.mlir");
