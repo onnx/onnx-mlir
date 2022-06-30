@@ -23,6 +23,10 @@ SUPPRESS_WARNINGS_POP
 
 namespace onnx_mlir {
 
+PyExecutionSession::PyExecutionSession(
+    std::string sharedLibPath, bool defaultEntryPoint)
+    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
+
 std::vector<py::array> PyExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");

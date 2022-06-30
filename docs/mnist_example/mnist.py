@@ -1,8 +1,25 @@
 import numpy as np
 from PyRuntime import ExecutionSession
+from PyOnnxMlirCompiler import OnnxMlirCompiler, OnnxMlirTarget, OnnxMlirOption
 
+# Load onnx model and create Onnx Mlir Compiler object.
+# Compiler needs to know where to find its runtime. Set ONNX_MLIR_RUNTIME_DIR
+# to proper path.
+# export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
+file = './mnist.onnx'
+compiler = OnnxMlirCompiler(file)
+# Set optimization level to -O3.
+compiler.set_option(OnnxMlirOption.opt_level, "3")
+#compiler.set_option(OnnxMlirOption.verbose, "")
+print("Compile", file, "with opt level", compiler.get_option(OnnxMlirOption.opt_level), "for arch", compiler.get_option(OnnxMlirOption.target_arch), "and CPU", compiler.get_option(OnnxMlirOption.target_cpu))
+# Generate the library file. Success when rc == 0.
+rc = compiler.compile('./mnist-O3', OnnxMlirTarget.emit_lib)
+model = compiler.get_output_file_name()
+if rc:
+    print("Failed to compile with error code", rc)
+    exit(1)
+print("Compiled onnx file", file, "to", model, "with rc", rc)
 # Load the model mnist.so compiled with onnx-mlir.
-model = './mnist.so'
 session = ExecutionSession(model)
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
@@ -274,6 +291,9 @@ input = np.array([-0.4242129623889923, -0.4242129623889923,
 # Run the model. It is best to always use the [] around the inputs as the inputs
 # are an vector of numpy arrays.
 outputs = session.run([input])
+if not outputs:
+    print("Failed to run model")
+    exit(2)
 # Analyze the output (first array in the list, of signature 1x10xf32).
 prediction = outputs[0]
 digit = -1

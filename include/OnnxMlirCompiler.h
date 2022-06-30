@@ -12,7 +12,8 @@
 #ifndef ONNX_MLIR_ONNXMLIRCOMPILER_H
 #define ONNX_MLIR_ONNXMLIRCOMPILER_H
 
-#include <onnx-mlir/Compiler/OMCompilerTypes.h>
+// "hi alex" issue with include in PyOnnxMlirCompiler cmake to be fixed
+#include <include/onnx-mlir/Compiler/OMCompilerTypes.h>
 #ifdef __cplusplus
 #include <cstdint>
 #else
@@ -90,7 +91,10 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
  *  omSetCompilerOptionsFromEnv, omSetCompilerOptionsFromArgs, or
  *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value
  *  by calling this function after one of the above 3 setter functions.
- *  @param kind Describe which option kind is being set.
+ *  @param kind Describe which option kind is being set. Typical kinds 
+ *  are TargetTriple, TargetArch, TargetCPU, TargetAccel, 
+ *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for 
+ *  complete list.
  *  @param val Value of the option being set.
  *  @return 0 on success or OnnxMlirCompilerErrorCodes error code on failure.
  */
@@ -99,12 +103,19 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 
 /*!
  *  Clear the compiler option defined by the input parameter.
+ *  @param kind Describe which option kind is being set. Typical kinds 
+ *  are TargetTriple, TargetArch, TargetCPU, TargetAccel, 
+ *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for 
+ *  complete list.
  */
 ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
 
 /*!
  *  Get the compiler options.
- *  @param kind Describe which option kind is being set.
+ *  @param kind Describe which option kind is being set. Typical kinds 
+ *  are TargetTriple, TargetArch, TargetCPU, TargetAccel, 
+ *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for 
+ *  complete list.
  *  @return A copy of the compiler option string. Caller is responsible for
  *  freeing the returned pointer.
  */
@@ -122,7 +133,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
  * an extention.
- *  @param emissionTarget Target format to compile to.
+ *  @param emissionTarget Target format to compile to. Typical values are 
+ *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list. 
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
  *  @param errorMessage Output error message, if any. User is responsible for
@@ -141,11 +153,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  location using the ONNX_MLIR_RUNTIME_DIR environment variable.
  *
  *  @param inputBuffer ONNX protobuf array.
- *  @param bufferSize Size of ONNX protobuf array.
+ *  @param bufferSize Size of ONNX protobuf array in bytes.
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
  * an extention.
- *  @param emissionTarget Target format to compile to.
+ *  @param emissionTarget Target format to compile to. Typical values are 
+ *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list. 
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
  *  @param errorMessage Error message.
@@ -153,7 +166,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  * responsible for freeing the string.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
-    int bufferSize, const char *outputBaseName,
+    int64_t bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, const char **outputFilename,
     const char **errorMessage);
 
