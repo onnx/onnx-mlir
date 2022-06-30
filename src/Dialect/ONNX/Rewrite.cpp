@@ -141,7 +141,6 @@ bool areProducedByTransposeOp(ValueRange values) {
 // keepgoing = true
 // while (i < max_trip_count && keepgoing == true) {
 //    k = k + STEP
-//    //keepgoing is loop invariant now 
 // }
 // ```
 // where `max_trip_count` is replaced by an actual value derived from the loop.
