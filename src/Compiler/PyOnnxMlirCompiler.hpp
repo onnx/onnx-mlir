@@ -19,8 +19,7 @@
 
 namespace py = pybind11;
 
-// "hi alex" issue with include in PyOnnxMlirCompiler cmake to be fixed
-#include "include/OnnxMlirCompiler.h"
+#include "OnnxMlirCompiler.h"
 
 namespace onnx_mlir {
 

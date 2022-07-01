@@ -174,7 +174,7 @@ target_compile_definitions(PyOnnxMlirCompiler
   )
 target_include_directories(PyOnnxMlirCompiler
   PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  ${ONNX_MLIR_SRC_ROOT}/include
   )
 target_link_libraries(PyOnnxMlirCompiler
   PRIVATE

@@ -12,8 +12,7 @@
 #ifndef ONNX_MLIR_ONNXMLIRCOMPILER_H
 #define ONNX_MLIR_ONNXMLIRCOMPILER_H
 
-// "hi alex" issue with include in PyOnnxMlirCompiler cmake to be fixed
-#include <include/onnx-mlir/Compiler/OMCompilerTypes.h>
+#include <onnx-mlir/Compiler/OMCompilerTypes.h>
 #ifdef __cplusplus
 #include <cstdint>
 #else
