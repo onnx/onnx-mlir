@@ -850,7 +850,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
     return false;
 
   // Workaround for issue #1517 Accuracy issue  at C != 1, kH = 1, kW=1
-  if (inputShapeC > 1 && kernelShapeH == 1 && kernelShapeW == 1)
+  if (inputShapeC != 1 && kernelShapeH == 1 && kernelShapeW == 1)
     return false;
 
   return true;
