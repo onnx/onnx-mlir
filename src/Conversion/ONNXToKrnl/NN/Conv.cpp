@@ -30,6 +30,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
     KrnlBuilder createKrnl(rewriter, loc);
+    SCFBuilder createScf(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
@@ -82,6 +83,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Single scalar, no need for default alignment.
     Value reductionVal = createMemRef.alloca(tmpType);
 
+    createScf.forEachThread(G,
+    [&](KrnlBuilder &createKrnl ) {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Compute the Channel In Indices.
@@ -204,6 +207,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 createKrnl.storeIE(result, alloc, resAccessFunc);
               }); // Output spacial loops.
         });       // Outer loops;
+    });
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,

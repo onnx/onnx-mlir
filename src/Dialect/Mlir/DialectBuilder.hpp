@@ -167,6 +167,9 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
+  void forEachThread(mlir::Value numthreads,
+      mlir::function_ref<void(SCFBuilder &createSCF)> bodyFn) const;
+
   void yield() const;
 };
 
