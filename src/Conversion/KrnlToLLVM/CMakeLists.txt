@@ -31,6 +31,8 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRMemRefToLLVM
   MLIRMemRefTransforms
   MLIROpenMP
+  MLIROpenMPToLLVM
+  MLIROpenMPToLLVMIRTranslation
   MLIRReconcileUnrealizedCasts
   MLIRSCFToControlFlow
   MLIRShapeToStandard
