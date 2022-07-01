@@ -164,6 +164,12 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableParallel("parallel",
+    llvm::cl::desc(
+        "Control whether compiler will parallelize model (default=false)\n"
+        "Set to 'true' if you want to enable parallelization."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"

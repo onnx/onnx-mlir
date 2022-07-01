@@ -54,6 +54,14 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
+#include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
+#include "mlir/Dialect/Async/IR/Async.h"
+#include "mlir/Dialect/Async/Passes.h"
+#include "mlir/Dialect/Async/Transforms.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
+
 using namespace mlir;
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -152,6 +160,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
   // They run it in two steps, and add additional lowerings.
 
+  populateAffineToVectorConversionPatterns(patterns);
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
@@ -172,6 +181,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
@@ -433,6 +443,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   });
 #endif
 
+  // OpenMP
+  target.addDynamicallyLegalOp<omp::MasterOp, omp::ParallelOp, omp::WsLoopOp>(
+      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
+  target.addLegalOp<omp::TerminatorOp, omp::TaskyieldOp, omp::FlushOp,
+      omp::BarrierOp, omp::TaskwaitOp>();
+      
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);
