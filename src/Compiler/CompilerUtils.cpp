@@ -491,7 +491,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   //std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
   std::vector<std::string> sharedLibOpts = {
-    　"-shared", "-fPIC", "-Wl,-rpath=" + getRuntimeDir()};
+    "-shared", "-fPIC", "-Wl,-rpath=" + getRuntimeDir()};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #endif
