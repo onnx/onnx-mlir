@@ -135,6 +135,7 @@ add_onnx_mlir_library(CompilerUtils
   CompilerPasses
   Accelerator
   InitAccelerators
+  MLIROpenMP
   OMVersion
 
   # Link LLVM libraries necessary to query which target architectures are configured.

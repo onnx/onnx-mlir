@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
 
 #include "src/Accelerators/Accelerator.hpp"
@@ -318,7 +319,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target
       .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
           func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
-          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
+          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect,
+          omp::OpenMPDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();

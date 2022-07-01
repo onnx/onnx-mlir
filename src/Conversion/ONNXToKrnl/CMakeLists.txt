@@ -68,9 +68,11 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   Accelerator
+  CompilerOptions
   OMConstPropHelper
   OMONNXOps
   OMSupport
   MLIRFunc
   MLIRFuncTransforms
+  MLIROpenMP
   )

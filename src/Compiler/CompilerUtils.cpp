@@ -14,6 +14,7 @@
 
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -388,7 +389,10 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   llvm::LLVMContext llvmContext;
-  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  MLIRContext &ctx = *(module.get().getContext());
+  mlir::registerLLVMDialectTranslation(ctx);
+  mlir::registerOpenMPDialectTranslation(ctx);
+
   std::unique_ptr<llvm::Module> llvmModule =
       mlir::translateModuleToLLVMIR(*module, llvmContext);
   if (!llvmModule) {
@@ -485,7 +489,9 @@ static int genSharedLib(std::string sharedLibNameWithExt,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
-  std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  //std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  std::vector<std::string> sharedLibOpts = {
+    　"-shared", "-fPIC", "-Wl,-rpath=" + getRuntimeDir()};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #endif
@@ -608,7 +614,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
-}
+  context.getOrLoadDialect<mlir::omp::OpenMPDialect>();
+  }
 
 // Return 0 on success, error number on failure.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
@@ -711,7 +718,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
           "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
-    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    //addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime", "omp"});
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);
@@ -727,7 +735,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
           sharedLibNameWithExt.c_str());
   } break;
   case EmitJNI: {
-    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
+    //addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime", "omp"});
     int rc = compileModuleToJniJar(module, outputNameNoExt);
     if (rc != CompilerSuccess)
       return rc;
