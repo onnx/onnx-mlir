@@ -76,7 +76,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //SmallVector<IndexExpr, 1> parUbs = {G};
     Value c0 = createMath.constant(rewriter.getI64Type(), 0);
     Value c1 = createMath.constant(rewriter.getI64Type(), 1);
-    Value c4 = createMath.constant(rewriter.getI64Type(), 4);
+    //Value c4 = createMath.constant(rewriter.getI64Type(), COPerGroup);
+    Value c4 = COPerGroup.getValue();
     ValueRange parLbs(c0);
     ValueRange steps(c1);
     ValueRange parUbs(c4);
