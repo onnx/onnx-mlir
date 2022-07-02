@@ -617,16 +617,17 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forEachThread(Value numthreads,
-    function_ref<void(SCFBuilder &createSCF)> bodyFn) const {
+void SCFBuilder::forEachThread(ValueRange &lowerBounds, ValueRange &upperBounds, ValueRange &steps,
+    function_ref<void(OpBuilder &createSCF, Location, ValueRange)> bodyFn) const {
       //b.create<scf::ForEachThreadOp>(
       b.create<scf::ParallelOp>(
-        loc, numthreads,
-        [&](OpBuilder &childBuilder, Location childLoc) {
-          SCFBuilder scfBuilder(childBuilder, childLoc);
-          bodyFn(scfBuilder);
-          yield();
-        });
+        loc, lowerBounds, upperBounds, steps, bodyFn
+        //[&](OpBuilder &childBuilder, Location childLoc) {
+          //SCFBuilder scfBuilder(childBuilder, childLoc);
+          //bodyFn(childBuilder, childLoc, steps);
+        //  yield();
+        //}
+        );
     }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }

@@ -68,8 +68,18 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);
+    IndexExpr iOne  = LiteralIndexExpr(1);
     ValueRange outerLoops = createKrnl.defineLoops(3);
     SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};
+    //SmallVector<IndexExpr, 1> parLbs = {iZero};
+    //SmallVector<IndexExpr, 1> steps = {iOne};
+    //SmallVector<IndexExpr, 1> parUbs = {G};
+    Value c0 = createMath.constant(rewriter.getI64Type(), 0);
+    Value c1 = createMath.constant(rewriter.getI64Type(), 1);
+    Value c4 = createMath.constant(rewriter.getI64Type(), 4);
+    ValueRange parLbs(c0);
+    ValueRange steps(c1);
+    ValueRange parUbs(c4);
     SmallVector<IndexExpr, 3> outerUbs = {N, G, COPerGroup};
     // Iterate over the outer loops
     // for n = 0 .. N:
@@ -83,7 +93,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Single scalar, no need for default alignment.
     Value reductionVal = createMemRef.alloca(tmpType);
 
-    createScf.forEachThread(G,
+    createScf.forEachThread(parLbs, parUbs, steps,
     [&](KrnlBuilder &createKrnl ) {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
