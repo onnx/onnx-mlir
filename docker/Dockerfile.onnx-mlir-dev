@@ -1,5 +1,6 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-dev-test
+SHELL [ "/bin/bash", "-c" ]
 
 # Label the base image so it can be cleaned up after becoming dangling
 ARG ONNX_MLIR_PR_NUMBER

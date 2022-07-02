@@ -1,6 +1,7 @@
 # By default, use ubuntu:focal
 ARG BASE_IMAGE="ubuntu:focal"
 FROM ${BASE_IMAGE}
+SHELL [ "/bin/bash", "-c" ]
 
 # Label the image for various checking and cleanup
 ARG LLVM_PROJECT_SHA1
@@ -92,7 +93,7 @@ RUN git clone -n https://github.com/llvm/llvm-project.git \
     && ENABLE_OPENMP=$(([ "$(uname -m)" = "s390x"   ] && echo) || \
                        ([ "$(uname -m)" = "x86_64"  ] && echo "clang;openmp") || \
                        ([ "$(uname -m)" = "ppc64le" ] && echo "clang;openmp") || \
-		       echo) \
+                       echo) \
     && cmake -G Ninja ../llvm \
              -DLLVM_ENABLE_PROJECTS="mlir;${ENABLE_OPENMP}" \
              -DLLVM_TARGETS_TO_BUILD="host" \
