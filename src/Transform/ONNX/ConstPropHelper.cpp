@@ -106,6 +106,7 @@ char *allocateBufferFor(Type type, bool useMaxSize) {
   else
     sizeInBytes = getSizeInBytes(type.cast<ShapedType>());
   char *res = (char *)malloc(sizeInBytes);
+  memset(res, 0, sizeInBytes);
   return res;
 }
 
@@ -119,7 +120,7 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
     double *resArr = (double *)res;
     auto valueIt = dataAttr.getValues<APFloat>().begin();
     for (int64_t i = 0; i < numElements; ++i) {
-      double val = (double)(*valueIt++).convertToFloat();
+      double val = (*valueIt++).convertToDouble();
       *(resArr + i) = val;
     }
   } else if (elementType.isa<IntegerType>()) {
@@ -140,22 +141,18 @@ DenseElementsAttr createDenseElementsAttrFromArray(char *arr, Type outputType) {
   int64_t sizeInBytes = getSizeInBytes(outputType);
   RankedTensorType resType =
       constructRankedTensorType(outputType.cast<ShapedType>());
-  bool isSplat;
-  if (resType.getShape().size() == 0)
-    isSplat = true;
-  else if (llvm::all_of(
-               resType.getShape(), [](int64_t dim) { return dim == 1; }))
-    isSplat = true;
-  else
-    isSplat = false;
+  bool detectedSplat;
+  assert(DenseElementsAttr::isValidRawBuffer(
+             resType, ArrayRef<char>(arr, sizeInBytes), detectedSplat) &&
+         "The raw buffer is invalid for provided type");
   return DenseElementsAttr::getFromRawBuffer(
-      resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/isSplat);
+      resType, ArrayRef<char>(arr, sizeInBytes), detectedSplat);
 }
 
 /// Create a dense ONNXConstantOp from a byte array.
 ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
     Location loc, ShapedType resultType, char *array) {
-  char *resArray = allocateBufferFor(resultType);
+  char *resArray = allocateBufferFor(resultType, /*useMaxSize=*/false);
   convertDoubleInt64ToExactType(resultType, array, resArray);
   DenseElementsAttr denseAttr =
       createDenseElementsAttrFromArray(resArray, resultType);
@@ -165,36 +162,44 @@ ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
       StringAttr(), ArrayAttr());
 }
 
-/// Convert an array whose element type is double or int_64 to an array whose
-/// element type is the one of 'outType' (smaller precision). It does not
-/// support converting from floating point to integer and vise versa.
-void convertDoubleInt64ToExactType(Type outType, char *inArr, char *outArr) {
-  ShapedType shapedType = outType.cast<ShapedType>();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
-  int64_t numElements = getNumberOfElements(shapedType.getShape());
-  Type elementType = shapedType.getElementType();
+template <typename SRC_TYPE, typename DEST_TYPE>
+void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size) {
+  SRC_TYPE *srcArr = (SRC_TYPE *)srcRawArr;
+  DEST_TYPE *destArr = (DEST_TYPE *)destRawArr;
+  std::transform(
+      srcArr, srcArr + size, destArr, [](SRC_TYPE v) { return (DEST_TYPE)v; });
+}
 
-  if (elementType.isa<FloatType>()) {
-    FloatType floatTy = elementType.cast<FloatType>();
-    if (floatTy.getWidth() == 32) {
-      double *inArrDouble = (double *)inArr;
-      float *inArrFloat = (float *)outArr;
-      for (int64_t i = 0; i < numElements; ++i)
-        *(inArrFloat + i) = (float)*(inArrDouble + i);
-    } else if (floatTy.getWidth() == 64) {
-      std::copy(inArr, inArr + maxSizeInBytes, outArr);
-    } else
+/// Convert an array whose element type is double or int_64 to an array whose
+/// element type is the one of 'destType' (smaller precision). It does not
+/// support converting from floating point to integer and vise versa.
+void convertDoubleInt64ToExactType(
+    Type destType, char *srcRawArr, char *destRawArr) {
+  ShapedType destShapedType = destType.cast<ShapedType>();
+  int64_t numElements = getNumberOfElements(destShapedType.getShape());
+  Type destElemTy = destShapedType.getElementType();
+
+  if (destElemTy.isa<FloatType>()) {
+    FloatType destFloatTy = destElemTy.cast<FloatType>();
+    if (destFloatTy.getWidth() == 32) // to f32
+      copyAndCastArr<double, float>(srcRawArr, destRawArr, numElements);
+    else if (destFloatTy.getWidth() == 64) // to f64
+      copyAndCastArr<double, double>(srcRawArr, destRawArr, numElements);
+    else
       llvm_unreachable("Unknown data type");
-  } else if (elementType.isa<IntegerType>()) {
-    IntegerType intTy = elementType.cast<IntegerType>();
-    if (intTy.getWidth() == 32) {
-      int64_t *inArrInt64 = (int64_t *)inArr;
-      int32_t *inArrInt32 = (int32_t *)outArr;
-      for (int64_t i = 0; i < numElements; ++i)
-        *(inArrInt32 + i) = (int32_t)(*(inArrInt64 + i));
-    } else if (intTy.getWidth() == 64) {
-      std::copy(inArr, inArr + maxSizeInBytes, outArr);
-    } else
+  } else if (destElemTy.isa<IntegerType>()) {
+    IntegerType destIntTy = destElemTy.cast<IntegerType>();
+    if (destIntTy.getWidth() == 1) // to bool
+      copyAndCastArr<int64_t, bool>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 8) // to i8
+      copyAndCastArr<int64_t, int8_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 16) // to i16
+      copyAndCastArr<int64_t, int16_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 32) // to i32
+      copyAndCastArr<int64_t, int32_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 64) // to i64
+      copyAndCastArr<int64_t, int64_t>(srcRawArr, destRawArr, numElements);
+    else
       llvm_unreachable("Unknown data type");
   } else
     llvm_unreachable("Unknown data type");
@@ -326,3 +331,30 @@ void ConstPropTransposeImpl(Type elementType, char *constArray,
   } else
     llvm_unreachable("Unknown data type");
 }
+
+/// Explicit instantiation of all templated API functions.
+template void copyAndCastArr<double, bool>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int8_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int32_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int64_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, float>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, double>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+
+template void copyAndCastArr<int64_t, bool>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int8_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int32_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int64_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, float>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, double>(
+    char *srcRawArr, char *destRawArr, int64_t size);

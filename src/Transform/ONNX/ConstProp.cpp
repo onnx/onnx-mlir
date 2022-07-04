@@ -746,6 +746,48 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for CastOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropCast(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  // Get the const value using the maximum precision e.g. double, int64_t.
+  char *constArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+
+  // Create the result buffer.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ShapedType srcType = constValue.getType().cast<ShapedType>();
+  ShapedType destType = replacingValue.getType().cast<ShapedType>();
+  Type srcElemType = srcType.getElementType();
+  Type destElemType = destType.getElementType();
+
+  // Convert to the maximum destination type. Values will be converted to the
+  // correct type automatically when constructing the output ONNXConstantOp.
+  int64_t numElements = getNumberOfElements(srcType.getShape());
+  if (destElemType.isa<FloatType>()) {
+    if (srcElemType.isa<FloatType>())
+      copyAndCastArr<double, double>(constArray, resArray, numElements);
+    else
+      copyAndCastArr<int64_t, double>(constArray, resArray, numElements);
+  } else if (destElemType.isa<IntegerType>()) {
+    if (srcElemType.isa<FloatType>())
+      copyAndCastArr<double, int64_t>(constArray, resArray, numElements);
+    else
+      copyAndCastArr<int64_t, int64_t>(constArray, resArray, numElements);
+  } else
+    llvm_unreachable("Unsupport data type");
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
@@ -789,9 +831,9 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
     if (op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)) {
-      char *arr = allocateBufferFor(constOp.getResult().getType());
-      getArrayForFinalOutput(op, arr);
       ShapedType type = constOp.getResult().getType().cast<ShapedType>();
+      char *arr = allocateBufferFor(type, /*useMaxSize=*/false);
+      getArrayForFinalOutput(op, arr);
       DenseElementsAttr denseAttr = createDenseElementsAttrFromArray(arr, type);
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);

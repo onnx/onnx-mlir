@@ -70,11 +70,16 @@ mlir::DenseElementsAttr createDenseElementsAttrFromArray(
 ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
     Location loc, mlir::ShapedType resultType, char *array);
 
+/// Copy and cast an array of a type to another array of another type.
+/// It simply uses C++ type casting. Users must take care about precision loss.
+template <typename SRC_TYPE, typename DEST_TYPE>
+void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size);
+
 /// Convert an array whose element type is double or int_64 to an array whose
 /// element type is the one of 'outType' (smaller precision). It does not
 /// support converting from floating point to integer and vise versa.
 void convertDoubleInt64ToExactType(
-    mlir::Type outType, char *inArr, char *outArr);
+    Type destType, char *srcRawArr, char *destRawArr);
 
 /// Constant propagation for split.
 void ConstPropSplitImpl(Type elementType, char *constArray,
