@@ -10,20 +10,27 @@ createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
                          ConversionPatternRewriter &rewriter) {
   // Reading the ONNX side pads values and store in the array.
   std::vector<Value> translatepadsList;
-  if (!pads)
+  if (!pads)  {
+    for (unsigned i = 0; i < 2; i++) {
+      Value zeroPaddingValue = rewriter.create<ConstantIntOp>(loc, IntegerAttr::get(ty, 0));
+      translatepadsList.push_back(zeroPaddingValue);
+    }
     return translatepadsList;
+  }
 
   bool is_symmetric = true;
-  for (unsigned int i = 0; i < pads.size(); i += 2) {
+  for (unsigned i = 0; i < pads.size(); i += 2) {
     if (pads[i] != pads[i + 1]) {
       is_symmetric = false;
       break;
     }
   }
 
+  // TODO: Refactor once type converter becomes available and type conversion
+  // is fixed. This will probably still poorly generalize.
   dim_pads dimArray[pads.size()];
   if (is_symmetric) {
-    for (unsigned int i = 0; i < pads.size(); i += 2) {
+    for (unsigned i = 2; i < pads.size(); i++) {
       auto pad_value =
           (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
       auto f0 = IntegerAttr::get(ty, pad_value);
@@ -32,7 +39,7 @@ createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
     }
   } else {
     int j = 0;
-    for (unsigned int i = 0; i < pads.size(); i++) {
+    for (unsigned i = 0; i < pads.size(); i++) {
       dimArray[j].dim_start =
           (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
       i++;
@@ -43,7 +50,7 @@ createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
 
     // read the onnx pad values from array(dim_start values)
     int k = 0;
-    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+    for (unsigned i = 0; i < pads.size(); i += 2) {
       auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
       Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
       translatepadsList.push_back(p0v);
@@ -52,7 +59,7 @@ createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
 
     // read the onnx pad values from array(dim_end values)
     k = 0;
-    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+    for (unsigned i = 0; i < pads.size(); i += 2) {
       auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       translatepadsList.push_back(p1v);
