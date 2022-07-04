@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch NNPA --input /home/imaihal/work/onnx-mlir/test/accelerators/NNPA/backend/CMakeLists.txt --path /home/imaihal/work/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch NNPA --input /workdir/onnx-mlir/test/accelerators/NNPA/backend/CMakeLists.txt --path /workdir/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *NNPA*.
 

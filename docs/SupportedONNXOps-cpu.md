@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /home/imaihal/work/onnx-mlir/test/backend/inference_backend.py --path /home/imaihal/work/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /home/imaihal/work/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
