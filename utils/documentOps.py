@@ -145,14 +145,14 @@ def print_md():
     # Title
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
-    print("Onnx-mlir currently support ONNX operations targeting up to " + 
+    print("Onnx-mlir currently supports ONNX operations targeting up to " +
         "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
     print("* Operations are defined by the [ONNX Standard]" +
         "(https://github.com/onnx/onnx/blob/main/docs/Operators.md).")
     print("* Opset indicates, for each operation, the ONNX opset that " +
         "(1) last modified that operation and " +
         "(2) is supported by the current version of onnx-mlir. " +
-        "For example, \"Add\" was modified in Opset 14 and carries on unmodified" +
+        "For example, \"Add\" was modified in Opset 14 and carries on unmodified " +
         "to Opset 16. If onnx-mlir supports Opset 14, we thus list \"14\" as the Opset " +
         "associated with the \"Add\" operation.")
     print("\n")

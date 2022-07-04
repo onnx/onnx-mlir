@@ -95,13 +95,13 @@ set(NNPA_TEST_LIST
     # ==ARCH== NNPA
 
     # ==OP== Add
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # Scalar tensor not supported.
     test_add_cpu,zdnn_add
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(= 0).<br>- `ceil_mode` must be default value(=0).
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
     test_averagepool_2d_default_cpu,zdnn_avgpool2d
@@ -121,7 +121,7 @@ set(NNPA_TEST_LIST
     test_batchnorm_example_cpu,zdnn_mul
 
     # ==OP== Conv
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(=1).<br>- `dilations` must be default value(=1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
     # test_conv_with_autopad_same_cpu
@@ -130,18 +130,18 @@ set(NNPA_TEST_LIST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== Div
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_div_cpu,zdnn_div
     # test_div_bcast_cpu
     test_div_example_cpu,zdnn_div
 
     # ==OP== Exp
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Input tensor must have 4 dimensions.
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
 
     # ==OP== Gemm
-    # ==LIM== - `alpha` and `beta` must be default value(= 1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`.
+    # ==LIM== - `alpha` and `beta` must be default value(1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`.
     # test_gemm_all_attributes_cpu
     # test_gemm_alpha_cpu
     # test_gemm_beta_cpu
@@ -154,20 +154,20 @@ set(NNPA_TEST_LIST
     test_gemm_transposeA_cpu,zdnn_matmul_op
     test_gemm_transposeB_cpu,zdnn_matmul_op
     # ==OP== GlobalAveragePool
-    # ==LIM== - Input shape must be 4D tensor(HCHW).<br>- Dimensions in `H` and `W` must be static.
+    # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
     test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
     # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
     # ==OP== GRU
-    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `sequence_lens`, `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.
+    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- If `B` and `initial_h` are given, they must have static dimensions.<br>- `sequence_lens` is not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.
     # test_gru_defaults_cpu
     # test_gru_seq_length_cpu
     # test_gru_with_initial_bias_cpu
 
     # ==OP== Log
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== Input tensor must have 4 dimensions.
     test_log_example_cpu,zdnn_log
     test_log_cpu,zdnn_log
     # ==OP== LogSoftmax
@@ -179,7 +179,7 @@ set(NNPA_TEST_LIST
     test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
     # ==OP== LSTM
-    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be defult value(= 0).
+    # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be default value(0).
     test_lstm_defaults_cpu,zdnn_lstm
     test_lstm_with_initial_bias_cpu,zdnn_lstm
     # test_lstm_with_peepholes_cpu
@@ -191,7 +191,7 @@ set(NNPA_TEST_LIST
     # test_matmul_4d_cpu,zdnn_matmul_op # 4d not supported
 
     # ==OP== Max
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_max_example_cpu
     #test_max_one_input_cpu
     test_max_two_inputs_cpu,zdnn_max
@@ -208,7 +208,7 @@ set(NNPA_TEST_LIST
     # test_max_uint64_cpu
 
     # ==OP== MaxPool
-    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(= 0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(=0).<br>- `dilations` must be default value(=1).
+    # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
     test_maxpool_2d_default_cpu,zdnn_avgpool2d
@@ -223,7 +223,7 @@ set(NNPA_TEST_LIST
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
-    # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
+    # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_min_example_cpu
     # test_min_one_input_cpu
     test_min_two_inputs_cpu,zdnn_min
@@ -244,7 +244,8 @@ set(NNPA_TEST_LIST
     test_mul_cpu,zdnn_mul
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul
-    # ReduceMean
+    # ==OP== ReduceMean
+    # ==LIM== - `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3].
     # test_reduce_mean_default_axes_keepdims_example_cpu
     # test_reduce_mean_default_axes_keepdims_random_cpu
     # test_reduce_mean_do_not_keepdims_example_cpu
@@ -253,7 +254,8 @@ set(NNPA_TEST_LIST
     # test_reduce_mean_keepdims_random_cpu
     # test_reduce_mean_negative_axes_keepdims_example_cpu
     # test_reduce_mean_negative_axes_keepdims_random_cpu
-    # Relu
+    # ==OP== Relu
+    # ==LIM== Input tensor must be less than or equal to 4 dimensions.
     test_relu_cpu,zdnn_relu
     # ==OP== Softmax
     # ==LIM== - Rank of input tensor must be 2.<br>- `axis` must be 1 or -1.
@@ -273,6 +275,10 @@ set(NNPA_TEST_LIST
     test_sum_example_cpu,zdnn_add
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add
+    # ==OP== Tanh
+    # ==LIM== Input tensor must be less than or equal to 4 dimensions.
+    # ==OP== Sigmoid
+    # ==LIM== Input tensor must be less than or equal to 4 dimensions.
     # Model
     # test_densenet121_cpu  #  accurary error
     test_inception_v1_cpu,zdnn_conv2d
