@@ -849,7 +849,9 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
   if (!isWOK)
     return false;
 
-  // Workaround for issue #1517 Accuracy issue  at C != 1, kH = 1, kW=1
+  // Currently disable the generation of Conv2D when parameters are C != 1, kH =
+  // 1, kW=1 because of current issue #1517.  When fixed, please remove lit test
+  // test_onnx_conv2d_not_lowered_c_not_1_kernel11.
   if (inputShapeC != 1 && kernelShapeH == 1 && kernelShapeW == 1)
     return false;
 
