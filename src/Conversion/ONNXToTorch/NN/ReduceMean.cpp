@@ -58,24 +58,23 @@ public:
                   ConversionPatternRewriter &rewriter) const final {
 
     ONNXReduceMeanOp reduceMean = llvm::dyn_cast_or_null<ONNXReduceMeanOp>(op);
-    assert(reduceMean && "Expecting op to have a strong type");
+    if (!reduceMean)
+      op->emitError("Expecting op to have a strong type");
 
     mlir::MLIRContext *context = reduceMean.getContext();
     Location loc = reduceMean.getLoc();
 
     auto axis = mlir::extractFromI64ArrayAttr(reduceMean.axesAttr());
     if(!(axis.size() == 2 && axis[0] == 2 && axis[1] == 3))
-      assert("Not implemented yet for general axis sizes");
+      op->emitError("Not implemented yet for general axis sizes");
 
     auto keepDims = reduceMean.keepdimsAttr(); // ::mlir::IntegerAttr
     auto keepDimsVal = rewriter.create<ConstantBoolOp>(loc, true);
 
-
     auto dataTensor = getTorchTensor(reduceMean.data(), rewriter, context, loc);
     auto resultType = toTorchType(context, reduceMean.getResult().getType());
 
-
-    auto sintType = IntegerType::get(getContext(), 64, IntegerType::SignednessSemantics::Signed);
+    auto sintType = rewriter.getIntegerType(64, true);
     std::vector<Value> axisVal =
         createArrayAttribute(reduceMean.axesAttr(), sintType, loc, rewriter, 1);
     Value axisList = rewriter.create<PrimListConstructOp>(loc,
