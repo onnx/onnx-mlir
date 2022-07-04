@@ -267,36 +267,21 @@ void genSignatureFunction(ModuleOp &module,
     Value numOfEntryPoints = entryBlock->getArgument(0);
     // If the argument is not NULL, update its value to return the number of
     // entry points.
-    Block *condBlock = b.getInsertionBlock();
-    Block *trueBlock = condBlock->splitBlock(b.getInsertionPoint());
-    Block *falseBlock = b.createBlock(
-        trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
-    Block *endBlock = b.createBlock(
-        falseBlock->getParent(), std::next(Region::iterator(falseBlock)));
-    // Emit code for the condition block: test NULL.
-    b.setInsertionPointToEnd(condBlock);
-    Value nullPtr = create.llvm.null(i64PtrTy);
-    Value found =
-        create.llvm.icmp(LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
-    // Branch the block into the true and false blocks.
-    b.create<LLVM::CondBrOp>(
-        loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
-
-    // Emit code for the true block: update the value.
-    b.setInsertionPointToStart(trueBlock);
-    Value zero = create.llvm.constant(i64Type, (int64_t)0);
-    Value numOfEntryPointsPtr =
-        create.llvm.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
-    Value noep = create.llvm.constant(i64Type, (int64_t)entryGlobalOps.size());
-    create.llvm.store(noep, numOfEntryPointsPtr);
-    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-
-    // Emit code for the false block: do nothing.
-    b.setInsertionPointToStart(falseBlock);
-    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-
-    // Emit code for the end block to return the entry point array.
-    b.setInsertionPointToStart(endBlock);
+    create.llvm.ifThenElse(/*cond=*/
+        [&](LLVMBuilder &createLLVM) {
+          Value nullPtr = createLLVM.null(i64PtrTy);
+          return createLLVM.icmp(
+              LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
+        }, /*then=*/
+        [&](LLVMBuilder &createLLVM) {
+          Value zero = createLLVM.constant(i64Type, (int64_t)0);
+          Value numOfEntryPointsPtr =
+              createLLVM.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+          Value noep =
+              createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
+          createLLVM.store(noep, numOfEntryPointsPtr);
+        });
+    // Emit code to return the entry point array.
     Value entryAddr = create.llvm.addressOf(entryArrayOp);
     Value entryI8Ptr = create.llvm.bitcastI8PtrPtr(entryAddr);
     create.llvm._return(entryI8Ptr);
@@ -319,36 +304,12 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToStart(entryBlock);
 
     Value zeroI32 = create.llvm.constant(i32Type, (int64_t)0);
-    Value oneI64 = create.llvm.constant(i64Type, (int64_t)1);
 
-    // 2.1 A buffer to keep a pointer pointing to the return signature string.
-    Value ptrToReturnSig =
-        create.llvm._alloca(i8PtrPtrTy, oneI64, /*alignment=*/0);
-
-    // 2.2 The name of the entry point that we want to return its signature.
+    // 2.1 The name of the entry point that we want to return its signature.
     Value input = entryBlock->getArgument(0);
 
-    // 2.3 Emit code to find the signature of the given entry point.
+    // 2.2 Emit code to find the signature of the given entry point.
     // Iterate over the list of the entry points and check string equality.
-
-    // Split the current block into condition, true, false, and end blocks.
-    // - If the user's entry point name is found, go to the true block, then the
-    // end block.
-    // - Otherwise, recursively split the false block.
-    Block *condBlock, *trueBlock, *falseBlock, *endBlock;
-    condBlock = b.getInsertionBlock();
-    trueBlock = condBlock->splitBlock(b.getInsertionPoint());
-    falseBlock = b.createBlock(
-        trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
-    endBlock = b.createBlock(
-        falseBlock->getParent(), std::next(Region::iterator(falseBlock)));
-
-    // Emit code for the end block.
-    b.setInsertionPointToStart(endBlock);
-    Value res = create.llvm.load(ptrToReturnSig);
-    create.llvm._return(res);
-
-    // Emit code for the condition, true and false blocks.
     for (uint64_t j = 0; j < numOfEntryPoints; ++j) {
       LLVM::GlobalOp globalEntryPoint = entryGlobalOps[j];
       LLVM::GlobalOp globalSignature =
@@ -357,46 +318,34 @@ void genSignatureFunction(ModuleOp &module,
              "Entry point value is not StringAttr");
       StringAttr entryPointValueAttr =
           globalEntryPoint.getValueAttr().cast<StringAttr>();
-      // Emit code for the condition block.
-      b.setInsertionPointToEnd(condBlock);
-      // Read an entry point name.
-      Value address = create.llvm.addressOf(globalEntryPoint);
-      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
-      Value entryI8Ptr =
-          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
-      // Compare it with the user's entry point name.
-      FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
-      Value length = create.llvm.constant(
-          i64Type, (int64_t)entryPointValueAttr.getValue().size());
-      Value strncmpResult = create.llvm.call(
-          i32Type, StrncmpRef, ArrayRef<Value>({input, entryI8Ptr, length}));
-      // Equal if strncmp returns `0`.
-      Value found =
-          create.llvm.icmp(LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
-      // Branch the block into the true and false blocks.
-      b.create<LLVM::CondBrOp>(
-          loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
 
-      // Emit code for the true block.
-      b.setInsertionPointToStart(trueBlock);
-      Value sigAddr = create.llvm.addressOf(globalSignature);
-      Value sigI8Ptr = create.llvm.bitcastI8Ptr(sigAddr);
-      create.llvm.store(sigI8Ptr, ptrToReturnSig);
-      b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-
-      // Emit code for the false block.
-      b.setInsertionPointToStart(falseBlock);
-      if (j == numOfEntryPoints - 1) {
-        // Return NULL if the entry point name is not found.
-        create.llvm._return(create.llvm.nullI8Ptr());
-      } else {
-        // Recursively do with the other entry point names.
-        condBlock = b.getInsertionBlock();
-        trueBlock = condBlock->splitBlock(b.getInsertionPoint());
-        falseBlock = b.createBlock(
-            trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
-      }
+      // Return the signature if found.
+      create.llvm.ifThenElse(/*cond=*/
+          [&](LLVMBuilder &createLLVM) {
+            // Read an entry point name.
+            Value address = createLLVM.addressOf(globalEntryPoint);
+            Value zeroI64 = createLLVM.constant(i64Type, (int64_t)0);
+            Value entryI8Ptr =
+                createLLVM.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+            // Compare it with the user's entry point name.
+            FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
+            Value length = createLLVM.constant(
+                i64Type, (int64_t)entryPointValueAttr.getValue().size());
+            Value strncmpResult = createLLVM.call(i32Type, StrncmpRef,
+                ArrayRef<Value>({input, entryI8Ptr, length}));
+            // Found if strncmp returns `0`.
+            return createLLVM.icmp(
+                LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
+          }, /*then=*/
+          [&](LLVMBuilder &createLLVM) {
+            Value sigAddr = createLLVM.addressOf(globalSignature);
+            Value sigI8Ptr = createLLVM.bitcastI8Ptr(sigAddr);
+            createLLVM._return(sigI8Ptr);
+          });
     }
+
+    // Return NULL if not found.
+    create.llvm._return(create.llvm.nullI8Ptr());
   }
 }
 

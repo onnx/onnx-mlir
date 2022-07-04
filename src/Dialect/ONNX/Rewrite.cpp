@@ -141,7 +141,6 @@ bool areProducedByTransposeOp(ValueRange values) {
 // keepgoing = true
 // while (i < max_trip_count && keepgoing == true) {
 //    k = k + STEP
-//    keepgoing = (k < UB)
 // }
 // ```
 // where `max_trip_count` is replaced by an actual value derived from the loop.
@@ -164,8 +163,8 @@ public:
     //   ^bb(max_trip_count, cond, ..., ubValue, ..., counterValue, ...):
     //     stepValue = ONNXConstantOp() {value = ...}
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
-    //     cond = LessOp(newCounterValue, ubValue)
-    //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+    //     cond_new = cond
+    //     ONNXReturnOp (cond_new, ..., ubValue, ..., newCounterValue, ...)
     // ```
     bool matched;
     Value newMaxTripCountValue;
@@ -176,6 +175,10 @@ public:
 
     // Rewrite
     loopOp->replaceUsesOfWith(maxTripCountValue, newMaxTripCountValue);
+    // Modify the condition return
+    Region &loopBody = onnxLoopOp.body();
+    Operation *loopBodyTerminator = loopBody.front().getTerminator();
+    loopBodyTerminator->setOperand(0, loopBody.front().getArgument(1));
     return success();
   }
 

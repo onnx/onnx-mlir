@@ -24,6 +24,11 @@ file(GENERATE
   )
 
 file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/input_verification_backend.py
+  INPUT ${ONNX_BACKENDTEST_SRC_DIR}/input_verification_backend.py
+  )
+
+file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/variables.py
   INPUT ${ONNX_BACKENDTEST_SRC_DIR}/variables.py
   )

@@ -91,8 +91,8 @@ func @test_onnx_conv2d_stride_13(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tenso
 
 // -----
 
-func @test_onnx_conv2d_valid_padding_H_equal_KW(%arg0: tensor<?x1280x1x1xf32>, %arg1: tensor<448x1280x1x1xf32>, %arg2: tensor<448xf32>) -> tensor<*xf32> {
-    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<?x1280x1x1xf32>, tensor<448x1280x1x1xf32>, tensor<448xf32>) -> tensor<*xf32>
+func @test_onnx_conv2d_valid_padding_H_equal_KW(%arg0: tensor<?x1280x2x2xf32>, %arg1: tensor<448x1280x2x2xf32>, %arg2: tensor<448xf32>) -> tensor<*xf32> {
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<?x1280x2x2xf32>, tensor<448x1280x2x2xf32>, tensor<448xf32>) -> tensor<*xf32>
     return %0 : tensor<*xf32>
   // CHECK-LABEL: test_onnx_conv2d_valid_padding_H_equal_KW
   // CHECK: "zhigh.Conv2D"
@@ -224,4 +224,16 @@ func @test_exceed_limit_conv2d(%arg0: tensor<32769x3x32x32xf32>, %arg1 : tensor<
 
 // CHECK-LABEL:  func @test_exceed_limit_conv2d
 // CHECK:        "onnx.Conv"
+}
+
+// -----
+
+/// COM: Workaround for issue #1517
+/// COM: Not lowered to zhigh when C != 1, kH = 1, and kW = 1
+func @test_onnx_conv2d_not_lowered_c_not_1_kernel11(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<2x3x1x1xf32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {kernel_shape = [1, 1]} : (tensor<5x3x32x32xf32>, tensor<2x3x1x1xf32>, tensor<2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_onnx_conv2d_not_lowered_c_not_1_kernel11
+  // CHECK: "onnx.Conv"
 }
