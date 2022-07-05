@@ -14,6 +14,7 @@
 //===-----------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -62,12 +63,11 @@ public:
 
     mlir::Value x = adaptor.X();
     mlir::FloatAttr alpha = adaptor.alphaAttr();
-    llvm::APFloat negSlope = alpha.getValue();
-
-    mlir::FloatAttr negSlopeFloatValue = FloatAttr::get(
-        mlir::FloatType::getF64(op.getContext()), negSlope.convertToFloat());
+    llvm::APFloat alphaVal = convertToFloatValue(alpha.getValue());
+    mlir::FloatAttr negSlopeFloatAttr = FloatAttr::get(
+        mlir::FloatType::getF64(op->getContext()), alphaVal);
     mlir::Value negSlopeConstFloat =
-        rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatValue);
+        rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatAttr);
 
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenLeakyReluOp>(
