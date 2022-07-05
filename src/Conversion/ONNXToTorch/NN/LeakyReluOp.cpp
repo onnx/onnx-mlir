@@ -57,21 +57,19 @@ public:
   LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
         ConversionPatternRewriter &rewriter) const override {
 
-    Location loc = op.getLoc();
+    mlir::Location loc = op.getLoc();
     mlir::MLIRContext *context = op->getContext();
 
-    auto x = adaptor.X();
-    auto alpha = adaptor.alphaAttr(); // mlir::FloatAttr
-    auto negSlope = alpha.getValue(); // APSFloat
-    auto negSlopeFloatValue = FloatAttr::get(
+    mlir::Value x = adaptor.X();
+    mlir::FloatAttr alpha = adaptor.alphaAttr();
+    llvm::APFloat negSlope = alpha.getValue();
+
+    mlir::FloatAttr negSlopeFloatValue = FloatAttr::get(
         mlir::FloatType::getF64(op.getContext()), negSlope.convertToFloat());
-    Value negSlopeConstFloat =
-        rewriter.create<ConstantFloatOp>(loc, negSlopeFloatValue);
+    mlir::Value negSlopeConstFloat =
+        rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatValue);
 
-    TensorType opTensorType = op.getResult().getType().cast<TensorType>();
-    auto resultType = Torch::ValueTensorType::get(op->getContext(),
-        opTensorType.getShape(), opTensorType.getElementType());
-
+    mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenLeakyReluOp>(
         loc, resultType, x, negSlopeConstFloat);
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(

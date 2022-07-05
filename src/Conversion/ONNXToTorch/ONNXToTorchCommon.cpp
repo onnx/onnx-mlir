@@ -41,7 +41,7 @@ TorchTypeConverter::TorchTypeConverter() {
     return Torch::StringType::get(stringType.getContext());
   });
 
-  /// Tensor conversion
+  /// Torch tensor conversion
   addConversion([](TensorType type) -> Optional<Type> {
     return Torch::ValueTensorType::get(
       type.getContext(), type.getShape(), type.getElementType());
@@ -56,40 +56,30 @@ TorchTypeConverter::TorchTypeConverter() {
   addArgumentMaterialization(addTensorCast);
   addTargetMaterialization([](OpBuilder &builder, Torch::ValueTensorType type,
                               ValueRange inputs, Location loc) -> Value {
-    assert(inputs.size() == 1);
     assert(inputs[0].getType().isa<TensorType>());
     return builder.create<torch::TorchConversion::FromBuiltinTensorOp>(
       loc, type, inputs[0]);
   });
 
-  /// Create tensor to value tensor type conversion and ensure that
-  /// we always use signed integer types. i64 -> si64 conversion.
+  /// Create tensor to value tensor conversion and ensure that we always
+  /// use signed integer types. This is important since the `torch-mlir`
+  /// only supports signed integer types.
   addConversion([](RankedTensorType type) -> Type {
-    Type elementType = type.cast<TensorType>().getElementType();
-    if (type.getElementType().isSignlessInteger(64)) {
-      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
+    mlir::Type elementType = type.cast<TensorType>().getElementType();
+    if (type.getElementType().isSignlessInteger()) {
+      elementType = IntegerType::get(type.getContext(),
+        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Signed);
     }
-    return Torch::ValueTensorType::get(type.getContext(),
-      type.getShape(), elementType);
+    return Torch::ValueTensorType::get(type.getContext(), type.getShape(), elementType);
   });
   addTargetMaterialization([](OpBuilder &builder,
                               RankedTensorType type, ValueRange inputs,
                               Location loc) -> Optional<Value> {
-    /// Other builtin integer types could be handled by other materializers.
-    assert(inputs.size() == 1);
-    assert(inputs[0].getType().isa<RankedTensorType>());
-    Type elementType = type.cast<TensorType>().getElementType();
-    if (type.getElementType().isSignlessInteger(64)) {
-      elementType = IntegerType::get(type.getContext(), 64, IntegerType::Unsigned);
+    if (type.getElementType().isSignlessInteger()) {
+      mlir::Type elementType = IntegerType::get(type.getContext(),
+        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
+      return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
     }
-    return builder.create<UnrealizedConversionCastOp>(loc,
-      elementType, inputs).getResult(0);
+    return llvm::None;
   });
-  auto addValueTensorCast = [](OpBuilder &builder, Torch::ValueTensorType type,
-                               ValueRange inputs, Location loc) -> Optional<Value> {
-    assert(inputs.size() == 1);
-    return builder.create<UnrealizedConversionCastOp>(loc, type, inputs).getResult(0);
-  };
-  addSourceMaterialization(addValueTensorCast);
-  addArgumentMaterialization(addValueTensorCast);
 }
