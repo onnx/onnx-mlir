@@ -102,18 +102,18 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 
 /*!
  *  Clear the compiler option defined by the input parameter.
- *  @param kind Describe which option kind is being set. Typical kinds 
- *  are TargetTriple, TargetArch, TargetCPU, TargetAccel, 
- *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for 
+ *  @param kind Describe which option kind is being set. Typical kinds
+ *  are TargetTriple, TargetArch, TargetCPU, TargetAccel,
+ *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for
  *  complete list.
  */
 ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
 
 /*!
  *  Get the compiler options.
- *  @param kind Describe which option kind is being set. Typical kinds 
- *  are TargetTriple, TargetArch, TargetCPU, TargetAccel, 
- *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for 
+ *  @param kind Describe which option kind is being set. Typical kinds
+ *  are TargetTriple, TargetArch, TargetCPU, TargetAccel,
+ *  CompilerOptLevel ("0"..."5"), and Verbose. See OMCompilerTypes.h for
  *  complete list.
  *  @return A copy of the compiler option string. Caller is responsible for
  *  freeing the returned pointer.
@@ -132,8 +132,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
  * an extention.
- *  @param emissionTarget Target format to compile to. Typical values are 
- *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list. 
+ *  @param emissionTarget Target format to compile to. Typical values are
+ *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list.
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
  *  @param errorMessage Output error message, if any. User is responsible for
@@ -156,8 +156,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
  * an extention.
- *  @param emissionTarget Target format to compile to. Typical values are 
- *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list. 
+ *  @param emissionTarget Target format to compile to. Typical values are
+ *  EmitMLIR, EmitLib or EmitJNI. See OMCompilerTypes.h for complete list.
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
  *  @param errorMessage Error message.
