@@ -100,12 +100,6 @@ Torch::ValueTensorType toTorchType(mlir::MLIRContext *ctx, Type t) {
                                      type.getElementType());
 }
 
-Torch::ValueTensorType toSI64SignedType(mlir::MLIRContext *ctx, Type t) {
-   auto type = t.template dyn_cast<TensorType>();
-   auto elementType = IntegerType::get(type.getContext(), 64, IntegerType::Signed);
-   return Torch::ValueTensorType::get(ctx, type.getShape(), elementType);
-}
-
 /// Get Torch tensor from mlir::Value tensor
 ///
 /// \param operand: operand tensor
@@ -138,10 +132,7 @@ Value getIntValue(int val, ConversionPatternRewriter &rewriter,
 
 /// Get vector of ints from mlir::ArrayAttr<IntegerAttr>
 ///
-/// \param operand: operand tensor
-/// \param rewriter: rewriter object related to the operator
-/// \param context: context related to operator
-/// \param loc: location related to operator
+/// \param arr: mlir array attribute
 ///
 /// \returns vector of integers
 std::vector<int> toVector(mlir::ArrayAttr arr) {
@@ -154,4 +145,13 @@ std::vector<int> toVector(mlir::ArrayAttr arr) {
   }
 
   return elements;
+}
+
+/// `torch-mlir` only supports 64-bit floats. Therefore, we need to
+/// consistently convert from 32-bit `onnx-mlir` floats.
+llvm::APFloat convertToFloatValue(llvm::APFloat value) {
+    bool IsExact;
+    value.convert(llvm::APFloat::IEEEdouble(), llvm::APFloat::rmNearestTiesToEven, &IsExact);
+    assert(!IsExact && "conversion to 64-bit float failed");
+    return value;
 }
