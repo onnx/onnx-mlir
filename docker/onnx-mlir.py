@@ -38,7 +38,7 @@ def main():
 
     # Pull the latest onnxmlirczar/onnx-mlir image, if image
     # is already up-to-date, pull will do nothing.
-    args = [ 'docker', 'pull', ONNX_MLIR_IMAGE ]
+    args = [ 'docker', 'pull', ONNX_MLIR_IMAGE, '--platform', 'linux/amd64' ]
     proc = subprocess.Popen(args,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
