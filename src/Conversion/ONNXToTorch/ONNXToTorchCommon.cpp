@@ -47,18 +47,21 @@ TorchTypeConverter::TorchTypeConverter() {
       type.getContext(), type.getShape(), type.getElementType());
   });
   auto addTensorCast = [](OpBuilder &builder, TensorType type,
-                          ValueRange inputs, Location loc) -> Value {
-    assert(inputs.size() == 1);
+                          ValueRange inputs, Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
     assert(inputs[0].getType().isa<Torch::BaseTensorType>());
-    return builder.create<torch::TorchConversion::ToBuiltinTensorOp>(loc, inputs[0]);
+    return builder.create<torch::TorchConversion::ToBuiltinTensorOp>(loc, inputs[0]).getResult();
   };
   addSourceMaterialization(addTensorCast);
   addArgumentMaterialization(addTensorCast);
   addTargetMaterialization([](OpBuilder &builder, Torch::ValueTensorType type,
-                              ValueRange inputs, Location loc) -> Value {
-    assert(inputs[0].getType().isa<TensorType>());
+                              ValueRange inputs, Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+    assert(inputs[0].getType().isa<mlir::TensorType>());
     return builder.create<torch::TorchConversion::FromBuiltinTensorOp>(
-      loc, type, inputs[0]);
+      loc, type, inputs[0]).getResult();
   });
 
   /// Create tensor to value tensor conversion and ensure that we always
@@ -72,14 +75,16 @@ TorchTypeConverter::TorchTypeConverter() {
     }
     return Torch::ValueTensorType::get(type.getContext(), type.getShape(), elementType);
   });
-  addTargetMaterialization([](OpBuilder &builder,
+  auto addUnrealizedI64Cast = [](OpBuilder &builder,
                               RankedTensorType type, ValueRange inputs,
                               Location loc) -> Optional<Value> {
-    if (type.getElementType().isSignlessInteger()) {
+    if (type.getElementType().isSignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
         type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
       return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
     }
     return llvm::None;
-  });
+  };
+  addSourceMaterialization(addUnrealizedI64Cast);
+  addTargetMaterialization(addUnrealizedI64Cast);
 }
