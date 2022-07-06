@@ -51,6 +51,14 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
+Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
+  DenseElementsAttr denseAttr =
+      createDenseElementsAttrFromRawBuffer(buf, resultType);
+  return b.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
+      ArrayAttr());
+}
+
 Value OnnxBuilder::div(Value A, Value B) const {
   assert((A.getType().cast<ShapedType>().getElementType() ==
              B.getType().cast<ShapedType>().getElementType()) &&

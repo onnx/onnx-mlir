@@ -28,16 +28,6 @@
 
 using namespace mlir;
 
-/// Get the element size in bytes. Use the biggest size to avoid loss in
-/// casting.
-int64_t getEltSizeInBytes(mlir::Type ty);
-
-/// Get the number of elements.
-int64_t getNumberOfElements(llvm::ArrayRef<int64_t> shape);
-
-/// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(mlir::Type ty);
-
 /// Get the size of a tensor from its ranked type in bytes, using the largest
 /// precision.
 int64_t getMaxSizeInBytes(mlir::Type ty);
@@ -61,14 +51,6 @@ char *allocateBufferFor(mlir::Type type, bool useMaxSize = false);
 
 /// Get a data array from a given ONNXConstantOp.
 char *createArrayFromDenseElementsAttr(mlir::DenseElementsAttr dataAttr);
-
-/// A helper function to construct a DenseElementsAttr from an array.
-mlir::DenseElementsAttr createDenseElementsAttrFromArray(
-    char *arr, mlir::Type outputType);
-
-/// Create a dense ONNXConstantOp from a byte array.
-ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
-    Location loc, mlir::ShapedType resultType, char *array);
 
 /// Copy and cast an array of a type to another array of another type.
 /// It simply uses C++ type casting. Users must take care about precision loss.

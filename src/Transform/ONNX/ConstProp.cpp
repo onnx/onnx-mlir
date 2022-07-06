@@ -290,7 +290,7 @@ void IterateConstPropElementwiseBinary(char *lhs, char *rhs,
       }
 
   // Do computation.
-  for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
     // Compute indices to access the output.
     std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
 
@@ -415,7 +415,7 @@ void IterateConstPropElementwiseUnary(
   T *resArray = reinterpret_cast<T *>(res);
 
   // Calculate element-wise unary result.
-  for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
     *(resArray + i) = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(
         *(inputArray + i));
   }
@@ -671,7 +671,7 @@ LogicalResult ScatterNDImpl(
     slice_size *= updates_shape[i];
   }
 
-  int64_t output_flat_size = getNumberOfElements(data_shape);
+  int64_t output_flat_size = ShapedType::getNumElements(data_shape);
   int64_t remain_flat_size = output_flat_size;
   std::vector<int64_t> dims_to_count(indices_nd, 0);
 
@@ -766,7 +766,7 @@ ONNXConstantOp ConstPropCast(
 
   // Convert to the maximum destination type. Values will be converted to the
   // correct type automatically when constructing the output ONNXConstantOp.
-  int64_t numElements = getNumberOfElements(srcType.getShape());
+  int64_t numElements = ShapedType::getNumElements(srcType.getShape());
   if (destElemType.isa<FloatType>()) {
     if (srcElemType.isa<FloatType>())
       copyAndCastArr<double, double>(constArray, resArray, numElements);
@@ -834,7 +834,8 @@ void ConstPropONNXToONNXPass::runOnOperation() {
       ShapedType type = constOp.getResult().getType().cast<ShapedType>();
       char *arr = allocateBufferFor(type, /*useMaxSize=*/false);
       getArrayForFinalOutput(op, arr);
-      DenseElementsAttr denseAttr = createDenseElementsAttrFromArray(arr, type);
+      DenseElementsAttr denseAttr =
+          createDenseElementsAttrFromRawBuffer(arr, type);
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);
       free(arr);
