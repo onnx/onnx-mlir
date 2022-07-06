@@ -80,7 +80,7 @@ TorchTypeConverter::TorchTypeConverter() {
                            Location loc) -> Optional<Value> {
     if (type.getElementType().isUnsignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
-        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Signed);
+        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
       return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
     }
     return llvm::None;
@@ -90,7 +90,7 @@ TorchTypeConverter::TorchTypeConverter() {
                            Location loc) -> Optional<Value> {
     if (type.getElementType().isSignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
-        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
+        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Signed);
       return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
     }
     return llvm::None;
