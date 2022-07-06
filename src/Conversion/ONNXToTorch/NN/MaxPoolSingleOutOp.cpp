@@ -105,8 +105,7 @@ public:
       }
     }
 
-    // if ceilingMode is 0 means it's false, else true
-    // ceilMode will usually always be false
+    // If ceilingMode is 0 (default) use floor rounding when computing the output shape, else use ceil.
     Value constBoolOpValue = rewriter.create<ConstantBoolOp>(loc, false);
     Value ceilingModeVal;
     if (ceilingModeAttr) {
