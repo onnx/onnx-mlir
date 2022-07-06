@@ -142,7 +142,7 @@ public:
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
         opTensorType.getShape(), opTensorType.getElementType());
 
-    // Allow symmetric padding and create additonal padding op to support
+    // Allow symmetric padding and create additional padding op to support
     // asymmetric padding in `torch-mlir`
     Value result;
     if (translatePadsList.size() == 2) {
