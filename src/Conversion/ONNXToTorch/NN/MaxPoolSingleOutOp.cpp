@@ -27,8 +27,8 @@ using namespace mlir::torch::Torch;
 /**
  * ONNX MaxPool operation
  *
- * “ONNX MaxPool operation with a single output.
- * ” “See ONNXMaxPoolOp for a full description of the MaxPool semantics.”
+ * ONNX MaxPool operation with a single output.
+ * See ONNXMaxPoolOp for a full description of the MaxPool semantics.
  *
  * Attributes:
  *  auto_pad	::mlir::StringAttr	string attribute
@@ -72,22 +72,21 @@ public:
     auto storageOrderAttr = op1.storage_orderAttr(); // ::mlir::IntegerAttr
     int64_t storageOrder = op1.storage_order();      // int64_t
 
-    // Reading the ONNX side pads values and store in the array.
-
+    // Reading the ONNX side pads values and store in the array
     auto intType = IntegerType::get(op1.getContext(), 64);
     auto boolType = IntegerType::get(op1.getContext(), 1);
 
+    // Get mlir attributes as vectors
     std::vector<Value> translatePadsList =
         createPadsArrayAttribute(pads, intType, loc, rewriter);
-    // reading the dilation values.
+    // Dilation has a default value of 1
     std::vector<Value> dilationOnnxList =
         createArrayAttribute(dilations, intType, loc, rewriter, 1);
     std::vector<Value> kernalShapeOnnxList;
     std::vector<Value> stridesOnnxList;
 
-    // reading the kernalShape values.
     if (kernalShape) {
-      for (unsigned int i = 0; i < kernalShape.size(); i++) {
+      for (unsigned i = 0; i < kernalShape.size(); i++) {
         auto kernalShapeElement = IntegerAttr::get(intType,
             (kernalShape[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
         Value kernalShapeConstInt =
@@ -96,9 +95,8 @@ public:
       }
     }
 
-    // reading the strides values.
     if (strides) {
-      for (unsigned int i = 0; i < strides.size(); i++) {
+      for (unsigned i = 0; i < strides.size(); i++) {
         auto strideElement = IntegerAttr::get(intType,
             (strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
         Value strideElementConstInt =
@@ -107,8 +105,8 @@ public:
       }
     }
 
-    // reading the ceilingMode values.
-    // if ceilingMode is 0 means it's false, else true.
+    // if ceilingMode is 0 means it's false, else true
+    // ceilMode will usually always be false
     Value constBoolOpValue = rewriter.create<ConstantBoolOp>(loc, false);
     Value ceilingModeVal;
     if (ceilingModeAttr) {
@@ -119,36 +117,66 @@ public:
     } else
       ceilingModeVal = constBoolOpValue;
 
+    // Create maxpool mlir values
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{stridesOnnxList});
-
-    Value dilationList = rewriter.create<PrimListConstructOp>(loc,
-        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{dilationOnnxList});
-
     Value padsList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatePadsList});
-
+    Value dilationList = rewriter.create<PrimListConstructOp>(loc,
+        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{dilationOnnxList});
     Value kernalShapeList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{kernalShapeOnnxList});
 
-    TensorType xTensorType = x.getType().cast<TensorType>();
-    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
+    // Determine input and result type
+    TensorType inputTensorType = x.getType().cast<TensorType>();
+    auto inputType = Torch::ValueTensorType::get(
+        context, inputTensorType.getShape(), inputTensorType.getElementType());
+    auto inputTensor =
+        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+            loc, inputType, x);
 
-    auto xType = Torch::ValueTensorType::get(
-        context, xTensorType.getShape(), xTensorType.getElementType());
+    TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(op1.getContext(),
         opTensorType.getShape(), opTensorType.getElementType());
-    auto xTorchTensor =
-        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-            loc, xType, x);
 
-    Value result = rewriter.create<AtenMaxPool2dOp>(loc, resultType,
-        xTorchTensor, kernalShapeList, stridesList, padsList, dilationList,
-        ceilingModeVal);
+    // Allow symmetric padding and create additonal padding op to support
+    // asymmetric padding in `torch-mlir`
+    Value result;
+    if (translatePadsList.size() == 2) {
+      result = rewriter.create<AtenMaxPool2dOp>(loc, resultType,
+          inputTensor, kernalShapeList, stridesList, padsList, dilationList,
+          ceilingModeVal);
+    } else {
+      std::vector<int64_t> padShape = inputTensorType.getShape();
+      for (unsigned i = 0; i < 2; i++) {
+        auto startDim = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        auto endDim = (pads[i + 2].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        padShape[i + 2] += (startDim + endDim);
+      }
+      auto padType = Torch::ValueTensorType::get(context, llvm::makeArrayRef(padShape),
+          inputTensorType.getElementType());
+
+      // Construct zero padding op since `torch` does not support asymmetric
+      // padding for maxpool2d
+      IntegerAttr zeroAttr = IntegerAttr::get(intType, 0);
+      Value zeroPad = rewriter.create<ConstantIntOp>(loc, zeroAttr);
+      Value padTensor = rewriter.create<AtenConstantPadNdOp>(loc, padType,
+          inputTensor, padsList, zeroPad);
+
+      Value padValue = rewriter.create<ConstantIntOp>(loc, zeroAttr);
+      Value zeroPadsList = rewriter.create<PrimListConstructOp>(loc,
+          Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+          ValueRange{padValue, padValue});
+
+      result = rewriter.create<AtenMaxPool2dOp>(loc, resultType,
+          padTensor, kernalShapeList, stridesList, zeroPadsList, dilationList,
+          ceilingModeVal);
+    }
+
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op->getResult(0).getType(), result);
     return success();

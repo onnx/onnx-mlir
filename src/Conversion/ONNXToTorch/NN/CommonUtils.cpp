@@ -1,69 +1,44 @@
 #include "CommonUtils.h"
 
-typedef struct dim_pads {
-  int dim_start;
-  int dim_end;
-} dim_pads;
-
 std::vector<Value>
 createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
                          ConversionPatternRewriter &rewriter) {
-  // Reading the ONNX side pads values and store in the array.
+  // Read ONNX side pads values and store inside a vector
   std::vector<Value> translatepadsList;
   if (!pads)  {
     for (unsigned i = 0; i < 2; i++) {
-      Value zeroPaddingValue = rewriter.create<ConstantIntOp>(loc, IntegerAttr::get(ty, 0));
+      Value zeroPaddingValue = rewriter.create<ConstantIntOp>(loc,
+          IntegerAttr::get(ty, 0));
       translatepadsList.push_back(zeroPaddingValue);
     }
-    return translatepadsList;
-  }
-
-  bool is_symmetric = true;
-  for (unsigned i = 0; i < pads.size(); i += 2) {
-    if (pads[i] != pads[i + 1]) {
-      is_symmetric = false;
-      break;
-    }
-  }
-
-  // TODO: Refactor once type converter becomes available and type conversion
-  // is fixed. This will probably still poorly generalize.
-  dim_pads dimArray[pads.size()];
-  if (is_symmetric) {
-    for (unsigned i = 2; i < pads.size(); i++) {
-      auto pad_value =
-          (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      auto f0 = IntegerAttr::get(ty, pad_value);
-      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-      translatepadsList.push_back(p0v);
-    }
   } else {
-    int j = 0;
-    for (unsigned i = 0; i < pads.size(); i++) {
-      dimArray[j].dim_start =
-          (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      i++;
-      dimArray[j].dim_end =
-          (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      j++;
-    }
+    // Determine if padding is symmetrical
+    // `onnx-mlir` padding has the following form
+    // (pad_dim1_start, pad_dim2_start, pad_dim1_end, pad_dim2_end)
+    bool is_symmetric = true;
+    if (pads[0] != pads[2] || pads[1] != pads[3])
+      is_symmetric = false;
 
-    // read the onnx pad values from array(dim_start values)
-    int k = 0;
-    for (unsigned i = 0; i < pads.size(); i += 2) {
-      auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
-      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-      translatepadsList.push_back(p0v);
-      k++;
-    }
-
-    // read the onnx pad values from array(dim_end values)
-    k = 0;
-    for (unsigned i = 0; i < pads.size(); i += 2) {
-      auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
-      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-      translatepadsList.push_back(p1v);
-      k++;
+    // Create appropriate padding vectors based on padding symmetry
+    if (is_symmetric) {
+      for (unsigned i = 0; i < pads.size(); i += 2) {
+        auto pad = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        auto padAttr = IntegerAttr::get(ty, pad);
+        Value padValue = rewriter.create<ConstantIntOp>(loc, padAttr);
+        translatepadsList.push_back(padValue);
+      }
+    } else {
+      // `torch-mlir` only allows symmetric 2-dimensional padding for conv2d and
+      // maxpool2d; therefore we pass the entire padding vector and insert
+      // zeropad2d ops
+      for (unsigned i = 0; i < pads.size(); i++) {
+        auto pad = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        auto padAttr = IntegerAttr::get(ty, pad);
+        Value padValue = rewriter.create<ConstantIntOp>(loc, padAttr);
+        translatepadsList.push_back(padValue);
+      }
+      // `torch-mlir` expects (pad_dim1_start, pad_dim1_end, ...)
+      std::swap(translatepadsList[1], translatepadsList[2]);
     }
   }
   return translatepadsList;
