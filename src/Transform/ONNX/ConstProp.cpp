@@ -835,7 +835,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
       char *arr = allocateBufferFor(type, /*useMaxSize=*/false);
       getArrayForFinalOutput(op, arr);
       DenseElementsAttr denseAttr =
-          createDenseElementsAttrFromRawBuffer(arr, type);
+          createDenseElementsAttrFromRawBuffer(type, arr);
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);
       free(arr);

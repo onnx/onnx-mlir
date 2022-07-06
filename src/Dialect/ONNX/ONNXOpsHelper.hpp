@@ -167,7 +167,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromStringAttrs(
 
 /// Create a DenseElementsAttr from a raw buffer.
 mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    char *buf, mlir::Type resType);
+    mlir::Type resType, char *buf);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);

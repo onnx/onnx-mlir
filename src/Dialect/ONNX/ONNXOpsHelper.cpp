@@ -435,7 +435,7 @@ DenseElementsAttr createDenseElementsAttrFromStringAttrs(
 
 /// Create a DenseElementsAttr from a raw buffer.
 DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    char *buf, Type resType) {
+    Type resType, char *buf) {
   assert(isRankedShapedType(resType) && "Not a ranked type");
   int64_t sizeInBytes = getSizeInBytes(resType);
   ArrayRef<char> arr(buf, sizeInBytes);

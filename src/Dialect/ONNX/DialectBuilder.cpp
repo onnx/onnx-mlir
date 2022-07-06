@@ -53,7 +53,7 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
 
 Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
   DenseElementsAttr denseAttr =
-      createDenseElementsAttrFromRawBuffer(buf, resultType);
+      createDenseElementsAttrFromRawBuffer(resultType, buf);
   return b.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());
