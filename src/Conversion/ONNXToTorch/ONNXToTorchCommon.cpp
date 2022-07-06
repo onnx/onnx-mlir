@@ -75,16 +75,24 @@ TorchTypeConverter::TorchTypeConverter() {
     }
     return Torch::ValueTensorType::get(type.getContext(), type.getShape(), elementType);
   });
-  auto addUnrealizedI64Cast = [](OpBuilder &builder,
-                              RankedTensorType type, ValueRange inputs,
-                              Location loc) -> Optional<Value> {
+  addSourceMaterialization([](OpBuilder &builder,
+                           RankedTensorType type, ValueRange inputs,
+                           Location loc) -> Optional<Value> {
+    if (type.getElementType().isUnsignedInteger()) {
+      mlir::Type elementType = IntegerType::get(type.getContext(),
+        type.getElementType().getIntOrFloatBitWidth(), IntegerType::Signed);
+      return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
+    }
+    return llvm::None;
+  });
+  addTargetMaterialization([](OpBuilder &builder,
+                           RankedTensorType type, ValueRange inputs,
+                           Location loc) -> Optional<Value> {
     if (type.getElementType().isSignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
         type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
       return builder.create<UnrealizedConversionCastOp>(loc, elementType, inputs).getResult(0);
     }
     return llvm::None;
-  };
-  addSourceMaterialization(addUnrealizedI64Cast);
-  addTargetMaterialization(addUnrealizedI64Cast);
+  });
 }
