@@ -88,8 +88,8 @@ public:
       }
     }
 
-    /// If ceilingMode is 0 means it's false, else true; ceilMode will usually
-    /// always be false
+    /// If ceilingMode is 0 (default) use floor rounding when computing the
+    /// output shape, else use ceil.
     Value constBoolOpValue = rewriter.create<ConstantBoolOp>(loc, false);
     Value ceilingModeVal;
     if (ceilingModeAttr) {
@@ -115,15 +115,6 @@ public:
         ValueRange{kernelShapeOnnxList});
 
     /// Determine input and result type
-
-    // TensorType inputTensorType = x.getType().cast<TensorType>();
-    // auto inputType = Torch::ValueTensorType::get(
-    //     context, inputTensorType.getShape(),
-    //     inputTensorType.getElementType());
-    // auto inputTensor =
-    //     rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-    //         loc, inputType, x);
-
     TensorType opTensorType = op.getResult().getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(
         context, opTensorType.getShape(), opTensorType.getElementType());
