@@ -16,11 +16,12 @@ add_onnx_mlir_library(OMONNXToMhlo
 
   LINK_LIBS PUBLIC
   Accelerator
+  MhloDialect
+  MLIRShape
+  MLIRTransforms
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MhloDialect
-  MLIRTransforms
   )
 
   target_include_directories(OMONNXToMhlo PUBLIC 

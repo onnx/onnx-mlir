@@ -50,7 +50,6 @@ struct MhloDialectOp {
 template <typename Op>
 using MhloOp = typename MhloDialectOp<Op>::Op;
 
-
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
