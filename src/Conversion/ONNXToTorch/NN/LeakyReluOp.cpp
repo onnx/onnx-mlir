@@ -63,9 +63,8 @@ public:
 
     mlir::Value x = adaptor.X();
     mlir::FloatAttr alpha = adaptor.alphaAttr();
-    llvm::APFloat alphaVal = convertToFloatValue(alpha.getValue());
-    mlir::FloatAttr negSlopeFloatAttr = FloatAttr::get(
-        mlir::FloatType::getF64(op->getContext()), alphaVal);
+    llvm::APFloat alphaVal = alpha.getValue();
+    mlir::FloatAttr negSlopeFloatAttr = convertToIEEEDouble(op.getOperation(), alphaVal);
     mlir::Value negSlopeConstFloat =
         rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatAttr);
 

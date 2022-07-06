@@ -149,9 +149,12 @@ std::vector<int> toVector(mlir::ArrayAttr arr) {
 
 /// `torch-mlir` only supports 64-bit floats. Therefore, we need to
 /// consistently convert from 32-bit `onnx-mlir` floats.
-llvm::APFloat convertToFloatValue(llvm::APFloat value) {
+mlir::FloatAttr convertToIEEEDouble(mlir::Operation *op, llvm::APFloat &value) {
     bool IsExact;
-    value.convert(llvm::APFloat::IEEEdouble(), llvm::APFloat::rmNearestTiesToEven, &IsExact);
+    value.convert(llvm::APFloat::IEEEdouble(), llvm::APFloat::rmNearestTiesToEven,
+        &IsExact);
     assert(!IsExact && "conversion to 64-bit float failed");
-    return value;
+    mlir::FloatAttr attr = FloatAttr::get(mlir::FloatType::getF64(op->getContext()),
+        value);
+    return attr;
 }

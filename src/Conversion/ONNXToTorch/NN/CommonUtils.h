@@ -61,4 +61,4 @@ mlir::Value getTorchTensor(Value operand, ConversionPatternRewriter &rewriter,
 Value getIntValue(int val, ConversionPatternRewriter &rewriter,
                   mlir::MLIRContext *context, Location loc);
 std::vector<int> toVector(mlir::ArrayAttr axesAttr);
-llvm::APFloat convertToFloatValue(llvm::APFloat value);
+mlir::FloatAttr convertToIEEEDouble(mlir::Operation *op, llvm::APFloat &value);
