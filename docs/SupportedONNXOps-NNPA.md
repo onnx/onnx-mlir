@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch NNPA --input /home/imaihal/work/onnx-mlir/test/accelerators/NNPA/backend/CMakeLists.txt --path /home/imaihal/work/onnx-mlir/utils --notes --unsupported --additional_paragraph NNPA\ has\ hardware\ limitations\ in\ dimension\ index\ size\ and\ tensor\ size,\ which\ are\ described\ in\ [NNPALimit.h](Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h).\ They\ are\ enough\ large\ for\ normal\ use\ cases,\ but\ if\ your\ model\ exceeds\ the\ limitations,\ CPU\ is\ used\ instead\ of\ NNPA. -->
+<!--- python documentOps.py --arch NNPA --input /workdir/onnx-mlir/test/accelerators/NNPA/backend/CMakeLists.txt --path /workdir/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *NNPA*.
 
@@ -7,9 +7,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 14. Limitatio
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
-NNPA\ has\ hardware\ limitations\ in\ dimension\ index\ size\ and\ tensor\ size,\ which\ are\ described\ in\ [NNPALimit.h](Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h).\ They\ are\ enough\ large\ for\ normal\ use\ cases,\ but\ if\ your\ model\ exceeds\ the\ limitations,\ CPU\ is\ used\ instead\ of\ NNPA.
 
 
+NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are enough large for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
 
 | Op |Up to Opset |Limitations |Notes |
