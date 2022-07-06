@@ -9,7 +9,7 @@
 // ========================================================================
 //
 // This file contains common code shared by the functions performing the
-// lowering to the KRNL dialect.
+// lowering to the Torch dialect.
 //
 //===-----------------------------------------------------------------===//
 
@@ -32,8 +32,6 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
@@ -49,7 +47,6 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -68,15 +65,6 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-// A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not during the conversion of ONNX to Krnl.
-// extern bool ONNXToKrnl_gEmitDealloc;
-
-//===-----------------------------------------------------------------===//
-// Type conversion from Onnx types to Krnl types:
-//   - from Tensor type to the Standard dialect MemRef type
-//   - from onnx.StringType to krnl.StringType
-//===-----------------------------------------------------------------===//
 
 class TorchTypeConverter : public TypeConverter {
 public:
