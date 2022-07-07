@@ -11,4 +11,5 @@ module attributes {}  {
     %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [3, 2], onnx_node_name = "MaxPool_0", pads = [0, 1, 2, 3], strides = [2, 1]} : (tensor<1x5x10x10xf32>) -> tensor<1x5x5x13xf32>
     return %0 : tensor<1x5x5x13xf32>
   }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
 }
