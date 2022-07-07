@@ -28,13 +28,13 @@ struct ONNXReshapeOpLoweringToMhlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXReshapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     Value data = operandAdaptor.data();
     Value shape = operandAdaptor.shape();
     Type outputType = *op->result_type_begin();
-    auto result =
+    Value result =
         rewriter.create<mhlo::DynamicReshapeOp>(loc, outputType, data, shape);
-    rewriter.replaceOp(op, result->getResults());
+    rewriter.replaceOp(op, result);
     return success();
   }
 };

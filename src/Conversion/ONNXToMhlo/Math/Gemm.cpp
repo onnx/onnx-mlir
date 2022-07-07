@@ -43,33 +43,31 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     Value transA = A;
     Value transB = B;
-    if (gemmOp.transA() == 1) {
+    if (gemmOp.transA() == 1)
       transA = rewriter.create<mhlo::TransposeOp>(
           loc, A, rewriter.getI64VectorAttr({1, 0}));
-    }
-    if (gemmOp.transB() == 1) {
+    if (gemmOp.transB() == 1)
       transB = rewriter.create<mhlo::TransposeOp>(
           loc, B, rewriter.getI64VectorAttr({1, 0}));
-    }
     ShapedType resultType = gemmOp.getType().dyn_cast_or_null<ShapedType>();
-    auto dot = rewriter.create<mhlo::DotOp>(loc, transA, transB, nullptr);
+    Value dot = rewriter.create<mhlo::DotOp>(loc, transA, transB, nullptr);
     bool hasBias = shapeHelper.hasBias;
 
     // alpha * dot
     Value dotResult;
-    if (closeTo(alphaLit, 1.0f)) {
+    if (closeTo(alphaLit, 1.0f))
       dotResult = dot;
-    } else {
+    else {
       if (resultType.hasStaticShape()) {
-        auto alphaVal = rewriter.create<mhlo::ConstOp>(
+        Value alphaVal = rewriter.create<mhlo::ConstOp>(
             loc, DenseElementsAttr::get(
                      resultType, rewriter.getFloatAttr(elemType, alphaLit)));
         dotResult = rewriter.create<mhlo::MulOp>(loc, dot, alphaVal);
       } else {
-        auto alphaVal = rewriter.create<mhlo::ConstOp>(
+        Value alphaVal = rewriter.create<mhlo::ConstOp>(
             loc, rewriter.getFloatAttr(elemType, alphaLit));
-        auto shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
-        auto broadcastedAlpha = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
+        Value broadcastedAlpha = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
             loc, resultType, alphaVal, shape, rewriter.getI64TensorAttr({}));
         dotResult = rewriter.create<mhlo::MulOp>(loc, dot, broadcastedAlpha);
       }
@@ -77,52 +75,49 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
 
     Value resultOp;
 
-    if (!hasBias) {
+    if (!hasBias)
       resultOp = dotResult;
-    } else {
+    else {
       // + beta * C
       int cRank = shapeHelper.cRank;
       Value broadcastedC;
       Value finalC;
       if (resultType.hasStaticShape()) {
-        if (cRank == 1) {
+        if (cRank == 1)
           broadcastedC = rewriter.create<mhlo::BroadcastInDimOp>(
               loc, resultType, C, rewriter.getI64TensorAttr({1}));
-        } else if (cRank == 0) {
+        else if (cRank == 0)
           broadcastedC = rewriter.create<mhlo::BroadcastInDimOp>(
               loc, resultType, C, rewriter.getI64TensorAttr({}));
-        } else {
+        else
           broadcastedC = C;
-        }
         if (!closeTo(betaLit, 1.0f)) {
-          auto betaVal = rewriter.create<mhlo::ConstOp>(
+          Value betaVal = rewriter.create<mhlo::ConstOp>(
               loc, DenseElementsAttr::get(
                        resultType, rewriter.getFloatAttr(elemType, betaLit)));
           finalC = rewriter.create<mhlo::MulOp>(loc, broadcastedC, betaVal);
-        } else {
+        } else
           finalC = broadcastedC;
-        }
       } else {
-        auto shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
-        if (cRank == 1) {
+        Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
+        if (cRank == 1)
           broadcastedC = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
               loc, resultType, C, shape, rewriter.getI64TensorAttr({1}));
-        } else if (cRank == 0) {
+        else if (cRank == 0)
           broadcastedC = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
               loc, resultType, C, shape, rewriter.getI64TensorAttr({}));
-        } else {
+        else
           broadcastedC = C;
-        }
         if (!closeTo(betaLit, 1.0f)) {
-          auto betaVal = rewriter.create<mhlo::ConstOp>(
+          Value betaVal = rewriter.create<mhlo::ConstOp>(
               loc, rewriter.getFloatAttr(elemType, gemmOp.beta()));
-          auto broadcastedBeta = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-              loc, resultType, betaVal, shape, rewriter.getI64TensorAttr({}));
+          Value broadcastedBeta =
+              rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc, resultType,
+                  betaVal, shape, rewriter.getI64TensorAttr({}));
           finalC =
               rewriter.create<mhlo::MulOp>(loc, broadcastedC, broadcastedBeta);
-        } else {
+        } else
           finalC = broadcastedC;
-        }
       }
       resultOp = rewriter.create<mhlo::AddOp>(loc, dotResult, finalC);
     }
@@ -138,7 +133,7 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     ShapedType outpType = gemmOp.getType().dyn_cast<ShapedType>();

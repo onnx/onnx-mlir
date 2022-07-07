@@ -31,9 +31,9 @@ void buildReduceBody(Type elementType, Region *body, OpBuilder *builder) {
   Type type = RankedTensorType::get(/*shape=*/{}, elementType);
   Location loc = body->getLoc();
   block->addArguments({type, type}, SmallVector<Location, 2>(2, loc));
-  auto reducer =
+  Value reducer =
       builder->create<Op>(loc, block->getArgument(0), block->getArgument(1));
-  builder->create<mhlo::ReturnOp>(loc, reducer.getResult());
+  builder->create<mhlo::ReturnOp>(loc, reducer);
 }
 
 template <typename Op>
@@ -51,7 +51,7 @@ static DenseIntElementsAttr getKernelAttr(ArrayRef<IndexExpr> values,
   SmallVector<int64_t> vectorValues(spatialOffset, defaultValue);
   int64_t size = values.size();
   for (int64_t i = 0; i < size; i++) {
-    assert(values[i].isLiteral());
+    assert(values[i].isLiteral() && "kernel dim is not literal");
     vectorValues.push_back(values[i].getLiteral());
   }
   return builder->getI64VectorAttr(vectorValues);
@@ -78,22 +78,21 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 
     // Get shape.
     PoolOpShapeHelper shapeHelper(&poolOp);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    auto kernelShape = shapeHelper.kernelShape;
-    auto strides = shapeHelper.strides;
-    auto dilations = shapeHelper.dilations;
-    auto outputDims = shapeHelper.dimsForOutput();
+    llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
+    llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
+    llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
+    DimsExpr outputDims = shapeHelper.dimsForOutput();
 
     // Type information about the input and result of this operation.
     Value inputOperand = operandAdaptor.X();
     RankedTensorType inputType =
         inputOperand.getType().dyn_cast_or_null<RankedTensorType>();
-    if (inputType == nullptr) {
+    if (inputType == nullptr)
       return failure();
-    }
-    auto inputShape = inputType.getShape();
+    llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
     Type elemType = inputType.getElementType();
     Type outputType = *op->result_type_begin();
     int64_t spatialOffset = 2;
@@ -106,13 +105,12 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
                      /*isNegative=*/true)));
 
     // paddings
-    auto pads = shapeHelper.pads;
-    auto padding = poolOp.auto_pad();
+    llvm::SmallVector<IndexExpr, 4> pads = shapeHelper.pads;
+    llvm::StringRef padding = poolOp.auto_pad();
     int64_t spatialRank = rank - spatialOffset;
     SmallVector<int64_t> flattenPaddings;
-    for (int64_t i = 0; i < 2 * spatialOffset; i++) {
+    for (int64_t i = 0; i < 2 * spatialOffset; i++)
       flattenPaddings.push_back(0);
-    }
     bool needPadding = (padding == "NOTSET") && (ceilMode == 1);
     for (int64_t i = 0; i < spatialRank; i++) {
       if (!needPadding) {
@@ -131,7 +129,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 
     padVector(strides, spatialOffset, 1);
     padVector(dilations, spatialOffset, 1);
-    auto reduce =
+    mhlo::ReduceWindowOp reduce =
         rewriter.create<mhlo::ReduceWindowOp>(loc, outputType, inputOperand,
             negInfinity, getKernelAttr(kernelShape, &rewriter, spatialOffset),
             rewriter.getI64VectorAttr(strides),

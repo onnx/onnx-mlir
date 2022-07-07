@@ -37,9 +37,9 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo : public ConversionPattern {
     Location loc = NameLoc::get(StringAttr::get(op->getContext(),
                                     ElementwiseUnaryOp::getOperationName()),
         op->getLoc());
-    auto mhloOp = rewriter.create<MhloOp<ElementwiseUnaryOp>>(
+    Value mhloOp = rewriter.create<MhloOp<ElementwiseUnaryOp>>(
         loc, op->getResultTypes(), op->getOperands());
-    rewriter.replaceOp(op, mhloOp->getResults());
+    rewriter.replaceOp(op, mhloOp);
     return success();
   }
 };
@@ -56,24 +56,24 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
         op->getLoc());
     ONNXReluOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.X();
-    auto inpType = inp.getType().dyn_cast<ShapedType>();
+    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
     Type elemType = inpType.getElementType();
     Type resultType = *op->result_type_begin();
     Value broadcastedZero;
-    if (inpType.hasStaticShape()) {
+    if (inpType.hasStaticShape())
       broadcastedZero =
           rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(inpType));
-    } else {
-      auto zero =
+    else {
+      Value zero =
           rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
-      auto shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
+      Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
       broadcastedZero = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
           loc, resultType, zero, shape, rewriter.getI64TensorAttr({}));
     }
-    auto resultOp = rewriter.create<mhlo::MaxOp>(loc, inp, broadcastedZero);
-    rewriter.replaceOp(op, resultOp->getResults());
+    Value resultOp = rewriter.create<mhlo::MaxOp>(loc, inp, broadcastedZero);
+    rewriter.replaceOp(op, resultOp);
     return success();
   }
 };
@@ -91,10 +91,10 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
         op->getLoc());
 
     // TODO: check whether ONNX dialect has explicit broadcast feature
-    auto mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
+    Value mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
         loc, op->getResultTypes(), op->getOperands());
 
-    rewriter.replaceOp(op, mhloOp->getResults());
+    rewriter.replaceOp(op, mhloOp);
 
     return success();
   }

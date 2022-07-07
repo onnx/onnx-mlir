@@ -26,12 +26,11 @@ namespace {
 Value broadcastToOriginShape(Location loc, RankedTensorType resultType,
     Value value, Value shapeValue, SmallVector<int64_t> &reducedShape,
     PatternRewriter &rewriter) { // NOLINT
-  auto dims = rewriter.getI64TensorAttr(reducedShape);
-  if (shapeValue) {
+  DenseIntElementsAttr dims = rewriter.getI64TensorAttr(reducedShape);
+  if (shapeValue)
     return rewriter.createOrFold<mhlo::DynamicBroadcastInDimOp>(
         loc, resultType, value, shapeValue, dims);
-  }
-  assert(resultType.hasStaticShape());
+  assert(resultType.hasStaticShape() && "Type doesn't have static shape");
   return rewriter.create<mhlo::BroadcastInDimOp>(loc, resultType, value, dims);
 }
 
@@ -41,7 +40,7 @@ template <typename ReduceOp>
 Value createReduce(Location loc, Value operand, Value zero,
     SmallVector<int64_t> &reduceShape, int64_t reduceIdx,
     PatternRewriter &rewriter) {
-  auto operandType = operand.getType().cast<RankedTensorType>();
+  RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
   mhlo::ReduceOp reduce = rewriter.create<mhlo::ReduceOp>(loc, reduceResultType,
@@ -54,8 +53,8 @@ Value createReduce(Location loc, Value operand, Value zero,
       RankedTensorType::get({}, operandType.getElementType());
   block.addArgument(blockArgumentType, loc);
   block.addArgument(blockArgumentType, loc);
-  auto firstArgument = *block.args_begin();
-  auto secondArgument = *block.args_rbegin();
+  BlockArgument firstArgument = *block.args_begin();
+  BlockArgument secondArgument = *block.args_rbegin();
   {
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(&block);
@@ -69,7 +68,7 @@ Value createReduce(Location loc, Value operand, Value zero,
 static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
     Operation *op, Location loc, Value input, Value zero, Value negInfinity,
     int64_t axis) {
-  auto operandType = input.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType operandType = input.getType().dyn_cast<RankedTensorType>();
   int64_t rank = operandType.getRank();
 
   SmallVector<int64_t> dimensionsWithoutFeature;
@@ -90,21 +89,21 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
   if (!operandType.hasStaticShape()) {
     shapeValue = rewriter.create<shape::ShapeOfOp>(loc, input);
   }
-  auto maxValueBroadcast = broadcastToOriginShape(loc, operandType, maxValue,
+  Value maxValueBroadcast = broadcastToOriginShape(loc, operandType, maxValue,
       shapeValue, dimensionsWithoutFeature, rewriter);
   // X - max[X]
-  auto shiftedLogits =
+  Value shiftedLogits =
       rewriter.create<mhlo::SubOp>(loc, input, maxValueBroadcast);
   // exp(X - max[X])
-  auto expLogits = rewriter.create<mhlo::ExpOp>(loc, shiftedLogits);
+  Value expLogits = rewriter.create<mhlo::ExpOp>(loc, shiftedLogits);
   // sum[exp(X - max[X])]
-  auto expSum = createReduce<mhlo::AddOp>(
+  Value expSum = createReduce<mhlo::AddOp>(
       loc, expLogits, zero, reduceShape, axis, rewriter);
-  auto expSumBroadcast = broadcastToOriginShape(
+  Value expSumBroadcast = broadcastToOriginShape(
       loc, operandType, expSum, shapeValue, dimensionsWithoutFeature, rewriter);
   // exp(X - max[X]) / sum[exp(X - max[X])]
-  auto divOp = rewriter.create<mhlo::DivOp>(loc, expLogits, expSumBroadcast);
-  rewriter.replaceOp(op, divOp->getResults());
+  Value divOp = rewriter.create<mhlo::DivOp>(loc, expLogits, expSumBroadcast);
+  rewriter.replaceOp(op, divOp);
 }
 
 struct ONNXSoftmaxOpLoweringToMhlo : public ConversionPattern {
@@ -118,14 +117,13 @@ struct ONNXSoftmaxOpLoweringToMhlo : public ConversionPattern {
     //                    exp_x / sum
     ONNXSoftmaxOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Value inp = operandAdaptor.input();
-    auto inputType = inp.getType().cast<RankedTensorType>();
-    if (inputType == nullptr) {
+    RankedTensorType inputType = inp.getType().cast<RankedTensorType>();
+    if (inputType == nullptr)
       return failure();
-    }
-    auto rank = inputType.getRank();
+    int64_t rank = inputType.getRank();
     int64_t axis = operandAdaptor.axis();
     axis = axis >= 0 ? axis : rank + axis;
-    assert(axis >= -rank && axis <= rank - 1);
+    assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
 
     // Get opset number. Default is opset 11.
     int64_t opset = 11;
@@ -134,8 +132,8 @@ struct ONNXSoftmaxOpLoweringToMhlo : public ConversionPattern {
     if (opsetAttr)
       opset = opsetAttr.getValue().getSExtValue();
 
-    auto loc = op->getLoc();
-    auto elementType = inputType.getElementType().cast<FloatType>();
+    Location loc = op->getLoc();
+    FloatType elementType = inputType.getElementType().cast<FloatType>();
     Value zero =
         rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elementType));
     Value negInfinity = rewriter.create<mhlo::ConstOp>(
