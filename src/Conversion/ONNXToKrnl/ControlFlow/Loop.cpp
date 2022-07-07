@@ -43,6 +43,21 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // - final values of loop carried dependencies, and
     // - scan output (all intermediate values returned from body func
     // concatenated together).
+    // Implementation details:
+    // *  For final values with SeqType. SeqType is implemented with
+    //    memref<*xmemref<*xT>>. The size of the memref is dynamic for
+    //    every iteration. The SeqType value is stored in a Value of
+    //    type memref<1xmemref<*xmemref<*xT>>. In loop body, argument of
+    //    SeqType is loaded from this value in the beginning, and the new
+    //    value is stored into this value at the end.
+    // *  Scan output with unknown shape. For example, the intermediate
+    //    result is of shape memref<?xT>, where the ? is only known inside
+    //    loop body. Therefore, the scan result of memref<?x?xT> cannot be
+    //    allocated outside of the loop. Instead, memref<?xmemref<?xT>> is
+    //    used to accumulate the scan output. This seqType result is
+    //    transformed into memref<?x?xT> after the loop when the shape is
+    //    known.
+
     SmallVector<Value, 4> outputs;
     allocateMemoryForVFinal(loc, rewriter, op, loopOpAdaptor, outputs);
     allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdaptor, outputs);
@@ -52,16 +67,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by loop body function invocation in a scope accessible by
     // all loop iterations.
-#if 0
-    for (const auto &vInitAndFinal :
-        llvm::zip(loopOpAdaptor.v_initial(), outputs))
-      emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
-          std::get<1>(vInitAndFinal));
-#endif
     for (unsigned long i = 0; i < loopOpAdaptor.v_initial().size(); i++) {
       auto origInput = loopOp.v_initial()[i];
       if (origInput.getType().isa<SeqType>()) {
-        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i], create.math.constantIndex(0));
+        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i],
+            create.math.constantIndex(0));
       } else {
         emitCopy(rewriter, loc, loopOpAdaptor.v_initial()[i], outputs[i]);
       }
@@ -117,22 +127,17 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
           // Make the call to loop body function.
           SmallVector<Value, 4> params = {ivMemRef, loopOpAdaptor.cond()};
-#if 0
-          for (auto value : llvm::make_range(outputs.begin(),
-                   outputs.begin() + loopOpAdaptor.v_initial().size()))
-            params.emplace_back(value);
-#endif
 
-          // Special part is the Seq. Need to load the seq out
+          // For SeqType, load the value for the storage
           for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
             if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
-              auto v = create.krnl.load(outputs[i], create.math.constantIndex(0));
-              params.emplace_back(v);
+              auto seqValue =
+                  create.krnl.load(outputs[i], create.math.constantIndex(0));
+              params.emplace_back(seqValue);
             } else {
               params.emplace_back(outputs[i]);
             }
           }
-
 
           Block &loopBodyEntryBlock = loopBody.front();
           BlockAndValueMapping mapper;
@@ -194,16 +199,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               resultsRange.begin(), resultsRange.end());
           for (unsigned i = 0; i < bodyOutputs.size(); i++) {
             Value output = bodyOutputs[i];
-            //assert((output.getType().isa<TensorType>() ||
-                       //output.getType().isa<MemRefType>()) &&
-                   //"Expecting loop body function output to consist of "
-                   //"tensors/memrefs.");
             auto outputTy = output.getType();
-            bodyOutputs[i] = rewriter
-                                 .create<UnrealizedConversionCastOp>(loc,
-                                     typeConverter->convertType(outputTy),
-                                     output)
-                                 .getResult(0);
+            bodyOutputs[i] =
+                rewriter
+                    .create<UnrealizedConversionCastOp>(
+                        loc, typeConverter->convertType(outputTy), output)
+                    .getResult(0);
           }
 
           // Copy the newly computed loop condition to pre-allocated buffer.
@@ -240,19 +241,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Copy intermediate values of loop carried dependencies to MemRef
           // outside the iteration scope so next iteration can use them as init
           // value.
-#if 0
-          for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs)) {
-            emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
-                std::get<1>(vIntermediateToFinal));
-           }
-#endif
-           for (unsigned long i = 0; i < outputs.size(); i++) {
-             if(loopOp.v_initial()[i].getType().isa<SeqType>()) {
-              create.krnl.store(bodyOutputs[i+1], outputs[i], create.math.constantIndex(0));
-             } else {
-            emitCopy(rewriter, loc, bodyOutputs[i+1], outputs[i]);
-             }
-           }
+          for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
+            if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
+              create.krnl.store(
+                  bodyOutputs[i + 1], outputs[i], create.math.constantIndex(0));
+            } else {
+              emitCopy(rewriter, loc, bodyOutputs[i + 1], outputs[i]);
+            }
+          }
 
           // Remove loop body terminator op.
           rewriter.eraseOp(loopBodyTerminator);
@@ -272,53 +268,56 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // accumulate dynamic tensor
     // Convert the memref<?xmemref<>> to a memref
     SmallVector<Value, 4> newOutputs;
-    for (auto output : outputs) {
+    for (unsigned long i = 0; i < outputs.size(); i++) {
+      Value output = outputs[i];
       auto seqElementType =
           output.getType().cast<MemRefType>().getElementType();
       if (seqElementType.isa<MemRefType>()) {
-      // need to distinguish seq in v_intermediate and scan
-        if (1) {
+        // need to distinguish seqType in v_final and scan
+        if (i < loopOp.v_final().size()) {
+          // In v_final
           auto v = create.krnl.load(output, create.math.constantIndex(0));
           newOutputs.emplace_back(v);
         } else {
-        // scan output
-        // need to convert memref<memrefs<xT>> to memref<xT>
-        // TODO: need a IF statement to handle output is empty
-        // we can safely give 0 to the dynamic dim for alloc
-        // Here loop is assumed to be executed at least once.
-        auto firstElement =
-            create.krnl.load(output, create.math.constantIndex(0));
-        SmallVector<mlir::Value, 4> allocParams;
-        SmallVector<int64_t, 4> dims;
-        dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
-        if (output.getType().cast<MemRefType>().getShape()[0] == -1)
-          allocParams.emplace_back(create.mem.dim(output, 0));
-        for (auto i = 0;
-             i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
-          dims.emplace_back(
-              firstElement.getType().cast<MemRefType>().getShape()[i]);
-          if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
-            allocParams.emplace_back(create.mem.dim(firstElement, i));
-        }
-        ArrayRef<int64_t> shape(dims.data(), dims.size());
-        auto flatType = MemRefType::get(
-            shape, firstElement.getType().cast<MemRefType>().getElementType());
-        auto alloc = create.mem.alignedAlloc(flatType, allocParams);
-        // copy the value
-        KrnlBuilder createKrnl(rewriter, loc);
-        ValueRange loopDef = createKrnl.defineLoops(1);
-        createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
-            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-              // Wrap with KrnlRegionOp because emitCopy uses the result of
-              // SeqExtract for loop bound.
-              KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-              rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
-              Value origIV = loopInd[0];
-              auto src = rewriter.create<KrnlSeqExtractOp>(
-                  loc, seqElementType, output, origIV);
-              emitCopy(rewriter, loc, src, alloc, {origIV});
-            });
-        newOutputs.emplace_back(alloc);
+          // scan output
+          // need to convert memref<memrefs<xT>> to memref<xT>
+          // TODO: need a IF statement to handle output is empty
+          // we can safely give 0 to the dynamic dim for alloc
+          // Here loop is assumed to be executed at least once.
+          auto firstElement =
+              create.krnl.load(output, create.math.constantIndex(0));
+          SmallVector<mlir::Value, 4> allocParams;
+          SmallVector<int64_t, 4> dims;
+          dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
+          if (output.getType().cast<MemRefType>().getShape()[0] == -1)
+            allocParams.emplace_back(create.mem.dim(output, 0));
+          for (auto i = 0;
+               i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
+            dims.emplace_back(
+                firstElement.getType().cast<MemRefType>().getShape()[i]);
+            if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
+              allocParams.emplace_back(create.mem.dim(firstElement, i));
+          }
+          ArrayRef<int64_t> shape(dims.data(), dims.size());
+          auto flatType = MemRefType::get(shape,
+              firstElement.getType().cast<MemRefType>().getElementType());
+          auto alloc = create.mem.alignedAlloc(flatType, allocParams);
+          // copy the value
+          KrnlBuilder createKrnl(rewriter, loc);
+          ValueRange loopDef = createKrnl.defineLoops(1);
+          createKrnl.iterate(loopDef, loopDef, {zero}, {maxTripCount},
+              [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+                // Wrap with KrnlRegionOp because emitCopy uses the result of
+                // SeqExtract for loop bound.
+                KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+                rewriter.setInsertionPointToStart(
+                    &regionOp.bodyRegion().front());
+                Value origIV = loopInd[0];
+                auto src = rewriter.create<KrnlSeqExtractOp>(
+                    loc, seqElementType, output, origIV);
+                emitCopy(rewriter, loc, src, alloc, {origIV});
+              });
+          newOutputs.emplace_back(alloc);
         }
       } else {
         newOutputs.emplace_back(output);
