@@ -129,7 +129,7 @@ public:
         llvm::APInt startDim = pads[i].cast<IntegerAttr>().getValue();
         llvm::APInt endDim =
             pads[i + (pads.size() / 2)].cast<IntegerAttr>().getValue();
-        padShape[i + 2] += (startDim + endDim).getRawData()[0];
+        padShape[i + 2] += (startDim + endDim).getZExtValue();
       }
       auto padType =
           Torch::ValueTensorType::get(context, llvm::makeArrayRef(padShape),

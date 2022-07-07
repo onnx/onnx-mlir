@@ -119,13 +119,11 @@ Value getIntValue(int val, ConversionPatternRewriter &rewriter,
 /// \returns vector of integers
 std::vector<int> toVector(mlir::ArrayAttr arr) {
   std::vector<int> elements;
-
   for (auto element : arr) {
     auto j = element.dyn_cast<IntegerAttr>();
     int64_t k = j.getValue().getSExtValue();
     elements.push_back(k);
   }
-
   return elements;
 }
 
