@@ -57,7 +57,8 @@ public:
     mlir::ArrayAttr strides = adaptor.stridesAttr();
     int64_t ceilingMode = adaptor.ceil_mode();
     mlir::IntegerAttr ceilingModeAttr = adaptor.ceil_modeAttr();
-    auto intType = IntegerType::get(context, 64);
+    mlir::IntegerType intType = mlir::IntegerType::get(context, 64);
+    mlir::FloatType floatType = mlir::FloatType::getF64(context);
 
     /// Get mlir attributes as vectors
     std::vector<Value> padsOnnxList =
@@ -137,12 +138,13 @@ public:
 
       /// Construct zero padding op since `torch` does not support asymmetric
       /// padding for maxpool2d
-      IntegerAttr zeroAttr = IntegerAttr::get(intType, 0);
-      Value zeroPad = rewriter.create<ConstantIntOp>(loc, zeroAttr);
+      FloatAttr zeroFloatAttr = FloatAttr::get(floatType, 0.0);
+      Value zeroPad = rewriter.create<ConstantFloatOp>(loc, zeroFloatAttr);
       Value padTensor = rewriter.create<AtenConstantPadNdOp>(
           loc, padType, x, padsList, zeroPad);
 
-      Value padValue = rewriter.create<ConstantIntOp>(loc, zeroAttr);
+      IntegerAttr zeroIntAttr = IntegerAttr::get(intType, 0);
+      Value padValue = rewriter.create<ConstantIntOp>(loc, zeroIntAttr);
       Value zeroPadsList = rewriter.create<PrimListConstructOp>(loc,
           Torch::ListType::get(rewriter.getType<Torch::IntType>()),
           ValueRange{padValue, padValue});
