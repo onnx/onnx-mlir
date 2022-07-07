@@ -26,18 +26,40 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
       : DialectBuilder(b, loc) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
+
+  // ONNXCastOp
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
+
+  // ONNXCeilOp
   mlir::Value ceil(mlir::Value input) const;
+
+  // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
+  mlir::Value constantFromRawBuffer(mlir::Type resultType, char *buf) const;
+
+  // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
+
+  // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
+
+  // ONNXMinOp
   mlir::Value min(mlir::ValueRange inputs) const;
+
+  // ONNXMulOp
   mlir::Value mul(mlir::Value A, mlir::Value B) const;
+
+  // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXSubOp
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
+
+  // UnrealizedConversionCastOp
   // Convert a Value to TensorType if it is of MemRefType.
   mlir::Value toTensor(mlir::Value input) const;
   // Convert a Type to TensorType if it is of MemRefType.

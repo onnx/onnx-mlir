@@ -31,3 +31,4 @@ add_custom_target(OMONNXCheckVersion
 
 # Scan files for supported ops
 add_onnx_mlir_supported_ops(${ONNX_MLIR_SRC_ROOT}/test/backend/inference_backend.py cpu)
+add_onnx_mlir_supported_ops(${ONNX_MLIR_SRC_ROOT}/test/accelerators/NNPA/backend/CMakeLists.txt NNPA)

@@ -617,7 +617,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // other inputs.
   if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
     return false;
-  // zDNN does not support input_forgaet.
+  // zDNN does not support input_forget.
   if (op.input_forget() != 0)
     return false;
   return true;
