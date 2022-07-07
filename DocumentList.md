@@ -5,6 +5,7 @@ This document serves as an index for onnx-mlir documents.
 
 # Supported ONNX Ops
 * CPU support is covered [here](SupportedONNXOps-cpu.md).
+* NNPA support is covered [here](SupportedONNXOps-NNPA.md).
 
 # Working environment
 * Installation is covered by [README.md](../README.md).

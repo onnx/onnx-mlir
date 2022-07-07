@@ -3,10 +3,10 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitations are listed when applicable.
+Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitations are listed when applicable.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
-* Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodifiedto Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
+* Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
 
 
 | Op |Up to Opset |Limitations |Notes |
@@ -16,7 +16,7 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **Acosh** |9 | | |
 | **Adagrad** |1 | | |
 | **Adam** |1 | | |
-| **Add** |13 |No support for short integers. | |
+| **Add** |14 |No support for short integers. | |
 | **And** |7 | | |
 | **ArgMax** |13 | | |
 | **ArgMin** |13 | | |
@@ -42,11 +42,11 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **ConvTranspose** |11 | | |
 | **Cos** |7 | | |
 | **Cosh** |9 | | |
-| **CumSum** |11 | | |
+| **CumSum** |14 | | |
 | **DepthToSpace** |13 | | |
 | **DequatizeLinear** |unsupported | | |
 | **Det** |11 | | |
-| **Div** |13 |No support for short integers. | |
+| **Div** |14 |No support for short integers. | |
 | **Dropout** |13 |Does not support masked and training. | |
 | **DynamicQuantizeLinear** |11 | | |
 | **EinSum** |unsupported | | |
@@ -66,24 +66,24 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **GlobalAveragePool** |1 | | |
 | **GlobalMaxPool** |1 | | |
 | **Greater** |13 | | |
-| **GreaterOrEqual** |12 | | |
+| **GreaterOrEqual** |16 | | |
 | **GridSample** |unsupported | | |
 | **HardSigmoid** |6 | | |
 | **HardSwish** |unsupported | | |
 | **Hardmax** |13 | | |
-| **Identity** |13 |Sequence identity not supported. | |
-| **If** |13 | | |
+| **Identity** |16 |Sequence identity not supported. | |
+| **If** |16 | | |
 | **InstanceNormalization** |6 | | |
 | **IsInf** |10 | | |
 | **IsNan** |unsupported | | |
 | **LRN** |13 | | |
 | **LSTM** |7 |No support for batchwise examples. | |
-| **LeakyRelu** |6 | | |
+| **LeakyRelu** |16 | | |
 | **Less** |13 | | |
-| **LessOrEqual** |12 | | |
+| **LessOrEqual** |16 | | |
 | **Log** |13 | | |
 | **LogSoftmax** |13 |Axis 0, 1, and default currently disabled due to changes in ONNX 1.8.1/Opset 13. |Temporally removed due to changes in onnx 1.8.1. |
-| **Loop** |13 |No support for opset 13 and 16 at this time. | |
+| **Loop** |16 |No support for opset 13 and 16 at this time. | |
 | **MatMul** |13 | | |
 | **MatMulInteger** |10 | | |
 | **Max** |13 |No support for short floats and unsigned int. | |
@@ -94,7 +94,7 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **Min** |13 |Does not support short floats and unsigned numbers. | |
 | **Mod** |13 |Support float and double only. | |
 | **Momentum** |1 | | |
-| **Mul** |13 |Does not support short integers. | |
+| **Mul** |14 |Does not support short integers. | |
 | **Neg** |13 | | |
 | **NegativeLogLikelihoodLoss** |13 | | |
 | **NonMaxSuppression** |11 | | |
@@ -104,13 +104,13 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **OptionalGetElement** |unsupported | | |
 | **OptionalHasElement** |unsupported | | |
 | **Or** |7 | | |
-| **PRelu** |9 | | |
+| **PRelu** |16 | | |
 | **Pad** |13, 11, 2 | | |
-| **Pow** |13 |No support for power with integer types. | |
+| **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** |10 | | |
 | **QLinearMatmul** |unsupported | | |
 | **QuantizeLinear** |13 | | |
-| **RNN** |7 |Batchwise not supported. | |
+| **RNN** |14 |Batchwise not supported. | |
 | **Range** |11 | | |
 | **Reciprocal** |13 | | |
 | **ReduceL1** |13 | | |
@@ -123,15 +123,15 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **ReduceProd** |13 | | |
 | **ReduceSum** |13, 11 |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 | | |
-| **Relu** |13 | | |
+| **Relu** |14 | | |
 | **Reshape** |13 | | |
 | **Resize** |13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. | |
 | **ReverseSequence** |10 | | |
 | **RoiAlign** |10 | | |
 | **Round** |11 | | |
-| **Scan** |11 |Does not support dynamic shapes. |Precision issue with newer opset, maybe just unsupported. Dynamic shape?. |
+| **Scan** |16 |Does not support dynamic shapes. |Precision issue with newer opset, maybe just unsupported. Dynamic shape?. |
 | **ScatterElements** |13 |Does not support duplicate indices. | |
-| **ScatterND** |13 |Does not support scatternd add/multiply. | |
+| **ScatterND** |16 |Does not support scatternd add/multiply. | |
 | **Selu** |6 | | |
 | **SequenceInsert** |11 | | |
 | **Shape** |13 | | |
@@ -151,7 +151,7 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **Sqrt** |13 | | |
 | **Squeeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
 | **StrNormalizer** |unsupported | | |
-| **Sub** |13 |Does not support short integers. | |
+| **Sub** |14 |Does not support short integers. | |
 | **Sum** |13 | | |
 | **Tan** |7 | | |
 | **Tanh** |13 | | |
@@ -164,5 +164,5 @@ Onnx-mlir currently support ONNX operations targeting up to opset 13. Limitation
 | **Unique** |11 | | |
 | **Unsqueeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
 | **Upsample** |10, 9, 7 | | |
-| **Where** |9 | | |
+| **Where** |16 | | |
 | **Xor** |7 | | |
