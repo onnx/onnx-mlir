@@ -52,10 +52,20 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by loop body function invocation in a scope accessible by
     // all loop iterations.
+#if 0
     for (const auto &vInitAndFinal :
         llvm::zip(loopOpAdaptor.v_initial(), outputs))
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
+#endif
+    for (unsigned long i = 0; i < loopOpAdaptor.v_initial().size(); i++) {
+      auto origInput = loopOp.v_initial()[i];
+      if (origInput.getType().isa<SeqType>()) {
+        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i], create.math.constantIndex(0));
+      } else {
+        emitCopy(rewriter, loc, loopOpAdaptor.v_initial()[i], outputs[i]);
+      }
+    }
 
     // Convert the cond type to MemRefType.
     Type convertedType =
@@ -107,9 +117,22 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
           // Make the call to loop body function.
           SmallVector<Value, 4> params = {ivMemRef, loopOpAdaptor.cond()};
+#if 0
           for (auto value : llvm::make_range(outputs.begin(),
                    outputs.begin() + loopOpAdaptor.v_initial().size()))
             params.emplace_back(value);
+#endif
+
+          // Special part is the Seq. Need to load the seq out
+          for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
+            if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
+              auto v = create.krnl.load(outputs[i], create.math.constantIndex(0));
+              params.emplace_back(v);
+            } else {
+              params.emplace_back(outputs[i]);
+            }
+          }
+
 
           Block &loopBodyEntryBlock = loopBody.front();
           BlockAndValueMapping mapper;
@@ -171,15 +194,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               resultsRange.begin(), resultsRange.end());
           for (unsigned i = 0; i < bodyOutputs.size(); i++) {
             Value output = bodyOutputs[i];
-            assert((output.getType().isa<TensorType>() ||
-                       output.getType().isa<MemRefType>()) &&
-                   "Expecting loop body function output to consist of "
-                   "tensors/memrefs.");
-            auto outputTy = output.getType().cast<ShapedType>();
+            //assert((output.getType().isa<TensorType>() ||
+                       //output.getType().isa<MemRefType>()) &&
+                   //"Expecting loop body function output to consist of "
+                   //"tensors/memrefs.");
+            auto outputTy = output.getType();
             bodyOutputs[i] = rewriter
                                  .create<UnrealizedConversionCastOp>(loc,
-                                     MemRefType::get(outputTy.getShape(),
-                                         outputTy.getElementType()),
+                                     typeConverter->convertType(outputTy),
                                      output)
                                  .getResult(0);
           }
@@ -189,6 +211,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
           // Copy intermediate values of scan outputs to their corresponding
           // slice in the loop scan output tensor.
+          // Intermediate value with SeqType should not in scan output
           auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
               bodyOutputs.begin() + 1 + loopOpAdaptor.v_initial().size());
           auto scanIntermediate =
@@ -217,9 +240,19 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Copy intermediate values of loop carried dependencies to MemRef
           // outside the iteration scope so next iteration can use them as init
           // value.
-          for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+#if 0
+          for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs)) {
             emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
                 std::get<1>(vIntermediateToFinal));
+           }
+#endif
+           for (unsigned long i = 0; i < outputs.size(); i++) {
+             if(loopOp.v_initial()[i].getType().isa<SeqType>()) {
+              create.krnl.store(bodyOutputs[i+1], outputs[i], create.math.constantIndex(0));
+             } else {
+            emitCopy(rewriter, loc, bodyOutputs[i+1], outputs[i]);
+             }
+           }
 
           // Remove loop body terminator op.
           rewriter.eraseOp(loopBodyTerminator);
@@ -243,6 +276,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto seqElementType =
           output.getType().cast<MemRefType>().getElementType();
       if (seqElementType.isa<MemRefType>()) {
+      // need to distinguish seq in v_intermediate and scan
+        if (1) {
+          auto v = create.krnl.load(output, create.math.constantIndex(0));
+          newOutputs.emplace_back(v);
+        } else {
+        // scan output
         // need to convert memref<memrefs<xT>> to memref<xT>
         // TODO: need a IF statement to handle output is empty
         // we can safely give 0 to the dynamic dim for alloc
@@ -280,6 +319,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               emitCopy(rewriter, loc, src, alloc, {origIV});
             });
         newOutputs.emplace_back(alloc);
+        }
       } else {
         newOutputs.emplace_back(output);
       }
@@ -305,6 +345,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       assert(convertedType && convertedType.isa<MemRefType>() &&
              "Failed to convert type to MemRefType");
       MemRefType memRefType = convertedType.cast<MemRefType>();
+
+      if (vFinal.getType().isa<SeqType>()) {
+        memRefType = MemRefType::get({1}, memRefType);
+      }
 
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use their
@@ -477,10 +521,13 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     } else
       return true;
 
+#if 0
+    // Temparary hack to detect scan output
     for (auto v : returnOp->getOperands()) {
       if (v.getType().isa<SeqType>())
         return true;
     }
+#endif
 
     return false;
   }
@@ -659,8 +706,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // memref type when everything is lowered and thus becomes redundant.
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
-      for (unsigned i = 0; i < bodyOutputs.size(); i++) {
+      for (unsigned long i = 0; i < bodyOutputs.size(); i++) {
         Value output = bodyOutputs[i];
+        printf("yyy\n");
+        output.dump();
+        printf("yyy\n");
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&
                "Expecting loop body function output to consist of "
