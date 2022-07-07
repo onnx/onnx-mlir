@@ -71,6 +71,9 @@ def CreateAddOfTwoConst :
 def CreateSubOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXSubOp>($_builder, $0, $1, $2)">;
 
+def CreateCastOfConst :
+   NativeCodeCall<"ConstPropCast($_builder, $0, $1)">;
+
 def CreateNegOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNegOp>($_builder, $0, $1)">;
 
@@ -177,7 +180,15 @@ def SubConstProp : Pat<
     (CreateSubOfTwoConst $subOp, $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
-// Neg of constant is simly -const
+// Cast of constant is simply a constant with the new type.
+def CastofConst :  Pat<
+    // From (c)
+    (ONNXCastOp:$castOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $to),
+    // To (c)
+    (CreateCastOfConst $castOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Neg of constant is simply -const
 def NegofConst :  Pat<
     // From - (c)
     (ONNXNegOp:$negOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
