@@ -24,6 +24,21 @@ struct MhloDialectOp<ONNXAddOp> {
   using Op = mhlo::AddOp;
 };
 
+template <>
+struct MhloDialectOp<ONNXSubOp> {
+  using Op = mhlo::SubOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXDivOp> {
+  using Op = mhlo::DivOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXExpOp> {
+  using Op = mhlo::ExpOp;
+};
+
 namespace {
 
 // Element-wise unary ops lowering to Mhlo dialect.
@@ -89,10 +104,24 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     Location loc = NameLoc::get(StringAttr::get(op->getContext(),
                                     ElementwiseVariadicOp::getOperationName()),
         op->getLoc());
+    // llvm::SmallVector<Value, 4> shapeOperands;
+    // llvm::SmallVector<Value, 4> broadcastedOperands;
+    // for (auto operand : op->getOperands()) {
+    //   auto shape = rewriter.create<shape::ShapeOfOp>(loc, operand);
+    //   shapeOperands.push_back(shape);
+    // }
+    // auto broadcastShape = rewriter.create<shape::BroadcastOp>(loc,
+    // shapeOperands); 
+    // for (auto operand : op->getOperands()) {
+    //   auto broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+    //       loc, operand.getType(), operand, broadcastShape,
+    //       rewriter.getI64TensorAttr({}));
+    //   broadcastedOperands.push_back(broadcast);
+    // }
 
     // TODO: check whether ONNX dialect has explicit broadcast feature
-    Value mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
-        loc, op->getResultTypes(), op->getOperands());
+    auto mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
+        loc, op->getResultTypes(), broadcastedOperands);
 
     rewriter.replaceOp(op, mhloOp);
 
@@ -105,6 +134,9 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>>(ctx);
 }
 

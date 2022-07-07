@@ -129,9 +129,90 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
+struct SoftmaxPattern : public RewritePattern {
+  SoftmaxPattern(MLIRContext *context)
+      : RewritePattern("onnx.Softmax", 1, context,
+            {"onnx.Constant", "onnx.Exp", "onnx.ReduceSum", "onnx.Div"}) {}
+  LogicalResult matchAndRewrite(
+      Operation *op0, PatternRewriter &rewriter) const override {
+    // Variables for capturing values and attributes used while creating ops
+    IntegerAttr axis;
+    Operation::operand_range x(op0->getOperands());
+    SmallVector<Operation *, 4> ops;
+
+    // Match
+    ops.push_back(op0);
+    auto castedOp0 = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
+    x = castedOp0.getODSOperands(0);
+    Type outputType = castedOp0.output().getType();
+    {
+      auto axisAttr = op0->getAttrOfType<IntegerAttr>("axis");
+      if (!axisAttr)
+        axisAttr = rewriter.getIntegerAttr(
+            rewriter.getIntegerType(64, /*isSigned=*/true), -1);
+      axis = axisAttr;
+    }
+
+    // Rewrite
+    auto odsLoc = rewriter.getFusedLoc({ops[0]->getLoc()});
+    ::llvm::SmallVector<Value, 4> values;
+    ONNXExpOp ONNXExpOp0;
+    {
+      Value value0 = (*x.begin());
+      ONNXExpOp0 = rewriter.create<ONNXExpOp>(odsLoc, outputType, value0);
+    }
+    ONNXConstantOp axisOp;
+    {
+      int64_t axisValue = axis.getSInt();
+      axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
+          /*value=*/rewriter.getI64TensorAttr({axisValue}));
+    }
+    ONNXReduceSumOp ONNXReduceSumOp1;
+    {
+      auto keepDimsAttr = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+      auto noopWithEmptyAxes = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), 0);
+      ONNXReduceSumOp1 = rewriter.create<ONNXReduceSumOp>(odsLoc,
+          /*input=*/*ONNXExpOp0.getODSResults(0).begin(),
+          /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
+    }
+    ONNXDivOp ONNXDivOp2;
+    {
+      Value value0 = *ONNXExpOp0.getODSResults(0).begin();
+      Value value1 = *ONNXReduceSumOp1.getODSResults(0).begin();
+      ONNXDivOp2 =
+          rewriter.create<ONNXDivOp>(odsLoc, outputType, value0, value1);
+    }
+    for (auto v :
+        ::llvm::SmallVector<::mlir::Value, 4>{ONNXDivOp2.getODSResults(0)}) {
+      values.push_back(v);
+    }
+    rewriter.replaceOp(op0, values);
+    return success();
+  }
+};
+
+// clang-format off
+#define VALID_CUSTOM_CALL_OP(cb) \
+    cb(softmax, Softmax)         \
+// clang-format on
+
+#define GEN_FUNC(op, func_name)                                                             \
+  constexpr const char *get##func_name##Name() { return #op; }                              \
+  void func_name##AddPattern(RewritePatternSet& patterns, ConversionTarget& target) {       \
+    patterns.add<func_name##Pattern>(patterns.getContext());                                \
+    target.addIllegalOp<ONNX##func_name##Op>();                                             \
+  }
+
+VALID_CUSTOM_CALL_OP(GEN_FUNC)
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
+
+  DecomposeONNXToONNXPass() = default;
+  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass& pass) {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -141,15 +222,26 @@ struct DecomposeONNXToONNXPass
   }
 
   void runOnOperation() final;
+
+  ListOption<std::string> ops{
+      *this, "ops",
+      llvm::cl::desc("List of ONNX operations to decompose."),
+      llvm::cl::ZeroOrMore};
 };
 
 void DecomposeONNXToONNXPass::runOnOperation() {
+  std::unordered_set<std::string> opsSet(this->ops.begin(), this->ops.end());
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
       func::FuncDialect>();
+
+  std::unordered_map<std::string, std::function<void(RewritePatternSet&, ConversionTarget&)>>
+    validDecomposeOpSet;
+
+  validDecomposeOpSet.emplace(getSoftmaxName(), SoftmaxAddPattern);
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
