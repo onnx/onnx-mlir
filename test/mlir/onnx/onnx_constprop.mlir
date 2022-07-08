@@ -585,3 +585,39 @@ func @test_cast_i64_f32() -> tensor<3x2xf32> {
   // CHECK:           return [[VAR_0_]] : tensor<3x2xf32>
   // CHECK:         }
 }
+
+// -----
+
+func @test_slice() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[2.0, 3.0], [4.0, 5.0], [6.0, 7.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+  %starts = "onnx.Constant"() {value = dense<[0, 0]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%0, %starts, %ends, %axes, %steps) : (tensor<3x2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_slice
+  // CHECK-SAME:   () -> tensor<1x2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}[2.000000e+00, 3.000000e+00]{{.}}> : tensor<1x2xf32>} : () -> tensor<1x2xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<1x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func @test_slice_reversed() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[2.0, 3.0], [4.0, 5.0], [6.0, 7.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+  %starts = "onnx.Constant"() {value = dense<[-1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[0, 0]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[-1, -1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%0, %starts, %ends, %axes, %steps) : (tensor<3x2xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_slice_reversed
+  // CHECK-SAME:   () -> tensor<2x1xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}[7.000000e+00], [5.000000e+00]{{.}}> : tensor<2x1xf32>} : () -> tensor<2x1xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<2x1xf32>
+  // CHECK:         }
+}
