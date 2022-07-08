@@ -1,18 +1,18 @@
 #include "CommonUtils.h"
 
-std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
-    Location loc, ConversionPatternRewriter &rewriter) {
+dim_pads createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
+    ConversionPatternRewriter &rewriter) {
   /// Read ONNX side pads values and store inside a vector
-  std::vector<Value> padsList;
   if (!pads) {
     Value zeroPadding =
         rewriter.create<ConstantIntOp>(loc, IntegerAttr::get(ty, 0));
-    padsList = {zeroPadding, zeroPadding};
+    return dim_pads{.padding = {zeroPadding, zeroPadding}, .isSymmetric = true};
   } else {
     /// Determine if padding is symmetrical
     /// `onnx-mlir` padding has the following form (pad_dim1_start,
     /// pad_dim2_start, ..., pad_dim1_end, pad_dim2_end, ...)
     bool is_symmetric = true;
+    std::vector<Value> padsList;
     auto padIndices = llvm::iota_range<unsigned>(0, pads.size() / 2, false);
     for (auto i : padIndices) {
       if (pads[i] != pads[i + (pads.size() / 2)]) {
@@ -22,7 +22,7 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
     }
     /// Create appropriate padding vectors based on padding symmetry
     if (is_symmetric) {
-      for (auto i : padIndices) {
+      for (auto i : llvm::reverse(padIndices)) {
         Value padValue =
             rewriter.create<ConstantIntOp>(loc, pads[i].cast<IntegerAttr>());
         padsList.push_back(padValue);
@@ -41,8 +41,8 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
         padsList.push_back(padValueEnd);
       }
     }
+    return dim_pads{.padding = padsList, .isSymmetric = is_symmetric};
   }
-  return padsList;
 }
 
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,

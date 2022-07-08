@@ -80,10 +80,11 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     if (autopad && autopad != "NOTSET")
       return rewriter.notifyMatchFailure(op, "padding must be explicit");
 
-    // create vector of tensor list iterate through the ArrayAttribute
-    // list.
-    auto sintType = IntegerType::get(op1.getContext(), 64, IntegerType::SignednessSemantics::Signed);
-    std::vector<Value> translatepadsList =
+    /// Create vector of tensor list iterate through the ArrayAttribute
+    /// list.
+    mlir::IntegerType sintType = IntegerType::get(
+        op1.getContext(), 64, IntegerType::SignednessSemantics::Signed);
+    dim_pads translatepadsList =
         createPadsArrayAttribute(pads, sintType, loc, rewriter);
     std::vector<Value> dilationonnxList =
         createArrayAttribute(dilations, sintType, loc, rewriter, 1);
@@ -92,7 +93,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     std::vector<Value> stridesonnxList =
         createArrayAttribute(strides, sintType, loc, rewriter);
 
-    // If group Value is null, assigning default value.
+    /// If group Value is null, assigning default value.
     Value groupTorchInt;
     if (group) {
       groupTorchInt = rewriter.create<ConstantIntOp>(loc, group);
@@ -104,7 +105,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
       groupTorchInt = rewriter.create<ConstantIntOp>(loc, oneAttr);
     }
 
-    // create the Torch List type using above created vectors.
+    /// Create the Torch List type using above created vectors.
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{stridesonnxList});
@@ -115,9 +116,9 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
 
     Value padsList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{translatepadsList});
+        ValueRange{translatepadsList.padding});
 
-    // create a tensor types using onnx operands.
+    /// Create a tensor types using onnx operands.
     TensorType xTensorType = x.getType().cast<TensorType>();
     TensorType wTensorType = w.getType().cast<TensorType>();
     TensorType opTensorType = op->getResult(0).getType().cast<TensorType>();

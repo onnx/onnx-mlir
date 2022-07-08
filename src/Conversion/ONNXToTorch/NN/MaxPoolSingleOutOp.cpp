@@ -61,7 +61,7 @@ public:
     mlir::FloatType floatType = mlir::FloatType::getF64(context);
 
     /// Get mlir attributes as vectors
-    std::vector<Value> padsOnnxList =
+    dim_pads padsOnnxList =
         createPadsArrayAttribute(pads, intType, loc, rewriter);
     /// Dilation has a default value of 1
     std::vector<Value> dilationOnnxList =
@@ -107,7 +107,7 @@ public:
         ValueRange{stridesOnnxList});
     Value padsList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{padsOnnxList});
+        ValueRange{padsOnnxList.padding});
     Value dilationList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{dilationOnnxList});
@@ -123,7 +123,7 @@ public:
     /// Allow symmetric padding and create additonal padding op to support
     /// asymmetric padding in `torch-mlir`
     Value result;
-    if (padsOnnxList.size() != 2) {
+    if (!padsOnnxList.isSymmetric) {
       std::vector<int64_t> padShape =
           x.getType().cast<Torch::ValueTensorType>().getSizes();
       for (unsigned i = 0; i < pads.size() / 2; i++) {
@@ -138,7 +138,8 @@ public:
 
       /// Construct zero padding op since `torch` does not support asymmetric
       /// padding for maxpool2d
-      FloatAttr zeroFloatAttr = FloatAttr::get(floatType, 0.0);
+      float negInf = -std::numeric_limits<float>::max();
+      FloatAttr zeroFloatAttr = FloatAttr::get(floatType, negInf);
       Value zeroPad = rewriter.create<ConstantFloatOp>(loc, zeroFloatAttr);
       Value padTensor = rewriter.create<AtenConstantPadNdOp>(
           loc, padType, x, padsList, zeroPad);
