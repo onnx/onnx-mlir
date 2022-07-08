@@ -904,7 +904,6 @@ ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
         outputIndices[axis] += dimAtAxis;
         int64_t outputOffset =
             getLinearAccessIndex(outputIndices, outputStrides);
-
         if (elementType.isa<FloatType>()) {
           double *inputArr = (double *)inputArrays[i];
           double *outputArr = (double *)resArray;
