@@ -70,8 +70,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     for (unsigned long i = 0; i < loopOpAdaptor.v_initial().size(); i++) {
       auto origInput = loopOp.v_initial()[i];
       if (origInput.getType().isa<SeqType>()) {
-        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i],
-            create.math.constantIndex(0));
+        Value zero = create.math.constantIndex(0);
+        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i], zero);
       } else {
         emitCopy(rewriter, loc, loopOpAdaptor.v_initial()[i], outputs[i]);
       }
@@ -131,8 +131,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // For SeqType, load the value for the storage
           for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
             if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
-              auto seqValue =
-                  create.krnl.load(outputs[i], create.math.constantIndex(0));
+              auto seqValue = create.krnl.load(outputs[i], zero);
               params.emplace_back(seqValue);
             } else {
               params.emplace_back(outputs[i]);
@@ -243,8 +242,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // value.
           for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
             if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
-              create.krnl.store(
-                  bodyOutputs[i + 1], outputs[i], create.math.constantIndex(0));
+              create.krnl.store(bodyOutputs[i + 1], outputs[i], zero);
             } else {
               emitCopy(rewriter, loc, bodyOutputs[i + 1], outputs[i]);
             }
@@ -276,7 +274,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         // need to distinguish seqType in v_final and scan
         if (i < loopOp.v_final().size()) {
           // In v_final
-          auto v = create.krnl.load(output, create.math.constantIndex(0));
+          auto v = create.krnl.load(output, zero);
           newOutputs.emplace_back(v);
         } else {
           // scan output
