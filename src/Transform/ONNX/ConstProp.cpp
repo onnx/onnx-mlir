@@ -193,6 +193,13 @@ bool isFromDenseONNXConstantOp(Value result) {
   return true;
 }
 
+/// A helper function to check whether a variadic value is produced by dense
+/// ONNXConstantOps.
+bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
+  return llvm::all_of(
+      operands, [](Value v) { return isFromDenseONNXConstantOp(v); });
+}
+
 /// A helper function to create an ONNXConstantOp for a given data array.
 /// This ONNXConstantOp is only used internally.
 ONNXConstantOp createConstantOpAndStoreBufferPtr(
@@ -859,8 +866,6 @@ ONNXConstantOp ConstPropSlice(
 
 ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
-  int64_t axis = axisAttr.getValue().getSExtValue();
-
   // Get the const values using the maximum precision e.g. double, int64_t.
   SmallVector<char *, 4> inputArrays;
   for (uint64_t i = 0; i < operands.size(); ++i) {
@@ -875,29 +880,44 @@ ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
   std::vector<int64_t> outputStrides = getStrides(outputShape);
   Type elementType = getElementType(replacingValue.getType());
+  int64_t axis = axisAttr.getValue().getSExtValue();
+  if (axis < 0)
+    axis += outputShape.size();
 
-  int64_t dimAtAxis = 0;
-  for (int64_t i = 0; i < operands.size(); ++i) {
-    ArrayRef<int64_t> inputShape = getShape(operands[i].getType());
-    std::vector<int64_t> inputStrides = getStrides(inputShape);
-    for (int64_t k = 0; k < ShapedType::getNumElements(inputShape); ++k) {
-      std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
-      std::vector<int64_t> outputIndices(inputIndices);
-      outputIndices[axis] += dimAtAxis;
-      int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
-
-      if (elementType.isa<FloatType>()) {
-        double *inputArr = (double *)inputArrays[i];
-        double *outputArr = (double *)resArray;
-        *(outputArr + outputOffset) = *(inputArr + k);
-      } else if (elementType.isa<IntegerType>()) {
-        int64_t *inputArr = (int64_t *)inputArrays[i];
-        int64_t *outputArr = (int64_t *)resArray;
-        *(outputArr + outputOffset) = *(inputArr + k);
-      } else
-        llvm_unreachable("Unknown data type");
+  // If concatenation is on the outermost dimension, do memcpy for better
+  // performance. Otherwise, copy elements one-by-one.
+  if (axis == 0) {
+    int64_t offset = 0;
+    for (uint64_t i = 0; i < operands.size(); ++i) {
+      int64_t sizeInBytes = getMaxSizeInBytes(operands[i].getType());
+      memcpy(resArray + offset, inputArrays[i], sizeInBytes);
+      offset += sizeInBytes;
     }
-    dimAtAxis += inputShape[axis];
+  } else {
+    int64_t dimAtAxis = 0;
+    for (uint64_t i = 0; i < operands.size(); ++i) {
+      ArrayRef<int64_t> inputShape = getShape(operands[i].getType());
+      std::vector<int64_t> inputStrides = getStrides(inputShape);
+      for (int64_t k = 0; k < ShapedType::getNumElements(inputShape); ++k) {
+        std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
+        std::vector<int64_t> outputIndices(inputIndices);
+        outputIndices[axis] += dimAtAxis;
+        int64_t outputOffset =
+            getLinearAccessIndex(outputIndices, outputStrides);
+
+        if (elementType.isa<FloatType>()) {
+          double *inputArr = (double *)inputArrays[i];
+          double *outputArr = (double *)resArray;
+          *(outputArr + outputOffset) = *(inputArr + k);
+        } else if (elementType.isa<IntegerType>()) {
+          int64_t *inputArr = (int64_t *)inputArrays[i];
+          int64_t *outputArr = (int64_t *)resArray;
+          *(outputArr + outputOffset) = *(inputArr + k);
+        } else
+          llvm_unreachable("Unknown data type");
+      }
+      dimAtAxis += inputShape[axis];
+    }
   }
 
   // Construct a new ONNXConstantOp.

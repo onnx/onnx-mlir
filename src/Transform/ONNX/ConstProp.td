@@ -64,6 +64,10 @@ def IsFromDenseONNXConstantOpOrNone:
     "Value is none or produced by a dense ONNXConstantOp"
   >;
 
+def IsVariadicOperandDenseONNXConstantOp:
+    Constraint<CPred<"isVariadicOperandFromDenseONNXConstantOp($_self)">,
+  "Variadic operand is produced by dense ONNXConstantOps">;
+
 // Useful code generation invocation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
@@ -379,8 +383,9 @@ def SliceofConst :  Pat<
 //===----------------------------------------------------------------------===//
 
 def ConcatofConst: Pat<
-  (ONNXConcatOp:$resOp $x, $axis),
-  (CreateConcatOfConst $resOp, $x, $axis)
+  (ONNXConcatOp:$resOp $input, $axis),
+  (CreateConcatOfConst $resOp, $input, $axis),
+  [(IsVariadicOperandDenseONNXConstantOp:$input)]
 >;
 
 #endif // ONNX_CONSTPROP
