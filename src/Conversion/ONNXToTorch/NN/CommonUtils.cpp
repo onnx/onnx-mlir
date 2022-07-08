@@ -7,42 +7,43 @@ dim_pads createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, Location loc,
     Value zeroPadding =
         rewriter.create<ConstantIntOp>(loc, IntegerAttr::get(ty, 0));
     return dim_pads{.padding = {zeroPadding, zeroPadding}, .isSymmetric = true};
-  } else {
-    /// Determine if padding is symmetrical
-    /// `onnx-mlir` padding has the following form (pad_dim1_start,
-    /// pad_dim2_start, ..., pad_dim1_end, pad_dim2_end, ...)
-    bool is_symmetric = true;
-    std::vector<Value> padsList;
-    auto padIndices = llvm::iota_range<unsigned>(0, pads.size() / 2, false);
-    for (auto i : padIndices) {
-      if (pads[i] != pads[i + (pads.size() / 2)]) {
-        is_symmetric = false;
-        break;
-      }
-    }
-    /// Create appropriate padding vectors based on padding symmetry
-    if (is_symmetric) {
-      for (auto i : llvm::reverse(padIndices)) {
-        Value padValue =
-            rewriter.create<ConstantIntOp>(loc, pads[i].cast<IntegerAttr>());
-        padsList.push_back(padValue);
-      }
-    } else {
-      /// `torch-mlir` only allows symmetric 2-dimensional padding for conv2d
-      /// and maxpool2d; therefore we pass the entire padding vector and
-      /// insert zeropad2d ops. (pad_dimN_start, pad_dimN_end, ...,
-      /// pad_dim1_start, pad_dim1_end)
-      for (auto i : llvm::reverse(padIndices)) {
-        Value padValueStart =
-            rewriter.create<ConstantIntOp>(loc, pads[i].cast<IntegerAttr>());
-        padsList.push_back(padValueStart);
-        Value padValueEnd = rewriter.create<ConstantIntOp>(
-            loc, pads[i + (pads.size() / 2)].cast<IntegerAttr>());
-        padsList.push_back(padValueEnd);
-      }
-    }
-    return dim_pads{.padding = padsList, .isSymmetric = is_symmetric};
   }
+
+  /// Determine if padding is symmetrical
+  /// `onnx-mlir` padding has the following form (pad_dim1_start,
+  /// pad_dim2_start, ..., pad_dim1_end, pad_dim2_end, ...)
+  bool is_symmetric = true;
+  std::vector<Value> padsList;
+  auto padIndices = llvm::iota_range<unsigned>(0, pads.size() / 2, false);
+  for (auto i : padIndices) {
+    if (pads[i] != pads[i + (pads.size() / 2)]) {
+      is_symmetric = false;
+      break;
+    }
+  }
+
+  /// Create appropriate padding vectors based on padding symmetry
+  if (is_symmetric) {
+    for (auto i : llvm::reverse(padIndices)) {
+      Value padValue =
+          rewriter.create<ConstantIntOp>(loc, pads[i].cast<IntegerAttr>());
+      padsList.push_back(padValue);
+    }
+  } else {
+    /// `torch-mlir` only allows symmetric 2-dimensional padding for conv2d
+    /// and maxpool2d; therefore we pass the entire padding vector and
+    /// insert zeropad2d ops. (pad_dimN_start, pad_dimN_end, ...,
+    /// pad_dim1_start, pad_dim1_end)
+    for (auto i : llvm::reverse(padIndices)) {
+      Value padValueStart =
+          rewriter.create<ConstantIntOp>(loc, pads[i].cast<IntegerAttr>());
+      padsList.push_back(padValueStart);
+      Value padValueEnd = rewriter.create<ConstantIntOp>(
+          loc, pads[i + (pads.size() / 2)].cast<IntegerAttr>());
+      padsList.push_back(padValueEnd);
+    }
+  }
+  return dim_pads{.padding = padsList, .isSymmetric = is_symmetric};
 }
 
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
