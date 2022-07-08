@@ -854,6 +854,60 @@ ONNXConstantOp ConstPropSlice(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ConcatOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
+    ValueRange operands, IntegerAttr axisAttr) {
+  int64_t axis = axisAttr.getValue().getSExtValue();
+
+  // Get the const values using the maximum precision e.g. double, int64_t.
+  SmallVector<char *, 4> inputArrays;
+  for (uint64_t i = 0; i < operands.size(); ++i) {
+    char *array =
+        getArrayFromAttributeOrBuffer(rewriter, operands[i].getDefiningOp());
+    inputArrays.emplace_back(array);
+  }
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  Type elementType = getElementType(replacingValue.getType());
+
+  int64_t dimAtAxis = 0;
+  for (int64_t i = 0; i < operands.size(); ++i) {
+    ArrayRef<int64_t> inputShape = getShape(operands[i].getType());
+    std::vector<int64_t> inputStrides = getStrides(inputShape);
+    for (int64_t k = 0; k < ShapedType::getNumElements(inputShape); ++k) {
+      std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
+      std::vector<int64_t> outputIndices(inputIndices);
+      outputIndices[axis] += dimAtAxis;
+      int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
+
+      if (elementType.isa<FloatType>()) {
+        double *inputArr = (double *)inputArrays[i];
+        double *outputArr = (double *)resArray;
+        *(outputArr + outputOffset) = *(inputArr + k);
+      } else if (elementType.isa<IntegerType>()) {
+        int64_t *inputArr = (int64_t *)inputArrays[i];
+        int64_t *outputArr = (int64_t *)resArray;
+        *(outputArr + outputOffset) = *(inputArr + k);
+      } else
+        llvm_unreachable("Unknown data type");
+    }
+    dimAtAxis += inputShape[axis];
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

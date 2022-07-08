@@ -64,7 +64,7 @@ def IsFromDenseONNXConstantOpOrNone:
     "Value is none or produced by a dense ONNXConstantOp"
   >;
 
-// Usefult code generation invokation.
+// Useful code generation invocation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 // Create an dense ONNXConstantOp whose output type is the 1st argument's type.
@@ -106,6 +106,9 @@ def CreateSqueezeOfConst:
 
 def CreateSliceOfConst:
    NativeCodeCall<"ConstPropSlice($_builder, $0, $1)">;
+
+def CreateConcatOfConst:
+   NativeCodeCall<"ConstPropConcat($_builder, $0, $1, $2)">;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
@@ -370,5 +373,14 @@ def SliceofConst :  Pat<
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
      (IsFromDenseONNXConstantOpOrNone:$steps)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Concat operations.
+//===----------------------------------------------------------------------===//
+
+def ConcatofConst: Pat<
+  (ONNXConcatOp:$resOp $x, $axis),
+  (CreateConcatOfConst $resOp, $x, $axis)
+>;
 
 #endif // ONNX_CONSTPROP
