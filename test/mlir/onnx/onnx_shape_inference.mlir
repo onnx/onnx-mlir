@@ -2724,3 +2724,21 @@ func @test_einsum_trace(%arg0: tensor<3x3xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Einsum"(%arg0) {equation = "ii"} : (tensor<3x3xf32>) -> tensor<f32>
   // CHECK: return [[RES]] : tensor<f32>
 }
+
+func @test_einsum_qmark(%arg0: tensor<3x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Einsum"(%arg0) {equation = "ii->i"} : (tensor<3x?xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_einsum_qmark
+  // CHECK: [[RES:%.+]] = "onnx.Einsum"(%arg0) {equation = "ii->i"} : (tensor<3x?xf32>) -> tensor<3xf32>
+  // CHECK: return [[RES]] : tensor<3xf32>
+}
+
+func @test_einsum_qmark1(%arg0: tensor<1x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Einsum"(%arg0) {equation = "ii->i"} : (tensor<1x?xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_einsum_qmark1
+  // CHECK: [[RES:%.+]] = "onnx.Einsum"(%arg0) {equation = "ii->i"} : (tensor<1x?xf32>) -> tensor<?xf32>
+  // CHECK: return [[RES]] : tensor<?xf32>
+}
