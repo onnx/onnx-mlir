@@ -4046,9 +4046,14 @@ LogicalResult ONNXEinsumOp::inferShapes(
   if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
     return success(); // Can only infer once operand shapes are known.
 
+  auto errorFn = [this]() {
+    return this->emitOpError() << "equation '" << this->equation() << "': ";
+  };
+  auto shape = einsum::inferOutputShape(operandAdaptor, errorFn);
+  assert(succeeded(shape) && "any failure should be caught in verify()");
   auto elementType = getOperand(0).getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXEinsumOpShapeHelper, ONNXEinsumOp,
-      ONNXEinsumOpAdaptor>(*this, elementType);
+  getResult().setType(RankedTensorType::get(*shape, elementType));
+  return success();
 }
 
 LogicalResult ONNXEqualOp::inferShapes(
