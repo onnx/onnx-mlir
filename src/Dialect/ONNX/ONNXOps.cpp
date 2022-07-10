@@ -28,6 +28,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
@@ -4016,8 +4017,27 @@ LogicalResult ONNXDetOp::inferShapes(
 }
 
 LogicalResult ONNXEinsumOp::verify() {
-  // TODO: test that equation is well formed and matches Inputs
-  return success();
+  auto errorFn = [this]() -> mlir::InFlightDiagnostic {
+    return this->emitOpError() << "equation '" << this->equation() << "': ";
+  };
+
+  ONNXEinsumOpAdaptor operandAdaptor(*this);
+  auto inputs = operandAdaptor.Inputs();
+
+  if (failed(einsum::verifyEquation(equation(), inputs.size(), errorFn))) {
+    return failure();
+  }
+
+  Type firstElementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  for (Value input : inputs) {
+    ShapedType type = input.getType().cast<ShapedType>();
+    if (type.getElementType() != firstElementType) {
+      return emitOpError() << "different input element types";
+    }
+  }
+  if (!llvm::all_of(inputs, hasShapeAndRank))
+    return success(); // Can only infer once operand shapes are known.
+  return einsum::verifyShapes(operandAdaptor, errorFn);
 }
 
 LogicalResult ONNXEinsumOp::inferShapes(

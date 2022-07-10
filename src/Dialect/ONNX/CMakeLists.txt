@@ -16,6 +16,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOpsHelper.cpp
+  ONNXEinsumOpHelper.cpp
   ONNXTypes.cpp
   Rewrite.cpp
 
