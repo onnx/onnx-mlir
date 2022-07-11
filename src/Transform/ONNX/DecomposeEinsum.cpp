@@ -12,7 +12,6 @@
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
-#include <math.h>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -167,22 +166,30 @@ public:
 
   void diagonal(Output& output, AxesRef axes) {
     char subscript = output.subscripts[axes[0]];
-    // TODO: assert all axes have same dim
+    assert(output.subscripts.count(subscript) == axes.size());
     int64_t d = output.shape[axes[0]];
+    assert(llvm::all_of(axes, [&](int64_t a) { return output.shape[a] == d; }));
     if (d == 1) {
       squeeze(output, axes.drop_front());
       return;
     }
-    int64_t size = round(pow(d, axes.size()));
+    // Create a boolean mask with the shape of the diagonal axes, "unsqueezed"
+    // with dim 1 for all the other axes. For instance, if output.shape is
+    // (2,4,4,5,4) and axes is [1,2,4] then maskShape is (1,4,4,1,4).
+    // The maskValues has true on the "diagonal", i.e.
+    // maskShape[_,i,i,_,i]==true for i in {0,1,2,3} and false elsewhere.
+    Shape maskShape;
+    for (size_t i = 0; i < output.size(); ++i) {
+      maskShape.push_back(output.subscripts[i] == subscript ? d : 1);
+    }
+    int64_t size = ShapedType::getNumElements(maskShape);
     SmallVector<bool> maskValues(size, false);
+    // In the flat maskValues representation of mask the true values are evenly
+    // spaced out between maskValues[0]==true,...,maskValues[size-1]==true.
     assert((size - 1) % (d - 1) == 0);
     auto distance = (size - 1) / (d - 1);
     for (int64_t i = 0; i < d; ++i) {
       maskValues[i * distance] = true;
-    }
-    Shape maskShape;
-    for (size_t i = 0; i < output.size(); ++i) {
-      maskShape.push_back(output.subscripts[i] == subscript ? d : 1);
     }
     Value mask = tensor<bool>(maskShape, maskValues, builder.getI1Type());
     output.value = builder.create<ONNXWhereOp>(
