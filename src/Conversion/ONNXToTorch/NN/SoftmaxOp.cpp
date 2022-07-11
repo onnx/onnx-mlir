@@ -54,18 +54,19 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     MLIRContext *context =  op->getContext();
-    IntegerAttr axis = op.axisAttr();
     Value input = op.input();
 
     Torch::ValueTensorType inputType = toTorchType (context, input.getType());
     Value inputTorchTensor  =
-  rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+      rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
       loc, inputType, input);
-    Value constAxisValue = rewriter.create<ConstantIntOp>(loc,axis);
+    Value constAxisValue = rewriter.create<ConstantIntOp>(loc, op.axisAttr());
 
-    Torch::ValueTensorType resultType = toTorchType (context, op->getResult(0).getType());
+
+    mlir::Type resultType =
+        getTypeConverter()->convertType(op.getResult().getType());
     Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, true);
-    
+
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType,
         inputTorchTensor, constAxisValue, halfToFloat);
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
