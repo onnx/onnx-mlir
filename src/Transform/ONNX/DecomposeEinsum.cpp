@@ -112,11 +112,7 @@ struct Output : public einsum::Parameter {
   }
 
   std::unordered_set<char> subscriptsSet() const {
-    std::unordered_set<char> set;
-    for (char x : subscripts) {
-      set.insert(x);
-    }
-    return set;
+    return std::unordered_set<char>(subscripts.begin(), subscripts.end());
   }
 };
 
@@ -238,15 +234,11 @@ public:
   std::unordered_set<char> otherSubscripts(const std::vector<einsum::Parameter*>& ignore) const {
     std::unordered_set<char> subscriptsSet;
     for (const Output &output : outputs) {
-      if (std::find(ignore.begin(), ignore.end(), &output) == ignore.end()) {
-        for (char x : output.subscripts)
-          subscriptsSet.insert(x);
-      }
+      if (std::find(ignore.begin(), ignore.end(), &output) == ignore.end())
+        subscriptsSet.insert(output.subscripts.begin(), output.subscripts.end());
     }
-    if (std::find(ignore.begin(), ignore.end(), &result) == ignore.end()) {
-      for (char x : result.subscripts)
-        subscriptsSet.insert(x);
-    }
+    if (std::find(ignore.begin(), ignore.end(), &result) == ignore.end())
+      subscriptsSet.insert(result.subscripts.begin(), result.subscripts.end());
     return subscriptsSet;
   }
 
