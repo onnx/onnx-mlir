@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
+#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
@@ -51,10 +52,135 @@ bool isDecomposableOp(ONNXEinsumOp einsumOp) {
   return llvm::all_of(einsumOp.Inputs().getTypes(), isDecomposableType);
 }
 
+Attribute zero(Type elementType) {
+  if (elementType.isa<FloatType>())
+    return FloatAttr::get(elementType, 0);
+  assert(elementType.isa<IntegerType>()
+      && "elementType must be IntegerType if not FloatType");
+  return IntegerAttr::get(elementType, 0);
+}
+
+typedef SmallVector<int64_t, 4> Axes;
+
+struct Output : public einsum::Parameter {
+  Output(const einsum::Parameter& parameter, Value value)
+    : einsum::Parameter(parameter),
+      value(value) {}
+  Value value;
+
+  size_t size() const { return shape.size(); }
+
+  RankedTensorType type(Type elementType) const {
+    return RankedTensorType::get(shape, elementType);
+  }
+
+  void eraseAxis(int64_t a) {
+    assert(0 <= a); // for simplicity axes must be non-negative
+    assert(a < (int64_t)size());
+    shape.erase(shape.begin() + a);
+    subscripts.erase(subscripts.begin() + a);
+  }
+
+  void eraseAxes(const Axes &axes) {
+    for (auto it = axes.rbegin(); it != axes.rend(); ++it) {
+      eraseAxis(*it);
+    }
+  }
+};
+
+class Decomposer {
+public:
+  Decomposer(OpBuilder &builder, Location loc,
+      const einsum::Signature& signature, ValueRange values)
+      : builder(builder), loc(loc) {
+    assert(values.size() >= 1);
+    elementType = values[0].getType().cast<ShapedType>().getElementType();
+    result = signature.output;
+    assert(values.size() == signature.inputs.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+      outputs.emplace_back(signature.inputs[i], values[i]);
+    }
+  }
+
+  void squeeze(Output& output, const Axes& axes) {
+    if (axes.empty())
+      return;
+    assert(llvm::all_of(axes, [&output](int64_t a) {
+      return output.shape[a] == 1;
+    }));
+    output.eraseAxes(axes);
+    output.value = builder.create<ONNXSqueezeOp>(
+        loc, output.type(elementType), output.value, tensor1D(axes))
+        .getResult();
+  }
+
+  void squeezeNonResults(Output& output) {
+    Axes axes;
+    for (size_t a = 0; a < output.subscripts.size(); ++a) {
+      char subscript = output.subscripts[a];
+      if (output.shape[a] == 1 && result.subscripts.count(subscript) == 0) {
+        axes.push_back(a);
+      }
+    }
+    squeeze(output, axes);
+  }
+
+  Value decompose(OpBuilder &builder, Location loc) {
+    if (ShapedType::getNumElements(result.shape) == 0 ||
+        llvm::any_of(outputs, [](const Output& output) {
+          return ShapedType::getNumElements(output.shape) == 0;
+        })) {
+      // result is empty, or all zeros because there's a zero dim
+      // in an input (ReduceSum of the zero dim makes everything zero)
+      return zeros(result.shape, elementType);
+    }
+
+    for (auto& output : outputs) {
+      // Squeeze axes that don't appear in the result.
+      // This avoids broadcast of reducible axes in matmul later on.
+      // Must be run for all outputs before (diagonalize and) reduce pass
+      // because it may enable more axes to reduce.
+      squeezeNonResults(output);
+    }
+
+    // TODO: cover all the other cases
+    return nullptr;
+  }
+
+private:
+  Value zeros(ArrayRef<int64_t> shape, Type elementType) {
+    RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
+    SmallVector<Attribute> values(tensorType.getNumElements(), zero(elementType));
+    return createONNXConstantOpWithDenseAttr(builder, loc,
+        DenseElementsAttr::get(tensorType, makeArrayRef(values)));
+  }
+
+  Value tensor1D(ArrayRef<int64_t> values) {
+    return createONNXConstantOpWithDenseAttr(builder, loc,
+        builder.getI64TensorAttr(values));
+  }
+
+  OpBuilder& builder;
+  Location loc;
+  Type elementType;
+  einsum::Parameter result;
+  std::vector<Output> outputs;
+};
+
 } // namespace
 
 LogicalResult DecomposeEinsumPattern::matchAndRewrite(ONNXEinsumOp einsumOp, PatternRewriter &rewriter) const {
   auto loc = einsumOp.getLoc();
+  ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
+  einsum::ErrorFn errorFn = [&einsumOp]() {
+    return einsumOp.emitOpError()
+        << "equation '" << einsumOp.equation() << "': ";
+  };
+  auto signature = einsum::inferSignature(operandAdaptor, errorFn);
+  assert(succeeded(signature) && "any failure should be caught in verify()");
+  Decomposer decomposer(rewriter, loc, *signature, operandAdaptor.Inputs());
+  // TODO: use signature to decompose einsumOp
+
   IntegerType typeI64 = rewriter.getI64Type();
   auto zeroScalar = [&rewriter, loc](Type elementType) {
     return createONNXConstantOpWithDenseAttr(rewriter, loc,
@@ -75,7 +201,6 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(ONNXEinsumOp einsumOp, Pat
   if (einsumOp.Inputs().size() != commas + 1) {
     return einsumOp->emitError("Einsum equation, Inputs size mismatch");
   }
-  ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
   ValueRange inputs = operandAdaptor.Inputs();
   ShapedType input0Type = inputs[0].getType().cast<ShapedType>();
   Type elementType = input0Type.getElementType();
