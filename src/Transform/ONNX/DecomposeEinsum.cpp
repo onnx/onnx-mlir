@@ -35,37 +35,15 @@ namespace onnx_mlir {
 
 namespace {
 
-bool isDecomposableElementType(Type elementType) {
-  if (elementType.isa<FloatType>())
-    return true;
-  if (IntegerType intType = elementType.dyn_cast<IntegerType>())
-    return intType.getWidth() >= 32;
-  return false;
-}
-
-bool isDecomposableType(Type type) {
-  ShapedType s = type.cast<ShapedType>();
-  return isDecomposableElementType(s.getElementType()) && s.hasStaticShape();
-}
-
-bool isDecomposableOp(ONNXEinsumOp einsumOp) {
-  return llvm::all_of(einsumOp.Inputs().getTypes(), isDecomposableType);
-}
-
-Attribute zero(Type elementType) {
-  if (elementType.isa<FloatType>())
-    return FloatAttr::get(elementType, 0);
-  assert(elementType.isa<IntegerType>()
-      && "elementType must be IntegerType if not FloatType");
-  return IntegerAttr::get(elementType, 0);
-}
+using einsum::Shape;
+using einsum::Subscripts;
 
 typedef SmallVector<int64_t, 4> Axes;
 typedef ArrayRef<int64_t> AxesRef;
 
 // axes must be nonnegative and sorted
-einsum::Shape shapeExpandDims(const einsum::Shape& shape, AxesRef axes) {
-  einsum::Shape expanded = shape;
+Shape shapeExpandDims(const Shape& shape, AxesRef axes) {
+  Shape expanded = shape;
   for (auto a : axes) {
     expanded.insert(expanded.begin() + a, 1);
   }
@@ -73,8 +51,8 @@ einsum::Shape shapeExpandDims(const einsum::Shape& shape, AxesRef axes) {
   return expanded;
 }
 
-einsum::Shape shapeBroadcast(const einsum::Shape &shape1, const einsum::Shape &shape2) {
-  einsum::Shape shape;
+Shape shapeBroadcast(const Shape &shape1, const Shape &shape2) {
+  Shape shape;
   bool success = OpTrait::util::getBroadcastedShape(shape1, shape2, shape);
   assert(success);
   return shape;
@@ -105,8 +83,8 @@ struct Output : public einsum::Parameter {
     }
   }
 
-  einsum::Subscripts duplicates() const {
-    einsum::Subscripts dups;
+  Subscripts duplicates() const {
+    Subscripts dups;
     std::unordered_map<char, int> counts;
     for (char x : subscripts) {
       counts[x] += 1; // counts[x] initializes to 0 if not yet mapped
@@ -126,6 +104,14 @@ struct Output : public einsum::Parameter {
     return set;
   }
 };
+
+Attribute zero(Type elementType) {
+  if (elementType.isa<FloatType>())
+    return FloatAttr::get(elementType, 0);
+  assert(elementType.isa<IntegerType>()
+      && "elementType must be IntegerType if not FloatType");
+  return IntegerAttr::get(elementType, 0);
+}
 
 class Decomposer {
 public:
@@ -194,7 +180,7 @@ public:
     for (int64_t i = 0; i < d; ++i) {
       maskValues[i * distance] = true;
     }
-    einsum::Shape maskShape;
+    Shape maskShape;
     for (size_t i = 0; i < output.size(); ++i) {
       maskShape.push_back(output.subscripts[i] == subscript ? d : 1);
     }
@@ -242,7 +228,7 @@ public:
     return subscriptsSet;
   }
 
-  Axes transposePerm(const einsum::Subscripts &original, const einsum::Subscripts &transposed) const {
+  Axes transposePerm(const Subscripts &original, const Subscripts &transposed) const {
     Axes axes;
     for (char x : transposed) {
       axes.push_back(original.find(x));
@@ -250,15 +236,15 @@ public:
     return axes;
   }
 
-  einsum::Shape permuteShape(const einsum::Shape& shape, AxesRef perm) {
-    einsum::Shape permuted;
+  Shape permuteShape(const Shape& shape, AxesRef perm) {
+    Shape permuted;
     for (size_t a = 0; a < shape.size(); ++a) {
       permuted.push_back(shape[perm[a]]);
     }
     return permuted;
   }
 
-  void transpose(Output& output, const einsum::Subscripts &transposedSubscripts) {
+  void transpose(Output& output, const Subscripts &transposedSubscripts) {
     if (output.subscripts == transposedSubscripts)
       return;
 
@@ -270,7 +256,7 @@ public:
         .getResult();
   }
 
-  void unsqueeze(Output& output, const einsum::Subscripts &unsqueezedSubscripts) {
+  void unsqueeze(Output& output, const Subscripts &unsqueezedSubscripts) {
     Axes axes;
     std::unordered_set<char> in = output.subscriptsSet();
     for (size_t a = 0; a < unsqueezedSubscripts.size(); ++a) {
@@ -290,20 +276,20 @@ public:
   void mul(Output &output1, Output &output2, bool reduceAtEnd = false) {
     std::unordered_set<char> in1 = output1.subscriptsSet();
     std::unordered_set<char> in2 = output2.subscriptsSet();
-    einsum::Subscripts sharedSubscripts;
+    Subscripts sharedSubscripts;
     for (char x : output2.subscripts) {
       if (in1.count(x) != 0)
         sharedSubscripts.push_back(x);
     }
-    einsum::Subscripts subscripts1unshared;
+    Subscripts subscripts1unshared;
     for (char x : output1.subscripts) {
       if (in2.count(x) == 0)
         subscripts1unshared.push_back(x);
     }
-    einsum::Subscripts subscripts1transposed = subscripts1unshared;
+    Subscripts subscripts1transposed = subscripts1unshared;
     subscripts1transposed += sharedSubscripts;
     transpose(output1, subscripts1transposed);
-    einsum::Subscripts subscripts = subscripts1unshared;
+    Subscripts subscripts = subscripts1unshared;
     subscripts += output2.subscripts;
     unsqueeze(output1, subscripts);
     output1.subscripts = subscripts;
@@ -420,6 +406,23 @@ private:
   einsum::Parameter result;
   std::vector<Output> outputs;
 };
+
+bool isDecomposableElementType(Type elementType) {
+  if (elementType.isa<FloatType>())
+    return true;
+  if (IntegerType intType = elementType.dyn_cast<IntegerType>())
+    return intType.getWidth() >= 32;
+  return false;
+}
+
+bool isDecomposableType(Type type) {
+  ShapedType s = type.cast<ShapedType>();
+  return isDecomposableElementType(s.getElementType()) && s.hasStaticShape();
+}
+
+bool isDecomposableOp(ONNXEinsumOp einsumOp) {
+  return llvm::all_of(einsumOp.Inputs().getTypes(), isDecomposableType);
+}
 
 } // namespace
 
