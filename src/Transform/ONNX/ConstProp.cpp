@@ -854,6 +854,84 @@ ONNXConstantOp ConstPropSlice(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ExpandOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropExpand(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  // Get the const value using the maximum precision e.g. double, int64_t.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ArrayRef<int64_t> inputShape = getShape(constValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  int64_t inputRank = inputShape.size();
+  int64_t outputRank = outputShape.size();
+  Type elementType = getElementType(replacingValue.getType());
+
+  // Check broadcasting.
+  bool broadcasting = false;
+  if (inputRank != outputRank)
+    broadcasting = true;
+  else
+    for (unsigned i = 0; i < outputRank; ++i)
+      if (inputShape[i] != outputShape[i]) {
+        broadcasting = true;
+        break;
+      }
+
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
+    // Compute indices to access the output.
+    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
+    // Compute indices to access the input.
+    SmallVector<int64_t, 4> inputIndices(inputRank, 0);
+    if (!broadcasting) {
+      for (int k = 0; k < outputRank; ++k) {
+        inputIndices[k] = outputIndices[k];
+      }
+    } else {
+      for (int k = 0; k < outputRank; ++k) {
+        // in the input index range.
+        if (k >= outputRank - inputRank) {
+          int inputIndex = k - outputRank + inputRank;
+          if (inputShape[inputIndex] == 1)
+            // broadcast
+            inputIndices[inputIndex] = 0;
+          else
+            inputIndices[inputIndex] = outputIndices[k];
+        }
+      }
+    }
+
+    // Calculate element-wise binary result.
+    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
+    int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
+
+    if (elementType.isa<FloatType>()) {
+      double *inputArr = (double *)inputArray;
+      double *outputArr = (double *)resArray;
+      *(outputArr + outputOffset) = *(inputArr + inputOffset);
+    } else if (elementType.isa<IntegerType>()) {
+      int64_t *inputArr = (int64_t *)inputArray;
+      int64_t *outputArr = (int64_t *)resArray;
+      *(outputArr + outputOffset) = *(inputArr + inputOffset);
+    } else
+      llvm_unreachable("Unknown data type");
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

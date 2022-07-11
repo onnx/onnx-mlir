@@ -107,6 +107,9 @@ def CreateSqueezeOfConst:
 def CreateSliceOfConst:
    NativeCodeCall<"ConstPropSlice($_builder, $0, $1)">;
 
+def CreateExpandOfConst:
+   NativeCodeCall<"ConstPropExpand($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -370,5 +373,17 @@ def SliceofConst :  Pat<
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
      (IsFromDenseONNXConstantOpOrNone:$steps)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Expand operations.
+//===----------------------------------------------------------------------===//
+
+def ExpandofConst :  Pat<
+    // From Expand (x, shape)
+    (ONNXExpandOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                         (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c where c is the expanded value.
+    (CreateExpandOfConst $resOp, $input),
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape)]>;
 
 #endif // ONNX_CONSTPROP
