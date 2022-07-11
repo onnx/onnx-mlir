@@ -61,15 +61,20 @@ class Test {
   Type F32;
   Type I32;
 
-  template <typename T>
+  Attribute zero(Type t) {
+    if (t.isa<FloatType>())
+      return FloatAttr::get(t, 0);
+    assert(t.isa<IntegerType>() && "must be IntegerType if not FloatType");
+    return IntegerAttr::get(t, 0);
+  }
+
   Value zeros(ArrayRef<int64_t> shape, Type t) {
     RankedTensorType tensorType = RankedTensorType::get(shape, t);
-    SmallVector<T> values(tensorType.getNumElements(), 0);
+    SmallVector<Attribute> values(tensorType.getNumElements(), zero(t));
     return createONNXConstantOpWithDenseAttr(builder, loc,
         DenseElementsAttr::get(tensorType, makeArrayRef(values)));
   }
 
-  template <typename T>
   ONNXEinsumOp einsumOp(StringRef equation,
       const std::vector<Value>& inputs, Type elementType) {
     return builder.create<ONNXEinsumOp>(
@@ -77,14 +82,13 @@ class Test {
         llvm::makeArrayRef(inputs), equation);
   }
 
-  template <typename T>
   ONNXEinsumOp einsumOp(StringRef equation,
       const std::vector<Shape> &inputShapes, Type elementType) {
     std::vector<Value> inputs;
     for (const Shape& shape : inputShapes) {
-      inputs.push_back(zeros<T>(shape, elementType));
+      inputs.push_back(zeros(shape, elementType));
     }
-    return einsumOp<T>(equation, inputs, elementType);
+    return einsumOp(equation, inputs, elementType);
   }
 
   std::vector<Shape> zeroShapes(StringRef equation) {
@@ -112,7 +116,7 @@ public:
     int failures = 0;
     for (StringRef equation : equations) {
       auto inputShapes = zeroShapes(equation);
-      ONNXEinsumOp op = einsumOp<float>(equation, inputShapes, F32);
+      ONNXEinsumOp op = einsumOp(equation, inputShapes, F32);
       auto outcome = op.verify();
       failures += expectSuccess != succeeded(outcome);
     }
@@ -167,7 +171,7 @@ public:
       StringRef equation;
       std::vector<Shape> inputShapes;
       std::tie(equation, inputShapes) = eis;
-      ONNXEinsumOp op = einsumOp<float>(equation, inputShapes, F32);
+      ONNXEinsumOp op = einsumOp(equation, inputShapes, F32);
       auto outcome = op.verify();
       failures += expectSuccess != succeeded(outcome);
     }
@@ -200,9 +204,9 @@ public:
 
   int test_verify_different_types() {
     int failures = 0;
-    Value fst = zeros<float>({2}, F32);
-    Value snd = zeros<int32_t>({3}, I32);
-    ONNXEinsumOp op = einsumOp<float>("i,j", {fst, snd}, F32);
+    Value fst = zeros({2}, F32);
+    Value snd = zeros({3}, I32);
+    ONNXEinsumOp op = einsumOp("i,j", {fst, snd}, F32);
     failures += succeeded(op.verify());
     return failures;
   }
@@ -218,7 +222,7 @@ public:
       Shape expectedOutputShape;
       std::tie(equation, inputShapes, expectedOutputShape) = es;
 
-      ONNXEinsumOp op = einsumOp<float>(equation, inputShapes, F32);
+      ONNXEinsumOp op = einsumOp(equation, inputShapes, F32);
       if (failed(op.verify())) {
         failures += expectSuccess != false;
         continue;
