@@ -68,7 +68,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // values produced by loop body function invocation in a scope accessible by
     // all loop iterations.
     for (unsigned long i = 0; i < loopOpAdaptor.v_initial().size(); i++) {
-      auto origInput = loopOp.v_initial()[i];
+      Value origInput = loopOp.v_initial()[i];
       if (origInput.getType().isa<SeqType>()) {
         Value zero = create.math.constantIndex(0);
         create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i], zero);
@@ -116,7 +116,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Create a scalar tensor out of loop iteration variable, as the first
           // argument passed to the body graph function.
           Value origIV = loopInd[0];
-          auto iv = rewriter
+          Value iv = rewriter
                         .create<arith::IndexCastOp>(
                             loc, rewriter.getI64Type(), origIV)
                         .getResult();
@@ -131,7 +131,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // For SeqType, load the value for the storage
           for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
             if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
-              auto seqValue = create.krnl.load(outputs[i], zero);
+              Value seqValue = create.krnl.load(outputs[i], zero);
               params.emplace_back(seqValue);
             } else {
               params.emplace_back(outputs[i]);
@@ -198,7 +198,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               resultsRange.begin(), resultsRange.end());
           for (unsigned i = 0; i < bodyOutputs.size(); i++) {
             Value output = bodyOutputs[i];
-            auto outputTy = output.getType();
+            Type outputTy = output.getType();
             bodyOutputs[i] =
                 rewriter
                     .create<UnrealizedConversionCastOp>(
@@ -274,7 +274,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         // need to distinguish seqType in v_final and scan
         if (i < loopOp.v_final().size()) {
           // In v_final
-          auto v = create.krnl.load(output, zero);
+          Value v = create.krnl.load(output, zero);
           newOutputs.emplace_back(v);
         } else {
           // scan output
@@ -282,7 +282,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // TODO: need a IF statement to handle output is empty
           // we can safely give 0 to the dynamic dim for alloc
           // Here loop is assumed to be executed at least once.
-          auto firstElement =
+          Value firstElement =
               create.krnl.load(output, create.math.constantIndex(0));
           SmallVector<mlir::Value, 4> allocParams;
           SmallVector<int64_t, 4> dims;
@@ -299,7 +299,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           ArrayRef<int64_t> shape(dims.data(), dims.size());
           auto flatType = MemRefType::get(shape,
               firstElement.getType().cast<MemRefType>().getElementType());
-          auto alloc = create.mem.alignedAlloc(flatType, allocParams);
+          Value alloc = create.mem.alignedAlloc(flatType, allocParams);
           // copy the value
           KrnlBuilder createKrnl(rewriter, loc);
           ValueRange loopDef = createKrnl.defineLoops(1);
@@ -518,14 +518,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     } else
       return true;
 
-#if 0
-    // Temparary hack to detect scan output
-    for (auto v : returnOp->getOperands()) {
-      if (v.getType().isa<SeqType>())
-        return true;
-    }
-#endif
-
     return false;
   }
 
@@ -705,9 +697,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           resultsRange.begin(), resultsRange.end());
       for (unsigned long i = 0; i < bodyOutputs.size(); i++) {
         Value output = bodyOutputs[i];
-        printf("yyy\n");
-        output.dump();
-        printf("yyy\n");
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&
                "Expecting loop body function output to consist of "
