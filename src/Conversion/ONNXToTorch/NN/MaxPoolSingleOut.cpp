@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- MaxPoolSingleOutOp.cpp - ONNX Op Transform -------===//
+//===--------- MaxPoolSingleOut.cpp - ONNX Op Transform --------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -120,7 +120,7 @@ public:
     auto resultType = Torch::ValueTensorType::get(
         context, opTensorType.getShape(), opTensorType.getElementType());
 
-    // Allow symmetric padding and create additonal padding op to support
+    // Allow symmetric padding and create additional padding op to support
     // asymmetric padding in `torch-mlir`
     Value result;
     if (!padsOnnxList.isSymmetric) {
@@ -139,8 +139,8 @@ public:
       // Construct zero padding op since `torch` does not support asymmetric
       // padding for maxpool2d
       float negInf = -std::numeric_limits<float>::max();
-      FloatAttr zeroFloatAttr = FloatAttr::get(floatType, negInf);
-      Value zeroPad = rewriter.create<ConstantFloatOp>(loc, zeroFloatAttr);
+      FloatAttr negInfAttr = FloatAttr::get(floatType, negInf);
+      Value zeroPad = rewriter.create<ConstantFloatOp>(loc, negInfAttr);
       Value padTensor = rewriter.create<AtenConstantPadNdOp>(
           loc, padType, x, padsList, zeroPad);
 

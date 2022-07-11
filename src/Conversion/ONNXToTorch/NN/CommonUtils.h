@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- CommonUtils.h -------------------===//
+//===-------------------------- CommonUtils.h -----------------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -43,12 +43,12 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 typedef struct dim_pads {
-  /// Padding along each spatial dimension. Usually this will refer to with
-  /// and height. (pad_dimN_start, pad_dimN_end, ..., pad_dim1_start,
-  /// pad_dim1_end)
+  // Padding along each spatial dimension. Usually this will refer to with
+  // and height. (pad_dimN_start, pad_dimN_end, ..., pad_dim1_start,
+  // pad_dim1_end)
   std::vector<Value> padding;
-  /// Symmetric padding only has needs to spatial dimension and therefore
-  /// assumes padding size of two.
+  // Symmetric padding only has needs to spatial dimension and therefore
+  // assumes padding size of two.
   bool isSymmetric;
 } dim_pads;
 
