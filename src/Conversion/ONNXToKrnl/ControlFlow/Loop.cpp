@@ -117,9 +117,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // argument passed to the body graph function.
           Value origIV = loopInd[0];
           Value iv = rewriter
-                        .create<arith::IndexCastOp>(
-                            loc, rewriter.getI64Type(), origIV)
-                        .getResult();
+                         .create<arith::IndexCastOp>(
+                             loc, rewriter.getI64Type(), origIV)
+                         .getResult();
           MemRefBuilder createMemRef(rewriter, loc);
           Value ivMemRef =
               createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
