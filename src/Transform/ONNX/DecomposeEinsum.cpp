@@ -57,6 +57,22 @@ Shape shapeBroadcast(const Shape &shape1, const Shape &shape2) {
   return shape;
 }
 
+Shape shapePermute(const Shape& shape, AxesRef perm) {
+  Shape permuted;
+  for (size_t a = 0; a < shape.size(); ++a) {
+    permuted.push_back(shape[perm[a]]);
+  }
+  return permuted;
+}
+
+Axes transposePerm(const Subscripts &original, const Subscripts &transposed) {
+  Axes axes;
+  for (char x : transposed) {
+    axes.push_back(original.find(x));
+  }
+  return axes;
+}
+
 struct Output : public einsum::Parameter {
   Output(const einsum::Parameter& parameter, Value value)
     : einsum::Parameter(parameter),
@@ -234,22 +250,6 @@ public:
     return subscriptsSet;
   }
 
-  Axes transposePerm(const Subscripts &original, const Subscripts &transposed) const {
-    Axes axes;
-    for (char x : transposed) {
-      axes.push_back(original.find(x));
-    }
-    return axes;
-  }
-
-  Shape permuteShape(const Shape& shape, AxesRef perm) {
-    Shape permuted;
-    for (size_t a = 0; a < shape.size(); ++a) {
-      permuted.push_back(shape[perm[a]]);
-    }
-    return permuted;
-  }
-
   void transpose(Output& output, const Subscripts &transposedSubscripts) {
     assert(output.subscripts.size() == transposedSubscripts.size());
     if (output.subscripts == transposedSubscripts)
@@ -257,7 +257,7 @@ public:
 
     Axes perm = transposePerm(output.subscripts, transposedSubscripts);
     output.subscripts = transposedSubscripts;
-    output.shape = permuteShape(output.shape, perm);
+    output.shape = shapePermute(output.shape, perm);
     output.value = builder.create<ONNXTransposeOp>(
         loc, output.type(elementType), output.value, builder.getI64ArrayAttr(perm))
         .getResult();
