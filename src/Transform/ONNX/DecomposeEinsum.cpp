@@ -6,15 +6,15 @@
 //
 // This file implements the decomposition of ONNXEinsumOp to simpler ops.
 //
-// WIP: so far only handrolled decompositions of the equations used in
-// test/backend/inference_backend.py
-// TODO: implement all case, leveraging einsum::inferSignature()
-//
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+
+#include <math.h>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace mlir;
 
@@ -61,6 +61,24 @@ Attribute zero(Type elementType) {
 }
 
 typedef SmallVector<int64_t, 4> Axes;
+typedef ArrayRef<int64_t> AxesRef;
+
+// axes must be nonnegative and sorted
+einsum::Shape shapeExpandDims(const einsum::Shape& shape, AxesRef axes) {
+  einsum::Shape expanded = shape;
+  for (auto a : axes) {
+    expanded.insert(expanded.begin() + a, 1);
+  }
+  assert(expanded.size() == shape.size() + axes.size());
+  return expanded;
+}
+
+einsum::Shape shapeBroadcast(const einsum::Shape &shape1, const einsum::Shape &shape2) {
+  einsum::Shape shape;
+  bool success = OpTrait::util::getBroadcastedShape(shape1, shape2, shape);
+  assert(success);
+  return shape;
+}
 
 struct Output : public einsum::Parameter {
   Output(const einsum::Parameter& parameter, Value value)
@@ -81,10 +99,31 @@ struct Output : public einsum::Parameter {
     subscripts.erase(subscripts.begin() + a);
   }
 
-  void eraseAxes(const Axes &axes) {
+  void eraseAxes(AxesRef axes) {
     for (auto it = axes.rbegin(); it != axes.rend(); ++it) {
       eraseAxis(*it);
     }
+  }
+
+  einsum::Subscripts duplicates() const {
+    einsum::Subscripts dups;
+    std::unordered_map<char, int> counts;
+    for (char x : subscripts) {
+      counts[x] += 1; // counts[x] initializes to 0 if not yet mapped
+    }
+    for (const auto& entry : counts) { // entry == pair (x, count)
+      if (entry.second > 1) // multiple occurrences
+        dups.push_back(entry.first);
+    }
+    return dups;
+  }
+
+  std::unordered_set<char> subscriptsSet() const {
+    std::unordered_set<char> set;
+    for (char x : subscripts) {
+      set.insert(x);
+    }
+    return set;
   }
 };
 
@@ -102,7 +141,7 @@ public:
     }
   }
 
-  void squeeze(Output& output, const Axes& axes) {
+  void squeeze(Output& output, AxesRef axes) {
     if (axes.empty())
       return;
     assert(llvm::all_of(axes, [&output](int64_t a) {
@@ -111,6 +150,21 @@ public:
     output.eraseAxes(axes);
     output.value = builder.create<ONNXSqueezeOp>(
         loc, output.type(elementType), output.value, tensor1D(axes))
+        .getResult();
+  }
+
+  void sum(Output& output, AxesRef axes) {
+    if (axes.empty())
+      return;
+    if (llvm::all_of(axes, [&output](int64_t a) {
+          return output.shape[a] == 1;
+        })) {
+      squeeze(output, axes);
+      return;
+    }
+    output.eraseAxes(axes);
+    output.value = builder.create<ONNXReduceSumOp>(
+        loc, output.type(elementType), output.value, tensor1D(axes), /*keepdims=*/0)
         .getResult();
   }
 
@@ -125,7 +179,186 @@ public:
     squeeze(output, axes);
   }
 
-  Value decompose(OpBuilder &builder, Location loc) {
+  void diagonal(Output& output, AxesRef axes) {
+    char subscript = output.subscripts[axes[0]];
+    // TODO: assert all axes have same dim
+    int64_t d = output.shape[axes[0]];
+    if (d == 1) {
+      squeeze(output, axes.drop_front());
+      return;
+    }
+    int64_t size = round(pow(d, axes.size()));
+    SmallVector<bool> maskValues(size, false);
+    assert((size - 1) % (d - 1) == 0);
+    auto distance = (size - 1) / (d - 1);
+    for (int64_t i = 0; i < d; ++i) {
+      maskValues[i * distance] = true;
+    }
+    einsum::Shape maskShape;
+    for (size_t i = 0; i < output.size(); ++i) {
+      maskShape.push_back(output.subscripts[i] == subscript ? d : 1);
+    }
+    Value mask = tensor<bool>(maskShape, maskValues, builder.getI1Type());
+    output.value = builder.create<ONNXWhereOp>(
+        loc, output.type(elementType), mask, output.value, zeroScalar(elementType))
+        .getResult();
+    sum(output, axes.drop_front());
+  }
+
+  void diagonalize(Output& output) {
+    auto dups = output.duplicates();
+    for (char x : dups) {
+      Axes axes;
+      for (size_t a = 0; a < output.size(); ++a) {
+        if (output.subscripts[a] == x)
+          axes.push_back(a);
+      }
+      diagonal(output, axes);
+    }
+  }
+
+  void reduce(Output& output) {
+    auto keep = otherSubscripts({&output});
+    Axes axes;
+    for (size_t a = 0; a < output.size(); ++a) {
+      if (keep.count(output.subscripts[a]) == 0)
+        axes.push_back(a);
+    }
+    sum(output, axes);
+  }
+
+  std::unordered_set<char> otherSubscripts(const std::vector<einsum::Parameter*>& ignore) const {
+    std::unordered_set<char> subscriptsSet;
+    for (const Output &output : outputs) {
+      if (std::find(ignore.begin(), ignore.end(), &output) == ignore.end()) {
+        for (char x : output.subscripts)
+          subscriptsSet.insert(x);
+      }
+    }
+    if (std::find(ignore.begin(), ignore.end(), &result) == ignore.end()) {
+      for (char x : result.subscripts)
+        subscriptsSet.insert(x);
+    }
+    return subscriptsSet;
+  }
+
+  Axes transposePerm(const einsum::Subscripts &original, const einsum::Subscripts &transposed) const {
+    Axes axes;
+    for (char x : transposed) {
+      axes.push_back(original.find(x));
+    }
+    return axes;
+  }
+
+  einsum::Shape permuteShape(const einsum::Shape& shape, AxesRef perm) {
+    einsum::Shape permuted;
+    for (size_t a = 0; a < shape.size(); ++a) {
+      permuted.push_back(shape[perm[a]]);
+    }
+    return permuted;
+  }
+
+  void transpose(Output& output, const einsum::Subscripts &transposedSubscripts) {
+    if (output.subscripts == transposedSubscripts)
+      return;
+
+    Axes perm = transposePerm(output.subscripts, transposedSubscripts);
+    output.subscripts = transposedSubscripts;
+    output.shape = permuteShape(output.shape, perm);
+    output.value = builder.create<ONNXTransposeOp>(
+        loc, output.type(elementType), output.value, builder.getI64ArrayAttr(perm))
+        .getResult();
+  }
+
+  void unsqueeze(Output& output, const einsum::Subscripts &unsqueezedSubscripts) {
+    Axes axes;
+    std::unordered_set<char> in = output.subscriptsSet();
+    for (size_t a = 0; a < unsqueezedSubscripts.size(); ++a) {
+      char x = unsqueezedSubscripts[a];
+      if (in.count(x) == 0)
+        axes.push_back(a);
+    }
+    if (axes.empty())
+      return;
+    output.subscripts = unsqueezedSubscripts;
+    output.shape = shapeExpandDims(output.shape, axes);
+    output.value = builder.create<ONNXUnsqueezeOp>(
+        loc, output.type(elementType), output.value, tensor1D(axes))
+        .getResult();
+  }
+
+  void mul(Output &output1, Output &output2, bool reduceAtEnd = false) {
+    std::unordered_set<char> in1 = output1.subscriptsSet();
+    std::unordered_set<char> in2 = output2.subscriptsSet();
+    einsum::Subscripts sharedSubscripts;
+    for (char x : output2.subscripts) {
+      if (in1.count(x) != 0)
+        sharedSubscripts.push_back(x);
+    }
+    einsum::Subscripts subscripts1unshared;
+    for (char x : output1.subscripts) {
+      if (in2.count(x) == 0)
+        subscripts1unshared.push_back(x);
+    }
+    einsum::Subscripts subscripts1transposed = subscripts1unshared;
+    subscripts1transposed += sharedSubscripts;
+    transpose(output1, subscripts1transposed);
+    einsum::Subscripts subscripts = subscripts1unshared;
+    subscripts += output2.subscripts;
+    unsqueeze(output1, subscripts);
+    output1.subscripts = subscripts;
+    output1.shape = shapeBroadcast(output1.shape, output2.shape);
+    output1.value = builder.create<ONNXMulOp>(
+        loc, output1.type(elementType), output1.value, output2.value)
+        .getResult();
+    if (reduceAtEnd)
+      reduce(output1);
+    remove(output2);
+  }
+
+  void matmul(Output &output1, Output &output2, const std::unordered_set<char> &reducible) {
+    // TODO: implement with ONNXMatMulOp
+    mul(output1, output2, /*reduceAtEnd=*/true);
+  }
+
+  void remove(Output& output) {
+    for (auto iter = outputs.begin(); iter != outputs.end(); ++iter) {
+      if (&*iter == &output) {
+        outputs.erase(iter);
+        return;
+      }
+    }
+    assert(false); // should have returned from the loop
+  }
+
+  void contract(Output& output1, Output& output2) {
+    auto keep = otherSubscripts({&output1, &output2});
+    // we populate reducible with the subscripts in the intersection
+    // of output1 and output2 subscripts, minus keep
+    std::unordered_set<char> reducible;
+    std::unordered_set<char> in1 = output1.subscriptsSet();
+    for (char x : output2.subscripts) {
+      if (in1.count(x) != 0) {
+        // x is in intersection of output1 and output2 subscripts
+        if (keep.count(x) == 0) {
+          reducible.insert(x);
+        }
+      }
+    }
+    if (reducible.empty()) {
+      mul(output1, output2);
+    } else {
+      matmul(output1, output2, reducible);
+    }
+  }
+
+  void finalize() {
+    assert(outputs.size() == 1);
+    Output &output = outputs[0];
+    transpose(output, result.subscripts);
+  }
+
+  Value decompose() {
     if (ShapedType::getNumElements(result.shape) == 0 ||
         llvm::any_of(outputs, [](const Output& output) {
           return ShapedType::getNumElements(output.shape) == 0;
@@ -143,11 +376,27 @@ public:
       squeezeNonResults(output);
     }
 
-    // TODO: cover all the other cases
-    return nullptr;
+    for (auto& output : outputs) {
+      diagonalize(output);
+      reduce(output);
+    }
+
+    while (outputs.size() > 1) {
+      contract(outputs[0], outputs[1]);
+    }
+
+    finalize();
+    return outputs[0].value;
   }
 
 private:
+  template <typename T>
+  Value tensor(ArrayRef<int64_t> shape, ArrayRef<T> values, Type elementType) {
+    RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
+    return createONNXConstantOpWithDenseAttr(builder, loc,
+        DenseElementsAttr::get(tensorType, values));
+  }
+
   Value zeros(ArrayRef<int64_t> shape, Type elementType) {
     RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
     SmallVector<Attribute> values(tensorType.getNumElements(), zero(elementType));
@@ -160,6 +409,11 @@ private:
         builder.getI64TensorAttr(values));
   }
 
+  Value zeroScalar(Type elementType) {
+    return createONNXConstantOpWithDenseAttr(builder, loc,
+        builder.getZeroAttr(RankedTensorType::get({}, elementType)));
+  }
+
   OpBuilder& builder;
   Location loc;
   Type elementType;
@@ -170,6 +424,10 @@ private:
 } // namespace
 
 LogicalResult DecomposeEinsumPattern::matchAndRewrite(ONNXEinsumOp einsumOp, PatternRewriter &rewriter) const {
+  if (!isDecomposableOp(einsumOp)) {
+    return einsumOp->emitError("unsupported element type or unknown shapes prevent Einsum decomposition");
+  }
+
   auto loc = einsumOp.getLoc();
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
   einsum::ErrorFn errorFn = [&einsumOp]() {
@@ -179,180 +437,7 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(ONNXEinsumOp einsumOp, Pat
   auto signature = einsum::inferSignature(operandAdaptor, errorFn);
   assert(succeeded(signature) && "any failure should be caught in verify()");
   Decomposer decomposer(rewriter, loc, *signature, operandAdaptor.Inputs());
-  // TODO: use signature to decompose einsumOp
-
-  IntegerType typeI64 = rewriter.getI64Type();
-  auto zeroScalar = [&rewriter, loc](Type elementType) {
-    return createONNXConstantOpWithDenseAttr(rewriter, loc,
-        rewriter.getZeroAttr(RankedTensorType::get({}, elementType)));
-  };
-  auto scalar = [&rewriter, loc, typeI64](int64_t v) {
-    return createONNXConstantOpWithDenseAttr(rewriter, loc,
-        DenseElementsAttr::get(
-            RankedTensorType::get({}, typeI64),
-            IntegerAttr::get(typeI64, v)));
-  };
-  auto tensor1D = [&rewriter, loc](ArrayRef<int64_t> vs) {
-    return createONNXConstantOpWithDenseAttr(rewriter, loc,
-        rewriter.getI64TensorAttr(vs));
-  };
-  auto equation = einsumOp.equation();
-  size_t commas = std::count(equation.begin(), equation.end(), ',');
-  if (einsumOp.Inputs().size() != commas + 1) {
-    return einsumOp->emitError("Einsum equation, Inputs size mismatch");
-  }
-  ValueRange inputs = operandAdaptor.Inputs();
-  ShapedType input0Type = inputs[0].getType().cast<ShapedType>();
-  Type elementType = input0Type.getElementType();
-  Value result;
-  // TODO: remove these special cases when the general logic is implemented
-  if (equation == "ij->ji") { // transpose
-    ONNXTransposeOp transposeOp = rewriter.create<ONNXTransposeOp>(
-        loc, UnrankedTensorType::get(elementType), inputs[0], /*perm=*/nullptr);
-    (void)transposeOp.inferShapes([](Region &region) {});
-    result = transposeOp.getResult();
-  } else if (equation == "ij->i") { // sum
-    if (!isDecomposableElementType(elementType)) {
-      return einsumOp->emitError("unsupported element type prevents Einsum decomposition");
-    }
-    Value axes = tensor1D({1});
-    ONNXReduceSumOp reduceSumOp = rewriter.create<ONNXReduceSumOp>(
-        loc, UnrankedTensorType::get(elementType), inputs[0], axes, /*keepdims=*/0);
-    (void)reduceSumOp.inferShapes([](Region &region) {});
-    result = reduceSumOp.getResult();
-  } else if (equation == "i,i" || equation == "bij, bjk -> bik") { // inner_prod, batch_matmul
-    if (!isDecomposableElementType(elementType)) {
-      return einsumOp->emitError("unsupported element type prevents Einsum decomposition");
-    }
-    ONNXMatMulOp matMulOp = rewriter.create<ONNXMatMulOp>(
-        loc, UnrankedTensorType::get(elementType), inputs[0], inputs[1]);
-    (void)matMulOp.inferShapes([](Region &region) {});
-    if (equation == "i,i") {
-      // The shape is wrong in this case: [1] instead of [], i.e. 1D instead of scalar.
-      // The Squeeze op below works around the problem.
-      Value axes = tensor1D({0});
-      ONNXSqueezeOp squeezeOp = rewriter.create<ONNXSqueezeOp>(
-          loc, UnrankedTensorType::get(elementType), matMulOp.getResult(), axes);
-      (void)squeezeOp.inferShapes([](Region &region) {});
-      result = squeezeOp.getResult();
-    } else {
-      result = matMulOp.getResult();
-    }
-  } else if (equation == "...ii ->...i") { // batch_diagonal, IdMatrix+Where+ReduceSum implementation
-    // diagDim = input[0].shape[-1]
-    // diagRange = Range(0,diagDim,1)
-    // unsqueezedDiagRange = Unsqueeze(diagRange,[1])
-    // mask = Equal(diagRange,unsqueezedDiagRange)
-    // masked = Where(mask,input[0],scalar(0))
-    // result = ReduceSum(diagonal,[-1],keepdims=0)
-    if (!isDecomposableElementType(elementType)) {
-      return einsumOp->emitError("unsupported element type prevents Einsum decomposition");
-    }
-    if (!input0Type.hasStaticShape()) {
-      return einsumOp->emitError("unknown shape prevents Einsum decomposition");
-    }
-    auto inputShape = input0Type.getShape();
-    auto inputRank = inputShape.size();
-    assert(inputRank >= 2);
-    auto resultShape = llvm::makeArrayRef(inputShape.begin(), inputShape.end() - 1);
-    int64_t i = inputShape[inputRank - 1];
-    Value diagDim = scalar(i);
-    Value zero = scalar(0);
-    Value one = scalar(1);
-    Type diagRangeType = RankedTensorType::get({i}, typeI64);
-    Value diagRange = rewriter.create<ONNXRangeOp>(
-        loc, diagRangeType, /*start=*/zero, /*limit=*/diagDim, /*delta=*/one)
-        .getResult();
-    Type unsqueezedDiagRangeType = RankedTensorType::get({i, 1}, typeI64);
-    Value one1D = tensor1D({1});
-    Value unsqueezedDiagRange = rewriter.create<ONNXUnsqueezeOp>(
-        loc, unsqueezedDiagRangeType, diagRange, one1D)
-        .getResult();
-    Value mask = rewriter.create<ONNXEqualOp>(
-        loc, RankedTensorType::get({i, i}, rewriter.getI1Type()), diagRange, unsqueezedDiagRange)
-        .getResult();
-    Value masked = rewriter.create<ONNXWhereOp>(
-        loc, input0Type, mask, inputs[0], zeroScalar(elementType));
-    Value axes = tensor1D({-1});
-    ONNXReduceSumOp reduceSumOp = rewriter.create<ONNXReduceSumOp>(
-        loc, RankedTensorType::get(resultShape, elementType), masked, axes, /*keepdims=*/0);
-    result = reduceSumOp.getResult();
-  } else if (equation == "...ii ->...i") { // batch_diagonal, GatherElements implementation
-    // resultShape = shape of ...i = Shape(input[0])[:-1]
-    // diagDim = last dim
-    // range = Range(0,diagDim,1)
-    // squeezedIndices = Expand(range,resultShape)
-    // indices = Unsqueeze(indices,[-1])
-    // unsqueezedResult = GatherElements(input[0],indices,axis=-1)
-    // result = squeeze(unsqueezedResult,-1)
-    Value resultShape;
-    Value diagDim;
-    Type diagRangeType = RankedTensorType::get({ShapedType::kDynamicSize}, typeI64);
-    Type squeezedIndicesType = UnrankedTensorType::get(typeI64);
-    Type indicesType = UnrankedTensorType::get(typeI64);
-    Type unsqueezedResultType = UnrankedTensorType::get(elementType);
-    Type resultType = UnrankedTensorType::get(elementType);
-    Value negativeOne1D = tensor1D({-1});
-    if (input0Type.hasStaticShape()) {
-      auto inputShape = input0Type.getShape();
-      auto inputRank = inputShape.size();
-      assert(inputRank >= 2);
-      resultShape = tensor1D(llvm::makeArrayRef(inputShape.begin(), inputShape.end() - 1));
-      int64_t i = inputShape[inputRank - 1];
-      diagDim = scalar(i);
-      diagRangeType = RankedTensorType::get({i}, typeI64);
-      SmallVector<int64_t, 5> indicesShape(inputShape.begin(), inputShape.end());
-      indicesShape.back() = 1;
-      SmallVector<int64_t, 4> resultShape(inputShape.begin(), inputShape.end() - 1);
-      squeezedIndicesType = RankedTensorType::get(resultShape, typeI64);
-      indicesType = RankedTensorType::get(indicesShape, typeI64);
-      unsqueezedResultType = RankedTensorType::get(indicesShape, elementType);
-      resultType = RankedTensorType::get(resultShape, elementType);
-    } else {
-      ONNXShapeOp shapeOp = rewriter.create<ONNXShapeOp>(
-          loc, RankedTensorType::get({ShapedType::kDynamicSize}, typeI64), inputs[0]);
-      Value inputShape = shapeOp.getResult();
-
-      Value zero1D = tensor1D({0});
-      Value one1D = tensor1D({1});
-      ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
-          loc, RankedTensorType::get({ShapedType::kDynamicSize}, typeI64), inputShape,
-          /*starts=*/zero1D, /*ends=*/negativeOne1D, /*axes=*/zero1D, /*steps=*/one1D);
-      resultShape = sliceOp.getResult();
-
-      Value negativeOne = scalar(-1);
-      ONNXGatherOp diagGatherOp = rewriter.create<ONNXGatherOp>(
-          loc, RankedTensorType::get({}, typeI64), inputShape, /*indices=*/negativeOne);
-      diagDim = diagGatherOp.getResult();
-    }
-
-    Value zero = scalar(0);
-    Value one = scalar(1);
-    ONNXRangeOp rangeOp = rewriter.create<ONNXRangeOp>(
-        loc, diagRangeType, /*start=*/zero, /*limit=*/diagDim, /*delta=*/one);
-    Value diagRange = rangeOp.getResult();
-
-    ONNXExpandOp expandOp = rewriter.create<ONNXExpandOp>(
-        loc, squeezedIndicesType, diagRange, resultShape);
-    Value squeezedIndices = expandOp.getResult();
-
-    ONNXUnsqueezeOp unsqueezeOp = rewriter.create<ONNXUnsqueezeOp>(
-        loc, indicesType, squeezedIndices, negativeOne1D);
-    Value indices = unsqueezeOp.getResult();
-
-    ONNXGatherElementsOp gatherElementsOp = rewriter.create<ONNXGatherElementsOp>(
-        loc, unsqueezedResultType, inputs[0], indices, /*axis=*/-1);
-    Value unsqueezedResult = gatherElementsOp.getResult();
-
-    ONNXSqueezeOp squeezeOp = rewriter.create<ONNXSqueezeOp>(
-        loc, resultType, unsqueezedResult, negativeOne1D);
-    result = squeezeOp.getResult();
-  } else {
-    if (!isDecomposableOp(einsumOp)) {
-      return einsumOp->emitError("unsupported element type or unknown shapes prevent Einsum decomposition");
-    }
-    return einsumOp->emitError("Einsum decomposition unimplemented"); // TODO: implement all cases
-  }
+  Value result = decomposer.decompose();
   rewriter.replaceOp(einsumOp, result);
   return success();
 }
