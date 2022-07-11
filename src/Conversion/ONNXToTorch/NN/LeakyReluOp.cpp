@@ -56,20 +56,15 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     mlir::Location loc = op.getLoc();
-    mlir::MLIRContext *context = op->getContext();
-
     mlir::Value x = adaptor.X();
     mlir::FloatAttr alpha = adaptor.alphaAttr();
     mlir::FloatAttr negSlopeFloatAttr = convertToIEEEDouble(alpha);
     mlir::Value negSlopeConstFloat =
         rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatAttr);
 
-    mlir::Type resultType =
-        getTypeConverter()->convertType(op.getResult().getType());
-    Value result = rewriter.create<AtenLeakyReluOp>(
-        loc, resultType, x, negSlopeConstFloat);
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op.getResult().getType(), result);
+    rewriter.replaceOpWithNewOp<AtenLeakyReluOp>(op,
+        typeConverter->convertType(op.getResult().getType()), x,
+        negSlopeConstFloat);
     return success();
   }
 };
