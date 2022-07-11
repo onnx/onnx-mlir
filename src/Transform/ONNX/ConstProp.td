@@ -114,6 +114,9 @@ def CreateSliceOfConst:
 def CreateConcatOfConst:
    NativeCodeCall<"ConstPropConcat($_builder, $0, $1, $2)">;
 
+def CreateExpandOfConst:
+   NativeCodeCall<"ConstPropExpand($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -387,5 +390,17 @@ def ConcatofConst: Pat<
   (CreateConcatOfConst $resOp, $input, $axis),
   [(IsVariadicOperandDenseONNXConstantOp:$input)]
 >;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Expand operations.
+//===----------------------------------------------------------------------===//
+
+def ExpandofConst :  Pat<
+    // From Expand (x, shape)
+    (ONNXExpandOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                         (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c where c is the expanded value.
+    (CreateExpandOfConst $resOp, $input),
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape)]>;
 
 #endif // ONNX_CONSTPROP
