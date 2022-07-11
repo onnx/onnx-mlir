@@ -7,7 +7,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/CommonUtils.cpp
   NN/Conv2D.cpp
   NN/ConstOp.cpp
-  NN/ElementwiseOp.cpp
+  NN/Elementwise.cpp
   NN/LeakyReluOp.cpp
   NN/MaxPoolSingleOut.cpp
   NN/PaddingOp.cpp
@@ -16,7 +16,6 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/SoftmaxOp.cpp
   NN/AddOp.cpp
   NN/FlattenOp.cpp
-  NN/ElementwiseOp.cpp
   NN/SqueezeOp.cpp
   NN/ConcatOp.cpp
   NN/BinaryOps.cpp
