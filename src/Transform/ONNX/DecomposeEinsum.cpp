@@ -203,8 +203,7 @@ public:
     }
   }
 
-  void reduce(Output& output) {
-    auto keep = otherSubscripts({&output});
+  void reduce(Output& output, const std::unordered_set<char> &keep) {
     Axes axes;
     for (size_t a = 0; a < output.size(); ++a) {
       if (keep.count(output.subscripts[a]) == 0)
@@ -245,6 +244,7 @@ public:
   }
 
   void transpose(Output& output, const Subscripts &transposedSubscripts) {
+    assert(output.subscripts.size() == transposedSubscripts.size());
     if (output.subscripts == transposedSubscripts)
       return;
 
@@ -297,8 +297,10 @@ public:
     output1.value = builder.create<ONNXMulOp>(
         loc, output1.type(elementType), output1.value, output2.value)
         .getResult();
-    if (reduceAtEnd)
-      reduce(output1);
+    if (reduceAtEnd) {
+      auto keep = otherSubscripts({&output1, &output2});
+      reduce(output1, keep);
+    }
     remove(output2);
   }
 
@@ -364,7 +366,8 @@ public:
 
     for (auto& output : outputs) {
       diagonalize(output);
-      reduce(output);
+      auto keep = otherSubscripts({&output});
+      reduce(output, keep);
     }
 
     while (outputs.size() > 1) {
