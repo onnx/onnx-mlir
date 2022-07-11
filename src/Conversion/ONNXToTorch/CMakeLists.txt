@@ -9,7 +9,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/ConstOp.cpp
   NN/ElementwiseOp.cpp
   NN/LeakyReluOp.cpp
-  NN/MaxPoolSingleOutOp.cpp
+  NN/MaxPoolSingleOut.cpp
   NN/PaddingOp.cpp
   NN/ReduceMean.cpp
   NN/GemmOp.cpp

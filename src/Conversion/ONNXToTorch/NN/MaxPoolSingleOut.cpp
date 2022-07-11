@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===- MaxPoolSingleOutOp.cpp - ONNX Op Transform -===//
+//===-------- MaxPoolSingleOutOp.cpp - ONNX Op Transform -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -20,26 +20,26 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-/// ONNX MaxPool operation
-///
-/// ONNX MaxPool operation with a single output.
-/// See ONNXMaxPoolOp for a full description of the MaxPool semantics.
-///
-/// Attributes:
-///  auto_pad	::mlir::StringAttr	string attribute
-///  ceil_mode	::mlir::IntegerAttr	64-bit signed integer attribute
-///  dilations	::mlir::ArrayAttr	64-bit integer array attribute
-///  kernel_shape  ::mlir::ArrayAttr	64-bit integer array attribute
-///  pads	  ::mlir::ArrayAttr	64-bit integer array attribute
-///  storage_order ::mlir::IntegerAttr	64-bit signed integer attribute
-/// strides	  ::mlir::ArrayAttr	64-bit integer array attribute
-///
-/// Operands:
-/// X	memref of any type values or tensor of any type values
-///
-/// Results:
-/// o_Y	memref of any type values or tensor of any type values
-///
+// ONNX MaxPool operation
+//
+// ONNX MaxPool operation with a single output.
+// See ONNXMaxPoolOp for a full description of the MaxPool semantics.
+//
+// Attributes:
+//  auto_pad	::mlir::StringAttr	string attribute
+//  ceil_mode	::mlir::IntegerAttr	64-bit signed integer attribute
+//  dilations	::mlir::ArrayAttr	64-bit integer array attribute
+//  kernel_shape  ::mlir::ArrayAttr	64-bit integer array attribute
+//  pads	  ::mlir::ArrayAttr	64-bit integer array attribute
+//  storage_order ::mlir::IntegerAttr	64-bit signed integer attribute
+// strides	  ::mlir::ArrayAttr	64-bit integer array attribute
+//
+// Operands:
+// X	memref of any type values or tensor of any type values
+//
+// Results:
+// o_Y	memref of any type values or tensor of any type values
+//
 class ONNXMaxPoolSingleOutOpToTorchLowering
     : public OpConversionPattern<ONNXMaxPoolSingleOutOp> {
 public:
@@ -60,10 +60,10 @@ public:
     mlir::IntegerType intType = mlir::IntegerType::get(context, 64);
     mlir::FloatType floatType = mlir::FloatType::getF64(context);
 
-    /// Get mlir attributes as vectors
+    // Get mlir attributes as vectors
     dim_pads padsOnnxList =
         createPadsArrayAttribute(pads, intType, loc, rewriter);
-    /// Dilation has a default value of 1
+    // Dilation has a default value of 1
     std::vector<Value> dilationOnnxList =
         createArrayAttribute(dilations, intType, loc, rewriter, 1);
     std::vector<Value> kernelShapeOnnxList;
@@ -89,8 +89,8 @@ public:
       }
     }
 
-    /// If ceilingMode is 0 (default) use floor rounding when computing the
-    /// output shape, else use ceil.
+    // If ceilingMode is 0 (default) use floor rounding when computing the
+    // output shape, else use ceil.
     Value constBoolOpValue = rewriter.create<ConstantBoolOp>(loc, false);
     Value ceilingModeVal;
     if (ceilingModeAttr) {
@@ -101,7 +101,7 @@ public:
     } else
       ceilingModeVal = constBoolOpValue;
 
-    /// Create maxpool mlir values
+    // Create maxpool mlir values
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{stridesOnnxList});
@@ -115,13 +115,13 @@ public:
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{kernelShapeOnnxList});
 
-    /// Determine input and result type
+    // Determine input and result type
     TensorType opTensorType = op.getResult().getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(
         context, opTensorType.getShape(), opTensorType.getElementType());
 
-    /// Allow symmetric padding and create additonal padding op to support
-    /// asymmetric padding in `torch-mlir`
+    // Allow symmetric padding and create additonal padding op to support
+    // asymmetric padding in `torch-mlir`
     Value result;
     if (!padsOnnxList.isSymmetric) {
       std::vector<int64_t> padShape =
@@ -136,8 +136,8 @@ public:
           Torch::ValueTensorType::get(context, llvm::makeArrayRef(padShape),
               x.getType().cast<Torch::ValueTensorType>().getDtype());
 
-      /// Construct zero padding op since `torch` does not support asymmetric
-      /// padding for maxpool2d
+      // Construct zero padding op since `torch` does not support asymmetric
+      // padding for maxpool2d
       float negInf = -std::numeric_limits<float>::max();
       FloatAttr zeroFloatAttr = FloatAttr::get(floatType, negInf);
       Value zeroPad = rewriter.create<ConstantFloatOp>(loc, zeroFloatAttr);
