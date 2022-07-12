@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- ConcatOp.cpp - ONNX Op Transform -----------------------===//
+//===--------- Concat.cpp - ONNX Op Transform -----------------------===//
 //
 // =======================================================================
 //
@@ -43,7 +43,7 @@ using namespace mlir::torch;
 //              tensor of string type values or tensor of 1-bit signless
 //              integer values or tensor of complex type with 32-bit/64-bit
 //              float elements values or memref of any type values.
-///
+//
 class ONNXConcatOpToTorchLowering : public OpConversionPattern<ONNXConcatOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -51,11 +51,9 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    MLIRContext *context = op.getContext();
     ValueRange inputs = adaptor.inputs();
     IntegerAttr axisValue = op.axisAttr();
     Value axisVal = rewriter.create<ConstantIntOp>(loc, axisValue);
-
     Value inputShapeList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(
             Torch::ValueTensorType::getWithLeastStaticInformation(

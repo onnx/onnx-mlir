@@ -128,10 +128,8 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
     MLIRContext *context = squeezeOp.getContext();
 
     auto axes = getAxes(squeezeOp);
-    auto dataTensor = getTorchTensor(squeezeOp.data(), rewriter, context, loc);
-
     auto resultType = toTorchType(context, squeezeOp.getResult().getType());
-    auto result = squeezeResult(axes, dataTensor, resultType,
+    auto result = squeezeResult(axes, operands[0], resultType,
         squeezeOp.data().getType().template dyn_cast<TensorType>().getShape(),
         squeezeOp.data()
             .getType()

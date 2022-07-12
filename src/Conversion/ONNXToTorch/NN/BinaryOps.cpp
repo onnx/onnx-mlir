@@ -49,34 +49,14 @@ struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
             typeConverter, ONNXBinaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+
     ONNXBinaryOp binaryOp = llvm::dyn_cast_or_null<ONNXBinaryOp>(op);
-
-    assert(binaryOp && "Expecting op to have a strong type");
-
     Location loc = binaryOp.getLoc();
-
-    Value operandA = binaryOp.getOperand(0);
-    Value operandB = binaryOp.getOperand(1);
-
-    mlir::MLIRContext *context = binaryOp.getContext();
-
-    auto operandAType = toTorchType(context, operandA.getType());
-    auto operandBType = toTorchType(context, operandB.getType());
-    auto resultType = toTorchType(context, binaryOp.getResult().getType());
-
-    auto operandATensor =
-        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-            loc, operandAType, operandA);
-    auto operandBTensor =
-        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-            loc, operandBType, operandB);
-
+    auto resultType =
+        getTypeConverter()->convertType(op->getResult(0).getType());
     Value result = rewriter.create<TorchBinaryOp>(
-        loc, resultType, operandATensor, operandBTensor);
-
-
+        loc, resultType, operands[0], operands[1]);
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
-
     return success();
   }
 };

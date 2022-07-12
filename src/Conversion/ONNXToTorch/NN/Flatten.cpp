@@ -72,18 +72,16 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    MLIRContext *context = op->getContext();
+    MLIRContext *context = op.getContext();
 
     Value input = op.input();
     int64_t axisValue = op.axis();
 
-    TensorType resultTensorType = op->getResult(0).getType().cast<TensorType>();
-    auto resultType = Torch::ValueTensorType::get(op.getContext(),
+    TensorType resultTensorType = op.getResult().getType().cast<TensorType>();
+    auto resultType = Torch::ValueTensorType::get(context,
         resultTensorType.getShape(), resultTensorType.getElementType());
 
     TensorType inputTensorType = input.getType().cast<TensorType>();
-    auto inputType = Torch::ValueTensorType::get(
-        context, inputTensorType.getShape(), inputTensorType.getElementType());
     Value result = adaptor.input();
 
     // if axisValue is negative
@@ -140,7 +138,8 @@ public:
     // 2) Flatten the region from start=1, end=-1.
     result = createAtenFlattenOp(rewriter, loc, result, resultType,
         /*start=*/1, /*end=*/-1, op);
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
+    rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
+        op, resultType, result);
     return success();
   }
 };
