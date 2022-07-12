@@ -12,6 +12,7 @@
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -37,6 +38,8 @@ namespace {
 using einsum::Shape;
 using einsum::Subscripts;
 
+typedef ArrayRef<int64_t> ShapeRef;
+
 typedef SmallVector<int64_t, 4> Axes;
 typedef ArrayRef<int64_t> AxesRef;
 
@@ -50,7 +53,7 @@ Shape shapeExpandDims(const Shape& shape, AxesRef axes) {
   return expanded;
 }
 
-Shape shapeBroadcast(const Shape &shape1, const Shape &shape2) {
+Shape shapeBroadcast(ShapeRef shape1, ShapeRef shape2) {
   Shape shape;
   bool success = OpTrait::util::getBroadcastedShape(shape1, shape2, shape);
   assert(success);
@@ -71,6 +74,22 @@ Axes transposePerm(const Subscripts &original, const Subscripts &transposed) {
     axes.push_back(original.find(x));
   }
   return axes;
+}
+
+Shape shapeConcat(ShapeRef fst, ShapeRef snd, ShapeRef trd = {}) {
+  Shape shape;
+  shape.reserve(fst.size() + snd.size() + trd.size());
+  shape.append(fst.begin(), fst.end());
+  shape.append(snd.begin(), snd.end());
+  shape.append(trd.begin(), trd.end());
+  return shape;
+}
+
+template <typename T>
+std::tuple<ArrayRef<T>, ArrayRef<T>, ArrayRef<T>> split3(ArrayRef<T> aref,
+    size_t len1, size_t len2, size_t len3) {
+  assert(aref.size() == len1 + len2 + len3);
+  return {aref.take_front(len1), aref.slice(len1, len2), aref.take_back(len3)};
 }
 
 struct Output : public einsum::Parameter {
@@ -272,6 +291,23 @@ public:
         .getResult();
   }
 
+  void reshape(Output& output, const Shape &reShape, const Subscripts &reSubscripts) {
+    assert(reShape.size() == reSubscripts.size());
+    if (output.shape == reShape) {
+      output.subscripts = reSubscripts;
+      return;
+    }
+    assert(ShapedType::getNumElements(output.shape) == ShapedType::getNumElements(reShape));
+    // no zero dims (dispatched at the beginning in decompose()) so
+    // we can ignore ONNXReshapeOp allowzero
+    assert(ShapedType::getNumElements(reShape) > 0);
+    output.subscripts = reSubscripts;
+    output.shape = reShape;
+    output.value = builder.create<ONNXReshapeOp>(
+        loc, output.type(elementType), output.value, tensor1D(reShape))
+        .getResult();
+  }
+
   void mul(Output &output1, Output &output2, bool reduceAtEnd = false) {
     std::unordered_set<char> in1 = output1.subscriptsSet();
     std::unordered_set<char> in2 = output2.subscriptsSet();
@@ -285,11 +321,9 @@ public:
       if (in2.count(x) == 0)
         subscripts1unshared.push_back(x);
     }
-    Subscripts subscripts1transposed = subscripts1unshared;
-    subscripts1transposed += sharedSubscripts;
+    Subscripts subscripts1transposed{subscripts1unshared, sharedSubscripts};
     transpose(output1, subscripts1transposed);
-    Subscripts subscripts = subscripts1unshared;
-    subscripts += output2.subscripts;
+    Subscripts subscripts{subscripts1unshared, output2.subscripts};
     unsqueeze(output1, subscripts);
     output1.subscripts = subscripts;
     output1.shape = shapeBroadcast(output1.shape, output2.shape);
@@ -303,9 +337,100 @@ public:
     remove(output2);
   }
 
-  void matmul(Output &output1, Output &output2, const std::unordered_set<char> &reducible) {
-    // TODO: implement with ONNXMatMulOp
-    mul(output1, output2, /*reduceAtEnd=*/true);
+  void matmul(Output &output1, Output &output2,
+      const std::unordered_set<char> &reducible) {
+    assert(!reducible.empty()); // we call simpler mul() in that case
+
+    // Possible alternative implementation without ONNXMatMulOp:
+    //
+    //   mul(output1, output2, /*reduceAtEnd=*/true);
+    //
+    // which could be useful to implement Einsum decomposition for types that
+    // MatMul doesn't support
+
+    // transpose output1, output2 to put their subscripts in the order:
+    //
+    // output1: sharedKeepSubscripts + subscripts1unshared + reducibleSubscripts
+    // output2: sharedKeepSubscripts + reducibleSubscripts + subscripts2unshared
+    //
+    // with sharedKeepSubscripts, reducibleSubscripts in the order they appear
+    // in output1
+    std::unordered_set<char> in1 = output1.subscriptsSet();
+    std::unordered_set<char> in2 = output2.subscriptsSet();
+    Subscripts sharedKeepSubscripts;
+    Subscripts reducibleSubscripts;
+    Subscripts subscripts1unshared;
+    for (char x : output1.subscripts) {
+      if (in2.count(x) == 0) {
+        subscripts1unshared.push_back(x);
+      } else if (reducible.count(x) != 0) {
+        reducibleSubscripts.push_back(x);
+      } else {
+        sharedKeepSubscripts.push_back(x);
+      }
+    }
+    assert(reducible.size() == reducibleSubscripts.size());
+    Subscripts subscripts2unshared;
+    for (char x : output2.subscripts) {
+      if (in1.count(x) == 0) {
+        subscripts2unshared.push_back(x);
+      }
+    }
+    Subscripts subscripts1transposed
+        {sharedKeepSubscripts, subscripts1unshared, reducibleSubscripts};
+    Subscripts subscripts2transposed
+        {sharedKeepSubscripts, reducibleSubscripts, subscripts2unshared};
+    transpose(output1, subscripts1transposed);
+    transpose(output2, subscripts2transposed);
+
+    // read off the shapes corresponding to the transposed subscripts
+    ShapeRef sharedKeep1Shape, unshared1Shape, reducibleShape;
+    std::tie(sharedKeep1Shape, unshared1Shape, reducibleShape) =
+        split3(makeArrayRef(output1.shape),
+            sharedKeepSubscripts.size(),
+            subscripts1unshared.size(),
+            reducibleSubscripts.size()
+        );
+    ShapeRef sharedKeep2Shape, reducible2Shape, unshared2Shape;
+    std::tie(sharedKeep2Shape, reducible2Shape, unshared2Shape) =
+        split3(makeArrayRef(output2.shape),
+            sharedKeepSubscripts.size(),
+            reducibleSubscripts.size(),
+            subscripts2unshared.size()
+        );
+    // broadcast not needed because non-result 1-dim axes were squeezed at outset
+    assert(reducibleShape == reducible2Shape);
+
+    // reshape unshared and reducible dims into one dim each
+    auto unshared1Size = ShapedType::getNumElements(unshared1Shape);
+    auto reducibleSize = ShapedType::getNumElements(reducibleShape);
+    auto unshared2Size = ShapedType::getNumElements(unshared2Shape);
+    auto reShape1 = shapeConcat(sharedKeep1Shape, {unshared1Size, reducibleSize});
+    auto reShape2 = shapeConcat(sharedKeep2Shape, {reducibleSize, unshared2Size});
+    auto left = "(";  // out-of-band subscript, represents reshaped unshared1 dims
+    auto right = ")"; // out-of-band subscript, represents reshaped unshared2 dims
+    // 1st recucible subsctipt represents the reshaped reducible dims (non-empty)
+    auto red = reducibleSubscripts.substr(0, 1);
+    Subscripts reshaped1subscripts{sharedKeepSubscripts, left, red};
+    Subscripts reshaped2subscripts{sharedKeepSubscripts, red, right};
+    reshape(output1, reShape1, reshaped1subscripts);
+    reshape(output2, reShape2, reshaped2subscripts);
+
+    // matmul
+    Shape sharedKeepShape = shapeBroadcast(sharedKeep1Shape, sharedKeep2Shape);
+    output1.subscripts = {sharedKeepSubscripts, left, right};
+    output1.shape = shapeConcat(sharedKeepShape, {unshared1Size, unshared2Size});
+    output1.value = builder.create<ONNXMatMulOp>(
+        loc, output1.type(elementType), output1.value, output2.value)
+        .getResult();
+
+    // reshape to get unshared dims back
+    Shape shape = shapeConcat(sharedKeepShape, unshared1Shape, unshared2Shape);
+    Subscripts subscripts
+        {sharedKeepSubscripts, subscripts1unshared, subscripts2unshared};
+    reshape(output1, shape, subscripts);
+
+    remove(output2);
   }
 
   void remove(Output& output) {
