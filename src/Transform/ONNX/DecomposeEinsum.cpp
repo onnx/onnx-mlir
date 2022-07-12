@@ -545,6 +545,8 @@ private:
   std::vector<Output> outputs;
 };
 
+// currently limited to the types supported by ReduceSum and MatMul (which
+// we decompose to in most cases) which exclude integers with width < 32
 bool isDecomposableElementType(Type elementType) {
   if (elementType.isa<FloatType>())
     return true;
@@ -553,23 +555,24 @@ bool isDecomposableElementType(Type elementType) {
   return false;
 }
 
-bool isDecomposableType(Type type) {
-  ShapedType s = type.cast<ShapedType>();
-  return isDecomposableElementType(s.getElementType()) && s.hasStaticShape();
-}
-
-bool isDecomposableOp(ONNXEinsumOp einsumOp) {
-  return llvm::all_of(einsumOp.Inputs().getTypes(), isDecomposableType);
-}
-
 } // namespace
 
 LogicalResult DecomposeEinsumPattern::matchAndRewrite(
     ONNXEinsumOp einsumOp, PatternRewriter &rewriter) const {
-  if (!isDecomposableOp(einsumOp)) {
-    return einsumOp->emitError("unsupported element type or unknown shapes "
-                               "prevent Einsum decomposition");
-  }
+  // verify() checked #inputs > 0 and all have same element type, here we check
+  // that the element type is one that our decomposition can handle
+  //
+  // TODO: detect when we don't decompose to ReduceSum or MatMul and
+  // accept all types in those cases
+  auto inputs = einsumOp.Inputs();
+  Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  if (!isDecomposableElementType(elementType))
+    return einsumOp.emitOpError(
+        "unsupported element type prevents Einsum decomposition");
+
+  if (!llvm::all_of(inputs.getTypes(),
+          [](Type t) { return t.cast<ShapedType>().hasStaticShape(); }))
+    return einsumOp.emitOpError("unknown shapes prevent Einsum decomposition");
 
   auto loc = einsumOp.getLoc();
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
