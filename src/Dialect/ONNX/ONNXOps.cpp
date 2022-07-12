@@ -26,9 +26,9 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
 
+#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
@@ -4028,7 +4028,8 @@ LogicalResult ONNXEinsumOp::verify() {
     return failure();
   }
 
-  Type firstElementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  Type firstElementType =
+      inputs[0].getType().cast<ShapedType>().getElementType();
   for (Value input : inputs) {
     ShapedType type = input.getType().cast<ShapedType>();
     if (type.getElementType() != firstElementType) {
@@ -4051,7 +4052,8 @@ LogicalResult ONNXEinsumOp::inferShapes(
   };
   auto shape = einsum::inferOutputShape(operandAdaptor, errorFn);
   assert(succeeded(shape) && "any failure should be caught in verify()");
-  auto elementType = getOperand(0).getType().cast<ShapedType>().getElementType();
+  auto elementType =
+      getOperand(0).getType().cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(*shape, elementType));
   return success();
 }

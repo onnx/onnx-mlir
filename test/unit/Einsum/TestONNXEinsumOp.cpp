@@ -43,12 +43,13 @@ typedef llvm::SmallVector<int64_t> Shape;
 
 std::ostream &operator<<(std::ostream &os, const ArrayRef<int64_t> &v) {
   os << "(";
-  for (auto i : v) os << i << ",";
+  for (auto i : v)
+    os << i << ",";
   os << ")";
   return os;
 }
 
-MLIRContext* createCtx() {
+MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
   ctx->loadDialect<ONNXDialect>();
   return ctx;
@@ -71,21 +72,21 @@ class Test {
   Value zeros(ArrayRef<int64_t> shape, Type t) {
     RankedTensorType tensorType = RankedTensorType::get(shape, t);
     SmallVector<Attribute> values(tensorType.getNumElements(), zero(t));
-    return createONNXConstantOpWithDenseAttr(builder, loc,
-        DenseElementsAttr::get(tensorType, makeArrayRef(values)));
+    return createONNXConstantOpWithDenseAttr(
+        builder, loc, DenseElementsAttr::get(tensorType, makeArrayRef(values)));
   }
 
-  ONNXEinsumOp einsumOp(StringRef equation,
-      const std::vector<Value>& inputs, Type elementType) {
-    return builder.create<ONNXEinsumOp>(
-        loc, UnrankedTensorType::get(elementType),
-        llvm::makeArrayRef(inputs), equation);
+  ONNXEinsumOp einsumOp(
+      StringRef equation, const std::vector<Value> &inputs, Type elementType) {
+    return builder.create<ONNXEinsumOp>(loc,
+        UnrankedTensorType::get(elementType), llvm::makeArrayRef(inputs),
+        equation);
   }
 
   ONNXEinsumOp einsumOp(StringRef equation,
       const std::vector<Shape> &inputShapes, Type elementType) {
     std::vector<Value> inputs;
-    for (const Shape& shape : inputShapes) {
+    for (const Shape &shape : inputShapes) {
       inputs.push_back(zeros(shape, elementType));
     }
     return einsumOp(equation, inputs, elementType);
@@ -111,8 +112,7 @@ public:
     I32 = builder.getI32Type();
   }
 
-  int verify(bool expectSuccess,
-      const std::vector<StringRef> &equations) {
+  int verify(bool expectSuccess, const std::vector<StringRef> &equations) {
     int failures = 0;
     for (StringRef equation : equations) {
       auto inputShapes = zeroShapes(equation);
@@ -125,49 +125,49 @@ public:
 
   int test_verify_success() {
     return verify(true, {
-      "",
-      " ",
-      ",",
-      "->",
-      " -  > ",
-      ",->",
-      "a",
-      "a,",
-      ",a",
-      "abc,ABa",
-      "ij,jk",
-      "ij,jk->ijk",
-      "...",
-      "...,...",
-      "...->...",
-      "->...",
-      "...a,b...->a...",
-      "a...b->...",
-    });
+                            "",
+                            " ",
+                            ",",
+                            "->",
+                            " -  > ",
+                            ",->",
+                            "a",
+                            "a,",
+                            ",a",
+                            "abc,ABa",
+                            "ij,jk",
+                            "ij,jk->ijk",
+                            "...",
+                            "...,...",
+                            "...->...",
+                            "->...",
+                            "...a,b...->a...",
+                            "a...b->...",
+                        });
   }
 
   int test_verify_failure() {
     return verify(false, {
-      "-",
-      ">",
-      ":",
-      "->->",
-      "..",
-      "....",
-      "...a...",
-      "->a",
-      "a->b",
-      "aa->aa",
-      "a,b->a,b",
-    });
+                             "-",
+                             ">",
+                             ":",
+                             "->->",
+                             "..",
+                             "....",
+                             "...a...",
+                             "->a",
+                             "a->b",
+                             "aa->aa",
+                             "a,b->a,b",
+                         });
   }
 
   using EqnInputShapes = std::tuple<StringRef, std::vector<Shape>>;
 
-  int verify_with_shapes(bool expectSuccess,
-      const std::vector<EqnInputShapes> &eqnsInputShapes) {
+  int verify_with_shapes(
+      bool expectSuccess, const std::vector<EqnInputShapes> &eqnsInputShapes) {
     int failures = 0;
-    for (const auto& eis : eqnsInputShapes) {
+    for (const auto &eis : eqnsInputShapes) {
       StringRef equation;
       std::vector<Shape> inputShapes;
       std::tie(equation, inputShapes) = eis;
@@ -180,26 +180,27 @@ public:
 
   int test_verify_incorrect_numInputs() {
     return verify_with_shapes(false, {
-      {"a", {}},
-      {"a", {{0}, {}}},
-      {",", {{}}},
-      {",", {{}, {}, {}}},
-      {"a,b->a", {{0}}},
-      {"a,b->a", {{0}, {0}, {0}}},
-    });
+                                         {"a", {}},
+                                         {"a", {{0}, {}}},
+                                         {",", {{}}},
+                                         {",", {{}, {}, {}}},
+                                         {"a,b->a", {{0}}},
+                                         {"a,b->a", {{0}, {0}, {0}}},
+                                     });
   }
 
   int test_verify_shapes_failure() {
-    return verify_with_shapes(false, {
-      {"i", {{}}},
-      {"i", {{2,2}}},
-      {"ii", {{1,2}}},
-      {"i,i->i", {{2}, {3}}},
-      {"...->", {{2}}},
-      {"a...b", {{2}}},
-      {"...,...", {{2}, {}}},
-      {"...", {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}},
-    });
+    return verify_with_shapes(
+        false, {
+                   {"i", {{}}},
+                   {"i", {{2, 2}}},
+                   {"ii", {{1, 2}}},
+                   {"i,i->i", {{2}, {3}}},
+                   {"...->", {{2}}},
+                   {"a...b", {{2}}},
+                   {"...,...", {{2}, {}}},
+                   {"...", {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}},
+               });
   }
 
   int test_verify_different_types() {
@@ -213,10 +214,10 @@ public:
 
   using EqnShapes = std::tuple<StringRef, std::vector<Shape>, Shape>;
 
-  int verify_inferShapes(bool expectSuccess,
-      const std::vector<EqnShapes> &eqnsShapes) {
+  int verify_inferShapes(
+      bool expectSuccess, const std::vector<EqnShapes> &eqnsShapes) {
     int failures = 0;
-    for (const auto& es : eqnsShapes) {
+    for (const auto &es : eqnsShapes) {
       StringRef equation;
       std::vector<Shape> inputShapes;
       Shape expectedOutputShape;
@@ -233,7 +234,7 @@ public:
             op.getResult().getType().cast<mlir::ShapedType>().getShape();
         if (expectedOutputShape != outputShape) {
           std::cerr << "inferred output shape " << outputShape
-              << " != expected " << expectedOutputShape << "\n";
+                    << " != expected " << expectedOutputShape << "\n";
           failures += 1;
           continue;
         }
@@ -246,29 +247,29 @@ public:
   int test_verify_inferShapes_success() {
     Shape shape10{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     return verify_inferShapes(true, {
-      {"i", {{0}}, {0}},
-      {"i", {{1}}, {1}},
-      {"i", {{2}}, {2}},
-      {"ii", {{2, 2}}, {}},
-      {"i,i->i", {{1}, {1}}, {1}},
-      {"i,i->i", {{2}, {2}}, {2}},
-      {"i,i->i", {{1}, {2}}, {2}},
-      {"i,i->i", {{2}, {1}}, {2}},
-      {"i,i->i", {{1}, {0}}, {0}},
-      {"i,i->i", {{0}, {1}}, {0}},
-      {"...", {{}}, {}},
-      {"...", {shape10}, shape10},
-      {"...,...", {{}, {}}, {}},
-      {"...,...", {{1}, {1}}, {1}},
-      {"...,...", {{1}, {2}}, {2}},
-      {"...,...", {{2}, {1}}, {2}},
-      {"...,...", {{1,2}, {2,1}}, {2,2}},
-      {"ij,jk", {{2,3}, {3,4}}, {2,4}},
-      {"ij,jk->ik", {{2,3}, {3,4}}, {2,4}},
-      {"ij,jk->ki", {{2,3}, {3,4}}, {4,2}},
-      {"kj,ji", {{2,3}, {3,4}}, {4,2}},
-      {"aB", {{2,3}}, {3,2}},
-    });
+                                        {"i", {{0}}, {0}},
+                                        {"i", {{1}}, {1}},
+                                        {"i", {{2}}, {2}},
+                                        {"ii", {{2, 2}}, {}},
+                                        {"i,i->i", {{1}, {1}}, {1}},
+                                        {"i,i->i", {{2}, {2}}, {2}},
+                                        {"i,i->i", {{1}, {2}}, {2}},
+                                        {"i,i->i", {{2}, {1}}, {2}},
+                                        {"i,i->i", {{1}, {0}}, {0}},
+                                        {"i,i->i", {{0}, {1}}, {0}},
+                                        {"...", {{}}, {}},
+                                        {"...", {shape10}, shape10},
+                                        {"...,...", {{}, {}}, {}},
+                                        {"...,...", {{1}, {1}}, {1}},
+                                        {"...,...", {{1}, {2}}, {2}},
+                                        {"...,...", {{2}, {1}}, {2}},
+                                        {"...,...", {{1, 2}, {2, 1}}, {2, 2}},
+                                        {"ij,jk", {{2, 3}, {3, 4}}, {2, 4}},
+                                        {"ij,jk->ik", {{2, 3}, {3, 4}}, {2, 4}},
+                                        {"ij,jk->ki", {{2, 3}, {3, 4}}, {4, 2}},
+                                        {"kj,ji", {{2, 3}, {3, 4}}, {4, 2}},
+                                        {"aB", {{2, 3}}, {3, 2}},
+                                    });
   }
 };
 

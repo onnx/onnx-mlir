@@ -10,18 +10,18 @@
 
 #pragma once
 
+#include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "mlir/Support/LogicalResult.h"
 
 #include <stdint.h>
 
 namespace mlir {
 class InFlightDiagnostic;
 class ONNXEinsumOpAdaptor;
-}
+} // namespace mlir
 
 namespace onnx_mlir {
 
