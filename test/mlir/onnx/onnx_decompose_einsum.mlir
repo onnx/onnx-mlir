@@ -1,6 +1,36 @@
 // RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
 
-// -----
+func @test_einsum_matmul(%arg0: tensor<2x3x4xf32>, %arg1: tensor<2x4x5xf32>) -> tensor<2x3x5xf32> {
+  %0 = "onnx.Einsum"(%arg0, %arg1) {equation = "...ij,...jk"} : (tensor<2x3x4xf32>, tensor<2x4x5xf32>) -> tensor<2x3x5xf32>
+  return %0 : tensor<2x3x5xf32>
+// CHECK-LABEL:  func @test_einsum_matmul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<2x4x5xf32>) -> tensor<2x3x5xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3x4xf32>, tensor<2x4x5xf32>) -> tensor<2x3x5xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<2x3x5xf32>
+}
+
+// "...ij,...jk" is not implemented with MatMul over the reduction axis j
+// because j has dim 1 in the first argument and dim 4 in the second argument
+// (like numpy.matmul, MatMul doesn't broadcast the reduction axis),
+// instead we first Squeeze the j axis in the first argument and
+// ReduceSum the j axis in the second argument, and then Mul the results
+func @test_einsum_matmul_broadcast(%arg0: tensor<2x3x1xf32>, %arg1: tensor<1x4x5xf32>) -> tensor<2x3x5xf32> {
+  %0 = "onnx.Einsum"(%arg0, %arg1) {equation = "...ij,...jk"} : (tensor<2x3x1xf32>, tensor<1x4x5xf32>) -> tensor<2x3x5xf32>
+  return %0 : tensor<2x3x5xf32>
+// CHECK-LABEL:  func @test_einsum_matmul_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x1xf32>, [[PARAM_1_:%.+]]: tensor<1x4x5xf32>) -> tensor<2x3x5xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Squeeze"([[PARAM_0_]], [[VAR_0_]]) : (tensor<2x3x1xf32>, tensor<1xi64>) -> tensor<2x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.ReduceSum"([[PARAM_1_]], [[VAR_2_]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x4x5xf32>, tensor<1xi64>) -> tensor<1x5xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_1_]]) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-NEXT:      [[VAR_6_:%.+]] = "onnx.Unsqueeze"([[VAR_4_]], [[VAR_5_]]) : (tensor<3x2xf32>, tensor<1xi64>) -> tensor<3x2x1xf32>
+// CHECK-NEXT:      [[VAR_7_:%.+]] = "onnx.Mul"([[VAR_6_]], [[VAR_3_]]) : (tensor<3x2x1xf32>, tensor<1x5xf32>) -> tensor<3x2x5xf32>
+// CHECK-NEXT:      [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_7_]]) {perm = [1, 0, 2]} : (tensor<3x2x5xf32>) -> tensor<2x3x5xf32>
+// CHECK-NEXT:      return [[VAR_8_]] : tensor<2x3x5xf32>
+}
 
 func @test_einsum_transpose(%arg0: tensor<2x3xf32>) -> tensor<3x2xf32> {
   %0 = "onnx.Einsum"(%arg0) {equation = "ji"} : (tensor<2x3xf32>) -> tensor<3x2xf32>
