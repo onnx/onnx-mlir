@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-onnx-to-mhlo --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -14,10 +14,8 @@ func.func @test_add_dynamic(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) 
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
 // CHECK-LABEL:  func @test_add_dynamic
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>, [[PARAM_1_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
-// CHECK-NEXT:     [[VAR_0_:%.+]] = mhlo.add [[PARAM_0_]], [[PARAM_1_]] : tensor<?x10xf32>
+// CHECK:         [[VAR_0_:%.+]] = mhlo.add [[PARAM_0_:%.+]], [[PARAM_1_:%.+]] : tensor<?x10xf32>
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<?x10xf32>
-// CHECK-NEXT:   }
 }
 
 func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -44,3 +42,18 @@ func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK-NEXT:   }
 }
 
+func @test_exp(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_exp
+// CHECK:         [[VAR_0_:%.+]] = mhlo.exponential [[PARAM_0_:%.+]] : tensor<10x10xf32>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<10x10xf32>
+}
+
+func @test_dynamic_exp(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
+  "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL:  func @test_dynamic_exp
+// CHECK:         [[VAR_0_:%.+]] = mhlo.exponential [[PARAM_0_:%.+]] : tensor<?x10xf32>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<?x10xf32>
+}

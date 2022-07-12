@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir-hlo/utils/broadcast_utils.h"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -74,19 +75,8 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
     ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
-    Type elemType = inpType.getElementType();
     Type resultType = *op->result_type_begin();
-    Value broadcastedZero;
-    if (inpType.hasStaticShape())
-      broadcastedZero =
-          rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(inpType));
-    else {
-      Value zero =
-          rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
-      Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
-      broadcastedZero = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-          loc, resultType, zero, shape, rewriter.getI64TensorAttr({}));
-    }
+    Value broadcastedZero = getShapedZero(loc, rewriter, inpType, inp, resultType);
     Value resultOp = rewriter.create<mhlo::MaxOp>(loc, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
     return success();
@@ -104,23 +94,38 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     Location loc = NameLoc::get(StringAttr::get(op->getContext(),
                                     ElementwiseVariadicOp::getOperationName()),
         op->getLoc());
-    // llvm::SmallVector<Value, 4> shapeOperands;
-    // llvm::SmallVector<Value, 4> broadcastedOperands;
-    // for (auto operand : op->getOperands()) {
-    //   auto shape = rewriter.create<shape::ShapeOfOp>(loc, operand);
-    //   shapeOperands.push_back(shape);
-    // }
-    // auto broadcastShape = rewriter.create<shape::BroadcastOp>(loc,
-    // shapeOperands); 
-    // for (auto operand : op->getOperands()) {
-    //   auto broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-    //       loc, operand.getType(), operand, broadcastShape,
-    //       rewriter.getI64TensorAttr({}));
-    //   broadcastedOperands.push_back(broadcast);
-    // }
 
-    // TODO: check whether ONNX dialect has explicit broadcast feature
-    auto mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
+    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
+    DimsExpr empty;
+    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
+
+    int64_t outputRank = shapeHelper.outputRank;
+    Type outputType = *op->result_type_begin();
+    ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
+    if (outputShapedType == nullptr)
+      return failure();
+    Type elementType = outputShapedType.getElementType();
+    RankedTensorType broadcastedOutputType =
+        RankedTensorType::get(outputShapedType.getShape(), elementType);
+
+    Value resultExtents = mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
+        loc, op->getOperands(), rewriter);
+    llvm::SmallVector<Value, 4> broadcastedOperands;
+    for (auto operand : op->getOperands()) {
+      RankedTensorType operandType =
+          operand.getType().dyn_cast<RankedTensorType>();
+      if (operandType == nullptr)
+        return failure();
+      SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
+          llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
+      Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
+          broadcastedOutputType, operand, resultExtents,
+          rewriter.getI64TensorAttr(broadcastDimensions));
+      broadcastedOperands.push_back(broadcast);
+    }
+
+    Value mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
         loc, op->getResultTypes(), broadcastedOperands);
 
     rewriter.replaceOp(op, mhloOp);
