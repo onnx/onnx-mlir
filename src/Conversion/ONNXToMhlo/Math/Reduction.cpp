@@ -239,13 +239,14 @@ Value createReduce(Location loc, Value operand, Value zero,
   }
   Value result = reduce.getResult(0);
   if (keepDims) {
-    RankedTensorType inputType = operand.getType().cast<RankedTensorType>();
     SmallVector<int64_t> resultShape =
-        getReductionShape(inputType, axes, true);
+        getReductionShape(operandType, axes, true);
     Type resultType =
-      RankedTensorType::get(resultShape, inputType.getElementType());
-    Value shape = rewriter.create<mhlo::ConstOp>(loc, rewriter.getI64TensorAttr(resultShape));
-    result = rewriter.create<mhlo::DynamicReshapeOp>(loc, resultType, result, shape);
+        RankedTensorType::get(resultShape, operandType.getElementType());
+    Value shape = rewriter.create<mhlo::ConstOp>(
+        loc, rewriter.getI64TensorAttr(resultShape));
+    result =
+        rewriter.create<mhlo::DynamicReshapeOp>(loc, resultType, result, shape);
   }
   return result;
 }

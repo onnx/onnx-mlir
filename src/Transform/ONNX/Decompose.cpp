@@ -129,10 +129,29 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
+RankedTensorType createResultType(
+    Type outputType, int64_t axisValue, bool keepDims) {
+  RankedTensorType outputShapeType = outputType.dyn_cast<RankedTensorType>();
+  llvm::ArrayRef<int64_t> shapeVector = outputShapeType.getShape();
+  int64_t rank = outputShapeType.getRank();
+  SmallVector<int64_t, 4> reducedShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (i != axisValue)
+      reducedShape.push_back(shapeVector[i]);
+    else if (keepDims)
+      reducedShape.push_back(1);
+  }
+  Type elementType = outputShapeType.getElementType();
+  RankedTensorType resultType =
+      RankedTensorType::get(reducedShape, elementType);
+  return resultType;
+}
+
 struct SoftmaxPattern : public RewritePattern {
   SoftmaxPattern(MLIRContext *context)
       : RewritePattern("onnx.Softmax", 1, context,
-            {"onnx.Constant", "onnx.Exp", "onnx.ReduceSum", "onnx.Div"}) {}
+            {"onnx.Constant", "onnx.ReduceMax", "onnx.Sub", "onnx.Exp",
+                "onnx.ReduceSum", "onnx.Div"}) {}
   LogicalResult matchAndRewrite(
       Operation *op0, PatternRewriter &rewriter) const override {
     // Variables for capturing values and attributes used while creating ops
@@ -144,7 +163,7 @@ struct SoftmaxPattern : public RewritePattern {
     ops.push_back(op0);
     auto castedOp0 = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
     x = castedOp0.getODSOperands(0);
-    Type outputType = castedOp0.output().getType();
+    Type inputType = castedOp0.input().getType();
     {
       auto axisAttr = op0->getAttrOfType<IntegerAttr>("axis");
       if (!axisAttr)
@@ -156,10 +175,27 @@ struct SoftmaxPattern : public RewritePattern {
     // Rewrite
     auto odsLoc = rewriter.getFusedLoc({ops[0]->getLoc()});
     ::llvm::SmallVector<Value, 4> values;
-    ONNXExpOp ONNXExpOp0;
+    ONNXReduceMaxOp reduceMaxOp;
     {
       Value value0 = (*x.begin());
-      ONNXExpOp0 = rewriter.create<ONNXExpOp>(odsLoc, outputType, value0);
+      auto keepDimsAttr = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+      ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axis.getSInt()});
+      RankedTensorType resultType = createResultType(
+          inputType, axis.getSInt(), /*keepDims=*/true);
+      reduceMaxOp = rewriter.create<ONNXReduceMaxOp>(
+          odsLoc, resultType, value0, axisAttr, keepDimsAttr);
+    }
+    ONNXSubOp subOp;
+    {
+      Value value0 = (*x.begin());
+      Value value1 = *reduceMaxOp.getODSResults(0).begin();
+      subOp = rewriter.create<ONNXSubOp>(odsLoc, inputType, value0, value1);
+    }
+    ONNXExpOp ONNXExpOp0;
+    {
+      Value value0 = *subOp.getODSResults(0).begin();
+      ONNXExpOp0 = rewriter.create<ONNXExpOp>(odsLoc, inputType, value0);
     }
     ONNXConstantOp axisOp;
     {
@@ -169,11 +205,13 @@ struct SoftmaxPattern : public RewritePattern {
     }
     ONNXReduceSumOp ONNXReduceSumOp1;
     {
+      int64_t axisValue = axis.getSInt();
+      RankedTensorType resultType = createResultType(inputType, axisValue, true);
       auto keepDimsAttr = rewriter.getIntegerAttr(
           rewriter.getIntegerType(64, /*isSigned=*/true), 1);
       auto noopWithEmptyAxes = rewriter.getIntegerAttr(
           rewriter.getIntegerType(64, /*isSigned=*/true), 0);
-      ONNXReduceSumOp1 = rewriter.create<ONNXReduceSumOp>(odsLoc,
+      ONNXReduceSumOp1 = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
           /*input=*/*ONNXExpOp0.getODSResults(0).begin(),
           /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
     }
@@ -182,13 +220,9 @@ struct SoftmaxPattern : public RewritePattern {
       Value value0 = *ONNXExpOp0.getODSResults(0).begin();
       Value value1 = *ONNXReduceSumOp1.getODSResults(0).begin();
       ONNXDivOp2 =
-          rewriter.create<ONNXDivOp>(odsLoc, outputType, value0, value1);
+          rewriter.create<ONNXDivOp>(odsLoc, inputType, value0, value1);
     }
-    for (auto v :
-        ::llvm::SmallVector<::mlir::Value, 4>{ONNXDivOp2.getODSResults(0)}) {
-      values.push_back(v);
-    }
-    rewriter.replaceOp(op0, values);
+    rewriter.replaceOp(op0, ONNXDivOp2.getODSResults(0));
     return success();
   }
 };
