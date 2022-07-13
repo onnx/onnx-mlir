@@ -9,6 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
@@ -146,7 +148,7 @@ class Decomposer {
 public:
   Decomposer(OpBuilder &builder, Location loc,
       const einsum::Signature &signature, ValueRange values)
-      : builder(builder), loc(loc) {
+      : builder(builder), loc(loc), create(builder, loc) {
     assert(values.size() >= 1 && "Einsum must have >= 1 inputs");
     elementType = values[0].getType().cast<ShapedType>().getElementType();
     result = signature.output;
@@ -276,10 +278,8 @@ public:
     Axes perm = transposePerm(output.subscripts, transposedSubscripts);
     output.subscripts = transposedSubscripts;
     output.shape = shapePermute(output.shape, perm);
-    output.value = builder
-                       .create<ONNXTransposeOp>(loc, output.type(elementType),
-                           output.value, builder.getI64ArrayAttr(perm))
-                       .getResult();
+    output.value = create.onnx.transpose(
+        output.type(elementType), output.value, builder.getI64ArrayAttr(perm));
   }
 
   void unsqueeze(Output &output, const Subscripts &unsqueezedSubscripts) {
@@ -317,10 +317,8 @@ public:
            "there should be no zero dims");
     output.subscripts = reSubscripts;
     output.shape = reShape;
-    output.value = builder
-                       .create<ONNXReshapeOp>(loc, output.type(elementType),
-                           output.value, tensor1D(reShape))
-                       .getResult();
+    output.value = create.onnx.reshape(
+        output.type(elementType), output.value, tensor1D(reShape));
   }
 
   void mul(Output &output1, Output &output2, bool reduceAtEnd = false) {
@@ -342,10 +340,7 @@ public:
     unsqueeze(output1, subscripts);
     output1.subscripts = subscripts;
     output1.shape = shapeBroadcast(output1.shape, output2.shape);
-    output1.value = builder
-                        .create<ONNXMulOp>(loc, output1.type(elementType),
-                            output1.value, output2.value)
-                        .getResult();
+    output1.value = create.onnx.mul(output1.value, output2.value);
     if (reduceAtEnd) {
       SubscriptsSet keep = otherSubscripts({&output1, &output2});
       reduce(output1, keep);
@@ -438,6 +433,7 @@ public:
     output1.subscripts = {sharedKeepSubscripts, left, right};
     output1.shape =
         shapeConcat(sharedKeepShape, {unshared1Size, unshared2Size});
+    // not using create.onnx.matmul() because it returns MemRef
     output1.value = builder
                         .create<ONNXMatMulOp>(loc, output1.type(elementType),
                             output1.value, output2.value)
@@ -525,30 +521,29 @@ private:
   template <typename T>
   Value tensor(ArrayRef<int64_t> shape, ArrayRef<T> values, Type elementType) {
     RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
-    return createONNXConstantOpWithDenseAttr(
-        builder, loc, DenseElementsAttr::get(tensorType, values));
+    return create.onnx.constant(DenseElementsAttr::get(tensorType, values));
   }
 
   Value zeros(ArrayRef<int64_t> shape, Type elementType) {
     RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
     SmallVector<Attribute> values(
         tensorType.getNumElements(), zero(elementType));
-    return createONNXConstantOpWithDenseAttr(
-        builder, loc, DenseElementsAttr::get(tensorType, makeArrayRef(values)));
+    return create.onnx.constant(
+        DenseElementsAttr::get(tensorType, makeArrayRef(values)));
   }
 
   Value tensor1D(ArrayRef<int64_t> values) {
-    return createONNXConstantOpWithDenseAttr(
-        builder, loc, builder.getI64TensorAttr(values));
+    return create.onnx.constant(builder.getI64TensorAttr(values));
   }
 
   Value zeroScalar(Type elementType) {
-    return createONNXConstantOpWithDenseAttr(builder, loc,
+    return create.onnx.constant(
         builder.getZeroAttr(RankedTensorType::get({}, elementType)));
   }
 
   OpBuilder &builder;
   Location loc;
+  MultiDialectBuilder<OnnxBuilder> create;
   Type elementType;
   einsum::Parameter result;
   std::vector<Output> outputs;
