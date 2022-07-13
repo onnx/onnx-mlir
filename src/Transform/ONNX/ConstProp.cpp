@@ -854,6 +854,43 @@ ONNXConstantOp ConstPropSlice(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for GatherOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value indicesValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+  int64_t axis = gatherOp.axis();
+
+  ArrayRef<int64_t> inputShape = getShape(inputValue.getType());
+  ArrayRef<int64_t> indicesShape = getShape(indicesValue.getType());
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  std::vector<int64_t> indicesStrides = getStrides(indicesShape);
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  Type elementType = getElementType(inputValue.getType());
+
+  // Get the input value using the maximum precision e.g. double, int64_t.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, inputValue.getDefiningOp());
+
+  // Get the indices value using the maximum precision. Index is integer.
+  int64_t *indicesArray = (int64_t *)getArrayFromAttributeOrBuffer(
+      rewriter, indicesValue.getDefiningOp());
+
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

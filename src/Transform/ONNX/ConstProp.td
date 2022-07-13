@@ -107,6 +107,9 @@ def CreateSqueezeOfConst:
 def CreateSliceOfConst:
    NativeCodeCall<"ConstPropSlice($_builder, $0, $1)">;
 
+def CreateGatherOfConst:
+   NativeCodeCall<"ConstPropGather($_builder, $0, $1, $2)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -370,5 +373,18 @@ def SliceofConst :  Pat<
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
      (IsFromDenseONNXConstantOpOrNone:$steps)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Gather operations.
+//===----------------------------------------------------------------------===//
+
+def GatherofConst :  Pat<
+    // From Gather (x, indices, axis)
+    (ONNXGatherOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                         (ONNXConstantOp:$indices $_, $_, $_, $_, $_, $_, $_, $_),
+                         $_),
+    // To c' where c' is the gathered value.
+    (CreateGatherOfConst $resOp, $input, $indices),
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices)]>;
 
 #endif // ONNX_CONSTPROP
