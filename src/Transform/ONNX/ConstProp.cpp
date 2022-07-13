@@ -809,7 +809,6 @@ ONNXConstantOp ConstPropSlice(
   std::vector<int64_t> inputStrides = getStrides(inputShape);
   ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
   std::vector<int64_t> outputStrides = getStrides(outputShape);
-  Type elementType = getElementType(constValue.getType());
 
   // Get the const value using the maximum precision e.g. double, int64_t.
   char *constArray =
@@ -841,16 +840,9 @@ ONNXConstantOp ConstPropSlice(
                                 shapeHelper.starts[k].getLiteral());
     }
     int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    if (elementType.isa<FloatType>()) {
-      double *inputArr = (double *)constArray;
-      double *outputArr = (double *)resArray;
-      *(outputArr + i) = *(inputArr + inputOffset);
-    } else if (elementType.isa<IntegerType>()) {
-      int64_t *inputArr = (int64_t *)constArray;
-      int64_t *outputArr = (int64_t *)resArray;
-      *(outputArr + i) = *(inputArr + inputOffset);
-    } else
-      llvm_unreachable("Unknown data type");
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(
+        resArray + i * typeSize, constArray + inputOffset * typeSize, typeSize);
   }
 
   // Construct a new ONNXConstantOp.
@@ -879,7 +871,6 @@ ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
 
   ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
   std::vector<int64_t> outputStrides = getStrides(outputShape);
-  Type elementType = getElementType(replacingValue.getType());
   int64_t axis = axisAttr.getValue().getSExtValue();
   if (axis < 0)
     axis += outputShape.size();
@@ -904,16 +895,9 @@ ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
         outputIndices[axis] += dimAtAxis;
         int64_t outputOffset =
             getLinearAccessIndex(outputIndices, outputStrides);
-        if (elementType.isa<FloatType>()) {
-          double *inputArr = (double *)inputArrays[i];
-          double *outputArr = (double *)resArray;
-          *(outputArr + outputOffset) = *(inputArr + k);
-        } else if (elementType.isa<IntegerType>()) {
-          int64_t *inputArr = (int64_t *)inputArrays[i];
-          int64_t *outputArr = (int64_t *)resArray;
-          *(outputArr + outputOffset) = *(inputArr + k);
-        } else
-          llvm_unreachable("Unknown data type");
+        int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+        memcpy(resArray + outputOffset * typeSize,
+            inputArrays[i] + k * typeSize, typeSize);
       }
       dimAtAxis += inputShape[axis];
     }
@@ -945,56 +929,28 @@ ONNXConstantOp ConstPropExpand(
   std::vector<int64_t> outputStrides = getStrides(outputShape);
   int64_t inputRank = inputShape.size();
   int64_t outputRank = outputShape.size();
-  Type elementType = getElementType(replacingValue.getType());
-
-  // Check broadcasting.
-  bool broadcasting = false;
-  if (inputRank != outputRank)
-    broadcasting = true;
-  else
-    for (unsigned i = 0; i < outputRank; ++i)
-      if (inputShape[i] != outputShape[i]) {
-        broadcasting = true;
-        break;
-      }
 
   for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
     // Compute indices to access the output.
     std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
     // Compute indices to access the input.
     SmallVector<int64_t, 4> inputIndices(inputRank, 0);
-    if (!broadcasting) {
-      for (int k = 0; k < outputRank; ++k) {
-        inputIndices[k] = outputIndices[k];
-      }
-    } else {
-      for (int k = 0; k < outputRank; ++k) {
-        // in the input index range.
-        if (k >= outputRank - inputRank) {
-          int inputIndex = k - outputRank + inputRank;
-          if (inputShape[inputIndex] == 1)
-            // broadcast
-            inputIndices[inputIndex] = 0;
-          else
-            inputIndices[inputIndex] = outputIndices[k];
-        }
+    for (int inputAxis = 0; inputAxis < inputRank; ++inputAxis) {
+      if (inputShape[inputAxis] == 1) {
+        // broadcast
+        inputIndices[inputAxis] = 0;
+      } else {
+        int outputIndex = (outputRank - inputRank) + inputAxis;
+        inputIndices[inputAxis] = outputIndices[outputIndex];
       }
     }
 
-    // Calculate element-wise binary result.
+    // Calculate the final result.
     int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
     int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
-
-    if (elementType.isa<FloatType>()) {
-      double *inputArr = (double *)inputArray;
-      double *outputArr = (double *)resArray;
-      *(outputArr + outputOffset) = *(inputArr + inputOffset);
-    } else if (elementType.isa<IntegerType>()) {
-      int64_t *inputArr = (int64_t *)inputArray;
-      int64_t *outputArr = (int64_t *)resArray;
-      *(outputArr + outputOffset) = *(inputArr + inputOffset);
-    } else
-      llvm_unreachable("Unknown data type");
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(resArray + outputOffset * typeSize,
+        inputArray + inputOffset * typeSize, typeSize);
   }
 
   // Construct a new ONNXConstantOp.

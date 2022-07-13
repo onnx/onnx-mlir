@@ -639,6 +639,21 @@ func @test_concat() -> tensor<*xf32> {
 
 // -----
 
+func @test_concat_integer() -> tensor<*xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4], [5, 6]]> : tensor<3x2xi32>} : () -> tensor<3x2xi32>
+  %1 = "onnx.Constant"() {value = dense<[[11, 12], [13, 14], [15, 16]]> : tensor<3x2xi32>} : () -> tensor<3x2xi32>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<3x2xi32>, tensor<3x2xi32>) -> tensor<*xi32>
+  "func.return"(%2) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL:  func @test_concat_integer
+  // CHECK-SAME:   () -> tensor<6x2xi32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}[1, 2], [3, 4], [5, 6], [11, 12], [13, 14], [15, 16]{{.}}> : tensor<6x2xi32>} : () -> tensor<6x2xi32>
+  // CHECK:           return [[VAR_0_]] : tensor<6x2xi32>
+  // CHECK:         }
+}
+
+// -----
+
 func @test_concat_3_operands() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
