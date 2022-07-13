@@ -77,7 +77,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
       return failure();
     Type resultType = *op->result_type_begin();
     Value broadcastedZero = getShapedZero(loc, rewriter, inpType, inp, resultType);
-    Value resultOp = rewriter.create<mhlo::MaxOp>(loc, inp, broadcastedZero);
+    Value resultOp = rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -112,7 +112,7 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     Value resultExtents = mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
         loc, op->getOperands(), rewriter);
     llvm::SmallVector<Value, 4> broadcastedOperands;
-    for (auto operand : op->getOperands()) {
+    for (Value operand : op->getOperands()) {
       RankedTensorType operandType =
           operand.getType().dyn_cast<RankedTensorType>();
       if (operandType == nullptr)

@@ -69,7 +69,7 @@ std::vector<int64_t> getDefinedAxes(Operation *op) {
   std::vector<int64_t> definedAxes;
   ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
   if (axisAttrs) {
-    for (auto axisAttr : axisAttrs.getValue()) {
+    for (Attribute axisAttr : axisAttrs.getValue()) {
       int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
       definedAxes.push_back(axis);
     }
@@ -86,10 +86,11 @@ std::vector<int64_t> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
   if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
-    auto constAxes = getONNXConstantOp(axesValue)
-                         .valueAttr()
-                         .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    for (auto element : constAxes.getValues<IntegerAttr>())
+    mlir::DenseElementsAttr constAxes =
+        getONNXConstantOp(axesValue)
+            .valueAttr()
+            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
       definedAxes.push_back(element.getInt());
     return definedAxes;
   }
@@ -115,6 +116,7 @@ std::vector<int64_t> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
       if (outputShape[i] == 1 && inputShape[i] != 1)
         definedAxes.push_back(i);
   } else {
+    // match greedily if not keepdims
     for (int64_t i = 0, j = 0; i < inputRank; ++i)
       if (j == outputRank || inputShape[i] != outputShape[j])
         definedAxes.push_back(i);
@@ -175,11 +177,10 @@ SmallVector<int64_t> getReductionShape(
   }
 
   for (int64_t i = 0; i < rank; ++i) {
-    if (isReductionAxis[i]) {
-      if (isKeepdims)
-        reduceShape.push_back(1);
-    } else
+    if (!isReductionAxis[i])
       reduceShape.push_back(inputShape[i]);
+    else if (isKeepdims)
+      reduceShape.push_back(1);
   }
   return reduceShape;
 }
@@ -201,11 +202,9 @@ int64_t getReductionFactor(
 
   int64_t reduceFactor = 1;
 
-  for (int64_t i = 0; i < rank; ++i) {
-    if (isReductionAxis[i]) {
+  for (int64_t i = 0; i < rank; ++i)
+    if (isReductionAxis[i]) 
       reduceFactor *= inputShape[i];
-    }
-  }
   return reduceFactor;
 }
 
@@ -215,7 +214,7 @@ template <typename BlockReduceOp>
 Value createReduce(Location loc, Value operand, Value zero,
     SmallVector<int64_t> &reduceShape, std::vector<int64_t> axes,
     PatternRewriter &rewriter, bool keepDims) {
-  auto operandType = operand.getType().cast<RankedTensorType>();
+  RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
   mhlo::ReduceOp reduce = rewriter.create<mhlo::ReduceOp>(
@@ -281,7 +280,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
     std::vector<int64_t> definedAxes = getDefinedAxes<ONNXReductionOp>(op);
     std::vector<int64_t> axes;
     if (definedAxes.size()) {
-      for (auto axis : definedAxes) {
+      for (int64_t axis : definedAxes) {
         if (axis < -inRank || axis > inRank - 1)
           return emitError(loc, "axes value out of range");
         int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
@@ -293,12 +292,12 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         axes.push_back(i);
 
     // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
+    int64_t keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     SmallVector<int64_t> reducedShape =
         getReductionShape(inputType, axes, false);
-    auto reduceResult = createReduce<BlockOp<ONNXReductionOp>>(
+    Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(
         loc, input, zero, reducedShape, axes, rewriter, isKeepdims);
     if (computeMean) {
       // TODO: support dynamic shape

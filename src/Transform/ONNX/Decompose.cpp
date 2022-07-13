@@ -159,34 +159,29 @@ struct SoftmaxPattern : public RewritePattern {
     // Variables for capturing values and attributes used while creating ops
     IntegerAttr axis;
     Operation::operand_range x(op0->getOperands());
-    SmallVector<Operation *, 4> ops;
 
     // Match
-    ops.push_back(op0);
-    auto castedOp0 = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
+    ONNXSoftmaxOp castedOp0 = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
     x = castedOp0.getODSOperands(0);
     Type inputType = castedOp0.input().getType();
-    {
-      auto axisAttr = op0->getAttrOfType<IntegerAttr>("axis");
-      if (!axisAttr)
-        axisAttr = rewriter.getIntegerAttr(
-            rewriter.getIntegerType(64, /*isSigned=*/true), -1);
-      axis = axisAttr;
-    }
+    axis = op0->getAttrOfType<IntegerAttr>("axis");
+    if (!axis)
+      axis = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), -1);
+    int64_t axisValue = axis.getSInt();
 
     // Rewrite
-    auto odsLoc = rewriter.getFusedLoc({ops[0]->getLoc()});
-    ::llvm::SmallVector<Value, 4> values;
+    Location odsLoc = rewriter.getFusedLoc({op0->getLoc()});
     ONNXReduceMaxOp reduceMaxOp;
     {
-      Value value0 = (*x.begin());
-      auto keepDimsAttr = rewriter.getIntegerAttr(
+      Value input = (*x.begin());
+      IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
           rewriter.getIntegerType(64, /*isSigned=*/true), 1);
       ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axis.getSInt()});
       RankedTensorType resultType = createResultType(
           inputType, axis.getSInt(), /*keepDims=*/true);
       reduceMaxOp = rewriter.create<ONNXReduceMaxOp>(
-          odsLoc, resultType, value0, axisAttr, keepDimsAttr);
+          odsLoc, resultType, input, axisAttr, keepDimsAttr);
     }
     ONNXSubOp subOp;
     {
@@ -194,37 +189,35 @@ struct SoftmaxPattern : public RewritePattern {
       Value value1 = *reduceMaxOp.getODSResults(0).begin();
       subOp = rewriter.create<ONNXSubOp>(odsLoc, inputType, value0, value1);
     }
-    ONNXExpOp ONNXExpOp0;
+    ONNXExpOp expOp;
     {
       Value value0 = *subOp.getODSResults(0).begin();
-      ONNXExpOp0 = rewriter.create<ONNXExpOp>(odsLoc, inputType, value0);
+      expOp = rewriter.create<ONNXExpOp>(odsLoc, inputType, value0);
     }
     ONNXConstantOp axisOp;
     {
-      int64_t axisValue = axis.getSInt();
       axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
           /*value=*/rewriter.getI64TensorAttr({axisValue}));
     }
-    ONNXReduceSumOp ONNXReduceSumOp1;
+    ONNXReduceSumOp reduceSumOp;
     {
-      int64_t axisValue = axis.getSInt();
       RankedTensorType resultType = createResultType(inputType, axisValue, true);
-      auto keepDimsAttr = rewriter.getIntegerAttr(
+      IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
           rewriter.getIntegerType(64, /*isSigned=*/true), 1);
-      auto noopWithEmptyAxes = rewriter.getIntegerAttr(
+      IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
           rewriter.getIntegerType(64, /*isSigned=*/true), 0);
-      ONNXReduceSumOp1 = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
-          /*input=*/*ONNXExpOp0.getODSResults(0).begin(),
+      reduceSumOp = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
+          /*input=*/*expOp.getODSResults(0).begin(),
           /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
     }
-    ONNXDivOp ONNXDivOp2;
+    ONNXDivOp divOp;
     {
-      Value value0 = *ONNXExpOp0.getODSResults(0).begin();
-      Value value1 = *ONNXReduceSumOp1.getODSResults(0).begin();
-      ONNXDivOp2 =
+      Value value0 = *expOp.getODSResults(0).begin();
+      Value value1 = *reduceSumOp.getODSResults(0).begin();
+      divOp =
           rewriter.create<ONNXDivOp>(odsLoc, inputType, value0, value1);
     }
-    rewriter.replaceOp(op0, ONNXDivOp2.getODSResults(0));
+    rewriter.replaceOp(op0, divOp.getODSResults(0));
     return success();
   }
 };
