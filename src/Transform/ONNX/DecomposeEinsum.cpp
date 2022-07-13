@@ -36,9 +36,10 @@ namespace onnx_mlir {
 namespace {
 
 using einsum::Shape;
-using einsum::Subscripts;
-
 typedef ArrayRef<int64_t> ShapeRef;
+
+using einsum::Subscripts;
+typedef std::unordered_set<char> SubscriptsSet;
 
 typedef SmallVector<int64_t, 4> Axes;
 typedef ArrayRef<int64_t> AxesRef;
@@ -49,14 +50,13 @@ Shape shapeExpandDims(const Shape &shape, AxesRef axes) {
   for (auto a : axes) {
     expanded.insert(expanded.begin() + a, 1);
   }
-  assert(expanded.size() == shape.size() + axes.size());
   return expanded;
 }
 
 Shape shapeBroadcast(ShapeRef shape1, ShapeRef shape2) {
   Shape shape;
   bool success = OpTrait::util::getBroadcastedShape(shape1, shape2, shape);
-  assert(success);
+  assert(success && "shapes should be broadcast compatible");
   return shape;
 }
 
@@ -88,7 +88,7 @@ Shape shapeConcat(ShapeRef fst, ShapeRef snd, ShapeRef trd = {}) {
 template <typename T>
 std::tuple<ArrayRef<T>, ArrayRef<T>, ArrayRef<T>> split3(
     ArrayRef<T> aref, size_t len1, size_t len2, size_t len3) {
-  assert(aref.size() == len1 + len2 + len3);
+  assert(aref.size() == len1 + len2 + len3 && "split3 sizes mismatch");
   return {aref.take_front(len1), aref.slice(len1, len2), aref.take_back(len3)};
 }
 
@@ -104,8 +104,8 @@ struct Output : public einsum::Parameter {
   }
 
   void eraseAxis(int64_t a) {
-    assert(0 <= a); // for simplicity axes must be non-negative
-    assert(a < (int64_t)size());
+    assert(0 <= a && a < (int64_t)size() &&
+           "axis a should be nonnegative and within range");
     shape.erase(shape.begin() + a);
     subscripts.erase(subscripts.begin() + a);
   }
@@ -129,8 +129,8 @@ struct Output : public einsum::Parameter {
     return dups;
   }
 
-  std::unordered_set<char> subscriptsSet() const {
-    return std::unordered_set<char>(subscripts.begin(), subscripts.end());
+  SubscriptsSet subscriptsSet() const {
+    return SubscriptsSet(subscripts.begin(), subscripts.end());
   }
 };
 
@@ -147,10 +147,11 @@ public:
   Decomposer(OpBuilder &builder, Location loc,
       const einsum::Signature &signature, ValueRange values)
       : builder(builder), loc(loc) {
-    assert(values.size() >= 1);
+    assert(values.size() >= 1 && "Einsum must have >= 1 inputs");
     elementType = values[0].getType().cast<ShapedType>().getElementType();
     result = signature.output;
-    assert(values.size() == signature.inputs.size());
+    assert(values.size() == signature.inputs.size() &&
+           "Einsum signature inputs (from equation) must match actual inputs");
     for (size_t i = 0; i < values.size(); ++i) {
       outputs.emplace_back(signature.inputs[i], values[i]);
     }
@@ -159,8 +160,9 @@ public:
   void squeeze(Output &output, AxesRef axes) {
     if (axes.empty())
       return;
-    assert(llvm::all_of(
-        axes, [&output](int64_t a) { return output.shape[a] == 1; }));
+    assert(llvm::all_of(axes, [&output](int64_t a) {
+      return output.shape[a] == 1;
+    }) && "only squeeze axes with dim 1");
     output.eraseAxes(axes);
     output.value = builder
                        .create<ONNXSqueezeOp>(loc, output.type(elementType),
@@ -194,13 +196,21 @@ public:
     squeeze(output, axes);
   }
 
-  void diagonal(Output &output, AxesRef axes) {
-    char subscript = output.subscripts[axes[0]];
-    assert(output.subscripts.count(subscript) == axes.size());
+  void diagonal(Output &output, char subscript) {
+    Axes axes;
+    for (size_t a = 0; a < output.size(); ++a) {
+      if (output.subscripts[a] == subscript)
+        axes.push_back(a);
+    }
+    size_t n = axes.size();
+    assert(n >= 2 && "only take diagonal of multiple axes");
     int64_t d = output.shape[axes[0]];
-    assert(llvm::all_of(axes, [&](int64_t a) { return output.shape[a] == d; }));
+    assert(
+        llvm::all_of(axes, [&](int64_t a) { return output.shape[a] == d; }) &&
+        "all axes with same subscript in same input must have same dimension, "
+        "checked in verify()");
     if (d == 1) {
-      squeeze(output, axes.drop_front());
+      squeeze(output, AxesRef(axes).drop_front());
       return;
     }
     // Create a boolean mask with the shape of the diagonal axes, "unsqueezed"
@@ -212,12 +222,11 @@ public:
     for (size_t i = 0; i < output.size(); ++i) {
       maskShape.push_back(output.subscripts[i] == subscript ? d : 1);
     }
-    int64_t size = ShapedType::getNumElements(maskShape);
+    int64_t size = ShapedType::getNumElements(maskShape); // size == d**n
     SmallVector<bool> maskValues(size, false);
     // In the flat maskValues representation of mask the true values are evenly
     // spaced out between maskValues[0]==true,...,maskValues[size-1]==true.
-    assert((size - 1) % (d - 1) == 0);
-    auto distance = (size - 1) / (d - 1);
+    int64_t distance = (size - 1) / (d - 1); // d-1 always divides d**n-1
     for (int64_t i = 0; i < d; ++i) {
       maskValues[i * distance] = true;
     }
@@ -226,22 +235,17 @@ public:
                        .create<ONNXWhereOp>(loc, output.type(elementType), mask,
                            output.value, zeroScalar(elementType))
                        .getResult();
-    sum(output, axes.drop_front());
+    sum(output, AxesRef(axes).drop_front());
   }
 
   void diagonalize(Output &output) {
-    auto dups = output.duplicates();
+    Subscripts dups = output.duplicates();
     for (char x : dups) {
-      Axes axes;
-      for (size_t a = 0; a < output.size(); ++a) {
-        if (output.subscripts[a] == x)
-          axes.push_back(a);
-      }
-      diagonal(output, axes);
+      diagonal(output, x);
     }
   }
 
-  void reduce(Output &output, const std::unordered_set<char> &keep) {
+  void reduce(Output &output, const SubscriptsSet &keep) {
     Axes axes;
     for (size_t a = 0; a < output.size(); ++a) {
       if (keep.count(output.subscripts[a]) == 0)
@@ -250,9 +254,9 @@ public:
     sum(output, axes);
   }
 
-  std::unordered_set<char> otherSubscripts(
+  SubscriptsSet otherSubscripts(
       const std::vector<einsum::Parameter *> &ignore) const {
-    std::unordered_set<char> subscriptsSet;
+    SubscriptsSet subscriptsSet;
     for (const Output &output : outputs) {
       if (std::find(ignore.begin(), ignore.end(), &output) == ignore.end())
         subscriptsSet.insert(
@@ -264,7 +268,8 @@ public:
   }
 
   void transpose(Output &output, const Subscripts &transposedSubscripts) {
-    assert(output.subscripts.size() == transposedSubscripts.size());
+    assert(output.subscripts.size() == transposedSubscripts.size() &&
+           "transposed subscripts must be permutation of existing subscripts");
     if (output.subscripts == transposedSubscripts)
       return;
 
@@ -279,7 +284,7 @@ public:
 
   void unsqueeze(Output &output, const Subscripts &unsqueezedSubscripts) {
     Axes axes;
-    std::unordered_set<char> in = output.subscriptsSet();
+    SubscriptsSet in = output.subscriptsSet();
     for (size_t a = 0; a < unsqueezedSubscripts.size(); ++a) {
       char x = unsqueezedSubscripts[a];
       if (in.count(x) == 0)
@@ -297,16 +302,19 @@ public:
 
   void reshape(
       Output &output, const Shape &reShape, const Subscripts &reSubscripts) {
-    assert(reShape.size() == reSubscripts.size());
+    assert(reShape.size() == reSubscripts.size() &&
+           "maintain shape.size() == subscripts.size() invariant");
     if (output.shape == reShape) {
       output.subscripts = reSubscripts;
       return;
     }
     assert(ShapedType::getNumElements(output.shape) ==
-           ShapedType::getNumElements(reShape));
+               ShapedType::getNumElements(reShape) &&
+           "only reshape to shape with same #elements");
     // no zero dims (dispatched at the beginning in decompose()) so
     // we can ignore ONNXReshapeOp allowzero
-    assert(ShapedType::getNumElements(reShape) > 0);
+    assert(ShapedType::getNumElements(reShape) > 0 &&
+           "there should be no zero dims");
     output.subscripts = reSubscripts;
     output.shape = reShape;
     output.value = builder
@@ -316,8 +324,8 @@ public:
   }
 
   void mul(Output &output1, Output &output2, bool reduceAtEnd = false) {
-    std::unordered_set<char> in1 = output1.subscriptsSet();
-    std::unordered_set<char> in2 = output2.subscriptsSet();
+    SubscriptsSet in1 = output1.subscriptsSet();
+    SubscriptsSet in2 = output2.subscriptsSet();
     Subscripts sharedSubscripts;
     for (char x : output2.subscripts) {
       if (in1.count(x) != 0)
@@ -339,15 +347,15 @@ public:
                             output1.value, output2.value)
                         .getResult();
     if (reduceAtEnd) {
-      auto keep = otherSubscripts({&output1, &output2});
+      SubscriptsSet keep = otherSubscripts({&output1, &output2});
       reduce(output1, keep);
     }
     remove(output2);
   }
 
-  void matmul(Output &output1, Output &output2,
-      const std::unordered_set<char> &reducible) {
-    assert(!reducible.empty()); // we call simpler mul() in that case
+  void matmul(
+      Output &output1, Output &output2, const SubscriptsSet &reducible) {
+    assert(!reducible.empty() && "should call mul() if reducible is empty");
 
     // Possible alternative implementation without ONNXMatMulOp:
     //
@@ -363,8 +371,8 @@ public:
     //
     // with sharedKeepSubscripts, reducibleSubscripts in the order they appear
     // in output1
-    std::unordered_set<char> in1 = output1.subscriptsSet();
-    std::unordered_set<char> in2 = output2.subscriptsSet();
+    SubscriptsSet in1 = output1.subscriptsSet();
+    SubscriptsSet in2 = output2.subscriptsSet();
     Subscripts sharedKeepSubscripts;
     Subscripts reducibleSubscripts;
     Subscripts subscripts1unshared;
@@ -377,7 +385,8 @@ public:
         sharedKeepSubscripts.push_back(x);
       }
     }
-    assert(reducible.size() == reducibleSubscripts.size());
+    assert(reducible.size() == reducibleSubscripts.size() &&
+           "reducible subscripts should appear in both outputs");
     Subscripts subscripts2unshared;
     for (char x : output2.subscripts) {
       if (in1.count(x) == 0) {
@@ -402,23 +411,23 @@ public:
             reducibleSubscripts.size(), subscripts2unshared.size());
     // broadcast not needed because non-result 1-dim axes were squeezed at
     // outset
-    assert(reducibleShape == reducible2Shape);
+    assert(
+        reducibleShape == reducible2Shape && "broadcast should not be needed");
 
     // reshape unshared and reducible dims into one dim each
-    auto unshared1Size = ShapedType::getNumElements(unshared1Shape);
-    auto reducibleSize = ShapedType::getNumElements(reducibleShape);
-    auto unshared2Size = ShapedType::getNumElements(unshared2Shape);
-    auto reShape1 =
+    int64_t unshared1Size = ShapedType::getNumElements(unshared1Shape);
+    int64_t reducibleSize = ShapedType::getNumElements(reducibleShape);
+    int64_t unshared2Size = ShapedType::getNumElements(unshared2Shape);
+    Shape reShape1 =
         shapeConcat(sharedKeep1Shape, {unshared1Size, reducibleSize});
-    auto reShape2 =
+    Shape reShape2 =
         shapeConcat(sharedKeep2Shape, {reducibleSize, unshared2Size});
-    auto left =
-        "("; // out-of-band subscript, represents reshaped unshared1 dims
-    auto right =
-        ")"; // out-of-band subscript, represents reshaped unshared2 dims
-    // 1st recucible subsctipt represents the reshaped reducible dims
-    // (non-empty)
-    auto red = reducibleSubscripts.substr(0, 1);
+    // left, right are out-of-band subscripts representing
+    // unshared1, unshared2 dims
+    const char *left = "(";
+    const char *right = ")";
+    // red (1st reducible subscript) represents the reshaped reducible dims
+    StringRef red = reducibleSubscripts.substr(0, 1);
     Subscripts reshaped1subscripts{sharedKeepSubscripts, left, red};
     Subscripts reshaped2subscripts{sharedKeepSubscripts, red, right};
     reshape(output1, reShape1, reshaped1subscripts);
@@ -450,15 +459,15 @@ public:
         return;
       }
     }
-    assert(false); // should have returned from the loop
+    assert(false && "output should be found in outputs");
   }
 
   void contract(Output &output1, Output &output2) {
-    auto keep = otherSubscripts({&output1, &output2});
+    SubscriptsSet keep = otherSubscripts({&output1, &output2});
     // we populate reducible with the subscripts in the intersection
     // of output1 and output2 subscripts, minus keep
-    std::unordered_set<char> reducible;
-    std::unordered_set<char> in1 = output1.subscriptsSet();
+    SubscriptsSet reducible;
+    SubscriptsSet in1 = output1.subscriptsSet();
     for (char x : output2.subscripts) {
       if (in1.count(x) != 0) {
         // x is in intersection of output1 and output2 subscripts
@@ -475,7 +484,7 @@ public:
   }
 
   void finalize() {
-    assert(outputs.size() == 1);
+    assert(outputs.size() == 1 && "only finalize after all contractions");
     Output &output = outputs[0];
     transpose(output, result.subscripts);
   }
@@ -500,7 +509,7 @@ public:
 
     for (auto &output : outputs) {
       diagonalize(output);
-      auto keep = otherSubscripts({&output});
+      SubscriptsSet keep = otherSubscripts({&output});
       reduce(output, keep);
     }
 
@@ -564,7 +573,7 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   //
   // TODO: detect when we don't decompose to ReduceSum or MatMul and
   // accept all types in those cases
-  auto inputs = einsumOp.Inputs();
+  ValueRange inputs = einsumOp.Inputs();
   Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
   if (!isDecomposableElementType(elementType))
     return einsumOp.emitOpError(
@@ -574,13 +583,14 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
           [](Type t) { return t.cast<ShapedType>().hasStaticShape(); }))
     return einsumOp.emitOpError("unknown shapes prevent Einsum decomposition");
 
-  auto loc = einsumOp.getLoc();
+  Location loc = einsumOp.getLoc();
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
   einsum::ErrorFn errorFn = [&einsumOp]() {
     return einsumOp.emitOpError()
            << "equation '" << einsumOp.equation() << "': ";
   };
-  auto signature = einsum::inferSignature(operandAdaptor, errorFn);
+  FailureOr<einsum::Signature> signature =
+      einsum::inferSignature(operandAdaptor, errorFn);
   assert(succeeded(signature) && "any failure should be caught in verify()");
   Decomposer decomposer(rewriter, loc, *signature, operandAdaptor.Inputs());
   Value result = decomposer.decompose();
