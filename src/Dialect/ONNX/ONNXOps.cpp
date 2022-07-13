@@ -4017,12 +4017,12 @@ LogicalResult ONNXDetOp::inferShapes(
 }
 
 LogicalResult ONNXEinsumOp::verify() {
-  auto errorFn = [this]() -> mlir::InFlightDiagnostic {
+  einsum::ErrorFn errorFn = [this]() -> mlir::InFlightDiagnostic {
     return this->emitOpError() << "equation '" << this->equation() << "': ";
   };
 
   ONNXEinsumOpAdaptor operandAdaptor(*this);
-  auto inputs = operandAdaptor.Inputs();
+  ValueRange inputs = operandAdaptor.Inputs();
 
   if (failed(einsum::verifyEquation(equation(), inputs.size(), errorFn))) {
     return failure();
@@ -4047,12 +4047,13 @@ LogicalResult ONNXEinsumOp::inferShapes(
   if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
     return success(); // Can only infer once operand shapes are known.
 
-  auto errorFn = [this]() {
+  einsum::ErrorFn errorFn = [this]() {
     return this->emitOpError() << "equation '" << this->equation() << "': ";
   };
-  auto shape = einsum::inferOutputShape(operandAdaptor, errorFn);
+  FailureOr<einsum::Shape> shape =
+      einsum::inferOutputShape(operandAdaptor, errorFn);
   assert(succeeded(shape) && "any failure should be caught in verify()");
-  auto elementType =
+  Type elementType =
       getOperand(0).getType().cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(*shape, elementType));
   return success();

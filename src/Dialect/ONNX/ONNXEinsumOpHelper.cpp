@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <map>
 #include <regex>
@@ -48,12 +49,12 @@ const char *const equation_regex = EQUATION;
 
 LogicalResult verifyEquation(
     StringRef equation, size_t numInputs, ErrorFn emitErrorFn) {
-  auto pattern = std::regex(equation_regex);
+  std::regex pattern(equation_regex);
   std::cmatch match;
   if (!std::regex_match(equation.begin(), equation.end(), match, pattern)) {
     return emitErrorFn() << "invalid equation syntax";
   }
-  assert(match.size() == 3);
+  assert(match.size() == 3 && "1: whole equation, 2: inputs, 3: output");
   size_t numEquationInputs = equation.count(',') + 1;
   if (numEquationInputs != numInputs) {
     return emitErrorFn() << "number of equation inputs " << numEquationInputs
@@ -89,7 +90,8 @@ LogicalResult verifyEquation(
 
 FailureOr<Shape> inferOutputShape(
     ONNXEinsumOpAdaptor operandAdaptor, ErrorFn emitErrorFn) {
-  auto signature = inferSignature(operandAdaptor, emitErrorFn);
+  FailureOr<einsum::Signature> signature =
+      inferSignature(operandAdaptor, emitErrorFn);
   if (failed(signature)) {
     return failure();
   }
@@ -151,10 +153,12 @@ constexpr int64_t kMaxEllipsisRank = 10;
 
 // We represent an ellipsis as a sequence of digit subscripts, one per axis.
 char ellipsisSubscript(int64_t axis) {
-  assert(0 <= axis && axis < 10);
+  assert(0 <= axis && axis < 10 && "axis corresponds to a decimal digit");
   return '0' + axis;
 }
 
+// Precondition: letters and any ellipsis in parameterEquation are
+// compatible with rank (#letters <= or == rank, with or without ellipsis)
 Subscripts extractSubscripts(StringRef parameterEquation, int64_t rank) {
   Subscripts subscripts;
   subscripts.reserve(rank);
@@ -163,19 +167,20 @@ Subscripts extractSubscripts(StringRef parameterEquation, int64_t rank) {
   int64_t prefixRank = prefix.size() - prefix.count(' ');
   appendLetterSubscripts(prefix, subscripts);
   if (prefix.size() == parameterEquation.size()) {
-    assert(prefixRank == rank);
+    assert(prefixRank == rank && "#letters == rank without ellipsis");
   } else {
     // Skip past remainder of ellipsis "..." and any spaces
     suffix = suffix.ltrim(" .");
     int64_t suffixRank = suffix.size() - suffix.count(' ');
-    assert(rank >= prefixRank + suffixRank);
+    assert(rank >= prefixRank + suffixRank && "#letters <= rank with ellipsis");
     int64_t ellipsisRank = rank - prefixRank - suffixRank;
     for (int64_t axis = 0; axis < ellipsisRank; ++axis) {
       subscripts.push_back(ellipsisSubscript(axis));
     }
     appendLetterSubscripts(suffix, subscripts);
   }
-  assert((int64_t)subscripts.size() == rank);
+  assert((int64_t)subscripts.size() == rank &&
+         "#subscripts == rank after replacing any ellipsis with digits");
   return subscripts;
 }
 
@@ -187,13 +192,10 @@ Subscripts extractSubscripts(StringRef parameterEquation, int64_t rank) {
 // . all input types must be shaped types with rank
 FailureOr<Signature> inferSignature(
     ONNXEinsumOpAdaptor operandAdaptor, ErrorFn emitErrorFn) {
-  auto equation = operandAdaptor.equation();
-  auto inputs = operandAdaptor.Inputs();
-  assert(succeeded(verifyEquation(equation, inputs.size(),
-      emitErrorFn))); // precondition, TODO: remove this excessive check
-  assert(llvm::all_of(inputs, [](Value i) {
-    return i.getType().cast<ShapedType>().hasRank();
-  })); // precondition
+  StringRef equation = operandAdaptor.equation();
+  ValueRange inputs = operandAdaptor.Inputs();
+  assert(llvm::all_of(inputs.getTypes(), isRankedShapedType) &&
+         "precondition checked in verify()");
   StringRef equationOutput, commaSeparatedInputs;
   std::tie(commaSeparatedInputs, equationOutput) = equation.split('-');
   std::string inferredOutput;
@@ -207,7 +209,8 @@ FailureOr<Signature> inferSignature(
   }
   SmallVector<StringRef> equationInputs;
   commaSeparatedInputs.split(equationInputs, ',');
-  assert(equationInputs.size() == inputs.size()); // precondition
+  assert(equationInputs.size() == inputs.size() &&
+         "precondition checked in verify()");
   Signature signature;
   int64_t ellipsisRank = -1; // -1 means unknown
   // Map subscripts across all inputs to non-1 dim sizes.
@@ -222,8 +225,8 @@ FailureOr<Signature> inferSignature(
     StringRef equationInput = equationInputs[i];
     ShapedType type = input.getType().cast<ShapedType>();
     auto shape = type.getShape();
-    auto rank = shape.size();
-    auto letters = countLetters(equationInput);
+    size_t rank = shape.size();
+    size_t letters = countLetters(equationInput);
     if (!hasEllipsis(equationInput)) {
       if (rank != letters) {
         return emitErrorFn() << "number of equation input parameter subscripts "
@@ -248,7 +251,7 @@ FailureOr<Signature> inferSignature(
         }
       }
     }
-    auto &signatureInput = signature.inputs.emplace_back();
+    Parameter &signatureInput = signature.inputs.emplace_back();
     signatureInput.shape.assign(shape.begin(), shape.end());
     signatureInput.subscripts = extractSubscripts(equationInput, rank);
 
@@ -298,7 +301,6 @@ FailureOr<Signature> inferSignature(
   int64_t outputRank =
       countLetters(equationOutput) + (outputHasEllipsis ? ellipsisRank : 0);
   signature.output.subscripts = extractSubscripts(equationOutput, outputRank);
-  assert(signature.output.shape.empty());
   for (char s : signature.output.subscripts) {
     int64_t d;
     auto iter = broadcast.find(s);
