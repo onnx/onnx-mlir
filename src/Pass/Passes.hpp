@@ -67,7 +67,6 @@ std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
 
 /// Pass for ONNX to Aten Types Transform
 std::unique_ptr<mlir::Pass> createONNXToAtenTypesTransformPass();
-std::unique_ptr<mlir::Pass> createONNXToAtenFinalizeTypesTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
 
 /// Pass for lowering krnl.dim operations to standard dialect.

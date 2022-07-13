@@ -23,56 +23,53 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
-/// 
-///  ONNX Pad operation
-///    “Given a tensor containing the data to be padded (data),
-///    a tensor containing the number of start and end pad values for
-///    axis (pads), (optionally) a mode, and (optionally) constant_value,
-///    ” “a padded tensor (output) is generated.
-/// 
-///  Attributes:
-///    mode	::mlir::StringAttr	string attribute
-/// 
-///  Operands:
-///  data	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
-///  	  tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-///  	  tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
-///  	  float values or tensor of string type values or tensor of 1-bit
-///  	  signless integer values or tensor of complex type with
-///  	  32-bit/64-bit float elements values or memref of any type values.
-/// 
-///  pads   tensor of 64-bit signless integer values or memref of
-///  	  any type values.
-/// 
-///  constant_value
-///  	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
-///         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-///         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
-///         float values or tensor of string type values or tensor of 1-bit
-///         signless integer values or tensor of complex type with
-///         32-bit/64-bit float elements values or memref of any type values
-///         or none type.
-/// 
-/// Results:
-///  output
-///         tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
-///         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-///         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
-///         float values or tensor of string type values or tensor of 1-bit
-///         signless integer values or tensor of complex type with
-///         32-bit/64-bit float elements values or memref of any type values
-///         or none type.
-/// 
-///  Validation
-///  ----------
-///  ./scripts/docker/build_with_docker.py --external-build --build-dir build
-/// --command
-/// "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
-/// --EmitONNXIR --debug --run-torch-pass
-///  /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/
-///  backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
-/// 
-///
+//  ONNX Pad operation
+//    “Given a tensor containing the data to be padded (data),
+//    a tensor containing the number of start and end pad values for
+//    axis (pads), (optionally) a mode, and (optionally) constant_value,
+//    ” “a padded tensor (output) is generated.
+// 
+//  Attributes:
+//    mode	::mlir::StringAttr	string attribute
+// 
+//  Operands:
+//  data	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
+//  	  tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
+//  	  tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
+//  	  float values or tensor of string type values or tensor of 1-bit
+//  	  signless integer values or tensor of complex type with
+//  	  32-bit/64-bit float elements values or memref of any type values.
+// 
+//  pads   tensor of 64-bit signless integer values or memref of
+//  	  any type values.
+// 
+//  constant_value
+//  	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
+//         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
+//         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
+//         float values or tensor of string type values or tensor of 1-bit
+//         signless integer values or tensor of complex type with
+//         32-bit/64-bit float elements values or memref of any type values
+//         or none type.
+// 
+// Results:
+//  output
+//         tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
+//         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
+//         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
+//         float values or tensor of string type values or tensor of 1-bit
+//         signless integer values or tensor of complex type with
+//         32-bit/64-bit float elements values or memref of any type values
+//         or none type.
+// 
+//  Validation
+//  ----------
+//  ./scripts/docker/build_with_docker.py --external-build --build-dir build
+// --command
+// "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+// --EmitONNXIR --debug --run-torch-pass
+//  /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/
+//  backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
 
 typedef struct dim_pads {
   int dim_start;
@@ -88,9 +85,9 @@ public:
     MLIRContext *context = op.getContext();
     Location loc = op.getLoc();
 
-    Value data = op.data();                 // ONNX operands
-    Value pads = op.pads();                 // ONNX operands
-    Value constValue = op.constant_value(); // ONNX operands
+    Value dataTorchTensor = adaptor.data();
+    auto pads = op.pads();
+    Value constValue = op.constant_value(); 
 
     // creating the DenseElementsAttr using pads values.
     DenseElementsAttr denseAttr = onnx_mlir::getDenseElementAttributeFromONNXValue(pads);
@@ -131,15 +128,7 @@ public:
       }
     }
 
-    TensorType dataTensorType = data.getType().cast<TensorType>();
-
-    auto dataType = Torch::ValueTensorType::get(
-        context, dataTensorType.getShape(), dataTensorType.getElementType());
-
-    Value dataTorchTensor =
-        rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-            loc, dataType, data);
-
+    
     DenseElementsAttr valueAttr =
         onnx_mlir::getDenseElementAttributeFromONNXValue(constValue);
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
@@ -151,9 +140,10 @@ public:
     Value padsList1 = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatePadsList});
-
+    
     mlir::Type resultType =
          getTypeConverter()->convertType(op.getResult().getType());
+    
     Value result = rewriter.create<AtenConstantPadNdOp>(
         loc, resultType, dataTorchTensor, padsList1, constTorchTensor);
 

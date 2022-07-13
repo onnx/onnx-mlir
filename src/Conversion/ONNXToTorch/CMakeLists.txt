@@ -7,16 +7,15 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/CommonUtils.cpp
   NN/Conv2D.cpp
   NN/ConstOp.cpp
-  NN/ElementwiseOp.cpp
+  NN/Elementwise.cpp
   NN/LeakyReluOp.cpp
-  NN/MaxPoolSingleOutOp.cpp
+  NN/MaxPoolSingleOut.cpp
   NN/PaddingOp.cpp
   NN/ReduceMean.cpp
   NN/GemmOp.cpp
   NN/SoftmaxOp.cpp
   NN/AddOp.cpp
   NN/FlattenOp.cpp
-  NN/ElementwiseOp.cpp
   NN/SqueezeOp.cpp
   NN/ConcatOp.cpp
   NN/BinaryOps.cpp
@@ -107,5 +106,4 @@ add_onnx_mlir_library(ONNXToAtenTypesTransform
   TorchMLIRInitAll
   TorchMLIRTorchConversionDialect
   TorchMLIRTorchPasses
-  MLIRMemRefTransforms
-  )
+)

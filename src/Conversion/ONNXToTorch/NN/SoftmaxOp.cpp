@@ -23,28 +23,28 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 
-/// ONNX Softmax operation 
-/// 
-/// “The operator computes the normalized exponential values for the given
-/// input:” “” “ Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input),
-/// axis=axis, keepdims=1) “ “” “The input does not need to explicitly be a
-/// 2D vector. The "axis" attribute” “indicates the dimension along which 
-/// Softmax will be performed.” “The output tensor has the same shape” “and
-/// contains the Softmax values of the corresponding input.”
-/// 
-/// Attributes:
-/// 	axis	::mlir::IntegerAttr	64-bit signed integer attribute
-/// 
-///  ONNX Axis attribute Value is map to dimension in torch side.
-/// 
-/// Operands :
-///   input	tensor of 16-bit/32-bit/64-bit float values or
-///   		tensor of bfloat16 type values or memref of any type values
-///   ONNX input is map to input in the torch side.
-/// 
-/// Output   : 
-///   output   	tensor of 16-bit/32-bit/64-bit float values or              
-///              tensor of bfloat16 type values or memref of any type values
+// ONNX Softmax operation 
+// 
+// “The operator computes the normalized exponential values for the given
+// input:” “” “ Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input),
+// axis=axis, keepdims=1) “ “” “The input does not need to explicitly be a
+// 2D vector. The "axis" attribute” “indicates the dimension along which 
+// Softmax will be performed.” “The output tensor has the same shape” “and
+// contains the Softmax values of the corresponding input.”
+// 
+// Attributes:
+// 	axis	::mlir::IntegerAttr	64-bit signed integer attribute
+// 
+//  ONNX Axis attribute Value is map to dimension in torch side.
+// 
+// Operands :
+//   input	tensor of 16-bit/32-bit/64-bit float values or
+//   		tensor of bfloat16 type values or memref of any type values
+//   ONNX input is map to input in the torch side.
+// 
+// Output   : 
+//   output   	tensor of 16-bit/32-bit/64-bit float values or              
+//              tensor of bfloat16 type values or memref of any type values
  
 
 class ONNXSoftmaxOpToTorchLowering : public OpConversionPattern<ONNXSoftmaxOp> {
@@ -53,22 +53,15 @@ public:
   LogicalResult matchAndRewrite(ONNXSoftmaxOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    MLIRContext *context =  op->getContext();
-    Value input = op.input();
-
-    Torch::ValueTensorType inputType = toTorchType (context, input.getType());
-    Value inputTorchTensor  =
-      rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
-      loc, inputType, input);
+    Value inputTensor = adaptor.input();
     Value constAxisValue = rewriter.create<ConstantIntOp>(loc, op.axisAttr());
-
 
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
-    Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, true);
+    Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, false);
 
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType,
-        inputTorchTensor, constAxisValue, halfToFloat);
+        inputTensor, constAxisValue, halfToFloat);
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }

@@ -74,18 +74,17 @@ public:
     mlir::MLIRContext *context =  op->getContext();
     ONNXArgMaxOp op1 = llvm::dyn_cast<ONNXArgMaxOp>(op);
 
-    auto axis 		= op1.axisAttr();       // ::mlir::IntegerAttr
-    int64_t keepdims	= op1.keepdims();	// ::mlir::IntegerAttr
-    auto select_last_index = op1.select_last_indexAttr();  
-    						// ::mlir::IntegerAttr
+    mlir::IntegerAttr axis = op1.axisAttr();
+    int64_t keepdims	= op1.keepdims();
+    mlir::IntegerAttr select_last_index = op1.select_last_indexAttr();
     Value data = op1.data();
     auto dataType = toTorchType(context, data.getType());
     auto dataTorchTensor  = 
 	    rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
 		    loc, dataType, data);
     Value dim 	  = rewriter.create<ConstantIntOp>(loc,axis);
-    // type conversion from signless i64 to signed i64 type.
-    auto resultTy = toSI64SignedType(context, op1.getType());
+
+    auto resultTy = getTypeConverter()->convertType(op->getResult(0).getType());
     Value keepDimVal;
     if (keepdims == 0)
       keepDimVal = rewriter.create<ConstantBoolOp>(loc, false);
