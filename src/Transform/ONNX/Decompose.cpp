@@ -222,20 +222,6 @@ struct SoftmaxPattern : public RewritePattern {
   }
 };
 
-// clang-format off
-#define VALID_CUSTOM_CALL_OP(cb) \
-    cb(softmax, Softmax)         \
-// clang-format on
-
-#define GEN_FUNC(op, func_name)                                                             \
-  constexpr const char *get##func_name##Name() { return #op; }                              \
-  void func_name##AddPattern(RewritePatternSet& patterns, ConversionTarget& target) {       \
-    patterns.add<func_name##Pattern>(patterns.getContext());                                \
-    target.addIllegalOp<ONNX##func_name##Op>();                                             \
-  }
-
-VALID_CUSTOM_CALL_OP(GEN_FUNC)
-
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -252,25 +238,15 @@ struct DecomposeONNXToONNXPass
 
   void runOnOperation() final;
 
-  ListOption<std::string> ops{
-      *this, "ops",
-      llvm::cl::desc("List of ONNX operations to decompose."),
-      llvm::cl::ZeroOrMore};
 };
 
 void DecomposeONNXToONNXPass::runOnOperation() {
-  std::unordered_set<std::string> opsSet(this->ops.begin(), this->ops.end());
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
       func::FuncDialect>();
-
-  std::unordered_map<std::string, std::function<void(RewritePatternSet&, ConversionTarget&)>>
-    validDecomposeOpSet;
-
-  validDecomposeOpSet.emplace(getSoftmaxName(), SoftmaxAddPattern);
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
