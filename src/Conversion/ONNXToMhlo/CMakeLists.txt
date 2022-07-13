@@ -6,7 +6,6 @@ add_onnx_mlir_library(OMONNXToMhlo
 
   Math/Elementwise.cpp
   Math/Gemm.cpp
-  Math/Softmax.cpp
   Math/Reduction.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp

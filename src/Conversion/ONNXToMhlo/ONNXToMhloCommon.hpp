@@ -61,9 +61,10 @@ Value getShapedZero(Location loc, ConversionPatternRewriter &rewriter,
 
 // Get shaped constant for the given input Type and float value. If the input
 // type doesn't have static shape, then add dynamic broadcast.
-template<typename T>
+template <typename T>
 Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
-    const ShapedType &inpType, const T &value, Value &inp, const Type &resultType) {
+    const ShapedType &inpType, const T &value, Value &inp,
+    const Type &resultType) {
   Value broadcastedValue;
   if (inpType.hasStaticShape())
     broadcastedValue = rewriter.create<mhlo::ConstOp>(
@@ -82,8 +83,6 @@ Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
 
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
-    RewritePatternSet &, MLIRContext *);
-void populateLoweringONNXSoftmaxOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGemmOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);

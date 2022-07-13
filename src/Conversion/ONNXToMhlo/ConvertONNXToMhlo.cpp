@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Transform/ONNX/Decompose.h"
 
 using namespace mlir;
 
@@ -21,9 +22,9 @@ namespace onnx_mlir {
 
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
+  populateLoweringONNXDecomposeOpToONNXPattern(patterns, ctx);
   // Math
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
-  populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReductionOpToMhloPattern(patterns, ctx);
   // Neural network

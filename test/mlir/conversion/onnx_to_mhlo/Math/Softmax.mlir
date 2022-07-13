@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --decompose-onnx="ops=softmax" --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
 
 func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64, onnx_opset = 13 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>

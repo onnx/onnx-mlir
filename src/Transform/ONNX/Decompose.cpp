@@ -27,6 +27,8 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
+#include "Decompose.h"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -312,6 +314,10 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 namespace onnx_mlir {
 
+void populateLoweringONNXDecomposeOpToONNXPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.insert<SoftmaxPattern>(ctx);
+}
 /*!
  * Create a DecomposeONNX pass.
  */
