@@ -934,14 +934,18 @@ ONNXConstantOp ConstPropExpand(
     // Compute indices to access the output.
     std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
     // Compute indices to access the input.
-    SmallVector<int64_t, 4> inputIndices(inputRank, 0);
-    for (int inputAxis = 0; inputAxis < inputRank; ++inputAxis) {
-      if (inputShape[inputAxis] == 1) {
-        // broadcast
-        inputIndices[inputAxis] = 0;
-      } else {
-        int outputIndex = (outputRank - inputRank) + inputAxis;
-        inputIndices[inputAxis] = outputIndices[outputIndex];
+    SmallVector<int64_t, 4> inputIndices;
+    if (inputRank == 0) {
+      inputIndices.emplace_back(0);
+    } else {
+      for (int inputAxis = 0; inputAxis < inputRank; ++inputAxis) {
+        if (inputShape[inputAxis] == 1) {
+          // broadcast
+          inputIndices.emplace_back(0);
+        } else {
+          int outputIndex = (outputRank - inputRank) + inputAxis;
+          inputIndices.emplace_back(outputIndices[outputIndex]);
+        }
       }
     }
 

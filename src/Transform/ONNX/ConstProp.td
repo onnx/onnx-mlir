@@ -68,6 +68,12 @@ def IsVariadicOperandDenseONNXConstantOp:
     Constraint<CPred<"isVariadicOperandFromDenseONNXConstantOp($_self)">,
   "Variadic operand is produced by dense ONNXConstantOps">;
 
+def HasStaticShape: Constraint<CPred<
+  "(isRankedShapedType($_self.getType()) && "
+  " $_self.getType().cast<ShapedType>().hasStaticShape())">,
+  "A value has static shape"
+>;
+
 // Useful code generation invocation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
@@ -401,6 +407,7 @@ def ExpandofConst :  Pat<
                          (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_)),
     // To c where c is the expanded value.
     (CreateExpandOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape)]>;
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+     (HasStaticShape:$resOp)]>;
 
 #endif // ONNX_CONSTPROP
