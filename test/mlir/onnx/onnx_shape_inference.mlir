@@ -2646,5 +2646,3 @@ func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
 }
-
-// -----
