@@ -302,11 +302,23 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         loc, input, zero, reducedShape, axes, rewriter, isKeepdims);
     if (computeMean) {
       // TODO: support dynamic shape
-      int64_t reduceFactor = getReductionFactor(inputType, axes);
-      Value reduceFactorValue = getShapedFloat(loc, rewriter, outputType,
-          1.0 / reduceFactor, reduceResult, outputType);
-      reduceResult =
-          rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
+      if (inputType.hasStaticShape()) {
+        int64_t reduceFactor = getReductionFactor(inputType, axes);
+        Value reduceFactorValue = getShapedFloat(loc, rewriter, outputType,
+            1.0 / reduceFactor, reduceResult, outputType);
+        reduceResult =
+            rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
+      } else {
+        Value ones = rewriter.create<mhlo::ConstOp>(
+            loc, rewriter.getFloatAttr(elemType, 1.0));
+        Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
+        Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+            loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
+        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne, zero,
+            reducedShape, axes, rewriter, isKeepdims);
+        reduceResult = rewriter.create<mhlo::DivOp>(
+            loc, outputType, reduceResult, reduceSum);
+      }
     }
     rewriter.replaceOp(op, reduceResult);
     return success();
