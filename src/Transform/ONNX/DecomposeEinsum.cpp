@@ -227,7 +227,7 @@ public:
     Value mask = tensor<bool>(maskShape, maskValues, builder.getI1Type());
     output.value = builder
                        .create<ONNXWhereOp>(loc, output.type(elementType), mask,
-                           output.value, zeroScalar(elementType))
+                           output.value, zeros({}, elementType))
                        .getResult();
     sum(output, AxesRef(axes).drop_front());
   }
@@ -507,20 +507,13 @@ private:
   }
 
   Value zeros(ArrayRef<int64_t> shape, Type elementType) {
-    RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
     SmallVector<Attribute> values(
-        tensorType.getNumElements(), builder.getZeroAttr(elementType));
-    return create.onnx.constant(
-        DenseElementsAttr::get(tensorType, makeArrayRef(values)));
+        ShapedType::getNumElements(shape), builder.getZeroAttr(elementType));
+    return tensor<Attribute>(shape, values, elementType);
   }
 
   Value tensor1D(ArrayRef<int64_t> values) {
     return create.onnx.constant(builder.getI64TensorAttr(values));
-  }
-
-  Value zeroScalar(Type elementType) {
-    return create.onnx.constant(
-        builder.getZeroAttr(RankedTensorType::get({}, elementType)));
   }
 
   void remove(Output &output) {
