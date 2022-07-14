@@ -78,6 +78,10 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXUnsqueezeOp
   mlir::Value unsqueeze(
       mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
+
+  // ONNXWhereOp
+  mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
+      mlir::Value Y) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.

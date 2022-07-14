@@ -172,4 +172,10 @@ Value OnnxBuilder::unsqueeze(Type outputType, Value data, Value axes) const {
       loc, toTensor(outputType), toTensor(data), toTensor(axes));
 }
 
+Value OnnxBuilder::where(
+    Type outputType, Value condition, Value X, Value Y) const {
+  return b.create<ONNXWhereOp>(
+      loc, toTensor(outputType), toTensor(condition), toTensor(X), toTensor(Y));
+}
+
 } // namespace onnx_mlir

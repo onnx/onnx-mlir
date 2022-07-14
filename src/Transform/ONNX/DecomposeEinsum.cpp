@@ -223,10 +223,8 @@ public:
       maskValues[i * distance] = true;
     }
     Value mask = tensor<bool>(maskShape, maskValues, builder.getI1Type());
-    output.value = builder
-                       .create<ONNXWhereOp>(loc, output.type(elementType), mask,
-                           output.value, zeros({}, elementType))
-                       .getResult();
+    output.value = create.onnx.where(
+        output.type(elementType), mask, output.value, zeros({}, elementType));
     sum(output, AxesRef(axes).drop_front());
   }
 
