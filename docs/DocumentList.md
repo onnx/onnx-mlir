@@ -27,6 +27,8 @@ at the ONNX operand level.
 * How to support a new accelerator can be found [here](AddCustomAccelerators).
 
 # Execution
-The compiled ONNX model can be executed with either [c/c++ driver](document missing)
-or [python driver](DebuggingNumericalError.md).
+The compiled ONNX model can be executed with either a
+[C/C++ driver](mnist_example/README.md#write-a-c-driver-code)
+[python driver](mnist_example/README.md#write-a-python-driver-code). or a
+[java driver](mnist_example/README.md#write-a-java-driver-code).
 The routine testing for onnx-mlir build is describe in this [document](Testing.md).
