@@ -7,7 +7,9 @@ add_onnx_mlir_library(OMONNXToMhlo
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Softmax.cpp
+  NN/Normalization.cpp
   NN/Pooling.cpp
+  Tensor/Concat.cpp
   Tensor/Constant.cpp
   Tensor/Reshape.cpp
 
@@ -24,7 +26,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   OMSupport
   )
 
-  target_include_directories(OMONNXToMhlo PUBLIC 
+target_include_directories(OMONNXToMhlo PUBLIC
   ${CMAKE_SOURCE_DIR}/third_party/mlir-hlo/include
   ${CMAKE_BINARY_DIR}/third_party/mlir-hlo/include
   )
