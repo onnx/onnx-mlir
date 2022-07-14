@@ -167,4 +167,9 @@ Value OnnxBuilder::toMemref(Value input) const {
       .getResult(0);
 }
 
+Value OnnxBuilder::unsqueeze(Type outputType, Value data, Value axes) const {
+  return b.create<ONNXUnsqueezeOp>(
+      loc, toTensor(outputType), toTensor(data), toTensor(axes));
+}
+
 } // namespace onnx_mlir

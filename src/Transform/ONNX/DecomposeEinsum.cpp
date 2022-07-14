@@ -284,10 +284,8 @@ public:
       return;
     output.subscripts = unsqueezedSubscripts;
     output.shape = shapeExpandDims(output.shape, axes);
-    output.value = builder
-                       .create<ONNXUnsqueezeOp>(loc, output.type(elementType),
-                           output.value, tensor1D(axes))
-                       .getResult();
+    output.value = create.onnx.unsqueeze(
+        output.type(elementType), output.value, tensor1D(axes));
   }
 
   void reshape(

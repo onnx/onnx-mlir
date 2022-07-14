@@ -70,8 +70,14 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Type toTensor(mlir::Type input) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
+
+  // ONNXTransposeOp
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
+
+  // ONNXUnsqueezeOp
+  mlir::Value unsqueeze(
+      mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
