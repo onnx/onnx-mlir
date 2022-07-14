@@ -14,6 +14,7 @@
 //===------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -23,42 +24,35 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-/**
- * ONNX Constant  operation
- *
- * Creates the constant tensor.
- *
- * Operands : None.
- *
- * Validation
- * ----------
- * /scripts/docker/build_with_docker.py --external-build --build-dir build
- * --command
- * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
- * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
- * test_constant/model.onnx"
- *
- * Limitations
- * -----------
- * uses literal.
- *
- * TODO: Not handling String attribute in the ConstOp.
- */
-class ONNXConstOpToTorchLowering : public ConversionPattern {
+// ONNX Constant  operation
+//
+// Creates the constant tensor.
+//
+// Operands : None.
+//
+// Validation
+// ----------
+// /scripts/docker/build_with_docker.py --external-build --build-dir build
+// --command
+// "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+// --EmitONNXIR --debug --run-torch-pass
+// third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
+// test_constant/model.onnx"
+//
+// Limitations
+// -----------
+// uses literal.
+//
+// TODO: Not handling String attribute in the ConstOp.
+class ONNXConstOpToTorchLowering : public OpConversionPattern<ONNXConstantOp> {
 public:
-  ONNXConstOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXConstantOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const final  {
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    auto loc = op->getLoc();
-    mlir::MLIRContext *context = op->getContext();
-    ONNXConstantOp op1 = llvm::dyn_cast<ONNXConstantOp>(op);
-
-    auto valueAttribute = op1.valueAttr(); // ::mlir::Attribute
+    Location loc = op.getLoc();
+    mlir::MLIRContext *context = op.getContext();
+    Attribute valueAttribute = op.valueAttr(); // ::mlir::Attribute
 
     // Steps
     // 1) Extract float attributes array from ONNX and compare with
@@ -117,14 +111,13 @@ public:
         valueAttrFinalized = valueAttribute;
       }
     }
-    auto resultType = Torch::ValueTensorType::get(
-        op1.getContext(), opTensorType.getShape(), elementType);
+    mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
     Value result = rewriter.create<Torch::ValueTensorLiteralOp>(
         loc, resultType, valueAttrFinalized);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType(), result);
+        op, resultType, result);
     return success();
   }
 };

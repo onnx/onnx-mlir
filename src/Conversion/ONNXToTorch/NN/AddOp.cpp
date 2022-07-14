@@ -15,6 +15,7 @@
 
 #include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -48,39 +49,32 @@ using namespace mlir::torch::Torch;
  *
  */
 
-struct ONNXAddOpToTorchLowering : public ConversionPattern {
+struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
 
-  Value getAlphaDefaultValue(MLIRContext *context,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  static Value getAlphaDefaultValue(MLIRContext *context,
+      ConversionPatternRewriter &rewriter, Location loc)  {
     auto I64type = IntegerType::get(context, 64);
-    auto one = 1;
-    auto oneIntAttr = IntegerAttr::get(I64type, one);
+    auto oneIntAttr = IntegerAttr::get(I64type, 1);
     return rewriter.create<ConstantIntOp>(loc, oneIntAttr);
   }
 
-  ONNXAddOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXAddOp::getOperationName(), 1, ctx) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXAddOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXAddOp addOp = llvm::dyn_cast_or_null<ONNXAddOp>(op);
 
-    assert(addOp && "Expecting op to have a strong type");
-
-    Location loc = addOp.getLoc();
-    mlir::MLIRContext *context = addOp.getContext();
+    Location loc = op.getLoc();
+    mlir::MLIRContext *context = op.getContext();
 
     Value alphaDefaultValue = getAlphaDefaultValue(context, rewriter, loc);
-    auto aTensor = getTorchTensor(addOp.A(), rewriter, context, loc);
-    auto bTensor = getTorchTensor(addOp.B(), rewriter, context, loc);
+    Value aTensor = getTorchTensor(op.A(), rewriter, context, loc);
+    Value bTensor = getTorchTensor(op.B(), rewriter, context, loc);
 
-    auto resultType = toTorchType(context, addOp.getResult().getType());
+    mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenAddTensorOp>(
         loc, resultType, aTensor, bTensor, alphaDefaultValue);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType(), result);
+        op, resultType, result);
     return success();
   }
 };
