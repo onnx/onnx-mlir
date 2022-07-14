@@ -136,14 +136,6 @@ struct Output : public einsum::Parameter {
   }
 };
 
-Attribute zero(Type elementType) {
-  if (elementType.isa<FloatType>())
-    return FloatAttr::get(elementType, 0);
-  assert(elementType.isa<IntegerType>() &&
-         "elementType must be IntegerType if not FloatType");
-  return IntegerAttr::get(elementType, 0);
-}
-
 class Decomposer {
 public:
   Decomposer(OpBuilder &builder, Location loc,
@@ -527,7 +519,7 @@ private:
   Value zeros(ArrayRef<int64_t> shape, Type elementType) {
     RankedTensorType tensorType = RankedTensorType::get(shape, elementType);
     SmallVector<Attribute> values(
-        tensorType.getNumElements(), zero(elementType));
+        tensorType.getNumElements(), builder.getZeroAttr(elementType));
     return create.onnx.constant(
         DenseElementsAttr::get(tensorType, makeArrayRef(values)));
   }
