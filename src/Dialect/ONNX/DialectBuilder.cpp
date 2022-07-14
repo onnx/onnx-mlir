@@ -86,7 +86,12 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
         /*transB=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
             APInt(64, 0, /*isSigned=*/true)));
-  return toMemref(b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue));
+  return b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue);
+}
+
+Value OnnxBuilder::matmulToMemref(
+    Type Y, Value A, Value B, bool useGemm) const {
+  return toMemref(matmul(Y, A, B, useGemm));
 }
 
 Value OnnxBuilder::min(ValueRange inputs) const {

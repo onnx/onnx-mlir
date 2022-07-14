@@ -419,11 +419,8 @@ public:
     output1.subscripts = {sharedKeepSubscripts, left, right};
     output1.shape =
         shapeConcat(sharedKeepShape, {unshared1Size, unshared2Size});
-    // not using create.onnx.matmul() because it returns MemRef
-    output1.value = builder
-                        .create<ONNXMatMulOp>(loc, output1.type(elementType),
-                            output1.value, output2.value)
-                        .getResult();
+    output1.value = create.onnx.matmul(
+        output1.type(elementType), output1.value, output2.value);
 
     // reshape to get unshared dims back
     Shape shape = shapeConcat(sharedKeepShape, unshared1Shape, unshared2Shape);
