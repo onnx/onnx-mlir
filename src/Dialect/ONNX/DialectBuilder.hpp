@@ -46,9 +46,6 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
 
-  mlir::Value matmulToMemref(
-      mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
-
   // ONNXMinOp
   mlir::Value min(mlir::ValueRange inputs) const;
 
