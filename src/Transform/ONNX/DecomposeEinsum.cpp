@@ -171,10 +171,8 @@ public:
       return;
     }
     output.eraseAxes(axes);
-    output.value = builder
-                       .create<ONNXReduceSumOp>(loc, output.type(elementType),
-                           output.value, tensor1D(axes), /*keepdims=*/0)
-                       .getResult();
+    output.value = create.onnx.reduceSum(output.type(elementType), output.value,
+        tensor1D(axes), /*keepdims=*/false);
   }
 
   void squeezeNonResults(Output &output) {
