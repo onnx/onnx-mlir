@@ -114,6 +114,11 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
       loc, toTensor(outputType), toTensor(input), toTensor(shape));
 }
 
+Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
+  return b.create<ONNXSqueezeOp>(
+      loc, toTensor(outputType), toTensor(data), toTensor(axes));
+}
+
 Value OnnxBuilder::sub(Value A, Value B) const {
   assert((A.getType().cast<ShapedType>().getElementType() ==
              B.getType().cast<ShapedType>().getElementType()) &&

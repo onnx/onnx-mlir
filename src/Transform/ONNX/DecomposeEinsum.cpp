@@ -158,10 +158,8 @@ public:
       return output.shape[a] == 1;
     }) && "only squeeze axes with dim 1");
     output.eraseAxes(axes);
-    output.value = builder
-                       .create<ONNXSqueezeOp>(loc, output.type(elementType),
-                           output.value, tensor1D(axes))
-                       .getResult();
+    output.value = create.onnx.squeeze(
+        output.type(elementType), output.value, tensor1D(axes));
   }
 
   void sum(Output &output, AxesRef axes) {

@@ -56,6 +56,10 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
 
+  // ONNXSqueezeOp
+  mlir::Value squeeze(
+      mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
+
   // ONNXSubOp
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
 
