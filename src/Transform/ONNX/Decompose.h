@@ -21,6 +21,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void populateLoweringONNXDecomposeOpToONNXPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, MLIRContext *);
 
 }
