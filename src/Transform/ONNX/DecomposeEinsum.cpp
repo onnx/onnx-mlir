@@ -440,16 +440,6 @@ public:
     remove(output2);
   }
 
-  void remove(Output &output) {
-    for (auto iter = outputs.begin(); iter != outputs.end(); ++iter) {
-      if (&*iter == &output) {
-        outputs.erase(iter);
-        return;
-      }
-    }
-    assert(false && "output should be found in outputs");
-  }
-
   void contract(Output &output1, Output &output2) {
     SubscriptsSet keep = otherSubscripts({&output1, &output2});
     // we populate reducible with the subscripts in the intersection
@@ -531,6 +521,16 @@ private:
   Value zeroScalar(Type elementType) {
     return create.onnx.constant(
         builder.getZeroAttr(RankedTensorType::get({}, elementType)));
+  }
+
+  void remove(Output &output) {
+    for (auto iter = outputs.begin(); iter != outputs.end(); ++iter) {
+      if (&*iter == &output) {
+        outputs.erase(iter);
+        return;
+      }
+    }
+    assert(false && "output should be found in outputs");
   }
 
   OpBuilder &builder;
