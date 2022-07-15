@@ -61,9 +61,13 @@ func.func @test_dynamic_exp(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 func.func @test_sigmoid(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_sigmoid
+// CHECK:         [[VAR_0_:%.+]] = mhlo.sigmoid [[PARAM_0_:%.+]] : tensor<10x10xf32>
 }
 
 func.func @test_dynamic_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL:  func @test_dynamic_sigmoid
+// CHECK:         [[VAR_0_:%.+]] = mhlo.sigmoid [[PARAM_0_:%.+]] : tensor<?x10xf32>
 }

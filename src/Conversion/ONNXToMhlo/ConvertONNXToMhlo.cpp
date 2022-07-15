@@ -96,13 +96,7 @@ void FrontendToMhloLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToMhloConversionPattern(patterns, &getContext());
 
-  // debug patterns
-  for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
-    llvm::outs() << pat.get()->getRootKind()->getStringRef() << "\n";
-  }
-
   // add illegal op
-  target.addIllegalOp<ONNXSigmoidOp>();
   target.addIllegalOp<ONNXSoftmaxOp>();
 
   // With the target and rewrite patterns defined, we can now attempt the

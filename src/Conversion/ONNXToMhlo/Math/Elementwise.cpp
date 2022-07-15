@@ -21,8 +21,23 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <>
+struct MhloDialectOp<ONNXAbsOp> {
+  using Op = mhlo::AbsOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXAbsOp> {
+  using Op = mhlo::AndOp;
+};
+
+template <>
 struct MhloDialectOp<ONNXAddOp> {
   using Op = mhlo::AddOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXAtanOp> {
+  using Op = mhlo::Atan2Op;
 };
 
 template <>
@@ -38,6 +53,11 @@ struct MhloDialectOp<ONNXDivOp> {
 template <>
 struct MhloDialectOp<ONNXExpOp> {
   using Op = mhlo::ExpOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXSigmoidOp> {
+  using Op = mhlo::LogisticOp;
 };
 
 namespace {
@@ -76,8 +96,10 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
     if (inpType == nullptr)
       return failure();
     Type resultType = *op->result_type_begin();
-    Value broadcastedZero = getShapedZero(loc, rewriter, inpType, inp, resultType);
-    Value resultOp = rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
+    Value broadcastedZero =
+        getShapedZero(loc, rewriter, inpType, inp, resultType);
+    Value resultOp =
+        rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -109,8 +131,9 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
 
-    Value resultExtents = mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
-        loc, op->getOperands(), rewriter);
+    Value resultExtents =
+        mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
+            loc, op->getOperands(), rewriter);
     llvm::SmallVector<Value, 4> broadcastedOperands;
     for (Value operand : op->getOperands()) {
       RankedTensorType operandType =
@@ -138,11 +161,17 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
 
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+  patterns.insert<ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAbsOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAtanOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAtanhOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>>(ctx);
 }
 
 } // namespace onnx_mlir
+ONNXCastOp

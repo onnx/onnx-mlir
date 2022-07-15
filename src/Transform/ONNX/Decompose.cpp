@@ -149,13 +149,11 @@ RankedTensorType createResultType(
   return resultType;
 }
 
-struct SoftmaxPattern : public RewritePattern {
+struct SoftmaxPattern : public ConversionPattern {
   SoftmaxPattern(MLIRContext *context)
-      : RewritePattern("onnx.Softmax", 1, context,
-            {"onnx.Constant", "onnx.ReduceMax", "onnx.Sub", "onnx.Exp",
-                "onnx.ReduceSum", "onnx.Div"}) {}
-  LogicalResult matchAndRewrite(
-      Operation *op0, PatternRewriter &rewriter) const override {
+      : ConversionPattern(ONNXSoftmaxOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation *op0, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // Variables for capturing values and attributes used while creating ops
     IntegerAttr axis;
 
@@ -171,100 +169,27 @@ struct SoftmaxPattern : public RewritePattern {
 
     // Rewrite
     Location odsLoc = rewriter.getFusedLoc({op0->getLoc()});
-    ONNXReduceMaxOp reduceMaxOp;
-    {
-      IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
-          rewriter.getIntegerType(64, /*isSigned=*/true), 1);
-      ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axis.getSInt()});
-      RankedTensorType resultType =
-          createResultType(inputType, axis.getSInt(), /*keepDims=*/true);
-      reduceMaxOp = rewriter.create<ONNXReduceMaxOp>(
-          odsLoc, resultType, input, axisAttr, keepDimsAttr);
-    }
-    ONNXSubOp subOp;
-    {
-      Value maxInput = *reduceMaxOp.getODSResults(0).begin();
-      subOp = rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
-    }
-    ONNXExpOp expOp;
-    {
-      Value subValue = *subOp.getODSResults(0).begin();
-      expOp = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
-    }
-    ONNXConstantOp axisOp;
-    {
-      axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
-          /*value=*/rewriter.getI64TensorAttr({axisValue}));
-    }
-    ONNXReduceSumOp reduceSumOp;
-    {
-      RankedTensorType resultType =
-          createResultType(inputType, axisValue, true);
-      IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
-          rewriter.getIntegerType(64, /*isSigned=*/true), 1);
-      IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
-          rewriter.getIntegerType(64, /*isSigned=*/true), 0);
-      reduceSumOp = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
-          /*input=*/*expOp.getODSResults(0).begin(),
-          /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
-    }
-    ONNXDivOp divOp;
-    {
-      Value expValue = *expOp.getODSResults(0).begin();
-      Value sumValue = *reduceSumOp.getODSResults(0).begin();
-      divOp = rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
-    }
-    rewriter.replaceOp(op0, divOp.getODSResults(0));
+    IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+    ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
+    RankedTensorType resultType =
+        createResultType(inputType, axisValue, /*keepDims=*/true);
+    Value maxInput = rewriter.create<ONNXReduceMaxOp>(
+        odsLoc, resultType, input, axisAttr, keepDimsAttr);
+    Value subValue =
+        rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
+    Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
+    Value axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
+        /*value=*/rewriter.getI64TensorAttr({axisValue}));
+    IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 0);
+    Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
+        /*input=*/expValue,
+        /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
+    Value divValue = rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
+    rewriter.replaceOp(op0, divValue);
     return success();
-  }
-};
-
-struct SigmoidPattern : public RewritePattern {
-  SigmoidPattern(MLIRContext *context)
-      : RewritePattern(ONNXSigmoidOp::getOperationName(), 1, context,
-            {"onnx.Constant", "onnx.Add", "onnx.Exp", "onnx.Neg", "onnx.Div"}) {
-  }
-  LogicalResult matchAndRewrite(
-      Operation *op0, PatternRewriter &rewriter) const override {
-    assert(false && "in the conversion *******\n");
-    // Match
-    ONNXSigmoidOp sigmoidOp = ::llvm::dyn_cast<ONNXSigmoidOp>(op0);
-    Value input = sigmoidOp.X();
-    ShapedType inputType = input.getType().dyn_cast_or_null<ShapedType>();
-    if (inputType == nullptr)
-      return failure();
-
-    // Rewrite
-    Location odsLoc = rewriter.getFusedLoc({op0->getLoc()});
-    ONNXConstantOp oneOp;
-    {
-      oneOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
-        DenseElementsAttr::get(inputType, 1.0f));
-    }
-    ONNXNegOp negOp;
-    {
-      negOp = rewriter.create<ONNXNegOp>(odsLoc, inputType, input);
-    }
-    ONNXExpOp expOp;
-    {
-      Value negValue = *negOp.getODSResults(0).begin();
-      expOp = rewriter.create<ONNXExpOp>(odsLoc, inputType, negValue);
-    }
-    ONNXAddOp addOp;
-    {
-      Value expValue = *expOp.getODSResults(0).begin();
-      Value oneValue = *oneOp.getODSResults(0).begin();
-      addOp = rewriter.create<ONNXAddOp>(odsLoc, inputType, oneValue, expValue);
-    }
-    ONNXDivOp divOp;
-    {
-      Value oneValue = *oneOp.getODSResults(0).begin();
-      Value sumValue = *addOp.getODSResults(0).begin();
-      divOp = rewriter.create<ONNXDivOp>(odsLoc, inputType, oneValue, sumValue);
-    }
-    rewriter.replaceOp(op0, divOp.getODSResults(0));
-    return success();
-  }
+}
 };
 
 struct DecomposeONNXToONNXPass
@@ -329,7 +254,6 @@ namespace onnx_mlir {
 
 void populateLoweringONNXDecomposeOpToONNXPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.add<SigmoidPattern>(ctx);
   patterns.add<SoftmaxPattern>(ctx);
 }
 /*!
