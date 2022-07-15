@@ -27,23 +27,6 @@ using namespace mlir::torch::Torch;
 // ONNX Constant  operation
 //
 // Creates the constant tensor.
-//
-// Operands : None.
-//
-// Validation
-// ----------
-// /scripts/docker/build_with_docker.py --external-build --build-dir build
-// --command
-// "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
-// --EmitONNXIR --debug --run-torch-pass
-// third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/
-// test_constant/model.onnx"
-//
-// Limitations
-// -----------
-// uses literal.
-//
-// TODO: Not handling String attribute in the ConstOp.
 class ONNXConstOpToTorchLowering : public OpConversionPattern<ONNXConstantOp> {
 public:
   using OpConversionPattern::OpConversionPattern;

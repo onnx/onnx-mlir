@@ -25,9 +25,9 @@ using namespace mlir::torch::Torch;
 //
 // ONNX Add operation
 //
-// “Performs element-wise binary addition (with Numpy-style broadcasting
-// support).” “” “This operator supports multidirectional
-// (i.e. Numpy-style) broadcasting; for more details please check the doc.”
+// Performs element-wise binary addition (with Numpy-style broadcasting
+// support). This operator supports multidirectional
+// (i.e. Numpy-style) broadcasting; for more details please check the doc.
 //
 // Operands :
 //    A	  tensor of 32-bit/64-bit unsigned integer values or
@@ -58,8 +58,8 @@ struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
     auto I64type = IntegerType::get(context, 64);
     auto oneIntAttr = IntegerAttr::get(I64type, 1);
     Value alphaDefaultValue = rewriter.create<ConstantIntOp>(loc, oneIntAttr);
-    Value aTensor = getTorchTensor(op.A(), rewriter, context, loc);
-    Value bTensor = getTorchTensor(op.B(), rewriter, context, loc);
+    Value aTensor = adaptor.A();
+    Value bTensor = adaptor.B();
 
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenAddTensorOp>(
