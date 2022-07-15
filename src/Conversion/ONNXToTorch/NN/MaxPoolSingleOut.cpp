@@ -18,7 +18,6 @@
 
 using namespace mlir;
 using namespace mlir::torch;
-using namespace mlir::torch::Torch;
 
 // ONNX MaxPool operation
 //
@@ -47,17 +46,17 @@ public:
   LogicalResult matchAndRewrite(ONNXMaxPoolSingleOutOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    mlir::Location loc = op.getLoc();
-    mlir::MLIRContext *context = op.getContext();
+    Location loc = op.getLoc();
+    MLIRContext *context = op.getContext();
 
     Value x = adaptor.X();
-    mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-    mlir::ArrayAttr dilations = adaptor.dilationsAttr();
-    mlir::ArrayAttr pads = adaptor.padsAttr();
-    mlir::ArrayAttr strides = adaptor.stridesAttr();
+    ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
+    ArrayAttr dilations = adaptor.dilationsAttr();
+    ArrayAttr pads = adaptor.padsAttr();
+    ArrayAttr strides = adaptor.stridesAttr();
     int64_t ceilingMode = adaptor.ceil_mode();
-    mlir::IntegerAttr ceilingModeAttr = adaptor.ceil_modeAttr();
-    mlir::IntegerType intType = mlir::IntegerType::get(context, 64);
+    IntegerAttr ceilingModeAttr = adaptor.ceil_modeAttr();
+    IntegerType intType = IntegerType::get(context, 64);
     mlir::FloatType floatType = mlir::FloatType::getF64(context);
 
     // Get mlir attributes as vectors
@@ -158,7 +157,7 @@ public:
           kernelShapeList, stridesList, padsList, dilationList, ceilingModeVal);
     }
 
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
+    rewriter.replaceOpWithNewOp<TorchConversion::ToBuiltinTensorOp>(
         op, op.getResult().getType(), result);
     return success();
   }
