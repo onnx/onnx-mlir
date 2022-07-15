@@ -47,8 +47,8 @@ struct MhloDialectOp {
   using Op = void;
 };
 
-template <typename Op>
-using MhloOp = typename MhloDialectOp<Op>::Op;
+template <typename ONNXOp>
+using MhloOp = typename MhloDialectOp<ONNXOp>::Op;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to MHLO.

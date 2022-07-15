@@ -26,7 +26,7 @@ struct MhloDialectOp<ONNXAbsOp> {
 };
 
 template <>
-struct MhloDialectOp<ONNXAbsOp> {
+struct MhloDialectOp<ONNXAndOp> {
   using Op = mhlo::AndOp;
 };
 
@@ -38,6 +38,16 @@ struct MhloDialectOp<ONNXAddOp> {
 template <>
 struct MhloDialectOp<ONNXAtanOp> {
   using Op = mhlo::Atan2Op;
+};
+
+template <>
+struct MhloDialectOp<ONNXCeilOp> {
+  using Op = mhlo::CeilOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXCosOp> {
+  using Op = mhlo::CosOp;
 };
 
 template <>
@@ -61,6 +71,45 @@ struct MhloDialectOp<ONNXSigmoidOp> {
 };
 
 namespace {
+
+template <typename ONNXOp>
+void createCompareOp(Value &op, ConversionPatternRewriter &rewriter,
+    Location loc, Value &lhs, Value &rhs) {}
+
+template <>
+void createCompareOp<ONNXEqualOp>(Value &op,
+    ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
+  op = rewriter.create<mhlo::CompareOp>(
+      loc, lhs, rhs, mhlo::ComparisonDirection::EQ);
+}
+
+template <>
+void createCompareOp<ONNXGreaterOp>(Value &op,
+    ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
+  op = rewriter.create<mhlo::CompareOp>(
+      loc, lhs, rhs, mhlo::ComparisonDirection::GT);
+}
+
+template <>
+void createCompareOp<ONNXGreaterOrEqualOp>(Value &op,
+    ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
+  op = rewriter.create<mhlo::CompareOp>(
+      loc, lhs, rhs, mhlo::ComparisonDirection::GE);
+}
+
+template <>
+void createCompareOp<ONNXLessOp>(Value &op, ConversionPatternRewriter &rewriter,
+    Location loc, Value &lhs, Value &rhs) {
+  op = rewriter.create<mhlo::CompareOp>(
+      loc, lhs, rhs, mhlo::ComparisonDirection::LT);
+}
+
+template <>
+void createCompareOp<ONNXLessOrEqualOp>(Value &op,
+    ConversionPatternRewriter &rewriter, Location loc, Value &lhs, Value &rhs) {
+  op = rewriter.create<mhlo::CompareOp>(
+      loc, lhs, rhs, mhlo::ComparisonDirection::LE);
+}
 
 // Element-wise unary ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
@@ -101,6 +150,85 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
     Value resultOp =
         rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
+template <>
+struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>
+    : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXCastOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = NameLoc::get(
+        StringAttr::get(op->getContext(), ONNXReluOp::getOperationName()),
+        op->getLoc());
+    ONNXCastOpAdaptor adaptor(operands, op->getAttrDictionary());
+    Value inp = adaptor.input();
+    Type elementToType = adaptor.to();
+    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    if (inpType == nullptr)
+      return failure();
+    Value resultOp = rewriter.create<mhlo::ConvertOp>(loc, inp, elementToType);
+    rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
+// Element-wise binary ops lowering to Mhlo dialect.
+//===----------------------------------------------------------------------===//
+template <typename ElementwiseBinaryOp>
+struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
+  ONNXElementwiseBinaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseBinaryOp::getOperationName()),
+        op->getLoc());
+
+    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
+    DimsExpr empty;
+    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
+
+    int64_t outputRank = shapeHelper.outputRank;
+    Type outputType = *op->result_type_begin();
+    ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
+    if (outputShapedType == nullptr)
+      return failure();
+    Type elementType = outputShapedType.getElementType();
+    RankedTensorType broadcastedOutputType =
+        RankedTensorType::get(outputShapedType.getShape(), elementType);
+
+    Value lhs = op->getOperands()[0];
+    Value rhs = op->getOperands()[1];
+    Value resultExtents =
+        mlir::hlo::ComputeBinaryElementwiseBroadcastingResultExtents(
+            loc, lhs, rhs, rewriter);
+    llvm::SmallVector<Value, 4> broadcastedOperands;
+    for (Value operand : op->getOperands()) {
+      RankedTensorType operandType =
+          operand.getType().dyn_cast<RankedTensorType>();
+      if (operandType == nullptr)
+        return failure();
+      SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
+          llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
+      Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
+          broadcastedOutputType, operand, resultExtents,
+          rewriter.getI64TensorAttr(broadcastDimensions));
+      broadcastedOperands.push_back(broadcast);
+    }
+    Value broadcastedLHS = broadcastedOperands[0];
+    Value broadcastedRHS = broadcastedOperands[1];
+
+    Value mhloOp;
+    createCompareOp<ElementwiseBinaryOp>(
+        mhloOp, rewriter, loc, broadcastedLHS, broadcastedRHS);
+
+    rewriter.replaceOp(op, mhloOp);
+
     return success();
   }
 };
@@ -165,13 +293,19 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAtanOp>,
-      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAtanhOp>,
-      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCeilOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCosOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXEqualOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXGreaterOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXGreaterOrEqualOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXLessOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXLessOrEqualOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>>(ctx);
 }
 
 } // namespace onnx_mlir
-ONNXCastOp
