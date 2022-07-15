@@ -44,8 +44,7 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToMhlo
 
     Value result = rewriter.create<mhlo::BatchNormInferenceOp>(loc,
         op->getResultTypes(), operand, scale, bias, mean, variance, eps, 1);
-    rewriter.replaceOp(op, result->getResults());
-
+    rewriter.replaceOp(op, result);
     return success();
   }
 };

@@ -49,8 +49,7 @@ struct ONNXConcatOpLoweringToMhlo : public ConversionPattern {
     ValueRange inputs = operandAdaptor.inputs();
     Value result = rewriter.create<mhlo::ConcatenateOp>(
         loc, op->getResultTypes(), inputs, rewriter.getI64IntegerAttr(axis));
-    rewriter.replaceOp(op, result->getResults());
-
+    rewriter.replaceOp(op, result);
     return success();
   }
 };
