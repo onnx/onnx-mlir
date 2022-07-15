@@ -320,8 +320,10 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
-  Value XtWi = create.onnx.matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = create.onnx.matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Xt, weightPack.Wi));
+  Value HtRi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Ri));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
