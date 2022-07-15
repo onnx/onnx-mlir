@@ -36,11 +36,6 @@ struct MhloDialectOp<ONNXAddOp> {
 };
 
 template <>
-struct MhloDialectOp<ONNXAtanOp> {
-  using Op = mhlo::Atan2Op;
-};
-
-template <>
 struct MhloDialectOp<ONNXCeilOp> {
   using Op = mhlo::CeilOp;
 };
@@ -198,7 +193,8 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
     if (outputShapedType == nullptr)
       return failure();
-    Type elementType = outputShapedType.getElementType();
+    Type elementType = operands[0].getType().dyn_cast<ShapedType>()
+                           .getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
 
@@ -255,7 +251,8 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
     if (outputShapedType == nullptr)
       return failure();
-    Type elementType = outputShapedType.getElementType();
+    Type elementType = operands[0].getType().dyn_cast<ShapedType>()
+                           .getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
 
@@ -292,7 +289,6 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
   patterns.insert<ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAbsOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
-      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAtanOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCeilOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCosOp>,
