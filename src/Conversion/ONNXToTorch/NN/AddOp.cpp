@@ -21,43 +21,33 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-/**
- *
- * ONNX Add operation
- *
- * “Performs element-wise binary addition (with Numpy-style broadcasting
- * support).” “” “This operator supports multidirectional
- * (i.e. Numpy-style) broadcasting; for more details please check the doc.”
- *
- * Operands :
- *    A	  tensor of 32-bit/64-bit unsigned integer values or
- *        tensor of 32-bit/64-bit signless integer values or
- *        tensor of 16-bit/32-bit/64-bit float values or
- *        tensor of bfloat16 type values or memref of any type values
- *  Map this A operand with input parameter in torch side.
- *    B   tensor of 32-bit/64-bit unsigned integer values or
- *        tensor of 32-bit/64-bit signless integer values or
- *        tensor of 16-bit/32-bit/64-bit float values or
- *        tensor of bfloat16 type values or memref of any type values
- *  Map this B operand with other parameter in torch side.
- *
- * Results:
- *   C    tensor of 32-bit/64-bit unsigned integer values or
- *        tensor of 32-bit/64-bit signless integer values or
- *        tensor of 16-bit/32-bit/64-bit float values or
- *        tensor of bfloat16 type values or memref of any type values
- *
- */
+//
+//
+// ONNX Add operation
+//
+// “Performs element-wise binary addition (with Numpy-style broadcasting
+// support).” “” “This operator supports multidirectional
+// (i.e. Numpy-style) broadcasting; for more details please check the doc.”
+//
+// Operands :
+//    A	  tensor of 32-bit/64-bit unsigned integer values or
+//        tensor of 32-bit/64-bit signless integer values or
+//        tensor of 16-bit/32-bit/64-bit float values or
+//        tensor of bfloat16 type values or memref of any type values
+//  Map this A operand with input parameter in torch side.
+//    B   tensor of 32-bit/64-bit unsigned integer values or
+//        tensor of 32-bit/64-bit signless integer values or
+//        tensor of 16-bit/32-bit/64-bit float values or
+//        tensor of bfloat16 type values or memref of any type values
+//  Map this B operand with other parameter in torch side.
+//
+// Results:
+//   C    tensor of 32-bit/64-bit unsigned integer values or
+//        tensor of 32-bit/64-bit signless integer values or
+//        tensor of 16-bit/32-bit/64-bit float values or
+//        tensor of bfloat16 type values or memref of any type values
 
 struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
-
-  static Value getAlphaDefaultValue(MLIRContext *context,
-      ConversionPatternRewriter &rewriter, Location loc)  {
-    auto I64type = IntegerType::get(context, 64);
-    auto oneIntAttr = IntegerAttr::get(I64type, 1);
-    return rewriter.create<ConstantIntOp>(loc, oneIntAttr);
-  }
-
   using OpConversionPattern::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXAddOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -65,7 +55,9 @@ struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
     Location loc = op.getLoc();
     mlir::MLIRContext *context = op.getContext();
 
-    Value alphaDefaultValue = getAlphaDefaultValue(context, rewriter, loc);
+    auto I64type = IntegerType::get(context, 64);
+    auto oneIntAttr = IntegerAttr::get(I64type, 1);
+    Value alphaDefaultValue = rewriter.create<ConstantIntOp>(loc, oneIntAttr);
     Value aTensor = getTorchTensor(op.A(), rewriter, context, loc);
     Value bTensor = getTorchTensor(op.B(), rewriter, context, loc);
 
