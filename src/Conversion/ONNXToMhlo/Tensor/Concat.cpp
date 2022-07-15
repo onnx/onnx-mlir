@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -31,17 +32,13 @@ struct ONNXConcatOpLoweringToMhlo : public ConversionPattern {
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
 
-    if (op->getNumResults() < 1) {
-      op->emitError() << "ONNXConcatOp Has No Output\n";
-      return failure();
-    }
-    RankedTensorType resultType =
-        op->getResult(0).getType().dyn_cast_or_null<RankedTensorType>();
-    if (resultType == nullptr) {
+    assert(op->getNumResults() == 1 && "ONNXConcatOp shoule have 1 result");
+    Type resultType = op->getResult(0).getType();
+    if (!onnx_mlir::isRankedShapedType(resultType)) {
       op->emitError() << "Concat Output Is Not Ranked\n";
       return failure();
     }
-    int64_t rank = resultType.getRank();
+    int64_t rank = onnx_mlir::getRank(resultType);
     int64_t axis = concatOp.axis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
