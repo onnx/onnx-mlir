@@ -282,7 +282,13 @@ def get_test_models():
 
         # ==OP== DynamicQuantizeLinear
 
-        # ==OP== EinSum
+        # ==OP== Einsum
+        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
+        "test_einsum_batch_diagonal_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_einsum_batch_matmul_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_einsum_inner_prod_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_einsum_sum_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_einsum_transpose_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Elu
         "test_elu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

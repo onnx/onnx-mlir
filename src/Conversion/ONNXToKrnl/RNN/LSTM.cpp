@@ -476,8 +476,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Xt * (Wi^T ++ Wo^T ++ Wf^T ++ Wc^T)
   // Ht * (Ri^T ++ Ro^T ++ Rf^T ++ Rc^T)
   // where '++' is matrix concatenation.
-  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
-  Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
+  Value XtWT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT));
+  Value HtRT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
