@@ -16,13 +16,8 @@
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-#ifdef _WIN32
-#include <io.h>
-#endif
-
 using namespace mlir;
 using namespace mlir::torch;
-using namespace mlir::torch::Torch;
 
 // ONNX Constant  operation
 //
