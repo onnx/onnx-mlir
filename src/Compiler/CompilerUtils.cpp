@@ -584,9 +584,11 @@ static int compileModuleToJniJar(
   std::string jniLibBase = llvm::StringRef(jniLibDir).str();
 
 #if defined(__APPLE__) && defined(__clang__)
-#define NOEXECSTACK {}
+#define NOEXECSTACK                                                            \
+  {}
 #else
-#define NOEXECSTACK {"-z", "noexecstack"}
+#define NOEXECSTACK                                                            \
+  { "-z", "noexecstack" }
 #endif
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
