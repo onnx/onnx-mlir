@@ -26,6 +26,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
 
+#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -4015,6 +4016,49 @@ LogicalResult ONNXDetOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+LogicalResult ONNXEinsumOp::verify() {
+  einsum::ErrorFn errorFn = [this]() -> mlir::InFlightDiagnostic {
+    return this->emitOpError() << "equation '" << this->equation() << "': ";
+  };
+
+  ONNXEinsumOpAdaptor operandAdaptor(*this);
+  ValueRange inputs = operandAdaptor.Inputs();
+
+  if (failed(einsum::verifyEquation(equation(), inputs.size(), errorFn))) {
+    return failure();
+  }
+
+  Type firstElementType =
+      inputs[0].getType().cast<ShapedType>().getElementType();
+  for (Value input : inputs) {
+    ShapedType type = input.getType().cast<ShapedType>();
+    if (type.getElementType() != firstElementType) {
+      return emitOpError() << "different input element types";
+    }
+  }
+  if (!llvm::all_of(inputs, hasShapeAndRank))
+    return success(); // Can only infer once operand shapes are known.
+  return einsum::verifyShapes(operandAdaptor, errorFn);
+}
+
+LogicalResult ONNXEinsumOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  ONNXEinsumOpAdaptor operandAdaptor(*this);
+  if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
+    return success(); // Can only infer once operand shapes are known.
+
+  einsum::ErrorFn errorFn = [this]() {
+    return this->emitOpError() << "equation '" << this->equation() << "': ";
+  };
+  FailureOr<einsum::Shape> shape =
+      einsum::inferOutputShape(operandAdaptor, errorFn);
+  assert(succeeded(shape) && "any failure should be caught in verify()");
+  Type elementType =
+      getOperand(0).getType().cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(*shape, elementType));
+  return success();
+}
+
 LogicalResult ONNXEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Builder b(getContext());
@@ -5214,7 +5258,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)

@@ -52,9 +52,18 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXMulOp
   mlir::Value mul(mlir::Value A, mlir::Value B) const;
 
+  // ONNXReduceSumOp
+  mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepdims = true,
+      bool noop_with_empty_axes = false) const;
+
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXSqueezeOp
+  mlir::Value squeeze(
+      mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
 
   // ONNXSubOp
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
@@ -66,8 +75,18 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Type toTensor(mlir::Type input) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
+
+  // ONNXTransposeOp
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
+
+  // ONNXUnsqueezeOp
+  mlir::Value unsqueeze(
+      mlir::Type outputType, mlir::Value data, mlir::Value axes) const;
+
+  // ONNXWhereOp
+  mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
+      mlir::Value Y) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
