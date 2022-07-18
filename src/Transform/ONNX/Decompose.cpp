@@ -188,10 +188,11 @@ struct SoftmaxPattern : public ConversionPattern {
     Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
         /*input=*/expValue,
         /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
-    Value divValue = rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
+    Value divValue =
+        rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
     rewriter.replaceOp(op0, divValue);
     return success();
-}
+  }
 };
 
 struct DecomposeONNXToONNXPass

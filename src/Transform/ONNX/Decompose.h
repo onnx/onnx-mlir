@@ -10,11 +10,11 @@
 //
 // This file implements a set of rewriters to decompose an ONNX operation into
 // composition of other ONNX operations.
-// 
+//
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/PatternMatch.h"
 
 using namespace mlir;
 

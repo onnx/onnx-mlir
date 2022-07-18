@@ -203,7 +203,7 @@ int64_t getReductionFactor(
   int64_t reduceFactor = 1;
 
   for (int64_t i = 0; i < rank; ++i)
-    if (isReductionAxis[i]) 
+    if (isReductionAxis[i])
       reduceFactor *= inputShape[i];
   return reduceFactor;
 }
@@ -303,8 +303,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
       // TODO: support dynamic shape
       if (inputType.hasStaticShape()) {
         int64_t reduceFactor = getReductionFactor(inputType, axes);
-        Value reduceFactorValue = getShapedFloat(loc, rewriter, outputType,
-            reduceFactor, reduceResult, outputType);
+        Value reduceFactorValue = getShapedFloat(
+            loc, rewriter, outputType, reduceFactor, reduceResult, outputType);
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {

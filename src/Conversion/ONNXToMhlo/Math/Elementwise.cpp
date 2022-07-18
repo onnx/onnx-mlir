@@ -193,8 +193,8 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
     if (outputShapedType == nullptr)
       return failure();
-    Type elementType = operands[0].getType().dyn_cast<ShapedType>()
-                           .getElementType();
+    Type elementType =
+        operands[0].getType().dyn_cast<ShapedType>().getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
 
@@ -251,8 +251,8 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
     if (outputShapedType == nullptr)
       return failure();
-    Type elementType = operands[0].getType().dyn_cast<ShapedType>()
-                           .getElementType();
+    Type elementType =
+        operands[0].getType().dyn_cast<ShapedType>().getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
 
