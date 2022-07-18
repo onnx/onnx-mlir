@@ -4164,7 +4164,6 @@ LogicalResult ONNXHardSwishOp::inferShapes(
   return success();
 }
 
-
 LogicalResult ONNXIfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
