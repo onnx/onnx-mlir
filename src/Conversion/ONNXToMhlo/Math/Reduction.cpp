@@ -304,7 +304,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
       if (inputType.hasStaticShape()) {
         int64_t reduceFactor = getReductionFactor(inputType, axes);
         Value reduceFactorValue = getShapedFloat(loc, rewriter, outputType,
-            1.0 / reduceFactor, reduceResult, outputType);
+            reduceFactor, reduceResult, outputType);
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {

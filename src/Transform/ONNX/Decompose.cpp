@@ -136,6 +136,8 @@ RankedTensorType createResultType(
   RankedTensorType outputShapeType = outputType.dyn_cast<RankedTensorType>();
   llvm::ArrayRef<int64_t> shapeVector = outputShapeType.getShape();
   int64_t rank = outputShapeType.getRank();
+  if (axisValue < 0)
+    axisValue += rank;
   SmallVector<int64_t, 4> reducedShape;
   for (int64_t i = 0; i < rank; ++i) {
     if (i != axisValue)

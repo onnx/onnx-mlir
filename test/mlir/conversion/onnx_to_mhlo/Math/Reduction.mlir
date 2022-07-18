@@ -64,7 +64,7 @@ func.func @test_reducemean(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
 // CHECK-LABEL:  func @test_reducemean
 // CHECK-DAG:    [[VAR_0:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:    [[VAR_1:%.+]] = mhlo.reduce([[PARAM_0:%.+]] init: [[VAR_0]]) applies mhlo.add across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
-// CHECK-DAG:    [[VAR_2:%.+]] = mhlo.constant dense<5.000000e-01> : tensor<3x2xf32>
+// CHECK-DAG:    [[VAR_2:%.+]] = mhlo.constant dense<2.000000e+00> : tensor<3x2xf32>
 // CHECK-DAG:    [[VAR_3:%.+]] = mhlo.divide [[VAR_1]], [[VAR_2]] : tensor<3x2xf32>
 // CHECK-DAG:    return [[VAR_3]] : tensor<3x2xf32>
 }
