@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch cpu --input /home/philip/coding/correct/onnx-mlir/test/backend/inference_backend.py --path /home/philip/coding/correct/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -26,7 +26,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Atan** |7 | | |
 | **Atanh** |9 | | |
 | **AveragePool** |11 | | |
-| **BatchNormalization** |9 |Training not supported. | |
+| **BatchNormalization** |14 |Training not supported. | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
@@ -63,7 +63,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **FeatureVectorizer** | |unsupported | |
 | **Flatten** |13 | | |
 | **Floor** |13 | | |
-| **GRU** |7 |Batchwise test is not supported. | |
+| **GRU** |14 |Batchwise test is not supported. | |
 | **Gather** |13 | | |
 | **GatherElements** |13 | | |
 | **GatherND** |13 | | |
@@ -75,6 +75,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Greater** |13 | | |
 | **GreaterOrEqual** |16 | | |
 | **HardSigmoid** |6 | | |
+| **HardSwish** | |unsupported | |
 | **Hardmax** |13 | | |
 | **Identity** |16 |Sequence identity not supported. | |
 | **If** | |unsupported | |
@@ -83,7 +84,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **IsInf** | |unsupported | |
 | **IsNaN** | |unsupported | |
 | **LRN** |13 | | |
-| **LSTM** |7 |No support for batchwise examples. | |
+| **LSTM** |14 |No support for batchwise examples. | |
 | **LabelEncoder** | |unsupported | |
 | **LeakyRelu** |16 | | |
 | **Less** |13 | | |
@@ -141,7 +142,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **ReduceSum** |13, 11 |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 | | |
 | **Relu** |14 | | |
-| **Reshape** |13 | | |
+| **Reshape** |14 |allowzero not supported. | |
 | **Resize** |13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. | |
 | **ReverseSequence** |10 | | |
 | **RoiAlign** | |unsupported | |
@@ -189,6 +190,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Transpose** |13 | | |
 | **TreeEnsembleClassifier** | |unsupported | |
 | **TreeEnsembleRegressor** | |unsupported | |
+| **Trilu** | |unsupported | |
 | **Unique** | |unsupported | |
 | **Unsqueeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
 | **Upsample** |10, 9, 7 | | |
