@@ -1647,6 +1647,16 @@ LogicalResult ONNXTransposeOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNXTriluOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXTriluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperands()[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceMax
 //===----------------------------------------------------------------------===//
 
@@ -4143,6 +4153,17 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXHardSwishOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXHardSwishOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
 
 LogicalResult ONNXIfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
