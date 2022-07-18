@@ -12,7 +12,7 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/MaxPoolSingleOut.cpp
   NN/PaddingOp.cpp
   NN/ReduceMean.cpp
-  NN/GemmOp.cpp
+  NN/Gemm.cpp
   NN/SoftmaxOp.cpp
   NN/AddOp.cpp
   NN/Flatten.cpp
