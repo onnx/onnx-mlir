@@ -88,13 +88,29 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
+# On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
+# and JAVA_INCLUDE_PATH2 are not set. Setting them requires JAVA_HOME to be
+# known. If the JAVA_HOME env var isn't set, we try to figure it out by running
+# java and looking for the java.home property.
+if(APPLE)
+  set(JAVA_HOME $ENV{JAVA_HOME})
+  if ("${JAVA_HOME}" STREQUAL "")
+    execute_process(
+      COMMAND bash -c "java -XshowSettings:properties -version 2>&1 | \
+                       sed -n 's/[ \t]*java.home = //p'"
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      OUTPUT_VARIABLE JAVA_HOME)
+  endif()
+  if (NOT "${JAVA_HOME}" STREQUAL "")
+    message("JAVA_HOME = ${JAVA_HOME}")
+    SET(JAVA_INCLUDE_PATH  "${JAVA_HOME}/include")
+    SET(JAVA_INCLUDE_PATH2 "${JAVA_HOME}/include/darwin")
+  endif()
+endif()
+
 # Don't require AWT to allow headless JDK to reduce docker image size
 set(JAVA_AWT_INCLUDE_PATH headless)
 set(JAVA_AWT_LIBRARY headless)
-if(APPLE)
-  SET(JAVA_INCLUDE_PATH  "$ENV{JAVA_HOME}/include")
-  SET(JAVA_INCLUDE_PATH2 "$ENV{JAVA_HOME}/include/darwin")
-endif()
 find_package(Java COMPONENTS Development)
 find_package(JNI)
 
