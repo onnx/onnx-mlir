@@ -21,6 +21,10 @@ This project contributes:
 * an `onnx-mlir` driver to perform these lowering,
 * and a python/C/C++/Java runtime environment.
 
+Current level of support for ONNX operations are listed here for
+[CPUs](docs/SupportedONNXOps-cpu.md) and
+[IBM's Telum NNPA accelerator](docs/SupportedONNXOps-NNPA.md).
+
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with Dockers are [here](docs/Docker.md).
@@ -119,9 +123,10 @@ module {
 
 An example based on the add operation is found [here](docs/doc_example), which build an ONNX model using a python script, and then provide a main program to load the model's value, compute, and print the models output.
 
-### End to End Example
+### Writing a driver to perform inferences: end to end example
 
-An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using both the C++ or Python interface.
+An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using our
+C/C++, Python, or Java interface.
 
 ## Interacting via Slack and GitHub.
 
@@ -133,11 +138,15 @@ You may also open GitHub Issues for any questions and/or suggestions you may hav
 
 Do not use public channels to discuss any security-related issues; use instead the specific instructions provided in the [SECURITY](SECURITY.md) page.
 
+## Documentation
+
+Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents. Information is also provided on our public facing
+[onnx.ai/onnx-mlir](https://onnx.ai/onnx-mlir/) pages.
+
 ## Contributing
 
 We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
-Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
 
 ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
 Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#step-7-commit--push) for specific instructions.
