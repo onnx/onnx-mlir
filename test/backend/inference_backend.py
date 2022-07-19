@@ -15,6 +15,7 @@ import sys
 import warnings
 import json
 import base64
+import math
 import numpy as np
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
@@ -1062,6 +1063,33 @@ def get_test_models():
 
     return test_to_enable
 
+def assert_allclose_with_ulptol(ref_outputs, outputs, rtol, atol, ulptol):
+    ref_outputs_flatten = np.array(ref_outputs).flatten()
+    outputs_flatten = np.array(outputs).flatten()
+    np.testing.assert_equal(len(ref_outputs_flatten), len(outputs_flatten))
+    for i in range(len(ref_outputs_flatten)):
+        try:
+            num_bits = int(math.log2(abs(ref_outputs_flatten[i]))) - 9
+        except ValueError: # use atol if ref_outputs_flatten[i] == 0.0
+            num_bits = 0
+        ulp_tolerence = max(pow(2.0, num_bits) * ulptol if num_bits > 0 else 0.0, atol)
+        tolerance = abs(ref_outputs_flatten[i]) * rtol + ulp_tolerence
+        error = abs(ref_outputs_flatten[i] - outputs_flatten[i])
+        if tolerance < error:
+            print("assert_allclose_with_ulptol: %d ref_output=%f, output=%f, ulp_tolerence=%f, error=%f, tolerance=%f" %
+                  (i, ref_outputs_flatten[i], outputs_flatten[i], ulp_tolerence, error, tolerance))
+        assert error < tolerance, ("too large numerical error")
+
+
+def assert_similar_outputs_with_ulptol(ref_outputs, outputs, rtol, atol, ulptol):
+    np.testing.assert_equal(len(outputs), len(ref_outputs))
+    for i in range(len(outputs)):
+        if isinstance(outputs[i], (list, tuple)):
+            for j in range(len(outputs[i])):
+                assert_similar_outputs_with_ulptol(
+                    ref_outputs[i][j], outputs[i][j], rtol, atol, ulptol)
+        else:
+            assert_allclose_with_ulptol(ref_outputs[i], outputs[i], rtol, atol, ulptol)
 
 def JniExecutionSession(jar_name, inputs):
     procStdin = json.dumps(
@@ -1124,6 +1152,14 @@ class InferenceBackendTest(BackendTest):
     def assert_similar_outputs(cls, ref_outputs: Sequence[Any], outputs: Sequence[Any], rtol: float, atol: float) -> None:
         rtol =float(os.getenv("TEST_RTOL", rtol))
         atol =float(os.getenv("TEST_ATOL", atol))
+        ulptol_env = os.getenv("TEST_ULPTOL") # e.g. "DLFLOAT:2"
+        if (ulptol_env is not None):
+            ulptol_split = ulptol_env.split(":")
+            if ulptol_split[0] != "DLFLOAT":
+                assert ( "Unsupported TEST_ULPTOL" )
+            ulptol = float(ulptol_split[1]) if len(ulptol_split) > 1 else 1.0
+            assert_similar_outputs_with_ulptol(ref_outputs, outputs, rtol, atol, ulptol)
+            return
         super(InferenceBackendTest, cls).assert_similar_outputs(ref_outputs, outputs, rtol, atol)
 
 # There are two issues, which necessitates the adoption of this endianness
