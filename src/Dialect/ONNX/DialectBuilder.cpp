@@ -86,7 +86,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
         /*transB=*/
         IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
             APInt(64, 0, /*isSigned=*/true)));
-  return toMemref(b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue));
+  return b.create<ONNXMatMulOp>(loc, toTensor(Y), aValue, bValue);
 }
 
 Value OnnxBuilder::min(ValueRange inputs) const {
@@ -109,9 +109,22 @@ Value OnnxBuilder::mul(Value A, Value B) const {
   return b.create<ONNXMulOp>(loc, toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
+    bool keepdims, bool noop_with_empty_axes) const {
+  int64_t i_keepdims = keepdims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return b.create<ONNXReduceSumOp>(loc, toTensor(outputType), toTensor(data),
+      toTensor(axes), i_keepdims, i_noop_with_empty_axes);
+}
+
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
   return b.create<ONNXReshapeOp>(
       loc, toTensor(outputType), toTensor(input), toTensor(shape));
+}
+
+Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
+  return b.create<ONNXSqueezeOp>(
+      loc, toTensor(outputType), toTensor(data), toTensor(axes));
 }
 
 Value OnnxBuilder::sub(Value A, Value B) const {
@@ -160,6 +173,17 @@ Value OnnxBuilder::toMemref(Value input) const {
   auto aTensorTy = MemRefType::get(aTy.getShape(), aTy.getElementType());
   return b.create<UnrealizedConversionCastOp>(loc, aTensorTy, input)
       .getResult(0);
+}
+
+Value OnnxBuilder::unsqueeze(Type outputType, Value data, Value axes) const {
+  return b.create<ONNXUnsqueezeOp>(
+      loc, toTensor(outputType), toTensor(data), toTensor(axes));
+}
+
+Value OnnxBuilder::where(
+    Type outputType, Value condition, Value X, Value Y) const {
+  return b.create<ONNXWhereOp>(
+      loc, toTensor(outputType), toTensor(condition), toTensor(X), toTensor(Y));
 }
 
 } // namespace onnx_mlir

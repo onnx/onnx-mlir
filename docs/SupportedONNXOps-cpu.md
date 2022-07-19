@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch cpu --input test/backend/inference_backend.py --path utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -49,7 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Div** |14 |No support for short integers. | |
 | **Dropout** |13 |Does not support masked and training. | |
 | **DynamicQuantizeLinear** |11 | | |
-| **EinSum** |unsupported | | |
+| **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
 | **Equal** |13 | | |
 | **Erf** |13 | | |

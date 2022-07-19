@@ -25,6 +25,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 using namespace mlir;
 
@@ -155,6 +156,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXClipV11Op>();
   target.addIllegalOp<ONNXClipV12Op>();
+  target.addIllegalOp<ONNXEinsumOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV2Op>();
   target.addIllegalOp<ONNXPadV11Op>();
@@ -174,6 +176,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
+  patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
