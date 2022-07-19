@@ -91,6 +91,10 @@ find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpre
 # Don't require AWT to allow headless JDK to reduce docker image size
 set(JAVA_AWT_INCLUDE_PATH headless)
 set(JAVA_AWT_LIBRARY headless)
+if(APPLE)
+  SET(JAVA_INCLUDE_PATH  "$ENV{JAVA_HOME}/include")
+  SET(JAVA_INCLUDE_PATH2 "$ENV{JAVA_HOME}/include/darwin")
+endif()
 find_package(Java COMPONENTS Development)
 find_package(JNI)
 
