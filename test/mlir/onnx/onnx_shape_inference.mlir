@@ -1592,6 +1592,16 @@ func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2xi64>
   // CHECK: return [[RES]] : tensor<3x1x2xf32>
 }
 
+// -----
+
+func @test_gather_elements_negative_axis(%arg0 : tensor<2x2xf32>, %arg1 : tensor<2x2xi64>) -> tensor<*xf32> {
+  %0 = "onnx.GatherElements"(%arg0, %arg1) {axis = -1 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_gather_elements_negative_axis
+  // CHECK: [[RES:%.+]] = "onnx.GatherElements"(%arg0, %arg1) {axis = -1 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<2x2xf32>
+  // CHECK: return [[RES]] : tensor<2x2xf32>
+}
 
 // -----
 

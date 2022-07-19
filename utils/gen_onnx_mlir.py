@@ -301,6 +301,7 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'DequantizeLinear',
+    'Einsum',
     'Expand',
     'Flatten',
     'Gather',
