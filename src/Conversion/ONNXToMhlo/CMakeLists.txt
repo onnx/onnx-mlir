@@ -27,6 +27,6 @@ add_onnx_mlir_library(OMONNXToMhlo
   )
 
 target_include_directories(OMONNXToMhlo PUBLIC
-  ${CMAKE_SOURCE_DIR}/third_party/mlir-hlo/include
-  ${CMAKE_BINARY_DIR}/third_party/mlir-hlo/include
+  ${ONNX_MLIR_SRC_ROOT}/third_party/mlir-hlo/include
+  ${ONNX_MLIR_BIN_ROOT}/third_party/mlir-hlo/include
   )

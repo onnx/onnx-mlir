@@ -12,8 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#define DEBUG_TYPE "onnx_to_mhlo"
 
 using namespace mlir;
 
@@ -35,7 +39,7 @@ struct ONNXConcatOpLoweringToMhlo : public ConversionPattern {
     assert(op->getNumResults() == 1 && "ONNXConcatOp shoule have 1 result");
     Type resultType = op->getResult(0).getType();
     if (!onnx_mlir::isRankedShapedType(resultType)) {
-      op->emitError() << "Concat Output Is Not Ranked\n";
+      LLVM_DEBUG(llvm::dbgs() << "Concat Output Is Not Ranked\n");
       return failure();
     }
     int64_t rank = onnx_mlir::getRank(resultType);
