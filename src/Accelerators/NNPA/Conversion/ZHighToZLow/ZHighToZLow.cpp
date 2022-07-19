@@ -1297,7 +1297,7 @@ struct ZHighToZLowConcatOpLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, ZHighConcatOp::getOperationName(), 1, ctx) {}
 
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighToZLowLoweringPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighToZLowConcatOpLowering)
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {

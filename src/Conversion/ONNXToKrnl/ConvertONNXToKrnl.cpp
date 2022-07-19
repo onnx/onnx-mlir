@@ -256,6 +256,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FrontendToKrnlLoweringPass)
+
   StringRef getArgument() const override { return "convert-onnx-to-krnl"; }
 
   StringRef getDescription() const override {

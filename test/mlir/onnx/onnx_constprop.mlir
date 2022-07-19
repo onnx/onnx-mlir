@@ -624,7 +624,7 @@ func.func @test_slice_reversed() -> tensor<*xf32> {
 
 // -----
 
-func @test_concat() -> tensor<*xf32> {
+func.func @test_concat() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<*xf32>
@@ -639,7 +639,7 @@ func @test_concat() -> tensor<*xf32> {
 
 // -----
 
-func @test_concat_integer() -> tensor<*xi32> {
+func.func @test_concat_integer() -> tensor<*xi32> {
   %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4], [5, 6]]> : tensor<3x2xi32>} : () -> tensor<3x2xi32>
   %1 = "onnx.Constant"() {value = dense<[[11, 12], [13, 14], [15, 16]]> : tensor<3x2xi32>} : () -> tensor<3x2xi32>
   %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<3x2xi32>, tensor<3x2xi32>) -> tensor<*xi32>
@@ -654,7 +654,7 @@ func @test_concat_integer() -> tensor<*xi32> {
 
 // -----
 
-func @test_concat_3_operands() -> tensor<*xf32>{
+func.func @test_concat_3_operands() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %2 = "onnx.Constant"() {value = dense<[[21.0, 22.0], [23.0, 24.0], [25.0, 26.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
@@ -670,7 +670,7 @@ func @test_concat_3_operands() -> tensor<*xf32>{
 
 // -----
 
-func @test_concat_negative_axis() -> tensor<*xf32>{
+func.func @test_concat_negative_axis() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = -1 : si64} : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<*xf32>
@@ -685,7 +685,7 @@ func @test_concat_negative_axis() -> tensor<*xf32>{
 
 // -----
 
-func @test_expand() -> tensor<*xf32> {
+func.func @test_expand() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[2, 3, 2]> : tensor<3xi64>} : () -> tensor<3xi64>
   %2 = "onnx.Expand"(%0, %1) : (tensor<3x2xf32>, tensor<3xi64>) -> tensor<*xf32>
@@ -700,7 +700,7 @@ func @test_expand() -> tensor<*xf32> {
 
 // -----
 
-func @test_expand_broadcast() -> tensor<*xf32> {
+func.func @test_expand_broadcast() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[1.0], [3.0], [5.0]]> : tensor<3x1xf32>} : () -> tensor<3x1xf32>
   %1 = "onnx.Constant"() {value = dense<[2, 3, 2]> : tensor<3xi64>} : () -> tensor<3xi64>
   %2 = "onnx.Expand"(%0, %1) : (tensor<3x1xf32>, tensor<3xi64>) -> tensor<*xf32>
@@ -715,7 +715,7 @@ func @test_expand_broadcast() -> tensor<*xf32> {
 
 // -----
 
-func @test_gather_axis_0() -> tensor<*xf32>{
+func.func @test_gather_axis_0() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
   %1 = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
   %2 = "onnx.Gather"(%0, %1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
@@ -730,7 +730,7 @@ func @test_gather_axis_0() -> tensor<*xf32>{
 
 // -----
 
-func @test_gather_axis_1() -> tensor<*xf32>{
+func.func @test_gather_axis_1() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>} : () -> tensor<3x3xf32>
   %1 = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
   %2 = "onnx.Gather"(%0, %1) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<*xf32>
@@ -745,7 +745,7 @@ func @test_gather_axis_1() -> tensor<*xf32>{
 
 // -----
 
-func @test_gather_negative_index() -> tensor<*xf32>{
+func.func @test_gather_negative_index() -> tensor<*xf32>{
   %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>} : () -> tensor<3x3xf32>
   %1 = "onnx.Constant"() {value = dense<[[0, -1]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
   %2 = "onnx.Gather"(%0, %1) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<*xf32>

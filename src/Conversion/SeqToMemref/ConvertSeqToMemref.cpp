@@ -49,7 +49,7 @@ struct ConvertSeqToMemrefPass
 };
 
 void ConvertSeqToMemrefPass::runOnOperation() {
-  func::FuncOp funcOp = getOperation();
+  mlir::func::FuncOp funcOp = getOperation();
   if (funcOp.getBody().empty()) // external function: nothing to do
     return;
   MLIRContext *ctx = &getContext();
