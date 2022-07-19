@@ -80,9 +80,9 @@ def get_test_models():
         "test_acosh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_acosh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Adagrad
+        # Adagrad
 
-        # ==OP== Adam
+        # Adam
 
         # ==OP== Add
         # ==LIM== No support for short integers.
@@ -108,7 +108,7 @@ def get_test_models():
         "test_argmax_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_argmax_default_axis_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     
-        # ==OP== ArgMin
+        # ArgMin
 
         # ==OP== Asin
         "test_asin_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -149,9 +149,9 @@ def get_test_models():
         "test_batchnorm_epsilon_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_batchnorm_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Bernoulli
+        # Bernoulli
 
-        # ==OP== Bitshift
+        # Bitshift
 
         # ==OP== Cast
         # ==LIM== Cast only between float and double types
@@ -164,13 +164,13 @@ def get_test_models():
         "test_cast_FLOAT_to_STRING_cpu": {}, # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {}, # appears unsupported at this time
 
-        # ==OP== CastLike
+        # CastLike
 
         # ==OP== Ceil
         "test_ceil_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_ceil_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Celu
+        # Celu
 
         # ==OP== Clip
         # ==LIM== No support for short integers
@@ -226,9 +226,9 @@ def get_test_models():
         "test_conv_with_strides_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
         "test_conv_with_strides_and_asymmetric_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
 
-        # ==OP== ConvInteger
+        # ConvInteger
 
-        # ==OP== ConvTranspose
+        # ConvTranspose
 
         # ==OP== Cos
         "test_cos_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -251,9 +251,9 @@ def get_test_models():
         "test_depthtospace_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_depthtospace_crd_mode_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== DequatizeLinear
+        # DequatizeLinear
 
-        # ==OP== Det
+        # Det
 
         # ==OP== Div
         # ==LIM== No support for short integers.
@@ -280,7 +280,7 @@ def get_test_models():
         #"test_training_dropout_zero_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         #"test_training_dropout_zero_ratio_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
-        # ==OP== DynamicQuantizeLinear
+        # DynamicQuantizeLinear
 
         # ==OP== Einsum
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
@@ -310,7 +310,7 @@ def get_test_models():
         "test_expand_dim_changed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
         "test_expand_dim_unchanged_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Eyelike
+        # Eyelike
 
         # ==OP== Flatten
         "test_flatten_axis0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -375,7 +375,7 @@ def get_test_models():
         "test_greater_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_greater_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== GridSample
+        # GridSample
 
         # ==OP== GRU
         # ==LIM== Batchwise test is not supported.
@@ -399,7 +399,7 @@ def get_test_models():
         "test_hardsigmoid_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_hardsigmoid_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== HardSwish
+        # HardSwish
 
         # ==OP== Identity
         # ==LIM== Sequence identity not supported.
@@ -407,15 +407,15 @@ def get_test_models():
         #"test_identity_sequence_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_identity_opt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== If
+        # If
 
         # ==OP== InstanceNormalization
         "test_instancenorm_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_instancenorm_epsilon_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== IsInf
+        # IsInf
         
-        # ==OP== IsNan
+        # IsNan
         #"test_isnan_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== LeakyRelu
@@ -472,7 +472,7 @@ def get_test_models():
         "test_matmul_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_matmul_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== MatMulInteger
+        # MatMulInteger
 
         # ==OP== Max
         # ==LIM== No support for short floats and unsigned int.
@@ -513,14 +513,14 @@ def get_test_models():
         "test_maxpool_2d_ceil_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_maxpool_2d_dilations_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== MaxUnpool
+        # MaxUnpool
 
         # ==OP== Mean
         "test_mean_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mean_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mean_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         
-        # ==OP== MeanVarianceNormalization
+        # MeanVarianceNormalization
 
         # ==OP== Min
         # ==LIM== Does not support short floats and unsigned numbers.
@@ -560,7 +560,7 @@ def get_test_models():
         # "test_mod_uint64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_mod_uint8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Momentum
+        # Momentum
 
         # ==OP== Mul
         # ==LIM== Does not support short integers.
@@ -573,7 +573,7 @@ def get_test_models():
         "test_neg_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_neg_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== NegativeLogLikelihoodLoss
+        # NegativeLogLikelihoodLoss
 
         # ==OP== NonMaxSuppression
         "test_nonmaxsuppression_center_point_box_format_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -600,9 +600,9 @@ def get_test_models():
         "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== OptionalGetElement
+        # OptionalGetElement
 
-        # ==OP== OptionalHasElement
+        # OptionalHasElement
         
         # ==OP== Or
         "test_or2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -630,11 +630,11 @@ def get_test_models():
         "test_prelu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_prelu_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== QLinearConv
+        # QLinearConv
 
-        # ==OP== QLinearMatmul
+        # QLinearMatmul
 
-        # ==OP== QuantizeLinear
+        # QuantizeLinear
 
         # ==OP== Range
         "test_range_float_type_positive_delta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -811,7 +811,7 @@ def get_test_models():
         "test_rnn_seq_length_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         #  "test_simple_rnn_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
-        # ==OP== RoiAlign
+        # RoiAlign
 
         # ==OP== Round
         "test_round_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
@@ -841,12 +841,13 @@ def get_test_models():
         "test_selu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== SequenceInsert
+        # TODO: add test?
 
         # ==OP== Shape
         "test_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_shape_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Shrink
+        # Shrink
 
         # ==OP== Sigmoid
         "test_sigmoid_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -881,7 +882,7 @@ def get_test_models():
         "test_softmax_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_softmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== SoftmaxCrossEntropyLoss
+        # SoftmaxCrossEntropyLoss
 
         # ==OP== Softplus
         "test_softplus_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -927,7 +928,7 @@ def get_test_models():
         "test_squeeze_cpu": {CONSTANT_INPUT:{1}},
         "test_squeeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
 
-        # ==OP== StrNormalizer
+        # StrNormalizer
 
         # ==OP== Sub
         # ==LIM== Does not support short integers.
@@ -949,9 +950,9 @@ def get_test_models():
         "test_tanh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_tanh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== TfdfVectorizer
+        # TfdfVectorizer
 
-        # ==OP== ThresholdRelu
+        # ThresholdRelu
 
         # ==OP== Tile
         "test_tile_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -971,9 +972,9 @@ def get_test_models():
         "test_transpose_all_permutations_4_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_transpose_all_permutations_5_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # ==OP== Trilu
+        # Trilu
 
-        # ==OP== Unique
+        # Unique
 
         # ==OP== Unsqueeze
         # ==LIM== Does not support static and dynamic shape.
