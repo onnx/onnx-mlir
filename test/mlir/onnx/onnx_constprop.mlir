@@ -713,3 +713,47 @@ func @test_expand_broadcast() -> tensor<*xf32> {
   // CHECK:         }
 }
 
+// -----
+
+func @test_gather_axis_0() -> tensor<*xf32>{
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+  %1 = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %2 = "onnx.Gather"(%0, %1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_axis_0
+  // CHECK-SAME:   () -> tensor<2x2x2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}{{.}}[1.000000e+00, 1.200000e+00], [2.300000e+00, 3.400000e+00]{{.}}, {{.}}[2.300000e+00, 3.400000e+00], [4.500000e+00, 5.700000e+00]{{.}}{{.}}> : tensor<2x2x2xf32>} : () -> tensor<2x2x2xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<2x2x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func @test_gather_axis_1() -> tensor<*xf32>{
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>} : () -> tensor<3x3xf32>
+  %1 = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
+  %2 = "onnx.Gather"(%0, %1) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_axis_1
+  // CHECK-SAME:   () -> tensor<3x1x2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}{{.}}[1.000000e+00, 1.900000e+00]{{.}}, {{.}}[2.300000e+00, 3.900000e+00]{{.}}, {{.}}[4.500000e+00, 5.900000e+00]{{.}}{{.}}> : tensor<3x1x2xf32>} : () -> tensor<3x1x2xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<3x1x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func @test_gather_negative_index() -> tensor<*xf32>{
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>} : () -> tensor<3x3xf32>
+  %1 = "onnx.Constant"() {value = dense<[[0, -1]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
+  %2 = "onnx.Gather"(%0, %1) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_negative_index
+  // CHECK-SAME:   () -> tensor<3x1x2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}{{.}}[1.000000e+00, 1.900000e+00]{{.}}, {{.}}[2.300000e+00, 3.900000e+00]{{.}}, {{.}}[4.500000e+00, 5.900000e+00]{{.}}{{.}}> : tensor<3x1x2xf32>} : () -> tensor<3x1x2xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<3x1x2xf32>
+  // CHECK:         }
+}

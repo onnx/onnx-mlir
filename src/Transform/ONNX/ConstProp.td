@@ -123,6 +123,9 @@ def CreateConcatOfConst:
 def CreateExpandOfConst:
    NativeCodeCall<"ConstPropExpand($_builder, $0, $1)">;
 
+def CreateGatherOfConst:
+   NativeCodeCall<"ConstPropGather($_builder, $0, $1, $2)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -409,5 +412,18 @@ def ExpandofConst :  Pat<
     (CreateExpandOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
      (HasStaticShape:$resOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Gather operations.
+//===----------------------------------------------------------------------===//
+
+def GatherofConst :  Pat<
+    // From Gather (x, indices, axis)
+    (ONNXGatherOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                         (ONNXConstantOp:$indices $_, $_, $_, $_, $_, $_, $_, $_),
+                         $_),
+    // To c' where c' is the gathered value.
+    (CreateGatherOfConst $resOp, $input, $indices),
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices)]>;
 
 #endif // ONNX_CONSTPROP
