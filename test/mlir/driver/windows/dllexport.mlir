@@ -2,17 +2,17 @@
 // RUN: cat %t.ll | FileCheck %s
 
 // REQUIRES: system-windows
-// CHECK: define dso_local dllexport i8* @run_main_graph_1
-// CHECK: define dso_local dllexport i8* @run_main_graph_2
-// CHECK: define dso_local dllexport i8** @omQueryEntryPoints
-// CHECK: define dso_local dllexport i8* @omInputSignature
-// CHECK: define dso_local dllexport i8* @omOutputSignature
+// CHECK: define dso_local dllexport ptr @run_main_graph_1
+// CHECK: define dso_local dllexport ptr @run_main_graph_2
+// CHECK: define dso_local dllexport ptr @omQueryEntryPoints
+// CHECK: define dso_local dllexport ptr @omInputSignature
+// CHECK: define dso_local dllexport ptr @omOutputSignature
 module  {
-  func @main_graph_1(%arg0: tensor<1x1xf32>) -> tensor<1x1xf32> {
+  func.func @main_graph_1(%arg0: tensor<1x1xf32>) -> tensor<1x1xf32> {
     %0 = "onnx.Relu"(%arg0) : (tensor<1x1xf32>) -> tensor<1x1xf32>
     return %0 : tensor<1x1xf32>
   }
-  func @main_graph_2(%arg0: tensor<1x1xf32>) -> tensor<1x1xf32> {
+  func.func @main_graph_2(%arg0: tensor<1x1xf32>) -> tensor<1x1xf32> {
     %0 = "onnx.Relu"(%arg0) : (tensor<1x1xf32>) -> tensor<1x1xf32>
     return %0 : tensor<1x1xf32>
   }

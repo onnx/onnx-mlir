@@ -9,7 +9,7 @@
 // CHECK-NEXT: llvm.br
 // CHECK: llvm.cond_br
 
-func @test_buffer_loop_hoisting() {
+func.func @test_buffer_loop_hoisting() {
   %c0_i64 = arith.constant 0 : i64
   %c0 = arith.constant 0 : index
   %c32 = arith.constant 32 : index

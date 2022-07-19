@@ -623,7 +623,9 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
       &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
-  options.emitCWrappers = true;
+  // Request C wrapper emission via attribute.
+  funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+      UnitAttr::get(&getContext()));
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.

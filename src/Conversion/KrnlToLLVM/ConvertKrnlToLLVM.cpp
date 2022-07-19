@@ -33,7 +33,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -387,7 +387,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
-  options.emitCWrappers = true;
   KRNL_ENTRY_POINT_ID = 0;
 
   // Record entry point names and their input/output signatures.
@@ -397,6 +396,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Determine the module has a single entry point or not.
   bool singleEntryPoint = hasSingleEntryPoint(module);
+
+  // Request C wrapper emission via attribute.
+  for (auto func : module.getOps<func::FuncOp>()) {
+    func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+        UnitAttr::get(&getContext()));
+  }
 
   // Determine whether an output OMTensor should own the underlying buffer or
   // not.

@@ -17,7 +17,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   LINK_LIBS PUBLIC
   Accelerator
   MhloDialect
-  MLIRShape
+  MLIRShapeDialect
   MLIRTransforms
   OMConstPropHelper
   OMONNXOps

@@ -2,7 +2,7 @@
 
 // -----
 
-func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<*xf32> {
+func.func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -37,7 +37,7 @@ func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<*xf64> {
+func.func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<*xf64> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f64>, tensor<f64>, tensor<f64>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -72,7 +72,7 @@ func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tensor<i16>) -> tensor<*xi16> {
+func.func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tensor<i16>) -> tensor<*xi16> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i16>, tensor<i16>, tensor<i16>) -> tensor<*xi16>
   return %0 : tensor<*xi16>
 
@@ -105,7 +105,7 @@ func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<*xi32> {
+func.func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<*xi32> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i32>, tensor<i32>, tensor<i32>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
@@ -138,7 +138,7 @@ func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<*xi64> {
+func.func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<*xi64> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 
@@ -171,7 +171,7 @@ func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tens
 
 // -----
 
-func @test_range_static_f32() -> tensor<*xf32> {
+func.func @test_range_static_f32() -> tensor<*xf32> {
   %start = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %limit = "onnx.Constant"() {value = dense<[10.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %delta = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
@@ -206,7 +206,7 @@ func @test_range_static_f32() -> tensor<*xf32> {
 
 // -----
 
-func @test_range_static_f64() -> tensor<*xf64> {
+func.func @test_range_static_f64() -> tensor<*xf64> {
   %start = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf64>} : () -> tensor<1xf64>
   %limit = "onnx.Constant"() {value = dense<[10.0]> : tensor<1xf64>} : () -> tensor<1xf64>
   %delta = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf64>} : () -> tensor<1xf64>
@@ -241,7 +241,7 @@ func @test_range_static_f64() -> tensor<*xf64> {
 
 // -----
 
-func @test_range_static_i16() -> tensor<*xi16> {
+func.func @test_range_static_i16() -> tensor<*xi16> {
   %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi16>} : () -> tensor<1xi16>
   %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi16>} : () -> tensor<1xi16>
   %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi16>} : () -> tensor<1xi16>
@@ -276,7 +276,7 @@ func @test_range_static_i16() -> tensor<*xi16> {
 
 // -----
 
-func @test_range_static_i32() -> tensor<*xi32> {
+func.func @test_range_static_i32() -> tensor<*xi32> {
   %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
   %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi32>} : () -> tensor<1xi32>
   %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
@@ -311,7 +311,7 @@ func @test_range_static_i32() -> tensor<*xi32> {
 
 // -----
 
-func @test_range_static_i64() -> tensor<*xi64> {
+func.func @test_range_static_i64() -> tensor<*xi64> {
   %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
   %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi64>} : () -> tensor<1xi64>
   %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>

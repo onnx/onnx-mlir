@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
-func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
+func.func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
   %c0_i64 = arith.constant 0 : i64
   %ind = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
