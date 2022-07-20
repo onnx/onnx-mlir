@@ -161,8 +161,8 @@ struct BlockReduceOp<ONNXReduceSumV11Op> {
 template <typename ReductionOp>
 using BlockOp = typename BlockReduceOp<ReductionOp>::Op;
 
-SmallVector<int64_t> getReductionShape(
-    ShapedType inputType, const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
+SmallVector<int64_t> getReductionShape(ShapedType inputType,
+    const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
   SmallVector<int64_t> reduceShape;
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t rank = inputType.getRank();
@@ -217,8 +217,8 @@ Value createReduce(Location loc, Value operand, Value identity,
   RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
-  mhlo::ReduceOp reduce = rewriter.create<mhlo::ReduceOp>(
-      loc, reduceResultType, operand, identity, rewriter.getI64TensorAttr(axes));
+  mhlo::ReduceOp reduce = rewriter.create<mhlo::ReduceOp>(loc, reduceResultType,
+      operand, identity, rewriter.getI64TensorAttr(axes));
 
   // setup "mhlo.reduce"'s body
   Region &region = reduce.body();
@@ -277,7 +277,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
 
     // Get axes value defined by op
     // Leave empty is not defined
-    llvm::SmallVector<int64_t, 4> definedAxes = getDefinedAxes<ONNXReductionOp>(op);
+    llvm::SmallVector<int64_t, 4> definedAxes =
+        getDefinedAxes<ONNXReductionOp>(op);
     llvm::SmallVector<int64_t, 4> axes;
     if (definedAxes.size()) {
       for (int64_t axis : definedAxes) {
@@ -313,8 +314,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
         Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
             loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
-        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne, identity,
-            reducedShape, axes, rewriter, isKeepdims);
+        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne,
+            identity, reducedShape, axes, rewriter, isKeepdims);
         reduceResult = rewriter.create<mhlo::DivOp>(
             loc, outputType, reduceResult, reduceSum);
       }

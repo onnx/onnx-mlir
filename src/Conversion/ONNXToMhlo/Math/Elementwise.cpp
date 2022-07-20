@@ -106,9 +106,8 @@ void createCompareOp<ONNXLessOrEqualOp>(Value &op,
       loc, lhs, rhs, mhlo::ComparisonDirection::LE);
 }
 
-llvm::SmallVector<Value, 4> getBroadcastedOperands(
-    Operation *op, ConversionPatternRewriter &rewriter, Location loc,
-    int64_t outputRank) {
+llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
+    ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank) {
   llvm::SmallVector<Value, 4> broadcastedOperands;
   Type outputType = *op->result_type_begin();
   assert(outputType.isa<ShapedType>() && "output type is not shaped");
