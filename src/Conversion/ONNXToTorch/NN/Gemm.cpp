@@ -76,9 +76,11 @@ public:
   }
 
   int getRank(Value operand) const {
-    auto operandType = operand.getType().cast<TensorType>();
-    ArrayRef<int64_t> operandShape = operandType.getShape();
-    return operandShape.size();
+    if (auto operandType = operand.getType().dyn_cast<TensorType>()) {
+      ArrayRef<int64_t> operandShape = operandType.getShape();
+      return operandShape.size();
+    }
+    return 0;
   }
 
   SmallVector<int64_t, 4> getTransposedShape2D(ShapedType operandType) const {
@@ -100,13 +102,18 @@ public:
     Value A = op.A();
     Value B = op.B();
     Value C = op.C();
+    // C is an optional. However, when not present, it is replaced by a None.
+    // Before using C we need to be sure that it is really there and it's not just a None.
+    bool IsCPresent = false;
+    if (C.getType().isa<TensorType>())
+      IsCPresent = true;
 
     // TODO: `op.C()` can broadcast its shape. XTen does not expect broadcast
     // so for now we arrange the broadcast here. When this is fixed in XTen we
     // will remove the explicit broadcasting from here. The fix is only applied
     // to constant ops and will not work in a generalized case.
 
-    if (C.getDefiningOp<ONNXConstantOp>() &&
+    if (IsCPresent && C.getDefiningOp<ONNXConstantOp>() &&
         C.getDefiningOp()->hasAttr("value")) {
       TensorType cTensorOp =
           C.getDefiningOp()->getAttr("value").getType().cast<TensorType>();
@@ -167,15 +174,15 @@ public:
           loc, transposeAType, transposeAVal, alpha3v);
     }
 
-    ::mlir::FloatAttr beta = adaptor.betaAttr();
-    if (beta && beta.getValueAsDouble() != 1.) {
+    FloatAttr beta = adaptor.betaAttr();
+    if (beta && beta.getValueAsDouble() != 1. && IsCPresent) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, adaptor.C().getType(), adaptor.C(), beta3v);
     }
 
     // Bmm Operation ((alpha * A') * B')
-    Value mmValue;
+    AtenMmOp mmValue;
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (alphaMulResult)
       mmValue = rewriter.create<AtenMmOp>(
@@ -184,14 +191,23 @@ public:
       mmValue = rewriter.create<AtenMmOp>(
           loc, resultType, transposeAVal, transposeBVal);
 
-    // Addition ((alpha * A' * B') + (beta * C))
+    // Addition ((alpha * y) + (beta * C))
     Value iOne = getIntValue(1, rewriter, context, loc);
-    if (betaMulResult)
+    if (betaMulResult) {
       rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
           op, resultType, mmValue, betaMulResult, iOne);
-    else
+    }
+    // C is optional. If C is present but Beta was 1
+    else if (IsCPresent) {
       rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
           op, resultType, mmValue, adaptor.C(), iOne);
+    } 
+    // If neither C nor Beta is present, this is equivalent to a Matrix multiply.
+    // We return (alpha * A' * B')
+    else {
+      rewriter.replaceOp(
+          op, mmValue->getResults());
+    }
     return success();
   }
 };
