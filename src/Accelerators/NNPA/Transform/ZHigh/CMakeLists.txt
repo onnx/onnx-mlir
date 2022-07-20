@@ -43,4 +43,5 @@ add_onnx_mlir_library(OMInstrumentZHigh
   OMKrnlOps
   MLIRPass
   OMNNPASupport
+  OMZHighOps
   )
