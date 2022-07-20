@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func @should_lower_to_zlow_1d(%arg0: tensor<7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_1d(%arg0: tensor<7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "1D"} : (tensor<7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -15,7 +15,7 @@ func @should_lower_to_zlow_1d(%arg0: tensor<7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_2d(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_2d(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "2D"} : (tensor<5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -30,7 +30,7 @@ func @should_lower_to_zlow_2d(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_2ds(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_2ds(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "2DS"} : (tensor<5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -45,7 +45,7 @@ func @should_lower_to_zlow_2ds(%arg0: tensor<5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_3d(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_3d(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "3D"} : (tensor<3x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -60,7 +60,7 @@ func @should_lower_to_zlow_3d(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_3ds(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_3ds(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -75,7 +75,7 @@ func @should_lower_to_zlow_3ds(%arg0: tensor<3x5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_4d(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_4d(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "4D"} : (tensor<1x3x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -90,7 +90,7 @@ func @should_lower_to_zlow_4d(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_nhwc(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_nhwc(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<1x3x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -105,7 +105,7 @@ func @should_lower_to_zlow_nhwc(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_hwck(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_hwck(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "HWCK"} : (tensor<1x3x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -120,7 +120,7 @@ func @should_lower_to_zlow_hwck(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @should_lower_to_zlow_fico(%arg0: tensor<1x5x7xf32>, %arg1: tensor<1x5x7xf32>, %arg2: tensor<1x5x7xf32>, %arg3: tensor<1x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_fico(%arg0: tensor<1x5x7xf32>, %arg1: tensor<1x5x7xf32>, %arg2: tensor<1x5x7xf32>, %arg3: tensor<1x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.StickForLSTM"(%arg0, %arg1, %arg2, %arg3) : (tensor<1x5x7xf32>, tensor<1x5x7xf32>, tensor<1x5x7xf32>, tensor<1x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -135,7 +135,7 @@ func @should_lower_to_zlow_fico(%arg0: tensor<1x5x7xf32>, %arg1: tensor<1x5x7xf3
 
 // -----
 
-func @should_lower_to_zlow_fico_bidir(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x5x7xf32>, %arg2: tensor<2x5x7xf32>, %arg3: tensor<2x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_fico_bidir(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x5x7xf32>, %arg2: tensor<2x5x7xf32>, %arg3: tensor<2x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.StickForLSTM"(%arg0, %arg1, %arg2, %arg3) : (tensor<2x5x7xf32>, tensor<2x5x7xf32>, tensor<2x5x7xf32>, tensor<2x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -150,7 +150,7 @@ func @should_lower_to_zlow_fico_bidir(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x
 
 // -----
 
-func @should_lower_to_zlow_zrh(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x5x7xf32>, %arg2: tensor<2x5x7xf32>) -> tensor<*xf32> {
+func.func @should_lower_to_zlow_zrh(%arg0: tensor<2x5x7xf32>, %arg1: tensor<2x5x7xf32>, %arg2: tensor<2x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.StickForGRU"(%arg0, %arg1, %arg2) : (tensor<2x5x7xf32>, tensor<2x5x7xf32>, tensor<2x5x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 

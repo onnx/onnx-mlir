@@ -4,7 +4,7 @@
 
 // COM: Test constant stickify for layout 1D.
 // CHECK: func @remove_stick_1d() -> tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>> {
-func @remove_stick_1d() -> tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>> {
+func.func @remove_stick_1d() -> tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>> {
   %inp = "onnx.Constant"() {value = dense<[0., 1., 2., 3., 4., 5.]> : tensor<6xf32>} : () -> tensor<6xf32>
   %res = "zhigh.Stick"(%inp) {layout = "1D"} : (tensor<6xf32>) -> tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>>
   return %res : tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>>
@@ -19,7 +19,7 @@ func @remove_stick_1d() -> tensor<6xf32, #zhigh.encoding<{dataLayout = "1D"}>> {
 
 // COM: Test constant stickify for layout 2D.
 // CHECK: func @remove_stick_2d() -> tensor<2x3xf32> {
-func @remove_stick_2d() -> tensor<2x3xf32> {
+func.func @remove_stick_2d() -> tensor<2x3xf32> {
   %inp = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %st= "zhigh.Stick"(%inp) {layout = "2D"} : (tensor<2x3xf32>) -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2D"}>>
   %res = "zhigh.Unstick"(%st) {layout = "2D"} : (tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<2x3xf32>
@@ -35,7 +35,7 @@ func @remove_stick_2d() -> tensor<2x3xf32> {
 
 // COM: Test constant stickify for layout 2DS.
 // CHECK: func @remove_stick_2ds() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}>> {
-func @remove_stick_2ds() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}>> {
+func.func @remove_stick_2ds() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}>> {
   %inp = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "2DS"} : (tensor<2x3xf32>) -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}>>
   return %res : tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}>>
@@ -50,7 +50,7 @@ func @remove_stick_2ds() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "2DS"}
 
 // COM: Test constant stickify for layout 3D. 
 // CHECK: func @remove_stick_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}>> {
-func @remove_stick_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}>> {
+func.func @remove_stick_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "3D"} : (tensor<1x2x3xf32>) -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}>>
   return %res : tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}>>
@@ -64,7 +64,7 @@ func @remove_stick_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3D"}
 
 // COM: Test constant stickify for layout 3DS. 
 // CHECK: func @remove_stick_3ds() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS"}>> {
-func @remove_stick_3ds() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS"}>> {
+func.func @remove_stick_3ds() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "3DS"} : (tensor<1x2x3xf32>) -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
   return %res : tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
@@ -79,7 +79,7 @@ func @remove_stick_3ds() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "3DS
 
 // COM: Test constant stickify for layout 4D. 
 // CHECK: func @remove_stick_4d() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
-func @remove_stick_4d() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @remove_stick_4d() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[[0., 1., 2.], [3., 4., 5.]]]]> : tensor<1x1x2x3xf32>} : () -> tensor<1x1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "4D"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D"}>>
   return %res : tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -94,7 +94,7 @@ func @remove_stick_4d() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "4D
 
 // COM: Test constant stickify for layout NHWC. 
 // CHECK: func @remove_stick_nhwc() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
-func @remove_stick_nhwc() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
+func.func @remove_stick_nhwc() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[[0., 1., 2.], [3., 4., 5.]]]]> : tensor<1x1x2x3xf32>} : () -> tensor<1x1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "NHWC"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
   return %res : tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
@@ -109,7 +109,7 @@ func @remove_stick_nhwc() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "
 
 // COM: Test constant stickify for layout NCHW. 
 // CHECK: func @remove_stick_nchw() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NCHW"}>> {
-func @remove_stick_nchw() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NCHW"}>> {
+func.func @remove_stick_nchw() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NCHW"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[[0., 1., 2.], [3., 4., 5.]]]]> : tensor<1x1x2x3xf32>} : () -> tensor<1x1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "NCHW"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NCHW"}>>
   return %res : tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "NCHW"}>>
@@ -124,7 +124,7 @@ func @remove_stick_nchw() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "
 
 // COM: Test constant stickify for layout CNNK_HWCK. 
 // CHECK: func @remove_stick_cnnk_hwck() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "HWCK"}>> {
-func @remove_stick_cnnk_hwck() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "HWCK"}>> {
+func.func @remove_stick_cnnk_hwck() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "HWCK"}>> {
   %inp = "onnx.Constant"() {value = dense<[[[[0., 1., 2.], [3., 4., 5.]]]]> : tensor<1x1x2x3xf32>} : () -> tensor<1x1x2x3xf32>
   %res = "zhigh.Stick"(%inp) {layout = "HWCK"} : (tensor<1x1x2x3xf32>) -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
   return %res : tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
@@ -140,7 +140,7 @@ func @remove_stick_cnnk_hwck() -> tensor<1x1x2x3xf32, #zhigh.encoding<{dataLayou
 // COM: Test constant stickify for layout ZRH used in GRU.
 // Biases are 2D tensors.
 // CHECK: func @remove_stick_zrh_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
-func @remove_stick_zrh_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
+func.func @remove_stick_zrh_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
   %z = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %r = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %h = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
@@ -158,7 +158,7 @@ func @remove_stick_zrh_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "ZR
 // COM: Test constant stickify for layout ZRH used in GRU.
 // Weights are 3D tensors.
 // CHECK: func @remove_stick_zrh_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
-func @remove_stick_zrh_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
+func.func @remove_stick_zrh_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "ZRH"}>> {
   %z = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %r = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %h = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
@@ -176,7 +176,7 @@ func @remove_stick_zrh_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "
 // COM: Test constant stickify for layout FICO used in LSTM.
 // CHECK: func @remove_stick_fico_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
 // Biases are 2D tensors.
-func @remove_stick_fico_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
+func.func @remove_stick_fico_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
   %f = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %i = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %c = "onnx.Constant"() {value = dense<[[0., 1., 2.], [3., 4., 5.]]> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
@@ -195,7 +195,7 @@ func @remove_stick_fico_2d() -> tensor<2x3xf32, #zhigh.encoding<{dataLayout = "F
 // COM: Test constant stickify for layout FICO used in LSTM.
 // CHECK: func @remove_stick_fico_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
 // Weights are 3D tensors.
-func @remove_stick_fico_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
+func.func @remove_stick_fico_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>> {
   %f = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %i = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
   %c = "onnx.Constant"() {value = dense<[[[0., 1., 2.], [3., 4., 5.]]]> : tensor<1x2x3xf32>} : () -> tensor<1x2x3xf32>
