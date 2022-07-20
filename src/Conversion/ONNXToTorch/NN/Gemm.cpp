@@ -181,7 +181,7 @@ public:
           loc, adaptor.C().getType(), adaptor.C(), beta3v);
     }
 
-    // Bmm Operation ((alpha * A') * B')
+    // Mm Operation ((alpha * A') * B')
     AtenMmOp mmValue;
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (alphaMulResult)
@@ -191,7 +191,7 @@ public:
       mmValue = rewriter.create<AtenMmOp>(
           loc, resultType, transposeAVal, transposeBVal);
 
-    // Addition ((alpha * y) + (beta * C))
+    // Addition ((alpha * A' * B') + (beta * C))
     Value iOne = getIntValue(1, rewriter, context, loc);
     if (betaMulResult) {
       rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
