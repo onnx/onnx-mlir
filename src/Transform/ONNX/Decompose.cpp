@@ -28,7 +28,6 @@
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 #include "Decompose.h"
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -257,6 +256,7 @@ namespace onnx_mlir {
 
 void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
+  ::populateWithGenerated(patterns);
   patterns.add<SoftmaxPattern>(ctx);
 }
 /*!
