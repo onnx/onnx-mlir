@@ -126,9 +126,10 @@ Value createSequenceConstructOp(
 
 } // namespace onnx_mlir
 
-namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
+
+namespace {
 
 RankedTensorType createResultType(
     Type outputType, int64_t axisValue, bool keepDims) {
@@ -256,7 +257,7 @@ namespace onnx_mlir {
 
 void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  ::populateWithGenerated(patterns);
+  populateWithGenerated(patterns);
   patterns.add<SoftmaxPattern>(ctx);
 }
 /*!
