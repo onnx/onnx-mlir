@@ -6,6 +6,7 @@ install(TARGETS MhloDialect MhloInferShapeEqualityOpInterface)
 
 add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
+  ONNXToMhloCommon.cpp
 
   Math/Elementwise.cpp
   Math/Gemm.cpp
