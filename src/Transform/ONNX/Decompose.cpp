@@ -255,12 +255,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 namespace onnx_mlir {
 
-/// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXDecompose.inc"
-
 void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  populateWithGenerated(patterns);
   patterns.add<SoftmaxPattern>(ctx);
 }
 /*!
