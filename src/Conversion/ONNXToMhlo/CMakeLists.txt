@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Please keep in alphabetical order.
+
+install(TARGETS MhloDialect)
+
 add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
 
@@ -14,6 +17,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   Tensor/Reshape.cpp
 
   DEPENDS
+  OMONNXRewrite
   MhloDialect
 
   LINK_LIBS PUBLIC
@@ -22,6 +26,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   MLIRShape
   MLIRTransforms
   OMConstPropHelper
+  OMONNXRewrite
   OMONNXOps
   OMSupport
   )
