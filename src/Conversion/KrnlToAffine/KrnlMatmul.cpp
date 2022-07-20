@@ -313,7 +313,7 @@ private:
     MemRefBuilder createMemRef(createAffine);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
+    // int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
@@ -331,12 +331,12 @@ private:
                 // Defines induction variables, and possibly initialize C.
                 jSaved = j;
                 // Alloc and init temp c storage.
-                SmallVector<Value, 4> cAccess;
+                // SmallVector<Value, 4> cAccess;
                 // CC(i + cStart0.getValue(), j + cStart1.getValue());
-                IndexExpr::getValues(cStart, cAccess);
-                cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-                cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
-                Value initVal = createAffine.load(C, cAccess);
+                // IndexExpr::getValues(cStart, cAccess);
+                // cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
+                // cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
+                Value initVal = createAffine.loadIE(C, cStart, {i, j});
                 Value tmpCAccess = (unrollFactor > 1) ? j : zeroIE.getValue();
                 createAffine.store(initVal, TmpC, tmpCAccess);
                 // TTmpC() = affine_load(C, cAccess);
@@ -344,21 +344,21 @@ private:
                 createAffine.forIE(zeroIE, K, 1,
                     [&](AffineBuilderKrnlMem &createAffine, Value k) {
                       MathBuilder createMath(createAffine);
-                      SmallVector<Value, 4> aAccess, bAccess;
+                      // SmallVector<Value, 4> aAccess, bAccess;
                       // AA(i + aStart0.getValue(), k + aStart1.getValue())
-                      IndexExpr::getValues(aStart, aAccess);
-                      aAccess[aRank - 2] =
-                          createMath.add(i, aAccess[aRank - 2]);
-                      aAccess[aRank - 1] =
-                          createMath.add(k, aAccess[aRank - 1]);
-                      Value a = createAffine.load(A, aAccess);
+                      // IndexExpr::getValues(aStart, aAccess);
+                      // aAccess[aRank - 2] =
+                      //    createMath.add(i, aAccess[aRank - 2]);
+                      // aAccess[aRank - 1] =
+                      //    createMath.add(k, aAccess[aRank - 1]);
+                      Value a = createAffine.loadIE(A, aStart, {i, k});
                       // BB(k + bStart0.getValue(), j + bStart1.getValue())
-                      IndexExpr::getValues(bStart, bAccess);
-                      bAccess[bRank - 2] =
-                          createMath.add(k, bAccess[bRank - 2]);
-                      bAccess[bRank - 1] =
-                          createMath.add(j, bAccess[bRank - 1]);
-                      Value b = createAffine.load(B, bAccess);
+                      // IndexExpr::getValues(bStart, bAccess);
+                      // bAccess[bRank - 2] =
+                      //    createMath.add(k, bAccess[bRank - 2]);
+                      // bAccess[bRank - 1] =
+                      //    createMath.add(j, bAccess[bRank - 1]);
+                      Value b = createAffine.loadIE(B, bStart, {k, j});
                       Value res = createMath.mul(a, b);
                       res = createMath.add(
                           res, createAffine.load(TmpC, tmpCAccess));
@@ -367,7 +367,7 @@ private:
                     });
                 // Store temp result into C(i, j)
                 Value finalVal = createAffine.load(TmpC, tmpCAccess);
-                createAffine.store(finalVal, C, cAccess);
+                createAffine.storeIE(finalVal, C, cStart, {i, j});
                 // affine_store(TTmpC(), C, cAccess);
               });
         });
@@ -395,7 +395,7 @@ private:
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
+    // int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
 
     // Generate the vector type conversions.
     assert(VL == mVL && "vector length and VL must be identical for now");
@@ -421,25 +421,27 @@ private:
     create.krnl.memset(TmpProd, vFZero);
 
     LiteralIndexExpr zeroIE(0);
+    Value iZero = create.math.constantIndex(0);
+
     create.affineKMem.forIE(
         zeroIE, K, VL, [&](AffineBuilderKrnlMem &createAffine, Value k) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           // Iterates over the I indices (K is SIMD dim).
           // First compute A[i,k]*B[k, 1] for i=0..iUnrollFactor explicitly.
           // We reuse B[k][0] vector for each iteration of i.
-          SmallVector<Value, 4> bAccess;
-          IndexExpr::getValues(bStart, bAccess);
+          // SmallVector<Value, 4> bAccess;
+          // IndexExpr::getValues(bStart, bAccess);
           // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
-          bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
-          Value vb = create.vec.load(vecType, B, bAccess);
+          // bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+          Value vb = create.vec.loadIE(vecType, B, bStart, {k, iZero});
           // Generate computation for each i, manually unrolled for simplicity.
           for (int64_t i = 0; i < iUnrollFactor; ++i) {
-            SmallVector<Value, 4> aAccess;
-            IndexExpr::getValues(aStart, aAccess);
+            // SmallVector<Value, 4> aAccess;
+            // IndexExpr::getValues(aStart, aAccess);
             Value iVal = create.math.constantIndex(i);
-            aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal);
-            aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
-            Value va = create.vec.load(vecType, A, aAccess);
+            // aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal);
+            // aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
+            Value va = create.vec.loadIE(vecType, A, aStart, {iVal, k});
             Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
             Value vres = create.vec.fma(va, vb, vTmpProd);
             create.vec.store(vres, TmpProd, {iVal});
@@ -459,13 +461,13 @@ private:
     // reduction, and store C.
     uint64_t size = vReductionList.size();
     for (uint64_t i = 0; i < size; ++i) {
-      SmallVector<Value, 4> cAccess;
-      IndexExpr::getValues(cStart, cAccess);
+      // SmallVector<Value, 4> cAccess;
+      // IndexExpr::getValues(cStart, cAccess);
       Value iVal = create.math.constantIndex(i * VL);
-      cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal);
-      Value vc = create.vec.load(vecType, C, cAccess);
+      // cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal);
+      Value vc = create.vec.loadIE(vecType, C, cStart, {iVal, iZero});
       vc = create.math.add(vc, vReductionList[i]);
-      create.vec.store(vc, C, cAccess);
+      create.vec.storeIE(vc, C, cStart, {iVal, iZero});
     }
   }
 
@@ -477,11 +479,12 @@ private:
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
-    MemRefBuilder createMemRef(createAffine);
+    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(createAffine);
+
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
+    // int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
 
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();
@@ -496,21 +499,23 @@ private:
     // innermost loop. Still think its worth it having alloca as we want
     // eventually all the refs to alloca to be register/spill access, not memory
     // load/stores.
-    Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    Value TmpC = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
     LiteralIndexExpr zeroIE(0);
+    Value iZero = create.math.constantIndex(0);
+
     createAffine.forIE(
         zeroIE, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           iSaved = i; // Saved for unroll and jam.
           // Alloca temp vector TmpC and save C(i)/0.0 into it.
-          SmallVector<Value, 4> cAccess;
+          // SmallVector<Value, 4> cAccess;
           // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
-          IndexExpr::getValues(cStart, cAccess);
-          cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
-          Value initVal = create.vec.load(vecType, C, cAccess);
+          // IndexExpr::getValues(cStart, cAccess);
+          // cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
+          Value initVal = create.vec.loadIE(vecType, C, cStart, {i, iZero});
           Value tmpCAccess = (unrollFactor > 1) ? i : zeroIE.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
@@ -520,17 +525,17 @@ private:
                     createAffine);
                 kSaved = k;
                 // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
-                SmallVector<Value, 4> aAccess, bAccess;
-                IndexExpr::getValues(aStart, aAccess);
-                aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
-                aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
-                Value a = createAffine.load(A, aAccess);
+                // SmallVector<Value, 4> aAccess, bAccess;
+                // IndexExpr::getValues(aStart, aAccess);
+                // aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
+                // aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
+                Value a = createAffine.loadIE(A, aStart, {i, k});
                 // Value va = vector_broadcast(vecType, a);
                 Value va = create.vec.broadcast(vecType, a);
                 // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
-                IndexExpr::getValues(bStart, bAccess);
-                bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
-                Value vb = create.vec.load(vecType, B, bAccess);
+                // IndexExpr::getValues(bStart, bAccess);
+                // bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+                Value vb = create.vec.loadIE(vecType, B, bStart, {k, iZero});
                 // TTmpC() = vector_fma(va, vb, TTmpC());
                 Value tmpVal = createAffine.load(TmpC, tmpCAccess);
                 Value res = create.vec.fma(va, vb, tmpVal);
@@ -545,11 +550,12 @@ private:
             for (int64_t i = 0; i < VL; i++)
               mask.emplace_back((i < JLit) ? i : VL + i);
             // permute
-            Value originalCvec = create.vec.load(vecType, C, cAccess);
+            Value originalCvec =
+                create.vec.loadIE(vecType, C, cStart, {i, iZero});
             tmpResults = create.vec.shuffle(tmpResults, originalCvec, mask);
           }
           // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-          create.vec.store(tmpResults, C, cAccess);
+          create.vec.storeIE(tmpResults, C, cStart, {i, iZero});
         });
 
     if (unrollJam && (I.isLiteral() || K.isLiteral())) {
