@@ -27,10 +27,20 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // Offset are added to the list significant indices, e.g. if rank(indices)=4
+  // and rank(indexOffsets)=2, then the offsets are added to the last 2 index
+  // dimensions.
+  mlir::Value loadWithOffset(mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange indexOffsets) const;
   mlir::Value loadIE(
       mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // Offset are added to the list significant indices, e.g. if rank(indices)=4
+  // and rank(indexOffsets)=2, then the offsets are added to the last 2 index
+  // dimensions.
+  void storeWithOffset(mlir::Value val, mlir::Value memref,
+      mlir::ValueRange indices, mlir::ValueRange indexOffsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 

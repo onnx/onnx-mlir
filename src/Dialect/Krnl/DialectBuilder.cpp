@@ -63,6 +63,27 @@ Value KrnlBuilder::load(Value memref, ValueRange indices) const {
   return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
+mlir::Value KrnlBuilder::loadWithOffset(mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange indexOffsets) const {
+  int64_t indexRank = indices.size();
+  int64_t offsetRank = indexOffsets.size();
+  int64_t firstOffsetI = indexRank - offsetRank;
+  assert(firstOffsetI >= 0 && "indexOffset should not have a higher rank than "
+                              "the indices in the memref");
+  MathBuilder createMath(*this);
+  SmallVector<Value, 4> computedIndices();
+  for (int64_t i = 0; i < indexRank; i++) {
+    if (i < firstOffsetI) {
+      computedIndices.append(indices[i]);
+    } else {
+      computedIndices.append(createMath.add(indexOffset[i-firstOffset], indices[i]);
+    }
+  }
+  return load(memref, computedIndices);
+}
+
+} // namespace onnx_mlir
+
 Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
@@ -71,6 +92,25 @@ Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
 
 void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<KrnlStoreOp>(loc, val, memref, indices);
+}
+
+void KrnlBuilder::storeWithOffset(mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange indexOffsets) const {
+  int64_t indexRank = indices.size();
+  int64_t offsetRank = indexOffsets.size();
+  int64_t firstOffsetI = indexRank - offsetRank;
+  assert(firstOffsetI >= 0 && "indexOffset should not have a higher rank than "
+                              "the indices in the memref");
+  MathBuilder createMath(*this);
+  SmallVector<Value, 4> computedIndices();
+  for (int64_t i = 0; i < indexRank; i++) {
+    if (i < firstOffsetI) {
+      computedIndices.append(indices[i]);
+    } else {
+      computedIndices.append(createMath.add(indexOffset[i-firstOffset], indices[i]);
+    }
+  }
+  store(val, memref, computedIndices);
 }
 
 void KrnlBuilder::storeIE(
