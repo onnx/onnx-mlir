@@ -65,8 +65,8 @@ Value getIdentityValue<ONNXReduceMeanOp>(
 }
 
 template <typename ONNXReductionOp>
-std::vector<int64_t> getDefinedAxes(Operation *op) {
-  std::vector<int64_t> definedAxes;
+llvm::SmallVector<int64_t, 4> getDefinedAxes(Operation *op) {
+  llvm::SmallVector<int64_t, 4> definedAxes;
   ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
   if (axisAttrs) {
     for (Attribute axisAttr : axisAttrs.getValue()) {
@@ -78,8 +78,8 @@ std::vector<int64_t> getDefinedAxes(Operation *op) {
 }
 
 template <>
-std::vector<int64_t> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
-  std::vector<int64_t> definedAxes;
+llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
+  llvm::SmallVector<int64_t, 4> definedAxes;
   ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
   Value axesValue = reduceSumOp.axes();
 
@@ -162,13 +162,13 @@ template <typename ReductionOp>
 using BlockOp = typename BlockReduceOp<ReductionOp>::Op;
 
 SmallVector<int64_t> getReductionShape(
-    ShapedType inputType, const std::vector<int64_t> &axes, bool isKeepdims) {
+    ShapedType inputType, const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
   SmallVector<int64_t> reduceShape;
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t rank = inputType.getRank();
 
   // Mark reduction axes.
-  std::vector<bool> isReductionAxis;
+  llvm::SmallVector<bool, 4> isReductionAxis;
   for (int64_t i = 0; i < rank; ++i) {
     if (std::find(axes.begin(), axes.end(), i) != axes.end())
       isReductionAxis.push_back(true);
@@ -186,13 +186,13 @@ SmallVector<int64_t> getReductionShape(
 }
 
 int64_t getReductionFactor(
-    ShapedType inputType, const std::vector<int64_t> &axes) {
+    ShapedType inputType, const llvm::SmallVector<int64_t, 4> &axes) {
   SmallVector<int64_t> reduceShape;
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t rank = inputType.getRank();
 
   // Mark reduction axes.
-  std::vector<bool> isReductionAxis;
+  llvm::SmallVector<bool, 4> isReductionAxis;
   for (int64_t i = 0; i < rank; ++i) {
     if (std::find(axes.begin(), axes.end(), i) != axes.end())
       isReductionAxis.push_back(true);
@@ -208,17 +208,17 @@ int64_t getReductionFactor(
   return reduceFactor;
 }
 
-// Create "mhlo.reduce", "operand" is reduce input and "zero" is init value,
+// Create "mhlo.reduce", "operand" is reduce input and "identity" is init value,
 // reduce from operand to operand[reduceIdx].
 template <typename BlockReduceOp>
-Value createReduce(Location loc, Value operand, Value zero,
-    SmallVector<int64_t> &reduceShape, std::vector<int64_t> axes,
+Value createReduce(Location loc, Value operand, Value identity,
+    SmallVector<int64_t> &reduceShape, llvm::SmallVector<int64_t, 4> axes,
     PatternRewriter &rewriter, bool keepDims) {
   RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
   mhlo::ReduceOp reduce = rewriter.create<mhlo::ReduceOp>(
-      loc, reduceResultType, operand, zero, rewriter.getI64TensorAttr(axes));
+      loc, reduceResultType, operand, identity, rewriter.getI64TensorAttr(axes));
 
   // setup "mhlo.reduce"'s body
   Region &region = reduce.body();
@@ -272,13 +272,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
     if (outputType == nullptr)
       return failure();
     FloatType elemType = inputType.getElementType().cast<FloatType>();
-    Value zero = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
+    Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
     int64_t inRank = inputType.getRank();
 
     // Get axes value defined by op
     // Leave empty is not defined
-    std::vector<int64_t> definedAxes = getDefinedAxes<ONNXReductionOp>(op);
-    std::vector<int64_t> axes;
+    llvm::SmallVector<int64_t, 4> definedAxes = getDefinedAxes<ONNXReductionOp>(op);
+    llvm::SmallVector<int64_t, 4> axes;
     if (definedAxes.size()) {
       for (int64_t axis : definedAxes) {
         if (axis < -inRank || axis > inRank - 1)
@@ -298,7 +298,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
     SmallVector<int64_t> reducedShape =
         getReductionShape(inputType, axes, false);
     Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(
-        loc, input, zero, reducedShape, axes, rewriter, isKeepdims);
+        loc, input, identity, reducedShape, axes, rewriter, isKeepdims);
     if (computeMean) {
       // TODO: support dynamic shape
       if (inputType.hasStaticShape()) {
@@ -313,7 +313,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
         Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
             loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
-        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne, zero,
+        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne, identity,
             reducedShape, axes, rewriter, isKeepdims);
         reduceResult = rewriter.create<mhlo::DivOp>(
             loc, outputType, reduceResult, reduceSum);

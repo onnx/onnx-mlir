@@ -106,6 +106,35 @@ void createCompareOp<ONNXLessOrEqualOp>(Value &op,
       loc, lhs, rhs, mhlo::ComparisonDirection::LE);
 }
 
+llvm::SmallVector<Value, 4> getBroadcastedOperands(
+    Operation *op, ConversionPatternRewriter &rewriter, Location loc,
+    int64_t outputRank) {
+  llvm::SmallVector<Value, 4> broadcastedOperands;
+  Type outputType = *op->result_type_begin();
+  assert(outputType.isa<ShapedType>() && "output type is not shaped");
+  ShapedType outputShapedType = outputType.cast<ShapedType>();
+  Type elementType =
+      op->getOperands()[0].getType().dyn_cast<ShapedType>().getElementType();
+  RankedTensorType broadcastedOutputType =
+      RankedTensorType::get(outputShapedType.getShape(), elementType);
+
+  Value resultExtents =
+      mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
+          loc, op->getOperands(), rewriter);
+  for (Value operand : op->getOperands()) {
+    RankedTensorType operandType =
+        operand.getType().dyn_cast<RankedTensorType>();
+    assert(operandType != nullptr && "operand type is not ranked");
+    SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
+        llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
+    Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
+        broadcastedOutputType, operand, resultExtents,
+        rewriter.getI64TensorAttr(broadcastDimensions));
+    broadcastedOperands.push_back(broadcast);
+  }
+  return broadcastedOperands;
+}
+
 // Element-wise unary ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -157,7 +186,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = NameLoc::get(
-        StringAttr::get(op->getContext(), ONNXReluOp::getOperationName()),
+        StringAttr::get(op->getContext(), ONNXCastOp::getOperationName()),
         op->getLoc());
     ONNXCastOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.input();
@@ -187,44 +216,15 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     DimsExpr empty;
     LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
-
     int64_t outputRank = shapeHelper.outputRank;
-    Type outputType = *op->result_type_begin();
-    ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
-    if (outputShapedType == nullptr)
-      return failure();
-    Type elementType =
-        operands[0].getType().dyn_cast<ShapedType>().getElementType();
-    RankedTensorType broadcastedOutputType =
-        RankedTensorType::get(outputShapedType.getShape(), elementType);
-
-    Value lhs = op->getOperands()[0];
-    Value rhs = op->getOperands()[1];
-    Value resultExtents =
-        mlir::hlo::ComputeBinaryElementwiseBroadcastingResultExtents(
-            loc, lhs, rhs, rewriter);
-    llvm::SmallVector<Value, 4> broadcastedOperands;
-    for (Value operand : op->getOperands()) {
-      RankedTensorType operandType =
-          operand.getType().dyn_cast<RankedTensorType>();
-      if (operandType == nullptr)
-        return failure();
-      SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
-          llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
-      Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
-          broadcastedOutputType, operand, resultExtents,
-          rewriter.getI64TensorAttr(broadcastDimensions));
-      broadcastedOperands.push_back(broadcast);
-    }
+    llvm::SmallVector<Value, 4> broadcastedOperands =
+        getBroadcastedOperands(op, rewriter, loc, outputRank);
     Value broadcastedLHS = broadcastedOperands[0];
     Value broadcastedRHS = broadcastedOperands[1];
-
     Value mhloOp;
     createCompareOp<ElementwiseBinaryOp>(
         mhloOp, rewriter, loc, broadcastedLHS, broadcastedRHS);
-
     rewriter.replaceOp(op, mhloOp);
-
     return success();
   }
 };
@@ -255,29 +255,11 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
         operands[0].getType().dyn_cast<ShapedType>().getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
-
-    Value resultExtents =
-        mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
-            loc, op->getOperands(), rewriter);
-    llvm::SmallVector<Value, 4> broadcastedOperands;
-    for (Value operand : op->getOperands()) {
-      RankedTensorType operandType =
-          operand.getType().dyn_cast<RankedTensorType>();
-      if (operandType == nullptr)
-        return failure();
-      SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
-          llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
-      Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
-          broadcastedOutputType, operand, resultExtents,
-          rewriter.getI64TensorAttr(broadcastDimensions));
-      broadcastedOperands.push_back(broadcast);
-    }
-
+    llvm::SmallVector<Value, 4> broadcastedOperands =
+        getBroadcastedOperands(op, rewriter, loc, outputRank);
     Value mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
         loc, op->getResultTypes(), broadcastedOperands);
-
     rewriter.replaceOp(op, mhloOp);
-
     return success();
   }
 };

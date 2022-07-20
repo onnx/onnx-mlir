@@ -20,7 +20,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-void populateLoweringONNXDecomposeOpToONNXPattern(
+void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &, MLIRContext *);
 
 }

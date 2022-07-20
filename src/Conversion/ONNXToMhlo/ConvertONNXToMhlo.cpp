@@ -22,7 +22,7 @@ namespace onnx_mlir {
 
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  populateLoweringONNXDecomposeOpToONNXPattern(patterns, ctx);
+  populateDecomposingONNXBeforeMhloPatterns(patterns, ctx);
   // Math
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
