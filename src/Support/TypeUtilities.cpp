@@ -36,6 +36,12 @@ ArrayRef<int64_t> getShape(Type ty) {
   return ty.cast<ShapedType>().getShape();
 }
 
+/// Get rank.
+int64_t getRank(Type ty) {
+  assert(isRankedShapedType(ty) && "Type must be ranked");
+  return ty.cast<ShapedType>().getRank();
+}
+
 /// Get the number of elements.
 int64_t getNumberOfElements(Type ty) {
   ArrayRef<int64_t> shape = getShape(ty);

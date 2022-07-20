@@ -26,8 +26,10 @@ void populateONNXToMhloConversionPattern(
   populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
   // Neural network
+  populateLoweringONNXNormalizationOpToMhloPattern(patterns, ctx);
   populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
   // Tensor
+  populateLoweringONNXConcatOpToMhloPattern(patterns, ctx);
   populateLoweringONNXConstantOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReshapeOpToMhloPattern(patterns, ctx);
 }

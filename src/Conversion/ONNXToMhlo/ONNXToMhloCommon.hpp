@@ -58,9 +58,13 @@ void populateLoweringONNXSoftmaxOpToMhloPattern(
 void populateLoweringONNXGemmOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 // `NN` directory methods:
+void populateLoweringONNXNormalizationOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 // `Tensor` directory methods:
+void populateLoweringONNXConcatOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConstantOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToMhloPattern(
