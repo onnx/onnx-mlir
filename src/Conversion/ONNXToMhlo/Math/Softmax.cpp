@@ -93,7 +93,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
       shapeValue, dimensionsWithoutFeature, rewriter);
   // X - max[X]
   Value shiftedLogits =
-      rewriter.create<mhlo::SubOp>(loc, input, maxValueBroadcast);
+      rewriter.create<mhlo::SubtractOp>(loc, input, maxValueBroadcast);
   // exp(X - max[X])
   Value expLogits = rewriter.create<mhlo::ExpOp>(loc, shiftedLogits);
   // sum[exp(X - max[X])]
@@ -134,9 +134,9 @@ struct ONNXSoftmaxOpLoweringToMhlo : public ConversionPattern {
 
     Location loc = op->getLoc();
     FloatType elementType = inputType.getElementType().cast<FloatType>();
-    Value zero =
-        rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elementType));
-    Value negInfinity = rewriter.create<mhlo::ConstOp>(
+    Value zero = rewriter.create<mhlo::ConstantOp>(
+        loc, rewriter.getZeroAttr(elementType));
+    Value negInfinity = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(
                  elementType, APFloat::getInf(elementType.getFloatSemantics(),
                                   /*isNegative=*/true)));

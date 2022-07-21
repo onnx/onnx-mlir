@@ -223,8 +223,7 @@ void ZTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-ZHighDialect::ZHighDialect(MLIRContext *ctx)
-    : Dialect(getDialectNamespace(), ctx, TypeID::get<ZHighDialect>()) {
+void ZHighDialect::initialize() {
   addAttributes<
 #define GET_ATTRDEF_LIST
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
@@ -979,3 +978,5 @@ LogicalResult ZHighConcatOp::inferShapes(
 
 #define GET_ATTRDEF_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
+
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighDialect.cpp.inc"

@@ -24,7 +24,7 @@ namespace onnx_mlir {
 struct OnnxBuilder : onnx_mlir::DialectBuilder {
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
@@ -94,7 +94,7 @@ template <class... Ts>
 struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
 };

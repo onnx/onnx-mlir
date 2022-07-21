@@ -444,7 +444,7 @@ DenseElementsAttr createDenseElementsAttrFromRawBuffer(
   bool detectedSplat;
   assert(DenseElementsAttr::isValidRawBuffer(tensorType, arr, detectedSplat) &&
          "The raw buffer is invalid for provided type");
-  return DenseElementsAttr::getFromRawBuffer(tensorType, arr, detectedSplat);
+  return DenseElementsAttr::getFromRawBuffer(tensorType, arr);
 }
 
 Value normalizeConstantOp(

@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
 /// onnx.Erf lowering to krnl.erf.
-func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Erf"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -17,7 +17,7 @@ func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
 /// onnx.Acos lowering to krnl.acos.
-func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Acos"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -34,7 +34,7 @@ func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
  
  
 /// onnx.Acosh lowering to krnl.acosh.
-func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Acosh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -51,7 +51,7 @@ func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
  
  
 /// onnx.Asin lowering to krnl.asin.
-func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Asin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -68,7 +68,7 @@ func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
  
  
 /// onnx.Asinh lowering to krnl.asinh.
-func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Asinh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -84,7 +84,7 @@ func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK: return [[ALLOC]] : memref<10x10xf32>
  
 /// onnx.Atan lowering to krnl.atan.
-func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Atan"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -101,7 +101,7 @@ func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   
 
 /// onnx.Atanh lowering to krnl.atanh.
-func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Atanh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
@@ -118,7 +118,7 @@ func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
  
  
 /// onnx.Tan lowering to krnl.tan.
-func @tan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @tan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Tan"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
