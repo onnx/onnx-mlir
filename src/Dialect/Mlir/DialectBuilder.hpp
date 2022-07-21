@@ -196,12 +196,14 @@ struct VectorBuilder final : DialectBuilder {
 
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices, mlir::ValueRange offsets) const;
   mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
       mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
@@ -234,6 +236,7 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
       mlir::ValueRange offsets) const;
   mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
@@ -241,6 +244,7 @@ struct GenericAffineBuilder final : DialectBuilder {
 
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
   void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
       mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
