@@ -135,17 +135,25 @@ In ONNX dialect, the op for the top version has no version in the op name, while
 
 When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.  
 
-## Migrating
+## Upgrade to a new version of ONNX
 To migrate a new version ONNX, first the third_part/onnx should be upgraded and your installation
 of ONNX.
 Then you can run gen_onnx_mlir.py with flag `--check_operation_version`. The top version for all 
-operation will be outputted as a new `version_dict`.
+operation will be outputted as a new `version_dict`. Diagonstic output will 
+tell you which Op has a newer version and which Op is new in this ONNX.
+You do not have to upgrade all Ops at once. ONNX-MLIR allows you to selectively
+upgrade Ops.
+
+
 If the interface of an operation remains the same (from the change document of ONNX), you can
 just use the new version.
-If the interface does change, you can insert the new version as the first in the version list.
-For the existing code, all the corresponding code has to be changed. For example, when ReduceSum 
-is moved from version 11 to 13, ONNXReduceSumOp is replaced with ONNXReduceSumOpV11 first. 
-Then the code for version 13 will use ONNXReduceSumOp.
+If the interface does change (for example, a new input or attribute is introduced), we need a different definition for the Op in ONNX dialect. Usually, we also want to keep the old Op in dialect to handle old models since onnx converter may not work. Here is how to do it:
+*  You can insert the new version as the first in the version dictionary, 'version_dic' in gen_onnx_mlir.py. For example, there is an entry for ReduceSum Op, "'ReduceSum': [13, 11],". 
+In ONNX dialect, ONNXReduceSumOp will be for op set 13, while ONNXReduceSumV11Op is for op set 11.  When a onnx model is read into ONNX-MLIR, the proper Op in ONNX dialect will be chosen based on the op_set specified in the model.
+* If it is easy to convert the old version op to the new version, add a rewrite rule in `src/Transform/ONNX/Decompose.td`. There are examples for Resize, Clip and Upsmaple Ops. Then you need to update the type inference, rewriting rule and lowering for the new version.
+* You may want to keep old version in dialect if it is not easy to convert or 
+the old version is a specially optimized. You need to change all the code related to the old version by for example, replacing ONNXReduceSumOp to ONNXReduceSumV11Op. Then implement the support for ONNXReduceSumOp, which is version 13 now.
+
 The reason for such design is that most of ONNX changes do not change the interface. We do not
 want to put burden on developer to remember which version of operation is used unless absolutely
 necessary. 
