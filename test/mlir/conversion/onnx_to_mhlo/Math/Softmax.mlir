@@ -47,7 +47,7 @@ func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf
 // CHECK-NEXT:    return [[VAR_19_]] : tensor<?x20x30xf32>
 }
 
-func @test_softmax_2d(%arg0 : tensor<1x10xf32>) -> tensor<1x10xf32> {
+func.func @test_softmax_2d(%arg0 : tensor<1x10xf32>) -> tensor<1x10xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = -1 : si64, onnx_opset = 13 : si64} : (tensor<1x10xf32>) -> tensor<1x10xf32>
   "func.return"(%0) : (tensor<1x10xf32>) -> ()
 // CHECK-LABEL:  func @test_softmax_2d

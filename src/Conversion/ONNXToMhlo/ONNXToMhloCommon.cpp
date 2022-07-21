@@ -22,11 +22,11 @@ Value getShapedZero(Location loc, ConversionPatternRewriter &rewriter,
   Value broadcastedZero;
   if (inpType.hasStaticShape())
     broadcastedZero =
-        rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(inpType));
+        rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(inpType));
   else {
     Type elemType = inpType.getElementType();
     Value zero =
-        rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
+        rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedZero = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, resultType, zero, shape, rewriter.getI64TensorAttr({}));

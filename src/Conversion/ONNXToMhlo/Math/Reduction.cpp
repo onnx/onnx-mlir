@@ -31,7 +31,7 @@ Value getIdentityValue(
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-  return rewriter.create<mhlo::ConstOp>(
+  return rewriter.create<mhlo::ConstantOp>(
       loc, rewriter.getFloatAttr(
                elemType, APFloat::getInf(elemType.getFloatSemantics(),
                              /*isNegative=*/true)));
@@ -40,7 +40,7 @@ Value getIdentityValue<ONNXReduceMaxOp>(
 template <>
 Value getIdentityValue<ONNXReduceMinOp>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-  return rewriter.create<mhlo::ConstOp>(
+  return rewriter.create<mhlo::ConstantOp>(
       loc, rewriter.getFloatAttr(
                elemType, APFloat::getInf(elemType.getFloatSemantics(),
                              /*isNegative=*/false)));
@@ -49,19 +49,19 @@ Value getIdentityValue<ONNXReduceMinOp>(
 template <>
 Value getIdentityValue<ONNXReduceSumOp>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-  return rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
+  return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumV11Op>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-  return rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
+  return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMeanOp>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-  return rewriter.create<mhlo::ConstOp>(loc, rewriter.getZeroAttr(elemType));
+  return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <typename ONNXReductionOp>
@@ -242,7 +242,7 @@ Value createReduce(Location loc, Value operand, Value identity,
         getReductionShape(operandType, axes, true);
     Type resultType =
         RankedTensorType::get(resultShape, operandType.getElementType());
-    Value shape = rewriter.create<mhlo::ConstOp>(
+    Value shape = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getI64TensorAttr(resultShape));
     result =
         rewriter.create<mhlo::DynamicReshapeOp>(loc, resultType, result, shape);
@@ -309,7 +309,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {
-        Value ones = rewriter.create<mhlo::ConstOp>(
+        Value ones = rewriter.create<mhlo::ConstantOp>(
             loc, rewriter.getFloatAttr(elemType, 1.0));
         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
         Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(

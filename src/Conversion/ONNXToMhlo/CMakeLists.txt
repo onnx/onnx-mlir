@@ -3,8 +3,7 @@
 # Please keep in alphabetical order.
 
 install(TARGETS 
-  MhloDialect 
-  MhloInferShapeEqualityOpInterface
+  MhloDialect
   MLIRMhloUtils
   HloOpsCommon
   )

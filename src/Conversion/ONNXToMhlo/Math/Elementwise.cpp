@@ -42,12 +42,12 @@ struct MhloDialectOp<ONNXCeilOp> {
 
 template <>
 struct MhloDialectOp<ONNXCosOp> {
-  using Op = mhlo::CosOp;
+  using Op = mhlo::CosineOp;
 };
 
 template <>
 struct MhloDialectOp<ONNXSubOp> {
-  using Op = mhlo::SubOp;
+  using Op = mhlo::SubtractOp;
 };
 
 template <>
@@ -118,7 +118,7 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
       RankedTensorType::get(outputShapedType.getShape(), elementType);
 
   Value resultExtents =
-      mlir::hlo::ComputeNaryElementwiseBroadcastingResultExtents(
+      mlir::hlo::computeNaryElementwiseBroadcastingResultExtents(
           loc, op->getOperands(), rewriter);
   for (Value operand : op->getOperands()) {
     RankedTensorType operandType =

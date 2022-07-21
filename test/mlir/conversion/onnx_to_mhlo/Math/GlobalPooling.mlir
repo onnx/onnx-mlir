@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --canonicalize --convert-onnx-to-mhlo --canonicalize %s -split-input-file | FileCheck %s
 
 // COM: Test rewriting GlobalAveragePool into ReduceMean
-func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_average_pool
@@ -13,7 +13,7 @@ func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32
 // -----
 
 // COM: Test rewriting GlobalAveragePool into ReduceMean with dynamic dimensions
-func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32> {
+func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32>
   return %0 : tensor<1x?x1x1xf32>
   // CHECK-LABEL: test_global_average_pool_dyn_dims
@@ -28,7 +28,7 @@ func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x
 // -----
 
 // COM: Test rewriting GlobalMaxPool into ReduceMax
-func @test_global_max_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+func.func @test_global_max_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_max_pool
@@ -40,7 +40,7 @@ func @test_global_max_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
 // -----
 
 // COM: Test rewriting GlobalMaxPool into ReduceMax with dynamic dimensions
-func @test_global_max_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32> {
+func.func @test_global_max_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x1x1xf32>
   return %0 : tensor<1x?x1x1xf32>
   // CHECK-LABEL: test_global_max_pool_dyn_dims

@@ -67,12 +67,12 @@ Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
     const Type &resultType) {
   Value broadcastedValue;
   if (inpType.hasStaticShape())
-    broadcastedValue = rewriter.create<mhlo::ConstOp>(
+    broadcastedValue = rewriter.create<mhlo::ConstantOp>(
         loc, DenseElementsAttr::get(inpType,
                  rewriter.getFloatAttr(inpType.getElementType(), value)));
   else {
     Type elemType = inpType.getElementType();
-    Value floatValue = rewriter.create<mhlo::ConstOp>(
+    Value floatValue = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(elemType, value));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
