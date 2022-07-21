@@ -2,7 +2,12 @@
 
 # Please keep in alphabetical order.
 
-install(TARGETS MhloDialect MhloInferShapeEqualityOpInterface)
+install(TARGETS 
+  MhloDialect 
+  MhloInferShapeEqualityOpInterface
+  MLIRMhloUtils
+  HloOpsCommon
+  )
 
 add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
