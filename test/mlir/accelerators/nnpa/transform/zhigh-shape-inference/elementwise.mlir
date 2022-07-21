@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
-func @add(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @add(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Add"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -13,7 +13,7 @@ func @add(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @add_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @add_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Add"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -26,7 +26,7 @@ func @add_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @sub(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @sub(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sub"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -39,7 +39,7 @@ func @sub(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @sub_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @sub_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sub"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -52,7 +52,7 @@ func @sub_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @mul(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @mul(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Mul"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -65,7 +65,7 @@ func @mul(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @mul_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @mul_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Mul"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -78,7 +78,7 @@ func @mul_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @div(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @div(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Div"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -91,7 +91,7 @@ func @div(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @div_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @div_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Div"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -104,7 +104,7 @@ func @div_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @max(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @max(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
 
 // CHECK-LABEL:  func @max
@@ -117,7 +117,7 @@ func @max(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @max_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @max_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -130,7 +130,7 @@ func @max_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @min(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @min(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Min"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -143,7 +143,7 @@ func @min(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1:
 
 // -----
 
-func @min_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @min_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Min"(%arg0, %arg1) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -156,7 +156,7 @@ func @min_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @relu(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @relu(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Relu"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -169,7 +169,7 @@ func @relu(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> te
 
 // -----
 
-func @relu_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @relu_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Relu"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -182,7 +182,7 @@ func @relu_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "
 
 // -----
 
-func @tanh(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @tanh(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Tanh"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -195,7 +195,7 @@ func @tanh(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> te
 
 // -----
 
-func @tanh_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @tanh_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Tanh"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -208,7 +208,7 @@ func @tanh_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "
 
 // -----
 
-func @sigmoid(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @sigmoid(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sigmoid"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -221,7 +221,7 @@ func @sigmoid(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) ->
 
 // -----
 
-func @sigmoid_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @sigmoid_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sigmoid"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -234,7 +234,7 @@ func @sigmoid_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout 
 
 // -----
 
-func @log(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @log(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Log"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -247,7 +247,7 @@ func @log(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> ten
 
 // -----
 
-func @log_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @log_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Log"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -260,7 +260,7 @@ func @log_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @exp(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @exp(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Exp"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -273,7 +273,7 @@ func @exp(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> ten
 
 // -----
 
-func @exp_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @exp_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Exp"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -286,7 +286,7 @@ func @exp_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @softmax(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32> { 
+func.func @softmax(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Softmax"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -299,7 +299,7 @@ func @softmax(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -
 
 // -----
 
-func @softmax_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32> { 
+func.func @softmax_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Softmax"(%arg0) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 

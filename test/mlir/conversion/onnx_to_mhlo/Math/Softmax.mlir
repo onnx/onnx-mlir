@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --decompose-onnx="target=mhlo" --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
 
-func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+func.func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64, onnx_opset = 13 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
   "func.return"(%0) : (tensor<10x20x30xf32>) -> ()
 // CHECK-LABEL:  func @test_softmax
@@ -20,7 +20,7 @@ func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
 }
 
 
-func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {
+func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64, onnx_opset = 13 : si64} : (tensor<?x20x30xf32>) -> tensor<?x20x30xf32>
   "func.return"(%0) : (tensor<?x20x30xf32>) -> ()
 // CHECK-LABEL:  func @test_softmax_dynamic

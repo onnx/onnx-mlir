@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -255,6 +255,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 /// This is a partial lowering to Krnl loops of the ONNX operations.
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FrontendToKrnlLoweringPass)
 
   StringRef getArgument() const override { return "convert-onnx-to-krnl"; }
 

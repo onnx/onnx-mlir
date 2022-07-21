@@ -6,9 +6,9 @@ add_onnx_mlir_library(OMMlirDialects
   DialectBuilder.cpp
 
   LINK_LIBS PUBLIC
-  MLIRMath
-  MLIRAffine
-  MLIRSCF
-  MLIRVector
-  MLIRLLVMIR
+  MLIRMathDialect
+  MLIRAffineDialect
+  MLIRSCFDialect
+  MLIRVectorDialect
+  MLIRLLVMIRTransforms
   )

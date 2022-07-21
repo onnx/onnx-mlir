@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
 // Hoist invariant instructions outside of the loop.
-func @simple_block(%arg0 : memref<?xf32>) {
+func.func @simple_block(%arg0 : memref<?xf32>) {
   // CHECK-LABEL: simple_block
   // CHECK-NEXT:  arith.constant
   // CHECK-NEXT:  memref.dim 

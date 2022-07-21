@@ -16,7 +16,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -488,6 +488,34 @@ Value MathBuilder::castToIndex(Value src) const {
   return cast(b.getIndexType(), src);
 }
 
+// Add offsets to least significant values in indices. So if indices has 4
+// values, (i, j, k, l) and offsets has 2 values (K, L), the results will be (i,
+// j, k+K, l+L).
+void MathBuilder::addOffsetToLeastSignificant(mlir::ValueRange indices,
+    mlir::ValueRange offsets,
+    llvm::SmallVectorImpl<mlir::Value> &computedIndices) const {
+  int64_t indexRank = indices.size();
+  int64_t offsetRank = offsets.size();
+  int64_t firstOffset = indexRank - offsetRank;
+  assert(firstOffset >= 0 && "indexOffset should not have a higher rank than "
+                             "the indices in the memref");
+  computedIndices.clear();
+  for (int64_t i = 0; i < indexRank; i++) {
+    if (i < firstOffset) {
+      computedIndices.emplace_back(indices[i]);
+    } else {
+      computedIndices.emplace_back(add(offsets[i - firstOffset], indices[i]));
+    }
+  }
+}
+
+void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
+    ValueRange offsets, llvm::SmallVectorImpl<Value> &computedIndices) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  addOffsetToLeastSignificant(indexValues, offsets, computedIndices);
+}
+
 //===----------------------------------------------------------------------===//
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
@@ -648,9 +676,40 @@ Value VectorBuilder::load(
     VectorType vecType, Value memref, ValueRange indices) const {
   return b.create<vector::LoadOp>(loc, vecType, memref, indices);
 }
+mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(vecType, memref, computedIndices);
+}
+
+mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
+    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(vecType, memref, computedIndices);
+}
 
 void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<vector::StoreOp>(loc, val, memref, indices);
+}
+
+void VectorBuilder::store(mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
+}
+
+void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
+    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
