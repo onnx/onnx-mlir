@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 
-func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
+func.func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, tensor<1x1200xf32>, none, none) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>)
  "func.return"(%Y, %Y_h) : (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) -> ()
@@ -34,7 +34,7 @@ func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf
 
 // -----
 
-func @test_gru1(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
+func.func @test_gru1(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %InitH) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, tensor<1x1200xf32>, none, tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>)
   "func.return"(%Y, %Y_h) : (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>) -> ()
@@ -66,7 +66,7 @@ func @test_gru1(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tenso
 
 // -----
 
-func @test_gru_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<1x2000x200xf32>) {
+func.func @test_gru_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<1x2000x200xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %InitH) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, tensor<1x1200xf32>, none, tensor<1x2000x200xf32>) -> (none, tensor<1x2000x200xf32>)
   "func.return"(%Y_h) : (tensor<1x2000x200xf32>) -> ()
@@ -98,7 +98,7 @@ func @test_gru_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %
 
 // -----
 
-func @test_gru_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>, %InitC: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>) {
+func.func @test_gru_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>, %InitH: tensor<1x2000x200xf32>, %InitC: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %InitH) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, tensor<1x1200xf32>, none, tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, none)
   "func.return"(%Y) : (tensor<7x1x2000x200xf32>) -> ()
@@ -124,7 +124,7 @@ func @test_gru_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: t
 
 // -----
 
-func @test_gru_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<1x2000x200xf32>) {
+func.func @test_gru_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %InitH: tensor<1x2000x200xf32>) -> (tensor<1x2000x200xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %cst, %cst, %InitH) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, none, none, tensor<1x2000x200xf32>) -> (none, tensor<1x2000x200xf32>)
   "func.return"(%Y_h) : (tensor<1x2000x200xf32>) -> ()
@@ -154,7 +154,7 @@ func @test_gru_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32
 
 // -----
 
-func @test_gru_noB_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %InitH: tensor<1x2000x200xf32>, %InitC: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>) {
+func.func @test_gru_noB_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: tensor<1x600x200xf32>, %InitH: tensor<1x2000x200xf32>, %InitC: tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %cst, %cst, %InitH) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x600x204xf32>, tensor<1x600x200xf32>, none, none, tensor<1x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, none)
   "func.return"(%Y) : (tensor<7x1x2000x200xf32>) -> ()
@@ -178,7 +178,7 @@ func @test_gru_noB_noYh(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %
 
 // -----
 
-func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>) -> (tensor<?x1x?x200xf32>, tensor<1x?x200xf32>) {
+func.func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?xf32>, %R: tensor<1x600x200xf32>, %B: tensor<1x1200xf32>) -> (tensor<?x1x?x200xf32>, tensor<1x?x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<?x?x?xf32>, tensor<1x600x?xf32>, tensor<1x600x200xf32>, tensor<1x1200xf32>, none, none) -> (tensor<?x1x?x200xf32>, tensor<1x?x200xf32>)
  "func.return"(%Y, %Y_h) : (tensor<?x1x?x200xf32>, tensor<1x?x200xf32>) -> ()
@@ -211,7 +211,7 @@ func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?xf32>
 
 // -----
 
-func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x600x?xf32>, %R: tensor<2x600x200xf32>, %B: tensor<2x1200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) {
+func.func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x600x?xf32>, %R: tensor<2x600x200xf32>, %B: tensor<2x1200xf32>) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<?x?x?xf32>, tensor<2x600x?xf32>, tensor<2x600x200xf32>, tensor<2x1200xf32>, none, none) -> (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>)
  "func.return"(%Y, %Y_h) : (tensor<?x2x?x200xf32>, tensor<2x?x200xf32>) -> ()
@@ -249,7 +249,7 @@ func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2x600x
 
 // COM : Maximum hidden_size in GRU is 10880. Not lowered when using 10881.
 
-func @test_onnx_to_zhigh_gru_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x32643x204xf32>, %R: tensor<1x32643x10881xf32>, %B: tensor<1x65280xf32>) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) {
+func.func @test_onnx_to_zhigh_gru_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x32643x204xf32>, %R: tensor<1x32643x10881xf32>, %B: tensor<1x65280xf32>) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 10881 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x32643x204xf32>, tensor<1x32643x10881xf32>, tensor<1x65280xf32>, none, none) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>)
  "func.return"(%Y, %Y_h) : (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) -> ()
@@ -265,7 +265,7 @@ func @test_onnx_to_zhigh_gru_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: t
 /// COM: Not lowered when dimensin size exceeds DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE in `third_party/zdnn-lib/zdnn_limit.h`
 /// COM: DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE depends on zAIU HW. Please check the value if these tests fails.
 
-func @test_exceed_limit_gemm(%arg0 : tensor<32769x5xf32>, %arg1 : tensor<5x32769xf32>, %arg2: tensor<32769xf32>) -> tensor<*xf32> {
+func.func @test_exceed_limit_gemm(%arg0 : tensor<32769x5xf32>, %arg1 : tensor<5x32769xf32>, %arg2: tensor<32769xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 1.0 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<32769x5xf32>, tensor<5x32769xf32>, tensor<32769xf32>) -> tensor<*xf32>
  "func.return"(%0) : (tensor<*xf32>) -> ()
 

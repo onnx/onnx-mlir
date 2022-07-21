@@ -5,7 +5,7 @@
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 4, 10)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (d1 + 2, d0 + 4, 10)>
 
-func @simple_block() {
+func.func @simple_block() {
   // CHECK-LABEL: simple_block
   // CHECK-NEXT: affine.for [[OUTER_LOOP:%.+]] = 0 to 10 step 2 {
   // CHECK-NEXT:   affine.for [[INNER_LOOP:%.+]] = #map{{.*}}([[OUTER_LOOP]]) to #map{{.*}}([[OUTER_LOOP]]) {
@@ -22,7 +22,7 @@ func @simple_block() {
   return
 }
 
-func @block_nested() {
+func.func @block_nested() {
   // CHECK-LABEL: block_nested
   // CHECK-NEXT: affine.for [[OUTER_LOOP:%.+]] = 0 to 10 step 4 {
   // CHECK-NEXT:   affine.for [[MIDDLE_LOOP:%.+]] = #map{{.*}}([[OUTER_LOOP]]) to min #map{{.*}}([[OUTER_LOOP]]) step 2 {

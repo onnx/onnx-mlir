@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh --constprop-onnx %s -split-input-file | FileCheck %s
 
-func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
+func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
   return %0 : tensor<2x3x4x5xf32>
 
@@ -26,7 +26,7 @@ func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %
 
 // -----
 
-func @test_batchnorm_5d_not_lowered(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
+func.func @test_batchnorm_5d_not_lowered(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5x6xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5x6xf32>
   return %0 : tensor<2x3x4x5x6xf32>
   // CHECK-LABEL: test_batchnorm_5d_not_lowered
@@ -35,7 +35,7 @@ func @test_batchnorm_5d_not_lowered(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<
 
 // -----
 
-func @test_batchnorm_constprop(%arg0: tensor<1x2x3x3xf32>) -> tensor<1x2x3x3xf32> {
+func.func @test_batchnorm_constprop(%arg0: tensor<1x2x3x3xf32>) -> tensor<1x2x3x3xf32> {
   %0 = "onnx.Constant"() {value = dense<[0.15, 0.2]> : tensor<2xf32>} : () -> tensor<2xf32>
   %1 = "onnx.Constant"() {value = dense<[0.7, 0.8]> : tensor<2xf32>} : () -> tensor<2xf32>
   %2 = "onnx.Constant"() {value = dense<[0.5, 0.6]> : tensor<2xf32>} : () -> tensor<2xf32>

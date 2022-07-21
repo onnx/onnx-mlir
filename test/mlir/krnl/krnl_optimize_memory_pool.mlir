@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 /// 1. Base case where we have a single-chain workflow.
-func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
+func.func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
   %cst = arith.constant 0.000000e+00 : f32
   %c0_i64 = arith.constant 0 : i64
   %c1600_i64 = arith.constant 1600 : i64
@@ -92,7 +92,7 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
 // -----
 
 /// 2. Test for MemRefs with different shapes that can share the same slot.
-func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
+func.func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
     %cst = arith.constant 0.000000e+00 : f32
     %c0_i64 = arith.constant 0 : i64
     %c1200_i64 = arith.constant 1200 : i64
@@ -199,7 +199,7 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
 // -----
 
 /// 3. Test dependency analysis for MemRefs copied using the krnl.memcpy instruction.
-func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
+func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
     %cst = arith.constant 0.000000e+00 : f32
     %c0_i64 = arith.constant 0 : i64
     %c1200_i64 = arith.constant 1200 : i64
@@ -301,7 +301,7 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
 /// %8 now has bigger live range that leads to less reuse.
 /// %8 cannot share a slot with %2, %3, and %7 since there is a direct load/store relationship between them.
 /// %8 cannot share a slot with %5 and %6 because their live ranges intersect.
-func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
+func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
     %cst = arith.constant 0.000000e+00 : f32
     %c0_i64 = arith.constant 0 : i64
     %c1200_i64 = arith.constant 1200 : i64
@@ -410,7 +410,7 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
 /// share the same slot.
 ///    %4 and %2 have disjoint live ranges.
 ///    %4 and %2 cannot share a slot because they both are under the same outermost krnl.iterate.
-func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
+func.func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg2: memref<10x10xf32>) -> memref<10x5xf32> {
     %cst = arith.constant 0.000000e+00 : f32
     %c0_i64 = arith.constant 0 : i64
     %c1200_i64 = arith.constant 1200 : i64
@@ -519,7 +519,7 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
 /// The outcome of this is that by augmenting Test 1 above with an unknown operation, we see a
 /// new slot being used increasing the memory usage from 800 to 1200 bytes.
 /// Value %4 does not share a slot with %2 and %6 anymore.
-func @unknown_op_reuse(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
+func.func @unknown_op_reuse(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
   %cst = arith.constant 0.000000e+00 : f32
   %c0_i64 = arith.constant 0 : i64
   %c1600_i64 = arith.constant 1600 : i64

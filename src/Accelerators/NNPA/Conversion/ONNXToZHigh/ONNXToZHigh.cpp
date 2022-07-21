@@ -257,6 +257,8 @@ struct ONNXSumOpPatternEnhancedRecursion
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXToZHighLoweringPass)
+
   StringRef getArgument() const override { return "convert-onnx-to-zhigh"; }
 
   StringRef getDescription() const override {
