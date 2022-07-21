@@ -4,7 +4,7 @@ add_onnx_mlir_library(OMZLowRewrite
   ZLowRewrite.cpp
 
   LINK_LIBS PUBLIC
-  MLIRFunc
+  MLIRFuncDialect
   MLIRRewrite
   MLIRTransformUtils
   MLIRViewLikeInterface

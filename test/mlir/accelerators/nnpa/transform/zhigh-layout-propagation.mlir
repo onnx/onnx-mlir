@@ -2,7 +2,7 @@
 
 // -----
 
-func @add_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @add_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -24,7 +24,7 @@ func @add_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @add_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @add_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -46,7 +46,7 @@ func @add_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @sub_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @sub_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -68,7 +68,7 @@ func @sub_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @sub_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @sub_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -90,7 +90,7 @@ func @sub_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @mul_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @mul_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -112,7 +112,7 @@ func @mul_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @mul_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @mul_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -134,7 +134,7 @@ func @mul_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @div_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @div_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -156,7 +156,7 @@ func @div_layout_propagate_nhwc_1(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @div_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @div_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%arg1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
@@ -179,7 +179,7 @@ func @div_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding
 
 // -----
 
-func @relu_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+func.func @relu_layout_propagate_nhwc_2(%arg0: tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<1x56x56x256xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<1x56x56x256xf32>
   %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<1x56x56x256xf32>) -> tensor<1x256x56x56xf32>
   %2 = "zhigh.Stick"(%1) {layout = "4D"} : (tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>

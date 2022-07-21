@@ -300,6 +300,8 @@ struct ZHighConstPropagationPass
     : public PassWrapper<ZHighConstPropagationPass,
           OperationPass<func::FuncOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighConstPropagationPass)
+
   StringRef getArgument() const override { return "constprop-zhigh"; }
 
   StringRef getDescription() const override {

@@ -19,7 +19,6 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
-#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
@@ -623,7 +622,9 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
       &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
-  options.emitCWrappers = true;
+  // Request C wrapper emission via attribute.
+  funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+      UnitAttr::get(&getContext()));
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
@@ -685,7 +686,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, func::FuncDialect,
+      mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Patterns.

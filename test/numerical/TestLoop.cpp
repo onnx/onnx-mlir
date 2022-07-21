@@ -28,7 +28,7 @@ namespace test {
 
 std::string testLoopSimpleIR = R"(
 module {
-  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
     %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %body_0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
@@ -45,7 +45,7 @@ module {
 // Save this model for future
 std::string testLoopWithEarlyTermination_Orig = R"(
 module {
-  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y", "res_scan"]} {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y", "res_scan"]} {
     %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
@@ -60,7 +60,7 @@ module {
 
 std::string testLoopWithEarlyTermination = R"(
 module {
-  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y"]} {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y"]} {
     %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
@@ -75,7 +75,7 @@ module {
 
 std::string testLoopWithParentScopeVariable = R"(
 module {
-  func @main_graph(%max_trip_count: tensor<i64>, %cond: tensor<i1>, %y_initial: tensor<1xi64>) ->
+  func.func @main_graph(%max_trip_count: tensor<i64>, %cond: tensor<i1>, %y_initial: tensor<1xi64>) ->
         (tensor<1xi64>, tensor<?x1xi64>) {
     %const_offset = "onnx.Constant"() {value = dense<7> : tensor<i64>} : () -> tensor<i64>
     %y_final, %y_scan = "onnx.Loop"(%max_trip_count, %cond, %y_initial) ({

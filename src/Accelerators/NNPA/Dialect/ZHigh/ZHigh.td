@@ -25,6 +25,8 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 def ZHigh_Dialect : Dialect {
   let name = "zhigh";
   let cppNamespace = "::onnx_mlir::zhigh";
+
+  let useDefaultAttributePrinterParser = 1;
 }
 
 //===----------------------------------------------------------------------===//

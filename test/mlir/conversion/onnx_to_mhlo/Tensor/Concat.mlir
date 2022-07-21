@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s -split-input-file | FileCheck %s
 
 // Test when output shape is unkown
-func @test_concat_dynamic_shape(%arg0 : tensor<5x5x?x32xf32>, %arg1 : tensor<5x5x?x32xf32>) -> tensor<5x5x?x32xf32> {
+func.func @test_concat_dynamic_shape(%arg0 : tensor<5x5x?x32xf32>, %arg1 : tensor<5x5x?x32xf32>) -> tensor<5x5x?x32xf32> {
   %0 = "onnx.Concat"(%arg0, %arg1) { axis = 2 : si64} : (tensor<5x5x?x32xf32>, tensor<5x5x?x32xf32>) -> tensor<5x5x?x32xf32>
   "func.return"(%0) : (tensor<5x5x?x32xf32>) -> ()
 // CHECK-LABEL:  func @test_concat_dynamic_shape
@@ -14,7 +14,7 @@ func @test_concat_dynamic_shape(%arg0 : tensor<5x5x?x32xf32>, %arg1 : tensor<5x5
 // -----
 
 // Test when axis is negative
-func @test_concat_negative_axis(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>) -> tensor<5x5x4x32xf32> {
+func.func @test_concat_negative_axis(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>) -> tensor<5x5x4x32xf32> {
   %0 = "onnx.Concat"(%arg0, %arg1) { axis = -2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>) -> tensor<5x5x4x32xf32>
   "func.return"(%0) : (tensor<5x5x4x32xf32>) -> ()
 // CHECK-LABEL:  func @test_concat_negative_axis
