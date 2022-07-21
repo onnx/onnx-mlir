@@ -16,9 +16,47 @@ mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(
 }
 
 template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(memref, computedIndices);
+}
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
+    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(memref, computedIndices);
+}
+
+template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(
     mlir::Value val, mlir::Value memref, mlir::ValueRange indices) const {
   b.create<STORE_OP>(loc, val, memref, indices);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(mlir::Value val,
+    mlir::Value memref, mlir::ValueRange indices,
+    mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
+}
+
+template <class LOAD_OP, class STORE_OP>
+inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
+    mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
+    mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
 }
 
 template <class LOAD_OP, class STORE_OP>
