@@ -1305,6 +1305,7 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",

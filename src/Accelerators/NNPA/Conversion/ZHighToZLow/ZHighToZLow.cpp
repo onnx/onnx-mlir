@@ -332,18 +332,25 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
         res64 = b.getAffineDimExpr(e1) % constExpr64;
       } else if (layout == ZTensorEncodingAttr::DataLayout::_4DS) {
         // for normal
-        // (e4, e3, e2, e1) -> (e4, e3, e2, e1)
+        // (e4, e3, e2, e1)
         // -> (e4, ceil(e1/64), e3, ceil(e2/32), 32, 64)
         // for bidirectional rnn
-        // (e4, e3, e2, e1) -> (e4, 1, e2, e3 * PADDED(e1))
-        // -> (e4, ceil((e3 * PADDED(e1))/64), e3, ceil(e2/32), 32, 64)
-        assert((shape[1] == 1) && "bidirectional lstm/gru not supported yet");
+        // (e4, e3, e2, e1)
+        // -> (e4, ceil((2 * PADDED(e1))/64), e3, ceil(e2/32), 32, 64)
+        assert((shape[1] == 1 || shape[1] == 2) &&
+               "wrong direction dimension size");
         e4 = 0;
         e3 = 1;
         e2 = 2;
         e1 = 3;
         n = b.getAffineDimExpr(e4);
-        h = b.getAffineDimExpr(e1).floorDiv(constExpr64);
+        if (shape[1] == 1) {
+          h = b.getAffineDimExpr(e1).floorDiv(constExpr64);
+        } else {
+          AffineExpr padded_e1 =
+              b.getAffineDimExpr(e1).ceilDiv(constExpr64) * constExpr64;
+          h = (2 * padded_e1).floorDiv(constExpr64);
+        }
         w = b.getAffineDimExpr(e3);
         c = b.getAffineDimExpr(e2).floorDiv(constExpr32);
         res32 = b.getAffineDimExpr(e2) % constExpr32;
@@ -408,8 +415,12 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_FICO layout");
         }
         n = constExpr0;
-        h = (b.getAffineDimExpr(e1) +
-             pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS)))
+        // shape[0] is the direction dimmension for LSTM, and should be 1 or 2
+        assert((shape[0] == 1 || shape[0] == 2) &&
+               "wrong direction dimension size");
+        h = (((rank == 2) ? shape[0] : 1) *
+             (b.getAffineDimExpr(e1) +
+                 pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
         c = b.getAffineDimExpr(e2).floorDiv(constExpr32);
         res32 = b.getAffineDimExpr(e2) % constExpr32;
@@ -440,8 +451,12 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_ZRH layout");
         }
         n = constExpr0;
-        h = (b.getAffineDimExpr(e1) +
-             pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS)))
+        // shape[0] is the direction dimension for GRU, and should be 1 or 2
+        assert((shape[0] == 1 || shape[0] == 2) &&
+               "wrong direction dimension size");
+        h = (((rank == 2) ? shape[0] : 1) *
+             (b.getAffineDimExpr(e1) +
+                 pad_size * (b.getAffineDimExpr(e1).floorDiv(constExprS))))
                 .floorDiv(constExpr64);
         c = b.getAffineDimExpr(e2).floorDiv(constExpr32);
         res32 = b.getAffineDimExpr(e2) % constExpr32;
@@ -1104,7 +1119,7 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
         initial_c, operandAdaptor.input_weights(), input_bias,
         operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
         allocHnOutput, allocCfOutput, lstmOp.directionAttr(),
-        lstmOp.return_all_stepsAttr());
+        lstmOp.return_all_stepsAttr(), rewriter.getStringAttr("none"));
     std::vector<Value> outputs = {allocHnOutput, allocCfOutput};
     rewriter.replaceOp(op, outputs);
     return success();
@@ -1182,7 +1197,8 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     rewriter.create<ZLowGRUOp>(loc, operandAdaptor.input(), initial_h,
         operandAdaptor.input_weights(), input_bias,
         operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
-        allocHnOutput, gruOp.directionAttr(), gruOp.return_all_stepsAttr());
+        allocHnOutput, gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
+        rewriter.getStringAttr("none"));
     rewriter.replaceOp(op, allocHnOutput);
     return success();
   }

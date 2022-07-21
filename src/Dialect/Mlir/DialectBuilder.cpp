@@ -13,9 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -487,6 +488,34 @@ Value MathBuilder::castToIndex(Value src) const {
   return cast(b.getIndexType(), src);
 }
 
+// Add offsets to least significant values in indices. So if indices has 4
+// values, (i, j, k, l) and offsets has 2 values (K, L), the results will be (i,
+// j, k+K, l+L).
+void MathBuilder::addOffsetToLeastSignificant(mlir::ValueRange indices,
+    mlir::ValueRange offsets,
+    llvm::SmallVectorImpl<mlir::Value> &computedIndices) const {
+  int64_t indexRank = indices.size();
+  int64_t offsetRank = offsets.size();
+  int64_t firstOffset = indexRank - offsetRank;
+  assert(firstOffset >= 0 && "indexOffset should not have a higher rank than "
+                             "the indices in the memref");
+  computedIndices.clear();
+  for (int64_t i = 0; i < indexRank; i++) {
+    if (i < firstOffset) {
+      computedIndices.emplace_back(indices[i]);
+    } else {
+      computedIndices.emplace_back(add(offsets[i - firstOffset], indices[i]));
+    }
+  }
+}
+
+void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
+    ValueRange offsets, llvm::SmallVectorImpl<Value> &computedIndices) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  addOffsetToLeastSignificant(indexValues, offsets, computedIndices);
+}
+
 //===----------------------------------------------------------------------===//
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
@@ -647,9 +676,40 @@ Value VectorBuilder::load(
     VectorType vecType, Value memref, ValueRange indices) const {
   return b.create<vector::LoadOp>(loc, vecType, memref, indices);
 }
+mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(vecType, memref, computedIndices);
+}
+
+mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
+    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(vecType, memref, computedIndices);
+}
 
 void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<vector::StoreOp>(loc, val, memref, indices);
+}
+
+void VectorBuilder::store(mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
+}
+
+void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
+    llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
+  llvm::SmallVector<mlir::Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
@@ -774,6 +834,223 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     // Completed the machineVL x machineVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+//===----------------------------------------------------------------------===//
+// LLVM Builder
+//===----------------------------------------------------------------------===//
+
+Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
+  return b.create<LLVM::AddressOfOp>(loc, op);
+}
+
+Value LLVMBuilder::_alloca(
+    Type resultType, Value size, int64_t alignment) const {
+  return b.create<LLVM::AllocaOp>(loc, resultType, size, alignment);
+}
+
+Value LLVMBuilder::bitcast(Type type, Value val) const {
+  return b.create<LLVM::BitcastOp>(loc, type, val);
+}
+
+Value LLVMBuilder::bitcastI8Ptr(Value val) const {
+  return b.create<LLVM::BitcastOp>(
+      loc, LLVM::LLVMPointerType::get(b.getI8Type()), val);
+}
+
+Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
+  return b.create<LLVM::BitcastOp>(loc,
+      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b.getI8Type())),
+      val);
+}
+
+void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
+  b.create<LLVM::BrOp>(loc, destOperands, destBlock);
+}
+
+Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
+    ArrayRef<Value> inputs) const {
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  LLVM::CallOp callOp =
+      b.create<LLVM::CallOp>(loc, resultTypes, funcName, inputs);
+  // CallOp may return either 0 or 1 value.
+  if (resultTypes.empty())
+    return nullptr;
+  return callOp.getResult(0);
+}
+
+Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
+    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs) const {
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  LLVM::CallOp callOp =
+      b.create<LLVM::CallOp>(loc, resultTypes, funcSymbol, inputs);
+  // CallOp may return either 0 or 1 value.
+  if (resultTypes.empty())
+    return nullptr;
+  return callOp.getResult(0);
+}
+
+void LLVMBuilder::condBr(Value cond, Block *trueBlock,
+    llvm::ArrayRef<Value> trueOperands, Block *falseBlock,
+    llvm::ArrayRef<Value> falseOperands) const {
+  b.create<LLVM::CondBrOp>(
+      loc, cond, trueBlock, trueOperands, falseBlock, falseOperands);
+}
+
+Value LLVMBuilder::constant(Type type, int64_t val) const {
+  Value constant = nullptr;
+  TypeSwitch<Type>(type)
+      .Case<IntegerType>([&](IntegerType type) {
+        unsigned width = type.getWidth();
+        if (width == 1)
+          constant =
+              b.create<LLVM::ConstantOp>(loc, type, b.getBoolAttr(val != 0));
+        else {
+          assert(type.isSignless() &&
+                 "LLVM::ConstantOp requires a signless type.");
+          constant = b.create<LLVM::ConstantOp>(
+              loc, type, b.getIntegerAttr(type, APInt(width, (int64_t)val)));
+        }
+      })
+      .Case<IndexType>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getIntegerAttr(type, val));
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
+Value LLVMBuilder::constant(Type type, double val) const {
+  Value constant = nullptr;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF16FloatAttr(val));
+      })
+      .Case<Float32Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF32FloatAttr(val));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant =
+            b.create<LLVM::ConstantOp>(loc, type, b.getF64FloatAttr(val));
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
+Value LLVMBuilder::extractValue(
+    Type resultType, Value container, ArrayRef<int64_t> position) const {
+  ArrayAttr posAttr = b.getI64ArrayAttr(position);
+  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
+}
+
+LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
+  return b.create<LLVM::LLVMFuncOp>(loc, name, type);
+}
+
+Value LLVMBuilder::getElemPtr(
+    Type resultType, Value base, ArrayRef<Value> indices) const {
+  return b.create<LLVM::GEPOp>(loc, resultType, base, indices);
+}
+
+LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
+    LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
+    uint64_t alignment) const {
+  return b.create<LLVM::GlobalOp>(loc, resultType,
+      /*isConstant=*/isConstant, linkage, name, valueAttr);
+}
+
+Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
+  return b.create<LLVM::ICmpOp>(loc, cond, lhs, rhs);
+}
+
+Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
+    llvm::ArrayRef<int64_t> position) const {
+  ArrayAttr posAttr = b.getI64ArrayAttr(position);
+  return b.create<LLVM::InsertValueOp>(
+      loc, resultType, container, val, posAttr);
+}
+
+Value LLVMBuilder::load(Value addr) const {
+  return b.create<LLVM::LoadOp>(loc, addr);
+}
+
+Value LLVMBuilder::null(Type type) const {
+  return b.create<LLVM::NullOp>(loc, type);
+}
+
+Value LLVMBuilder::nullI8Ptr() const {
+  Type I8PtrTy = LLVM::LLVMPointerType::get(b.getI8Type());
+  return b.create<LLVM::NullOp>(loc, I8PtrTy);
+}
+
+void LLVMBuilder::_return(Value val) const {
+  b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({val}));
+}
+
+void LLVMBuilder::store(Value val, Value addr) const {
+  b.create<LLVM::StoreOp>(loc, val, addr);
+}
+
+FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
+    StringRef funcName, Type resultType, ArrayRef<Type> operandTypes,
+    bool isVarArg) const {
+  if (!module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(module.getBody());
+    LLVM::LLVMFunctionType funcType =
+        LLVM::LLVMFunctionType::get(resultType, operandTypes, isVarArg);
+    b.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
+  }
+  return SymbolRefAttr::get(b.getContext(), funcName);
+}
+
+void LLVMBuilder::ifThenElse(
+    valueFuncRef cond, voidFuncRef thenFn, voidFuncRef elseFn) const {
+  LLVMBuilder createLLVM(b, loc);
+
+  // Split the current block into IF, THEN, ELSE and END blocks.
+  Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
+  ifBlock = b.getInsertionBlock();
+  thenBlock = ifBlock->splitBlock(b.getInsertionPoint());
+  elseBlock = b.createBlock(
+      thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  if (elseFn)
+    endBlock = b.createBlock(
+        elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
+  else
+    endBlock = elseBlock;
+
+  // Emit code for the IF block.
+  b.setInsertionPointToEnd(ifBlock);
+  Value condVal = cond(createLLVM);
+
+  // Branch the block into the THEN and ELSE blocks.
+  createLLVM.condBr(condVal, thenBlock, {}, elseBlock, {});
+
+  // Emit code for the THEN block.
+  b.setInsertionPointToStart(thenBlock);
+  thenFn(createLLVM);
+  if (thenBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(thenBlock->back()))
+    br({}, endBlock);
+
+  // Emit code for the ELSE block if required.
+  b.setInsertionPointToStart(elseBlock);
+  if (elseFn) {
+    elseFn(createLLVM);
+    if (elseBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(elseBlock->back()))
+      br({}, endBlock);
+  }
+
+  // End if-then-else and return to the main body.
+  b.setInsertionPointToStart(endBlock);
 }
 
 } // namespace onnx_mlir

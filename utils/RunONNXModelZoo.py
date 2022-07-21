@@ -186,8 +186,10 @@ int8_models = {
     "googlenet-12-int8",
     "inception-v1-12-int8",
     "MaskRCNN-12-int8",
+    "mnist-12-int8",
     "mobilenetv2-12-int8",
     "resnet50-v1-12-int8",
+    "ResNet101-DUC-12-int8",
     "shufflenet-v2-12-int8",
     "ssd-12-int8",
     "ssd_mobilenet_v1_12-int8",
@@ -200,9 +202,8 @@ int8_models = {
 excluded_models = deprecated_models.union(int8_models)
 
 # Additional information passed to RunONNXModel.py.
+# For example: "t5-encoder-12": ['--shape-info=0:1x2,1:1x2x768']
 RunONNXModel_additional_options = {
-    "t5-decoder-with-lm-head-12": ['--shape-info=0:1x2,1:1x2x768'],
-    "t5-encoder-12": ['--shape-info=0:1x2,1:1x2x768']
 }
 
 # States

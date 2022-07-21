@@ -18,6 +18,7 @@
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "zdnn.h"
 
 using namespace mlir;
@@ -85,11 +86,11 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
 
     ZLowStickOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.X()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -143,11 +144,11 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.f_gate()
+    Type llvmElementTy = operandAdaptor.f_gate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -169,14 +170,27 @@ public:
     // Get zDNN data layout and concatInfo
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
+    StringRef prevLayerStr =
+        dyn_cast_or_null<ZLowStickForLSTMOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) &&
+           "invalid prev_layer attribute in zlow.StickForLSTM");
+
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
       zDNNDataLayout = ZDNN_2DS;
-      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_BIASES | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_BIASES | prevLayer;
     } else if (dims.size() == 3) {
       // for stickify input/hidden weights.
       zDNNDataLayout = ZDNN_3DS;
-      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_LSTM | USAGE_WEIGHTS | prevLayer;
     } else {
       // Set invalid value to avoid uninitvar cppcheck warning.
       zDNNDataLayout = UNDEFINED_ZDNN_LAYOUT;
@@ -192,10 +206,10 @@ public:
             /*concatInfo=*/zDNNConcatInfo);
 
     // Ready to stickify.
-    auto fGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.f_gate());
-    auto iGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.i_gate());
-    auto cGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.c_gate());
-    auto oGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.o_gate());
+    Value fGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.f_gate());
+    Value iGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.i_gate());
+    Value cGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.c_gate());
+    Value oGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.o_gate());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), fGatePtr, iGatePtr,
             cGatePtr, oGatePtr});
@@ -219,11 +233,11 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.z_gate()
+    Type llvmElementTy = operandAdaptor.z_gate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -245,14 +259,26 @@ public:
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
+    StringRef prevLayerStr =
+        dyn_cast_or_null<ZLowStickForGRUOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) &&
+           "invalid prev_layer attribute in zlow.StickForLSTM");
     if (dims.size() == 2) {
       // for stickify input/hidden biases.
       zDNNDataLayout = ZDNN_2DS;
-      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_BIASES | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_BIASES | prevLayer;
     } else if (dims.size() == 3) {
       // for stickify input/hidden weights.
       zDNNDataLayout = ZDNN_3DS;
-      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
+      zDNNConcatInfo = RNN_TYPE_GRU | USAGE_WEIGHTS | prevLayer;
     } else {
       // Set invalid value to avoid uninitvar cppcheck warning.
       zDNNDataLayout = UNDEFINED_ZDNN_LAYOUT;
@@ -268,9 +294,9 @@ public:
             /*concatInfo=*/zDNNConcatInfo);
 
     // Ready to stickify.
-    auto zGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.z_gate());
-    auto rGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.r_gate());
-    auto hGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.h_gate());
+    Value zGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.z_gate());
+    Value rGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.r_gate());
+    Value hGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.h_gate());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), zGatePtr, rGatePtr,
             hGatePtr});
@@ -294,12 +320,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.input()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -310,24 +336,34 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto oneI64 = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
+    Type llvmI64Ty = rewriter.getI64Type();
+    Value oneI64 = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
         rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
     // direction
-    auto D = dims[0];
+    Value D = dims[0];
     // timestep
-    auto T = dims[1];
+    Value T = dims[1];
     // batch size
-    auto B = dims[2];
+    Value B = dims[2];
     // feature size
-    auto F = dims[3];
+    Value F = dims[3];
     // hidden size
-    auto H = dims[4];
+    Value H = dims[4];
+
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).prev_layer();
+    int64_t prevLayer = -1;
+    if (prevLayerStr.equals_insensitive("none")) {
+      prevLayer = PREV_LAYER_NONE;
+    } else if (prevLayerStr.equals_insensitive("uni")) {
+      prevLayer = PREV_LAYER_UNI;
+    } else if (prevLayerStr.equals_insensitive("bidir")) {
+      prevLayer = PREV_LAYER_BIDIR;
+    }
+    assert((prevLayer >= 0) && "invalid prev_layer attribute in zlow.LSTM");
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -362,7 +398,7 @@ public:
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
             /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE);
+            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | prevLayer);
 
     // Create zTensor for input_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_bias());
@@ -370,7 +406,7 @@ public:
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
             /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | PREV_LAYER_NONE);
+            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | prevLayer);
 
     // Create zTensor for hidden_weights.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
@@ -378,7 +414,7 @@ public:
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
         /*isTransformed=*/true, /*'isConcat=*/true,
-        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | PREV_LAYER_NONE);
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | prevLayer);
 
     // Create zTensor for hidden_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
@@ -386,18 +422,18 @@ public:
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
         /*isTransformed=*/true, /*'isConcat=*/true,
-        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_BIASES | PREV_LAYER_NONE);
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_BIASES | prevLayer);
 
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
-      direction = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
-      direction = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    if (directionStr.equals_insensitive("forward")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
+    } else if (directionStr.equals_insensitive("reverse")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)BWD);
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)BIDIR);
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -405,6 +441,7 @@ public:
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
+
     if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
@@ -417,7 +454,8 @@ public:
         RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
@@ -478,12 +516,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.input()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -494,24 +532,23 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto oneI64 = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
+    Type llvmI64Ty = rewriter.getI64Type();
+    Value oneI64 = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
         rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
     // direction
-    auto D = dims[0];
+    Value D = dims[0];
     // timestep
-    auto T = dims[1];
+    Value T = dims[1];
     // batch size
-    auto B = dims[2];
+    Value B = dims[2];
     // feature size
-    auto F = dims[3];
+    Value F = dims[3];
     // hidden size
-    auto H = dims[4];
+    Value H = dims[4];
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -565,13 +602,13 @@ public:
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
-      direction = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
-      direction = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    if (directionStr.equals_insensitive("forward")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
+    } else if (directionStr.equals_insensitive("reverse")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)BWD);
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = create.llvm.constant(llvmI64Ty, (int64_t)BIDIR);
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -591,7 +628,8 @@ public:
         RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
@@ -633,11 +671,11 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.Out()
+    Type llvmElementTy = operandAdaptor.Out()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -668,7 +706,7 @@ public:
             /*isTransformed=*/true);
 
     // Ready to unstickify.
-    auto unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
+    Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ORIGTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
 
@@ -692,15 +730,15 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
-    auto unaryOp = dyn_cast_or_null<UnaryElementwiseOp>(op);
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    UnaryElementwiseOp unaryOp = dyn_cast_or_null<UnaryElementwiseOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
-    auto llvmElementTy = input.getType()
+    Type llvmElementTy = input.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
                              .cast<LLVM::LLVMPointerType>()
@@ -742,8 +780,7 @@ public:
     if (APIFor<UnaryElementwiseOp>() == API::ZDNN_RELU) {
       // Insert "nullptr" as the third argument for the "clipping_value",
       // because onnx.Relu does not use the clipping value.
-      auto nullpointer = rewriter.create<LLVM::NullOp>(
-          loc, LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
+      Value nullpointer = create.llvm.nullI8Ptr();
       callApi(rewriter, loc, module, apiRegistry, APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val), nullpointer,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
@@ -773,15 +810,15 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
-    auto binaryOp = dyn_cast_or_null<BinaryElementwiseOp>(op);
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    BinaryElementwiseOp binaryOp = dyn_cast_or_null<BinaryElementwiseOp>(op);
 
     Value input1 = operands[0];
     Value input2 = operands[1];
     Value shape = operands[2];
     Value output = operands[3];
-    auto llvmElementTy = input1.getType()
+    Type llvmElementTy = input1.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
                              .cast<LLVM::LLVMPointerType>()
@@ -853,12 +890,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.X()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -895,8 +932,8 @@ public:
       actType = NNPA_SOFTMAX_LOG;
     else
       llvm_unreachable("Unsupported activation function");
-    Value actFunc = rewriter.create<LLVM::ConstantOp>(loc,
-        IntegerType::get(context, 64), rewriter.getI64IntegerAttr(actType));
+    Value actFunc =
+        create.llvm.constant(rewriter.getI64Type(), (int64_t)actType);
 
     // Create the output zTensor.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
@@ -938,12 +975,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.X()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -964,7 +1001,7 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI64Ty = rewriter.getI64Type();
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
@@ -1026,11 +1063,11 @@ public:
     // Op_type
     Value op_type;
     if (broadcasting)
-      op_type = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(NNPA_MATMUL_BCAST_OP_ADDITION));
+      op_type = create.llvm.constant(
+          llvmI64Ty, (int64_t)NNPA_MATMUL_BCAST_OP_ADDITION);
     else
-      op_type = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(NNPA_MATMUL_OP_ADDITION));
+      op_type =
+          create.llvm.constant(llvmI64Ty, (int64_t)NNPA_MATMUL_OP_ADDITION);
     // Output
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
     if (stacked || broadcasting)
@@ -1078,13 +1115,13 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
     ZLowConv2DOp convOp = dyn_cast_or_null<ZLowConv2DOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowConv2DOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.input()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1095,36 +1132,34 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI64Ty = rewriter.getI64Type();
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
         rewriter, loc, module, operandAdaptor.shape(), /*size=*/7);
     // batch size
-    auto N = dims[0];
+    Value N = dims[0];
     // channel in
-    auto CIn = dims[1];
+    Value CIn = dims[1];
     // height in
-    auto HIn = dims[2];
+    Value HIn = dims[2];
     // width in
-    auto WIn = dims[3];
+    Value WIn = dims[3];
     // channel out
-    auto COut = dims[4];
+    Value COut = dims[4];
     // height out
-    auto HOut = dims[5];
+    Value HOut = dims[5];
     // width out
-    auto WOut = dims[6];
+    Value WOut = dims[6];
     // kernel shape
     ArrayRef<Attribute> kernelShapeArrayAttr = convOp.kernel_shape().getValue();
     // kernel height
-    Value KH = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt()));
+    Value KH = create.llvm.constant(llvmI64Ty,
+        (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
     // kernel width
-    Value KW = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt()));
+    Value KW = create.llvm.constant(llvmI64Ty,
+        (int64_t)kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt());
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1153,31 +1188,29 @@ public:
     // Padding type.
     Value paddingType;
     if (convOp.padding_type().equals_insensitive("SAME_PADDING"))
-      paddingType = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_pool_padding::SAME_PADDING));
+      paddingType = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_pool_padding::SAME_PADDING);
     else if (convOp.padding_type().equals_insensitive("VALID_PADDING"))
-      paddingType = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_pool_padding::VALID_PADDING));
+      paddingType = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_pool_padding::VALID_PADDING);
     else
       llvm_unreachable("Unsupported padding type");
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = convOp.strides().getValue();
-    Value strideHeight = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            strideArrayAttr[0].cast<IntegerAttr>().getInt()));
-    Value strideWidth = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            strideArrayAttr[1].cast<IntegerAttr>().getInt()));
+    Value strideHeight = create.llvm.constant(
+        llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
+    Value strideWidth = create.llvm.constant(
+        llvmI64Ty, (int64_t)strideArrayAttr[1].cast<IntegerAttr>().getInt());
 
     // Activation function.
     Value actFunc;
     if (convOp.act_func().equals_insensitive("ACT_NONE"))
-      actFunc = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_conv2d_act::CONV2D_ACT_NONE));
+      actFunc = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_conv2d_act::CONV2D_ACT_NONE);
     else if (convOp.act_func().equals_insensitive("ACT_RELU"))
-      actFunc = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_conv2d_act::CONV2D_ACT_RELU));
+      actFunc = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_conv2d_act::CONV2D_ACT_RELU);
     else
       llvm_unreachable("Unsupported activation function");
 
@@ -1189,8 +1222,7 @@ public:
             /*isTransformed=*/true);
 
     // Prepare nullpointer for the clipping value
-    auto nullpointer = rewriter.create<LLVM::NullOp>(
-        loc, LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
+    Value nullpointer = create.llvm.nullI8Ptr();
     // Ready to call zDNN Conv2D.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_CONV2D,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
@@ -1233,15 +1265,15 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
-    auto poolOp = dyn_cast_or_null<POOLOP>(op);
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    POOLOP poolOp = dyn_cast_or_null<POOLOP>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
-    auto llvmElementTy = input.getType()
+    Type llvmElementTy = input.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
                              .cast<LLVM::LLVMPointerType>()
@@ -1251,34 +1283,32 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI64Ty = rewriter.getI64Type();
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims =
         getDimsFromShapeMemRefBySize(rewriter, loc, module, shape, /*size=*/6);
     // batch size
-    auto N = dims[0];
+    Value N = dims[0];
     // channel in
-    auto CIn = dims[1];
+    Value CIn = dims[1];
     // height in
-    auto HIn = dims[2];
+    Value HIn = dims[2];
     // width in
-    auto WIn = dims[3];
+    Value WIn = dims[3];
     // height out
-    auto HOut = dims[4];
+    Value HOut = dims[4];
     // width out
-    auto WOut = dims[5];
+    Value WOut = dims[5];
     // kernel shape
     ArrayRef<Attribute> kernelShapeArrayAttr = poolOp.kernel_shape().getValue();
     // kernel height
-    Value KH = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt()));
+    Value KH = create.llvm.constant(llvmI64Ty,
+        (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
     // kernel width
-    Value KW = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt()));
+    Value KW = create.llvm.constant(llvmI64Ty,
+        (int64_t)kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt());
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1293,22 +1323,20 @@ public:
     // Padding type.
     Value paddingType;
     if (poolOp.padding_type().equals_insensitive("SAME_PADDING"))
-      paddingType = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_pool_padding::SAME_PADDING));
+      paddingType = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_pool_padding::SAME_PADDING);
     else if (poolOp.padding_type().equals_insensitive("VALID_PADDING"))
-      paddingType = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(zdnn_pool_padding::VALID_PADDING));
+      paddingType = create.llvm.constant(
+          llvmI64Ty, (int64_t)zdnn_pool_padding::VALID_PADDING);
     else
       llvm_unreachable("Unsupported padding type");
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = poolOp.strides().getValue();
-    Value strideHeight = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            strideArrayAttr[0].cast<IntegerAttr>().getInt()));
-    Value strideWidth = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(
-            strideArrayAttr[1].cast<IntegerAttr>().getInt()));
+    Value strideHeight = create.llvm.constant(
+        llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
+    Value strideWidth = create.llvm.constant(
+        llvmI64Ty, (int64_t)strideArrayAttr[1].cast<IntegerAttr>().getInt());
 
     // Create zTensor for output.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(output);
@@ -1342,12 +1370,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.input()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1358,22 +1386,21 @@ public:
         ZTensorHelper(rewriter, loc, module, apiRegistry);
 
     // Some frequently used types and constants.
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto oneI64 = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
+    Type llvmI64Ty = rewriter.getI64Type();
+    Value oneI64 = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
         rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
     // batch size
-    auto N = dims[0];
+    Value N = dims[0];
     // height in
-    auto H = dims[1];
+    Value H = dims[1];
     // width in
-    auto W = dims[2];
+    Value W = dims[2];
     // channel in
-    auto C = dims[3];
+    Value C = dims[3];
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
@@ -1415,11 +1442,11 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto module = op->getParentOfType<ModuleOp>();
-    auto loc = op->getLoc();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
-    auto llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.input()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1434,13 +1461,13 @@ public:
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
         rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
     // batch size
-    auto N = dims[0];
+    Value N = dims[0];
     // height in
-    auto H = dims[1];
+    Value H = dims[1];
     // width in
-    auto W = dims[2];
+    Value W = dims[2];
     // channel in
-    auto C = dims[3];
+    Value C = dims[3];
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1490,7 +1517,7 @@ private:
 
 void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) {
-  auto apiRegistry = RegisterAllApis(ctx);
+  ApiRegistry apiRegistry = RegisterAllApis(ctx);
   // clang-format off
   patterns.insert<
       ZLowStickLowering,

@@ -337,10 +337,11 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+    free(outputBuffer);
     free(inputBuffer);
     return create.onnx.toMemref(constVal);
   } else {
@@ -362,10 +363,11 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+    free(outputBuffer);
     free(inputBuffer);
     return create.onnx.toMemref(constVal);
   } else {
@@ -415,10 +417,14 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
         resBuffers);
 
     for (int i = 0; i < outputNum; ++i) {
-      Value constVal = createDenseONNXConstantOp(
-          rewriter, loc, convertedTypes[i].cast<ShapedType>(), resBuffers[i])
-                           .getResult();
+      char *outputBuffer =
+          allocateBufferFor(convertedTypes[i], /*useMaxSize=*/false);
+      convertDoubleInt64ToExactType(
+          convertedTypes[i], resBuffers[i], outputBuffer);
+      Value constVal =
+          create.onnx.constantFromRawBuffer(convertedTypes[i], outputBuffer);
       resVals.emplace_back(create.onnx.toMemref(constVal));
+      free(outputBuffer);
       free(resBuffers[i]);
     }
     free(inputBuffer);
@@ -456,9 +462,12 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
     ConstPropTransposeImpl(
         elementType, inputBuffer, inputShape, perm, resultShape, resBuffer);
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), resBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, resBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+
+    free(outputBuffer);
     free(resBuffer);
     free(inputBuffer);
     return create.onnx.toMemref(constVal);

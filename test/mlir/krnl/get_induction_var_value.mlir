@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @test_simple() {
+func.func @test_simple() {
   %ii = krnl.define_loops 1
   krnl.iterate(%ii) with (%ii -> %i = 0 to 10) {
     %idx = krnl.get_induction_var_value(%ii) : (!krnl.loop) -> (index)
@@ -8,7 +8,7 @@ func @test_simple() {
   }
   return
   // CHECK-LABEL:       func @test_simple
-  // CHECK-SAME:     () {
+  // CHECK-SAME:     () attributes {llvm.emit_c_interface} {
   // CHECK:           affine.for [[I:%.+]] = 0 to 10 {
   // CHECK:             [[FOO:%.+]] = arith.addi [[I]], [[I]] : index
   // CHECK:           }
@@ -18,7 +18,7 @@ func @test_simple() {
 
 // -----
 
-func @test_2d_tiling_imperfectly_nested() {
+func.func @test_2d_tiling_imperfectly_nested() {
   %ii, %ij = krnl.define_loops 2
   %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -35,7 +35,7 @@ func @test_2d_tiling_imperfectly_nested() {
     memref.dealloc %alloc : memref<10 x f32>
   }
   // CHECK-LABEL:       func @test_2d_tiling_imperfectly_nested
-  // CHECK-SAME:     () {
+  // CHECK-SAME:     () attributes {llvm.emit_c_interface} {
   // CHECK:           affine.for [[IBLOCK:%.+]] = 0 to 10 step 5 {
   // CHECK:             affine.for [[JBLOCK:%.+]] = 0 to 20 step 4 {
   // CHECK:               [[BAR:%.+]] = arith.addi [[IBLOCK]], [[JBLOCK]] : index

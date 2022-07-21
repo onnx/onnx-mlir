@@ -71,6 +71,6 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MLIRFunc
+  MLIRFuncDialect
   MLIRFuncTransforms
   )

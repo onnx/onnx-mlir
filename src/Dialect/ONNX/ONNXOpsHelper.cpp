@@ -17,6 +17,7 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 // Identity affine
 using namespace mlir;
@@ -430,6 +431,20 @@ DenseElementsAttr createDenseElementsAttrFromStringAttrs(
   }
   auto tensorType = RankedTensorType::get(dims, elementType);
   return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+}
+
+/// Create a DenseElementsAttr from a raw buffer.
+DenseElementsAttr createDenseElementsAttrFromRawBuffer(
+    Type resType, char *buf) {
+  assert(isRankedShapedType(resType) && "Not a ranked type");
+  int64_t sizeInBytes = getSizeInBytes(resType);
+  ArrayRef<char> arr(buf, sizeInBytes);
+  RankedTensorType tensorType =
+      RankedTensorType::get(getShape(resType), getElementType(resType));
+  bool detectedSplat;
+  assert(DenseElementsAttr::isValidRawBuffer(tensorType, arr, detectedSplat) &&
+         "The raw buffer is invalid for provided type");
+  return DenseElementsAttr::getFromRawBuffer(tensorType, arr);
 }
 
 Value normalizeConstantOp(
