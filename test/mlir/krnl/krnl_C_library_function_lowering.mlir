@@ -3,7 +3,7 @@
 // -----
 
 // Test that krnl.strlen can be called when the argument is passed into the function.
-func private @test_krnl_strlen1(%arg0: !krnl.string) -> i64  {
+func.func private @test_krnl_strlen1(%arg0: !krnl.string) -> i64  {
   %len = "krnl.strlen"(%arg0) : (!krnl.string) -> i64
   return %len : i64
 
@@ -17,7 +17,7 @@ func private @test_krnl_strlen1(%arg0: !krnl.string) -> i64  {
 // -----
 
 // Test that krnl.strlen can be called when the argument is created via a load.
-func private @test_krnl_strlen2() -> i64  {
+func.func private @test_krnl_strlen2() -> i64  {
   %c0 = arith.constant 0 : index  
   %ptr_str = memref.alloc() {alignment = 16 : i64} : memref<1x!krnl.string>
   %str = krnl.load %ptr_str[%c0] : memref<1x!krnl.string>
@@ -35,7 +35,7 @@ func private @test_krnl_strlen2() -> i64  {
 // -----
 
 // Test that krnl.strncmp is lowered to a call to the strncmp standard C function.
-func private @test_strncmp(%str: !krnl.string, %len: i64) -> i32  {
+func.func private @test_strncmp(%str: !krnl.string, %len: i64) -> i32  {
   %c0 = arith.constant 0 : index
   %ptr = memref.alloc() {alignment = 16 : i64} : memref<1x!krnl.string>
   %str1 = krnl.load %ptr[%c0] : memref<1x!krnl.string>

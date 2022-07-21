@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+func.func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
  %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
@@ -26,7 +26,7 @@ func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1
 
 // -----
 
-func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<2x8x16xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg2: tensor<2x16xf32, #zhigh.encoding<{dataLayout = "2DS"}>>) -> tensor<*xf32> {
+func.func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<2x8x16xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg2: tensor<2x16xf32, #zhigh.encoding<{dataLayout = "2DS"}>>) -> tensor<*xf32> {
  %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x8x16xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x16xf32, #zhigh.encoding<{dataLayout = "2DS"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
@@ -55,7 +55,7 @@ func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}
 
 // -----
 
-func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+func.func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
  %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
@@ -85,7 +85,7 @@ func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3
 
 // -----
 
-func @matmul_unknown_dims(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x?xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<?xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+func.func @matmul_unknown_dims(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x?xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<?xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
  %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<8x?xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<?xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 

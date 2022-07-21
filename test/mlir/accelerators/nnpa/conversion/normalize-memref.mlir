@@ -4,7 +4,7 @@
 
 #map0 = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 
-func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> {
+func.func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> {
   %0 = memref.alloc() : memref<129x65xf32>
   %1 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map0>
   %2 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map0>
@@ -40,7 +40,7 @@ func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> {
 #map_nchw = affine_map<(d0, d1, d2, d3) -> (d0, d2 floordiv 64, d3, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 
 // CHECK-LABEL: test_stick_norm
-func @test_stick_norm(%arg1d: memref<129xf32>, %arg2d: memref<129x65xf32>,
+func.func @test_stick_norm(%arg1d: memref<129xf32>, %arg2d: memref<129x65xf32>,
                       %arg2ds: memref<129x65xf32>, %arg3d: memref<129x65x129xf32>,
                       %arg3ds: memref<129x65x129xf32>, %arg4d: memref<129x65x129x65xf32>,
                       %argnchw: memref<129x65x129x65xf32>  ) -> () {

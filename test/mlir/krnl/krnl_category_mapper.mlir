@@ -3,7 +3,7 @@
 // -----
 
 // Test that 'krnl.find_index' can be called when the first argument is a string.
-func private @test_find_index_str(%str: !krnl.string) -> index {
+func.func private @test_find_index_str(%str: !krnl.string) -> index {
   %G = "krnl.global"() {name = "G", shape = [3], value = dense<[1,0,-3]> : tensor<3xi32>} : () -> memref<3xi32>
   %V = "krnl.global"() {name = "V", shape = [3], value = dense<[1,2,0]> : tensor<3xi32>} : () -> memref<3xi32>
   %c3 = arith.constant 3 : i32  
@@ -26,7 +26,7 @@ func private @test_find_index_str(%str: !krnl.string) -> index {
 // -----
 
 // Test that 'krnl.find_index' can be called when the first argument is a int64_t.
-func private @test_find_index_int(%val: i64) -> index {
+func.func private @test_find_index_int(%val: i64) -> index {
   %G = "krnl.global"() {name = "G", shape = [3], value = dense<[1,0,-3]> : tensor<3xi32>} : () -> memref<3xi32>
   %V = "krnl.global"() {name = "V", shape = [3], value = dense<[1,2,0]> : tensor<3xi32>} : () -> memref<3xi32>
   %c3 = arith.constant 3 : i32  
@@ -48,7 +48,7 @@ func private @test_find_index_int(%val: i64) -> index {
 // -----
 
 // Test CategorMapper lowering when the input is a list of strings.
-func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.string>) -> memref<2x2xi64> {
+func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.string>) -> memref<2x2xi64> {
   %c0_i32 = arith.constant 0 : i32
   %c-1_i64 = arith.constant -1 : i64
   %c3_i32 = arith.constant 3 : i32
@@ -136,7 +136,7 @@ func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.strin
 // -----
 
 // Test CategorMapper lowering when the input is a list of int64_t.
-func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> memref<2x2x!krnl.string> {
+func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> memref<2x2x!krnl.string> {
   %c3_i32 = arith.constant 3 : i32
   %0 = memref.alloc() {alignment = 16 : i64} : memref<2x2x!krnl.string>
   %1 = "krnl.global"() {name = "G", shape = [3], value = dense<[-1, 1, 0]> : tensor<3xi32>} : () -> memref<3xi32>

@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --lower-krnl-region  %s -split-input-file | FileCheck %s
 
-func @test_krnlregion(%arg2: memref<1xi64>) -> memref<1xi64> {
+func.func @test_krnlregion(%arg2: memref<1xi64>) -> memref<1xi64> {
   %0 = memref.alloc() : memref<1xi64> 
   "krnl.region"() ({
      %c0 = arith.constant 0 : index

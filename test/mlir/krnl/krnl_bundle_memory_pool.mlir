@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
-func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
+func.func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
   %c0_i64 = arith.constant 0 : i64
   %ind = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
@@ -56,7 +56,7 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
 // -----
 
 /// Test bundling inside a sub-block.
-func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
+func.func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
   %cst = arith.constant 0.000000e+00 : f32
   %c0_i64 = arith.constant 0 : i64
   %c0 = arith.constant 0 : index
@@ -140,7 +140,7 @@ func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2
 // -----
 
 /// Test bundling inside a sub-block and in the main block.
-func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
+func.func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
   %cst = arith.constant 0.000000e+00 : f32
   %c0_i64 = arith.constant 0 : i64
   %c0 = arith.constant 0 : index 

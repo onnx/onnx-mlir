@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
-func @test_lstm_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
+func.func @test_lstm_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output, %cf_output = "zhigh.LSTM"(%X, %cst, %cst, %W, %cst, %R, %cst) {direction = "forward", hidden_size = 16 : si64, return_all_steps = -1 : si64} : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none, tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none) -> (tensor<*xf32>, tensor<*xf32>)
   return
@@ -16,7 +16,7 @@ func @test_lstm_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout 
 
 // -----
 
-func @test_lstm_only_final_step(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
+func.func @test_lstm_only_final_step(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output, %cf_output = "zhigh.LSTM"(%X, %cst, %cst, %W, %cst, %R, %cst) {direction = "forward", hidden_size = 16 : si64, return_all_steps = 0 : si64} : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none, tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none) -> (tensor<*xf32>, tensor<*xf32>)
   return
@@ -32,7 +32,7 @@ func @test_lstm_only_final_step(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayou
 
 // -----
 
-func @test_lstm_bidir_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
+func.func @test_lstm_bidir_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output, %cf_output = "zhigh.LSTM"(%X, %cst, %cst, %W, %cst, %R, %cst) {direction = "bidirectional", hidden_size = 16 : si64, return_all_steps = -1 : si64} : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none, tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none) -> (tensor<*xf32>, tensor<*xf32>)
   return
@@ -48,7 +48,7 @@ func @test_lstm_bidir_all_timesteps(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataL
 
 // -----
 
-func @test_lstm_bidir_only_final_step(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
+func.func @test_lstm_bidir_only_final_step(%X: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %W: tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %R: tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> () {
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output, %cf_output = "zhigh.LSTM"(%X, %cst, %cst, %W, %cst, %R, %cst) {direction = "bidirectional", hidden_size = 16 : si64, return_all_steps = 0 : si64} : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<1x8x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none, tensor<1x16x64xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, none) -> (tensor<*xf32>, tensor<*xf32>)
   return

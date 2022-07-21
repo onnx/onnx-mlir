@@ -965,6 +965,79 @@ ONNXConstantOp ConstPropExpand(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for GatherOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value indicesValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+
+  ArrayRef<int64_t> inputShape = getShape(inputValue.getType());
+  ArrayRef<int64_t> indicesShape = getShape(indicesValue.getType());
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  std::vector<int64_t> indicesStrides = getStrides(indicesShape);
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  int64_t inputRank = inputShape.size();
+  int64_t indicesRank = indicesShape.size();
+
+  int64_t axis = gatherOp.axis();
+  if (axis < 0)
+    axis += inputRank;
+  int64_t axisDim = inputShape[axis];
+
+  // Get the input value using the maximum precision e.g. double, int64_t.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, inputValue.getDefiningOp());
+
+  // Get the indices value using the maximum precision. Index is integer.
+  int64_t *indicesArray = (int64_t *)getArrayFromAttributeOrBuffer(
+      rewriter, indicesValue.getDefiningOp());
+
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  // Iterate over the output index space.
+  for (int64_t ii = 0; ii < ShapedType::getNumElements(outputShape); ++ii) {
+    std::vector<int64_t> outputIndices = getAccessIndex(ii, outputStrides);
+    SmallVector<int64_t, 4> inputIndices, indicesIndices;
+    // Compute tensor access indices for indices: indices[jj].
+    for (int j = 0; j < indicesRank; ++j)
+      indicesIndices.emplace_back(outputIndices[axis + j]);
+    int64_t indicesOffset =
+        getLinearAccessIndex(indicesIndices, indicesStrides);
+    // Get indices.
+    int64_t axisIndex = *(indicesArray + indicesOffset);
+    if (axisIndex < 0)
+      axisIndex += axisDim;
+
+    // Compute tensor access indices for input: input[ii + (indices[jj],) + kk]
+    // First add indices ii
+    for (int i = 0; i < axis; ++i)
+      inputIndices.emplace_back(outputIndices[i]);
+    // Then add indices[jj] at axis.
+    inputIndices.emplace_back(axisIndex);
+    // Then add kk.
+    for (int k = axis + 1; k < inputRank; ++k)
+      inputIndices.emplace_back(outputIndices[indicesRank - 1 + k]);
+
+    // Copy values.
+    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(resArray + ii * typeSize, inputArray + inputOffset * typeSize,
+        typeSize);
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

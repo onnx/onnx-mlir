@@ -106,18 +106,14 @@ def parse_file(file_name):
         if p is not None: 
             op = p[1]
             assert op not in opset_dict, "Redefinition of op " + op
-            if op in list_op_version:
-                versions = list_op_version[op]
-                opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
-                m = max(versions)
-                if m > hightest_opset:
-                    hightest_opset = m
-                if debug:
-                    print("got supported op", op, "at level", list_op_version[op])
-            else:
-                opset_dict[op] = "unsupported"
-                if debug:
-                    print("got unsupported op", op)
+            assert op in list_op_version, "Define an op " + op + " that is not listed in the ops we currently handle."
+            versions = list_op_version[op]
+            opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
+            m = max(versions)
+            if m > hightest_opset:
+                hightest_opset = m
+            if debug:
+                print("got supported op", op, "at level", list_op_version[op])
             continue
         # Limits.
         p = re.search(r'==LIM==\s+(.*)\s*$', l)
@@ -176,12 +172,18 @@ def print_md():
         separator.append("---")
     print_row(header)
     print_row(separator)
-    for op in sorted(opset_dict.keys()):
-        if not emit_unsupported and opset_dict[op] == "unsupported":
-            continue
-        info = ["**"+op+"**", opset_dict[op]]
+    for op in sorted(list_op_version.keys()):
+        supported_op = op in opset_dict;
+        if supported_op:
+            info = ["**"+op+"**", opset_dict[op]]
+        else:
+            if not emit_unsupported:
+                continue
+            info = ["**"+op+"**", ""]
         if op in limit_dict:
             info.append(limit_dict[op])
+        elif not supported_op:
+            info.append("unsupported")
         else:
             info.append("")
         if emit_notes:
@@ -225,7 +227,7 @@ def main(argv):
         elif opt in ('-p', "--path"):
             util_path = arg
             input_command += " --path " + util_path
-        elif opt in ('-u', "--unsupported"):
+        elif opt in ('-u',  "--unsupported"):
             emit_unsupported = True
             input_command += " --unsupported"
 

@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
-func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 

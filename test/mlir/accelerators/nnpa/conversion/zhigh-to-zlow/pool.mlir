@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func @maxpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @maxpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -32,7 +32,7 @@ func @maxpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLa
 
 // -----
 
-func @maxpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @maxpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -63,7 +63,7 @@ func @maxpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLay
 
 // -----
 
-func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -106,7 +106,7 @@ func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encod
 
 // -----
 
-func @maxpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @maxpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -145,7 +145,7 @@ func @maxpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encodi
 
 // -----
 
-func @maxpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @maxpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -177,7 +177,7 @@ func @maxpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zh
 
 // -----
 
-func @avgpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @avgpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -209,7 +209,7 @@ func @avgpool_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLa
 
 // -----
 
-func @avgpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @avgpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -240,7 +240,7 @@ func @avgpool_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLay
 
 // -----
 
-func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -283,7 +283,7 @@ func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encod
 
 // -----
 
-func @avgpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @avgpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -322,7 +322,7 @@ func @avgpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.encodi
 
 // -----
 
-func @avgpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+func.func @avgpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>

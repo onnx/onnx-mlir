@@ -59,12 +59,12 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
       dotResult = dot;
     else {
       if (resultType.hasStaticShape()) {
-        Value alphaVal = rewriter.create<mhlo::ConstOp>(
+        Value alphaVal = rewriter.create<mhlo::ConstantOp>(
             loc, DenseElementsAttr::get(
                      resultType, rewriter.getFloatAttr(elemType, alphaLit)));
         dotResult = rewriter.create<mhlo::MulOp>(loc, dot, alphaVal);
       } else {
-        Value alphaVal = rewriter.create<mhlo::ConstOp>(
+        Value alphaVal = rewriter.create<mhlo::ConstantOp>(
             loc, rewriter.getFloatAttr(elemType, alphaLit));
         Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
         Value broadcastedAlpha = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
@@ -92,7 +92,7 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
         else
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
-          Value betaVal = rewriter.create<mhlo::ConstOp>(
+          Value betaVal = rewriter.create<mhlo::ConstantOp>(
               loc, DenseElementsAttr::get(
                        resultType, rewriter.getFloatAttr(elemType, betaLit)));
           finalC = rewriter.create<mhlo::MulOp>(loc, broadcastedC, betaVal);
@@ -109,7 +109,7 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
         else
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
-          Value betaVal = rewriter.create<mhlo::ConstOp>(
+          Value betaVal = rewriter.create<mhlo::ConstantOp>(
               loc, rewriter.getFloatAttr(elemType, gemmOp.beta()));
           Value broadcastedBeta =
               rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc, resultType,
