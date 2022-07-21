@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --decompose-onnx="target=mhlo" --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
 
 func @main_graph(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attributes {input_names = ["image"], output_names = ["prediction"]} {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [2, 2], onnx_node_name = "MaxPool_0", pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>

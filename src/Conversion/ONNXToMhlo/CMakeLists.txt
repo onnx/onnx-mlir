@@ -23,7 +23,6 @@ add_onnx_mlir_library(OMONNXToMhlo
   Tensor/Reshape.cpp
 
   DEPENDS
-  OMONNXRewrite
   MhloDialect
 
   LINK_LIBS PUBLIC

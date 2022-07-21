@@ -27,7 +27,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
-#include "Decompose.h"
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -193,6 +192,11 @@ struct SoftmaxPattern : public ConversionPattern {
   }
 };
 
+void populateDecomposingONNXBeforeMhloPatterns(
+    RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.add<SoftmaxPattern>(ctx);
+}
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -206,6 +210,9 @@ struct DecomposeONNXToONNXPass
     return "Decompose ONNX operations into composition of other ONNX "
            "operations.";
   }
+
+  Option<std::string> target{*this, "target",
+      llvm::cl::desc("Target Dialect to decompose into"), ::llvm::cl::init("")};
 
   void runOnOperation() final;
 };
@@ -245,6 +252,11 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
 
+  if (this->target == "mhlo") {
+    populateDecomposingONNXBeforeMhloPatterns(patterns, context);
+    target.addIllegalOp<ONNXSoftmaxOp>();
+  }
+
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
@@ -253,11 +265,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 namespace onnx_mlir {
 
-void populateDecomposingONNXBeforeMhloPatterns(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  ::populateWithGenerated(patterns);
-  patterns.add<SoftmaxPattern>(ctx);
-}
 /*!
  * Create a DecomposeONNX pass.
  */

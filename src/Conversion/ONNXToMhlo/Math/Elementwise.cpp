@@ -246,14 +246,6 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     int64_t outputRank = shapeHelper.outputRank;
-    Type outputType = *op->result_type_begin();
-    ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
-    if (outputShapedType == nullptr)
-      return failure();
-    Type elementType =
-        operands[0].getType().dyn_cast<ShapedType>().getElementType();
-    RankedTensorType broadcastedOutputType =
-        RankedTensorType::get(outputShapedType.getShape(), elementType);
     llvm::SmallVector<Value, 4> broadcastedOperands =
         getBroadcastedOperands(op, rewriter, loc, outputRank);
     Value mhloOp = rewriter.create<MhloOp<ElementwiseVariadicOp>>(
