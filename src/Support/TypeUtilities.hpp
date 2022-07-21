@@ -22,6 +22,8 @@ mlir::Type getElementType(mlir::Type ty);
 bool isRankedShapedType(mlir::Type ty);
 /// Get shape.
 llvm::ArrayRef<int64_t> getShape(mlir::Type ty);
+/// Get rank.
+int64_t getRank(mlir::Type ty);
 /// Get the number of elements.
 int64_t getNumberOfElements(mlir::Type ty);
 /// Get the element size in bytes.
