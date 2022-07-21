@@ -63,6 +63,14 @@ Value KrnlBuilder::load(Value memref, ValueRange indices) const {
   return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
+mlir::Value KrnlBuilder::load(mlir::Value memref, mlir::ValueRange indices,
+    mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(memref, computedIndices);
+}
+
 Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
@@ -71,6 +79,14 @@ Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
 
 void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<KrnlStoreOp>(loc, val, memref, indices);
+}
+
+void KrnlBuilder::store(mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
 }
 
 void KrnlBuilder::storeIE(
