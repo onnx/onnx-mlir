@@ -394,7 +394,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 create.krnl.store(create.math.add(currentMOPC, one),
                     effectiveMaxOutputPerClass, {});
 
-                // Update the effective number of seleted indices.
+                // Update the effective number of selected indices.
                 // effective_num_selected_indices += 1
                 create.krnl.store(create.math.add(soVal, one),
                     effectiveNumSelectedIndices, {});
@@ -434,7 +434,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       rewriter.setInsertionPointToStart(
                           &if2Op.getThenRegion().front());
 
-                      // If IOU is satified, mark the current box as removed.
+                      // If IOU is satisfied, mark the current box as removed.
                       createKrnl.store(trueVal, removedIndices, {o});
                     });
               });
