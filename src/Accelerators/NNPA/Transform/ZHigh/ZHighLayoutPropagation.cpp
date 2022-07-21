@@ -73,6 +73,8 @@ struct ZHighLayoutPropagationPass
     : public PassWrapper<ZHighLayoutPropagationPass,
           OperationPass<func::FuncOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighLayoutPropagationPass)
+
   StringRef getArgument() const override { return "zhigh-layout-prop"; }
 
   StringRef getDescription() const override {

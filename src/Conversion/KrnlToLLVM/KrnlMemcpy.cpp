@@ -96,7 +96,7 @@ private:
     Type llvmI64Ty = IntegerType::get(context, 64);
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,
-        StringRef("llvm.memcpy.p0i8.p0i8.i64"), llvmVoidTy,
+        StringRef("llvm.memcpy.p0.p0.i64"), llvmVoidTy,
         {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty});
   }
 };

@@ -418,7 +418,8 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 
     // Parse induction variable.
     OpAsmParser::UnresolvedOperand inductionVar;
-    if (parser.parseRegionArgument(inductionVar) || parser.parseEqual())
+    if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
+        parser.parseEqual())
       return failure();
     inductionVarRefs.emplace_back(inductionVar);
 
@@ -443,7 +444,16 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   Region *region = result.addRegion();
   SmallVector<Type, 4> inductionVarTypes(
       inductionVarRefs.size(), builder.getIndexType());
-  if (parser.parseRegion(*region, inductionVarRefs, inductionVarTypes))
+
+  SmallVector<OpAsmParser::Argument> entryArgs;
+  for (auto it : llvm::zip(inductionVarRefs, inductionVarTypes)) {
+    OpAsmParser::Argument arg;
+    arg.ssaName = std::get<0>(it);
+    arg.type = std::get<1>(it);
+    entryArgs.push_back(arg);
+  }
+
+  if (parser.parseRegion(*region, entryArgs))
     return failure();
 
   // Ensure iterate region is closed off with krnl.terminate.

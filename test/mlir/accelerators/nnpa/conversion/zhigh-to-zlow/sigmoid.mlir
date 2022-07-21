@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sigmoid"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -25,7 +25,7 @@ func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout 
 
 // -----
 
-func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Sigmoid"(%arg0) : (tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 

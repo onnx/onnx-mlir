@@ -22,7 +22,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
 
@@ -49,7 +49,7 @@ struct ConvertSeqToMemrefPass
 };
 
 void ConvertSeqToMemrefPass::runOnOperation() {
-  func::FuncOp funcOp = getOperation();
+  mlir::func::FuncOp funcOp = getOperation();
   if (funcOp.getBody().empty()) // external function: nothing to do
     return;
   MLIRContext *ctx = &getContext();

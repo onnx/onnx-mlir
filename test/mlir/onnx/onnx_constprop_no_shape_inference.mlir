@@ -8,7 +8,7 @@
 // COM: split input is not specified
 
 // CHECK-LABEL: @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-func @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
+func.func @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.Split"(%0, %cst) { axis = 0 : si64} : (tensor<2x10xf32>, none) -> (tensor<1x10xf32>, tensor<1x10xf32>)
@@ -24,7 +24,7 @@ func @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
 // COM: split input is not specified
 
 // CHECK-LABEL: @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
+func.func @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.Split"(%0, %cst) { axis = 1 : si64} : (tensor<2x10xf32>, none) -> (tensor<2x5xf32>, tensor<2x5xf32>)
@@ -40,7 +40,7 @@ func @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
 // COM: split attribute is not specified
 
 // CHECK-LABEL: @test_splitv11_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-func @test_splitv11_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
+func.func @test_splitv11_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.SplitV11"(%0) { axis = 0 : si64} : (tensor<2x10xf32>) -> (tensor<1x10xf32>, tensor<1x10xf32>)
   "func.return"(%1, %2) : (tensor<1x10xf32>, tensor<1x10xf32>) -> ()
@@ -55,7 +55,7 @@ func @test_splitv11_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>
 // COM: split attribute is not specified
 
 // CHECK-LABEL: @test_splitv11_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func @test_splitv11_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
+func.func @test_splitv11_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.SplitV11"(%0) { axis = 1 : si64} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
   "func.return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
@@ -71,7 +71,7 @@ func @test_splitv11_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) 
 /// scatternd tests
 
 // CHECK-LABEL: @test_scatternd_f32()
-func @test_scatternd_f32() -> (tensor<8xf32>) {
+func.func @test_scatternd_f32() -> (tensor<8xf32>) {
   %0 = "onnx.Constant"() { name = "constant.0", value = dense<[1., 2., 3., 4., 5., 6., 7., 8.]>:tensor<8xf32> } : () -> tensor<8xf32>
   %1 = "onnx.Constant"() { name = "constant.1", value = dense< [[4], [3], [1], [7]]>:tensor<4x1xi64> } : () -> tensor<4x1xi64>
   %2 = "onnx.Constant"() { name = "constant.2", value = dense<[9., 10., 11., 12.]>:tensor<4xf32> } : () -> tensor<4xf32>
@@ -84,7 +84,7 @@ func @test_scatternd_f32() -> (tensor<8xf32>) {
 // -----
 
 // CHECK-LABEL: @test_scatternd_i32()
-func @test_scatternd_i32() -> (tensor<4x4x4xi32>) {
+func.func @test_scatternd_i32() -> (tensor<4x4x4xi32>) {
   %0 = "onnx.Constant"() { name = "constant.0", value = dense<[[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
              [[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
              [[8, 7, 6, 5], [4, 3, 2, 1], [1, 2, 3, 4], [5, 6, 7, 8]],
