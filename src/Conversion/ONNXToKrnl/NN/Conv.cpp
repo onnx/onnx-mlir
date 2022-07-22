@@ -95,7 +95,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     Value reductionVal = createMemRef.alloca(tmpType);
 
     createScf.forEachThread(parLbs, parUbs, steps,
-    [&](KrnlBuilder &createKrnl ) {
+    [&](DialectBuilder &createScf, ValueRange steps) {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Compute the Channel In Indices.

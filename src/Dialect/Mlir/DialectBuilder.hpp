@@ -20,7 +20,7 @@
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
-//#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+//#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 using namespace mlir;
 
@@ -170,8 +170,8 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
-  void forEachThread(ValueRange &lowerBounds, ValueRange &upperBounds, ValueRange &steps,
-    function_ref<void(OpBuilder &createSCF, Location, ValueRange)> bodyFn) const;
+  void forEachThread(ValueRange lowerBounds, ValueRange upperBounds, ValueRange steps,
+    function_ref<void(DialectBuilder&, ValueRange)> bodyFn) const;
   void yield() const;
 };
 

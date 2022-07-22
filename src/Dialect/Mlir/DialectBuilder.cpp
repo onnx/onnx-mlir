@@ -23,6 +23,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+//#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -617,16 +618,15 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forEachThread(ValueRange &lowerBounds, ValueRange &upperBounds, ValueRange &steps,
-    function_ref<void(OpBuilder &createSCF, Location, ValueRange)> bodyFn) const {
-      //b.create<scf::ForEachThreadOp>(
+void SCFBuilder::forEachThread(ValueRange lowerBounds, ValueRange upperBounds, ValueRange steps,
+    function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
       b.create<scf::ParallelOp>(
-        loc, lowerBounds, upperBounds, steps, bodyFn
-        //[&](OpBuilder &childBuilder, Location childLoc) {
+        loc, lowerBounds, upperBounds, steps,
+        [&](OpBuilder &childBuilder, Location childLoc, ValueRange x) {
           //SCFBuilder scfBuilder(childBuilder, childLoc);
           //bodyFn(childBuilder, childLoc, steps);
-        //  yield();
-        //}
+          yield();
+        }
         );
     }
 
