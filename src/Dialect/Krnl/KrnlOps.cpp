@@ -12,27 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iostream>
-#include <queue>
-
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/Block.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/IntegerSet.h"
-#include "mlir/IR/Matchers.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallBitVector.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"
 
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
@@ -40,11 +23,10 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// KrnlOpsDialect
+// KrnlDialect
 //===----------------------------------------------------------------------===//
 
-KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
-    : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
+void KrnlDialect::initialize() {
   addTypes<krnl::LoopType, krnl::StringType>();
   addOperations<
 #define GET_OP_LIST
@@ -52,7 +34,7 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
       >();
 }
 
-Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
+Type KrnlDialect::parseType(DialectAsmParser &parser) const {
   StringRef keyword;
   if (parser.parseKeyword(&keyword))
     return Type();
@@ -67,7 +49,7 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
   return Type();
 }
 
-void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
+void KrnlDialect::printType(Type type, DialectAsmPrinter &os) const {
   TypeSwitch<Type>(type)
       .Case<krnl::LoopType>([&](Type) { os << "loop"; })
       .Case<krnl::StringType>([&](Type) { os << "string"; })
@@ -891,3 +873,5 @@ Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
+
+#include "src/Dialect/Krnl/KrnlDialect.cpp.inc"
