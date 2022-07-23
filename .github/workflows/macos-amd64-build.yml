@@ -13,7 +13,7 @@ jobs:
       with:
         python-version: '3.9'
     - name: install tools that are needed for compilation
-      run: brew install ninja pybind11
+      run: brew install automake ninja pybind11
     - name: install protobuf
       run: |
         cd ~/work
