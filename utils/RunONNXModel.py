@@ -205,12 +205,12 @@ def generate_random_input(model, input_shapes):
                 else:
                     print("The {} dim".format(ordinal(d + 1)),
                           "of the {} input is unknown.".format(ordinal(i + 1)),
-                          "Use --shape_info to set.")
+                          "Use --shape-info to set.")
                     print(shape_proto)
                     exit(1)
             else:
                 print("The shape of the {} input".format(ordinal(i + 1)),
-                      "is unknown. Use --shape_info to set.")
+                      "is unknown. Use --shape-info to set.")
                 print(shape_proto)
                 exit(1)
         rinput = np.random.uniform(-1.0, 1.0,
