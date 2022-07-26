@@ -100,12 +100,16 @@ private:
 
   LogicalResult createTagForIR(mlir::ModuleOp module, uint64_t *tag) {
     llvm::SmallString<64> tempFile;
+    // LLVM provides functionality for securely creating randomly named files in
+    // the appropriate tmp directory (it works on any platform). Use it here
+    // rather than directly calling OS-specific methods.
     if (auto ec =
             llvm::sys::fs::createTemporaryFile("onnxtempdump", "", tempFile)) {
       llvm::errs() << ec.message() << "\n";
       return failure();
     }
 
+    // This will remove the file when it goes out of scope.
     llvm::FileRemover tempFileRemover(tempFile);
 
     if (failed(outputCode(module, std::string(tempFile))))
