@@ -37,7 +37,7 @@ static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::memref::MemRefDialect>();
 
   registry.insert<mlir::ONNXDialect>();
-  registry.insert<mlir::KrnlOpsDialect>();
+  registry.insert<mlir::KrnlDialect>();
 
   // Initialize and register dialects used by accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
