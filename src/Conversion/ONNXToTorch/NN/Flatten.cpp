@@ -82,7 +82,8 @@ public:
         resultTensorType.getShape(), resultTensorType.getElementType());
 
     TensorType inputTensorType = input.getType().cast<TensorType>();
-    Value result = adaptor.input();
+    Value inputValue = adaptor.input();
+    Value tmpValue;
 
     // if axisValue is negative
     if (axisValue < 0)
@@ -131,15 +132,19 @@ public:
       auto intermType = Torch::ValueTensorType::get(context,
           llvm::makeArrayRef(intermShape), inputTensorType.getElementType());
       // 1) Flatten the region from 0 position to axis - 1.
-      result = createAtenFlattenOp(rewriter, loc, result, intermType,
+      tmpValue = createAtenFlattenOp(rewriter, loc, inputValue, intermType,
           /*start=*/0, /*start=*/axisValue - 1, op);
+      
     }
 
     // 2) Flatten the region from start=1, end=-1.
-    result = createAtenFlattenOp(rewriter, loc, result, resultType,
-        /*start=*/1, /*end=*/-1, op);
+    Value flattenedInput;
+    if (!tmpValue || inputTensorType.getRank() - axisValue >= 2) {
+      flattenedInput = createAtenFlattenOp(rewriter, loc, tmpValue ? tmpValue : inputValue, resultType,
+          /*start=*/1, /*end=*/-1, op);
+    }
     rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
-        op, resultType, result);
+        op, resultType, flattenedInput ? flattenedInput : tmpValue);
     return success();
   }
 };
