@@ -226,7 +226,7 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
   return %2 : tensor<15x10x1xf32>
   // CHECK: [[CST:%.+]] = "onnx.Constant"() {value = dense<[15, 10, 1]> : tensor<3xi64>} : () -> tensor<3xi64>
   // CHECK: [[MATMUL:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<3x5x10x20xf32>, tensor<20x1xf32>) -> tensor<3x5x10x1xf32>
-  // CHECK: [[RES:%.+]] = "onnx.Reshape"([[MATMUL]], [[CST]]) : (tensor<3x5x10x1xf32>, tensor<3xi64>) -> tensor<15x10x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Reshape"([[MATMUL]], [[CST]]) {allowzero = 0 : si64} : (tensor<3x5x10x1xf32>, tensor<3xi64>) -> tensor<15x10x1xf32>
   // CHECK: return [[RES]] : tensor<15x10x1xf32>
 }
 
@@ -251,7 +251,7 @@ func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x1
   %2 = "onnx.Constant"() {value = dense<[11, 10, 13, 12]> : tensor<4xi64> } : () -> tensor<4xi64>
   %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
   // CHECK-NEXT: [[RES:%.+]] = "onnx.Constant"() {value = dense<[11, 10, 13, 12]> : tensor<4xi64>} : () -> tensor<4xi64>
-  // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) {allowzero = 0 : si64} : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
   "func.return"(%3) : (tensor<11x10x13x12xf32>) -> ()
 }
 
