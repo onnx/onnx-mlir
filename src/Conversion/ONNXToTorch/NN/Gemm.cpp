@@ -102,8 +102,12 @@ public:
     Value A = op.A();
     Value B = op.B();
     Value C = op.C();
+
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+
     // C is an optional. However, when not present, it is replaced by a None.
-    // Before using C we need to be sure that it is really there and it's not just a None.
+    // Before using C we need to be sure that it is really there and it's not
+    // just a None.
     bool IsCPresent = false;
     if (C.getType().isa<TensorType>())
       IsCPresent = true;
@@ -112,17 +116,18 @@ public:
     // so for now we arrange the broadcast here. When this is fixed in XTen we
     // will remove the explicit broadcasting from here. The fix is only applied
     // to constant ops and will not work in a generalized case.
+    Value cTensor = adaptor.C();
 
     if (IsCPresent && C.getDefiningOp<ONNXConstantOp>() &&
         C.getDefiningOp()->hasAttr("value")) {
-      TensorType cTensorOp =
+      auto cTensorOp =
           C.getDefiningOp()->getAttr("value").getType().cast<TensorType>();
-      ArrayRef<int64_t> cTensorOpShape = cTensorOp.getShape();
-      Type cTensorOpType = cTensorOp.getElementType();
+      auto cTensorOpShape = cTensorOp.getShape();
+      auto cTensorOpType = cTensorOp.getElementType();
 
-      TensorType resultOp = op->getResult(0).getType().cast<TensorType>();
-      ArrayRef<int64_t> resultOpShape = resultOp.getShape();
-      Type resultOpType = resultOp.getElementType();
+      auto resultOp = op->getResult(0).getType().cast<TensorType>();
+      auto resultOpShape = resultOp.getShape();
+      auto resultOpType = resultOp.getElementType();
 
       int cShapeElements = std::accumulate(cTensorOpShape.begin(),
           cTensorOpShape.end(), 1, std::multiplies<int>());
@@ -133,6 +138,15 @@ public:
              "C and result tensor shapes do not match");
       assert((cTensorOpType == resultOpType) &&
              "C and result tensor types do not match");
+
+      auto denseElementType = ::mlir::FloatType::getF32(context);
+      ShapedType denseValueType =
+          RankedTensorType::get(resultOpShape, denseElementType);
+      DenseElementsAttr denseValueAttr =
+          C.getDefiningOp()->getAttr("value").cast<DenseElementsAttr>().reshape(
+              denseValueType);
+      cTensor = rewriter.create<Torch::ValueTensorLiteralOp>(
+          loc, resultType, denseValueAttr);
     }
 
     // Transpose A and B. Transpose on Torch is only 2d or less.
@@ -178,12 +192,11 @@ public:
     if (beta && beta.getValueAsDouble() != 1. && IsCPresent) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult = rewriter.create<AtenMulScalarOp>(
-          loc, adaptor.C().getType(), adaptor.C(), beta3v);
+          loc, cTensor.getType(), cTensor, beta3v);
     }
 
     // Mm Operation ((alpha * A') * B')
     AtenMmOp mmValue;
-    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (alphaMulResult)
       mmValue = rewriter.create<AtenMmOp>(
           loc, resultType, alphaMulResult, transposeBVal);
@@ -200,13 +213,12 @@ public:
     // C is optional. If C is present but Beta was 1
     else if (IsCPresent) {
       rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
-          op, resultType, mmValue, adaptor.C(), iOne);
-    } 
-    // If neither C nor Beta is present, this is equivalent to a Matrix multiply.
-    // We return (alpha * A' * B')
+          op, resultType, mmValue, cTensor, iOne);
+    }
+    // If neither C nor Beta is present, this is equivalent to a Matrix
+    // multiply. We return (alpha * A' * B')
     else {
-      rewriter.replaceOp(
-          op, mmValue->getResults());
+      rewriter.replaceOp(op, mmValue->getResults());
     }
     return success();
   }
