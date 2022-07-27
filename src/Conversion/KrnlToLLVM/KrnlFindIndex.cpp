@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "llvm/ADT/TypeSwitch.h"
+
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
