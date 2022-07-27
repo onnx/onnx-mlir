@@ -41,8 +41,8 @@ Detailed instructions are provided below.
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
 gcc >= 6.4
-libprotoc >= 3.11.0
-cmake >= 3.15.4
+protobuf >= 3.16.0
+cmake >= 3.13.4
 ninja >= 1.10.2
 ```
 
