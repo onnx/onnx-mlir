@@ -88,9 +88,9 @@ bool GRULibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
-  auto linearBeforeResetAttr =
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, linearBeforeReset, /*isSigned=*/true));
+
+  int64_t linearBeforeResetArg = linearBeforeReset;
+  int64_t layout = 0 /*layout=1 is not supported*/;
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
@@ -106,7 +106,7 @@ bool GRULibBuilder::build() {
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*linear_before_reset=*/linearBeforeResetAttr);
+      /*layout=*/layout, /*linear_before_reset=*/linearBeforeResetArg);
 
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
