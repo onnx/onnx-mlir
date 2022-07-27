@@ -96,9 +96,6 @@ bool LSTMLibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
-  auto inputForgetAttr =
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
@@ -117,8 +114,7 @@ bool LSTMLibBuilder::build() {
       /*initial_c=*/cVal, /*P=*/pConstant,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
-      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*input_forget=*/inputForgetAttr);
+      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
 
   lstmOp.getResults()[0].setType(yType);
   lstmOp.getResults()[1].setType(yHType);
