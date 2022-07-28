@@ -145,7 +145,7 @@ public class OMModel {
 			logger.finer(lib.toString() + " loaded");
 
 		    } catch (IOException e2) {
-			e2.printStackTrace();
+			logger.severe(e2.getMessage());
 		    }
 		} // if
             } // for
@@ -163,7 +163,7 @@ public class OMModel {
                  .forEach(f -> f.delete());
 
         } catch (URISyntaxException|IOException e) {
-            e.printStackTrace();
+            logger.severe(e.getMessage());
         }
     }
 
