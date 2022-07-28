@@ -179,8 +179,9 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
-  void parallelLoop(ValueRange lowerBounds, ValueRange upperBounds, ValueRange steps,
-    function_ref<void(DialectBuilder&, ValueRange)> bodyFn) const;
+  void parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+      ValueRange steps,
+      function_ref<void(DialectBuilder &, ValueRange)> bodyFn) const;
   void yield() const;
 };
 

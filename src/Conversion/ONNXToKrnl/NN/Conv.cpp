@@ -24,7 +24,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
-
   void convUnoptimized(ConversionPatternRewriter &rewriter,
       IndexExprScope *topScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
@@ -69,15 +68,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);
-    IndexExpr iOne  = LiteralIndexExpr(1);
+    IndexExpr iOne = LiteralIndexExpr(1);
 
     SmallVector<Value, 3> lbsStorage, ubsStorage, stepsStorage;
     SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};
     SmallVector<IndexExpr, 3> outerUbs = {N, G, COPerGroup};
     SmallVector<IndexExpr, 3> outerSteps = {iOne, iOne, iOne};
-    IndexExpr::getValues(outerLbs,lbsStorage);
-    IndexExpr::getValues(outerUbs,ubsStorage);
-    IndexExpr::getValues(outerSteps,stepsStorage);
+    IndexExpr::getValues(outerLbs, lbsStorage);
+    IndexExpr::getValues(outerUbs, ubsStorage);
+    IndexExpr::getValues(outerSteps, stepsStorage);
     ValueRange parLbs(lbsStorage);
     ValueRange steps(stepsStorage);
     ValueRange parUbs(ubsStorage);
@@ -94,11 +93,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     Value reductionVal = createMemRef.alloca(tmpType);
 
     createScf.parallelLoop(parLbs, parUbs, steps,
-    [&](DialectBuilder &createScf, ValueRange outerIndices) {
+        [&](DialectBuilder &createScf, ValueRange outerIndices) {
           // Compute the Channel In Indices.
           IndexExprScope outerScope(createKrnl);
           // Compute the channel out index "co".
-          //printf("%d, %d, %d\n",outerIndices[0],outerIndices[1],outerIndices[2]);
+          // printf("%d, %d,
+          // %d\n",outerIndices[0],outerIndices[1],outerIndices[2]);
           DimIndexExpr g(outerIndices[1]);
           DimIndexExpr coPerGroup(outerIndices[2]);
           IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
@@ -116,7 +116,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // Spacial loops.
           // for ho = 0 .. HO:
           //    for wo = 0 .. WO:
-          //printf("%s\n","about to create spatial loops");
+          // printf("%s\n","about to create spatial loops");
           createKrnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
               outputSpacialLbs, outputSpacialUbs,
               [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
@@ -158,7 +158,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 // for ciPerGroup = 0 .. CIPerGroup:
                 //   for kh in lb .. ub:
                 //     for kw in lb .. ub:
-                //printf("%s\n","about to create reduction loops");
+                // printf("%s\n","about to create reduction loops");
                 createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
                     [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
                       IndexExprScope redScope(createKrnl);
@@ -201,7 +201,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                       createKrnl.store(newRed, reductionVal);
                     }); // Reduction loops.
                         // Finish the reduction and store in result array.
-                //printf("%s\n","created reduction loops");
+                // printf("%s\n","created reduction loops");
                 Value result = createKrnl.load(reductionVal);
                 // Store the result. Optionally add bias.
                 SymbolIndexExpr coInOutputSpacial(co);
@@ -218,10 +218,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
                   resAccessFunc.emplace_back(DimIndexExpr(o));
                 createKrnl.storeIE(result, alloc, resAccessFunc);
               }); // Output spacial loops.
-                //printf("%s\n","created spatial loops");
-        //});       // Outer loops;
-    });
-                //printf("%s\n","created parallel loops");
+                  // printf("%s\n","created spatial loops");
+          //});       // Outer loops;
+        });
+    // printf("%s\n","created parallel loops");
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,

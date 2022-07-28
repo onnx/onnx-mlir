@@ -165,9 +165,8 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableParallel("parallel",
-    llvm::cl::desc(
-        "Enable parallelization (default=false)\n"
-        "Set to 'true' if you want to enable parallelization."),
+    llvm::cl::desc("Enable parallelization (default=false)\n"
+                   "Set to 'true' if you want to enable parallelization."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
