@@ -4,6 +4,6 @@ add_onnx_mlir_library(OMONNXToTOSA
   ConvertONNXToTOSA.cpp
   LINK_LIBS PUBLIC
   OMONNXOps
-  MLIRTosa
+  MLIRTosaDialect
   MLIRTransforms
   )

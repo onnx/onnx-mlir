@@ -38,7 +38,7 @@ toc:
   - title: Development
     subfolderitems:
       - page: Add an Operation
-        url:  HowToAddAnOperation.html
+        url:  ImportONNXDefs.md#add-an-operation-.html
       - page: Testing Guidelines
         url:  Testing.html
       - page: Error Handling
@@ -49,6 +49,8 @@ toc:
         url:  Instrumentation.html
       - page: Constant Propagation
         url:  ConstPropagationPass.html
+      - page: Add an Accelerator
+        url:  AddCustomAccelerators.html
   - title: Tools
   - title: Tools
     subfolderitems:

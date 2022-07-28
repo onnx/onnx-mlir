@@ -27,7 +27,7 @@ set(create_accelerators_inc_script "${CMAKE_CURRENT_SOURCE_DIR}/CreateAccelerato
 
 add_custom_command(OUTPUT "${accelerators_inc}"
   DEPENDS "${create_accelerators_inc_script}"
-  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}" "-DACCELERATORS=${ACCEL_INCLUDE_LIST}"
+  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}" "-DACCELERATORS=\"${ACCEL_INCLUDE_LIST}\""
     -P "${create_accelerators_inc_script}"
   )
 set_source_files_properties("${accelerators_inc}"

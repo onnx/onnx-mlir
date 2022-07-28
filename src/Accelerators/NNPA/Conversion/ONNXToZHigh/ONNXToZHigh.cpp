@@ -100,11 +100,12 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, StringAttr direction) {
+    Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
   if (isNoneType(resYh) || isNoneType(val))
     return noneValue;
 
+  ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
   Value minusOne =
       rewriter
@@ -126,28 +127,46 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
                          loc, nullptr, rewriter.getI64TensorAttr({INT_MAX}))
                      .getResult();
   StringRef directionStr = direction.getValue();
-  Value start, end;
-  if (directionStr.equals_insensitive("forward")) {
-    start = minusOne;
-    end = intMax;
-  } else if (directionStr.equals_insensitive("reverse")) {
-    start = zero;
-    end = one;
-  } else {
-    llvm_unreachable("Bidirectional is not supported.");
-  }
-  ArrayRef<int64_t> yhShape =
+  ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
-  SmallVector<int64_t> sliceShape({1, yhShape[0], yhShape[1], yhShape[2]});
-  Type elementType = resYh.getType().cast<RankedTensorType>().getElementType();
-  Type sliceType = RankedTensorType::get(sliceShape, elementType);
+  int64_t T = isNoneType(resY) ? 1 : shapeX[0];
+  int64_t D = resYhShape[0];
+  int64_t B = resYhShape[1];
+  int64_t H = resYhShape[2];
+  Type elementType = resYh.getType().cast<ShapedType>().getElementType();
   Value axis = zero;
   Value step = one;
-  ONNXSliceOp sliceOp =
-      rewriter.create<ONNXSliceOp>(loc, sliceType, val, start, end, axis, step);
-  ONNXSqueezeV11Op squeezeOp = rewriter.create<ONNXSqueezeV11Op>(
-      loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
-  return squeezeOp.getResult();
+  Value ret;
+  if (directionStr.equals_insensitive("forward") ||
+      directionStr.equals_insensitive("reverse")) {
+    Value start = directionStr.equals_insensitive("forward") ? minusOne : zero;
+    Value end = directionStr.equals_insensitive("forward") ? intMax : one;
+
+    Type sliceType = RankedTensorType::get({1, D, B, H}, elementType);
+    ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, val, start, end, axis, step);
+    return rewriter.create<ONNXSqueezeV11Op>(
+        loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
+  } else if (directionStr.equals_insensitive("bidirectional")) {
+    Type splitType = RankedTensorType::get({T, 1, B, H}, elementType);
+    SmallVector<Type> splitTypes = {splitType, splitType};
+    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
+        loc, splitTypes, val, /*splitAxis=*/1, nullptr);
+    Type sliceType = RankedTensorType::get({1, 1, B, H}, elementType);
+    Value fwdLastSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[0], minusOne, intMax, axis, step);
+    Value bkwFirstSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[1], zero, one, axis, step);
+    Type concatType = RankedTensorType::get({1, D, B, H}, elementType);
+    Value concatOp = rewriter.create<ONNXConcatOp>(loc, concatType,
+        ValueRange({fwdLastSlice, bkwFirstSlice}), /*concatAxis=*/1);
+    Type squeezeType = RankedTensorType::get({D, B, H}, elementType);
+    return rewriter.create<ONNXSqueezeV11Op>(
+        loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
+  } else {
+    llvm_unreachable("Invalid direction.");
+  }
+  return ret;
 }
 
 Value getLSTMGRUGetYc(
@@ -156,7 +175,7 @@ Value getLSTMGRUGetYc(
   if (isNoneType(resYc))
     return noneValue;
 
-  auto unstickOp =
+  zhigh::ZHighUnstickOp unstickOp =
       rewriter.create<zhigh::ZHighUnstickOp>(loc, val.getType(), val);
   return rewriter.create<ONNXSqueezeV11Op>(
       loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
@@ -238,6 +257,8 @@ struct ONNXSumOpPatternEnhancedRecursion
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXToZHighLoweringPass)
+
   StringRef getArgument() const override { return "convert-onnx-to-zhigh"; }
 
   StringRef getDescription() const override {
@@ -273,7 +294,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithmeticDialect>();
 
   // Combined ONNX ops to ZHigh lowering.

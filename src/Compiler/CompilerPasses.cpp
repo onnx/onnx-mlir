@@ -144,9 +144,8 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
     return ONNXLevel;
 
   // If there are Krnl ops, the input level is MLIR.
-  bool hasKrnlOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == KrnlOpsDialect::getDialectNamespace());
-  });
+  bool hasKrnlOps = llvm::any_of(dialectNamespace,
+      [&](StringRef ns) { return (ns == KrnlDialect::getDialectNamespace()); });
   if (hasKrnlOps)
     return MLIRLevel;
 

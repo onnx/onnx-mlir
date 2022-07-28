@@ -258,6 +258,7 @@ inference part as no code may be generated during such phases.
 
 #pragma once
 
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/AffineExpr.h"

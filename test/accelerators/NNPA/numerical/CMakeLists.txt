@@ -89,7 +89,7 @@ add_numerical_unittest(TestGemmNNPA
 set(TestLSTMNNPA_instruction zdnn_lstm)
 add_numerical_unittest(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-  DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_LSTM_NONEP_ONLY
+  DEFINE PRIVATE TEST_LSTM_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
@@ -97,6 +97,6 @@ add_numerical_unittest(TestLSTMNNPA
 set(TestGRUNNPA_instruction zdnn_gru)
 add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
-  DEFINE PRIVATE TEST_RNN_NO_BIDIR TEST_GRU_L1
+  DEFINE PRIVATE TEST_GRU_L1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )

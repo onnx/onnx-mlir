@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --lower-krnl-shape %s -split-input-file | FileCheck %s
 
-func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
+func.func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?x?xf32>
@@ -29,7 +29,7 @@ func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
 
 #map0 = affine_map<(d0, d1) -> (d0 floordiv 2, d1 floordiv 4, d0 mod 2, d1 mod 4)>
 
-func @test_krnl_shape_lowering_with_affine_map(%arg0: memref<?x?xf32>) -> index {
+func.func @test_krnl_shape_lowering_with_affine_map(%arg0: memref<?x?xf32>) -> index {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?x?xf32>

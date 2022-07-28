@@ -20,6 +20,7 @@ add_onnx_mlir_rewriter(ConstProp)
 
 add_onnx_mlir_library(OMONNXRewrite
   Decompose.cpp
+  DecomposeEinsum.cpp
   ConstProp.cpp
 
   DEPENDS
@@ -37,7 +38,7 @@ add_onnx_mlir_library(OMShapeInference
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
-  MLIRFunc
+  MLIRFuncDialect
   MLIRPass
   )
 

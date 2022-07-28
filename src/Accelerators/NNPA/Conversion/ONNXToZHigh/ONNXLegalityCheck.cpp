@@ -553,10 +553,15 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
+
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
 
   // Check data type.
   if (!isValidElementType(W))
@@ -568,15 +573,14 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
-  // Check if R has static dimensions.
-  if (!R.getType().cast<ShapedType>().hasStaticShape())
+  // Check if R has static dimensions, and the direction dim is 1 or 2.
+  ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
+  if (!R.getType().cast<ShapedType>().hasStaticShape() ||
+      (rShape[0] != 1 && rShape[0] != 2))
     return false;
   // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
@@ -587,6 +591,12 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // check if B, initial_h and initial_c have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
   if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
@@ -607,7 +617,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // other inputs.
   if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
     return false;
-  // zDNN does not support input_forgaet.
+  // zDNN does not support input_forget.
   if (op.input_forget() != 0)
     return false;
   return true;
@@ -617,10 +627,15 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
+
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
 
   // Check data type.
   if (!isValidElementType(W))
@@ -632,12 +647,9 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
@@ -651,6 +663,12 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   // check if B and initial_h have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support activation_alpha and activation_beta.
   if (op.activation_alpha() || op.activation_beta())
     return false;
@@ -811,6 +829,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
           [](IndexExpr val) { return !val.isLiteral(); }))
     return false;
 
+  int64_t inputShapeC = shapeInput[1];
   int64_t inputShapeH = shapeInput[2];
   int64_t inputShapeW = shapeInput[3];
   int64_t outputShapeH = shapeOutput[2];
@@ -828,6 +847,12 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
   bool isWOK = checkConv2DParamRestrictions(
       inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
   if (!isWOK)
+    return false;
+
+  // Currently disable the generation of Conv2D when parameters are C != 1, kH =
+  // 1, kW=1 because of current issue #1517.  When fixed, please remove lit test
+  // test_onnx_conv2d_not_lowered_c_not_1_kernel11.
+  if (inputShapeC != 1 && kernelShapeH == 1 && kernelShapeW == 1)
     return false;
 
   return true;

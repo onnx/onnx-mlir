@@ -25,8 +25,10 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include <math.h>
@@ -191,6 +193,13 @@ bool isFromDenseONNXConstantOp(Value result) {
   return true;
 }
 
+/// A helper function to check whether a variadic value is produced by dense
+/// ONNXConstantOps.
+bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
+  return llvm::all_of(
+      operands, [](Value v) { return isFromDenseONNXConstantOp(v); });
+}
+
 /// A helper function to create an ONNXConstantOp for a given data array.
 /// This ONNXConstantOp is only used internally.
 ONNXConstantOp createConstantOpAndStoreBufferPtr(
@@ -290,7 +299,7 @@ void IterateConstPropElementwiseBinary(char *lhs, char *rhs,
       }
 
   // Do computation.
-  for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
     // Compute indices to access the output.
     std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
 
@@ -415,7 +424,7 @@ void IterateConstPropElementwiseUnary(
   T *resArray = reinterpret_cast<T *>(res);
 
   // Calculate element-wise unary result.
-  for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
     *(resArray + i) = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(
         *(inputArray + i));
   }
@@ -671,7 +680,7 @@ LogicalResult ScatterNDImpl(
     slice_size *= updates_shape[i];
   }
 
-  int64_t output_flat_size = getNumberOfElements(data_shape);
+  int64_t output_flat_size = ShapedType::getNumElements(data_shape);
   int64_t remain_flat_size = output_flat_size;
   std::vector<int64_t> dims_to_count(indices_nd, 0);
 
@@ -746,6 +755,289 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for CastOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropCast(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  // Get the const value using the maximum precision e.g. double, int64_t.
+  char *constArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+
+  // Create the result buffer.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ShapedType srcType = constValue.getType().cast<ShapedType>();
+  ShapedType destType = replacingValue.getType().cast<ShapedType>();
+  Type srcElemType = srcType.getElementType();
+  Type destElemType = destType.getElementType();
+
+  // Convert to the maximum destination type. Values will be converted to the
+  // correct type automatically when constructing the output ONNXConstantOp.
+  int64_t numElements = ShapedType::getNumElements(srcType.getShape());
+  if (destElemType.isa<FloatType>()) {
+    if (srcElemType.isa<FloatType>())
+      copyAndCastArr<double, double>(constArray, resArray, numElements);
+    else
+      copyAndCastArr<int64_t, double>(constArray, resArray, numElements);
+  } else if (destElemType.isa<IntegerType>()) {
+    if (srcElemType.isa<FloatType>())
+      copyAndCastArr<double, int64_t>(constArray, resArray, numElements);
+    else
+      copyAndCastArr<int64_t, int64_t>(constArray, resArray, numElements);
+  } else
+    llvm_unreachable("Unsupport data type");
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for SliceOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropSlice(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
+
+  ArrayRef<int64_t> inputShape = getShape(constValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+
+  // Get the const value using the maximum precision e.g. double, int64_t.
+  char *constArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  // Get starts, ends, axes and steps via ShapeHelper.
+  ONNXSliceOpShapeHelper shapeHelper(&sliceOp);
+  ONNXSliceOpAdaptor operandAdaptor(sliceOp);
+  if (failed(shapeHelper.computeShape(operandAdaptor))) {
+    sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
+                      " parameters successfully");
+    return nullptr;
+  }
+
+  // Iterate over the output index space.
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
+    // Input index: "ii * step + start" for all dim.
+    // Output index: "ii" for all dims.
+    // where `ii` is a tensor index.
+    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
+    SmallVector<int64_t, 4> inputIndices;
+    for (unsigned k = 0; k < outputIndices.size(); ++k) {
+      int64_t ii = outputIndices[k];
+      inputIndices.emplace_back(ii * shapeHelper.steps[k].getLiteral() +
+                                shapeHelper.starts[k].getLiteral());
+    }
+    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(
+        resArray + i * typeSize, constArray + inputOffset * typeSize, typeSize);
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ConcatOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
+    ValueRange operands, IntegerAttr axisAttr) {
+  // Get the const values using the maximum precision e.g. double, int64_t.
+  SmallVector<char *, 4> inputArrays;
+  for (uint64_t i = 0; i < operands.size(); ++i) {
+    char *array =
+        getArrayFromAttributeOrBuffer(rewriter, operands[i].getDefiningOp());
+    inputArrays.emplace_back(array);
+  }
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  int64_t axis = axisAttr.getValue().getSExtValue();
+  if (axis < 0)
+    axis += outputShape.size();
+
+  // If concatenation is on the outermost dimension, do memcpy for better
+  // performance. Otherwise, copy elements one-by-one.
+  if (axis == 0) {
+    int64_t offset = 0;
+    for (uint64_t i = 0; i < operands.size(); ++i) {
+      int64_t sizeInBytes = getMaxSizeInBytes(operands[i].getType());
+      memcpy(resArray + offset, inputArrays[i], sizeInBytes);
+      offset += sizeInBytes;
+    }
+  } else {
+    int64_t dimAtAxis = 0;
+    for (uint64_t i = 0; i < operands.size(); ++i) {
+      ArrayRef<int64_t> inputShape = getShape(operands[i].getType());
+      std::vector<int64_t> inputStrides = getStrides(inputShape);
+      for (int64_t k = 0; k < ShapedType::getNumElements(inputShape); ++k) {
+        std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
+        std::vector<int64_t> outputIndices(inputIndices);
+        outputIndices[axis] += dimAtAxis;
+        int64_t outputOffset =
+            getLinearAccessIndex(outputIndices, outputStrides);
+        int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+        memcpy(resArray + outputOffset * typeSize,
+            inputArrays[i] + k * typeSize, typeSize);
+      }
+      dimAtAxis += inputShape[axis];
+    }
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ExpandOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropExpand(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  // Get the const value using the maximum precision e.g. double, int64_t.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  ArrayRef<int64_t> inputShape = getShape(constValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  int64_t inputRank = inputShape.size();
+  int64_t outputRank = outputShape.size();
+
+  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
+    // Compute indices to access the output.
+    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
+    // Compute indices to access the input.
+    SmallVector<int64_t, 4> inputIndices;
+    if (inputRank == 0) {
+      inputIndices.emplace_back(0);
+    } else {
+      for (int inputAxis = 0; inputAxis < inputRank; ++inputAxis) {
+        if (inputShape[inputAxis] == 1) {
+          // broadcast
+          inputIndices.emplace_back(0);
+        } else {
+          int outputIndex = (outputRank - inputRank) + inputAxis;
+          inputIndices.emplace_back(outputIndices[outputIndex]);
+        }
+      }
+    }
+
+    // Calculate the final result.
+    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
+    int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(resArray + outputOffset * typeSize,
+        inputArray + inputOffset * typeSize, typeSize);
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for GatherOp.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value indicesValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+
+  ArrayRef<int64_t> inputShape = getShape(inputValue.getType());
+  ArrayRef<int64_t> indicesShape = getShape(indicesValue.getType());
+  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+  std::vector<int64_t> inputStrides = getStrides(inputShape);
+  std::vector<int64_t> indicesStrides = getStrides(indicesShape);
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
+  int64_t inputRank = inputShape.size();
+  int64_t indicesRank = indicesShape.size();
+
+  int64_t axis = gatherOp.axis();
+  if (axis < 0)
+    axis += inputRank;
+  int64_t axisDim = inputShape[axis];
+
+  // Get the input value using the maximum precision e.g. double, int64_t.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, inputValue.getDefiningOp());
+
+  // Get the indices value using the maximum precision. Index is integer.
+  int64_t *indicesArray = (int64_t *)getArrayFromAttributeOrBuffer(
+      rewriter, indicesValue.getDefiningOp());
+
+  // Create the result buffer using the maximum precision e.g. double, int64_t.
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+
+  // Iterate over the output index space.
+  for (int64_t ii = 0; ii < ShapedType::getNumElements(outputShape); ++ii) {
+    std::vector<int64_t> outputIndices = getAccessIndex(ii, outputStrides);
+    SmallVector<int64_t, 4> inputIndices, indicesIndices;
+    // Compute tensor access indices for indices: indices[jj].
+    for (int j = 0; j < indicesRank; ++j)
+      indicesIndices.emplace_back(outputIndices[axis + j]);
+    int64_t indicesOffset =
+        getLinearAccessIndex(indicesIndices, indicesStrides);
+    // Get indices.
+    int64_t axisIndex = *(indicesArray + indicesOffset);
+    if (axisIndex < 0)
+      axisIndex += axisDim;
+
+    // Compute tensor access indices for input: input[ii + (indices[jj],) + kk]
+    // First add indices ii
+    for (int i = 0; i < axis; ++i)
+      inputIndices.emplace_back(outputIndices[i]);
+    // Then add indices[jj] at axis.
+    inputIndices.emplace_back(axisIndex);
+    // Then add kk.
+    for (int k = axis + 1; k < inputRank; ++k)
+      inputIndices.emplace_back(outputIndices[indicesRank - 1 + k]);
+
+    // Copy values.
+    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
+    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
+    memcpy(resArray + ii * typeSize, inputArray + inputOffset * typeSize,
+        typeSize);
+  }
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
@@ -789,10 +1081,11 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
     if (op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)) {
-      char *arr = allocateBufferFor(constOp.getResult().getType());
-      getArrayForFinalOutput(op, arr);
       ShapedType type = constOp.getResult().getType().cast<ShapedType>();
-      DenseElementsAttr denseAttr = createDenseElementsAttrFromArray(arr, type);
+      char *arr = allocateBufferFor(type, /*useMaxSize=*/false);
+      getArrayForFinalOutput(op, arr);
+      DenseElementsAttr denseAttr =
+          createDenseElementsAttrFromRawBuffer(type, arr);
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);
       free(arr);

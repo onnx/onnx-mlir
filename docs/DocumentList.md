@@ -5,6 +5,7 @@ This document serves as an index for onnx-mlir documents.
 
 # Supported ONNX Ops
 * CPU support is covered [here](SupportedONNXOps-cpu.md).
+* NNPA support is covered [here](SupportedONNXOps-NNPA.md).
 
 # Working environment
 * Installation is covered by [README.md](../README.md).
@@ -23,8 +24,11 @@ To help debugging and performance tuning, onnx-mlir supports [instrumentation](I
 at the ONNX operand level.
 * All the passes may be controlled with [options](Options.md).
 * How to handle errors can be found [here](ErrorHandling.md).
+* How to support a new accelerator can be found [here](AddCustomAccelerators).
 
 # Execution
-The compiled ONNX model can be executed with either [c/c++ driver](document missing)
-or [python driver](DebuggingNumericalError.md).
+The compiled ONNX model can be executed with either a
+[C/C++ driver](mnist_example/README.md#write-a-c-driver-code)
+[python driver](mnist_example/README.md#write-a-python-driver-code). or a
+[java driver](mnist_example/README.md#write-a-java-driver-code).
 The routine testing for onnx-mlir build is describe in this [document](Testing.md).

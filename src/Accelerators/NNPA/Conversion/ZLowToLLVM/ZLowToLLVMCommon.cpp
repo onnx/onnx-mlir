@@ -12,13 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "zdnn.h"
 
 using namespace mlir;
@@ -95,15 +96,15 @@ ZTensorHelper::ZTensorHelper(PatternRewriter &rewriter, Location loc,
 // Get a pre-transformed descriptor.
 Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
     zdnn_data_layouts zDNNDataLayout, ArrayRef<Value> dims) {
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  MLIRContext *context = module.getContext();
   size_t rank = dims.size();
 
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmZTensorDescStructTy = getZTensorDescStructTy(context);
-  auto one = rewriter.create<LLVM::ConstantOp>(
-      loc, IntegerType::get(context, 64), rewriter.getI64IntegerAttr(1));
+  Type llvmI64Ty = rewriter.getI64Type();
+  Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
+  Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
-  Value preTransformedDescPtr = rewriter.create<LLVM::AllocaOp>(loc,
+  Value preTransformedDescPtr = create.llvm._alloca(
       LLVM::LLVMPointerType::get(llvmZTensorDescStructTy), one,
       /*alignment=*/0);
 
@@ -111,12 +112,10 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   // descriptor.
   SmallVector<Value, 4> operands;
   // 1. Data layout.
-  auto dataLayout = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI64Ty, rewriter.getI64IntegerAttr(zDNNDataLayout));
+  Value dataLayout = create.llvm.constant(llvmI64Ty, (int64_t)zDNNDataLayout);
   operands.emplace_back(dataLayout);
   // 2. Data type.
-  auto dataType = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI64Ty, rewriter.getI64IntegerAttr(zDNNDataType));
+  Value dataType = create.llvm.constant(llvmI64Ty, (int64_t)zDNNDataType);
   operands.emplace_back(dataType);
   // 3. Tensor descriptor.
   operands.emplace_back(
@@ -138,20 +137,19 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
 // Get a transformed descriptor.
 Value ZTensorHelper::getTransformedDescPtr(
     Value preTransformedDescPtr, bool isConcat, zdnn_concat_info concatInfo) {
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  MLIRContext *context = module.getContext();
 
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmZTensorDescStructTy = getZTensorDescStructTy(context);
-  auto one = rewriter.create<LLVM::ConstantOp>(
-      loc, IntegerType::get(context, 64), rewriter.getI64IntegerAttr(1));
+  Type llvmI64Ty = rewriter.getI64Type();
+  Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
+  Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
-  Value transformedDescPtr = rewriter.create<LLVM::AllocaOp>(loc,
+  Value transformedDescPtr = create.llvm._alloca(
       LLVM::LLVMPointerType::get(llvmZTensorDescStructTy), one,
       /*alignment=*/0);
 
   if (isConcat) {
-    auto concatLayout = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(concatInfo));
+    Value concatLayout = create.llvm.constant(llvmI64Ty, (int64_t)concatInfo);
     callApi(rewriter, loc, module, apiRegistry,
         API::ZDNN_GENERATE_TRANSFORMED_DESC_CONCATENATED,
         {toOpaquePtr(rewriter, loc, module, preTransformedDescPtr),
@@ -167,13 +165,10 @@ Value ZTensorHelper::getTransformedDescPtr(
 
 // Get the pointer to memref.
 Value ZTensorHelper::getAlignedI8Ptr(Value memRef) {
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
   MemRefDescriptor descriptor(memRef);
   Value alignedPtr = descriptor.alignedPtr(rewriter, loc);
-  auto llvmI8Ty = IntegerType::get(context, 8);
-  Value alignedI8Ptr = rewriter.create<LLVM::BitcastOp>(
-      loc, LLVM::LLVMPointerType::get(llvmI8Ty), alignedPtr);
-  return alignedI8Ptr;
+  return create.llvm.bitcastI8Ptr(alignedPtr);
 }
 
 // Get buffer size from a transformed descriptor.
@@ -190,14 +185,14 @@ Value ZTensorHelper::getBufferSize(Value transformedDescPtr) {
 ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
     zdnn_data_layouts layout, ArrayRef<Value> originalDims, bool isTransformed,
     bool isConcat, zdnn_concat_info concatInfo) {
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  MLIRContext *context = module.getContext();
   ZTensor zTensor;
 
   // LLVM types for zTensor and zTensor descriptor.
-  auto llvmZTensorStructTy = getZTensorStructTy(context);
+  Type llvmZTensorStructTy = getZTensorStructTy(context);
   // Some frequently used constants.
-  auto one = rewriter.create<LLVM::ConstantOp>(
-      loc, IntegerType::get(context, 64), rewriter.getI64IntegerAttr(1));
+  Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
 
   // Create a pre transformed descriptor.
   Value preTransformedDescPtr =
@@ -206,9 +201,9 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
   Value transformedDescPtr =
       getTransformedDescPtr(preTransformedDescPtr, isConcat, concatInfo);
   // Create the input zTensor.
-  Value alloc = rewriter.create<LLVM::AllocaOp>(loc,
-      LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
-      /*alignment=*/0);
+  Value alloc =
+      create.llvm._alloca(LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
+          /*alignment=*/0);
   // Buffer size.
   Value bufferSize = getBufferSize(transformedDescPtr);
   // clang-format off
@@ -233,16 +228,15 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
 ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
     Value transformedDescPtr, Value bufferSize, Value bufferPtr,
     bool isTransformed) {
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  MLIRContext *context = module.getContext();
   ZTensor zTensor;
 
-  auto llvmZTensorStructTy = getZTensorStructTy(context);
-  auto one = rewriter.create<LLVM::ConstantOp>(
-      loc, IntegerType::get(context, 64), rewriter.getI64IntegerAttr(1));
-
-  Value alloc = rewriter.create<LLVM::AllocaOp>(loc,
-      LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
-      /*alignment=*/0);
+  Type llvmZTensorStructTy = getZTensorStructTy(context);
+  Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
+  Value alloc =
+      create.llvm._alloca(LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
+          /*alignment=*/0);
   // clang-format off
   fillInZTensor(rewriter, loc, module, alloc,
                 /*preTransformedDescPtr=*/preTransformedDescPtr,
@@ -261,27 +255,11 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
   return zTensor;
 }
 
-/// Search for a function reference. Insert a new function reference if not
-/// found.
-FlatSymbolRefAttr getOrInsertExternFuncRef(PatternRewriter &rewriter,
-    ModuleOp module, StringRef funcName, Type funcType) {
-  auto *context = module.getContext();
-  if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    assert(sym.getFunctionType() == funcType && "wrong symbol type");
-    return SymbolRefAttr::get(context, funcName);
-  }
-
-  // Insert the function into the body of the parent module.
-  PatternRewriter::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
-  return SymbolRefAttr::get(context, funcName);
-}
-
 // Call a registered API, return the return SSA values if only one result is
 // returned, otherwise return nullptr.
 Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
     ApiRegistry registry, API apiId, ArrayRef<Value> params) {
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
   // To be used as parameters in LLVM::CallOp, voidTy must be converted
   // to empty list to avoid emission of an SSA value with voidTy. However,
   // we still keep using LLVM voidTy (as opposed to empty list) when recording
@@ -289,18 +267,16 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
   // functions in LLVM IR, the correct way to indicate an output type for
   // "void" is still LLVM voidTy. Relevant discussion thread:
   // https://github.com/onnx/onnx-mlir/issues/255.
+  ApiSpec apiSpec = registry.at(apiId);
+  FlatSymbolRefAttr symbolRef =
+      create.llvm.getOrInsertSymbolRef(module, StringRef(apiSpec.name),
+          apiSpec.outputTy, apiSpec.inputTys, apiSpec.isVarArg);
   SmallVector<Type, 1> outputTys;
-  auto apiSpec = registry.at(apiId);
-  auto symbolRef = getOrInsertExternFuncRef(
-      rewriter, module, apiSpec.name, apiSpec.funcTy());
-  auto outputTy = apiSpec.outputTy;
+  Type outputTy = apiSpec.outputTy;
   if (!outputTy.isa<LLVM::LLVMVoidType>())
     outputTys.emplace_back(outputTy);
-  auto returnVals = rewriter.create<LLVM::CallOp>(
-      loc, ArrayRef<Type>(outputTys), symbolRef, ArrayRef<Value>(params));
-  if (returnVals.getNumResults() == 1)
-    return returnVals.getResult(0);
-  return nullptr;
+  return create.llvm.call(
+      ArrayRef<Type>(outputTys), symbolRef, ArrayRef<Value>(params));
 }
 
 size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
@@ -325,13 +301,12 @@ size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 std::vector<Value> getDimsFromDenseElementsAttr(PatternRewriter &rewriter,
     Location loc, ModuleOp module, DenseElementsAttr valueAttr, unsigned size) {
   assert(valueAttr.getNumElements() == size);
-  auto *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
   std::vector<Value> dims;
   auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
   for (unsigned int i = 0; i < size; ++i) {
     int64_t dim = (*valueIt++).cast<IntegerAttr>().getInt();
-    Value dimVal = rewriter.create<LLVM::ConstantOp>(
-        loc, IntegerType::get(context, 64), rewriter.getI64IntegerAttr(dim));
+    Value dimVal = create.llvm.constant(rewriter.getI64Type(), dim);
     dims.emplace_back(dimVal);
   }
   return dims;
@@ -340,7 +315,8 @@ std::vector<Value> getDimsFromDenseElementsAttr(PatternRewriter &rewriter,
 /// Get a vector of 'size' dimensions from a 1D MemRef of shape.
 std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
     Location loc, ModuleOp module, Value shapeMemRef, unsigned size) {
-  auto *context = module.getContext();
+  MLIRContext *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   // If shapeMemRef is produced by a constant op, then create values from the
   // constant values.
@@ -387,14 +363,13 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
   // If shapeMemRef is not produced by a constant op, read values from MemRef.
   std::vector<Value> dims;
   MemRefDescriptor inputMRD(shapeMemRef);
-  auto alignedPtr = inputMRD.alignedPtr(rewriter, loc);
-  auto int64Ty = IntegerType::get(context, 64);
+  Value alignedPtr = inputMRD.alignedPtr(rewriter, loc);
+  Type int64Ty = IntegerType::get(context, 64);
   for (int64_t i = 0; i < size; ++i) {
-    auto index = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(i));
-    Value alignedGep = rewriter.create<LLVM::GEPOp>(loc,
-        LLVM::LLVMPointerType::get(int64Ty), alignedPtr, ValueRange({index}));
-    Value dimI64 = rewriter.create<LLVM::LoadOp>(loc, alignedGep);
+    Value index = create.llvm.constant(int64Ty, i);
+    Value alignedGep = create.llvm.getElemPtr(
+        LLVM::LLVMPointerType::get(int64Ty), alignedPtr, {index});
+    Value dimI64 = create.llvm.load(alignedGep);
     dims.emplace_back(dimI64);
   }
   return dims;
@@ -429,7 +404,7 @@ void getDimsFromMemRef(PatternRewriter &rewriter, Location loc, ModuleOp module,
   size_t rank =
       getRankFromMemRefType(memRef.getType().cast<LLVM::LLVMStructType>());
   for (size_t i = 0; i < rank; i++) {
-    auto dimI64 = memRefDesc.size(rewriter, loc, i);
+    Value dimI64 = memRefDesc.size(rewriter, loc, i);
     dims.emplace_back(dimI64);
   }
 }
@@ -447,7 +422,7 @@ zdnn_data_types llvmTypeToZDNNType(Type elemType) {
 
 /// Function to create a zTensor descriptor struct type.
 Type getZTensorDescStructTy(MLIRContext *context) {
-  auto llvmI32Ty = IntegerType::get(context, 32);
+  Type llvmI32Ty = IntegerType::get(context, 32);
 
   SmallVector<Type, 4> zTensorDescTypeElements;
   // data layout
@@ -465,7 +440,7 @@ Type getZTensorDescStructTy(MLIRContext *context) {
   // dim1: number of elements in innermost dimension
   zTensorDescTypeElements.emplace_back(llvmI32Ty);
 
-  auto zTensorDescStructTy = LLVM::LLVMStructType::getLiteral(context,
+  Type zTensorDescStructTy = LLVM::LLVMStructType::getLiteral(context,
       /*elements=*/zTensorDescTypeElements,
       /*isPacked=*/false);
   return zTensorDescStructTy;
@@ -479,12 +454,12 @@ size_t getZTensorDescStructSizeInBytes(MLIRContext *context, Type descTy) {
 
 /// Function to create a zTensor struct type.
 Type getZTensorStructTy(MLIRContext *context) {
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmI1Ty = IntegerType::get(context, 1);
-  auto llvmI8Ty = IntegerType::get(context, 8);
-  auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 32);
-  auto llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
-  auto llvmZTensorDescStructTy = getZTensorDescStructTy(context);
+  Type llvmI64Ty = IntegerType::get(context, 64);
+  Type llvmI1Ty = IntegerType::get(context, 1);
+  Type llvmI8Ty = IntegerType::get(context, 8);
+  Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 32);
+  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+  Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
 
   SmallVector<Type, 4> zTensorTypeElements;
   // A pointer to pre-transformed descriptor struct type
@@ -502,7 +477,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   // reserved[32], not currently used, exploiter should not touch
   zTensorTypeElements.emplace_back(llvmArrayI8Ty);
 
-  auto zTensorStructTy = LLVM::LLVMStructType::getLiteral(context,
+  Type zTensorStructTy = LLVM::LLVMStructType::getLiteral(context,
       /*elements=*/zTensorTypeElements,
       /*isPacked=*/false);
   return zTensorStructTy;
@@ -511,74 +486,60 @@ Type getZTensorStructTy(MLIRContext *context) {
 /// Function to cast an LLVM pointer to an opaque LLVM pointer.
 Value toOpaquePtr(
     PatternRewriter &rewriter, Location loc, ModuleOp module, Value ptr) {
-  auto llvmI8Ty = IntegerType::get(module.getContext(), 8);
-  auto llvmOpaqueTy = LLVM::LLVMPointerType::get(llvmI8Ty);
-  Value opaquePtr = rewriter.create<LLVM::BitcastOp>(loc, llvmOpaqueTy, ptr);
-  return opaquePtr;
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  return create.llvm.bitcastI8Ptr(ptr);
 }
 
 void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
     Value zTensor, Value preTransformedDescPtr, Value transformedDescPtr,
     bool isTransformed, Value bufferSize, Value alignedBuffer) {
-  auto *context = module.getContext();
+  MLIRContext *context = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-  auto llvmI1Ty = IntegerType::get(context, 1);
-  auto llvmI8Ty = IntegerType::get(context, 8);
-  auto llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
-  auto llvmI32Ty = IntegerType::get(context, 32);
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmZTensorDescTy =
+  Type llvmI1Ty = IntegerType::get(context, 1);
+  Type llvmI8Ty = IntegerType::get(context, 8);
+  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+  Type llvmI32Ty = IntegerType::get(context, 32);
+  Type llvmI64Ty = IntegerType::get(context, 64);
+  Type llvmZTensorDescTy =
       LLVM::LLVMPointerType::get(getZTensorDescStructTy(context));
 
   // Got runtime error if using i64 as index to access zTensor. It looks
   // like an error in MLIR. So use i32 here, which does not affect the
   // correctness of the generated program.
-  auto zero = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI32Ty, rewriter.getI32IntegerAttr(0));
-  auto one = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI32Ty, rewriter.getI32IntegerAttr(1));
-  auto two = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI32Ty, rewriter.getI32IntegerAttr(2));
-  auto three = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI32Ty, rewriter.getI32IntegerAttr(3));
-  auto four = rewriter.create<LLVM::ConstantOp>(
-      loc, llvmI32Ty, rewriter.getI32IntegerAttr(4));
+  Value zero = create.llvm.constant(llvmI32Ty, (int64_t)0);
+  Value one = create.llvm.constant(llvmI32Ty, (int64_t)1);
+  Value two = create.llvm.constant(llvmI32Ty, (int64_t)2);
+  Value three = create.llvm.constant(llvmI32Ty, (int64_t)3);
+  Value four = create.llvm.constant(llvmI32Ty, (int64_t)4);
 
   // 1. Set pre-transformed descriptor.
-  auto zTensorPreTransformedDescPtr = rewriter.create<LLVM::GEPOp>(loc,
-      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor,
-      ArrayRef<Value>({zero, zero}));
-  rewriter.create<LLVM::StoreOp>(
-      loc, preTransformedDescPtr, zTensorPreTransformedDescPtr);
+  Value zTensorPreTransformedDescPtr = create.llvm.getElemPtr(
+      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor, {zero, zero});
+  create.llvm.store(preTransformedDescPtr, zTensorPreTransformedDescPtr);
 
   // 2. Set transformed descriptor.
-  auto zTensorTransformedDescPtr = rewriter.create<LLVM::GEPOp>(loc,
-      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor,
-      ArrayRef<Value>({zero, one}));
-  rewriter.create<LLVM::StoreOp>(
-      loc, transformedDescPtr, zTensorTransformedDescPtr);
+  Value zTensorTransformedDescPtr = create.llvm.getElemPtr(
+      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor, {zero, one});
+  create.llvm.store(transformedDescPtr, zTensorTransformedDescPtr);
 
   // 3. Set buffer_size.
-  auto bufferSizePtr =
-      rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(llvmI64Ty),
-          zTensor, ArrayRef<Value>({zero, two}));
-  rewriter.create<LLVM::StoreOp>(loc, bufferSize, bufferSizePtr);
+  Value bufferSizePtr = create.llvm.getElemPtr(
+      LLVM::LLVMPointerType::get(llvmI64Ty), zTensor, {zero, two});
+  create.llvm.store(bufferSize, bufferSizePtr);
 
   // 4. Set buffer. Buffer was allocated in advance by the stickified memref.
   // So get the pointer from the stickified memref and set it to the zTensor.
-  auto bufferPtr =
-      rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(llvmI8PtrTy),
-          zTensor, ArrayRef<Value>({zero, three}));
-  rewriter.create<LLVM::StoreOp>(loc, alignedBuffer, bufferPtr);
+  Value bufferPtr = create.llvm.getElemPtr(
+      LLVM::LLVMPointerType::get(llvmI8PtrTy), zTensor, {zero, three});
+  create.llvm.store(alignedBuffer, bufferPtr);
 
   // 5. Set is_transformed.
-  auto isTransformedVal = rewriter.create<LLVM::ConstantOp>(loc, llvmI1Ty,
-      rewriter.getIntegerAttr(
-          rewriter.getIntegerType(1), (isTransformed) ? 1 : 0));
-  auto isTransformedDescPtr =
-      rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(llvmI1Ty),
-          zTensor, ArrayRef<Value>({zero, four}));
-  rewriter.create<LLVM::StoreOp>(loc, isTransformedVal, isTransformedDescPtr);
+  Value isTransformedVal =
+      create.llvm.constant(llvmI1Ty, (int64_t)((isTransformed) ? 1 : 0));
+  Value isTransformedDescPtr = create.llvm.getElemPtr(
+      LLVM::LLVMPointerType::get(llvmI1Ty), zTensor, {zero, four});
+  create.llvm.store(isTransformedVal, isTransformedDescPtr);
 
   // 6. Set reserved (not currently used), not touch
 }

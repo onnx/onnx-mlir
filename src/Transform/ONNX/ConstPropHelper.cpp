@@ -18,47 +18,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
-
-/// Get the element size in bytes. Use the biggest size to avoid loss in
-/// casting.
-int64_t getEltSizeInBytes(Type ty) {
-  auto elementType = ty.cast<ShapedType>().getElementType();
-
-  int64_t sizeInBits;
-  if (elementType.isIntOrFloat()) {
-    sizeInBits = elementType.getIntOrFloatBitWidth();
-  } else {
-    auto vectorType = elementType.cast<VectorType>();
-    sizeInBits =
-        vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
-  }
-  return llvm::divideCeil(sizeInBits, 8);
-}
-
-/// Get the number of elements.
-int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
-  int64_t count = 1;
-  for (unsigned int i = 0; i < shape.size(); ++i) {
-    count *= shape[i];
-  }
-  return count;
-}
-
-/// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(Type ty) {
-  ShapedType shapedType = ty.dyn_cast<ShapedType>();
-  auto shape = shapedType.getShape();
-  return getNumberOfElements(shape) * getEltSizeInBytes(shapedType);
-}
+using namespace onnx_mlir;
 
 /// Get the size of a tensor from its ranked type in bytes, using the largest
 /// precision.
-int64_t getMaxSizeInBytes(Type ty) {
-  auto shape = ty.dyn_cast<ShapedType>().getShape();
-  return getNumberOfElements(shape) * 8;
-}
+int64_t getMaxSizeInBytes(Type ty) { return getNumberOfElements(ty) * 8; }
 
 /// Compute strides for a given shape.
 std::vector<int64_t> getStrides(ArrayRef<int64_t> shape) {
@@ -106,20 +74,21 @@ char *allocateBufferFor(Type type, bool useMaxSize) {
   else
     sizeInBytes = getSizeInBytes(type.cast<ShapedType>());
   char *res = (char *)malloc(sizeInBytes);
+  memset(res, 0, sizeInBytes);
   return res;
 }
 
 /// Get a data array from a given ONNXConstantOp.
 char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
-  Type elementType = dataAttr.getType().getElementType();
-  int64_t numElements = getNumberOfElements(dataAttr.getType().getShape());
+  Type elementType = getElementType(dataAttr.getType());
+  int64_t numElements = getNumberOfElements(dataAttr.getType());
   char *res = allocateBufferFor(dataAttr.getType(), /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     double *resArr = (double *)res;
     auto valueIt = dataAttr.getValues<APFloat>().begin();
     for (int64_t i = 0; i < numElements; ++i) {
-      double val = (double)(*valueIt++).convertToFloat();
+      double val = (*valueIt++).convertToDouble();
       *(resArr + i) = val;
     }
   } else if (elementType.isa<IntegerType>()) {
@@ -135,66 +104,43 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
   return res;
 }
 
-/// A helper function to construct a DenseElementsAttr from an array.
-DenseElementsAttr createDenseElementsAttrFromArray(char *arr, Type outputType) {
-  int64_t sizeInBytes = getSizeInBytes(outputType);
-  RankedTensorType resType =
-      constructRankedTensorType(outputType.cast<ShapedType>());
-  bool isSplat;
-  if (resType.getShape().size() == 0)
-    isSplat = true;
-  else if (llvm::all_of(
-               resType.getShape(), [](int64_t dim) { return dim == 1; }))
-    isSplat = true;
-  else
-    isSplat = false;
-  return DenseElementsAttr::getFromRawBuffer(
-      resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/isSplat);
-}
-
-/// Create a dense ONNXConstantOp from a byte array.
-ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
-    Location loc, ShapedType resultType, char *array) {
-  char *resArray = allocateBufferFor(resultType);
-  convertDoubleInt64ToExactType(resultType, array, resArray);
-  DenseElementsAttr denseAttr =
-      createDenseElementsAttrFromArray(resArray, resultType);
-  free(resArray);
-  return rewriter.create<ONNXConstantOp>(loc, resultType, Attribute(),
-      denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
-      StringAttr(), ArrayAttr());
+template <typename SRC_TYPE, typename DEST_TYPE>
+void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size) {
+  SRC_TYPE *srcArr = (SRC_TYPE *)srcRawArr;
+  DEST_TYPE *destArr = (DEST_TYPE *)destRawArr;
+  std::transform(
+      srcArr, srcArr + size, destArr, [](SRC_TYPE v) { return (DEST_TYPE)v; });
 }
 
 /// Convert an array whose element type is double or int_64 to an array whose
-/// element type is the one of 'outType' (smaller precision). It does not
+/// element type is the one of 'destType' (smaller precision). It does not
 /// support converting from floating point to integer and vise versa.
-void convertDoubleInt64ToExactType(Type outType, char *inArr, char *outArr) {
-  ShapedType shapedType = outType.cast<ShapedType>();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
-  int64_t numElements = getNumberOfElements(shapedType.getShape());
-  Type elementType = shapedType.getElementType();
+void convertDoubleInt64ToExactType(
+    Type destType, char *srcRawArr, char *destRawArr) {
+  int64_t numElements = getNumberOfElements(destType);
+  Type destElemTy = getElementType(destType);
 
-  if (elementType.isa<FloatType>()) {
-    FloatType floatTy = elementType.cast<FloatType>();
-    if (floatTy.getWidth() == 32) {
-      double *inArrDouble = (double *)inArr;
-      float *inArrFloat = (float *)outArr;
-      for (int64_t i = 0; i < numElements; ++i)
-        *(inArrFloat + i) = (float)*(inArrDouble + i);
-    } else if (floatTy.getWidth() == 64) {
-      std::copy(inArr, inArr + maxSizeInBytes, outArr);
-    } else
+  if (destElemTy.isa<FloatType>()) {
+    FloatType destFloatTy = destElemTy.cast<FloatType>();
+    if (destFloatTy.getWidth() == 32) // to f32
+      copyAndCastArr<double, float>(srcRawArr, destRawArr, numElements);
+    else if (destFloatTy.getWidth() == 64) // to f64
+      copyAndCastArr<double, double>(srcRawArr, destRawArr, numElements);
+    else
       llvm_unreachable("Unknown data type");
-  } else if (elementType.isa<IntegerType>()) {
-    IntegerType intTy = elementType.cast<IntegerType>();
-    if (intTy.getWidth() == 32) {
-      int64_t *inArrInt64 = (int64_t *)inArr;
-      int32_t *inArrInt32 = (int32_t *)outArr;
-      for (int64_t i = 0; i < numElements; ++i)
-        *(inArrInt32 + i) = (int32_t)(*(inArrInt64 + i));
-    } else if (intTy.getWidth() == 64) {
-      std::copy(inArr, inArr + maxSizeInBytes, outArr);
-    } else
+  } else if (destElemTy.isa<IntegerType>()) {
+    IntegerType destIntTy = destElemTy.cast<IntegerType>();
+    if (destIntTy.getWidth() == 1) // to bool
+      copyAndCastArr<int64_t, bool>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 8) // to i8
+      copyAndCastArr<int64_t, int8_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 16) // to i16
+      copyAndCastArr<int64_t, int16_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 32) // to i32
+      copyAndCastArr<int64_t, int32_t>(srcRawArr, destRawArr, numElements);
+    else if (destIntTy.getWidth() == 64) // to i64
+      copyAndCastArr<int64_t, int64_t>(srcRawArr, destRawArr, numElements);
+    else
       llvm_unreachable("Unknown data type");
   } else
     llvm_unreachable("Unknown data type");
@@ -231,7 +177,7 @@ void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
   }
 
   // Do splitting
-  for (int64_t i = 0; i < getNumberOfElements(constShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(constShape); ++i) {
     // Input indices.
     std::vector<int64_t> constIndices = getAccessIndex(i, constStrides);
 
@@ -299,7 +245,7 @@ void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
   std::vector<int64_t> resStrides = getStrides(resShape);
 
   // Calculate transpose result.
-  for (int64_t i = 0; i < getNumberOfElements(resShape); ++i) {
+  for (int64_t i = 0; i < ShapedType::getNumElements(resShape); ++i) {
     // Indices.
     std::vector<int64_t> resIndices = getAccessIndex(i, resStrides);
     SmallVector<int64_t, 4> constIndices(perm.size(), 0);
@@ -326,3 +272,30 @@ void ConstPropTransposeImpl(Type elementType, char *constArray,
   } else
     llvm_unreachable("Unknown data type");
 }
+
+/// Explicit instantiation of all templated API functions.
+template void copyAndCastArr<double, bool>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int8_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int32_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, int64_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, float>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<double, double>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+
+template void copyAndCastArr<int64_t, bool>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int8_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int32_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, int64_t>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, float>(
+    char *srcRawArr, char *destRawArr, int64_t size);
+template void copyAndCastArr<int64_t, double>(
+    char *srcRawArr, char *destRawArr, int64_t size);

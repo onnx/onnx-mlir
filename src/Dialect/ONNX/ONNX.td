@@ -45,6 +45,7 @@ def ONNX_Dialect : Dialect {
   let name = "onnx";
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
+  let useDefaultTypePrinterParser = 1;
 }
 
 // Base class for ONNX dialect operations. This operation inherits from the base

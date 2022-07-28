@@ -9,6 +9,7 @@ add_onnx_mlir_library(OMZLowToLLVM
   MLIRLLVMCommonConversion
   OMLayoutHelper
   OMZLowOps
+  OMMlirDialects
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

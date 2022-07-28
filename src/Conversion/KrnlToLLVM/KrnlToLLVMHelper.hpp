@@ -50,10 +50,6 @@ void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
     mlir::ModuleOp module, mlir::OpBuilder &builder,
     mlir::LLVMTypeConverter &typeConverter);
 
-/// Retrieve the declaration of a function in the given module.
-llvm::Optional<mlir::FlatSymbolRefAttr> getFunctionDeclaration(
-    mlir::ModuleOp module, llvm::StringRef funcName);
-
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 mlir::FlatSymbolRefAttr getOrInsertStrncmp(

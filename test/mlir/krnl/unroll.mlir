@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @simple_unroll() {
+func.func @simple_unroll() {
   %ii = krnl.define_loops 1
   krnl.unroll %ii : !krnl.loop
   krnl.iterate(%ii) with (%ii -> %i = 0 to 4) {
@@ -26,7 +26,7 @@ func @simple_unroll() {
 
 // -----
 
-func @unroll_with_block() {
+func.func @unroll_with_block() {
   %ii = krnl.define_loops 1
   %ii1, %ii2 = krnl.block %ii 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   krnl.unroll %ii2 : !krnl.loop
@@ -49,7 +49,7 @@ func @unroll_with_block() {
 
 // -----
 
-func @unroll_with_block_get_iv(%arg0 : memref<8xf32>) {
+func.func @unroll_with_block_get_iv(%arg0 : memref<8xf32>) {
   %ii = krnl.define_loops 1
   %ii1, %ii2 = krnl.block %ii 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   krnl.unroll %ii2 : !krnl.loop
@@ -73,7 +73,7 @@ func @unroll_with_block_get_iv(%arg0 : memref<8xf32>) {
 
 // -----
 
-func @unroll_with_block_and_permute() {
+func.func @unroll_with_block_and_permute() {
   %ii, %ij = krnl.define_loops 2
   %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
