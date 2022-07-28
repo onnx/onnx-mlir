@@ -24,6 +24,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
+
   void convUnoptimized(ConversionPatternRewriter &rewriter,
       IndexExprScope *topScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
@@ -69,19 +70,17 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);
     IndexExpr iOne  = LiteralIndexExpr(1);
-    ValueRange outerLoops = createKrnl.defineLoops(3);
+
+    SmallVector<Value, 3> lbsStorage, ubsStorage, stepsStorage;
     SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};
-    //SmallVector<IndexExpr, 1> parLbs = {iZero};
-    //SmallVector<IndexExpr, 1> steps = {iOne};
-    //SmallVector<IndexExpr, 1> parUbs = {G};
-    Value c0 = createMath.constant(rewriter.getI64Type(), 0);
-    Value c1 = createMath.constant(rewriter.getI64Type(), 1);
-    //Value c4 = createMath.constant(rewriter.getI64Type(), COPerGroup);
-    Value c4 = COPerGroup.getValue();
-    ValueRange parLbs(c0);
-    ValueRange steps(c1);
-    ValueRange parUbs(c4);
     SmallVector<IndexExpr, 3> outerUbs = {N, G, COPerGroup};
+    SmallVector<IndexExpr, 3> outerSteps = {iOne, iOne, iOne};
+    IndexExpr::getValues(outerLbs,lbsStorage);
+    IndexExpr::getValues(outerUbs,ubsStorage);
+    IndexExpr::getValues(outerSteps,stepsStorage);
+    ValueRange parLbs(lbsStorage);
+    ValueRange steps(stepsStorage);
+    ValueRange parUbs(ubsStorage);
     // Iterate over the outer loops
     // for n = 0 .. N:
     //   for g = 0 .. G:
@@ -94,13 +93,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Single scalar, no need for default alignment.
     Value reductionVal = createMemRef.alloca(tmpType);
 
-    createScf.forEachThread(parLbs, parUbs, steps,
-    [&](DialectBuilder &createScf, ValueRange steps) {
-    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+    createScf.parallelLoop(parLbs, parUbs, steps,
+    [&](DialectBuilder &createScf, ValueRange outerIndices) {
           // Compute the Channel In Indices.
           IndexExprScope outerScope(createKrnl);
           // Compute the channel out index "co".
+          //printf("%d, %d, %d\n",outerIndices[0],outerIndices[1],outerIndices[2]);
           DimIndexExpr g(outerIndices[1]);
           DimIndexExpr coPerGroup(outerIndices[2]);
           IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
@@ -118,6 +116,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // Spacial loops.
           // for ho = 0 .. HO:
           //    for wo = 0 .. WO:
+          //printf("%s\n","about to create spatial loops");
           createKrnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
               outputSpacialLbs, outputSpacialUbs,
               [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
@@ -159,6 +158,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 // for ciPerGroup = 0 .. CIPerGroup:
                 //   for kh in lb .. ub:
                 //     for kw in lb .. ub:
+                //printf("%s\n","about to create reduction loops");
                 createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
                     [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
                       IndexExprScope redScope(createKrnl);
@@ -201,6 +201,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                       createKrnl.store(newRed, reductionVal);
                     }); // Reduction loops.
                         // Finish the reduction and store in result array.
+                //printf("%s\n","created reduction loops");
                 Value result = createKrnl.load(reductionVal);
                 // Store the result. Optionally add bias.
                 SymbolIndexExpr coInOutputSpacial(co);
@@ -217,8 +218,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
                   resAccessFunc.emplace_back(DimIndexExpr(o));
                 createKrnl.storeIE(result, alloc, resAccessFunc);
               }); // Output spacial loops.
-        });       // Outer loops;
+                //printf("%s\n","created spatial loops");
+        //});       // Outer loops;
     });
+                //printf("%s\n","created parallel loops");
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,

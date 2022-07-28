@@ -23,7 +23,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-//#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -646,16 +646,20 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-void SCFBuilder::forEachThread(ValueRange lowerBounds, ValueRange upperBounds, ValueRange steps,
+void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds, ValueRange steps,
     function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
+      //SmallVectorImpl<Value> ivStorage;
       b.create<scf::ParallelOp>(
         loc, lowerBounds, upperBounds, steps,
-        [&](OpBuilder &childBuilder, Location childLoc, ValueRange x) {
-          //SCFBuilder scfBuilder(childBuilder, childLoc);
-          //bodyFn(childBuilder, childLoc, steps);
+        [&](OpBuilder &childBuilder, Location childLoc, ValueRange inductionVars) {
+          KrnlBuilder builder(childBuilder, childLoc);
+          printf("%d\n",inductionVars.size());
+          bodyFn(builder, inductionVars);
+          printf("%s\n","back from bodyFn");
           yield();
         }
         );
+    printf("%s\n","leaving parallelLoop");
     }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
