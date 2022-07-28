@@ -61,7 +61,7 @@ namespace test {
 
 std::string testScanIdentityAddV8 = R"(
 module {
-  func @main_graph(%arg0: tensor<%Bx%Ixf32>, %arg1: tensor<%Bx%Sx%Ixf32>) ->
+  func.func @main_graph(%arg0: tensor<%Bx%Ixf32>, %arg1: tensor<%Bx%Sx%Ixf32>) ->
                    (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>) {
     %1:2 = "onnx.ScanV8"(%arg0, %arg1) ({
     ^bb0(%body_arg0: tensor<%Bx%Ixf32>, %body_arg1: tensor<%Bx%Ixf32>):
@@ -79,7 +79,7 @@ module {
 
 std::string testScanIdentityAdd = R"(
 module {
-  func @main_graph(%arg0: tensor<%Ixf32>, %arg1: tensor<%Sx%Ixf32>) ->
+  func.func @main_graph(%arg0: tensor<%Ixf32>, %arg1: tensor<%Sx%Ixf32>) ->
                    (tensor<%Ixf32>, tensor<%Sx%Ixf32>) {
     %1:2 = "onnx.Scan"(%arg0, %arg1) ({
     ^bb0(%body_arg0: tensor<%Ixf32>, %body_arg1: tensor<%Ixf32>):
