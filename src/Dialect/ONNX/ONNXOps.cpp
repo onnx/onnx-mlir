@@ -1647,6 +1647,16 @@ LogicalResult ONNXTransposeOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNXTriluOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXTriluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperands()[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceMax
 //===----------------------------------------------------------------------===//
 
@@ -3373,6 +3383,8 @@ LogicalResult ONNXGatherElementsOp::verify() {
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axis,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+  if (axis < 0)
+    axis += dataRank;
 
   // All index values in 'indices' are expected to be within bounds [-s, s-1]
   // along axis of size s.
@@ -4139,6 +4151,16 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
   getResult().setType(inputType);
 
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXHardSwishOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXHardSwishOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
   return success();
 }
 

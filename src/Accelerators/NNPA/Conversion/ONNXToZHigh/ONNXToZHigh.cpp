@@ -257,6 +257,8 @@ struct ONNXSumOpPatternEnhancedRecursion
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
 
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXToZHighLoweringPass)
+
   StringRef getArgument() const override { return "convert-onnx-to-zhigh"; }
 
   StringRef getDescription() const override {
@@ -292,7 +294,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithmeticDialect>();
 
   // Combined ONNX ops to ZHigh lowering.

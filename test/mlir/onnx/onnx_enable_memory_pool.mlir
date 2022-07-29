@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --enable-memory-pool %s -split-input-file | FileCheck %s
 
 /// One intermediate value to allocate in the memory pool.
-func @test_enable_memory_pool(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
+func.func @test_enable_memory_pool(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
     %0 = memref.alloc() : memref<10x10xf32>
     %1 = memref.alloc() : memref<10x10xf32>
     %2:2 = krnl.define_loops 2
@@ -50,7 +50,7 @@ func @test_enable_memory_pool(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // -----
 
 /// Two intermediate values to allocate in the memory pool.
-func @test_enable_memory_pool_2(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
+func.func @test_enable_memory_pool_2(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
     %cst = arith.constant 0.000000e+00 : f32
     %0 = memref.alloc() : memref<10x20xf32>
     %1 = memref.alloc() : memref<10x20xf32>

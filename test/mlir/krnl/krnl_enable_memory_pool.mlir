@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --enable-memory-pool %s -split-input-file | FileCheck %s
 
 #map0 = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
-func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
+func.func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
     %0 = memref.alloc() : memref<10x10xf32>
     %1 = memref.alloc() {alignment = 4096 : i64} : memref<10x10xf32>
     %2 = memref.alloc() : memref<10x10xf32, #map0>
@@ -66,7 +66,7 @@ func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>
 // Apply memorypool in `test_unsqueeze_squeeze_dealloc` in `test/mlir/onnx/onnx_lowering.mlir`.
 // Memorypool is not enabled in %0 because it is a return value via reinterpret_cast.
 
-func @test_unsqueeze_squeeze_dealloc_mempool(%arg0: memref<10x20xf32>) -> memref<20x10xf32> {
+func.func @test_unsqueeze_squeeze_dealloc_mempool(%arg0: memref<10x20xf32>) -> memref<20x10xf32> {
     %0 = memref.alloc() : memref<20x1x1x10xf32>
     %1 = memref.alloc() : memref<20x10xf32>
     %c20 = arith.constant 20 : index
@@ -115,7 +115,7 @@ func @test_unsqueeze_squeeze_dealloc_mempool(%arg0: memref<10x20xf32>) -> memref
 
 // -----
 
-func @test_return_cast(%arg0: memref<2x1xf32>) -> memref<1x2xf32> {
+func.func @test_return_cast(%arg0: memref<2x1xf32>) -> memref<1x2xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index

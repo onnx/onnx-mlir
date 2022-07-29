@@ -5,7 +5,7 @@
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 6)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 5)>
 
-func @test_kernel_substitution() {
+func.func @test_kernel_substitution() {
 // CHECK-LABEL:   test_kernel_substitution
 // CHECK:           affine.for [[I_L2_TILE:%.+]] = 0 to 32 step 8 {
 // CHECK:             affine.for [[J_L2_TILE:%.+]] = 0 to 18 step 6 {

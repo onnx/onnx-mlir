@@ -6,7 +6,7 @@
 // -----
 
 // fully enclosed
-func private @copy_to(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to(%p0 : index, %p1 : index) -> () {
   //A source, B buffer
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
@@ -19,7 +19,7 @@ func private @copy_to(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -35,7 +35,7 @@ func private @copy_to(%p0 : index, %p1 : index) -> () {
 // -----
 
 // Fully enclosed, with source memref of higher rank than buffer.
-func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
   //A source, B buffer
   %A = memref.alloca() : memref<5x10x40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
@@ -50,7 +50,7 @@ func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_larger_source
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -66,7 +66,7 @@ func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
 // -----
 
 // Same with transpose
-func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
   //A source, B buffer
   %A = memref.alloca() : memref<5x10x60x40xf32>
   %B = memref.alloca() : memref<4x6xf32>
@@ -82,7 +82,7 @@ func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_larger_transposed_source
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x60x40xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -97,7 +97,7 @@ func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -108,7 +108,7 @@ func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_nopad
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -123,7 +123,7 @@ func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_nopad_last_fully_in(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_nopad_last_fully_in(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -136,7 +136,7 @@ func private @copy_to_nopad_last_fully_in(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_nopad_last_fully_in
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -151,7 +151,7 @@ func private @copy_to_nopad_last_fully_in(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_nopad_runtime_param(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_nopad_runtime_param(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -161,7 +161,7 @@ func private @copy_to_nopad_runtime_param(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_nopad_runtime_param
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -176,7 +176,7 @@ func private @copy_to_nopad_runtime_param(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_nopad_partial(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_nopad_partial(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -188,7 +188,7 @@ func private @copy_to_nopad_partial(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_nopad_partial
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
@@ -203,7 +203,7 @@ func private @copy_to_nopad_partial(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -215,7 +215,7 @@ func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_pad_partial
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
@@ -240,7 +240,7 @@ func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
 // -----
 
 // Same, transposed
-func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<56x39xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -254,7 +254,7 @@ func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_pad_partial_transposed
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<56x39xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
@@ -278,7 +278,7 @@ func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_pad_partial_mod3(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_pad_partial_mod3(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -290,7 +290,7 @@ func private @copy_to_pad_partial_mod3(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_to_pad_partial_mod3
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
@@ -309,7 +309,7 @@ func private @copy_to_pad_partial_mod3(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -323,7 +323,7 @@ func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> () {
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
@@ -338,7 +338,7 @@ func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -352,7 +352,7 @@ func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> ()
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices_pad3
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
@@ -384,7 +384,7 @@ func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> ()
 // -----
 
 // same, with source mem of larger rank.
-func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 : index) -> () {
+func.func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<5x10x39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -400,7 +400,7 @@ func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 : ind
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices_larger_source
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x39x56xf32>
@@ -431,7 +431,7 @@ func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 : ind
 
 // -----
 
-func @copy_to_nested(%p0 : index, %p1 : index) -> () {
+func.func @copy_to_nested(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<10x60xf32>
   %f0 = arith.constant 0.0 : f32
@@ -444,7 +444,7 @@ func @copy_to_nested(%p0 : index, %p1 : index) -> () {
 
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func @copy_to_nested
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<10x60xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 40 step 10 {
@@ -461,7 +461,7 @@ func @copy_to_nested(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
+func.func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<45x60xf32>
   %B = memref.alloca() : memref<10x60xf32>
   %f0 = arith.constant 0.0 : f32
@@ -474,7 +474,7 @@ func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
 
 // CHECK-DAG: #map = affine_map<(d0) -> (-d0 + 45, 10)>
 // CHECK-LABEL:  func @copy_to_nested_partial
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<45x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<10x60xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 45 step 10 {
@@ -494,7 +494,7 @@ func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_simple(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_simple(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -506,7 +506,7 @@ func private @copy_from_simple(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_from_simple
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -521,7 +521,7 @@ func private @copy_from_simple(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_simple_from_larger(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_simple_from_larger(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<5x10x40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -535,7 +535,7 @@ func private @copy_from_simple_from_larger(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_from_simple_from_larger
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -550,7 +550,7 @@ func private @copy_from_simple_from_larger(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_simple_last(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_simple_last(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -563,7 +563,7 @@ func private @copy_from_simple_last(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_from_simple_last
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -578,7 +578,7 @@ func private @copy_from_simple_last(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_simple_runtime(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_simple_runtime(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -589,7 +589,7 @@ func private @copy_from_simple_runtime(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_from_simple_runtime
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<40x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
@@ -604,7 +604,7 @@ func private @copy_from_simple_runtime(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_partial(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_partial(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -617,7 +617,7 @@ func private @copy_from_partial(%p0 : index, %p1 : index) -> () {
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
 // CHECK-LABEL:  func private @copy_from_partial
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
@@ -632,7 +632,7 @@ func private @copy_from_partial(%p0 : index, %p1 : index) -> () {
 
 // -----
 
-func private @copy_from_partial_runtime(%p0 : index, %p1 : index) -> () {
+func.func private @copy_from_partial_runtime(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
   %f0 = arith.constant 0.0 : f32
@@ -647,7 +647,7 @@ func private @copy_from_partial_runtime(%p0 : index, %p1 : index) -> () {
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_from_partial_runtime
-// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {

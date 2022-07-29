@@ -29,6 +29,7 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
+  let useDefaultTypePrinterParser = 1;
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;

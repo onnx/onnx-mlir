@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s -split-input-file | FileCheck %s
 
-func @test_scalar_attr() -> tensor<f32> {
+func.func @test_scalar_attr() -> tensor<f32> {
   %0 = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
   %1 = "onnx.Constant"() {value = dense<2.0> : tensor<f32>} : () -> tensor<f32>
   %2 = "onnx.Add"(%0, %1) : (tensor<f32> , tensor<f32>) -> tensor<f32>
@@ -12,7 +12,7 @@ func @test_scalar_attr() -> tensor<f32> {
 
 // -----
 
-func @test_single_value_attr() -> tensor<1xf32> {
+func.func @test_single_value_attr() -> tensor<1xf32> {
   %0 = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %1 = "onnx.Constant"() {value = dense<[2.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %2 = "onnx.Add"(%0, %1) : (tensor<1xf32> , tensor<1xf32>) -> tensor<1xf32>
@@ -24,7 +24,7 @@ func @test_single_value_attr() -> tensor<1xf32> {
 
 // -----
 
-func @test_splat_attr() -> tensor<3xf32> {
+func.func @test_splat_attr() -> tensor<3xf32> {
   %0 = "onnx.Constant"() {value = dense<1.0> : tensor<3xf32>} : () -> tensor<3xf32>
   %1 = "onnx.Constant"() {value = dense<2.0> : tensor<3xf32>} : () -> tensor<3xf32>
   %2 = "onnx.Add"(%0, %1) : (tensor<3xf32> , tensor<3xf32>) -> tensor<3xf32>
@@ -36,7 +36,7 @@ func @test_splat_attr() -> tensor<3xf32> {
 
 // -----
 
-func @test_splat_nonsplat_attrs() -> tensor<3xf32> {
+func.func @test_splat_nonsplat_attrs() -> tensor<3xf32> {
   %0 = "onnx.Constant"() {value = dense<1.0> : tensor<3xf32>} : () -> tensor<3xf32>
   %1 = "onnx.Constant"() {value = dense<[0.0, 1.0, 2.0]> : tensor<3xf32>} : () -> tensor<3xf32>
   %2 = "onnx.Add"(%0, %1) : (tensor<3xf32> , tensor<3xf32>) -> tensor<3xf32>

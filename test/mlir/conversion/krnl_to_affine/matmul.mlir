@@ -5,7 +5,7 @@
 
 // -----
 
-func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>) {
+func.func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>) {
     %c0 = arith.constant 0: index
     %c4 = arith.constant 4: index // N
     %c6 = arith.constant 6: index // K
@@ -57,7 +57,7 @@ func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C
 
 // -----
 
-func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>, 
+func.func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>, 
         %sn: index, %sm: index, %sk: index, 
         %dn: index, %dm: index, %dk: index) {
     %c0 = arith.constant 0: index 

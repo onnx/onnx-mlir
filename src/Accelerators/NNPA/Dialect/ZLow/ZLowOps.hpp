@@ -23,22 +23,9 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 
-namespace onnx_mlir {
-namespace zlow {
+/// Include the auto-generated header files containing the declarations of the
+/// ZLow dialect and operations.
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowDialect.hpp.inc"
 
-class ZLowDialect : public mlir::Dialect {
-public:
-  ZLowDialect(mlir::MLIRContext *context);
-
-  /// Provide a utility accessor to the dialect namespace. This is used by
-  /// several utilities for casting between dialects.
-  static mlir::StringRef getDialectNamespace() { return "zlow"; }
-};
-
-} // namespace zlow
-} // namespace onnx_mlir
-
-/// Include the auto-generated header file containing the declarations of the
-/// ONNX operations.
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp.inc"
