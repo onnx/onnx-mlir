@@ -656,10 +656,8 @@ void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
         KrnlBuilder builder(childBuilder, childLoc);
         printf("%d\n", inductionVars.size());
         bodyFn(builder, inductionVars);
-        printf("%s\n", "back from bodyFn");
         yield();
       });
-  printf("%s\n", "leaving parallelLoop");
 }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
