@@ -419,13 +419,13 @@ def SwapTransposeConcatPattern: Pat<
 
 def FuseReshapePattern:  Pat<
   // Reshape of a reshape.
-  (ONNXReshapeOp (ONNXReshapeOp $v, $s1), $s2),
+  (ONNXReshapeOp (ONNXReshapeOp $v, $s1, $az1), $s2, $az2),
   // Remove the first reshape op.
-  (ONNXReshapeOp $v, $s2)>;
+  (ONNXReshapeOp $v, $s2, $az2)>;
 
 def RemoveIdentityReshapePattern:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
-  (ONNXReshapeOp $val, $shape),
+  (ONNXReshapeOp $val, $shape, $az),
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that val has the specified shape.
@@ -440,9 +440,9 @@ def SwapReshapeMatMulPattern: Pattern<
  // for MatMul. In other words, swapping Reshape and MatMul.
  // This rule will put reshape ops together, then the reshape fusion rule can be applied.
  // TODO: Support dynamic dimensions.
- (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
+ (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_, $az), $B),
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
-                 (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
+                 (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)), $az)],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
   (HaveSameLastDim $A, $res1), // The last dim of A is unchanged by reshape.
   (IsStaticShapeTensor:$res2)  // $res2 has static dims in order to create ReshapeOp.

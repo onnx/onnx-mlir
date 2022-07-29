@@ -63,7 +63,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
     && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Install protobuf
-ARG PROTOBUF_VERSION=3.14.0
+ARG PROTOBUF_VERSION=3.16.0
 RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/google/protobuf.git \
     && cd protobuf && ./autogen.sh \
     && ./configure --enable-static=no \
