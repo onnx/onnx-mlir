@@ -31,6 +31,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto loc = convOp.getLoc();
     KrnlBuilder createKrnl(rewriter, loc);
 
+    // spurious comment to trigger build
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
