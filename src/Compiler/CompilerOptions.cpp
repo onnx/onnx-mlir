@@ -76,6 +76,11 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<std::string> moptionEnvVar("moptionEnvVar",
+    llvm::cl::desc("Override default option env var ONNX_MLIR_FLAG"),
+    llvm::cl::value_desc("option env var"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
+
 llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),
@@ -181,6 +186,19 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
+
+// Support for optionEnvVar.
+void setTargetEnvVar(const std::string &optionEnvVar) {
+  assert(optionEnvVar != "" && "Expecting valid target optionEnvVar description");
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set optionEnvVar\"" << optionEnvVar << "\"\n");
+  moptionEnvVar = optionEnvVar;
+}
+
+void clearTargetEnvVar() { moptionEnvVar.clear(); }
+
+std::string getTargetEnvVarOption() {
+  return (moptionEnvVar != "") ? "--moptionEnvVar=" + moptionEnvVar : "";
+}
 
 // Support for Triple.
 void setTargetTriple(const std::string &triple) {
