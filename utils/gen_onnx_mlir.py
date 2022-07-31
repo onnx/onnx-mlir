@@ -968,89 +968,67 @@ def gen_op_def(schema, with_version = False):
             raise RuntimeWarning(
                 "warning: not generate custom build methods for " +
                 schema.name + " since it does not have operands.")
-        else:
-            s += indent + 'let builders = [\n'
-            # Custom builders with operands and attributes having a separate parameter.
-            # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
-            indent = inc_indent(indent)
-            s += indent + 'OpBuilder<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
-            attrs_dict = get_attrs(schema)
-            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name) for name, ty in operands_dict.items())
-            if operands_dict and attrs_dict:
-                s += ', '
-            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
-                                      name) for name, ty in attrs_dict.items())
-            s += '), [{\n'
-            indent = inc_indent(indent)
 
-            # Get output type from first operand's type.
-            first_operand_name = list(ins.items())[0][0]
-            build_type_name = ''
-            bool_type = "$_builder.getI1Type()"
-            oTy = "nullptr"
+        r = '' # r is the resultType, use it with r.format(*operands, indent=indent)
+        if opName in custom_builder_broadcast_ops_list:
+            numOperands = 2
+            r += '{indent}auto lhsTy = {0}.getType();\n'
+            r += '{indent}auto rhsTy = {1}.getType();\n'
             if opName in custom_builder_broadcast_to_bool_ops_list:
-              oTy = bool_type
-            if opName in custom_builder_broadcast_ops_list:
-                second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType();\n'. \
-                    format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType();\n'. \
-                    format(second_operand_name)
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-                build_type_name = 'elementType'
+                r += '{indent}auto elTy = $_builder.getI1Type();\n'
+                elTy = 'elTy'
             else:
-                s += indent + 'auto elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<ShapedType>().getElementType();\n'
-                build_type_name = 'UnrankedTensorType::get(elementType)'
-            s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
-            for name, _ in ins.items():
-                s += ', ' + name
-            s += ');\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>,\n'
+                elTy = ''
+            r += '{indent}auto resultType = getBroadcastedRankedType(lhsTy, rhsTy' + \
+                (', ' + elTy if elTy else '') + ');\n'
+            r += '{indent}auto shapedType = resultType.dyn_cast_or_null<ShapedType>();\n'
+            r += '{indent}if (!shapedType || !shapedType.hasStaticShape())\n'
+            r += '{indent}  resultType = UnrankedTensorType::get(' + \
+                (elTy if elTy else 'lhsTy.cast<ShapedType>().getElementType()') + ');\n'
+        else:
+            numOperands = 1
+            r += '{indent}auto resultType = UnrankedTensorType::get(' + \
+                '{0}.getType().cast<ShapedType>().getElementType());\n'
+        resultType = r
 
-            # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<(ins "ValueRange operands,
-            #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<(ins ' + \
-                '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
-            indent = inc_indent(indent)
-            if opName in custom_builder_broadcast_ops_list:
-                s += indent + 'auto lhsTy = operands[0].getType();\n'
-                s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = operands[0]' + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-            else:
-                s += indent + 'auto elementType = operands[0].getType().' + \
-                    'cast<ShapedType>().getElementType();\n'
-            s += indent + 'std::vector<mlir::Type> outputTypes;\n'
-            s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
-            s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>'
+        s += indent + 'let builders = [\n'
+        # Custom builders with operands and attributes having a separate parameter.
+        # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
+        indent = inc_indent(indent)
+        s += indent + 'OpBuilder<(ins '
+        operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+        attrs_dict = get_attrs(schema)
+        s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                    name) for name, ty in operands_dict.items())
+        if operands_dict and attrs_dict:
+            s += ', '
+        s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                    name) for name, ty in attrs_dict.items())
+        s += '), [{\n'
+        indent = inc_indent(indent)
+        # Get output type from first operand's type.
+        operands = operands_dict.keys()
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, resultType'
+        for name, _ in ins.items():
+            s += ', ' + name
+        s += ');\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>,\n'
 
-            s += '\n' + indent + '];\n'
+        # Custom builders with all operands and attributes having aggregate parameters.
+        # E.g. OpBuilder<(ins "ValueRange operands,
+        #    ArrayRef<NamedAttribute> attributes", [{}]>'
+        s += indent + 'OpBuilder<(ins ' + \
+            '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
+        indent = inc_indent(indent)
+        operands = (f'operands[{i}]' for i in range(numOperands))
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, {resultType}, operands, attributes);\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>'
+
+        s += '\n' + indent + '];\n'
 
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
