@@ -5,6 +5,9 @@ add_onnx_mlir_library(OMMlirDialects
   IndexExprDetail.cpp
   DialectBuilder.cpp
 
+  DEPENDS
+  OMKrnlOps
+  
   LINK_LIBS PUBLIC
   MLIRMathDialect
   MLIRAffineDialect
