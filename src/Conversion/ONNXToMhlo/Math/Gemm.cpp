@@ -29,6 +29,7 @@ bool closeTo(float a, float b, int ulps = 2) {
          std::fabs(a - b) < std::numeric_limits<float>::min();
 }
 
+// ONNXGemmOp(A,B,C) is implemented using MHLO a * Dot(A(T), B(T)) + b * C;
 template <typename GemmOp>
 struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
   ONNXGemmOpLoweringToMhlo(MLIRContext *ctx)
