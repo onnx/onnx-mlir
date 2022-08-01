@@ -12,14 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/AffineExpr.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 

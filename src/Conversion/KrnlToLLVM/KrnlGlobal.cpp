@@ -13,19 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-
-#include "onnx/onnx_pb.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
-#include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Support/KrnlSupport.hpp"
-
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
