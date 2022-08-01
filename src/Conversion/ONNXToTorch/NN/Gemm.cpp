@@ -93,6 +93,57 @@ public:
     return transposedShape;
   }
 
+  LogicalResult rewriteToAtenLinear(ONNXGemmOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const {
+    Value A = adaptor.A();
+    Value B = adaptor.B();
+    Value C = adaptor.C();
+
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    rewriter.replaceOpWithNewOp<AtenLinearOp>(op, resultType, A, B, C);
+    return success();
+  }
+
+  /// The GEMM can also be described as a linear function
+  /// Y = AB^T + C if we perform a transpose on B only with
+  /// alpha and beta factors set to 1.
+  /// The constraints on rank were taken from the torch implementation check
+  /// Input A must be of rank 2 or 3 (input)
+  /// Input B must be of rank 2 (weights)
+  /// Input C must be of rank 1 (bias)
+  static bool checkLegalAtenLinearOp(ONNXGemmOp op, OpAdaptor adaptor) {
+    Value A = op.A();
+    Value B = op.B();
+    Value C = op.C();
+
+    auto AType = A.getType().cast<RankedTensorType>();
+    auto BType = B.getType().cast<RankedTensorType>();
+
+    // If C is present, it can only be of rank 1
+    if (C.getType().isa<RankedTensorType>() &&
+        C.getType().cast<RankedTensorType>().getRank() != 1) {
+      return false;
+    }
+    // Input tensor must be of rank 2 or 3
+    if (AType.getRank() != 2 && AType.getRank() != 3) {
+      return false;
+    }
+    // Weights must be of rank 2
+    if (BType.getRank() != 2) {
+      return false;
+    }
+    // Both alpha and beta must be 1
+    if ((adaptor.alpha().convertToFloat() != 1.0F) ||
+        (adaptor.beta().convertToFloat() != 1.0F)) {
+      return false;
+    }
+    // Only Transpose B must be enabled
+    if (adaptor.transA() != 0 || adaptor.transB() != 1) {
+      return false;
+    }
+    return true;
+  }
+
   LogicalResult matchAndRewrite(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
@@ -102,6 +153,10 @@ public:
     Value A = op.A();
     Value B = op.B();
     Value C = op.C();
+
+    if (checkLegalAtenLinearOp(op, adaptor)) {
+      return rewriteToAtenLinear(op, adaptor, rewriter);
+    }
 
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
