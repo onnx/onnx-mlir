@@ -6,8 +6,9 @@ add_onnx_mlir_library(OMMlirDialects
   DialectBuilder.cpp
 
   DEPENDS
-  OMKrnlOps
-  
+  OMKrnlIncGen
+  OMSpecializedKernelOpInterface
+
   LINK_LIBS PUBLIC
   MLIRMathDialect
   MLIRAffineDialect
