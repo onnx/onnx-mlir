@@ -1,4 +1,4 @@
-//RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
+// RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 
 // because the optional bias is not yet implemented in the upstream TorchToLinAlg pass we will instead
 // create a bias with values of 0. Our testing relies on the lowering from torch to host code and this
@@ -12,4 +12,3 @@ module attributes {}  {
 //CHECK: return %[[RES]] :  !torch.vtensor<[1,4],f32>
 return %0 : tensor<1x4xf32>
   }
-}
