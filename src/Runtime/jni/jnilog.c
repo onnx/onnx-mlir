@@ -169,6 +169,7 @@ void log_printf(
    * of 8 bytes on z/OS.
    */
   pthread_t tid = get_threadid();
+  assert(LOG_MAX_LEN >= strlen(buf) && "error in snprintf length");
   snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
       "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
       get_filename(file), func, line);
@@ -196,7 +197,7 @@ void log_printf(
     As an added security, we added an assert to make sure that quantity is
     positive.
   */
-  assert(LOG_MAX_LEN - strlen(buf) >= 0 && "error in vsnprintf length");
+  assert(LOG_MAX_LEN >= strlen(buf) && "error in vsnprintf length");
 
   va_list log_data;
   va_start(log_data, fmt);
