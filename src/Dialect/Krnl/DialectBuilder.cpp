@@ -263,4 +263,16 @@ void KrnlBuilder::printf(Value input, Type inputType) const {
   b.create<KrnlPrintOp>(loc, format, input);
 }
 
+void KrnlBuilder::printRuntimeSignature(
+    Operation *op, ValueRange operands) const {
+  std::string opName(op->getName().getStringRef().data() + 5); // Skip "onnx.".
+  std::string msg = opName + ":\n";
+  printf(msg);
+  int operNum = 0;
+  for (Value oper : operands) {
+    msg = "%t  " + std::to_string(operNum++) + ": ";
+    printTensor(msg, oper);
+  }
+}
+
 } // namespace onnx_mlir

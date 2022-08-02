@@ -1135,6 +1135,11 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let summary = "Print a tensor.";
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
+    At the begining of the msg string, user can add formatting instructions. The flags are:
+      %s: detailed signature (including shape, type, offsets),
+      %t: compact type (ala MLIR: 32x16xfloat),
+      %d: data values.
+    When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);

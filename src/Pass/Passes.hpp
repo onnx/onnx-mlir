@@ -43,6 +43,10 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
     llvm::StringRef ops, int actions);
 
+/// Passes for instrumenting the ONNX ops to print their operand type
+/// signatures at runtime.
+std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
