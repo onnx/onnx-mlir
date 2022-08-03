@@ -17,8 +17,8 @@
 
 namespace onnx_mlir {
 void addONNXToMLIRPasses(mlir::PassManager &pm);
-void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel,
-    bool enableCSE, bool enableInstrumentONNXSignature);
+void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
+    bool enableInstrumentONNXSignature);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(
     mlir::OpPassManager &pm, bool enableCSE, bool verifyInputTensors);
