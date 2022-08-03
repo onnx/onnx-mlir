@@ -376,6 +376,8 @@ void populateLoweringONNXOneHotOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXPrintSignaturePattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 

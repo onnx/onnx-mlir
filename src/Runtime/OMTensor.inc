@@ -458,12 +458,11 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   }
   if (typeInfo) {
     // Print compact type like in MLIR, e.g. 32x16xf32.
-    printf("\ttype: ");
-    for (int64_t i = 0; i < rank; i++) {
-      if (i>0) printf("x");
-      printf("%lld", (long long)shape[i]);
-    }
-    printf("x%s\n", getDataTypeName(dataType));
+    if (signatureInfo)
+      printf("\ttype: ");
+    for (int64_t i = 0; i < rank; i++)
+      printf("%lldx", (long long)shape[i]);
+    printf("%s\n", getDataTypeName(dataType));
   }
 
 #define LOOP_1(INDEX, IV, UB)                                                  \

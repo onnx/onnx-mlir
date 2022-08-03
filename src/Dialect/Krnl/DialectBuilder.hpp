@@ -150,9 +150,6 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::Value findIndex(
       mlir::Value input, mlir::Value G, mlir::Value V, mlir::Value len) const;
   void printTensor(mlir::StringRef msg, mlir::Value input) const;
-
-  void printRuntimeSignature(
-      mlir::Operation *op, mlir::ValueRange operands) const;
 };
 
 // Recursive class specialized for KrnlBuilder referred to as krnl.
