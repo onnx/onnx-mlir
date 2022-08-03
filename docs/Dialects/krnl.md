@@ -944,6 +944,7 @@ At the begining of the msg string, user can add formatting instructions. The fla
   %t: compact type (ala MLIR: 32x16xfloat),
   %d: data values.
 When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
+Print operation ends with a newline, except when only requesting a compact types (%t).
 
 Traits: MemRefsNormalizable
 

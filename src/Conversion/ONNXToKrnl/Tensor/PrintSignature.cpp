@@ -35,11 +35,10 @@ struct ONNXPrintSignatureLowering : public ConversionPattern {
     ONNXPrintSignatureOpAdaptor operandAdaptor(operands);
 
     std::string opName(printSignatureOp.op_name().data());
-    std::string msg = opName + ":\n";
+    std::string msg = opName;
     create.krnl.printf(msg);
-    int operId = 0;
     for (Value oper : operandAdaptor.input()) {
-      msg = "%t  " + std::to_string(operId++) + ": ";
+      msg = "%t ";
       create.krnl.printTensor(msg, oper);
     }
     Value noneValue;

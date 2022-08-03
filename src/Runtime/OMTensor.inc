@@ -462,7 +462,9 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
       printf("\ttype: ");
     for (int64_t i = 0; i < rank; i++)
       printf("%lldx", (long long)shape[i]);
-    printf("%s\n", getDataTypeName(dataType));
+    printf("%s", getDataTypeName(dataType));
+    if (signatureInfo)
+      printf("\n");
   }
 
 #define LOOP_1(INDEX, IV, UB)                                                  \

@@ -1140,6 +1140,7 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
       %t: compact type (ala MLIR: 32x16xfloat),
       %d: data values.
     When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
+    Print operation ends with a newline, except when only requesting a compact types (%t).
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);
