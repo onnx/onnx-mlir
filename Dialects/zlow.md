@@ -141,6 +141,27 @@ Traits: MemRefsNormalizable
 | `shape` | memref of 64-bit signless integer values
 | `Out` | memref of any type values
 
+### `zlow.dummy` (::onnx_mlir::zlow::ZLowDummyOp)
+
+ZLow dummy operation that behaves like identity
+
+"ZLow operation to forward the input value to the output value."
+"It will be removed if canonicalization is called."
+
+Traits: MemRefsNormalizable
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | memref of any type values
+
 ### `zlow.exp` (::onnx_mlir::zlow::ZLowExpOp)
 
 ZLow exp operation
@@ -177,6 +198,7 @@ ZLow gru operation
 "  - 5th item: hiddenSize"
 "direction accepts "forward", "reverse", or "bidirectional"
 "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+"prev_layer for where input comes is "none", "uni", or "bidir"
 
 Traits: MemRefsNormalizable
 
@@ -186,6 +208,7 @@ Traits: MemRefsNormalizable
 | :-------: | :-------: | ----------- |
 | `direction` | ::mlir::StringAttr | string attribute
 | `return_all_steps` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -215,6 +238,7 @@ ZLow lstm operation
 "  - 5th item: hiddenSize"
 "direction accepts "forward", "reverse", or "bidirectional"
 "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+"prev_layer for where input comes is "none", "uni", or "bidir"
 
 Traits: MemRefsNormalizable
 
@@ -224,6 +248,7 @@ Traits: MemRefsNormalizable
 | :-------: | :-------: | ----------- |
 | `direction` | ::mlir::StringAttr | string attribute
 | `return_all_steps` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -505,6 +530,12 @@ ZLow stick operation for GRU
 
 Traits: MemRefsNormalizable
 
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `prev_layer` | ::mlir::StringAttr | string attribute
+
 #### Operands:
 
 | Operand | Description |
@@ -523,6 +554,12 @@ ZLow stick operation for LSTM
 "  - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order, "
 
 Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
