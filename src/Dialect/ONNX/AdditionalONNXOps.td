@@ -98,3 +98,12 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
     }
   }];
 }
+
+def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
+  let summary = "ONNX Op to print type signature of its input operands";
+  let description = [{
+  "Print type signature of the op's input operands."
+  }];
+
+  let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor]>>:$input);
+}

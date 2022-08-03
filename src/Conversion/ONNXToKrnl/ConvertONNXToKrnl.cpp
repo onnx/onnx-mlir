@@ -230,6 +230,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);

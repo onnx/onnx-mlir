@@ -147,6 +147,10 @@ llvm::cl::bits<InstrumentActions> instrumentControlBits(
             InstrumentReportMemory, "instrument runtime reports memory usage")),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
+    llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
         "Enable memory bundling related optimizations (default=false)\n"

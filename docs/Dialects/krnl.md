@@ -939,6 +939,12 @@ Traits: MemRefsNormalizable
 Print a tensor.
 
 This operation can be used to generate a call to a runtime function which prints a tensor.
+At the begining of the msg string, user can add formatting instructions. The flags are:
+  %s: detailed signature (including shape, type, offsets),
+  %t: compact type (ala MLIR: 32x16xfloat),
+  %d: data values.
+When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
+Print operation ends with a newline, except when only requesting a compact types (%t).
 
 Traits: MemRefsNormalizable
 
