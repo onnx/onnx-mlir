@@ -44,6 +44,7 @@ add_onnx_mlir_library(OMShapeInference
 
 add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXPass.cpp
+  InstrumentONNXSignaturePass.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
