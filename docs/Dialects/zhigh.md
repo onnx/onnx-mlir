@@ -79,6 +79,37 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
+### `zhigh.Concat` (::onnx_mlir::zhigh::ZHighConcatOp)
+
+ZHigh Concat operation to concatenate stickified tensors
+
+"Concatenate a list of tensors into a single tensor. All input tensors must"
+"have the same shape, except for the dimension size of the axis"
+"to concatenate on. Users must ensure that it is safe to concatenate"
+"stickified tensors for the given axis."
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `concat_result` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or memref of any type values
+
 ### `zhigh.Conv2D` (::onnx_mlir::zhigh::ZHighConv2DOp)
 
 ZHigh 2D convolution operation

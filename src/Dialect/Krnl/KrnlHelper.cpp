@@ -33,7 +33,10 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
   if (operandRefQueue.empty()) {
     // Parse operand types:
     llvm::SmallVector<OpAsmParser::UnresolvedOperand, 2> operand_refs;
-    parser.parseOperandList(operand_refs);
+    if (failed(parser.parseOperandList(operand_refs))) {
+      operand = nullptr;
+      return failure();
+    }
 
     // Record operands:
     for (auto &operand_ref : operand_refs)
@@ -46,7 +49,10 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
     operandRefQueue.pop();
 
     llvm::SmallVector<Value, 1> operands;
-    parser.resolveOperand(operand_ref, operandType, operands);
+    if (parser.resolveOperand(operand_ref, operandType, operands)) {
+      operand = nullptr;
+      return failure();
+    }
     operand = operands.front();
     return success();
   } else {
