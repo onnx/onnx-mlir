@@ -76,10 +76,10 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> moptionEnvVar("moptionEnvVar",
-    llvm::cl::desc("Override default option env var ONNX_MLIR_FLAG"),
-    llvm::cl::value_desc("option env var"), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
+llvm::cl::opt<std::string> menvVarName("menvVarName",
+    llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: ONNX_MLIR_FLAGS"),
+    llvm::cl::value_desc("option env var"), llvm::cl::init("ONNX_MLIR_FLAGS"),
+    llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
@@ -191,17 +191,17 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-// Support for optionEnvVar.
-void setTargetEnvVar(const std::string &optionEnvVar) {
-  assert(optionEnvVar != "" && "Expecting valid target optionEnvVar description");
-  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set optionEnvVar\"" << optionEnvVar << "\"\n");
-  moptionEnvVar = optionEnvVar;
+// Support for envVarName.
+void setTargetEnvVar(const std::string &envVarName) {
+  assert(envVarName != "" && "Expecting valid target envVarName description");
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set envVarName\"" << envVarName << "\"\n");
+  menvVarName = envVarName;
 }
 
-void clearTargetEnvVar() { moptionEnvVar.clear(); }
+void clearTargetEnvVar() { menvVarName.clear(); }
 
 std::string getTargetEnvVarOption() {
-  return (moptionEnvVar != "") ? "--moptionEnvVar=" + moptionEnvVar : "";
+  return (menvVarName != "") ? "--menvVarName=" + menvVarName : "";
 }
 
 // Support for Triple.

@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::desc("Base path for output files, extensions will be added."),
       llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
       llvm::cl::ValueRequired);
-
+  
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
@@ -58,10 +58,10 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
+  // Parse options from argc/argv and env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
       "ONNX-MLIR modular optimizer driver\n", nullptr,
-      OnnxMlirEnvOptionName.c_str());
+      menvVarName.c_str());
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
