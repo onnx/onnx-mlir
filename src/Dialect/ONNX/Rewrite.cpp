@@ -432,6 +432,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
+  result.insert<FuseTransposeAndLeakyReluPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
 }

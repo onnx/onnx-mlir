@@ -386,6 +386,13 @@ def FuseTransposePattern:  Pat<
   // Transpose with combined pattern.
   (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
 
+def FuseTransposeAndLeakyReluPattern:  Pat<
+  // Transpose of LeakyRelu on a transpose.
+  (ONNXTransposeOp (ONNXLeakyReluOp (ONNXTransposeOp $v, $p1), $alpha), $p2),
+  // LeakyRelu on Transpose with combined pattern.
+  (ONNXTransposeOp (ONNXLeakyReluOp $v, $alpha, (returnType $v)),
+                   (CreateCombinedTransposedPattern $p1, $p2))>;
+
 def RemoveIdentityTransposePattern:  Pat<
   // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
   (ONNXTransposeOp $val, $p),
