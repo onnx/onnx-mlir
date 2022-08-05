@@ -20,6 +20,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -70,16 +72,43 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    bool enableInstrumentONNXSignature) {
+    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
     pm.addPass(mlir::createCSEPass());
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
+  // Print statistics about ONNX ops if enabled.
+  int len = ONNXOpsStatFilename.length();
+  bool statsInText = (len >= 5) && ONNXOpsStatFilename[len - 4] == '.' &&
+                     ONNXOpsStatFilename[len - 3] == 't' &&
+                     ONNXOpsStatFilename[len - 2] == 'x' &&
+                     ONNXOpsStatFilename[len - 1] == 't';
+  bool statsInJSON = !statsInText && (len >= 6) &&
+                     ONNXOpsStatFilename[len - 5] == '.' &&
+                     ONNXOpsStatFilename[len - 4] == 'j' &&
+                     ONNXOpsStatFilename[len - 3] == 's' &&
+                     ONNXOpsStatFilename[len - 2] == 'o' &&
+                     ONNXOpsStatFilename[len - 1] == 'n';
+  if (statsInText || statsInJSON) {
+    // Open stream.
+    std::error_code EC;
+    llvm::raw_fd_ostream reportStream(
+        ONNXOpsStatFilename, EC, llvm::sys::fs::OpenFlags::OF_None);
+    if (!EC) {
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createPrintOpStatsPass(reportStream, statsInJSON));
+      reportStream.close();
+    } else
+      llvm::errs() << "Error opening \"" << ONNXOpsStatFilename
+                   << "\" file to report ONNX op stats, skip reporting.\n";
+  }
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
       instrumentONNXOps, instrumentControlBits.getBits()));
+  // Print Signatures of each op at runtime if enabled. Should not run signature
+  // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
@@ -91,7 +120,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
-}
+} // namespace onnx_mlir
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
@@ -166,8 +195,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(
-          pm, OptimizationLevel, /*enableCSE*/ true, instrumentONNXSignature);
+      addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
+          instrumentONNXSignature, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

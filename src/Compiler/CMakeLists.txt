@@ -62,6 +62,7 @@ add_onnx_mlir_library(CompilerPasses
   LINK_LIBS PUBLIC
   ${OMLibs}
   CompilerOptions
+  MLIRTransforms
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation

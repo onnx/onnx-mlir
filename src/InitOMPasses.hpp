@@ -46,6 +46,16 @@ void initOMPasses(int optLevel) {
     return createInstrumentONNXSignaturePass();
   });
 
+/*
+  mlir::registerPass([os]() -> std::unique_ptr<mlir::Pass> {
+    return createPrintOpStatsPass(os);
+  });
+
+  mlir::registerPass([os, printAsJSON]() -> std::unique_ptr<mlir::Pass> {
+    return createPrintOpStatsPass(os, printAsJSON);
+  });
+*/
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXPreKrnlVerifyPass();
   });

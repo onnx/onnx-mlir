@@ -38,7 +38,7 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 
-/// Pass for instrument the Onnx ops
+/// Pass for instrument the Onnx ops.
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
     llvm::StringRef ops, int actions);
@@ -46,6 +46,11 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+
+// Pass for reporting statistics on ONNX Ops.
+std::unique_ptr<mlir::Pass> createPrintOpStatsPass(llvm::raw_ostream &os);
+std::unique_ptr<mlir::Pass> createPrintOpStatsPass(
+    llvm::raw_ostream &os, bool printAsJSON);
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
@@ -69,7 +74,6 @@ std::unique_ptr<mlir::Pass> createLowerKrnlShapePass();
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
 namespace krnl {
-
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
 
