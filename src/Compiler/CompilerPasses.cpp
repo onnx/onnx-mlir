@@ -12,9 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// hi alex
-#include <iostream>
-
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
@@ -84,6 +81,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Print statistics about ONNX ops if enabled.
   if (ONNXOpsStatFormat.length() > 0) {
+    transform(ONNXOpsStatFormat.begin(), ONNXOpsStatFormat.end(),
+        ONNXOpsStatFormat.begin(), ::toupper);
     bool printAsJSON = ONNXOpsStatFormat.compare("JSON") == 0;
     bool printAsTXT = ONNXOpsStatFormat.compare("TXT") == 0;
     if (printAsJSON || printAsTXT) {

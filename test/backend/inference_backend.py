@@ -60,7 +60,7 @@ def get_test_models():
     #
     # SEMANTIC for LABELING (one line per directive)
     # see utils/genSupportedOps.py
-    # command processed by makefile. hi alex
+    # command processed by makefile.
 
     variables.test_to_enable_dict = {
         ############################################################
