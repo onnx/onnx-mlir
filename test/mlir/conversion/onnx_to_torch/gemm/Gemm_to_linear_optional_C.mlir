@@ -12,3 +12,4 @@ module attributes {}  {
 //CHECK: return %[[RES]] :  !torch.vtensor<[1,4],f32>
 return %0 : tensor<1x4xf32>
   }
+}
