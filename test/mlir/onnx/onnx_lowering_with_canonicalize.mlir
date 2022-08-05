@@ -1217,22 +1217,22 @@ func.func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32
 
 // -----
 
-// 1-D x 1-D
+// 1-D x 1-D results in scalar
 func.func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // mlir2FileCheck.py -a'["A", "B"]' -n'{"1": "RES"}'
 // CHECK-LABEL:  func private @test_matmul7
-// CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<5xf32>) -> memref<1xf32> {
+// CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<5xf32>) -> memref<f32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1xf32>
-// CHECK-DAG:       [[RES_1_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<f32>
+// CHECK-DAG:       [[RES_1_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloca() : memref<f32>
-// CHECK:           krnl.iterate([[RES_1_]]#0) with ([[RES_1_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[RES_1_]]#1 -> [[I_1_:%.+]] = 0 to 5){
-// CHECK:             [[VAR_3_:%.+]] = krnl.get_induction_var_value([[RES_1_]]#0) : (!krnl.loop) -> index
+// CHECK:           krnl.iterate() with ([[RES_1_]] -> [[I_1_:%.+]] = 0 to 5){
+// CHECK:             krnl.get_induction_var_value() : () -> ()
 // CHECK:             krnl.store [[VAR_cst_]], [[RES_2_]][] : memref<f32>
-// CHECK:             krnl.iterate([[RES_1_]]#1) with (){
-// CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[RES_1_]]#1) : (!krnl.loop) -> index
+// CHECK:             krnl.iterate([[RES_1_]]) with (){
+// CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[RES_1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_5_]]{{.}} : memref<5xf32>
 // CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_5_]]{{.}} : memref<5xf32>
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<f32>
@@ -1241,9 +1241,9 @@ func.func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) ->
 // CHECK:               krnl.store [[VAR_10_]], [[RES_2_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_2_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]{{.}} : memref<1xf32>
+// CHECK:             krnl.store [[LOAD_RES_2_MEM_1_]], [[RES_]][] : memref<f32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<1xf32>
+// CHECK:           return [[RES_]] : memref<f32>
 // CHECK:         }
 }
 
@@ -3566,3 +3566,16 @@ func.func @test_transpose_lowered_to_a_view_op(%arg0: tensor<?x1x1x384xf32>) -> 
   // CHECK:         }
 }
 
+// -----
+
+// Check lowering transpose to a view op when the order of the dimensions whose
+// value is not 1 is unchanged.
+// The order of the dimension whose value is not 1 is changed by transpose.
+func.func @test_transpose_lowered_to_a_view_op_inv(%arg0: tensor<?x1x1x384xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [3, 0, 1, 2]} : (tensor<?x1x1x384xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL:  func @test_transpose_lowered_to_a_view_op_inv
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x1x384xf32>) -> memref<384x?x1x1xf32> {
+  // CHECK-NOT:       memref.reinterpret_cast
+
+}
