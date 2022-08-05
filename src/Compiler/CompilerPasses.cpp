@@ -75,7 +75,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename) {
+    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFormat) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -83,29 +83,19 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Print statistics about ONNX ops if enabled.
-  bool printInFile, printAsJSON;
-  //llvm::raw_fd_ostream *os = computeParamsForOpStats(printInFile, printAsJSON);
-  if (true) {
-    //std::string message;
-    //llvm::raw_string_ostream so(message);
-    std::error_code EC;
-    llvm::raw_fd_ostream reportStream(ONNXOpStats,
-        EC, llvm::sys::fs::OpenFlags::OF_None);
-    assert(!EC && "failed to open report");
-    pm.addNestedPass<func::FuncOp>(
-        mlir::createPrintOpStatsPass(reportStream, false));
-
-    //llvm::errs() << "hi alex\n" << so.str() << "\nbye alex\n";
-    //so << ".how are things doing.\n";
-    //llvm::errs() << "hi alex\n" << so.str() << "\nbye alex\n";
-    //if (printInFile)
-    //  os->close();
-    //reportStream.flush();
-    //reportStream.close();
-    std::cout << "hi alex. done with so\n";
+  if (ONNXOpsStatFormat.length() > 0) {
+    bool printAsJSON = ONNXOpsStatFormat.compare("JSON") == 0;
+    bool printAsTXT = ONNXOpsStatFormat.compare("TXT") == 0;
+    if (printAsJSON || printAsTXT) {
+      // TODO: we should write the output of this pass in a file but I was not
+      // able to use raw_fd_ostream of a file without it crashing.
+      pm.addNestedPass<func::FuncOp>(
+          mlir::createPrintOpStatsPass(llvm::errs(), printAsJSON));
+    } else {
+      llvm::errs() << "Skip onnx-ops-stats: expected JSON or TXT format, got \""
+                   << ONNXOpsStatFormat << "\"\n";
+    }
   }
-  std::cout << "hi alex. super done with so\n";
-
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
       instrumentONNXOps, instrumentControlBits.getBits()));
