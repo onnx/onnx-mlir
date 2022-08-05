@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
@@ -152,9 +154,11 @@ llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> ONNXOpStats("onnx-op-stats",
-    llvm::cl::desc("Report the occurrence frequency of ONNX ops to a JSON or TXT file\n"
-                   "\"file.txt\" for report in the named file as text. \n"
-                   "\"file.json\" for report in the named file as JSON."),
+    llvm::cl::desc(
+        "Report the occurrence frequency of ONNX ops to a JSON or TXT file\n"
+        "\"STDERR\" for report on console output as text. \n"
+        "\"file.txt\" for report in the named file as text. \n"
+        "\"file.json\" for report in the named file as JSON."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
@@ -347,6 +351,53 @@ std::vector<std::string> getXllcOption() {
 void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
+
+// Depending on the value of ONNXOpStats, determine the stream and whether to
+// print as JSON or text. Return true when option is active.
+llvm::raw_fd_ostream *computeParamsForOpStats(
+    bool &printInFile, bool &printAsJSON) {
+  int len = ONNXOpStats.length();
+  if (len == 0)
+    return nullptr;
+  bool statsInStdErrText = ONNXOpStats.compare("STDERR") == 0;
+  bool statsInFileText =
+      !statsInStdErrText && (len >= 5) && ONNXOpStats[len - 4] == '.' &&
+      ONNXOpStats[len - 3] == 't' && ONNXOpStats[len - 2] == 'x' &&
+      ONNXOpStats[len - 1] == 't';
+  bool statsInFileJSON =
+      !statsInStdErrText && !statsInFileText && (len >= 6) &&
+      ONNXOpStats[len - 5] == '.' && ONNXOpStats[len - 4] == 'j' &&
+      ONNXOpStats[len - 3] == 's' && ONNXOpStats[len - 2] == 'o' &&
+      ONNXOpStats[len - 1] == 'n';
+  // Set boolean parameter
+  printAsJSON = statsInFileJSON;
+  printInFile = statsInFileText || statsInFileJSON;
+  // Set os parameter
+  // if (statsInStdErrText) {
+  //  if (VerboseOutput)
+  //    llvm::errs() << "Print Op Stats reporting to stderr.\n";
+  //  return &llvm::errs();
+  //}
+  if (printInFile) {
+    // Open stream.
+    std::error_code EC;
+    llvm::raw_fd_ostream *reportStream = new llvm::raw_fd_ostream(ONNXOpStats,
+        EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways,
+        llvm::sys::fs::FileAccess::FA_Write, llvm::sys::fs::OpenFlags::OF_Text);
+    if (EC) {
+      llvm::errs() << "Skip Op Stats reporting since failed to open \""
+                   << ONNXOpStats << "\".\n";
+      return nullptr;
+    }
+    if (VerboseOutput)
+      llvm::errs() << "Print Op Stats reporting in file: \"" << ONNXOpStats
+                   << "\".\n";
+    return reportStream;
+  }
+  llvm::errs() << "Skip Op Stats reporting: expected -onnx-op-stats=STDERR, "
+                  "fileName.txt, or fileName.json\n";
+  return nullptr;
+}
 
 // =============================================================================
 // Methods for OMCompilerOptions

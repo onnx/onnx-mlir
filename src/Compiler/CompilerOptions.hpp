@@ -89,6 +89,11 @@ void setLLVMOption(const std::string &flag);
 void clearLLVMOption();
 std::string getLLVMOption();
 
+// Depending on the value of ONNXOpStats, determine the stream and whether to
+// print as JSON or text. Return NULL when option is not requested.
+llvm::raw_fd_ostream *computeParamsForOpStats(
+    bool &printInFile, bool &printAsJSON);
+
 // Options support for OMCompilerOptions.
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;

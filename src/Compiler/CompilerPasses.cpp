@@ -12,6 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// hi alex
+#include <iostream>
+
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
@@ -80,30 +83,29 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Print statistics about ONNX ops if enabled.
-  int len = ONNXOpsStatFilename.length();
-  bool statsInText = (len >= 5) && ONNXOpsStatFilename[len - 4] == '.' &&
-                     ONNXOpsStatFilename[len - 3] == 't' &&
-                     ONNXOpsStatFilename[len - 2] == 'x' &&
-                     ONNXOpsStatFilename[len - 1] == 't';
-  bool statsInJSON = !statsInText && (len >= 6) &&
-                     ONNXOpsStatFilename[len - 5] == '.' &&
-                     ONNXOpsStatFilename[len - 4] == 'j' &&
-                     ONNXOpsStatFilename[len - 3] == 's' &&
-                     ONNXOpsStatFilename[len - 2] == 'o' &&
-                     ONNXOpsStatFilename[len - 1] == 'n';
-  if (statsInText || statsInJSON) {
-    // Open stream.
+  bool printInFile, printAsJSON;
+  //llvm::raw_fd_ostream *os = computeParamsForOpStats(printInFile, printAsJSON);
+  if (true) {
+    //std::string message;
+    //llvm::raw_string_ostream so(message);
     std::error_code EC;
-    llvm::raw_fd_ostream reportStream(
-        ONNXOpsStatFilename, EC, llvm::sys::fs::OpenFlags::OF_None);
-    if (!EC) {
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createPrintOpStatsPass(reportStream, statsInJSON));
-      reportStream.close();
-    } else
-      llvm::errs() << "Error opening \"" << ONNXOpsStatFilename
-                   << "\" file to report ONNX op stats, skip reporting.\n";
+    llvm::raw_fd_ostream reportStream(ONNXOpStats,
+        EC, llvm::sys::fs::OpenFlags::OF_None);
+    assert(!EC && "failed to open report");
+    pm.addNestedPass<func::FuncOp>(
+        mlir::createPrintOpStatsPass(reportStream, false));
+
+    //llvm::errs() << "hi alex\n" << so.str() << "\nbye alex\n";
+    //so << ".how are things doing.\n";
+    //llvm::errs() << "hi alex\n" << so.str() << "\nbye alex\n";
+    //if (printInFile)
+    //  os->close();
+    //reportStream.flush();
+    //reportStream.close();
+    std::cout << "hi alex. done with so\n";
   }
+  std::cout << "hi alex. super done with so\n";
+
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
       instrumentONNXOps, instrumentControlBits.getBits()));

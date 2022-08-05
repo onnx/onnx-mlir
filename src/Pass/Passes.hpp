@@ -47,10 +47,12 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
+/* hi alex
 // Pass for reporting statistics on ONNX Ops.
 std::unique_ptr<mlir::Pass> createPrintOpStatsPass(llvm::raw_ostream &os);
 std::unique_ptr<mlir::Pass> createPrintOpStatsPass(
     llvm::raw_ostream &os, bool printAsJSON);
+*/
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
