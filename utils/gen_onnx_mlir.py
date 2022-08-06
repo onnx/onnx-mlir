@@ -839,8 +839,8 @@ def parse_type_str(allowedType):
     # Convert "optional" in type str to empty and a separate flag
     isOptional = False
     if allowedType.find("optional") == 0 :
-      allowedType = allowedType.replace("optional(", "", 1);
-      allowedType = allowedType[:-1]
+      allowedType = allowedType.replace("optional(", "OptOf<", 1);
+      allowedType = allowedType[:-1] + '>'
 
     # Apply substitutions in decreasing order of key-length, so that float16 is replaced
     # before float, and uint16 is replaced before int16, etc.
