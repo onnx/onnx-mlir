@@ -10,6 +10,7 @@ namespace onnx_mlir {
 #endif
 
 /* Type of compiler emission targets */
+/* Keep in sync with enumeration in PyOnnxMirCompiler.hpp python module. */
 typedef enum {
   EmitONNXBasic,
   EmitONNXIR,
@@ -31,6 +32,7 @@ typedef enum {
 typedef enum { O0 = 0, O1, O2, O3 } OptLevel;
 
 /* Compiler options to describe the architecture, optimization level,... */
+/* Keep in sync with enumeration in PyOnnxMirCompiler.hpp python module. */
 typedef enum {
   TargetTriple,     /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
@@ -40,6 +42,7 @@ typedef enum {
   OPTFlag,          /* Kind for -Xopt string. */
   LLCFlag,          /* Kind for -Xllc string. */
   LLVMFlag,         /* Kind for -mllvm string. */
+  Verbose,          /* Kind for enabling -v verbose mode (boolean option)*/
 } OptionKind;
 
 /* Compiler options to describe instrumentation options */
