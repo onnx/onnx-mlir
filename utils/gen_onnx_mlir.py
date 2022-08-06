@@ -609,7 +609,7 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        (str_types,isOptional) = get_onnx_mlir_types(schema, type_str_dict,  value)
+        str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
         # In case the type string is used more than once
         types = str_types.copy()
@@ -617,13 +617,10 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
 
-        # ToFix: In Opset 16, the parameter of IdentityOp has optionalType
-        # but this Optional flag is not set 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
-        elif isOptional :
-            types.append("NoneType")
-        elif OpSchema.FormalParameterOption.Variadic == value.option:
+
+        if OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
@@ -803,9 +800,6 @@ def get_type_inference_func(s, indent, type_inference_code):
 def parse_type_str(allowedType):
     # AnyI may be used for uint because the onnx_mlir is not generating uint output
     # This will be fixed later and UI will be replace AnyI
-    # ToFix: the optional type should use MLIR Optional
-    # The issue is Optional accepts Type not type list
-    # Need more complicated replacement code 
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
@@ -833,11 +827,7 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    # onnx v1.11.0 added optional on individual type, not just a flag to
-    # parameter. MILR supports Optional<Type>, but not AnyType<[Optional<Type>
-    # Keep using AnyTye<[Type, ..., NoneType] for optional.   
-    # Convert "optional" in type str to empty and a separate flag
-    isOptional = False
+    # optional(...) always appears outermost
     if allowedType.find("optional") == 0 :
       allowedType = allowedType.replace("optional(", "OptOf<", 1);
       allowedType = allowedType[:-1] + '>'
@@ -848,25 +838,21 @@ def parse_type_str(allowedType):
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
         allowedType = allowedType.replace(key, item)
-    return (allowedType, isOptional)
+    return allowedType
 
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
-    isOptional = False
     for allowedType in allowedTypes:
-        (mlirType, optional) = parse_type_str(allowedType)
+        mlirType = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
-        if optional :
-          isOptional = True
 
     # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
-    # optional type may introduce redundant, but it doesnot matter
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    return (mlirTypes, isOptional)
+    return mlirTypes
 
 def parse_type_constraints(schema):
     type_str_dict = dict()
@@ -879,9 +865,8 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             (type_str, isOptional) = parse_type_str(input.typeStr)
-             # throw away optional flag
-             return [[type_str], isOptional]
+             type_str = parse_type_str(input.typeStr)
+             return [type_str]
          else :
              return type_str_dict[input.typeStr]
     else :
