@@ -5484,12 +5484,10 @@ FunctionType ONNXCallOp::getCalleeType() {
 
 mlir::Type SeqType::parse(mlir::AsmParser &parser) {
   Type elementType;
-  if (parser.parseLess() || parser.parseType(elementType) ||
-      parser.parseGreater() || !elementType.isa<ShapedType>())
+  if (parser.parseLess() || parser.parseType(elementType) || parser.parseGreater())
     return Type();
 
-  ShapedType ty = elementType.cast<ShapedType>();
-  return get(ty.getContext(), ty, -1);
+  return get(elementType, -1);
 }
 
 void SeqType::print(mlir::AsmPrinter &printer) const {
