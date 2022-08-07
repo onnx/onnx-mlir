@@ -321,6 +321,7 @@ OpsWithVerifier = [
     'OneHotEncoder',
     'Optional',
     'OptionalGetElement',
+    'OptionalHasElement',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',

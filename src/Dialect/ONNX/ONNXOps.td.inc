@@ -3532,6 +3532,7 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
       return {0};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXOrOp:ONNX_Op<"Or",

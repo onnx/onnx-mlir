@@ -4445,8 +4445,22 @@ LogicalResult ONNXOptionalGetElementOp::verify() {
 
 LogicalResult ONNXOptionalGetElementOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  Type ty = input().getType().cast<OptType>().getElementType();
-  getResult().setType(ty);
+  Type elementType = input().getType().cast<OptType>().getElementType();
+  getResult().setType(elementType);
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalHasElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Builder builder(getContext());
+  Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
+  getResult().setType(scalarBoolType);
   return success();
 }
 
@@ -5316,7 +5330,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXOptionalHasElementOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op)

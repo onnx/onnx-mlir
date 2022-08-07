@@ -33,3 +33,11 @@ func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<2xf32>>) -> tensor<*
   // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.OptionalGetElement"(%arg0) : (!onnx.Opt<tensor<2xf32>>) -> tensor<2xf32>
   // CHECK-NEXT: return [[VAR_0_]] : tensor<2xf32>
 }
+
+// CHECK-LABEL: func.func @check_optionalhaselement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<i1> {
+func.func @check_optionalhaselement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<*xi1> {
+  %0 = "onnx.OptionalHasElement"(%arg0) : (!onnx.Opt<tensor<*xf32>>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+  // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.OptionalHasElement"(%arg0) : (!onnx.Opt<tensor<*xf32>>) -> tensor<i1>
+  // CHECK-NEXT: return [[VAR_0_]] : tensor<i1>
+}
