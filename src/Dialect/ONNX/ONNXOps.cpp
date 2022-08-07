@@ -4417,6 +4417,39 @@ LogicalResult ONNXOneHotOp::inferShapes(
       ONNXOneHotOpAdaptor>(*this, elementType);
 }
 
+LogicalResult ONNXOptionalOp::verify() {
+  if (type().hasValue() != input().getType().isa<NoneType>())
+    return emitError(
+        "Optional should have either type attribute or input value");
+  return success();
+}
+
+LogicalResult ONNXOptionalOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type ty;
+  if (auto typeAttr = type()) {
+    ty = typeAttr.value();
+  } else {
+    ty = input().getType();
+    assert(!ty.isa<NoneType>());
+  }
+  getResult().setType(OptType::get(ty));
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalGetElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type ty = input().getType().cast<OptType>().getElementType();
+  getResult().setType(ty);
+  return success();
+}
+
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto outputShape = shape();
@@ -5283,8 +5316,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXOptionalOp)
-NOT_IMPLEMENTED_INFERSHAPE(ONNXOptionalGetElementOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXOptionalHasElementOp)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)

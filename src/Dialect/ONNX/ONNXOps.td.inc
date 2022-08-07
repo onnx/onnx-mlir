@@ -3487,6 +3487,7 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
@@ -3509,6 +3510,7 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",

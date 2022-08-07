@@ -319,6 +319,8 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
+    'Optional',
+    'OptionalGetElement',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',
