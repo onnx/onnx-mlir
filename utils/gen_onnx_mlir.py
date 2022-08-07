@@ -488,7 +488,7 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
-    elif onnx_attr_type == 'type':
+    elif onnx_attr_type in {'type', 'type_proto'}:
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
