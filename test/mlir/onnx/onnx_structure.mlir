@@ -40,3 +40,19 @@ func.func @check_opt_seq(%arg0: !onnx.Opt<!onnx.Seq<tensor<*xf32>>>) -> !onnx.Op
   // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.Identity"(%arg0) : (!onnx.Opt<!onnx.Seq<tensor<*xf32>>>) -> !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
   // CHECK-NEXT: return [[VAR_0_]] : !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
 }
+
+// CHECK-LABEL: func.func @check_optional(%arg0: tensor<*xf32>) -> !onnx.Opt<tensor<*xf32>> {
+func.func @check_optional(%arg0: tensor<*xf32>) -> !onnx.Opt<tensor<*xf32>> {
+  %0 = "onnx.Optional"(%arg0) : (tensor<*xf32>) -> !onnx.Opt<tensor<*xf32>>
+  return %0 : !onnx.Opt<tensor<*xf32>>
+  // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.Optional"(%arg0) : (tensor<*xf32>) -> !onnx.Opt<tensor<*xf32>>
+  // CHECK-NEXT: return [[VAR_0_]] : !onnx.Opt<tensor<*xf32>>
+}
+
+// CHECK-LABEL: func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<*xf32> {
+func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<*xf32> {
+  %0 = "onnx.OptionalGetElement"(%arg0) : (!onnx.Opt<tensor<*xf32>>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.OptionalGetElement"(%arg0) : (!onnx.Opt<tensor<*xf32>>) -> tensor<*xf32>
+  // CHECK-NEXT: return [[VAR_0_]] : tensor<*xf32>
+}
