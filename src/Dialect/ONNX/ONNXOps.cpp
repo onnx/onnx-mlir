@@ -5484,8 +5484,10 @@ FunctionType ONNXCallOp::getCalleeType() {
 
 mlir::Type SeqType::parse(mlir::AsmParser &parser) {
   Type elementType;
-  if (parser.parseLess() || parser.parseType(elementType) || parser.parseGreater())
+  if (parser.parseLess() || parser.parseType(elementType) || parser.parseGreater()) {
+    parser.emitError(parser.getCurrentLocation()) << "failed to parse !onnx.Seq type";
     return Type();
+  }
 
   return get(elementType, -1);
 }
