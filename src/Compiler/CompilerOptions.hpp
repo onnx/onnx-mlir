@@ -38,7 +38,7 @@ extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;
 extern llvm::cl::opt<std::string> shapeInformation;
 extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;
-extern llvm::cl::opt<std::string> menvVarName;
+extern llvm::cl::opt<std::string> customEnvFlags;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;

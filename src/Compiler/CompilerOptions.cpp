@@ -76,7 +76,7 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> menvVarName("menvVarName",
+llvm::cl::opt<std::string> customEnvFlags("customEnvFlags",
     llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
                    "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::init("ONNX_MLIR_FLAGS"),
@@ -192,18 +192,18 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-// Support for envVarName.
+// Support for customEnvFlags.
 void setTargetEnvVar(const std::string &envVarName) {
   assert(envVarName != "" && "Expecting valid target envVarName description");
   LLVM_DEBUG(
       llvm::dbgs() << DEBUG_TYPE << "Set envVarName\"" << envVarName << "\"\n");
-  menvVarName = envVarName;
+  customEnvFlags = envVarName;
 }
 
-void clearTargetEnvVar() { menvVarName.clear(); }
+void clearTargetEnvVar() { customEnvFlags.clear(); }
 
 std::string getTargetEnvVarOption() {
-  return (menvVarName != "") ? "--menvVarName=" + menvVarName : "";
+  return (customEnvFlags != "") ? "--customEnvFlags=" + customEnvFlags : "";
 }
 
 // Support for Triple.

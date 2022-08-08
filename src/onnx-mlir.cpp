@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
   // Parse options from argc/argv and env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr, menvVarName.c_str());
+      "ONNX-MLIR modular optimizer driver\n", nullptr, customEnvFlags.c_str());
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

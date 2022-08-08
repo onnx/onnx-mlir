@@ -18,7 +18,7 @@ def execCmd(cmd):
 if __name__ == '__main__':
 
     # use different names for different threads
-    cmds = ['onnx-mlir -O3 -menvVarName mnistwith03 mnist.onnx -o mnist03','onnx-mlir -O1 -menvVarName mnistwith01 mnist.onnx -o mnist01']
+    cmds = ['onnx-mlir -O3 -customEnvFlags mnistwith03 mnist.onnx -o mnist03','onnx-mlir -O1 -customEnvFlags mnistwith01 mnist.onnx -o mnist01']
 
     # use the default name for different threads
     # cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
