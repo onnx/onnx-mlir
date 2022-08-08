@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -622,6 +623,62 @@ mlir::Type convertONNXTypeToMLIRType(
   }
 
   llvm_unreachable("Unsupported data type encountered.");
+}
+
+// Convert an MLIR type to the correspoding ONNX type.
+int64_t mlirTypeToOnnxType(Type elemType) {
+  onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
+
+  TypeSwitch<Type>(elemType)
+      .Case<BFloat16Type>(
+          [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
+      .Case<ComplexType>([&](ComplexType type) {
+        if (type.getElementType().isa<Float32Type>())
+          onnxType = onnx::TensorProto::COMPLEX64;
+        else if (type.getElementType().isa<Float64Type>())
+          onnxType = onnx::TensorProto::COMPLEX128;
+      })
+      .Case<Float16Type>(
+          [&](Float16Type) { onnxType = onnx::TensorProto::FLOAT16; })
+      .Case<Float32Type>(
+          [&](Float32Type) { onnxType = onnx::TensorProto::FLOAT; })
+      .Case<Float64Type>(
+          [&](Float64Type) { onnxType = onnx::TensorProto::DOUBLE; })
+      .Case<IntegerType>([&](IntegerType type) {
+        switch (type.getWidth()) {
+        case 1:
+          // only a signless type can be a bool.
+          onnxType = (type.isSigned() || type.isUnsigned())
+                         ? onnx::TensorProto::UNDEFINED
+                         : onnx::TensorProto::BOOL;
+          break;
+        case 8:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
+                                       : onnx::TensorProto::INT8;
+          break;
+        case 16:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT16
+                                       : onnx::TensorProto::INT16;
+          break;
+        case 32:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT32
+                                       : onnx::TensorProto::INT32;
+          break;
+        case 64:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT64
+                                       : onnx::TensorProto::INT64;
+          break;
+        }
+      })
+      .Case<LLVM::LLVMStructType>(
+          [&](LLVM::LLVMStructType) { onnxType = onnx::TensorProto::STRING; });
+
+  if (onnxType == onnx::TensorProto::UNDEFINED) {
+    elemType.dump();
+    llvm_unreachable("MLIR type cannot be converted to ONNX type");
+  }
+
+  return onnxType;
 }
 
 } // namespace onnx_mlir
