@@ -956,56 +956,50 @@ LogicalResult ONNXSeluOp::inferShapes(
 // Since the seq is usually used as a parameter of a graph (e.g. for LoopOp),
 // shape inference for region may need improvement.
 
+namespace {
+// Helper function used in Sequence ops shape inference
+ShapedType sequenceAddType(
+    ShapedType accumulatedType, ShapedType additionalType) {
+  Type elementType = accumulatedType.getElementType();
+  assert(elementType == additionalType.getElementType() &&
+         "types to merge must have the same data type");
+  // Pick the weaker attr: known dim > unknown dim > unranked
+  if (!accumulatedType.hasRank())
+    return accumulatedType;
+  if (!additionalType.hasRank())
+    return additionalType;
+  int64_t rank = accumulatedType.getRank();
+  if (rank != additionalType.getRank())
+    return UnrankedTensorType::get(elementType);
+  ArrayRef<int64_t> acc = accumulatedType.getShape();
+  ArrayRef<int64_t> add = additionalType.getShape();
+  SmallVector<int64_t, 4> dims;
+  for (int64_t i = 0; i < rank; i++) {
+    dims.push_back(acc[i] != add[i] ? -1 : add[i]);
+  }
+  return RankedTensorType::get(dims, elementType);
+}
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // SequenceInsertOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  SeqType seqType = input_sequence().getType().dyn_cast<mlir::SeqType>();
-  ShapedType tensorType = tensor().getType().dyn_cast<ShapedType>();
-  ShapedType seqTensorType = seqType.getElementType().cast<ShapedType>();
-
   // Merge the tensor type for the seq and the inserted tensor
-  // Pick the weaker attr: known dim > unknown dim > unranked
-  // If inference gets an unranked tensor, no need to update the result
-
-  // When the input seq is empty, inherit the tensor type
-  if (seqType.getLength() == 0) {
+  SeqType seqType = input_sequence().getType().cast<mlir::SeqType>();
+  ShapedType tensorType = tensor().getType().cast<ShapedType>();
+  int64_t length = seqType.getLength();
+  if (length == 0) {
+    // When the input seq is empty, inherit the tensor type
     getResult().setType(SeqType::get(tensorType, 1));
-    return success();
-  }
-
-  auto newLength = seqType.getLength() == -1 ? -1 : seqType.getLength() + 1;
-
-  // When one of the tensor is unranked
-  if (!tensorType.hasRank()) {
-    getResult().setType(SeqType::get(tensorType, newLength));
-    return success();
-  }
-  if (!seqTensorType.hasRank()) {
+  } else {
+    int64_t newLength = length == -1 ? -1 : length + 1;
+    ShapedType seqTensorType = seqType.getElementType().cast<ShapedType>();
+    seqTensorType = sequenceAddType(seqTensorType, tensorType);
     getResult().setType(SeqType::get(seqTensorType, newLength));
-    return success();
   }
-
-  // Merge when both are ranked
-  auto seqShape = seqTensorType.getShape();
-  auto seqRank = seqTensorType.getRank();
-  if (seqRank == -1)
-    return success();
-
-  auto tensorShape = tensorType.getShape();
-  auto tensorRank = tensorType.getRank();
-  if (tensorRank != seqRank)
-    return success();
-  SmallVector<int64_t, 4> dims;
-  for (auto i = 0; i < tensorRank; i++) {
-    dims.emplace_back(seqShape[i] != tensorShape[i] ? -1 : tensorShape[i]);
-  }
-  getResult().setType(SeqType::get(
-      mlir::RankedTensorType::get(dims, tensorType.getElementType()),
-      newLength));
-
   return success();
 }
 
@@ -1052,6 +1046,12 @@ LogicalResult ONNXSequenceAtOp::inferShapes(
 
 LogicalResult ONNXSequenceConstructOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  auto types = inputs().getTypes();
+  ShapedType seqTensorType = types[0].cast<ShapedType>();
+  for (size_t i = 1; i < types.size(); ++i) {
+    seqTensorType = sequenceAddType(seqTensorType, types[i].cast<ShapedType>());
+  }
+  getResult().setType(SeqType::get(seqTensorType, types.size()));
   return success();
 }
 
@@ -5484,8 +5484,10 @@ FunctionType ONNXCallOp::getCalleeType() {
 
 mlir::Type SeqType::parse(mlir::AsmParser &parser) {
   Type elementType;
-  if (parser.parseLess() || parser.parseType(elementType) || parser.parseGreater()) {
-    parser.emitError(parser.getCurrentLocation()) << "failed to parse !onnx.Seq type";
+  if (parser.parseLess() || parser.parseType(elementType) ||
+      parser.parseGreater()) {
+    parser.emitError(parser.getCurrentLocation())
+        << "failed to parse !onnx.Seq type";
     return Type();
   }
 
