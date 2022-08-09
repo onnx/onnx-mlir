@@ -3002,25 +3002,25 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   auto splitShape = splitType.getShape();
   int64_t splitRank = splitShape.size();
   if (splitRank > 1)
-    return emitError() << "split has rank " << splitRank << " > 1";
+    return emitOpError() << ": split has rank " << splitRank << " > 1";
   if (DenseElementsAttr entries =
           getDenseElementAttributeFromONNXValue(splitValue)) {
     if (splitRank == 0) {
       int64_t scalar = getScalarValue<int64_t>(entries, splitType);
       if (scalar <= 0)
-        return emitError() << "split scalar " << scalar << " <= 0";
+        return emitOpError() << ": split scalar " << scalar << " <= 0";
     } else {
       int64_t sum = 0;
       for (IntegerAttr entry : entries.getValues<IntegerAttr>()) {
         int64_t i = entry.getInt();
         if (i < 0)
-          return emitError() << "split tensor has entry " << i << " < 0";
+          return emitOpError() << ": split tensor has entry " << i << " < 0";
         sum += i;
       }
       int64_t dimSize = inputShape[axisIndex];
       if (dimSize != -1 && dimSize != sum)
-        return emitError() << "split tensor entries sum to " << sum
-                           << " != axis dimension size " << dimSize;
+        return emitOpError() << ": split tensor entries sum to " << sum
+                             << " != axis dimension size " << dimSize;
     }
   }
 
