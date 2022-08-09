@@ -110,6 +110,9 @@ op_dialect_version_map_["Normalizer"] = {1};
 op_dialect_version_map_["Not"] = {1};
 op_dialect_version_map_["OneHot"] = {11};
 op_dialect_version_map_["OneHotEncoder"] = {1};
+op_dialect_version_map_["Optional"] = {15};
+op_dialect_version_map_["OptionalGetElement"] = {15};
+op_dialect_version_map_["OptionalHasElement"] = {15};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {16};
 op_dialect_version_map_["Pad"] = {13, 11, 2};
@@ -376,6 +379,12 @@ import_handler_map_["Not"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNotOp>;
 import_handler_map_["OneHot"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOneHotOp>;
+import_handler_map_["Optional"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalOp>;
+import_handler_map_["OptionalGetElement"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalGetElementOp>;
+import_handler_map_["OptionalHasElement"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalHasElementOp>;
 import_handler_map_["Or"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOrOp>;
 import_handler_map_["PRelu"] = 
@@ -678,6 +687,9 @@ op_dialect_top_version_map_["NonMaxSuppression"] = 11;
 op_dialect_top_version_map_["NonZero"] = 13;
 op_dialect_top_version_map_["Not"] = 1;
 op_dialect_top_version_map_["OneHot"] = 11;
+op_dialect_top_version_map_["Optional"] = 15;
+op_dialect_top_version_map_["OptionalGetElement"] = 15;
+op_dialect_top_version_map_["OptionalHasElement"] = 15;
 op_dialect_top_version_map_["Or"] = 7;
 op_dialect_top_version_map_["PRelu"] = 16;
 op_dialect_top_version_map_["Pad"] = 2;
