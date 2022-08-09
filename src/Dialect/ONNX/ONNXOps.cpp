@@ -4431,7 +4431,8 @@ LogicalResult ONNXOptionalOp::inferShapes(
     ty = typeAttr.value();
   } else {
     ty = input().getType();
-    assert(!ty.isa<NoneType>());
+    // checked in verify()
+    assert(!ty.isa<NoneType>() && "type attribute or input value needed");
   }
   getResult().setType(OptType::get(ty));
   return success();

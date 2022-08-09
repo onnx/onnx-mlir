@@ -492,6 +492,8 @@ def onnx_attr_type_to_mlir_attr_type(t):
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
     elif onnx_attr_type in {'type', 'type_proto'}:
+        # 'type' is the attribute type used in special_attr_types,
+        # 'type_proto' is Optional op's type attribute's type
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
