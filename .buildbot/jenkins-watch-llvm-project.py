@@ -345,8 +345,8 @@ def compute_range_build_next():
         watch_state = {
             'converged': False,
             'recent':    {
-                'failed':    [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, 0 ],
-                'succeeded': [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, 0 ] },
+                'failed':    [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ],
+                'succeeded': [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ] },
             'history':   []
         }
 

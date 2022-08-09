@@ -180,12 +180,10 @@
 	/* Data for failed llvm-project commit */
 	var failed = [ flattenJSON(logdata.curr_state.recent.failed[0]) ];
 	var failed_build = logdata.curr_state.recent.failed[1];
-	var failed_url = jenkins_job_url + failed_build + "/console";
 
 	/* Data for succeeded llvm-project commit */
 	var succeeded = [ flattenJSON(logdata.curr_state.recent.succeeded[0]) ];
 	var succeeded_build = logdata.curr_state.recent.succeeded[1];
-	var succeeded_url = jenkins_job_url + succeeded_build + "/console";
 
 	/* Data for llvm-project commit history, reverse to make date ascending */
 	var behind = logdata.llvm_history.history.reverse();
@@ -218,38 +216,44 @@
 	/*hist.set("minBulletDistance", 1);*/
 
 	/* Create column series for the single succeeded commit bar chart */
-	orange = series(succeeded,    /* JSON data                          */
-			"date",       /* JSON key for valueXField           */
-			"stat.total", /* JSON key for valueYField           */
-			"i",          /* date format, ISO                   */
-			"#d3d3d3",    /* seriesFillColor, light gray        */
-			"#d3d3d3",    /* seriesStrokeColor, light gray      */
-			0.1,          /* columnWidth                        */
-			"#ffa500",    /* bulletColor, orange                */
-			0.9,          /* bulletOpacity                      */
-			10,           /* bulletRadius                       */
-			"#ffa500",    /* tooltipTextColor, orange           */
-			"#e5e4e2",    /* tooltipBackgroundColor, platinum   */
-			0.9,          /* tooltipOpacity                     */
-			true,         /* tooltipHoverable                   */
-			succeeded_url /* tooltipLink                        */);
+	if (succeeded_url) {
+	    var succeeded_url = jenkins_job_url + succeeded_build + "/console";
+	    orange = series(succeeded,    /* JSON data                          */
+			    "date",       /* JSON key for valueXField           */
+			    "stat.total", /* JSON key for valueYField           */
+			    "i",          /* date format, ISO                   */
+			    "#d3d3d3",    /* seriesFillColor, light gray        */
+			    "#d3d3d3",    /* seriesStrokeColor, light gray      */
+			    0.1,          /* columnWidth                        */
+			    "#ffa500",    /* bulletColor, orange                */
+			    0.9,          /* bulletOpacity                      */
+			    10,           /* bulletRadius                       */
+			    "#ffa500",    /* tooltipTextColor, orange           */
+			    "#e5e4e2",    /* tooltipBackgroundColor, platinum   */
+			    0.9,          /* tooltipOpacity                     */
+			    true,         /* tooltipHoverable                   */
+			    succeeded_url /* tooltipLink                        */);
+	}
 
 	/* Create column series for the single failed commit bar chart */
-	red    = series(failed,       /* JSON data                          */
-			"date",       /* JSON key for valueXField           */
-			"stat.total", /* JSON key for valueYField           */
-			"i",          /* date format, ISO                   */
-			"#d3d3d3",    /* seriesFillColor, light gray        */
-			"#d3d3d3",    /* seriesStrokeColor, light gray      */
-			0.1,          /* columnWidth                        */
-			"#ff0000",    /* bulletColor, red                   */
-			0.9,          /* bulletOpacity                      */
-			10,           /* bulletRadius                       */
-			"#ff0000",    /* tooltipTextColor, red              */
-			"#e5e4e2",    /* tooltipBackgroundColor, platinum   */
-			0.9,          /* tooltipOpacity                     */
-			true,         /* tooltipHoverable                   */
-			failed_url    /* tooltipLink                        */);
+	if (failed_build) {
+	    var failed_url = jenkins_job_url + failed_build + "/console";
+	    red    = series(failed,       /* JSON data                          */
+			    "date",       /* JSON key for valueXField           */
+			    "stat.total", /* JSON key for valueYField           */
+			    "i",          /* date format, ISO                   */
+			    "#d3d3d3",    /* seriesFillColor, light gray        */
+			    "#d3d3d3",    /* seriesStrokeColor, light gray      */
+			    0.1,          /* columnWidth                        */
+			    "#ff0000",    /* bulletColor, red                   */
+			    0.9,          /* bulletOpacity                      */
+			    10,           /* bulletRadius                       */
+			    "#ff0000",    /* tooltipTextColor, red              */
+			    "#e5e4e2",    /* tooltipBackgroundColor, platinum   */
+			    0.9,          /* tooltipOpacity                     */
+			    true,         /* tooltipHoverable                   */
+			    failed_url    /* tooltipLink                        */);
+	}
 
 	/* Put the "Commits behind" label */
 	chart.children.unshift(am5.Label.new(root, {
