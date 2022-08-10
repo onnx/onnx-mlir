@@ -106,13 +106,14 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-  // Use an opaque attribute to store stickified data.
+  // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  OpaqueElementsAttr valueAttr =
-      OpaqueElementsAttr::get(stickifiedConstant.getOperation()->getDialect(),
+  DenseResourceElementsAttr valueAttr =
+      DenseResourceElementsAttr::get(
           RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          StringRef((char *)ztensor->buffer, sizeInBytes));
+          stickifiedConstant.getOperation()->getDialect(), // use the dialect as the blob "hint"
+          UnmanagedAsmResourceBlob::allocate(ArrayRef((char *)ztensor->buffer, sizeInBytes));
 
   stickifiedConstant.valueAttr(valueAttr);
 

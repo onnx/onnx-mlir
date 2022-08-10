@@ -111,12 +111,13 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    DenseResourceElementsAttr denseAttr =
-        krnlGlobalOp.value().value().cast<DenseResourceElementsAttr>();
-
-    assert(denseAttr.getRawHandle().getBlob() &&
-           "Expecting dense resource with a valid blob");
-    ArrayRef<char> rawData = denseAttr.getRawHandle().getBlob()->getData();
+    auto blob = krnlGlobalOp.value()
+                    .value()
+                    .cast<DenseResourceElementsAttr>()
+                    .getRawHandle()
+                    .getBlob();
+    assert(blob && "Expecting dense resource with a valid blob");
+    ArrayRef<char> rawData = blob->getData();
 
     // Check data size.
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);

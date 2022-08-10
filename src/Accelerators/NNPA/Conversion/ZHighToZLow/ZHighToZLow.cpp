@@ -205,15 +205,16 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             /*value=*/nullptr,
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-    // Use an opaque attribute to store stickified data.
+    // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
     int64_t sizeInBytes = getMemRefSizeInBytes(resType).getValue();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
-    OpaqueElementsAttr valueAttr =
-        OpaqueElementsAttr::get(stickifiedConstant.getOperation()->getDialect(),
-            RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-            StringRef(rawData, sizeInBytes));
+    DenseResourceElementsAttr valueAttr = DenseResourceElementsAttr::get(
+        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+        stickifiedConstant.getOperation()
+            ->getDialect(), // use the dialect as the blob "hint"
+        UnmanagedAsmResourceBlob::allocate(ArrayRef(rawData, sizeInBytes)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 
@@ -663,11 +664,14 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    // Get Opaque attribute.
-    StringRef data = stickifiedConstOp.value()
-                         .getValue()
-                         .cast<OpaqueElementsAttr>()
-                         .getValue();
+    // Get dense resource attribute.
+    auto blob = stickifiedConstOp.value()
+                    .getValue()
+                    .cast<DenseResourceElementsAttr>()
+                    .getRawHandle()
+                    .getBlob();
+    assert(blob && "Expecting dense resource with a valid blob");
+    ArrayRef<char> data = blob->getData();
 
     // Validate the stickified tensor.
     int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
