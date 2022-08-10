@@ -2707,14 +2707,12 @@ LogicalResult ONNXCastLikeOp::inferShapes(
   }
   auto targetElementType = targetType.getElementType();
 
-
   auto getOutputType = [&inputType](Type elementType) -> Type {
     if (inputType.hasRank()) {
       return RankedTensorType::get(inputType.getShape(), elementType);
     }
     return UnrankedTensorType::get(elementType);
   };
-
 
   getResult().setType(getOutputType(targetElementType));
   return success();
