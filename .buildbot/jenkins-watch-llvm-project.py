@@ -717,7 +717,6 @@ def compute_range_build_next():
         json.dump(watch_state, state)
 
     # Write per build watch log data
-    os.makedirs(report_dir)
     with open(os.path.join(report_dir, LLVM_PROJECT_WATCH_LOGDATA), 'w') as logdata:
         logdata.write('var logdata = ' +
                       json.dumps({ 'curr_state':   curr_state,
@@ -740,6 +739,7 @@ def compute_range_build_next():
     
 def main():
     try:
+        os.makedirs(report_dir)
         if not check_running_job():
             compute_range_build_next()
         else:
