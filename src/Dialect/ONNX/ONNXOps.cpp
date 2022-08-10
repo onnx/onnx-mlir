@@ -2705,7 +2705,7 @@ LogicalResult ONNXCastLikeOp::inferShapes(
   if (!inputType) {
     return success();
   }
-  targetElementType = targetType.getElementType();
+  auto targetElementType = targetType.getElementType();
 
 
   auto getOutputType = [&inputType](Type elementType) -> Type {
