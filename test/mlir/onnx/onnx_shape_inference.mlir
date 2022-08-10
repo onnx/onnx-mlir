@@ -2646,27 +2646,3 @@ func.func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
 }
-
-// -----
-
-//===----------------------------------------------------------------------===//
-/// Test shape inference for Bernoulli.
-//===----------------------------------------------------------------------===//
-
-func.func @test_bernoulli_1(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
-  %1 = "onnx.Bernoulli"(%arg0) {dtype = 1 : si64, seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf32>
-  "func.return"(%1) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_bernoulli_1
-  // CHECK: [[RES:%.+]] = "onnx.Bernoulli"(%arg0) {dtype = 1 : si64, seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<8x8xf32>
-  // CHECK: return [[RES]] : tensor<8x8xf32>
-}
-
-func.func @test_bernoulli_2(%arg0 : tensor<8x8xf16>) -> tensor<*xf16> {
-  %1 = "onnx.Bernoulli"(%arg0) {seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf16>
-  "func.return"(%1) : (tensor<*xf16>) -> ()
-
-  // CHECK-LABEL: test_bernoulli_2
-  // CHECK: [[RES:%.+]] = "onnx.Bernoulli"(%arg0) {seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<8x8xf16>
-  // CHECK: return [[RES]] : tensor<8x8xf16>
-}
