@@ -1,0 +1,95 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>This job is triggered periodically. It&apos;s used to build the ONNX-MLIR main branch against the LLVM main branch from time to time to check if updates in LLVM break ONNX-MLIR. This catches the breakage early and makes updating LLVM for ONNX-MLIR easier.</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.7.1"/>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.34.4">
+      <projectUrl>https://github.com/onnx/onnx-mlir/</projectUrl>
+      <displayName></displayName>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@4.11.3">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>https://github.com/onnx/onnx-mlir.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/main</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <submoduleCfg class="empty-list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.SubmoduleOption>
+        <disableSubmodules>false</disableSubmodules>
+        <recursiveSubmodules>true</recursiveSubmodules>
+        <trackingSubmodules>false</trackingSubmodules>
+        <reference></reference>
+        <parentCredentials>false</parentCredentials>
+        <shallow>false</shallow>
+        <depth>1</depth>
+      </hudson.plugins.git.extensions.impl.SubmoduleOption>
+    </extensions>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.TimerTrigger>
+      <spec>@hourly</spec>
+    </hudson.triggers.TimerTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <org.jenkinsci.plugins.pipeline.BuildDescriptionStep plugin="build-name-setter@2.2.0">
+      <descriptionTemplate>watch llvm-project commits</descriptionTemplate>
+    </org.jenkinsci.plugins.pipeline.BuildDescriptionStep>
+    <hudson.tasks.Shell>
+      <command>${WORKSPACE}/.buildbot/jenkins-watch-llvm-project.py</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <htmlpublisher.HtmlPublisher plugin="htmlpublisher@1.30">
+      <reportTargets>
+        <htmlpublisher.HtmlPublisherTarget>
+          <reportName>LLVM Watch Report</reportName>
+          <reportDir>watch_report</reportDir>
+          <reportFiles>watch-llvm.html</reportFiles>
+          <alwaysLinkToLastBuild>true</alwaysLinkToLastBuild>
+          <reportTitles></reportTitles>
+          <keepAll>false</keepAll>
+          <allowMissing>true</allowMissing>
+          <includes>**/*</includes>
+          <escapeUnderscores>true</escapeUnderscores>
+        </htmlpublisher.HtmlPublisherTarget>
+      </reportTargets>
+    </htmlpublisher.HtmlPublisher>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.ws__cleanup.PreBuildCleanup plugin="ws-cleanup@0.42">
+      <deleteDirs>false</deleteDirs>
+      <cleanupParameter></cleanupParameter>
+      <externalDelete></externalDelete>
+      <disableDeferredWipeout>false</disableDeferredWipeout>
+    </hudson.plugins.ws__cleanup.PreBuildCleanup>
+    <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@523.vd859a_4b_122e6">
+      <bindings>
+        <org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+          <credentialsId>jenkins-buildbot-access-token</credentialsId>
+          <variable>GITHUB_REPO_ACCESS_TOKEN</variable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+        <org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+          <credentialsId>Jenkins-REST-API-Token</credentialsId>
+          <variable>JENKINS_REST_API_TOKEN</variable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+      </bindings>
+    </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+  </buildWrappers>
+</project>
