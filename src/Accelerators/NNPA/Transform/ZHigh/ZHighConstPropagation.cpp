@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -109,11 +110,13 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
   // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  DenseResourceElementsAttr valueAttr =
-      DenseResourceElementsAttr::get(
-          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          stickifiedConstant.getOperation()->getDialect(), // use the dialect as the blob "hint"
-          UnmanagedAsmResourceBlob::allocate(ArrayRef((char *)ztensor->buffer, sizeInBytes));
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      stickifiedConstant.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      UnmanagedAsmResourceBlob::allocate(
+          ArrayRef((char *)ztensor->buffer, sizeInBytes), 4096));
 
   stickifiedConstant.valueAttr(valueAttr);
 

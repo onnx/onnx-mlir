@@ -14,6 +14,8 @@
 
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/Utils.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
@@ -207,14 +209,16 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 
     // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = getMemRefSizeInBytes(resType).getValue();
+    int64_t sizeInBytes = getMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
-    DenseResourceElementsAttr valueAttr = DenseResourceElementsAttr::get(
+    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
         RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
         stickifiedConstant.getOperation()
-            ->getDialect(), // use the dialect as the blob "hint"
-        UnmanagedAsmResourceBlob::allocate(ArrayRef(rawData, sizeInBytes)));
+            ->getDialect()
+            ->getNamespace(), // use the dialect as the blob "hint"
+        UnmanagedAsmResourceBlob::allocate(
+            ArrayRef(rawData, sizeInBytes), 4096));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 
@@ -666,7 +670,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
 
     // Get dense resource attribute.
     auto blob = stickifiedConstOp.value()
-                    .getValue()
+                    .value()
                     .cast<DenseResourceElementsAttr>()
                     .getRawHandle()
                     .getBlob();
