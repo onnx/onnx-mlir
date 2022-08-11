@@ -216,7 +216,7 @@
 	/*hist.set("minBulletDistance", 1);*/
 
 	/* Create column series for the single succeeded commit bar chart */
-	if (succeeded_url) {
+	if (succeeded_build) {
 	    var succeeded_url = jenkins_job_url + succeeded_build + "/console";
 	    orange = series(succeeded,    /* JSON data                          */
 			    "date",       /* JSON key for valueXField           */
