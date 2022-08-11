@@ -322,6 +322,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
@@ -342,7 +343,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5, symbolTable);
     // direction
     Value D = dims[0];
     // timestep
@@ -518,6 +519,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
@@ -538,7 +540,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5, symbolTable);
     // direction
     Value D = dims[0];
     // timestep
@@ -732,6 +734,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     UnaryElementwiseOp unaryOp = dyn_cast_or_null<UnaryElementwiseOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -758,7 +761,7 @@ public:
     // used for creating a zTensor.
     std::vector<Value> dims =
         getDimsFromShapeMemRef(rewriter, loc, module, shape,
-            /*layout=*/zDNNDataLayout);
+            /*layout=*/zDNNDataLayout, symbolTable);
 
     // Create an input zTensor.
     Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(input);
@@ -812,6 +815,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     BinaryElementwiseOp binaryOp = dyn_cast_or_null<BinaryElementwiseOp>(op);
 
     Value input1 = operands[0];
@@ -838,7 +842,7 @@ public:
     // used for creating a zTensor.
     std::vector<Value> dims =
         getDimsFromShapeMemRef(rewriter, loc, module, shape,
-            /*layout=*/zDNNDataLayout);
+            /*layout=*/zDNNDataLayout, symbolTable);
 
     // Create the first zTensor input.
     Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(input1);
@@ -892,6 +896,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
@@ -914,7 +919,7 @@ public:
     // used for creating a zTensor.
     std::vector<Value> dims =
         getDimsFromShapeMemRef(rewriter, loc, module, operandAdaptor.shape(),
-            /*layout=*/zDNNDataLayout);
+            /*layout=*/zDNNDataLayout, symbolTable);
 
     // Create the input zTensor.
     Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.X());
@@ -977,6 +982,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
@@ -1009,7 +1015,7 @@ public:
     if (stacked || broadcasting)
       dimCount = 4;
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/dimCount);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/dimCount, symbolTable);
     // Dimensions: s, m, n, p;
     Value S, M, N, P;
     if (stacked || broadcasting) {
@@ -1117,6 +1123,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     ZLowConv2DOp convOp = dyn_cast_or_null<ZLowConv2DOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1137,7 +1144,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/7);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/7, symbolTable);
     // batch size
     Value N = dims[0];
     // channel in
@@ -1267,6 +1274,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     POOLOP poolOp = dyn_cast_or_null<POOLOP>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1288,7 +1296,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims =
-        getDimsFromShapeMemRefBySize(rewriter, loc, module, shape, /*size=*/6);
+        getDimsFromShapeMemRefBySize(rewriter, loc, module, shape, /*size=*/6, symbolTable);
     // batch size
     Value N = dims[0];
     // channel in
@@ -1372,6 +1380,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
@@ -1392,7 +1401,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4, symbolTable);
     // batch size
     Value N = dims[0];
     // height in
@@ -1444,6 +1453,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    SymbolTableCollection symbolTable;
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = operandAdaptor.input()
@@ -1459,7 +1469,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
+        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4, symbolTable);
     // batch size
     Value N = dims[0];
     // height in

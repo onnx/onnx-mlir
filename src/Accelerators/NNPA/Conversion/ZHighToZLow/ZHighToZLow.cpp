@@ -218,7 +218,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
         UnmanagedAsmResourceBlob::allocate(
-            ArrayRef(rawData, sizeInBytes), 4096));
+            ArrayRef(rawData, sizeInBytes), alignof(char)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 
