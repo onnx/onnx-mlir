@@ -60,8 +60,8 @@
       <reportTargets>
         <htmlpublisher.HtmlPublisherTarget>
           <reportName>LLVM Watch Report</reportName>
-          <reportDir>watch_report</reportDir>
-          <reportFiles>watch-llvm.html</reportFiles>
+          <reportDir>llvm_watch_report</reportDir>
+          <reportFiles>llvm-watch.html</reportFiles>
           <alwaysLinkToLastBuild>true</alwaysLinkToLastBuild>
           <reportTitles></reportTitles>
           <keepAll>false</keepAll>
