@@ -353,7 +353,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
         SymbolTableCollection symbolTable;
         LLVM::GlobalOp globalOp = addressOfOp.getGlobal(symbolTable);
         DenseElementsAttr valueAttr =
-            globalOp.getValue().getValue().dyn_cast<DenseElementsAttr>();
+            globalOp.getValue().value().dyn_cast<DenseElementsAttr>();
         if (valueAttr)
           return getDimsFromDenseElementsAttr(
               rewriter, loc, module, valueAttr, size);
