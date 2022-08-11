@@ -314,7 +314,7 @@ std::vector<Value> getDimsFromDenseElementsAttr(PatternRewriter &rewriter,
 
 /// Get a vector of 'size' dimensions from a 1D MemRef of shape.
 std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
-    Location loc, ModuleOp module, Value shapeMemRef, unsigned size, SymbolTableCollection &symbolTable) {
+    Location loc, ModuleOp module, Value shapeMemRef, unsigned size) {
   MLIRContext *context = module.getContext();
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -350,6 +350,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
       LLVM::AddressOfOp addressOfOp = llvm::dyn_cast_or_null<LLVM::AddressOfOp>(
           bitcastOp.getArg().getDefiningOp());
       if (addressOfOp) {
+        SymbolTableCollection symbolTable;
         LLVM::GlobalOp globalOp = addressOfOp.getGlobal(symbolTable);
         DenseElementsAttr valueAttr =
             globalOp.getValue().getValue().dyn_cast<DenseElementsAttr>();
@@ -377,7 +378,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
 
 /// Get a vector of dimensions from a 1D MemRef of shape, using layout.
 std::vector<Value> getDimsFromShapeMemRef(PatternRewriter &rewriter,
-    Location loc, ModuleOp module, Value shapeMemRef, unsigned layout, SymbolTableCollection &symbolTable) {
+    Location loc, ModuleOp module, Value shapeMemRef, unsigned layout) {
   int dimsCount = -1;
   if (layout == ZDNN_1D)
     dimsCount = 1;
@@ -394,7 +395,7 @@ std::vector<Value> getDimsFromShapeMemRef(PatternRewriter &rewriter,
     llvm_unreachable("Unsupported data layout");
 
   return getDimsFromShapeMemRefBySize(
-      rewriter, loc, module, shapeMemRef, dimsCount, symbolTable);
+      rewriter, loc, module, shapeMemRef, dimsCount);
 }
 
 /// Get dimensions from a MemRef value.
