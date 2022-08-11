@@ -1069,7 +1069,7 @@ private:
         }
       }
     } else {
-      llvm::outs() << node.op_type();
+      llvm::errs() << node.op_type();
       if (op_dialect_top_version_map_.find(node.op_type()) !=
           op_dialect_top_version_map_.end()) {
         llvm_unreachable(
