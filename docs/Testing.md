@@ -355,13 +355,11 @@ Again, these debug statements can then be activated by adding the `--debug-only=
 
 ## ONNX Model Zoo
 
-We provide a Python script, i.e. [CheckONNXModelZoo.py](test/onnx-model-zoo/CheckONNXModelZoo.py), to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script must be invoked from the ONNX model zoo repository, not the onnx-mlir repository.
+We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script can be invoked from the ONNX model zoo repository, e.g.,
 
-Below is a quick start for checking the `mnist-8` model:
 ```bash
 $ git clone https://github.com/onnx/models
 $ cd models
-$ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
-$ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
-$ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3"
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -compile-args="-O3"
 ```
+Run the script with `-h` to see all the options.
