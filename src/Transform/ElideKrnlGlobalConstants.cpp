@@ -50,22 +50,22 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
 
   MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
-  bool ellide = false;
+  bool elide = false;
 
   if (op.value()->isa<DenseElementsAttr>()) {
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
-      ellide = true;
+      elide = true;
     }
   } else {
     const auto &valAttr =
         op.valueAttr().dyn_cast_or_null<DenseResourceElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold) {
-      ellide = true;
+      elide = true;
     }
   }
 
-  if (ellide) {
+  if (elide) {
     IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
     IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
     auto newGlobalOp =
