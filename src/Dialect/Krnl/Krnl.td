@@ -104,21 +104,27 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
 
     For instance, say we have the following two
+    ```
     %l0, %l1 = krnl.define_loops 2
     %o0, %o1 = krnl.optimize_loops  {
         // Identity schedule.
         krnl.return_loops %l0, %l1
     }
+    ```
 
     Then, consider the following krnl.iterate operation:
+    ```
     krnl.iterate (%o0, %o1) with (%l0 -> %i0 = 0 to 10, %l1 -> %i1 = 0 to 10) {
       // Some operations.
     }
+    ```
 
     It is equivalent to:
+    ```
     for (i0 = 0; i0 < 10; i0++)
       for (i1 = 0; i1 < 10; i1++)
         // Some operations.
+    ```
   }];
 
   let arguments = (ins Variadic<AnyType>);
@@ -217,14 +223,14 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
   let summary = "Affine boundary for krnl loops";
   let description = [{
     This Op has a region with AffineScope trait and is used to limit the 
-    scope of `affine.for.'. The loop inside krnl.region can be affined if
-    its boundary is defined at the level of krnl.region. krnl.region does 
+    scope of `affine.for`. The loop inside `krnl.region` can be affined if
+    its boundary is defined at the level of `krnl.region`. The `krnl.region` does
     not guarantee or require the loops inside it to be affine.
-    With krnl.oregion, a krnl loop may not be  affine if its boundary symbol
+    With `krnl.oregion`, a krnl loop may not be  affine if its boundary symbol
     is not defined inside a enclosing region without AffineScope trait.
-    In MLIR, FuncOp has the AffineScope trait. 
+    In MLIR, FuncOp has the AffineScope trait.
     The `krnl.region` will be removed after affine.for is lowered.
-    ToFix: current krnl.region does not have input and output. You cannot 
+    ToFix: current `krnl.region` does not have input and output. You cannot
     create a new memref inside the region and use it outside of the region. 
   }];
 
@@ -282,8 +288,9 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let description = [{
     Retreieves a MemRef from within another MemRef:
 
+```
     "krnl.getref"(%memref, %offset)
-
+```
     The offset is an integer which is used as an index into the input MemRef. It works
     just like an array index.
   }];
@@ -311,7 +318,9 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let summary = "Krnl block operation";
   let description = [{
     Block a single for loop by a constant tile size. For instance,
+    ```
     $ib, $il = krnl.block %i, 4
+    ```
     means to block the for loop referred to by %i using a tile size of 4.
   }];
 
@@ -413,7 +422,9 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let description = [{
     Emits the dimension of a MemRef independent of the MemRef alloc:
 
+    ```
     "krnl.dim"(%memref, %index)
+    ```
 
     The index identifies the dimension within the shape which is going to be emitted.
     Initially the krnl.dim operation depends on the alloc of the MemRef.
@@ -671,8 +682,10 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
     dimension is divided (floor division) by the vector size to obtain the
     corresponding dimension for target memref type.
 
+    ```
     %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
     %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
+    ```
   }];
 
   let arguments = (ins AnyMemRef:$source);
@@ -730,6 +743,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     computation, so as to better know if we have boundary conditions.
     
     ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
+
     BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
       not require the use of buffers arrays. If none are used, then A=AA,
       B=BB, C=CC. If buffers are used, it is the responsability of the caller
@@ -737,6 +751,8 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       typically used for cache tiling.
 
      ORIGINAL ARRAY
+
+```
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -754,16 +770,15 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
      |             +++++++++++++++++++++(4)          ]
      |                                               ]
      -----------------------------------------------(2)
+```
 
-    (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-        kGlobalIndexComputeStart, required, global 1D indices.
-    (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
-    (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
-        required, global nD indices with the same rank as the buffers
-        A, B, and C.
-    (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
-    (5) computeTileSizes, required when tiled computation within buffer,
-        3D sizes (I, J, K).
+* (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/kGlobalIndexComputeStart,
+   required, global 1D indices.
+* (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
+* (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
+   required, global nD indices with the same rank as the buffers A, B, and C.
+* (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
+* (5) computeTileSizes, required when tiled computation within buffer, 3D sizes (I, J, K).
 
     The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
     kGlobalIndexComputeStart (1) indicate the global indices of the
@@ -812,6 +827,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     Below is an example calculating a matrix multiply with pre-zeroed
     C matrix with the sizes below.
 
+```
     %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
 
     // 3 tiled loops.
@@ -865,6 +881,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
         krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
           memref<10x8xf32>, memref<40x80xf32>
     }
+```
 
     Note that code is simdized along the J dim (last dim of B and C matrices).
     For simd to be enabled, the simdized flag must be set to true, and the
@@ -1136,11 +1153,13 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
     At the begining of the msg string, user can add formatting instructions. The flags are:
-      %s: detailed signature (including shape, type, offsets),
-      %t: compact type (ala MLIR: 32x16xfloat),
-      %d: data values.
-    When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
-    Print operation ends with a newline, except when only requesting a compact types (%t).
+
+    *  `%s`: detailed signature (including shape, type, offsets),
+    *  `%t`: compact type (ala MLIR: 32x16xfloat),
+    *  `%d`: data values.
+
+    When no formatting is provided, `%s%d` is used (detailed signature and data) by default.
+    Print operation ends with a newline, except when only requesting a compact types (`%t`).
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);
