@@ -204,7 +204,7 @@ func.func @remove_stick_fico_3d() -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayo
   %res = "zhigh.StickForLSTM"(%f, %i, %c, %o) : (tensor<1x2x3xf32>, tensor<1x2x3xf32>, tensor<1x2x3xf32>, tensor<1x2x3xf32>) -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>>
   return %res : tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>>
 
-  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, dense_resource<zhigh> : tensor<16384xi8>} : () -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>>
+  // CHECK-NEXT: "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<16384xi8>} : () -> tensor<1x2x3xf32, #zhigh.encoding<{dataLayout = "FICO"}>>
 
   // CHECK-NOT: "onnx.Constant"
   // CHECK-NOT: "zhigh.StickForLSTM"
