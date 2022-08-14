@@ -319,6 +319,7 @@ OpsWithVerifier = [
     'GatherElements',
     'GatherND',        
     'Hardmax',
+    'If',
     'InstanceNormalization',
     'LogSoftmax',
     'Mod',

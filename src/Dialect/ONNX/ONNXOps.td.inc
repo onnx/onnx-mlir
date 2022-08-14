@@ -2232,6 +2232,7 @@ def ONNXIfOp:ONNX_Op<"If",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
