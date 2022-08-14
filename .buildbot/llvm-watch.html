@@ -174,8 +174,13 @@
 	    return s;
 	};
 
-	/* Jenkins job URL */
-	var jenkins_job_url = "https://www.onnxmlir.xyz/jenkins/job/LLVM-Watch-Docker-Build/";
+        /* Split the Jenkins report URL then join again its [0,6) slice to
+         * throw away the end of the URL to construct Jenkins job URL. We
+	 * need to do this since the URL path element jenkin{s|p|x} varies
+	 * on different archs.
+         */
+        var jenkins_report_url = window.location.href.split("/");
+        var jenkins_job_url = jenkins_report_url.slice(0,6).join("/") + "/";
 
 	/* Data for failed llvm-project commit */
 	var failed = [ flattenJSON(logdata.curr_state.recent.failed[0]) ];
@@ -186,7 +191,7 @@
 	var succeeded_build = logdata.curr_state.recent.succeeded[1];
 
 	/* Data for llvm-project commit history, reverse to make date ascending */
-	var behind = logdata.llvm_history.history.reverse();
+	var behind = logdata.next_state.llvm_history.history.reverse();
 	for (i = 0; i < behind.length; i++) {
 	    if (behind[i].sha1 == failed[0].sha1 ||
 		behind[i].sha1 == succeeded[0].sha1) continue;
@@ -218,17 +223,17 @@
 	/* Create column series for the single succeeded commit bar chart */
 	if (succeeded_build) {
 	    var succeeded_url = jenkins_job_url + succeeded_build + "/console";
-	    orange = series(succeeded,    /* JSON data                          */
+	    green  = series(succeeded,    /* JSON data                          */
 			    "date",       /* JSON key for valueXField           */
 			    "stat.total", /* JSON key for valueYField           */
 			    "i",          /* date format, ISO                   */
 			    "#d3d3d3",    /* seriesFillColor, light gray        */
 			    "#d3d3d3",    /* seriesStrokeColor, light gray      */
 			    0.1,          /* columnWidth                        */
-			    "#ffa500",    /* bulletColor, orange                */
+			    "#00ff00",    /* bulletColor, green                 */
 			    0.9,          /* bulletOpacity                      */
 			    10,           /* bulletRadius                       */
-			    "#ffa500",    /* tooltipTextColor, orange           */
+			    "#00ff00",    /* tooltipTextColor, green            */
 			    "#e5e4e2",    /* tooltipBackgroundColor, platinum   */
 			    0.9,          /* tooltipOpacity                     */
 			    true,         /* tooltipHoverable                   */
@@ -255,10 +260,15 @@
 			    failed_url    /* tooltipLink                        */);
 	}
 
-	/* Put the "Commits behind" label */
+	/* Put the "Commits behind" and "commits left"/"converged" label.
+	 *
+	 * Note that we will see "commits left: 0" before "converged"
+	 * since converged is set to true the next when the job runs.
+	 */
 	chart.children.unshift(am5.Label.new(root, {
-            text: "Commits behind: " + logdata.llvm_history.history.length +
-		" (" + (logdata.curr_state.converged ? "converged" : "not converged") + ")",
+            text: "Commits behind: " + logdata.next_state.llvm_history.history.length +
+		" (" + (logdata.curr_state.converged ? "converged" :
+			"commits left: " + logdata.next_history.history.length) + ")",
             fontSize: 24,
             fontWeight: "normal",
             textAlign: "left",

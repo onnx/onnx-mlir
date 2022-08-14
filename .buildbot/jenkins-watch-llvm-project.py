@@ -9,16 +9,18 @@ import logging
 import math
 import os
 import platform
-import random
 import re
 import requests
 import shutil
 import sys
+import traceback
 
 from datetime import datetime
 
 logging.basicConfig(
-    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO,
+    format = '[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s',
+    datefmt = '%Y-%m-%d %H:%M:%S')
 
 # Set parallel jobs based on both CPU count and memory size.
 # Because using CPU count alone can result in out of memory
@@ -83,6 +85,19 @@ AMCHARTS_XY_JS              = 'xy.js'
 AMCHARTS_ANIMATED_JS        = 'Animated.js'
 AMCHARTS_PREFIX             = 'amcharts-'
 
+INIT_WATCH_STATE            = {
+    'converged': True,
+    'recent':    {
+        'failed':    [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ],
+        'succeeded': [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ] },
+    'build_history': [ { 'head':   { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
+                         'middle': { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
+                         'tail':   { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
+                         'size':   0,
+                         'status': False,
+                         'build':  [] } ],
+    'llvm_history':  { 'index': {}, 'history': [] } }
+
 # Download remote URL and save to local file
 def urlretrieve(remote_url, local_file):
     req = requests.get(remote_url)
@@ -117,10 +132,13 @@ def get_repo_sha1_date(github_repo, access_token, commit_sha1):
 # until specified commit_sha1.
 def get_remote_repo_sha1_history(github_repo, access_token,
                                  commit_sha1_oldest, commit_sha1_newest=None):
+
+    logging.info('Fetch llvm-project commit history until ' + commit_sha1_oldest)
     sha1_history = []
     date_history = []
     stat_history = []
     mesg_history = []
+    hist = { 'index': {}, 'history': [] }
     try:
         # Keep retrieving if we don't see commit_sha1 in sha1_history
         while not (commit_sha1_oldest in sha1_history):
@@ -162,7 +180,6 @@ def get_remote_repo_sha1_history(github_repo, access_token,
         #   [ { 'sha1': ..., 'date': ..., 'stat': ..., 'mesg': ... }, ... ]
         # And because we need to know the index of an item given the sha1,
         # we add sha1->index mapping to the dict.
-        hist = { 'index': {}, 'history': [] }
         for (i, (sha1, date, stat, mesg)) in enumerate(
                 zip(sha1_history[index_newest:index_oldest],
                     date_history[index_newest:index_oldest],
@@ -172,11 +189,11 @@ def get_remote_repo_sha1_history(github_repo, access_token,
             hist['history'] += [ {
                 'sha1': sha1, 'date': date, 'stat': stat, 'mesg': mesg } ]
 
-        return hist
-
+        logging.info('{} new commits retrieved'.format(len(hist['history'])))
     except:
         logging.info(sys.exc_info()[1])
-        return {}
+    finally:
+        return hist
 
 def get_local_repo_sha1_date(local_repo):
     repo = git.Repo(local_repo)
@@ -184,34 +201,6 @@ def get_local_repo_sha1_date(local_repo):
     repo_sha1_date = datetime.utcfromtimestamp(
         repo.head.commit.committed_date).isoformat() + 'Z'
     return { 'sha1': repo_sha1, 'date': repo_sha1_date }
-
-# Set new range to search
-#
-# head:        new head
-# head_adjust: +1/-1 to head depending on situation
-# tail:        new tail
-# tail_adjust: +1/-1 to tail depending on situation
-# history:     commit history between [head_index, tail_index]
-#
-def set_range(head, head_adjust, tail, tail_adjust, history):
-    history_head = history['history'][0]
-    history_tail = history['history'][-1]
-
-    head_index = history['index'][head['sha1']] + head_adjust
-    tail_index = history['index'][tail['sha1']] + tail_adjust
-
-    # no commit left in the list
-    if head_index > tail_index:
-        return {}, {}, { 'index': {}, 'history': [] }
-
-    next_head = history['history'][head_index]
-    next_tail = history['history'][tail_index]
-    next_history = { 'index': {}, 'history': [] }
-    for (i, hist) in enumerate(history['history'][head_index:tail_index+1]):
-        next_history['index'][hist['sha1']] = i
-        next_history['history'] += [ hist ]
-
-    return next_head, next_tail, next_history
 
 # Remove all the containers depending on an (dangling) image.
 def remove_dependent_containers(image):
@@ -234,7 +223,7 @@ def remove_docker_images(images):
     for image in images:
         try:
             image_info = docker_api.inspect_image(image)
-            logging.info('Removing %s', image_full)
+            logging.info('Removing %s', image)
             logging.info('RepoTags %s', str(image_info['RepoTags']))
             logging.info('     Cmd %s', str(image_info['Config']['Cmd']))
             logging.info('  Labels %s', str(image_info['Config']['Labels']))
@@ -315,8 +304,79 @@ def check_running_job():
 
     return False
 
+# Set new range to search
+#
+# head:        new head
+# head_adjust: +1/-1 to head depending on situation
+# tail:        new tail
+# tail_adjust: +1/-1 to tail depending on situation
+# history:     commit history between [head_index, tail_index]
+#
+def set_range(head, head_adjust, tail, tail_adjust, history):
+    history_head = history['history'][0]
+    history_tail = history['history'][-1]
+
+    head_index = history['index'][head['sha1']] + head_adjust
+    tail_index = history['index'][tail['sha1']] + tail_adjust
+
+    # no commit left in the list
+    if head_index > tail_index:
+        return {}, {}, { 'index': {}, 'history': [] }
+
+    next_head = history['history'][head_index]
+    next_tail = history['history'][tail_index]
+    next_history = { 'index': {}, 'history': [] }
+    for (i, hist) in enumerate(history['history'][head_index:tail_index+1]):
+        next_history['index'][hist['sha1']] = i
+        next_history['history'] += [ hist ]
+
+    return next_head, next_tail, next_history
+
+# Write watch state and log data, and also generate all the files
+# necessary for the HTML report.
+def write_watch_files(curr_state, watch_state, next_history):
+    # Write global watch state
+    with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), 'w') as state:
+        json.dump(watch_state, state)
+
+    # Write per build watch log data
+    with open(os.path.join(report_dir, LLVM_PROJECT_WATCH_LOGDATA), 'w') as logdata:
+        logdata.write('var logdata = ' +
+                      json.dumps({ 'curr_state':   curr_state,
+                                   'next_state':   watch_state,
+                                   'next_history': next_history },
+                                 indent=JSON_DUMPS_INDENT))
+
+    # Copy llvm-watch.html
+    shutil.copy(os.path.join(job_dir, LLVM_PROJECT_WATCH_HTML),
+                os.path.join(report_dir, LLVM_PROJECT_WATCH_HTML))
+
+    # Download amcharts
+    urlretrieve(AMCHARTS_URL + AMCHARTS_INDEX_JS,
+                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_INDEX_JS))
+    urlretrieve(AMCHARTS_URL + AMCHARTS_XY_JS,
+                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_XY_JS))
+    urlretrieve(AMCHARTS_THEMES_URL + AMCHARTS_ANIMATED_JS,
+                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_ANIMATED_JS))
+
 # Workhorse function to compute and build the next llvm-project commit
 def compute_range_build_next():
+    # Load previous build state json to decide how we should proceed
+    try:
+        with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), 'r') as f:
+            watch_state = json.load(f)
+    except:
+        watch_state  = INIT_WATCH_STATE
+
+    # Copy watch_state as our current states before the next build
+    curr_state = copy.deepcopy(watch_state)
+
+    # logging.info('watch state:\n{}\nllvm range:\n{}'.format(
+    #     json.dumps(watch_state, indent=JSON_DUMPS_INDENT),
+    #     json.dumps([ { 'index': llvm_head_index, 'head': llvm_head },
+    #                  { 'index': llvm_tail_index, 'tail': llvm_tail } ],
+    #                indent=JSON_DUMPS_INDENT)))
+
     # Get current llvm-project commit onnx-mlir is built against.
     # This is the oldest commit known to be good.
     #
@@ -327,60 +387,57 @@ def compute_range_build_next():
     llvm_onnx_mlir = extract_pattern_from_file(LLVM_PROJECT_SHA1_FILE,
                                                LLVM_PROJECT_SHA1_REGEX)
 
-    logging.info('Fetch llvm-project commit history until ' + llvm_onnx_mlir)
-    llvm_history = get_remote_repo_sha1_history(LLVM_PROJECT_GITHUB_URL,
-                                                github_repo_access_token,
-                                                llvm_onnx_mlir)
+    # Instead of always retrieve all the way back until llvm_onnx_mlir,
+    # we only need to retrieve back until the head of the previous
+    # llvm_history. This saves us a lot of github calls since for each
+    # sha1 we need to call github to get its stat and that typically
+    # makes us exceed the the github REST API call limit (5000/hour).
+    retrieve_until_sha1 = (watch_state['llvm_history']['history'][0]['sha1']
+                           if watch_state['llvm_history']['history'] else llvm_onnx_mlir)
 
+    new_llvm_history = get_remote_repo_sha1_history(LLVM_PROJECT_GITHUB_URL,
+                                                    github_repo_access_token,
+                                                    retrieve_until_sha1)
+
+    # Merge newly retrieved llvm_history with watch_state['llvm_history']
+    # then advance the tail of the history to the sha1 that just passes
+    # llvm_onnx_mlir.
+    new_llvm_history['history'] += watch_state['llvm_history']['history']
+    try:
+        llvm_onnx_mlir_index = new_llvm_history['history'].index(llvm_onnx_mlir)
+    except:
+        # We didn't find llvm_onnx_mlir, which means we haven't
+        # advanced llvm_onnx_mlir yet.
+        llvm_onnx_mlir_index = len(new_llvm_history['history'])
+
+    # llvm_history will be empty if llvm_onnx_mlir has advanced
+    # all the way to the latest sha1, unlikely but can happen.
+    llvm_history = { 'index': {}, 'history': [] }
+    for (i, hist) in enumerate(new_llvm_history['history'][0:llvm_onnx_mlir_index]):
+        llvm_history['index'][hist['sha1']] = i
+        llvm_history['history'] += [ hist ]
+
+    # We have caught up all the LLVM commits
+    if not llvm_history['history']:
+        watch_state = INIT_WATCH_STATE
+        watch_state['recent']['succeeded'] = [ new_llvm_history['history'][0], '0' ]
+        write_watch_files(curr_state, watch_state, [])
+        return
+
+    # LLVM commits all the way back to llvm_onnx_mlir
     llvm_head = llvm_history['history'][0]
     llvm_tail = llvm_history['history'][-1]
-    llvm_head_index = llvm_history['index'][llvm_head['sha1']]
-    llvm_tail_index = llvm_history['index'][llvm_tail['sha1']]
-    
-    # Load previous build state json to decide how we should proceed
-    try:
-        with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), 'r') as f:
-            watch_state = json.load(f)
-    except:
-        watch_state = {
-            'converged': False,
-            'recent':    {
-                'failed':    [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ],
-                'succeeded': [ { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ] },
-            'history':   []
-        }
 
-        curr_history = [ { 'head':   { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
-                           'middle': { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
-                           'tail':   { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' },
-                           'size':   0,
-                           'status': False,
-                           'build':  [] } ]
-
-    # logging.info('watch state:\n{}\nllvm range:\n{}'.format(
-    #     json.dumps(watch_state, indent=JSON_DUMPS_INDENT),
-    #     json.dumps([ { 'index': llvm_head_index, 'head': llvm_head },
-    #                  { 'index': llvm_tail_index, 'tail': llvm_tail } ],
-    #                indent=JSON_DUMPS_INDENT)))
-
-    # Initial states before the next build
-    curr_state           = copy.deepcopy(watch_state)
-
+    # Various fields from curr_state
     curr_converged       = curr_state['converged']
-
-    # Most recent failed and succeeded build
     curr_recent          = curr_state['recent']
     curr_failed          = curr_recent['failed'][0]
     curr_failed_build    = curr_recent['failed'][1]
     curr_succeeded       = curr_recent['succeeded'][0]
     curr_succeeded_build = curr_recent['succeeded'][1]
 
-    if curr_state['history']:
-        curr_history = curr_state['history']
-    else:
-        curr_state['history'] = curr_history
-
-    curr                 = curr_history[-1]
+    build_history        = curr_state['build_history']
+    curr                 = build_history[-1]
     curr_head            = curr['head']
     curr_middle          = curr['middle']
     curr_tail            = curr['tail']
@@ -557,7 +614,7 @@ def compute_range_build_next():
     #                            |
     #                  <---- llvm_tail (4)
     #
-    # curr_middle build is a failure, we are about to traverse downwaards
+    # curr_middle build is a failure, we are about to traverse downwards
     #
     #   (curr_middle, curr_tail]
     #
@@ -646,27 +703,18 @@ def compute_range_build_next():
                              'size':   next_size }, indent=JSON_DUMPS_INDENT)))
         else:
             converged = True
-            logging.info('converged: {}'.format(converged))
 
     # If we converged, we don't add a new watch state but simply add
     # our build number to the last watch state history. Otherwise,
     # we try the next build and add the result to the watch state history.
     if converged:
-        logging.info('nothing to do')
+        logging.info('Converged, nothing to do')
 
-        if not watch_state['history']:
-            watch_state['history'] = curr_history
-
-        if len(watch_state['history'][-1]['build']) < 2:
-            watch_state['history'][-1]['build'] += [ build_number ]
+        if len(watch_state['build_history'][-1]['build']) < 2:
+            watch_state['build_history'][-1]['build'] += [ build_number ]
         else:
-            watch_state['history'][-1]['build'][-1] = build_number
+            watch_state['build_history'][-1]['build'][-1] = build_number
     else:
-        # next_status = bool(random.getrandbits(1))
-        # next_status = False
-        # logging.info('simulated build: {}'.format(
-        #     'success' if next_status else 'failure'))
-
         next_status = (build_watch_image('LLVM_PROJECT',
                                          next_middle,
                                          LLVM_PROJECT_DOCKERFILE,
@@ -695,62 +743,45 @@ def compute_range_build_next():
                                        ONNX_MLIR_WATCH_IMAGE + ':' + curr_failed_build ])
 
             watch_state['recent']['failed'] = [ next_middle, build_number ]
-            
-        watch_state['history'] += [ { 'head':   next_head,
-                                      'middle': next_middle,
-                                      'tail':   next_tail,
-                                      'size':   next_size,
-                                      'status': next_status,
-                                      'build':  [ build_number ] } ]
+
+        # If converged changes from true to false, it means that we are
+        # starting a new search cycle so we start a new watch_state['build_history']
+        # as well.
+        hist = [ { 'head':   next_head,
+                   'middle': next_middle,
+                   'tail':   next_tail,
+                   'size':   next_size,
+                   'status': next_status,
+                   'build':  [ build_number ] } ]
+        if curr_converged:
+            watch_state['build_history'] = hist
+        else:
+            watch_state['build_history'] += hist
                    
     # Update watch state and write watch history
     watch_state['converged'] = converged
-
-    # Keep the last 24 records (one day's worth) of history
-    watch_state['history'] = watch_state['history'][-24:]
+    watch_state['llvm_history'] = llvm_history
 
     # logging.info('watch state:\n{}'.format(json.dumps(watch_state,
     #                                                   indent=JSON_DUMPS_INDENT)))
 
-    # Write global watch state
-    with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), 'w') as state:
-        json.dump(watch_state, state)
+    # Generate watch state, log data, and HTML report files
+    write_watch_files(curr_state, watch_state, next_history)
 
-    # Write per build watch log data
-    with open(os.path.join(report_dir, LLVM_PROJECT_WATCH_LOGDATA), 'w') as logdata:
-        logdata.write('var logdata = ' +
-                      json.dumps({ 'curr_state':   curr_state,
-                                   'next_state':   watch_state,
-                                   'llvm_history': llvm_history,
-                                   'next_history': next_history },
-                                 indent=JSON_DUMPS_INDENT))
-
-    # Copy llvm-watch.html
-    shutil.copy(os.path.join(workspace_dir, '.buildbot', LLVM_PROJECT_WATCH_HTML),
-                os.path.join(report_dir, LLVM_PROJECT_WATCH_HTML))
-
-    # Download amcharts
-    urlretrieve(AMCHARTS_URL + AMCHARTS_INDEX_JS,
-                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_INDEX_JS))
-    urlretrieve(AMCHARTS_URL + AMCHARTS_XY_JS,
-                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_XY_JS))
-    urlretrieve(AMCHARTS_THEMES_URL + AMCHARTS_ANIMATED_JS,
-                os.path.join(report_dir, AMCHARTS_PREFIX + AMCHARTS_ANIMATED_JS))
-    
 def main():
+    os.makedirs(report_dir)
     try:
-        os.makedirs(report_dir)
         if not check_running_job():
             compute_range_build_next()
         else:
-            raise
+            # Copy from publish_dir to report_dir in case we didn't run
+            # due to active build in ONNX-MLIR-Pipeline-Docker-Build.
+            shutil.copytree(publish_dir, report_dir, dirs_exist_ok=True)
     except:
-        logging.info(sys.exc_info()[1])
+        logging.info(traceback.format_exc())
 
-        # Copy from publish_dir to report_dir in case
-        #   - we got skipped since an ONNX-MLIR build is running, or
-        #   - compute_range_build_next fails somehow
-        # so that everything gets re-published.
+        # Copy from publish_dir to report_dir in case compute_range_build_next
+        # failed somehow.
         shutil.copytree(publish_dir, report_dir, dirs_exist_ok=True)
 
 if __name__ == "__main__":
