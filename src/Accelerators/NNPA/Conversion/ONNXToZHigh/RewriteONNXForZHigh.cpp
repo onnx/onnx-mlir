@@ -78,7 +78,7 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
   // Pre-pad A's shape with dims 1 so that two shapes have the same size.
   SmallVector<int64_t> paddedADims(bDims.size(), 1);
   for (unsigned i = 0; i < aDims.size(); ++i)
-    paddedADims[bDims.size() - aDims.size() + i] = aDims[i];
+    paddedADims[i + bDims.size() - aDims.size()] = aDims[i];
   // Check unidirectional broadcasting.
   bool isUniBroadcasting = true;
   for (unsigned i = 0; i < paddedADims.size(); ++i)
@@ -143,10 +143,31 @@ void RewriteONNXForZHighPass::runOnOperation() {
       &target, execNodesOnCpu);
 
   target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
-    return !((isDefinedByONNXConstantOp(op.B()) &&
-                 isUniBroadcatableFirstToSecond(op.B(), op.A())) ||
-             (isDefinedByONNXConstantOp(op.A()) &&
-                 isUniBroadcatableFirstToSecond(op.A(), op.B())));
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+
+  target.addDynamicallyLegalOp<ONNXDivOp>([](ONNXDivOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+
+  target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+
+  target.addDynamicallyLegalOp<ONNXSubOp>([](ONNXSubOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
   });
 
   // With the target and rewrite patterns defined, we can now attempt the
