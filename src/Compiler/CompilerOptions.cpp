@@ -129,33 +129,40 @@ llvm::cl::opt<std::string> mllvm("mllvm",
 
 llvm::cl::opt<OptLevel> OptimizationLevel(
     llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
+        clEnumVal(O1, "Optimization level 1,"),
+        clEnumVal(O2, "Optimization level 2,"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("Specify onnx ops to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all ops. \n"
+    llvm::cl::desc("Specify onnx ops to be instrumented:\n"
+                   "\"NONE\" or \"\" for no instrument,\n"
+                   "\"ALL\" for all ops, \n"
                    "\"op1 op2 ...\" for the specified ops."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
     llvm::cl::desc("Specify what instrumentation actions at runtime:"),
     llvm::cl::values(
-        clEnumVal(InstrumentBeforeOp, "insert instrument before op"),
-        clEnumVal(InstrumentAfterOp, "insert instrument after op"),
+        clEnumVal(InstrumentBeforeOp, "insert instrument before op,"),
+        clEnumVal(InstrumentAfterOp, "insert instrument after op,"),
         clEnumVal(
-            InstrumentReportTime, "instrument runtime reports time usage"),
-        clEnumVal(
-            InstrumentReportMemory, "instrument runtime reports memory usage")),
+            InstrumentReportTime, "instrument runtime reports time usage,"),
+        clEnumVal(InstrumentReportMemory,
+            "instrument runtime reports memory usage.")),
     llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
     llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> ONNXOpStats("onnx-op-stats",
+    llvm::cl::desc(
+        "Report the occurrence frequency of ONNX ops in JSON or TXT format:\n"
+        "\"TXT\" for report as text, \n"
+        "\"JSON\" for report as JSON."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
@@ -178,7 +185,7 @@ llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"
         "Data type and shape are verified. Enable this may introduce overhead "
-        "in inferencing."),
+        "at runtime."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.
