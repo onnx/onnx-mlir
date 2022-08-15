@@ -176,19 +176,19 @@
 
         /* Split the Jenkins report URL then join again its [0,6) slice to
          * throw away the end of the URL to construct Jenkins job URL. We
-	 * need to do this since the URL path element jenkin{s|p|x} varies
-	 * on different archs.
+         * need to do this since the URL path element jenkin{s|p|x} varies
+         * on different archs.
          */
         var jenkins_report_url = window.location.href.split("/");
         var jenkins_job_url = jenkins_report_url.slice(0,6).join("/") + "/";
 
 	/* Data for failed llvm-project commit */
-	var failed = [ flattenJSON(logdata.curr_state.recent.failed[0]) ];
-	var failed_build = logdata.curr_state.recent.failed[1];
+	var failed = [ flattenJSON(logdata.next_state.recent.failed[0]) ];
+	var failed_build = logdata.next_state.recent.failed[1];
 
 	/* Data for succeeded llvm-project commit */
-	var succeeded = [ flattenJSON(logdata.curr_state.recent.succeeded[0]) ];
-	var succeeded_build = logdata.curr_state.recent.succeeded[1];
+	var succeeded = [ flattenJSON(logdata.next_state.recent.succeeded[0]) ];
+	var succeeded_build = logdata.next_state.recent.succeeded[1];
 
 	/* Data for llvm-project commit history, reverse to make date ascending */
 	var behind = logdata.next_state.llvm_history.history.reverse();
@@ -265,10 +265,15 @@
 	 * Note that we will see "commits left: 0" before "converged"
 	 * since converged is set to true the next when the job runs.
 	 */
+	var converged = logdata.next_state.converged;
+	var nhistory = logdata.next_state.llvm_history.history.length;
+	var ndropped = logdata.next_state.commits_dropped.length;
+	var nleft = logdata.next_history.history.length;
 	chart.children.unshift(am5.Label.new(root, {
-            text: "Commits behind: " + logdata.next_state.llvm_history.history.length +
-		" (" + (logdata.curr_state.converged ? "converged" :
-			"commits left: " + logdata.next_history.history.length) + ")",
+            text: "Commits behind:  " + (nhistory + ndropped) +
+                  " (" + (converged ? "converged" : "commits left: " + nleft) + ")\n" +
+                  "Commits dropped: " + ndropped,
+            fontFamily: "Monaco",
             fontSize: 24,
             fontWeight: "normal",
             textAlign: "left",

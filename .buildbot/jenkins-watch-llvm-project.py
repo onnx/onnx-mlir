@@ -16,6 +16,7 @@ import sys
 import traceback
 
 from datetime import datetime
+from longest_increasing_subsequence import longest_decreasing_subsequence
 
 logging.basicConfig(
     level = logging.INFO,
@@ -96,7 +97,9 @@ INIT_WATCH_STATE            = {
                          'size':   0,
                          'status': False,
                          'build':  [] } ],
-    'llvm_history':  { 'index': {}, 'history': [] } }
+    'llvm_history_github': { 'index': {}, 'history': [] },
+    'llvm_history':        { 'index': {}, 'history': [] },
+    'commits_dropped':     [] }
 
 # Download remote URL and save to local file
 def urlretrieve(remote_url, local_file):
@@ -304,6 +307,15 @@ def check_running_job():
 
     return False
 
+# Create index for commit history using sha1 as the index key
+def index_commit_history(commit_history):
+    indexed_commit_history = { 'index': {}, 'history': [] }
+    for (i, hist) in enumerate(commit_history):
+        indexed_commit_history['index'][hist['sha1']] = i
+        indexed_commit_history['history'] += [ hist ]
+
+    return indexed_commit_history
+
 # Set new range to search
 #
 # head:        new head
@@ -325,10 +337,7 @@ def set_range(head, head_adjust, tail, tail_adjust, history):
 
     next_head = history['history'][head_index]
     next_tail = history['history'][tail_index]
-    next_history = { 'index': {}, 'history': [] }
-    for (i, hist) in enumerate(history['history'][head_index:tail_index+1]):
-        next_history['index'][hist['sha1']] = i
-        next_history['history'] += [ hist ]
+    next_history = index_commit_history(history['history'][head_index:tail_index+1])
 
     return next_head, next_tail, next_history
 
@@ -392,32 +401,54 @@ def compute_range_build_next():
     # llvm_history. This saves us a lot of github calls since for each
     # sha1 we need to call github to get its stat and that typically
     # makes us exceed the the github REST API call limit (5000/hour).
-    retrieve_until_sha1 = (watch_state['llvm_history']['history'][0]['sha1']
-                           if watch_state['llvm_history']['history'] else llvm_onnx_mlir)
+    retrieve_until_sha1 = (watch_state['llvm_history_github']['history'][0]['sha1']
+                           if watch_state['llvm_history_github']['history']
+                           else llvm_onnx_mlir)
 
     new_llvm_history = get_remote_repo_sha1_history(LLVM_PROJECT_GITHUB_URL,
                                                     github_repo_access_token,
                                                     retrieve_until_sha1)
 
-    # Merge newly retrieved llvm_history with watch_state['llvm_history']
+    # Merge newly retrieved llvm_history with watch_state['llvm_history_github']
     # then advance the tail of the history to the sha1 that just passes
     # llvm_onnx_mlir.
-    new_llvm_history['history'] += watch_state['llvm_history']['history']
+    new_llvm_history['history'] += watch_state['llvm_history_github']['history']
     try:
         llvm_onnx_mlir_index = new_llvm_history['history'].index(llvm_onnx_mlir)
     except:
         # We didn't find llvm_onnx_mlir, which means we haven't
         # advanced llvm_onnx_mlir yet.
         llvm_onnx_mlir_index = len(new_llvm_history['history'])
+    llvm_history_all = new_llvm_history['history'][0:llvm_onnx_mlir_index]
+
+    # The bisect search algorithm depends on the assumption that
+    # commit dates are monotonically increasing/decreasing.
+    # Unfortunately, this is not exactly the case. There are
+    # llvm-project commits that are "out-of-order". We could
+    # get around the problem by assigning each commit a monotonically
+    # increasing sequence number we maintain ourselves and
+    # use the sequence number instead of date for comparison
+    # when searching. But this adds unncessary complexities.
+    #
+    # So instead, we run the commit history through the
+    # long increasing/decreasing subseqence and drop those
+    # commits that are "out-of-order". The number of dropped
+    # commits should typically be small and shouldn't affect
+    # our search too much.
+    llvm_history_lds = longest_decreasing_subsequence(
+        llvm_history_all, key = lambda x:x['date'])
+    commits_dropped = [ x for x in llvm_history_all if x not in llvm_history_lds ]
+
+    # llvm_history_github is the raw llvm-project commit history
+    # from the github.
+    #
+    # llvm_history is the longest decreasing subsequence of
+    # llvm_history_github with "out-of-order" commits dropped.
+    llvm_history_github = index_commit_history(llvm_history_all)
+    llvm_history = index_commit_history(llvm_history_lds)
 
     # llvm_history will be empty if llvm_onnx_mlir has advanced
     # all the way to the latest sha1, unlikely but can happen.
-    llvm_history = { 'index': {}, 'history': [] }
-    for (i, hist) in enumerate(new_llvm_history['history'][0:llvm_onnx_mlir_index]):
-        llvm_history['index'][hist['sha1']] = i
-        llvm_history['history'] += [ hist ]
-
-    # We have caught up all the LLVM commits
     if not llvm_history['history']:
         watch_state = INIT_WATCH_STATE
         watch_state['recent']['succeeded'] = [ new_llvm_history['history'][0], '0' ]
@@ -760,7 +791,9 @@ def compute_range_build_next():
                    
     # Update watch state and write watch history
     watch_state['converged'] = converged
+    watch_state['llvm_history_github'] = llvm_history_github
     watch_state['llvm_history'] = llvm_history
+    watch_state['commits_dropped'] = commits_dropped
 
     # logging.info('watch state:\n{}'.format(json.dumps(watch_state,
     #                                                   indent=JSON_DUMPS_INDENT)))
