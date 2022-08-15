@@ -256,6 +256,12 @@ version_dict = {
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", 'type')])
 
+# Manual specification of attribute order:
+# The names in each tuple will be ordered in that sequence.
+special_attr_order = {
+    ("then_branch", "else_branch"),
+}
+
 # Special operation importing handlers.
 special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
@@ -890,7 +896,14 @@ def gen_op_def(schema, with_version = False):
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
-    for _, attr in sorted(schema.attributes.items()):
+    attrNames = list(schema.attributes.keys())
+    for namesOrder in special_attr_order:
+        if (all(name in attrNames for name in namesOrder)):
+            namesIndexes = sorted(attrNames.index(name) for name in namesOrder)
+            for name, index in zip(namesOrder, namesIndexes):
+                attrNames[index] = name
+    for name in attrNames:
+      attr = schema.attributes[name]
       if attr.type == OpSchema.AttrType.GRAPH:
         if attr.required:
           regions[attr.name] = "SizedRegion<1>"
