@@ -14,7 +14,10 @@ These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
 Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a Dockerfile.
-The onnx-mlir image just contains the built compiler and you can use it immediately to compile your model without any installation. 
+
+Here are the differences between the two Docker images.
+* The `onnx-mlir` image just contains the built compiler and you can use it immediately to compile your model without any installation. It does not include any support to run compiled model.
+* The `onnx-mlir-dev` image contains the built compiler plus all of the tools and support needed for development, including support to run our tests locally. The image also support tools to run compiled models, such as support for our python interface.
 
 ## Easy Script to Compile a Model
 
