@@ -40,7 +40,7 @@ using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
-namespace {
+namespace onnx_mlir {
 
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
@@ -124,24 +124,7 @@ static std::string getRuntimeDir() {
   return llvm::StringRef(instDir).str();
 }
 
-// onnx-mlir currently requires llvm tools llc and opt and they are assumed
-// to be under llvm-project/build/bin. This doesn't work with the case where
-// llvm-project has been installed system wide (typically under /usr/local/...)
-// and its source has been removed.
-//
-// To account for this scenario, we first search for the tools in the same
-// directory where onnx-mlir is run. If they are found, it means both onnx-mlir
-// and llvm-project have been installed system wide under the same directory,
-// so we get them from that directory (typically /usr/local/bin). Otherwise,
-// at least one of onnx-mlir and llvm-project has not been installed system
-// wide. In this case, getToolPath returns an empty string and we will fallback
-// to llvm-project/build/bin.
-//
-// Note that this will not work if both onnx-mlir and llvm-project have been
-// installed system wide but to different places and their sources have been
-// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
-// llvm-project.
-static std::string getToolPath(std::string tool) {
+std::string getToolPath(std::string tool) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -152,93 +135,6 @@ static std::string getToolPath(std::string tool) {
     return std::string();
 }
 
-// Helper struct to make command construction and execution easy & readable.
-struct Command {
-  std::string _path;
-  std::vector<std::string> _args;
-
-  Command(std::string exePath)
-      : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(_path).str()}) {}
-
-  // Append a single string argument.
-  Command &appendStr(const std::string &arg) {
-    if (arg.size() > 0)
-      _args.emplace_back(arg);
-    return *this;
-  }
-
-  // Append a single optional string argument.
-  Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
-    if (arg.hasValue())
-      _args.emplace_back(arg.getValue());
-    return *this;
-  }
-
-  // Append a list of string arguments.
-  Command &appendList(const std::vector<std::string> &args) {
-    _args.insert(_args.end(), args.begin(), args.end());
-    return *this;
-  }
-
-  // Reset arguments.
-  Command &resetArgs() {
-    auto exeFileName = _args.front();
-    _args.clear();
-    _args.emplace_back(exeFileName);
-    return *this;
-  }
-
-  // Execute command in current work directory.
-  //
-  // If the optional wdir is specified, the command will be executed
-  // in the specified work directory. Current work directory is
-  // restored after the command is executed.
-  //
-  // Return 0 on success, error value otherwise.
-  int exec(std::string wdir = "") const {
-    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-
-    // If a work directory is specified, save the current work directory
-    // and switch into it. Note that if wdir is empty, new_wdir will be
-    // cur_wdir.
-    SmallString<8> cur_wdir;
-    SmallString<8> new_wdir(wdir);
-    llvm::sys::fs::current_path(cur_wdir);
-    llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
-    std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
-    if (ec.value()) {
-      llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
-      return ec.value();
-    }
-
-    if (VerboseOutput)
-      llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
-                   << llvm::join(argsRef, " ") << "\n";
-
-    std::string errMsg;
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-        /*Env=*/None, /*Redirects=*/None,
-        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
-
-    if (rc != 0) {
-      llvm::errs() << llvm::join(argsRef, " ") << "\n"
-                   << "Error message: " << errMsg << "\n"
-                   << "Program path: " << _path << "\n"
-                   << "Command execution failed."
-                   << "\n";
-      return rc;
-    }
-
-    // Restore saved work directory.
-    llvm::sys::fs::set_current_path(cur_wdir);
-    return 0;
-  }
-}; // namespace
-} // namespace
-
-namespace onnx_mlir {
-// =============================================================================
 // Methods for compiling and file processing.
 
 static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
@@ -786,7 +682,6 @@ static const llvm::Target *getLLVMTarget(
     emitError(loc, Twine("Target architecture is unknown: ") + error);
     return nullptr;
   }
-
   return LLVMTarget;
 }
 
