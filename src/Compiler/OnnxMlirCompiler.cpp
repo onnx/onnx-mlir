@@ -53,9 +53,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
-ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
-    const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *flags, const char **outputFilename, const char **errorMessage) {
+ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(
+    const char *flags, const char **errorMessage) {
   // Manually process the flags
   // Save the result string vector after processing
   std::vector<std::string> flagsVector;

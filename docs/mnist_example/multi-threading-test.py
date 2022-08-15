@@ -16,12 +16,9 @@ def execCmd(cmd):
         print("command " + cmd + " meets errors")
  
 if __name__ == '__main__':
-
-    # use different names for different threads
-    cmds = ['onnx-mlir -O3 -customEnvFlags mnistwith03 mnist.onnx -o mnist03','onnx-mlir -O1 -customEnvFlags mnistwith01 mnist.onnx -o mnist01']
-
-    # use the default name for different threads
-    # cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
+    
+    # define 2 different commands
+    cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
 
     threads = []
     
