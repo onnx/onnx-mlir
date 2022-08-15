@@ -14,12 +14,12 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/IR/BuiltinAttributes.h"
-
 #include "mlir/IR/DialectResourceBlobManager.h"
-#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
-#include "src/Support/KrnlSupport.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
