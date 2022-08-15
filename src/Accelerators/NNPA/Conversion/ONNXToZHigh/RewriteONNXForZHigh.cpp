@@ -80,13 +80,10 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
   for (unsigned i = 0; i < aDims.size(); ++i)
     paddedADims[i + bDims.size() - aDims.size()] = aDims[i];
   // Check unidirectional broadcasting.
-  bool isUniBroadcasting = true;
-  for (unsigned i = 0; i < paddedADims.size(); ++i)
-    if (paddedADims[i] > bDims[i]) {
-      isUniBroadcasting = false;
-      break;
-    }
-  return isUniBroadcasting;
+  return llvm::all_of(llvm::zip(paddedADims, bDims), [](auto v) {
+    return ((std::get<0>(v) == 1 && std::get<1>(v) != 1) ||
+            (std::get<0>(v) == std::get<1>(v)));
+  });
 }
 
 /// Check a value is defined by ONNXConstantOp or not.
@@ -142,27 +139,30 @@ void RewriteONNXForZHighPass::runOnOperation() {
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
       &target, execNodesOnCpu);
 
+  // Legalize BinaryOp if one of the two inputs is a constant and unidirectional
+  // broadcastable to the other input. Rewrite patterns will be added to turn a
+  // broadcasting op into a non-broadcasting op.
+  //
+  // This is preferred for NNPA because NNPA BinaryOp does not support
+  // broadcasting.
   target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
     return !((isDefinedByONNXConstantOp(op.A()) &&
                  isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
              (isDefinedByONNXConstantOp(op.B()) &&
                  isUniBroadcatableFirstToSecond(op.B(), op.A())));
   });
-
   target.addDynamicallyLegalOp<ONNXDivOp>([](ONNXDivOp op) {
     return !((isDefinedByONNXConstantOp(op.A()) &&
                  isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
              (isDefinedByONNXConstantOp(op.B()) &&
                  isUniBroadcatableFirstToSecond(op.B(), op.A())));
   });
-
   target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
     return !((isDefinedByONNXConstantOp(op.A()) &&
                  isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
              (isDefinedByONNXConstantOp(op.B()) &&
                  isUniBroadcatableFirstToSecond(op.B(), op.A())));
   });
-
   target.addDynamicallyLegalOp<ONNXSubOp>([](ONNXSubOp op) {
     return !((isDefinedByONNXConstantOp(op.A()) &&
                  isUniBroadcatableFirstToSecond(op.A(), op.B())) ||

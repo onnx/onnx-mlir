@@ -66,15 +66,18 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// Rewrite AddOp if one of its inputs is a constant and the constant is
-// unidirectional broadcastable to X.
-// For example, X's shape is [1x4x8] and constant's shape is [8].
+// These rules are to eliminate broadcasting that is not supported by NNPA.
+//
+// Rewrite `BinaryOp(lhs, rhs)` if one of the two inputs is a constant and
+// unidirectional broadcastable to the other input.
+// For example: lhs is a constant of shape [8] and rhs is of shape [1x4x8].
 // 
-// This is to eliminate broadcasting that is not supported by NNPA.
+// Taking ONNXAddOp as an example, we rewrite it as follows:
 //
-// ONNXAddOp %X, %constant = ONNXAddOp %X, (ONNXExpandOp %constant, (ONNXShapeOp %X))
+// 1. `ONNXAddOp %constant, %X` will be canonicalized to `ONNXAddOp %X, %constant`
+// 2. `ONNXAddOp %X, %constant` will be replaced by
+//       `ONNXAddOp %X, (ONNXExpandOp %constant, (ONNXShapeOp %X))`
 //
-// Assuming that ONNXAddOp has been canonicalized to the form of (X + constant)
 // 
 //===----------------------------------------------------------------------===//
 
@@ -89,11 +92,17 @@ def IsUniBroadcastingFromFirstToSecond: Constraint<
   "Is unidirectional broadcasting from the first to second tensor"
 >;
 
-def IsFromONNXConstantOp: Constraint<
-    CPred<"llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp())">,
-    "Is a value from ONNXConstantOp">;
+//===----------------------------------------------------------------------===//
+// For ONNXAddOp
+//===----------------------------------------------------------------------===//
 
 def expandConstantOperandForAddOp1: Pat<
+  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp $x, $c),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForAddOp2: Pat<
   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXAddOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
@@ -101,14 +110,9 @@ def expandConstantOperandForAddOp1: Pat<
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
 
-def expandConstantOperandForAddOp2: Pat<
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
-  (ONNXAddOp (ONNXExpandOp $c,
-                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
-                           (returnType $x)),
-             $x),
-  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
->;
+//===----------------------------------------------------------------------===//
+// For ONNXDivOp
+//===----------------------------------------------------------------------===//
 
 def expandConstantOperandForDivOp1: Pat<
   (ONNXDivOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
@@ -127,7 +131,17 @@ def expandConstantOperandForDivOp2: Pat<
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
 
+//===----------------------------------------------------------------------===//
+// For ONNXMulOp
+//===----------------------------------------------------------------------===//
+
 def expandConstantOperandForMulOp1: Pat<
+  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXMulOp $x, $c),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForMulOp2: Pat<
   (ONNXMulOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXMulOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
@@ -135,14 +149,9 @@ def expandConstantOperandForMulOp1: Pat<
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
 
-def expandConstantOperandForMulOp2: Pat<
-  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
-  (ONNXMulOp (ONNXExpandOp $c,
-                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
-                           (returnType $x)),
-             $x),
-  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
->;
+//===----------------------------------------------------------------------===//
+// For ONNXSubOp
+//===----------------------------------------------------------------------===//
 
 def expandConstantOperandForSubOp1: Pat<
   (ONNXSubOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
