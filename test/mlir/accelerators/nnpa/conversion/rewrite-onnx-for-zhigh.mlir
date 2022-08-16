@@ -102,6 +102,20 @@ func.func @test_add_block_arg(%arg0: tensor<128x256xf32>, %arg1: tensor<1xf32>) 
 
 // -----
 
+func.func @test_add_dynamic_dims(%arg0: tensor<128x?xf32>) -> (tensor<128x2xf32>) {
+  %cst = "onnx.Constant"() {value = dense<1.0> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = "onnx.Add"(%arg0, %cst) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+  return %0 : tensor<128x2xf32>
+
+// CHECK-LABEL:  func.func @test_add_dynamic_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x?xf32>) -> tensor<128x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"({{.*}}, {{.*}}) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<128x2xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_div_expand_constant_lhs(%arg0: tensor<128x256xf32>) -> (tensor<128x256xf32>) {
   %cst = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %0 = "onnx.Div"(%cst, %arg0) : (tensor<1xf32>, tensor<128x256xf32>) -> tensor<128x256xf32>
@@ -161,6 +175,20 @@ func.func @test_div_block_arg(%arg0: tensor<128x256xf32>, %arg1: tensor<1xf32>) 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x256xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<128x256xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Div"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<128x256xf32>, tensor<1xf32>) -> tensor<128x256xf32>
 // CHECK:           return [[VAR_0_]] : tensor<128x256xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_div_dynamic_dims(%arg0: tensor<128x?xf32>) -> (tensor<128x2xf32>) {
+  %cst = "onnx.Constant"() {value = dense<1.0> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = "onnx.Div"(%arg0, %cst) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+  return %0 : tensor<128x2xf32>
+
+// CHECK-LABEL:  func.func @test_div_dynamic_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x?xf32>) -> tensor<128x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Div"({{.*}}, {{.*}}) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<128x2xf32>
 // CHECK:         }
 }
 
@@ -230,6 +258,20 @@ func.func @test_mul_block_arg(%arg0: tensor<128x256xf32>, %arg1: tensor<1xf32>) 
 
 // -----
 
+func.func @test_mul_dynamic_dims(%arg0: tensor<128x?xf32>) -> (tensor<128x2xf32>) {
+  %cst = "onnx.Constant"() {value = dense<1.0> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = "onnx.Mul"(%arg0, %cst) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+  return %0 : tensor<128x2xf32>
+
+// CHECK-LABEL:  func.func @test_mul_dynamic_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x?xf32>) -> tensor<128x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"({{.*}}, {{.*}}) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<128x2xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_sub_expand_constant_lhs(%arg0: tensor<128x256xf32>) -> (tensor<128x256xf32>) {
   %cst = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
   %0 = "onnx.Sub"(%cst, %arg0) : (tensor<1xf32>, tensor<128x256xf32>) -> tensor<128x256xf32>
@@ -289,5 +331,19 @@ func.func @test_sub_block_arg(%arg0: tensor<128x256xf32>, %arg1: tensor<1xf32>) 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x256xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<128x256xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<128x256xf32>, tensor<1xf32>) -> tensor<128x256xf32>
 // CHECK:           return [[VAR_0_]] : tensor<128x256xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_sub_dynamic_dims(%arg0: tensor<128x?xf32>) -> (tensor<128x2xf32>) {
+  %cst = "onnx.Constant"() {value = dense<1.0> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = "onnx.Sub"(%arg0, %cst) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+  return %0 : tensor<128x2xf32>
+
+// CHECK-LABEL:  func.func @test_sub_dynamic_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x?xf32>) -> tensor<128x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"({{.*}}, {{.*}}) : (tensor<128x?xf32>, tensor<2xf32>) -> tensor<128x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<128x2xf32>
 // CHECK:         }
 }
