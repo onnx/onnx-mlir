@@ -196,7 +196,7 @@ def GetMatMulResultType: NativeCodeCall<
   "getMatMulResultType($_builder, $_loc, $0, $1)"
 >;
 
-def shrinkMatMulNDto3D: Pat<
+def rewriteMatMulNDto3D_NonBroadcast: Pat<
   (ONNXMatMulOp:$c $a, $b),
   (ONNXReshapeOp (ONNXMatMulOp
                     (ReshapeTo3D:$a_r $a),
@@ -205,6 +205,28 @@ def shrinkMatMulNDto3D: Pat<
                  (GetMatMulResultShape $a, $b),
                  (GetZeroI64Attr)),
   [(HasRankGT<3> $a), (HasRankGT<3> $b)]
+>;
+
+def rewriteMatMulNDto3D_Broadcast_1: Pat<
+  (ONNXMatMulOp:$c $a, $b),
+  (ONNXReshapeOp (ONNXMatMulOp
+                    (ReshapeTo3D:$a_r $a),
+                    $b,
+                    (returnType (GetMatMulResultType $a_r, $b))),
+                 (GetMatMulResultShape $a, $b),
+                 (GetZeroI64Attr)),
+  [(HasRankGT<3> $a), (HasRankOf<2> $b)]
+>;
+
+def rewriteMatMulNDto3D_Broadcast_2: Pat<
+  (ONNXMatMulOp:$c $a, $b),
+  (ONNXReshapeOp (ONNXMatMulOp
+                    $a,
+                    (ReshapeTo3D:$b_r $b),
+                    (returnType (GetMatMulResultType $a, $b_r))),
+                 (GetMatMulResultShape $a, $b),
+                 (GetZeroI64Attr)),
+  [(HasRankOf<2> $a), (HasRankGT<3> $b)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

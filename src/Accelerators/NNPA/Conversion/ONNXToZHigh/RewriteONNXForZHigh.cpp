@@ -60,6 +60,7 @@ Value getSqrtResultBatchNormA(
 Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   int64_t rank = getRank(val.getType());
+  assert(rank > 3 && "Require rank > 3");
   Type elementType = getElementType(val.getType());
   Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type twoElemType = RankedTensorType::get({2}, rewriter.getI64Type());
@@ -102,18 +103,22 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
 // Get a value that store the shape of the matmul result.
 Value getMatMulResultShape(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
-  // lhs shape: B1xB2x...xBkxMxN
-  // rhs shape: B1xB2x...xBkxNxP
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  int64_t rank = getRank(lhs.getType());
-  Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-  Type BMType = RankedTensorType::get({rank - 1}, rewriter.getI64Type());
-  Type PType = RankedTensorType::get({1}, rewriter.getI64Type());
+  Type elementType = getElementType(lhs.getType());
+  int64_t lhsRank = getRank(lhs.getType());
+  int64_t rhsRank = getRank(rhs.getType());
+  assert((lhsRank >= 2 && rhsRank >= 2) && "Input rank must be >= 2");
+  // lhs shape: B1xB2x...xBkxMxN or MxN
+  // rhs shape: B1xB2x...xBkxNxP or NxP
 
-  Value lhsShape = rewriter.create<ONNXShapeOp>(loc, shapeType, lhs);
-  Value rhsShape = rewriter.create<ONNXShapeOp>(loc, shapeType, rhs);
+  int64_t rank = std::max(lhsRank, rhsRank);
+  Type unrankedI64Type = UnrankedTensorType::get(rewriter.getI64Type());
+  IntegerAttr concatAxisAttr =
+      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, 0, /*isSigned=*/true));
 
-  // Get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
+  Value lhsShape = rewriter.create<ONNXShapeOp>(loc, unrankedI64Type, lhs);
+  Value rhsShape = rewriter.create<ONNXShapeOp>(loc, unrankedI64Type, rhs);
 
   Value zero = create.onnx.constant(
       DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
@@ -123,43 +128,71 @@ Value getMatMulResultShape(
       DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
           ArrayRef<int64_t>({1})));
 
-  Value bmStart = create.onnx.constant(
+  Value minusOne = create.onnx.constant(
       DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
-          ArrayRef<int64_t>({0})));
-  Value bmEnd = create.onnx.constant(
-      DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
-          ArrayRef<int64_t>({rank - 2})));
-  Value bmVal = rewriter.create<ONNXSliceOp>(
-      loc, BMType, lhsShape, bmStart, bmEnd, zero, one);
+          ArrayRef<int64_t>({-1})));
 
-  Value pStart = create.onnx.constant(
+  Value minusTwo = create.onnx.constant(
       DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
-          ArrayRef<int64_t>({rank - 1})));
-  Value pEnd = create.onnx.constant(
-      DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
-          ArrayRef<int64_t>({rank - 1})));
-  Value pVal = rewriter.create<ONNXSliceOp>(
-      loc, PType, rhsShape, pStart, pEnd, zero, one);
+          ArrayRef<int64_t>({-2})));
 
-  IntegerAttr concatAxis =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-  Value shapeVal = rewriter.create<ONNXConcatOp>(
-      loc, shapeType, ValueRange({bmVal, pVal}), concatAxis);
+  Value rhsRankVal = create.onnx.constant(
+      DenseElementsAttr::get(RankedTensorType::get({1}, rewriter.getI64Type()),
+          ArrayRef<int64_t>({rhsRank})));
+
+  // if lhsRank >= rhsRank:
+  //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
+  // else
+  //   - get B1xB2x...xBk from rhs shape, then append M from lhs and append P
+  //   from rhs shape.
+  Value shapeVal;
+  if (lhsRank >= rhsRank) {
+    Value bmVal = rewriter.create<ONNXSliceOp>(
+        loc, unrankedI64Type, lhsShape, zero, minusOne, zero, one);
+    Value pVal = rewriter.create<ONNXSliceOp>(
+        loc, unrankedI64Type, rhsShape, minusOne, rhsRankVal, zero, one);
+    shapeVal = rewriter.create<ONNXConcatOp>(
+        loc, unrankedI64Type, ValueRange({bmVal, pVal}), concatAxisAttr);
+  } else {
+    Value bVal = rewriter.create<ONNXSliceOp>(
+        loc, unrankedI64Type, rhsShape, zero, minusTwo, zero, one);
+    Value mVal = rewriter.create<ONNXSliceOp>(
+        loc, unrankedI64Type, lhsShape, zero, one, zero, one);
+    Value pVal = rewriter.create<ONNXSliceOp>(
+        loc, unrankedI64Type, rhsShape, minusOne, rhsRankVal, zero, one);
+    shapeVal = rewriter.create<ONNXConcatOp>(
+        loc, unrankedI64Type, ValueRange({bVal, mVal, pVal}), concatAxisAttr);
+  }
   return shapeVal;
 }
 
 // Get result type of matmul.
 Type getMatMulResultType(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
-  // lhs shape: B1xB2x...xBkxMxN
-  // rhs shape: B1xB2x...xBkxNxP
-  int64_t rank = getRank(lhs.getType());
+  int64_t lhsRank = getRank(lhs.getType());
+  int64_t rhsRank = getRank(rhs.getType());
+  assert((lhsRank >= 2 && rhsRank >= 2) && "Input rank must be >= 2");
+  // lhs shape: B1xB2x...xBkxMxN or MxN
+  // rhs shape: B1xB2x...xBkxNxP or NxP
+
+  int64_t rank = std::max(lhsRank, rhsRank);
   ArrayRef<int64_t> lhsShape = getShape(lhs.getType());
   ArrayRef<int64_t> rhsShape = getShape(rhs.getType());
 
-  SmallVector<int64_t, 4> resultShape(lhsShape.begin(), lhsShape.end());
-  resultShape[rank - 1] = rhsShape[rank - 1];
+  // if lhsRank >= rhsRank:
+  //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
+  // else
+  //   - get B1xB2x...xBk from rhs shape, then append M from lhs and append P
+  //   from rhs shape.
+  if (lhsRank >= rhsRank) {
+    SmallVector<int64_t, 4> resultShape(lhsShape.begin(), lhsShape.end());
+    resultShape[rank - 1] = rhsShape[rhsRank - 1];
+    return RankedTensorType::get(resultShape, getElementType(lhs.getType()));
+  }
+
+  SmallVector<int64_t, 4> resultShape(rhsShape.begin(), rhsShape.end());
+  resultShape[rank - 2] = lhsShape[0];
+  resultShape[rank - 1] = rhsShape[rhsRank - 1];
   return RankedTensorType::get(resultShape, getElementType(lhs.getType()));
 }
 
