@@ -1647,6 +1647,16 @@ LogicalResult ONNXTransposeOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNXTriluOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXTriluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperands()[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceMax
 //===----------------------------------------------------------------------===//
 
@@ -4144,6 +4154,16 @@ LogicalResult ONNXHardmaxOp::inferShapes(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXHardSwishOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXHardSwishOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
 LogicalResult ONNXIfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -4395,6 +4415,54 @@ LogicalResult ONNXOneHotOp::inferShapes(
   auto elementType = values().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXOneHotOpShapeHelper, ONNXOneHotOp,
       ONNXOneHotOpAdaptor>(*this, elementType);
+}
+
+LogicalResult ONNXOptionalOp::verify() {
+  if (type().hasValue() != input().getType().isa<NoneType>())
+    return emitError(
+        "Optional should have either type attribute or input value");
+  return success();
+}
+
+LogicalResult ONNXOptionalOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type ty;
+  if (auto typeAttr = type()) {
+    ty = typeAttr.value();
+  } else {
+    ty = input().getType();
+    // checked in verify()
+    assert(!ty.isa<NoneType>() && "type attribute or input value needed");
+  }
+  getResult().setType(OptType::get(ty));
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalGetElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type elementType = input().getType().cast<OptType>().getElementType();
+  getResult().setType(elementType);
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalHasElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Builder builder(getContext());
+  Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
+  getResult().setType(scalarBoolType);
+  return success();
 }
 
 LogicalResult ONNXRandomNormalOp::inferShapes(

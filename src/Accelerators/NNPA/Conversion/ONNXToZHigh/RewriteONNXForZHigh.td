@@ -65,4 +65,109 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
   ]
 >;
 
+//===----------------------------------------------------------------------===//
+// These rules are to eliminate broadcasting that is not supported by NNPA.
+//
+// Rewrite `BinaryOp(lhs, rhs)` if one of the two inputs is a constant and
+// unidirectional broadcastable to the other input.
+// For example: lhs is a constant of shape [8] and rhs is of shape [1x4x8].
+// 
+// Taking ONNXAddOp as an example, we rewrite it as follows:
+//
+// 1. `ONNXAddOp %constant, %X` will be canonicalized to `ONNXAddOp %X, %constant`
+// 2. `ONNXAddOp %X, %constant` will be replaced by
+//       `ONNXAddOp %X, (ONNXExpandOp %constant, (ONNXShapeOp %X))`
+//
+// 
+//===----------------------------------------------------------------------===//
+
+// Get a type for a tensor that stores the shape of another tensor.
+def GetShapeTypeOf: NativeCodeCall<
+  "RankedTensorType::get({$0.getType().cast<ShapedType>().getRank()}, $_builder.getIntegerType(64))"
+>;
+
+// Check unidirectional broadcasting from the first to second tensor.
+def IsUniBroadcastingFromFirstToSecond: Constraint<
+  CPred<"isUniBroadcatableFirstToSecond($0, $1)">,
+  "Is unidirectional broadcasting from the first to second tensor"
+>;
+
+//===----------------------------------------------------------------------===//
+// For ONNXAddOp
+//===----------------------------------------------------------------------===//
+
+def expandConstantOperandForAddOp1: Pat<
+  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp $x, $c),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForAddOp2: Pat<
+  (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXAddOp $x, (ONNXExpandOp $c,
+                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (returnType $x))),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+//===----------------------------------------------------------------------===//
+// For ONNXDivOp
+//===----------------------------------------------------------------------===//
+
+def expandConstantOperandForDivOp1: Pat<
+  (ONNXDivOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXDivOp $x, (ONNXExpandOp $c,
+                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (returnType $x))),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForDivOp2: Pat<
+  (ONNXDivOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXDivOp (ONNXExpandOp $c,
+                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                           (returnType $x)),
+             $x),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+//===----------------------------------------------------------------------===//
+// For ONNXMulOp
+//===----------------------------------------------------------------------===//
+
+def expandConstantOperandForMulOp1: Pat<
+  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXMulOp $x, $c),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForMulOp2: Pat<
+  (ONNXMulOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXMulOp $x, (ONNXExpandOp $c,
+                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (returnType $x))),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+//===----------------------------------------------------------------------===//
+// For ONNXSubOp
+//===----------------------------------------------------------------------===//
+
+def expandConstantOperandForSubOp1: Pat<
+  (ONNXSubOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXSubOp $x, (ONNXExpandOp $c,
+                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (returnType $x))),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+def expandConstantOperandForSubOp2: Pat<
+  (ONNXSubOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXSubOp (ONNXExpandOp $c,
+                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                           (returnType $x)),
+             $x),
+  [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
 #endif // REWRITE_ONNX_FOR_ZHIGH
