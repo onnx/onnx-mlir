@@ -52,7 +52,7 @@ job_dir                     = os.path.join(jenkins_home, 'jobs', job_name)
 publish_dir                 = os.path.join(job_dir, 'htmlreports', 'LLVM_20Watch_20Report')
 report_dir                  = os.path.join(workspace_dir, 'llvm_watch_report')
 
-jenkins_rest_api_user       = 'jenkins'
+jenkins_rest_api_user       = os.getenv('JENKINS_USER', 'jenkins')
 jenkins_rest_api_url        = { 's390x':   'http://localhost:8080/jenkins',
                                 'amd64':   'http://localhost:8080/jenkinx',
                                 'ppc64le': 'http://localhost:8080/jenkinp' }[CPU_ARCH]
@@ -198,6 +198,7 @@ def get_remote_repo_sha1_history(github_repo, access_token,
     finally:
         return hist
 
+# Get the latest commit sha1 and date of a local git repo
 def get_local_repo_sha1_date(local_repo):
     repo = git.Repo(local_repo)
     repo_sha1 = repo.head.commit.hexsha
@@ -357,7 +358,7 @@ def write_watch_files(curr_state, watch_state, next_history):
                                  indent=JSON_DUMPS_INDENT))
 
     # Copy llvm-watch.html
-    shutil.copy(os.path.join(job_dir, LLVM_PROJECT_WATCH_HTML),
+    shutil.copy(os.path.join(workspace_dir, '.buildbot', LLVM_PROJECT_WATCH_HTML),
                 os.path.join(report_dir, LLVM_PROJECT_WATCH_HTML))
 
     # Download amcharts
