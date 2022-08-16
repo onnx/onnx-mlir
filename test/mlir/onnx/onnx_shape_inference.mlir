@@ -68,15 +68,15 @@ func.func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 /// Test the shape inferencing scheme for the matmul operation.
 //===----------------------------------------------------------------------===//
 
-/// MatMul: 1-D x 1-D
+/// MatMul: 1-D x 1-D results in scalar
 
 func.func @test_matmul_1(%arg0 : tensor<32xf32>, %arg1 : tensor<32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<32xf32>, tensor<32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_matmul_1
-  // CHECK: [[RES1:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<32xf32>, tensor<32xf32>) -> tensor<1xf32>
-  // CHECK: return [[RES1]] : tensor<1xf32>
+  // CHECK: [[RES1:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<32xf32>, tensor<32xf32>) -> tensor<f32>
+  // CHECK: return [[RES1]] : tensor<f32>
 }
 
 // -----

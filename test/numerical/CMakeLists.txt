@@ -81,3 +81,8 @@ add_numerical_unittest(TestLoop
   TestLoop.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
+add_numerical_unittest(TestScan
+  TestScan.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
