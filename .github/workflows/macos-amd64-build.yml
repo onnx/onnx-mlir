@@ -38,13 +38,13 @@ jobs:
         git fetch --prune --unshallow --tags
         cd ~/work/onnx-mlir/onnx-mlir
         pip3 install -e third_party/onnx
+    - name: install pytest-xdist
+      run: |
+        pip3 install pytest-xdist
     - name: build onnx-mlir
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
-    - name: install pytest-xdist
-      run: |
-        pip3 install pytest-xdist
     - name: run onnx-mlir backend and numerical tests
       run: |
         cd ~/work/onnx-mlir
