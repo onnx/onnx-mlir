@@ -28,6 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -53,6 +54,43 @@ Value getSqrtResultBatchNormA(
       rewriter.create<ONNXSqrtOp>(loc, var.getType(), var_plus_epsilon);
 
   return sqrtResult;
+}
+
+/// Check if A is unidirectionally broadcastable to B, e.g.
+/// A: [256], B: [128x256]
+/// A: [1], B: [128x256]
+/// More info about unidirectional broadcasting:
+/// https://github.com/onnx/onnx/blob/main/docs/Broadcasting.md
+/// Note: being differenct from ONNX broadcasting, we return false if A and B
+/// have exactly the same static shape.
+bool isUniBroadcatableFirstToSecond(Value A, Value B) {
+  if (!hasStaticShape(A.getType()) || !hasStaticShape(B.getType()))
+    return false;
+  ArrayRef<int64_t> aDims = getShape(A.getType());
+  ArrayRef<int64_t> bDims = getShape(B.getType());
+  // A and B have exactly the same static shape.
+  if (aDims == bDims)
+    return false;
+  // aDims size > bDims size: not unidirectional broadcasting from A to B, but B
+  // to A.
+  if (aDims.size() > bDims.size())
+    return false;
+  // Pre-pad A's shape with dims 1 so that two shapes have the same size.
+  SmallVector<int64_t> paddedADims(bDims.size(), 1);
+  for (unsigned i = 0; i < aDims.size(); ++i)
+    paddedADims[i + bDims.size() - aDims.size()] = aDims[i];
+  // Check unidirectional broadcasting.
+  return llvm::all_of(llvm::zip(paddedADims, bDims), [](auto v) {
+    return ((std::get<0>(v) == 1 && std::get<1>(v) != 1) ||
+            (std::get<0>(v) == std::get<1>(v)));
+  });
+}
+
+/// Check a value is defined by ONNXConstantOp or not.
+bool isDefinedByONNXConstantOp(Value v) {
+  if (v.isa<BlockArgument>())
+    return false;
+  return isa<ONNXConstantOp>(v.getDefiningOp());
 }
 
 //===----------------------------------------------------------------------===//
@@ -100,6 +138,37 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
       &target, execNodesOnCpu);
+
+  // Legalize BinaryOp if one of the two inputs is a constant and unidirectional
+  // broadcastable to the other input. Rewrite patterns will be added to turn a
+  // broadcasting op into a non-broadcasting op.
+  //
+  // This is preferred for NNPA because NNPA BinaryOp does not support
+  // broadcasting.
+  target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+  target.addDynamicallyLegalOp<ONNXDivOp>([](ONNXDivOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+  target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
+  target.addDynamicallyLegalOp<ONNXSubOp>([](ONNXSubOp op) {
+    return !((isDefinedByONNXConstantOp(op.A()) &&
+                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
+             (isDefinedByONNXConstantOp(op.B()) &&
+                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+  });
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

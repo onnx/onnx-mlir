@@ -70,6 +70,7 @@ void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
   pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
