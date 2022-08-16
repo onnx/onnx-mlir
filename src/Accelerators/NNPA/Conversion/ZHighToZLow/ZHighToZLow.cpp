@@ -217,7 +217,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         stickifiedConstant.getOperation()
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
-        UnmanagedAsmResourceBlob::allocate(
+        HeapAsmResourceBlob::allocateAndCopy(
             ArrayRef(rawData, sizeInBytes), alignof(char)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
