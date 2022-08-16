@@ -17,7 +17,8 @@ To invoke the test, use the following command:
 ```
 cmake --build . --config Release --target check-onnx-backend[-jni]
 ``` 
-Packages, such as third_party/onnx, needs to be installed to run the backend test. JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
+Packages, such as third_party/onnx, needs to be installed to run the backend test. You can install your own onnx package with command `pip install your-onnx-mlir/third_party/onnx`.
+JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
 
 All the test cases provided by onnx package are listed in file test/backend/all_test_names.txt. check-onnx-backend will selectively run some of them. 
 The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
@@ -27,6 +28,12 @@ TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target c
 With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging. If you need to check whether a particular instruction is included in the generated shared library, set the environment variable `TEST_INSTRUCTION_CHECK` to true and add the instruction name after the test name, like `TEST_CASE_BY_USER=selected_test_name,instruction_name`.
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
+
+### Test cases supported by ONNX
+
+File, test/backend/all_test_names.txt, contains all the test cases provided
+by ONNX package. You can enable a test case by adding it into test/backend/inference_backend.py.
+The all_test_names.txt is automatically generated with command "make check-onnx-backend-case". The update is only needed when ONNX package is upgraded.
 
 ### Tests with unknown dimensions
 

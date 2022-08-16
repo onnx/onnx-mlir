@@ -123,6 +123,8 @@ add_custom_target(check-onnx-backend-signature
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+# Generate all the backend test cases for CPU provided by the ONNX package.
+# The result is recorded in file all_test_names.txt
 add_custom_target(check-onnx-backend-case
   COMMAND
     TEST_CASE_CHECK=true
