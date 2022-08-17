@@ -7,7 +7,9 @@ import subprocess
 import sys
 
 logging.basicConfig(
-    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO,
+    format = '[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s',
+    datefmt = '%Y-%m-%d %H:%M:%S')
 
 # Set parallel jobs based on both CPU count and memory size.
 # Because using CPU count alone can result in out of memory

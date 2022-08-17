@@ -7,7 +7,9 @@ import os
 import sys
 
 logging.basicConfig(
-    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO,
+    format = '[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s',
+    datefmt = '%Y-%m-%d %H:%M:%S')
 
 docker_daemon_socket      = os.getenv('DOCKER_DAEMON_SOCKET')
 docker_registry_host_name = os.getenv('DOCKER_REGISTRY_HOST_NAME')
