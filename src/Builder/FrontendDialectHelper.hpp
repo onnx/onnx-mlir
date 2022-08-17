@@ -41,15 +41,8 @@
 
 namespace onnx_mlir {
 
-struct InitializedTensorMapping : SymbolMapping<onnx::TensorProto> {
-  mlir::Value EmitInitializerForInputTensor(
-      mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
-
-  // Get initialized tensor.
-  onnx::TensorProto GetInitializedTensor(std::string name) {
-    return GetByOnnxName(name);
-  }
-};
+mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     mlir::OpBuilder &builder, const onnx::TensorProto &initializer);

@@ -4,11 +4,10 @@
 
 #pragma once
 
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/Support/ErrorHandling.h>
 #include <cassert>
-#include <unordered_map>
+#include <llvm/ADT/STLExtras.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace onnx_mlir {
@@ -33,12 +32,12 @@ struct VariableScope {
   void set(const std::string &name, T object);
 
   /*!
-   * Retrieve the object associated with a symbol name. An assertion failure will
-   * occur if symbol name is not found.
+   * Retrieve pointer to the object associated with a symbol name, or nullptr
+   * if symbol name is not found.
    * @param name symbol name.
-   * @return object.
+   * @return pointer to object, or nullptr.
    */
-  T get(const std::string &name) const;
+  const T *get(const std::string &name) const;
 
   /*!
    * Check whether symbol name exists in the current scope.
@@ -69,11 +68,11 @@ struct SymbolMapping {
   SymbolMapping() = default;
 
   /*!
-   *  Get object by onnx name.
+   *  Get pointer to object by onnx name, or nullptr if onnx name is not found.
    *  @param name onnx name.
-   *  @return object corresponding to `name`.
+   *  @return pointer to object corresponding to `name`, or nullptr.
    */
-  T GetByOnnxName(const std::string &name) const;
+  const T *GetByOnnxName(const std::string &name) const;
 
   /*!
    *  Add a new mapping from onnx name to object.
@@ -116,11 +115,11 @@ private:
  */
 
 template <typename T>
-T SymbolMapping<T>::GetByOnnxName(const std::string &name) const {
+const T *SymbolMapping<T>::GetByOnnxName(const std::string &name) const {
   for (const auto &scope : scopes)
-    if (scope.contains(name))
-      return scope.get(name);
-  llvm_unreachable("Object not found");
+    if (const T *objPtr = scope.get(name))
+      return objPtr;
+  return nullptr;
 }
 
 template <typename T>
@@ -154,8 +153,9 @@ void VariableScope<T>::set(const std::string &name, T object) {
 }
 
 template <typename T>
-T VariableScope<T>::get(const std::string &name) const {
-  return nameToObject.at(name);
+const T *VariableScope<T>::get(const std::string &name) const {
+  auto iter = nameToObject.find(name);
+  return iter == nameToObject.end() ? nullptr : &(iter->second);
 }
 
 template <typename T>
