@@ -169,6 +169,9 @@ version_dict = {
  'Not': [1],
  'OneHot': [11],
  'OneHotEncoder': [1],
+ 'Optional' : [15],
+ 'OptionalGetElement' : [15],
+ 'OptionalHasElement' : [15],
  'Or': [7],
  'PRelu': [16],
  'Pad': [13, 11, 2],
@@ -316,6 +319,9 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
+    'Optional',
+    'OptionalGetElement',
+    'OptionalHasElement',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',
@@ -485,7 +491,9 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
-    elif onnx_attr_type == 'type':
+    elif onnx_attr_type in {'type', 'type_proto'}:
+        # 'type' is the attribute type used in special_attr_types,
+        # 'type_proto' is Optional op's type attribute's type
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
@@ -609,7 +617,7 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        (str_types,isOptional) = get_onnx_mlir_types(schema, type_str_dict,  value)
+        str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
         # In case the type string is used more than once
         types = str_types.copy()
@@ -617,13 +625,10 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
 
-        # ToFix: In Opset 16, the parameter of IdentityOp has optionalType
-        # but this Optional flag is not set 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
-        elif isOptional :
-            types.append("NoneType")
-        elif OpSchema.FormalParameterOption.Variadic == value.option:
+
+        if OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
@@ -803,9 +808,6 @@ def get_type_inference_func(s, indent, type_inference_code):
 def parse_type_str(allowedType):
     # AnyI may be used for uint because the onnx_mlir is not generating uint output
     # This will be fixed later and UI will be replace AnyI
-    # ToFix: the optional type should use MLIR Optional
-    # The issue is Optional accepts Type not type list
-    # Need more complicated replacement code 
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
@@ -833,14 +835,10 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    # onnx v1.11.0 added optional on individual type, not just a flag to
-    # parameter. MILR supports Optional<Type>, but not AnyType<[Optional<Type>
-    # Keep using AnyTye<[Type, ..., NoneType] for optional.   
-    # Convert "optional" in type str to empty and a separate flag
-    isOptional = False
+    # optional(...) always appears outermost
     if allowedType.find("optional") == 0 :
-      allowedType = allowedType.replace("optional(", "", 1);
-      allowedType = allowedType[:-1]
+      allowedType = allowedType.replace("optional(", "OptOf<", 1);
+      allowedType = allowedType[:-1] + '>'
 
     # Apply substitutions in decreasing order of key-length, so that float16 is replaced
     # before float, and uint16 is replaced before int16, etc.
@@ -848,25 +846,21 @@ def parse_type_str(allowedType):
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
         allowedType = allowedType.replace(key, item)
-    return (allowedType, isOptional)
+    return allowedType
 
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
-    isOptional = False
     for allowedType in allowedTypes:
-        (mlirType, optional) = parse_type_str(allowedType)
+        mlirType = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
-        if optional :
-          isOptional = True
 
     # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
-    # optional type may introduce redundant, but it doesnot matter
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    return (mlirTypes, isOptional)
+    return mlirTypes
 
 def parse_type_constraints(schema):
     type_str_dict = dict()
@@ -879,9 +873,8 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             (type_str, isOptional) = parse_type_str(input.typeStr)
-             # throw away optional flag
-             return [[type_str], isOptional]
+             type_str = parse_type_str(input.typeStr)
+             return [type_str]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -968,89 +961,67 @@ def gen_op_def(schema, with_version = False):
             raise RuntimeWarning(
                 "warning: not generate custom build methods for " +
                 schema.name + " since it does not have operands.")
-        else:
-            s += indent + 'let builders = [\n'
-            # Custom builders with operands and attributes having a separate parameter.
-            # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
-            indent = inc_indent(indent)
-            s += indent + 'OpBuilder<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
-            attrs_dict = get_attrs(schema)
-            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name) for name, ty in operands_dict.items())
-            if operands_dict and attrs_dict:
-                s += ', '
-            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
-                                      name) for name, ty in attrs_dict.items())
-            s += '), [{\n'
-            indent = inc_indent(indent)
 
-            # Get output type from first operand's type.
-            first_operand_name = list(ins.items())[0][0]
-            build_type_name = ''
-            bool_type = "$_builder.getI1Type()"
-            oTy = "nullptr"
+        r = '' # r is the resultType, use it with r.format(*operands, indent=indent)
+        if opName in custom_builder_broadcast_ops_list:
+            numOperands = 2
+            r += '{indent}auto lhsTy = {0}.getType();\n'
+            r += '{indent}auto rhsTy = {1}.getType();\n'
             if opName in custom_builder_broadcast_to_bool_ops_list:
-              oTy = bool_type
-            if opName in custom_builder_broadcast_ops_list:
-                second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType();\n'. \
-                    format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType();\n'. \
-                    format(second_operand_name)
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-                build_type_name = 'elementType'
+                r += '{indent}auto elTy = $_builder.getI1Type();\n'
+                elTy = 'elTy'
             else:
-                s += indent + 'auto elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<ShapedType>().getElementType();\n'
-                build_type_name = 'UnrankedTensorType::get(elementType)'
-            s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
-            for name, _ in ins.items():
-                s += ', ' + name
-            s += ');\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>,\n'
+                elTy = ''
+            r += '{indent}auto resultType = getBroadcastedRankedType(lhsTy, rhsTy' + \
+                (', ' + elTy if elTy else '') + ');\n'
+            r += '{indent}auto shapedType = resultType.dyn_cast_or_null<ShapedType>();\n'
+            r += '{indent}if (!shapedType || !shapedType.hasStaticShape())\n'
+            r += '{indent}  resultType = UnrankedTensorType::get(' + \
+                (elTy if elTy else 'lhsTy.cast<ShapedType>().getElementType()') + ');\n'
+        else:
+            numOperands = 1
+            r += '{indent}auto resultType = UnrankedTensorType::get(' + \
+                '{0}.getType().cast<ShapedType>().getElementType());\n'
+        resultType = r
 
-            # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<(ins "ValueRange operands,
-            #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<(ins ' + \
-                '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
-            indent = inc_indent(indent)
-            if opName in custom_builder_broadcast_ops_list:
-                s += indent + 'auto lhsTy = operands[0].getType();\n'
-                s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = operands[0]' + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-            else:
-                s += indent + 'auto elementType = operands[0].getType().' + \
-                    'cast<ShapedType>().getElementType();\n'
-            s += indent + 'std::vector<mlir::Type> outputTypes;\n'
-            s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
-            s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>'
+        s += indent + 'let builders = [\n'
+        # Custom builders with operands and attributes having a separate parameter.
+        # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
+        indent = inc_indent(indent)
+        s += indent + 'OpBuilder<(ins '
+        operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+        attrs_dict = get_attrs(schema)
+        s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                    name) for name, ty in operands_dict.items())
+        if operands_dict and attrs_dict:
+            s += ', '
+        s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                    name) for name, ty in attrs_dict.items())
+        s += '), [{\n'
+        indent = inc_indent(indent)
+        # Get output type from first operand's type.
+        operands = operands_dict.keys()
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, resultType'
+        for name, _ in ins.items():
+            s += ', ' + name
+        s += ');\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>,\n'
 
-            s += '\n' + indent + '];\n'
+        # Custom builders with all operands and attributes having aggregate parameters.
+        # E.g. OpBuilder<(ins "ValueRange operands,
+        #    ArrayRef<NamedAttribute> attributes", [{}]>'
+        s += indent + 'OpBuilder<(ins ' + \
+            '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
+        indent = inc_indent(indent)
+        operands = (f'operands[{i}]' for i in range(numOperands))
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, {resultType}, operands, attributes);\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>'
+
+        s += '\n' + indent + '];\n'
 
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"

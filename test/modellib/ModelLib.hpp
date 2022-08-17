@@ -30,6 +30,8 @@
 namespace onnx_mlir {
 namespace test {
 
+const static float omDefaultRangeBound = 1.0;
+
 /*
    Superclass that defines a template to create models, creating an ONNX
    function programatically, then compiling, loading, runing and testing the
@@ -208,6 +210,25 @@ private:
   const float alphaVal, betaVal;
   // Derived data that defines model.
   llvm::SmallVector<int64_t, 2> aShape, bShape, cShape;
+};
+
+class ScanLibBuilder : public ModelLibBuilder {
+public:
+  ScanLibBuilder(const std::string &modelName, const int /*seq=*/S,
+      const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int S, I, B;
+  const bool is_v8;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> initialShape, xShape;
+  // model definition in std::string
+  std::string moduleIR;
 };
 
 class MatMul2DLibBuilder : public ModelLibBuilder {

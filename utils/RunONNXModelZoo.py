@@ -432,6 +432,7 @@ def main():
                        '}\n' +
                        '</style>\n' +
                        '</head>\n' +
+                       '<body>\n' +
                        '<table class="sticky">\n')
             t = [ 'Skipped', 'Passed', 'Failed' ]
             for i, s in enumerate([ skipped_models,
