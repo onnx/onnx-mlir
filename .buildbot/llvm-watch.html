@@ -80,25 +80,25 @@
 	xAxis.get("periodChangeDateFormats")["day"] = "MMM d, yyyy";
 
 	/* Create Y axis */
-	var yAxis = chart.yAxes.push( 
-	    am5xy.ValueAxis.new(root, { 
-		renderer: am5xy.AxisRendererY.new(root, {}) 
-	    }) 
+	var yAxis = chart.yAxes.push(
+	    am5xy.ValueAxis.new(root, {
+		renderer: am5xy.AxisRendererY.new(root, {})
+	    })
 	);
 
 	/* Set Y axis title */
 	yAxis.children.unshift(
-  	    am5.Label.new(root, {
+	    am5.Label.new(root, {
 		rotation: -90,
 		text: "Total Code Change (lines)",
 		y: am5.p50,
 		centerX: am5.p50
-  	    })
+	    })
 	);
 
 	/* Create cursor, required for tooltip */
 	var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {
-  	    behavior: "zoomX"
+	    behavior: "zoomX"
 	}));
 	cursor.lineX.set("visible", false);
 	cursor.lineY.set("visible", false);

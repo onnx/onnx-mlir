@@ -17,7 +17,7 @@ logging.basicConfig(
 # (128 threads) and only 32GB memory. So spawning off 128
 # cc/c++ processes is going to quickly exhaust the memory.
 #
-# Algorithm: NPROC = min(2, # of CPUs) if memory < 8GB, otherwise
+# Algorithm: NPROC = min(2, # of CPUs) if memory < 16GB, otherwise
 #            NPROC = min(memory / 8, # of CPUs)
 MEMORY_IN_GB               = (os.sysconf('SC_PAGE_SIZE') *
                               os.sysconf('SC_PHYS_PAGES') / (1024.**3))

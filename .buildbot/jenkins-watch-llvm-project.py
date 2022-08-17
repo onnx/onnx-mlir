@@ -29,11 +29,11 @@ logging.basicConfig(
 # (128 threads) and only 32GB memory. So spawning off 128
 # cc/c++ processes is going to quickly exhaust the memory.
 #
-# Algorithm: NPROC = min(2, # of CPUs) if memory < 8GB, otherwise
-#            NPROC = min(memory / 4, # of CPUs)
+# Algorithm: NPROC = min(2, # of CPUs) if memory < 16GB, otherwise
+#            NPROC = min(memory / 8, # of CPUs)
 MEMORY_IN_GB                = (os.sysconf('SC_PAGE_SIZE') *
                                os.sysconf('SC_PHYS_PAGES') / (1024.**3))
-NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
+NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/8), os.cpu_count())))
 
 CPU_ARCH                    = platform.uname().machine.replace('x86_64', 'amd64')
 EPOCH0                      = datetime.utcfromtimestamp(0).isoformat() + 'Z'
@@ -789,7 +789,7 @@ def compute_range_build_next():
             watch_state['build_history'] = hist
         else:
             watch_state['build_history'] += hist
-                   
+
     # Update watch state and write watch history
     watch_state['converged'] = converged
     watch_state['llvm_history_github'] = llvm_history_github
