@@ -199,7 +199,7 @@ private:
   SymbolToOnnxTypeMapping onnx_type_map;
 
   void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
-    if (allowExist && onnx_type_map.ContainKey(vi.name()))
+    if (allowExist && onnx_type_map.ContainsKey(vi.name()))
       return;
     onnx_type_map.AddMapping(vi.name(), vi.type());
   }
@@ -220,7 +220,7 @@ private:
   }
 
   Value LookupOnnxName(const std::string &onnx_name) {
-    return frontend_symbols_.GetTensorByOnnxName(onnx_name);
+    return frontend_symbols_.GetByOnnxName(onnx_name);
   }
 
   /*!
@@ -303,9 +303,9 @@ private:
 
   llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
-      if (onnx_type_map.ContainKey(onnx_name)) {
+      if (onnx_type_map.ContainsKey(onnx_name)) {
         return llvm::Optional<Type>(
-            ImportType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
+            ImportType(onnx_type_map.GetByOnnxName(onnx_name)));
       }
     }
     return llvm::Optional<Type>();
@@ -427,7 +427,7 @@ private:
     int numInputs = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
-      if (!initializedTensors.ContainKey(input.name())) {
+      if (!initializedTensors.ContainsKey(input.name())) {
         inputNames.push_back(input.name());
         auto argTy = ImportType(input.type());
         auto shapedTy = argTy.dyn_cast<RankedTensorType>();
@@ -486,7 +486,7 @@ private:
     // entry block arguments.
     int entryBlockArgIdx = 0;
     for (const onnx::ValueInfoProto &inputProto : graph.input()) {
-      if (!initializedTensors.ContainKey(inputProto.name())) {
+      if (!initializedTensors.ContainsKey(inputProto.name())) {
         ImportInputTensorSymbol(
             inputProto, entryBlock->getArguments()[entryBlockArgIdx]);
         entryBlockArgIdx++;
@@ -523,8 +523,8 @@ private:
   void ImportNodeGeneric(const onnx::NodeProto &node) {
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(item)) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      if (frontend_symbols_.ContainsKey(item)) {
+        inputs.push_back(frontend_symbols_.GetByOnnxName(item));
       }
     }
     OperationState result(UnknownLoc(), "frontend." + node.op_type());
@@ -699,11 +699,11 @@ private:
       if (item.empty()) {
         inputs.emplace_back(none());
       } else {
-        if (initializedTensors.ContainKey(item)) {
+        if (initializedTensors.ContainsKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
               UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        } else if (frontend_symbols_.ContainsKey(item)) {
+          inputs.push_back(frontend_symbols_.GetByOnnxName(item));
         }
       }
   }
@@ -771,11 +771,11 @@ private:
         // Optional inputs using empty string will be imported as NoneType.
         inputs.emplace_back(none());
       } else {
-        if (initializedTensors.ContainKey(item)) {
+        if (initializedTensors.ContainsKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
               UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        } else if (frontend_symbols_.ContainsKey(item)) {
+          inputs.push_back(frontend_symbols_.GetByOnnxName(item));
         }
       }
     auto attributes = ImportCastAttributes(node);
@@ -825,12 +825,12 @@ private:
     // Copy the provided inputs first
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (initializedTensors.ContainKey(item)) {
+      if (initializedTensors.ContainsKey(item)) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
             UnknownLoc(), builder_, item));
       } else {
-        if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        if (frontend_symbols_.ContainsKey(item)) {
+          inputs.push_back(frontend_symbols_.GetByOnnxName(item));
         }
       }
     }
@@ -895,11 +895,11 @@ private:
       Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<Value> inputs;
       for (const auto &item : node.input()) {
-        if (initializedTensors.ContainKey(item)) {
+        if (initializedTensors.ContainsKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
               UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        } else if (frontend_symbols_.ContainsKey(item)) {
+          inputs.push_back(frontend_symbols_.GetByOnnxName(item));
         }
       }
       inputs.push_back(constantResult);
@@ -919,13 +919,13 @@ private:
     };
 
     for (const auto &item : llvm::enumerate(node.input())) {
-      if (initializedTensors.ContainKey(item.value())) {
+      if (initializedTensors.ContainsKey(item.value())) {
         inVals[item.index()] = initializedTensors.EmitInitializerForInputTensor(
             UnknownLoc(), builder_, item.value());
       } else {
-        if (frontend_symbols_.ContainKey(item.value())) {
+        if (frontend_symbols_.ContainsKey(item.value())) {
           inVals[item.index()] =
-              frontend_symbols_.GetTensorByOnnxName(item.value());
+              frontend_symbols_.GetByOnnxName(item.value());
         } else {
           assert(false && "Unknown input");
         }
@@ -982,11 +982,11 @@ private:
     // Copy the provided inputs first.
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (initializedTensors.ContainKey(item)) {
+      if (initializedTensors.ContainsKey(item)) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
             UnknownLoc(), builder_, item));
-      } else if (frontend_symbols_.ContainKey(item)) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      } else if (frontend_symbols_.ContainsKey(item)) {
+        inputs.push_back(frontend_symbols_.GetByOnnxName(item));
       }
     }
 
@@ -1159,9 +1159,9 @@ private:
         continue;
       }
       // Function translation requires input (onnx) types
-      if (!onnx_type_map.ContainKey(v))
+      if (!onnx_type_map.ContainsKey(v))
         return false;
-      operandOnnxTypes.push_back(onnx_type_map.GetTensorByOnnxName(v));
+      operandOnnxTypes.push_back(onnx_type_map.GetByOnnxName(v));
       auto val = LookupOnnxName(v);
       operands.push_back(val);
       operandTypes.push_back(val.getType());
@@ -1169,9 +1169,9 @@ private:
     for (auto &v : node.output()) {
       if (v.empty())
         continue;
-      if (!onnx_type_map.ContainKey(v))
+      if (!onnx_type_map.ContainsKey(v))
         return false;
-      auto resultType = ImportType(onnx_type_map.GetTensorByOnnxName(v));
+      auto resultType = ImportType(onnx_type_map.GetByOnnxName(v));
       resultTypes.push_back(resultType);
     }
 
@@ -1306,7 +1306,7 @@ private:
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
       llvm::SmallVectorImpl<Value> &ret_vals) {
-    Value val = frontend_symbols_.GetTensorByOnnxName(output.name());
+    Value val = frontend_symbols_.GetByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
         val.setType(ImportType(output.type()));

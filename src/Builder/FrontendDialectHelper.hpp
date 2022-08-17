@@ -47,7 +47,7 @@ struct InitializedTensorMapping : SymbolMapping<onnx::TensorProto> {
 
   // Get initialized tensor.
   onnx::TensorProto GetInitializedTensor(std::string name) {
-    return GetTensorByOnnxName(name);
+    return GetByOnnxName(name);
   }
 };
 
