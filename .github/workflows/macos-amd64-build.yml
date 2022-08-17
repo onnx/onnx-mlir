@@ -42,11 +42,7 @@ jobs:
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
-    - name: run onnx-mlir backend tests
+    - name: run onnx-mlir backend and numerical tests
       run: |
         cd ~/work/onnx-mlir
-        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend.sh
-    - name: run onnx-mlir numerical tests
-      run: |
-        cd ~/work/onnx-mlir
-        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-numerical.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
