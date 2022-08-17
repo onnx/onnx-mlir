@@ -116,7 +116,8 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           ->getDialect()
           ->getNamespace(), // use the dialect as the blob "hint"
       HeapAsmResourceBlob::allocateAndCopy(
-          ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
+          ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char),
+          /*dataIsMutable=*/false));
 
   stickifiedConstant.valueAttr(valueAttr);
 
