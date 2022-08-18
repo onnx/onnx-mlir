@@ -13,8 +13,7 @@ jobs:
       run: |
         brew unlink python3
         brew install automake ninja pybind11 python@3.9
-        export PATH=/usr/local/opt/python@3.9/libexec/bin:$PATH
-        echo "::set-env name=PATH::$PATH"
+        echo "PATH=/usr/local/opt/python@3.9/libexec/bin:$PATH" >>$GITHUB_ENV
     - name: install protobuf
       run: |
         which python3
