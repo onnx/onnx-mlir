@@ -13,6 +13,7 @@ jobs:
       run: |
         brew unlink python3
         brew install automake ninja pybind11 python@3.9
+        brew link python3
         which python3
         ls -l /usr/local/bin
     - name: install protobuf
