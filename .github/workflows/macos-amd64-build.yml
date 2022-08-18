@@ -16,7 +16,6 @@ jobs:
         echo "PATH=/usr/local/opt/python@3.9/libexec/bin:$PATH" >>$GITHUB_ENV
     - name: install protobuf
       run: |
-        which python3
         cd ~/work
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
