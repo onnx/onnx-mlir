@@ -11,7 +11,7 @@ jobs:
         submodules: recursive
     - name: install tools that are needed for compilation
       run: |
-        brew uninstall --force python
+        brew uninstall --ignore-dependencies python
         brew install automake ninja pybind11 python@3.9
         ls -l /usr/local/bin
     - name: install protobuf
