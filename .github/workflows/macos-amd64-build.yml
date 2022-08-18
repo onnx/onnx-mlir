@@ -9,9 +9,6 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
-    - uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
     - name: install tools that are needed for compilation
       run: brew install automake ninja pybind11
     - name: install protobuf
