@@ -877,7 +877,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
@@ -889,7 +889,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 void LLVMBuilder::condBr(Value cond, Block *trueBlock,
@@ -947,8 +947,7 @@ Value LLVMBuilder::constant(Type type, double val) const {
 
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
-  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
+  return b.create<LLVM::ExtractValueOp>(loc, container, position);
 }
 
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
@@ -973,9 +972,8 @@ Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
 
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
   return b.create<LLVM::InsertValueOp>(
-      loc, resultType, container, val, posAttr);
+      loc, container, val, position);
 }
 
 Value LLVMBuilder::load(Value addr) const {

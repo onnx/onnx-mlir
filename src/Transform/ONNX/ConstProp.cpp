@@ -559,7 +559,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   // Compute split offsets.
   SmallVector<int64_t, 4> splitOffsets;
   {
-    if (!splitAttr.hasValue())
+    if (!splitAttr.has_value())
       // If split attribute is not specified, split size is equally divided.
       assert(inputShape[splitAxis] % numOfResults == 0 &&
              "The dimension at the split axis is expected to be divisible by "
@@ -567,7 +567,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     int64_t offset = 0;
     for (unsigned int i = 0; i < numOfResults; ++i) {
       splitOffsets.emplace_back(offset);
-      if (splitAttr.hasValue())
+      if (splitAttr.has_value())
         offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
       else
         offset += inputShape[splitAxis] / numOfResults;

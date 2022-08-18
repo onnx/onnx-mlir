@@ -719,22 +719,22 @@ LogicalResult KrnlMatMulOp::verify() {
   if (operandAdaptor.loops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 
-  if (operandAdaptor.computeTileSize().hasValue()) {
+  if (operandAdaptor.computeTileSize().has_value()) {
     ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
       return emitOpError("computeTileSize rank should be 0 or 3");
   }
-  if (operandAdaptor.aTileSize().hasValue()) {
+  if (operandAdaptor.aTileSize().has_value()) {
     ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
       return emitOpError("aTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.bTileSize().hasValue()) {
+  if (operandAdaptor.bTileSize().has_value()) {
     ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
       return emitOpError("bTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.cTileSize().hasValue()) {
+  if (operandAdaptor.cTileSize().has_value()) {
     ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
       return emitOpError("cTileSize rank should be 0 or 2");
