@@ -12,6 +12,7 @@ jobs:
     - name: install tools that are needed for compilation
       run: |
         brew unlink python3
+        brew uninstall --ignore-dependencies python
         brew install automake ninja pybind11 python@3.9
         brew link python3
         which python3
