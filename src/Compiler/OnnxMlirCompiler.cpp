@@ -53,8 +53,9 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
-ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(
-    const char *flags, const char **errorMessage) {
+ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
+    const char *outputBaseName, EmissionTargetType emissionTarget,
+    const char **outputFilename, const char *flags, const char **errorMessage) {
   // Manually process the flags
   // Save the result string vector after processing
   std::vector<std::string> flagsVector;
@@ -72,10 +73,23 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(
   std::string onnxmlirPath = getToolPath("onnx-mlir");
   struct Command onnxmlirCompile(
       /*exePath=*/!onnxmlirPath.empty() ? onnxmlirPath : kOnnxmlirPath);
+  bool findCustomEnvFlags = false;
   for (std::size_t i = 0; i < flagsVector.size(); i++) {
     onnxmlirCompile.appendStr(flagsVector[i]);
+    if (flagsVector[i].find("-customEnvFlags") != std::string::npos) {
+      findCustomEnvFlags = true;
+    }
+  }
+  if (findCustomEnvFlags == false) {
+    onnxmlirCompile.appendStr(
+        "-customEnvFlags=" + std::string(inputFilename) + "Process");
   }
   int rc = onnxmlirCompile.exec();
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    *outputFilename = strdup(name.c_str());
+  }
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
 }
 

@@ -108,13 +108,13 @@ A `mnist.jar` should appear, which corresponds to the compiled model object file
 
 ## Multi-threading
 
-onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you need to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
+onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you would like to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
 
 ```bash
 onnx-mlir -O3 -customEnvFlags mnistwith03 [--EmitLib] mnist.onnx -o mnist03
 ```
 
-A multi-threaded Python experiment is provided.
+A multi-threaded experiment from command line written in Python is provided.
 
 ```python
 import datetime
@@ -130,12 +130,9 @@ def execCmd(cmd):
         print("command " + cmd + " meets errors")
  
 if __name__ == '__main__':
-
-    # use different names for different threads
-    cmds = ['onnx-mlir -O3 -customEnvFlags mnistwith03 mnist.onnx -o mnist03','onnx-mlir -O1 -customEnvFlags mnistwith01 mnist.onnx -o mnist01']
-
-    # use the default name for different threads
-    # cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
+    
+    # define 2 different commands
+    cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
 
     threads = []
     
