@@ -33,7 +33,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   return lstm.build() && lstm.compileAndLoad() &&
-         lstm.checkInstructionFromEnv("TestLSTMNNPA_INSTRUCTION") &&
+         lstm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
 }
 

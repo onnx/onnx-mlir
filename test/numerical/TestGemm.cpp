@@ -62,7 +62,7 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
   return gemm.build() && gemm.compileAndLoad() &&
-         gemm.checkInstructionFromEnv("TestGemmNNPA_INSTRUCTION") &&
+         gemm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          gemm.prepareInputs() && gemm.run() && gemm.verifyOutputs();
 }
 

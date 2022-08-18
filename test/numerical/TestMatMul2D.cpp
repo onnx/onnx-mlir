@@ -24,7 +24,7 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
   return matmul.build() && matmul.compileAndLoad() &&
-         matmul.checkInstructionFromEnv("TestMatMul2DNNPA_INSTRUCTION") &&
+         matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          matmul.prepareInputs() && matmul.run() && matmul.verifyOutputs();
 }
 } // namespace test
