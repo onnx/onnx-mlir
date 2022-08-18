@@ -36,8 +36,7 @@ jobs:
       run: |
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
         git fetch --prune --unshallow --tags
-        cd ~/work/onnx-mlir/onnx-mlir
-        pip3 install -e third_party/onnx
+        python3 setup.py -q install
     - name: build onnx-mlir
       run: |
         cd ~/work/onnx-mlir
