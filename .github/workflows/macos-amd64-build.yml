@@ -13,9 +13,7 @@ jobs:
       run: |
         brew uninstall --ignore-dependencies python
         brew install automake ninja pybind11 python@3.9
-        echo ${PATH}
-        ls -l /usr/local/opt/python@3.9/libexec/bin
-        ls -l /usr/local/bin
+        export PATH=/usr/local/opt/python@3.9/libexec/bin:${PATH}
     - name: install protobuf
       run: |
         cd ~/work
