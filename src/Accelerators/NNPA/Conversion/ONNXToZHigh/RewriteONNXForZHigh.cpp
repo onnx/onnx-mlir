@@ -64,22 +64,21 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   ArrayRef<int64_t> shape = getShape(val.getType());
   Type elementType = getElementType(val.getType());
   Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-  Type oneI64Type = RankedTensorType::get({1}, rewriter.getI64Type());
   Type twoI64Type = RankedTensorType::get({2}, rewriter.getI64Type());
   Type threeI64Type = RankedTensorType::get({3}, rewriter.getI64Type());
 
   Value shapeVal = create.onnx.shape(shapeType, val);
 
-  Value zero = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({0})));
-  Value one = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({1})));
-  Value minusOne = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({-1})));
+  Value zero =
+      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
+  Value one =
+      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
+  Value minusOne =
+      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({-1})));
   Value r2Const = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({rank - 2})));
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank - 2})));
   Value rConst = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({rank})));
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank})));
   Value lastTwoDimVal =
       create.onnx.slice(twoI64Type, shapeVal, r2Const, rConst, zero, one);
 
@@ -122,16 +121,16 @@ Value getMatMulResultShape(
   Value lhsShape = create.onnx.shape(lhsRType, lhs);
   Value rhsShape = create.onnx.shape(rhsRType, rhs);
 
-  Value zero = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({0})));
-  Value one = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({1})));
+  Value zero =
+      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
+  Value one =
+      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
   Value lhsR1Const = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({lhsRank - 1})));
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 1})));
   Value rhsRConst = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({rhsRank})));
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank})));
   Value rhsR1Const = create.onnx.constant(
-      DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({rhsRank - 1})));
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 1})));
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -148,9 +147,9 @@ Value getMatMulResultShape(
         create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), concatAxisAttr);
   } else {
     Value lhsR2Const = create.onnx.constant(
-        DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({lhsRank - 2})));
+        rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 2})));
     Value rhsR2Const = create.onnx.constant(
-        DenseElementsAttr::get(oneI64Type, ArrayRef<int64_t>({rhsRank - 2})));
+        rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 2})));
     Value bVal =
         create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
     Value mVal = create.onnx.slice(
@@ -317,6 +316,25 @@ void RewriteONNXForZHighPass::runOnOperation() {
     Type aType = op.A().getType();
     Type bType = op.B().getType();
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
+      return true;
+
+    // Only support static shape at this moment though the code supports dynamic
+    // shape as well.
+    //
+    // The reason is that lowering (3Dx3D) ONNXMatMul of dynamic shape to NNPA
+    // led to wrong results for the bertsquad-12 model. In particular, the final
+    // output values were shifted, e.g.
+    // clang-format off
+    // at (0, 252) mismatch -0.7646484375 (actual) vs -6.084146022796631 (reference)
+    // at (0, 253) mismatch -0.7646484375 (actual) vs -6.100776195526123 (reference)
+    // at (0, 254) mismatch -0.7646484375 (actual) vs -6.13942813873291 (reference)
+    // at (0, 255) mismatch -0.7646484375 (actual) vs -6.0835771560668945 (reference)
+    // clang-format on
+    //
+    // It is unclear why it happened to dynamic shape.
+    // There is no accuracy issue if (3Dx3D) ONNXMatMul runs on CPU or has
+    // static shape.
+    if (!hasStaticShape(aType) || !hasStaticShape(bType))
       return true;
 
     int64_t aRank = getRank(aType);
