@@ -57,4 +57,10 @@ def ACT_RELUAttr: NativeCodeCall<"$_builder.getStringAttr(\"ACT_RELU\")">;
 
 def GetTypeOf : NativeCodeCall<"$0.getType()" >;
 
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetZeroI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
+
 #endif // ONNX_TO_ZHIGH_COMMON

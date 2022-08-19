@@ -509,10 +509,6 @@ def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)"
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
-def GetZeroI64Attr: NativeCodeCall<
-  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
->;
-
 //===----------------------------------------------------------------------===//
 // NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
 // Since alpha and beta were legalized by the pass configuration, we check rank only. 
