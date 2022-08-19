@@ -28,6 +28,16 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+// Check the rank of a value is greater than a given integer.
+class HasRankGT<int rank> :
+  Constraint<CPred<"isRankedShapedType($0.getType()) && "
+                   "(getRank($0.getType()) > " # rank # ")">>;
+
+// Check the rank of a value is of a given integer.
+class HasRankOf<int rank> :
+  Constraint<CPred<"isRankedShapedType($0.getType()) && "
+                   "(getRank($0.getType()) == " # rank # ")">>;
+
 def GetSqrtResultBatchNormA :
       NativeCodeCall<"getSqrtResultBatchNormA($_loc, $_builder, $0, $1)">;
 
@@ -168,6 +178,55 @@ def expandConstantOperandForSubOp2: Pat<
                            (returnType $x)),
              $x),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Rules to turn ONNXMatMulOp with N-D inputs into the one with 3-D inputs.
+//===----------------------------------------------------------------------===//
+
+def ReshapeTo3D: NativeCodeCall<
+  "reshapeTo3D($_builder, $_loc, $0)"
+>;
+
+def GetMatMulResultShape: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1)"
+>;
+
+def GetMatMulResultType: NativeCodeCall<
+  "getMatMulResultType($_builder, $_loc, $0, $1)"
+>;
+
+def rewriteMatMulNDto3D_NonBroadcast: Pat<
+  (ONNXMatMulOp:$c $a, $b),
+  (ONNXReshapeOp (ONNXMatMulOp
+                    (ReshapeTo3D:$a_r $a),
+                    (ReshapeTo3D:$b_r $b),
+                    (returnType (GetMatMulResultType $a_r, $b_r))),
+                 (GetMatMulResultShape $a, $b),
+                 (GetZeroI64Attr)),
+  [(HasRankGT<3> $a), (HasRankGT<3> $b)]
+>;
+
+def rewriteMatMulNDto3D_Broadcast_1: Pat<
+  (ONNXMatMulOp:$c $a, $b),
+  (ONNXReshapeOp (ONNXMatMulOp
+                    (ReshapeTo3D:$a_r $a),
+                    $b,
+                    (returnType (GetMatMulResultType $a_r, $b))),
+                 (GetMatMulResultShape $a, $b),
+                 (GetZeroI64Attr)),
+  [(HasRankGT<3> $a), (HasRankOf<2> $b)]
+>;
+
+def rewriteMatMulNDto3D_Broadcast_2: Pat<
+  (ONNXMatMulOp:$c $a, $b),
+  (ONNXReshapeOp (ONNXMatMulOp
+                    $a,
+                    (ReshapeTo3D:$b_r $b),
+                    (returnType (GetMatMulResultType $a, $b_r))),
+                 (GetMatMulResultShape $a, $b),
+                 (GetZeroI64Attr)),
+  [(HasRankOf<2> $a), (HasRankGT<3> $b)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

@@ -47,6 +47,11 @@ Value OnnxBuilder::ceil(Value input) const {
   return b.create<ONNXCeilOp>(loc, toTensor(input.getType()), input);
 }
 
+Value OnnxBuilder::concat(
+    Type outputType, ValueRange inputs, IntegerAttr axis) const {
+  return b.create<ONNXConcatOp>(loc, toTensor(outputType), inputs, axis);
+}
+
 Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
@@ -120,6 +125,16 @@ Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
   return b.create<ONNXReshapeOp>(
       loc, toTensor(outputType), toTensor(input), toTensor(shape));
+}
+
+Value OnnxBuilder::shape(Type outputType, Value input) const {
+  return b.create<ONNXShapeOp>(loc, toTensor(outputType), toTensor(input));
+}
+
+Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
+    Value axes, Value steps) const {
+  return b.create<ONNXSliceOp>(loc, toTensor(outputType), toTensor(input),
+      toTensor(starts), toTensor(ends), toTensor(axes), toTensor(steps));
 }
 
 Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
