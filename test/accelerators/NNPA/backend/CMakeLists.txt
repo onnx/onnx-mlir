@@ -186,10 +186,10 @@ set(NNPA_TEST_LIST
     # test_lstm_with_peepholes_cpu
 
     # ==OP== MatMul
-    # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (2, 2), (3, 3), and (3, 2).
+    # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2. If M or N > 3, only supports static shape at this moment.
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
-    # test_matmul_4d_cpu,zdnn_matmul_op # 4d not supported
+    test_matmul_4d_cpu,zdnn_matmul_op
 
     # ==OP== Max
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
