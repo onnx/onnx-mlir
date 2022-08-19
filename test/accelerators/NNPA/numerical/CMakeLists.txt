@@ -47,6 +47,9 @@ function(add_numerical_unittest test_name)
   if (${test_name}_data_range)
      set(TEST_ENV_VAR "${TEST_ENV_VAR};TEST_DATARANGE=${${test_name}_data_range}")
   endif ()
+  if (${test_name}_config)
+     set(TEST_ENV_VAR "${TEST_ENV_VAR};TEST_CONFIG=${${test_name}_config}")
+  endif ()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "${TEST_ENV_VAR}")
 endfunction()
 
@@ -62,7 +65,8 @@ set(TEST_LINK_LIBS rapidcheck ModelLib)
 
 # Conv2D
 set(TestConvNNPA_instruction zdnn_conv2d)
-set(TestConvNNPA_data_range 0.001)
+set(TestConvNNPA_data_range 0.1)
+set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
 add_numerical_unittest(TestConvNNPA
    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
    DEFINE PRIVATE TEST_CONV_STATIC TEST_CONV_D1 TEST_CONV_VALID_UPPER

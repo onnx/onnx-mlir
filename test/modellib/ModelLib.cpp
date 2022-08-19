@@ -114,6 +114,25 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
+std::map<std::string, std::string> ModelLibBuilder::getTestConfigFromEnv(
+    const std::string &envVar) {
+  std::map<std::string, std::string> opts;
+  if (const char *envConfigString = std::getenv(envVar.c_str())) {
+    std::stringstream envString;
+    envString << envConfigString;
+    std::string optionString;
+    while (getline(envString, optionString, ' ')) {
+      size_t pos = optionString.find('=');
+      if (pos == std::string::npos)
+        continue;
+      std::string optionNameString = optionString.substr(0, pos);
+      std::string optionValString = optionString.substr(pos + 1);
+      opts[optionNameString] = optionValString;
+    }
+  }
+  return opts;
+}
+
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {

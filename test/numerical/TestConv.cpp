@@ -8,7 +8,7 @@
 
 #include "test/modellib/ModelLib.hpp"
 
-#define DEBUG 0
+#define DEBUG 1
 
 using namespace mlir;
 
@@ -62,34 +62,48 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
+  // Get configurations from an environment variable
+  std::map<std::string, std::string> opts =
+      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
+  std::cout << "Dimension type from env: \"" << opts["-dim"] << "\"\n";
+  std::cout << "Dilation from env: \"" << opts["-dilation"] << "\"\n";
+  std::cout << "Padding type from env: \"" << opts["-padding"] << "\"\n";
+  // Set configuration for test
+  int dimType;
+  int maxDilation;
+  std::string paddingType;
+  if (opts["-dim"] == "static")
+    dimType = 1; // only static
+  else
+    dimType = 2; // static and dynamic
+  if (opts["-dilation"] == "1")
+    maxDilation = 2; // dilation = 1
+  else
+    maxDilation = 3; // dilation = 1 or 2
+  if (opts["-padding"] == "valid_upper")
+    paddingType = "valid_upper";
+  else
+    paddingType = "valid_upper_lower";
 
-  // Had to explicitly iterate over dynamic as otherwise the random algorithm
+  // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
-#ifdef TEST_CONV_STATIC
-  int dynamicCase = 1;
-#else
-  int dynamicCase = 2;
-#endif
-  for (isDynamic = 0; isDynamic < dynamicCase; ++isDynamic) {
+  for (isDynamic = 0; isDynamic < dimType; ++isDynamic) {
     // First test: check auto pads that set the pad values.
     printf("test case generation with auto pad = VALID or SAME and %s.\n",
         (isDynamic ? "dynamic" : "static"));
-    bool success = rc::check("convolution implementation correctness", []() {
+    bool success = rc::check("convolution implementation correctness", [&]() {
       const auto S = *rc::gen::inRange(1, 3);
       stride = S;
-#ifdef TEST_CONV_D1
-      const auto D = 1;
-#else
-      const auto D = *rc::gen::inRange(1, 3);
-#endif
+      const auto D = *rc::gen::inRange(1, maxDilation);
       dilation = D;
-#ifdef TEST_CONV_VALID_UPPER
-      const auto autoPad = (ConvAutoPad)*rc::gen::element(
-          (int)ConvAutoPad::VALID, (int)ConvAutoPad::UPPER);
-#else
-      const auto autoPad = (ConvAutoPad)*rc::gen::inRange(
-          (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
-#endif
+      ConvAutoPad autoPad;
+      if (paddingType == "valid_upper")
+        autoPad = (ConvAutoPad)*rc::gen::element(
+            (int)ConvAutoPad::VALID, (int)ConvAutoPad::UPPER);
+      else
+        autoPad = (ConvAutoPad)*rc::gen::inRange(
+            (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
+
       const auto N = *rc::gen::inRange(1, 5);
       const auto C = *rc::gen::inRange(1, 10);
       const auto H = *rc::gen::inRange(5, 32 * stride);
@@ -107,11 +121,6 @@ int main(int argc, char *argv[]) {
     // Second test: test NOTSET over a wide range of image and kernel sizes.
     // Had to manually iterate over strides and dilation to ensure sufficient
     // coverage.
-#ifdef TEST_CONV_D1
-    int maxDilation = 2;
-#else
-    int maxDilation = 3;
-#endif
     for (stride = 1; stride < 3; ++stride) {
       for (dilation = 1; dilation < maxDilation; ++dilation) {
         printf("\nRun with stride %d, dilation %d and %s.\n", stride, dilation,
@@ -127,7 +136,7 @@ int main(int argc, char *argv[]) {
         }
         // RapidCheck test case generation for a given stride and dilation.
         bool success =
-            rc::check("convolution implementation correctness", []() {
+            rc::check("convolution implementation correctness", [&]() {
               const auto N = *rc::gen::inRange(1, 5);
               const auto C = *rc::gen::inRange(1, 10);
               const auto H = *rc::gen::inRange(5, 32 * stride);
@@ -139,21 +148,21 @@ int main(int argc, char *argv[]) {
               auto pWBegin = *rc::gen::inRange(0, kW);
               auto pHEnd = *rc::gen::inRange(0, kH);
               auto pWEnd = *rc::gen::inRange(0, kW);
-#ifdef TEST_CONV_VALID_UPPER
-              if (pHBegin != 0 || pWBegin != 0 || pHEnd != 0 || pWEnd != 0) {
-                // Update pads for SAME_UPPER
-                const auto Hout = std::ceil(float(H) / float(stride));
-                const auto Wout = std::ceil(float(W) / float(stride));
-                const auto Hpad =
-                    std::max(int((Hout - 1) * stride + kH - H), 0);
-                const auto Wpad =
-                    std::max(int((Wout - 1) * stride + kW - W), 0);
-                pHBegin = Hpad / 2;
-                pWBegin = Wpad / 2;
-                pHEnd = Hpad - pHBegin;
-                pWEnd = Wpad - pWBegin;
+              if (paddingType == "valid_upper") {
+                if (pHBegin != 0 || pWBegin != 0 || pHEnd != 0 || pWEnd != 0) {
+                  // Update pads for SAME_UPPER
+                  const auto Hout = std::ceil(float(H) / float(stride));
+                  const auto Wout = std::ceil(float(W) / float(stride));
+                  const auto Hpad =
+                      std::max(int((Hout - 1) * stride + kH - H), 0);
+                  const auto Wpad =
+                      std::max(int((Wout - 1) * stride + kW - W), 0);
+                  pHBegin = Hpad / 2;
+                  pWBegin = Wpad / 2;
+                  pHEnd = Hpad - pHBegin;
+                  pWEnd = Wpad - pWBegin;
+                }
               }
-#endif
               // Make sure we have at least 1 output per dimension.
               RC_PRE((H / stride >= kH * dilation) &&
                      (W / stride > kW * dilation));
@@ -165,18 +174,18 @@ int main(int argc, char *argv[]) {
       }
     }
 
-#ifndef TEST_CONV_VALID_UPPER
-    // Third test, exhaustive test over a small range of values.
-    printf("\nExhaustive test cases with unit stride and dilation, and %s.\n",
-        (isDynamic ? "dynamic" : "static"));
-    stride = dilation = 1;
-    for (int pHBegin = 0; pHBegin < 3; pHBegin++)
-      for (int pHEnd = 0; pHEnd < 3; pHEnd++)
-        for (int pWBegin = 0; pWBegin < 3; pWBegin++)
-          for (int pWEnd = 0; pWEnd < 3; pWEnd++)
-            assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
-                pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
-#endif
+    if (paddingType != "valid_upper") {
+      // Third test, exhaustive test over a small range of values.
+      printf("\nExhaustive test cases with unit stride and dilation, and %s.\n",
+          (isDynamic ? "dynamic" : "static"));
+      stride = dilation = 1;
+      for (int pHBegin = 0; pHBegin < 3; pHBegin++)
+        for (int pHEnd = 0; pHEnd < 3; pHEnd++)
+          for (int pWBegin = 0; pWBegin < 3; pWBegin++)
+            for (int pWEnd = 0; pWEnd < 3; pWEnd++)
+              assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
+                  pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
+    }
 
   } // End loop over static / dynamic
   return 0;

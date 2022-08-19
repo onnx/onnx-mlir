@@ -111,6 +111,9 @@ public:
   // reproducible random numbers.
   static void setRandomNumberGeneratorSeed(const std::string &envVar);
 
+  static std::map<std::string, std::string> getTestConfigFromEnv(
+      const std::string &envVar);
+
 protected:
   // Create a function with an empty body.
   // This function will contain the model to be tested.
