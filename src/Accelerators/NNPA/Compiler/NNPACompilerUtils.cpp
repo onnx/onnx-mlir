@@ -140,16 +140,17 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
+      // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true,
           instrumentONNXSignature, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
       else {
-        // Partially lower Krnl ops to Affine dialect.
-        addKrnlToAffinePasses(pm);
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
+        // Partially lower Krnl ops to Affine dialect.
+        addKrnlToAffinePasses(pm);
         // Optimizations at ZLow.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
