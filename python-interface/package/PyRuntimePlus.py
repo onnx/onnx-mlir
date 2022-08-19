@@ -64,51 +64,56 @@ class OMCompilerOption:
     def set_target(self,target):
         self.target = target
     
-    def get_target(self,target):
+    def get_target(self):
         return(self.target)
 
 class OMSession:
 
-    def _init_(self,file):
+    def __init__(self,file):
         self.file = file
-        self.compiler = PyOnnxMlirCompiler.OnnxMlirCompiler(file)
+        self.compiler = OnnxMlirCompiler(file)
     
     def compile(self,option):
-        if(option.get_target_triple()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.target_triple, option.get_target_triple())
+        if(hasattr(self,"target_triple")):
+            self.compiler.set_option(OnnxMlirOption.target_triple, option.get_target_triple())
         
-        if(option.get_target_arch()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.target_arch, option.get_target_arch())
+        if(hasattr(self,"target_arch")):
+            self.compiler.set_option(OnnxMlirOption.target_arch, option.get_target_arch())
 
-        if(option.get_target_cpu()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.target_cpu, option.get_target_cpu())
+        if(hasattr(self,"target_cpu")):
+            self.compiler.set_option(OnnxMlirOption.target_cpu, option.get_target_cpu())
 
-        if(option.get_target_accel()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.target_accel, option.get_target_accel())
+        if(hasattr(self,"target_accel")):
+            self.compiler.set_option(OnnxMlirOption.target_accel, option.get_target_accel())
 
-        if(option.get_opt_level()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.opt_level, option.get_opt_level())
+        if(hasattr(self,"get_opt_level")):
+            self.compiler.set_option(OnnxMlirOption.opt_level, option.get_opt_level())
 
-        if(option.get_opt_flag()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.opt_flag, option.get_opt_flag())
+        if(hasattr(self,"opt_flag")):
+            self.compiler.set_option(OnnxMlirOption.opt_flag, option.get_opt_flag())
 
-        if(option.get_llc_flag()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.llc_flag, option.get_llc_flag())
+        if(hasattr(self,"llc_flag")):
+            self.compiler.set_option(OnnxMlirOption.llc_flag, option.get_llc_flag())
 
-        if(option.get_verbose()!=""):
-            self.compiler.set_option(PyOnnxMlirCompiler.OnnxMlirOption.verbose, option.get_verbose())
+        if(hasattr(self,"verbose")):
+            self.compiler.set_option(OnnxMlirOption.verbose, option.get_verbose())
         
-        rc = self.compiler.compile(option.get_target(), PyOnnxMlirCompiler.OnnxMlirTarget.emit_lib)
+        rc = self.compiler.compile(option.get_target(), OnnxMlirTarget.emit_lib)
         self.output_file_name = self.compiler.get_output_file_name()
         return rc
     
     def run(self,input):
-        self.session = PyRuntime.ExecutionSession(self.output_file_name)
+        if(hasattr(self,"session") == False):
+            self.session = ExecutionSession(self.output_file_name)
         outputs = self.session.run([input])
         return outputs
     
     def print_input_signature(self):
+        if(hasattr(self,"session") == False):
+            self.session = ExecutionSession(self.output_file_name)
         print("input signature in json", self.session.input_signature())
     
     def print_output_signature(self):
+        if(hasattr(self,"session") == False):
+            self.session = ExecutionSession(self.output_file_name)
         print("output signature in json",self.session.output_signature())

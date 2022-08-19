@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyRuntimePlus import *
+from package.PyRuntimePlus import *
 
 # Load onnx model and create Onnx Mlir Compiler object.
 # Compiler needs to know where to find its runtime. Set ONNX_MLIR_RUNTIME_DIR
@@ -12,7 +12,7 @@ from PyRuntimePlus import *
 file = './mnist.onnx'
 session = OMSession(file)
 # create a Compiler Option object.
-copt = CompilerOption()
+copt = OMCompilerOption()
 # set optimization level to -O3.
 copt.set_opt_level("3")
 # set the output file name.
