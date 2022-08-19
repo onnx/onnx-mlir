@@ -5,9 +5,6 @@ from PyRuntime import ExecutionSession
 from PyOnnxMlirCompiler import OnnxMlirCompiler, OnnxMlirTarget, OnnxMlirOption
 
 # Load onnx model and create Onnx Mlir Compiler object.
-# Compiler needs to know where to find its runtime. Set ONNX_MLIR_RUNTIME_DIR
-# to proper path.
-# export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
 file = './mnist.onnx'
 compiler = OnnxMlirCompiler(file)
 # Set optimization level to -O3.

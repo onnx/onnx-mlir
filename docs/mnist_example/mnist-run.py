@@ -3,13 +3,9 @@
 import numpy as np
 from package.PyRuntimePlus import *
 
-# Load onnx model and create Onnx Mlir Compiler object.
-# Compiler needs to know where to find its runtime. Set ONNX_MLIR_RUNTIME_DIR
-# to proper path.
-# export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
-
-# create a session given the onnx model file.
+# give the model file path
 file = './mnist.onnx'
+# create a session given the onnx model file.
 session = OMSession(file)
 # create a Compiler Option object.
 copt = OMCompilerOption()

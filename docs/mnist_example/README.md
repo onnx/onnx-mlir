@@ -77,18 +77,34 @@ Now we are ready to compile the model! To make it easier to invoke commands and 
 # ONNX_MLIR_ROOT points to the root of the onnx-mlir, 
 # under which the include and the build directory lies.
 export ONNX_MLIR_ROOT=$(pwd)/../..
-# Define the include directory where onnx-mlir runtime include files resides.
-# Change only if you have a non-standard install.
-export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 # Define the bin directory where onnx-mlir binary resides. Change only if you
 # have a non-standard install.
 export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
+# Define the include directory where onnx-mlir runtime include files resides.
+# Change only if you have a non-standard install.
+export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 
 # Include ONNX-MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
+
+# Compiler needs to know where to find its runtime. Set ONNX_MLIR_RUNTIME_DIR to proper path.
+export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
 ```
 
-Run these commands directly in the docs/docs/mnist_example and everything should work fine. You may also simply execute `. update_env.sh`
+You may also simply execute `chmod +x update_env.sh` and `./update_env.sh` for the above commands.
+
+Beside including all the header files, to run the Python code through Python API such as `PyRuntime`, `PyRuntimePlus` and `PyOnnxMlirCompiler`, I also updated my environment variables as such:
+
+```bash
+# Copy the PyOnnxMlirCompiler shared library file
+cp ../../build/Debug/lib/PyOnnxMlirCompiler.cpython-38-x86_64-linux-gnu.so ./
+# Copy the PyRuntime shared library file
+cp ../../build/Debug/lib/PyRuntime.cpython-38-x86_64-linux-gnu.so ./
+# Use pip to install the PyRuntimePlus Python package
+pip install ../../python-interface/dist/PyRuntimePlus-0.1.tar.gz
+```
+
+You may also simply execute `chmod +x setup_python.sh` and `./setup_python.sh` for the above commands. Run all these two parts of commands directly in the docs/docs/mnist_example and everything should work fine.
 
 ## Compile Model
 
@@ -97,7 +113,7 @@ To compile the model into a shared library that can be used with C/C++ and Pytho
 onnx-mlir -O3 [--EmitLib] mnist.onnx
 ```
 
-A `mnist.so` should appear, which corresponds to the compiled model object file.
+A `mnist.so` should appear, which corresponds to the compiled model object file. An example to compile the model via Python interface is also provided. You could also run `python3 mnist-compile.py` and you will see a `mnist.so` appears as well.
 
 To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `--EmitJNI` option:
 ```bash
