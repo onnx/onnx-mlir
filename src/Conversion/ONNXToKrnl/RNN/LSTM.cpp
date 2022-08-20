@@ -85,7 +85,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
   activationReverse.g.name = "tanh";
   activationReverse.h.name = "tanh";
   if (activations) {
-    ArrayAttr activationArrAttr = activations.getValue();
+    ArrayAttr activationArrAttr = activations.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -122,7 +122,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayAttr activationArrAttr = activationAlpha.getValue();
+    ArrayAttr activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -156,7 +156,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayAttr activationArrAttr = activationBeta.getValue();
+    ArrayAttr activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
