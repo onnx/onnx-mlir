@@ -8,8 +8,6 @@
 
 #include "test/modellib/ModelLib.hpp"
 
-#define DEBUG 1
-
 using namespace mlir;
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
@@ -29,14 +27,12 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, int pHBegin, int pHEnd,
     int pWBegin, int pWEnd, const ConvAutoPad autoPad) {
   static int testNum = 0;
-  if (DEBUG)
-    printf(
-        "attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
-        "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
-        "dilation %d\n",
-        ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-        Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,
-        dilation);
+  printf("attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
+         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
+         "dilation %d\n",
+      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
+      Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,
+      dilation);
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
       pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
@@ -65,25 +61,27 @@ int main(int argc, char *argv[]) {
   // Get configurations from an environment variable
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
-  std::cout << "Dimension type from env: \"" << opts["-dim"] << "\"\n";
-  std::cout << "Dilation from env: \"" << opts["-dilation"] << "\"\n";
-  std::cout << "Padding type from env: \"" << opts["-padding"] << "\"\n";
   // Set configuration for test
-  int dimType;
-  int maxDilation;
+  int dimType, maxDilation;
   std::string paddingType;
-  if (opts["-dim"] == "static")
+  if (opts["-dim"] == "static") {
+    std::cout << "Dimension type from env: \"" << opts["-dim"] << "\"\n";
     dimType = 1; // only static
-  else
-    dimType = 2; // static and dynamic
-  if (opts["-dilation"] == "1")
+  } else {
+    dimType = 2; // static and dynamic (default)
+  }
+  if (opts["-dilation"] == "1") {
+    std::cout << "Dilation from env: \"" << opts["-dilation"] << "\"\n";
     maxDilation = 2; // dilation = 1
-  else
-    maxDilation = 3; // dilation = 1 or 2
-  if (opts["-padding"] == "valid_upper")
+  } else {
+    maxDilation = 3; // dilation = 1 or 2 (default)
+  }
+  if (opts["-padding"] == "valid_upper") {
+    std::cout << "Padding type from env: \"" << opts["-padding"] << "\"\n";
     paddingType = "valid_upper";
-  else
-    paddingType = "valid_upper_lower";
+  } else {
+    paddingType = "valid_upper_lower"; // default
+  }
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.

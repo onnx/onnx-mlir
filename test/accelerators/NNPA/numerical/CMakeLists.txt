@@ -69,7 +69,6 @@ set(TestConvNNPA_data_range 0.1)
 set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
 add_numerical_unittest(TestConvNNPA
    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
-   DEFINE PRIVATE TEST_CONV_STATIC TEST_CONV_D1 TEST_CONV_VALID_UPPER
    LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
    )
 
@@ -82,25 +81,24 @@ add_numerical_unittest(TestMatMul2DNNPA
 
 # Gemm
 set(TestGemmNNPA_instruction zdnn_matmul_op)
+set(TestGemmNNPA_config "-alpha=1 -beta=1")
 add_numerical_unittest(TestGemmNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
-  DEFINE PRIVATE TEST_GEMM_ALPHA_BETA_1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-
 # LSTM
 set(TestLSTMNNPA_instruction zdnn_lstm)
+set(TestLSTMNNPA_config "-peephole=0")
 add_numerical_unittest(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-  DEFINE PRIVATE TEST_LSTM_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
 # GRU
 set(TestGRUNNPA_instruction zdnn_gru)
+set(TestGRUNNPA_config "-linearBeforeReset=1")
 add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
-  DEFINE PRIVATE TEST_GRU_L1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )

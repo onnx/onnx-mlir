@@ -82,10 +82,26 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-
+  // Get configurations from an environment variable
+  std::map<std::string, std::string> opts =
+      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
+  // Set configuration for test
+  int maxHasAlpha, maxHasBeta;
+  if (opts["-alpha"] == "1") {
+    std::cout << "Alpha from env: \"" << opts["-alpha"] << "\"\n";
+    maxHasAlpha = 1; // alpha = 1.0
+  } else {
+    maxHasAlpha = 2; // alpha = 1.0 or 1.2 (default)
+  }
+  if (opts["-beta"] == "1") {
+    std::cout << "Beta from env: \"" << opts["-alpha"] << "\"\n";
+    maxHasBeta = 1; // beta = 1.0
+  } else {
+    maxHasBeta = 2; // beta = 1.0 or 0.8 (default)
+  }
   if (true) {
     printf("RapidCheck test case generation.\n");
-    bool success = rc::check("Gemm implementation correctness", []() {
+    bool success = rc::check("Gemm implementation correctness", [&]() {
       const int maxRange = 50;
       const auto I = *rc::gen::inRange(1, maxRange);
       const auto J = *rc::gen::inRange(1, maxRange);
@@ -93,15 +109,10 @@ int main(int argc, char *argv[]) {
       const auto aTrans = *rc::gen::inRange(0, 2);
       const auto bTrans = *rc::gen::inRange(0, 2);
       const auto cRank = *rc::gen::inRange(1, 3);
-#ifdef TEST_GEMM_ALPHA_BETA_1
-      float alpha = 1.0;
-      float beta = 1.0;
-#else
-      const auto hasAlpha = *rc::gen::inRange(0, 2);
-      const auto hasBeta = *rc::gen::inRange(0, 2);
+      const auto hasAlpha = *rc::gen::inRange(0, maxHasAlpha);
+      const auto hasBeta = *rc::gen::inRange(0, maxHasBeta);
       float alpha = hasAlpha ? 1.2 : 1.0;
       float beta = hasBeta ? 0.8 : 1.0;
-#endif
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
           I, J, K, aTrans, bTrans, cRank, alpha, beta));
     });
