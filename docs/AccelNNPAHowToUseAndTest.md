@@ -31,17 +31,17 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
 
 ##### Conv2D
-Since Conv2D of zDNN library does not support the case where dilations equal to one, #ifdef directive  `TEST_CONV_D1` are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, #ifdef directive `TEST_CONV_VALID_UPPER` is prepared to use the pading type.
-To set data range for input data and weightsi n Conv2D, an environment variable `TestConvNNPA_DATARANGE` are used. Currently the value is 0.001 written in cmake file to pass the test.
+Since Conv2D of zDNN library does not support the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided.
+To set data range for input data and weightsi n Conv2D, an environment variable `TestConvNNPA_DATARANGE` are used. Currently the value is 0.1 written in cmake file to pass the test.
 
 ##### Gemm
-Since `alpha` and `beta` should be one for Matmul of zDNN library, #ifdef directive `TEST_GEMM_ALPHA_BETA_1` are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
+Since `alpha` and `beta` should be one for Matmul of zDNN library, `-alpha=1` and `-beta=1` options are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
 
 ##### LSTM
-Since LSTM of zDNN library does not support peephole tensor, #ifdef directive `TEST_LSTM_NONEP_ONLY` are added in `test/numerial/TestLSTM.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
+Since LSTM of zDNN library does not support peephole tensor, `-peephole=0` are added in `test/numerial/TestLSTM.cpp` and set in the CMakeLists.
 
 ##### GRU
-Since GRU of zDNN library does not support LinearBeforeReset, #ifdef directive `TEST_GRU_L1` are added in `test/numerial/TestGRU.cpp` and set in the CMakeLists. Currently bidirectinal LSTM is not supported in NNPA, so, it is disabled by using #ifdef directive `TEST_RNN_NO_BIDIR`.
+Since GRU of zDNN library support only LinearBeforeReset=1, `-linerBeforeReset=1` option is added in `test/numerial/TestGRU.cpp` and set in the CMakeLists.
 
 ### Backend tests
 
