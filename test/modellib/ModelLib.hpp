@@ -34,7 +34,7 @@ const static float omDefaultRangeBound = 1.0;
 
 /*
    Superclass that defines a template to create models, creating an ONNX
-   function programatically, then compiling, loading, runing and testing the
+   function programmatically, then compiling, loading, running and testing the
    validity of the results.
    The general flow of using a model is as follow:
 
@@ -132,14 +132,14 @@ protected:
   mlir::OpBuilder builder; // Builder (used during building)
   mlir::ModuleOp module;   // Code for the model (used until compilation)
 
-  // Data for runing the model (freed in destructor).
+  // Data for running the model (freed in destructor).
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
 };
 
 template <typename T1, typename T2>
 class CategoryMapperLibBuilder : public ModelLibBuilder {
-  // Ensure template is instatiated with expected types.
+  // Ensure template is instantiated with expected types.
   static_assert((std::is_same<T1, int64_t>::value ||
                     std::is_same<T1, const char *>::value),
       "T1 must be int64_t or const char *");
@@ -231,6 +231,7 @@ private:
   std::string moduleIR;
 };
 
+// 2x2 matmul with no broadcast
 class MatMul2DLibBuilder : public ModelLibBuilder {
 public:
   MatMul2DLibBuilder(
@@ -243,6 +244,33 @@ public:
 private:
   // Data that defines model.
   const int I, J, K;
+};
+
+// Matmul where there is broadcasting in either A or B, but not both.
+// If broadcasting A, then B has a higher rank; if broadcasting B, then A has a
+// higher rank.
+class MatMulSingleBroadcastLibBuilder : public ModelLibBuilder {
+public:
+  // If broadcastA is true, the A
+  MatMulSingleBroadcastLibBuilder(const std::string &modelName, bool broadcastB,
+      std::vector<int64_t> broadcastDims, const int I, const int J,
+      const int K);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Compute one matmul for a given broadcast
+  void computeOneMatMul(OMTensor *a, OMTensor *b, OMTensor *c,
+      std::vector<int64_t> aBroadcast, std::vector<int64_t> bBroadcast,
+      std::vector<int64_t> cBroadcast);
+  // Data that defines model.
+  bool broadcastB;
+  std::vector<int64_t> broadcastDims;
+  const int I, J, K;
+  // Computed data from inputs.
+  std::vector<int64_t> aShape, bShape, cShape;
 };
 
 // Padding schemes for Convolutions.
@@ -271,7 +299,7 @@ private:
   bool verifyShapeAndComputeBeginEnd();
 
   // Data that defines model, where const define model, non-const are derived
-  // paramters.
+  // parameters.
   const int N, C, H, W, kH, kW;
   const ConvAutoPad autoPad;
   int pHBegin, pHEnd, pWBegin, pWEnd;

@@ -282,6 +282,82 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   }
 
   // Handle the cases with 2x2 matrices both for A, B, and C without
+  // broadcast. Implementation here uses the efficient 1d tiling plus kernel
+  // substitution.
+  void replace2x2Matmul2dBroadcastB(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
+    // Prepare: loop bounds and zero
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    int64_t BCRank = shapeHelper.bDims.size();
+    int64_t BCBroadcastRank = BCRank - 2;
+    assert(BCBroadcastRank > 0 && "expected broadcast dims in B & C");
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
+        create(rewriter, loc);
+    Value zero = create.math.constantIndex(0);
+    Value I = create.mem.dim(C, BCBroadcastRank + 0); // C has broadcast.
+    Value J = create.mem.dim(C, BCBroadcastRank + 1);
+    Value K = create.mem.dim(A, 1); // A doesn't have broadcast.
+
+    // Initialize alloc/C to zero.
+    create.krnl.memset(alloc, zeroVal);
+    bool simdize = true;
+
+    // Define blocking, with simdization along the j axis.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    int64_t iRegTile, jRegTile, kRegTile;
+    bool isMatVectorProduct =
+        !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct) {
+      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      computeTileSizeForMatVectProduct(
+          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    } else {
+      computeTileSizeForMatMatProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    }
+
+    // Broadcast loops
+    ValueRange broadcastLoop = create.krnl.defineLoops(BCBroadcastRank);
+    SmallVector<Value, 4> broadcastLB(BCBroadcastRank, zero);
+    SmallVector<Value, 4> broadcastUB;
+    for (int64_t i = 0; i < BCBroadcastRank; ++i)
+      broadcastUB.emplace_back(create.mem.dim(C, i));
+    create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
+        [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
+          MultiDialectBuilder<KrnlBuilder> create(createKrnl);
+          // I, J, K loop.
+          ValueRange origLoop = create.krnl.defineLoops(3);
+          // IJK indices.
+          Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
+          // Define blocked loop and permute.
+          ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
+          Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
+          ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
+          Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
+          ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
+          Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
+          create.krnl.permute(
+              {ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+          create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
+              {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
+                Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
+                // Compute global start for B/C: {broadcastIndices, 0, 0}
+                SmallVector<Value, 4> BCGlobalStart;
+                for (int64_t i = 0; i < BCBroadcastRank; ++i)
+                  BCGlobalStart.emplace_back(broadcastIndices[i]);
+                BCGlobalStart.emplace_back(zero);
+                BCGlobalStart.emplace_back(zero);                
+                createKrnl.matmul(A, {zero, zero}, B, BCGlobalStart, C,
+                    BCGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
+                    {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+                    /*unroll*/ true, /*overcompute*/ false);
+              });
+        });
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without
   // broadcast. Implementation here uses the efficient 2d tiling plus kernel
   // substitution.
 
@@ -294,8 +370,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -315,10 +391,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
+    auto cRank = alloc.getType().cast<MemRefType>().getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
+      assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
+    } else if (enableTiling && aRank == 2 && bRank > 2) {
+      assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
+      replace2x2Matmul2dBroadcastB(matMulOp, operandAdaptor, elementType,
+          shapeHelper, alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
@@ -327,7 +409,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, alloc);
     return success();
   }
-};
+}; // namespace onnx_mlir
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {

@@ -594,7 +594,7 @@ operation ::= `krnl.matmul` $A `[` $aGlobalIndexMemStart `]` `,`
               attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
 ```
 
-    Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+    Perform a matrix multiplication AA * BB + CC with sizes `[IxK] * [KxJ] + [IxJ]`.
     The original matrices AA, BB, and CC can be buffered in buffered arrays
     which may be padded. The original matrices and the padded array might
     have a higher rank than 2, but the actual matrix multiplication operation
@@ -607,7 +607,7 @@ operation ::= `krnl.matmul` $A `[` $aGlobalIndexMemStart `]` `,`
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
 
-    ORIGINAL ARRAY: denoted as AA, BB, CC with sizes AA: *xIxK; BB: *xKxJ; CC: *xI*J).
+    ORIGINAL ARRAY: denoted as AA, BB, CC with sizes AA: `*xIxK`; BB: `*xKxJ`; CC: `*xI*J`).
 
     BUFFER ARRAYS: denoted as A, B, and C. Note that this operation does
       not require the use of buffers arrays. If none are used, then A=AA,
@@ -637,43 +637,43 @@ operation ::= `krnl.matmul` $A `[` $aGlobalIndexMemStart `]` `,`
      -----------------------------------------------(2)
 ```
 
-* (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/kGlobalIndexComputeStart,
-   required, global 1D indices.
-* (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
-* (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
+* (1) `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/`kGlobalIndexComputeStart`,
+   required, each three are global 1D indices.
+* (2) `iGlobalUB`/`jGlobalUB`/`jGlobalUB`, required, each three are global 1D indices.
+* (3) `aGlobalIndexMemStart`/`bGlobalIndexMemStart`/`cGlobalIndexMemStart`,
    required, global nD indices with the same rank as the buffers A, B, and C.
-* (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
-* (5) computeTileSizes, required when tiled computation within buffer, 3D sizes (I, J, K).
+* (4) `aTileSize`/`bTileSize`/`cTileSize`, required when padding, each 2D sizes.
+* (5) `computeTileSizes`, required when tiled computation within buffer, 3D sizes (I, J, K).
 
-    The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-    kGlobalIndexComputeStart (1) indicate the global indices of the
+    The `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/
+    `kGlobalIndexComputeStart` (1) indicate the global indices of the
     first element of a tile to be computed in the original computations.
 
-    The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
+    The `iGlobalUB`/`jGlobalUB`/`kGlobalUB` (2) indicate the global upper bounds
     in the original computations.
 
     We provide 3 buffers for matrix multiply: A, B, and C. For each buffer,
     we indicate the global indices pointing the beginning of the buffer:
-    aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
+    `aGlobalIndexMemStart`, `bGlobalIndexMemStart`, and `cGlobalIndexMemStart` (3).
     If no buffers are used, i.e. the computation starts directly in the
     original memory, the global index is 0. If a buffer for AA is used to
-    put data into it starting at indices [i1, k1], where i1 & k1 are the
-    global indices in the original computations, then aGlobalIndexMemStart0
-    and aGlobalIndexMemStart1 are i1 & k1, respectively.
+    put data into it starting at indices `[i1, k1]`, where `i1` & `k1` are the
+    global indices in the original computations, then `aGlobalIndexMemStart0`
+    and `aGlobalIndexMemStart1` are `i1` & `k1`, respectively.
 
     If the A, B, or C buffers are larger than the actual data tile they
-    contain (see copy_to_tile_buffer), then the actual tile size must be
-    given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
+    contain (see `copy_to_tile_buffer`), then the actual tile size must be
+    given using an optional attribute: `aTileSize`, `bTileSize`, or `cTileSize` (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
     buffers A, B, or C, then the actual computation tile is given by
-    the optional tile attribute computeTileSize (5). Its rank is 3, for the
+    the optional tile attribute `computeTileSize` (5). Its rank is 3, for the
     I, J, and K dimension. The actual A, B, and C buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
-    the I, J, and K computeTileSizes, in their respective
-    dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
+    the I, J, and K `computeTileSizes`, in their respective
+    dimensions (A: `[IxK]`, B: `[KxJ]`, C: `[IxJ]`).
 
     Note that the buffers A, B, and C can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
@@ -682,9 +682,9 @@ operation ::= `krnl.matmul` $A `[` $aGlobalIndexMemStart `]` `,`
     constant index during one matrix multiply. These fixed indices are
     given as prefix dimensions in the starting indices for AA, BB, and CC
     as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
-    the starting indices for AA are [d, i1, k1] where i1 and k1 are as
-    above, and d is index pointing to the current instance of the IxK
-    AA matrix to be computed. B start indices would be unchanged at [k1, j1].
+    the starting indices for AA are `[d, i1, k1]` where `i1` and `k1` are as
+    above, and d is index pointing to the current instance of the `IxK`
+    AA matrix to be computed. B start indices would be unchanged at `[k1, j1]`.
 
     Simdize is used to state if simdization is requested.
     Unrolling is used to unroll and jam loops as warranted.
