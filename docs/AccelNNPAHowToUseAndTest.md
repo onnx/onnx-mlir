@@ -31,7 +31,7 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
 
 ##### Conv2D
-Since Conv2D of zDNN library does not support the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided.
+Since Conv2D of zDNN library only supports the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided.
 To set data range for input data and weightsi n Conv2D, an environment variable `TestConvNNPA_DATARANGE` are used. Currently the value is 0.1 written in cmake file to pass the test.
 
 ##### Gemm
