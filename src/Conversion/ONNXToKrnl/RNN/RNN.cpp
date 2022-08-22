@@ -84,7 +84,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayRef<Attribute> activationArrAttr = activationAlpha.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -104,7 +104,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayRef<Attribute> activationArrAttr = activationBeta.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {

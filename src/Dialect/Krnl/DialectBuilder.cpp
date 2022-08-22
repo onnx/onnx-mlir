@@ -210,9 +210,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
   static int32_t constantID = 0;
   return b.create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
       b.getStringAttr(name + std::to_string(constantID++)),
-      value.hasValue() ? value.getValue() : nullptr,
-      offset.hasValue() ? offset.getValue() : nullptr,
-      alignment.hasValue() ? alignment.getValue() : nullptr);
+      value.value_or(nullptr), offset.value_or(nullptr),
+      alignment.value_or(nullptr));
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {

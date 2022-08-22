@@ -35,6 +35,10 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXCeilOp
   mlir::Value ceil(mlir::Value input) const;
 
+  // ONNXConcatOp
+  mlir::Value concat(mlir::Type outputType, mlir::ValueRange inputs,
+      mlir::IntegerAttr axis) const;
+
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantFromRawBuffer(mlir::Type resultType, char *buf) const;
@@ -60,6 +64,14 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXShapeOp
+  mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
+
+  // ONNXSliceOp
+  mlir::Value slice(mlir::Type outputType, mlir::Value input,
+      mlir::Value starts, mlir::Value ends, mlir::Value axes,
+      mlir::Value steps) const;
 
   // ONNXSqueezeOp
   mlir::Value squeeze(

@@ -162,14 +162,14 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.getValue().size(); }
+size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
-  return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
+  return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
@@ -218,7 +218,7 @@ bool isFromNone(Value v) {
   if (v.getDefiningOp() &&
       dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
     auto c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
-    if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
+    if (c.value().has_value() && c.valueAttr().isa<DenseElementsAttr>()) {
       auto d = c.valueAttr().cast<DenseElementsAttr>();
       auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
       if (shape.size() == 1 && shape[0] == 0)
