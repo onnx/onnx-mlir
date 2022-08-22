@@ -20,6 +20,9 @@
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+//#include "src/Dialect/Krnl/DialectBuilder.hpp"
+
+using namespace mlir;
 
 namespace onnx_mlir {
 
@@ -176,6 +179,9 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
+  void parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+      ValueRange steps,
+      function_ref<void(DialectBuilder &, ValueRange)> bodyFn) const;
   void yield() const;
 };
 
