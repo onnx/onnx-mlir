@@ -2974,8 +2974,8 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   if (!hasShapeAndRank(inputValue))
     return success(); // Won't be able to do any checking at this stage.
 
-  ShapedType inputType = inputValue.getType().cast<ShapedType>();
-  auto inputShape = inputType.getShape();
+  auto inputType = inputValue.getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
 
   int64_t axisIndex = axis();
@@ -2998,20 +2998,20 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
           onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
     return success();
   }
-  ShapedType splitType = splitValue.getType().cast<ShapedType>();
-  auto splitShape = splitType.getShape();
+  auto splitType = splitValue.getType().cast<ShapedType>();
+  ArrayRef<int64_t> splitShape = splitType.getShape();
   int64_t splitRank = splitShape.size();
   if (splitRank > 1)
     return emitOpError() << ": split has rank " << splitRank << " > 1";
   if (DenseElementsAttr entries =
           getDenseElementAttributeFromONNXValue(splitValue)) {
     if (splitRank == 0) {
-      int64_t scalar = getScalarValue<int64_t>(entries, splitType);
+      auto scalar = getScalarValue<int64_t>(entries, splitType);
       if (scalar <= 0)
         return emitOpError() << ": split scalar " << scalar << " <= 0";
     } else {
       int64_t sum = 0;
-      for (IntegerAttr entry : entries.getValues<IntegerAttr>()) {
+      for (auto entry : entries.getValues<IntegerAttr>()) {
         int64_t i = entry.getInt();
         if (i < 0)
           return emitOpError() << ": split tensor has entry " << i << " < 0";
@@ -3035,8 +3035,8 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
 
   // NOTE: all the asserts below are conditions checked in verify()
 
-  ShapedType inputType = inputValue.getType().cast<ShapedType>();
-  auto shape = inputType.getShape();
+  auto inputType = inputValue.getType().cast<ShapedType>();
+  ArrayRef<int64_t> shape = inputType.getShape();
   int64_t rank = shape.size();
   int64_t axisIndex = axis();
   assert((-rank <= axisIndex && axisIndex < rank) && "axis out of range");
@@ -3067,14 +3067,14 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
       dims.erase(dims.begin() + axisIndex);
     }
   } else {
-    ShapedType splitType = splitValue.getType().cast<ShapedType>();
-    auto splitShape = splitType.getShape();
+    auto splitType = splitValue.getType().cast<ShapedType>();
+    ArrayRef<int64_t> splitShape = splitType.getShape();
     int64_t splitRank = splitShape.size();
     assert(splitRank <= 1 && "invalid split tensor rank");
     if (DenseElementsAttr entries =
             getDenseElementAttributeFromONNXValue(splitValue)) {
       if (splitRank == 0) {
-        int64_t scalar = getScalarValue<int64_t>(entries, splitType);
+        auto scalar = getScalarValue<int64_t>(entries, splitType);
         assert(scalar > 0 && "invalid split scalar");
         if (dimSize != -1) {
           length = dimSize / scalar;
