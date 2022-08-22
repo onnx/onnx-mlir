@@ -222,7 +222,7 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   KrnlGlobalOp globalOp =
       dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
   if (globalOp)
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
 
   return nullptr;
