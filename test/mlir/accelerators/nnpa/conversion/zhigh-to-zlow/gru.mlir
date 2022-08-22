@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
+func.func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = 0 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
@@ -37,7 +37,7 @@ func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLay
 
 // -----
 
-func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
+func.func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
@@ -75,7 +75,7 @@ func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayou
 // -----
 
 // COM: Test unknown timesteps and batch size.
-func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
+func.func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
 
@@ -126,7 +126,7 @@ func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = 
 
 // -----
 
-func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
+func.func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output = "zhigh.GRU"(%input, %cst, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, tensor<1x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32>
@@ -181,7 +181,7 @@ func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "
 
 // -----
 
-func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
+func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 
   %cst = "onnx.NoValue"() {value} : () -> none
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %cst, %hidden_weights, %cst) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, none, tensor<1x9x27xf32, #zhigh.encoding<{dataLayout = "ZRH"}>>, none) -> tensor<*xf32>
@@ -217,8 +217,8 @@ func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.encoding<
 // CHECK:           krnl.store [[VAR_5_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK:           [[RES_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 3, 1, 1, 32, 64], value = opaque<"zhigh", {{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
-// CHECK:           [[RES_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 3, 1, 1, 32, 64], value = opaque<"zhigh", {{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK:           [[RES_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh{{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK:           [[RES_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh{{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_8_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
 // CHECK-DAG:       [[VAR_9_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
 // CHECK-NOT: separator of consecutive DAGs

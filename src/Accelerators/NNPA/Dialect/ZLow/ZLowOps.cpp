@@ -35,10 +35,7 @@ namespace zlow {
 // ZLowDialect
 //===----------------------------------------------------------------------===//
 
-/// Dialect creation, the instance will be owned by the context. This is the
-/// point of registration of custom types and operations for the dialect.
-ZLowDialect::ZLowDialect(MLIRContext *ctx)
-    : Dialect(getDialectNamespace(), ctx, TypeID::get<ZLowDialect>()) {
+void ZLowDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.cpp.inc"
@@ -54,3 +51,5 @@ ZLowDialect::ZLowDialect(MLIRContext *ctx)
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.cpp.inc"
+
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowDialect.cpp.inc"

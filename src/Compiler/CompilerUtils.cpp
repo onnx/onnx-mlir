@@ -583,8 +583,15 @@ static int compileModuleToJniJar(
   llvm::sys::path::append(jniLibDir, "libmodel");
   std::string jniLibBase = llvm::StringRef(jniLibDir).str();
 
+#if defined(__APPLE__) && defined(__clang__)
+#define NOEXECSTACK                                                            \
+  {}
+#else
+#define NOEXECSTACK                                                            \
+  { "-z", "noexecstack" }
+#endif
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
-  rc = genSharedLib(modelSharedLibPath, {"-z", "noexecstack"},
+  rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
       {getRuntimeDir()});
   if (rc != CompilerSuccess)
@@ -607,7 +614,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
-  context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::KrnlDialect>();
 }
 
 // Return 0 on success, error number on failure.

@@ -99,7 +99,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     int64_t rank = inputType.getRank();
     int64_t ceilMode = poolOp.ceil_mode();
 
-    Value negInfinity = rewriter.create<mhlo::ConstOp>(
+    Value negInfinity = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(elemType,
                  APFloat::getInf(elemType.cast<FloatType>().getFloatSemantics(),
                      /*isNegative=*/true)));

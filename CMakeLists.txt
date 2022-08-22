@@ -10,13 +10,14 @@ option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # On systems that still have legacy lib64 directories (e.g., rhel/fedora,
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
 # CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
-set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_INSTALL_LIBDIR lib)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -87,6 +88,25 @@ if (WIN32)
 endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+
+# On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
+# and JAVA_INCLUDE_PATH2 are not set. Setting them requires JAVA_HOME to be
+# known. If the JAVA_HOME env var isn't set, we try to figure it out by running
+# java and looking for the java.home property.
+if(APPLE)
+  set(JAVA_HOME $ENV{JAVA_HOME})
+  if ("${JAVA_HOME}" STREQUAL "")
+    execute_process(
+      COMMAND bash -c "java -XshowSettings:properties -version 2>&1 | \
+                       sed -n 's/[ \t]*java.home = //p'"
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      OUTPUT_VARIABLE JAVA_HOME)
+  endif()
+  if (NOT "${JAVA_HOME}" STREQUAL "")
+    SET(JAVA_INCLUDE_PATH  "${JAVA_HOME}/include")
+    SET(JAVA_INCLUDE_PATH2 "${JAVA_HOME}/include/darwin")
+  endif()
+endif()
 
 # Don't require AWT to allow headless JDK to reduce docker image size
 set(JAVA_AWT_INCLUDE_PATH headless)

@@ -16,14 +16,12 @@ def ONNXAbsOp:ONNX_Op<"Abs",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), X);
+      auto resultType = UnrankedTensorType::get(X.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -99,28 +97,20 @@ def ONNXAddOp:ONNX_Op<"Add",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -152,28 +142,20 @@ def ONNXAndOp:ONNX_Op<"And",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -397,36 +379,64 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
   let description = [{
   "Carries out batch normalization as described in the paper"
   "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
-  "there are multiple cases for the number of outputs, which we list below:"
+  "There are five required inputs 'X', 'scale', 'B', 'input_mean' and"
+  "'input_var'."
+  "Note that 'input_mean' and 'input_var' are expected to be the estimated"
+  "statistics in inference mode (training_mode=False, default),"
+  "and the running statistics in training mode (training_mode=True)."
+  "There are multiple cases for the number of outputs, which we list below:"
   ""
-  "Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
-  "Output case #2: Y (test mode)"
+  "Output case #1: Y, running_mean, running_var (training_mode=True)"
+  "Output case #2: Y (training_mode=False)"
+  ""
+  "When training_mode=False, extra outputs are invalid."
+  "The outputs are updated as follows when training_mode=True:"
+  "```"
+  "running_mean = input_mean * momentum + current_mean * (1 - momentum)"
+  "running_var = input_var * momentum + current_var * (1 - momentum)"
+  ""
+  "Y = (X - current_mean) / sqrt(current_var + epsilon) * scale + B"
+  ""
+  "where:"
+  ""
+  "current_mean = ReduceMean(X, axis=all_except_channel_index)"
+  "current_var =  ReduceVar(X, axis=all_except_channel_index)"
+  ""
+  "Notice that ReduceVar refers to the population variance, and it equals to"
+  "sum(sqrd(x_i - x_avg)) / N"
+  "where N is the population size (this formula does not use sample size N - 1)."
+  ""
+  "```"
+  ""
+  "When training_mode=False:"
+  "```"
+  "Y = (X - input_mean) / sqrt(input_var + epsilon) * scale + B"
+  "```"
   ""
   "For previous (depreciated) non-spatial cases, implementors are suggested"
-  "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
+  "to flatten the input shape to (N x C * D1 * D2 * ... * Dn) before a BatchNormalization Op."
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$scale,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$B,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$mean,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$var,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$scale,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input_mean,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input_var,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
-    DefaultValuedAttr<F32Attr, "0.9">:$momentum);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$out_mean,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$out_var,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$saved_mean,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$saved_var);
+    DefaultValuedAttr<F32Attr, "0.9">:$momentum,
+    DefaultValuedAttr<SI64Attr, "0">:$training_mode);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$running_mean,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$running_var);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 5;
     }
     static int getNumberOfResults() {
-      return 5;
+      return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {20,20,20,20,20};
+      return {20,23,23};
     }
   }];
 }
@@ -776,9 +786,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
       if (auto attr = valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = sparse_valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }
       return resultTypes;
     }
@@ -786,11 +796,11 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
-    auto tensorType = value.getType();
+    auto tensorType = value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
-    auto tensorType = sparse_value.getType();
+    auto tensorType = sparse_value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
@@ -821,7 +831,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
       std::vector<mlir::Type> resultTypes;
       if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.getType().cast<ShapedType>().getElementType()));
+          attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           FloatType::getF32(getContext())));
@@ -1145,28 +1155,20 @@ def ONNXDivOp:ONNX_Op<"Div",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -1349,28 +1351,22 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -1417,14 +1413,12 @@ def ONNXExpOp:ONNX_Op<"Exp",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input);
+      auto resultType = UnrankedTensorType::get(input.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, input);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -1637,6 +1631,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     OptionalAttr<F32Attr>:$clip,
     DefaultValuedStrAttr<StrAttr, "forward">:$direction,
     OptionalAttr<SI64Attr>:$hidden_size,
+    DefaultValuedAttr<SI64Attr, "0">:$layout,
     DefaultValuedAttr<SI64Attr, "0">:$linear_before_reset);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
@@ -2046,28 +2041,22 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -2133,6 +2122,29 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
   }];
 }
 
+def ONNXHardSwishOp:ONNX_Op<"HardSwish",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX HardSwish operation";
+  let description = [{
+  "HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where"
+  "the HardSwish function, y = x * max(0, min(1, alpha * x + beta)) = x * HardSigmoid<alpha, beta>(x),"
+  "where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Hardmax operation";
@@ -2169,18 +2181,16 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
   let description = [{
   "Identity operator"
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input);
+      auto resultType = UnrankedTensorType::get(input.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, input);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -2203,7 +2213,7 @@ def ONNXIfOp:ONNX_Op<"If",
   "If conditional"
   }];
   let arguments = (ins TensorOf<[I1]>:$cond);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$outputs);
   let regions = (region SizedRegion<1>:$else_branch,
     SizedRegion<1>:$then_branch);
   let extraClassDeclaration = [{
@@ -2432,7 +2442,8 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     OptionalAttr<F32Attr>:$clip,
     DefaultValuedStrAttr<StrAttr, "forward">:$direction,
     OptionalAttr<SI64Attr>:$hidden_size,
-    DefaultValuedAttr<SI64Attr, "0">:$input_forget);
+    DefaultValuedAttr<SI64Attr, "0">:$input_forget,
+    DefaultValuedAttr<SI64Attr, "0">:$layout);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_c);
@@ -2493,28 +2504,22 @@ def ONNXLessOp:ONNX_Op<"Less",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = $_builder.getI1Type();
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = $_builder.getI1Type();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -2748,8 +2753,8 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$M,
     AnyTypeOf<[TensorOf<[I1]>, NoneType]>:$cond,
-    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$v_initial);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$v_final_and_scan_outputs);
+    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$v_initial);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$v_final_and_scan_outputs);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -3143,28 +3148,20 @@ def ONNXMulOp:ONNX_Op<"Mul",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -3217,14 +3214,12 @@ def ONNXNegOp:ONNX_Op<"Neg",
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), X);
+      auto resultType = UnrankedTensorType::get(X.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -3471,6 +3466,75 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
   let hasVerifier = 1;
 }
 
+def ONNXOptionalOp:ONNX_Op<"Optional",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Optional operation";
+  let description = [{
+  "Constructs an optional-type value containing either an empty optional of a certain type specified by the attribute,"
+  "or a non-empty value containing the input element."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, NoneType]>:$input,
+    OptionalAttr<TypeAttr>:$type);
+  let results = (outs AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+  let hasVerifier = 1;
+}
+
+def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX OptionalGetElement operation";
+  let description = [{
+  "Outputs the element in the optional-type input. It is an error if the input value does not have an element"
+  "and the behavior is undefined in this case."
+  }];
+  let arguments = (ins AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+  let hasVerifier = 1;
+}
+
+def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX OptionalHasElement operation";
+  let description = [{
+  "Returns true if the optional-type input contains an element. If it is an empty optional-type, this op returns false."
+  }];
+  let arguments = (ins AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$input);
+  let results = (outs TensorOf<[I1]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
+  let hasVerifier = 1;
+}
+
 def ONNXOrOp:ONNX_Op<"Or",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Or operation";
@@ -3487,28 +3551,20 @@ def ONNXOrOp:ONNX_Op<"Or",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -3639,14 +3695,12 @@ def ONNXPadOp:ONNX_Op<"Pad",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$data, "Value":$pads, "Value":$constant_value, "StringAttr":$mode), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, pads, constant_value, mode);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -3815,28 +3869,20 @@ def ONNXPowOp:ONNX_Op<"Pow",
     OpBuilder<(ins "Value":$X, "Value":$Y), [{
       auto lhsTy = X.getType();
       auto rhsTy = Y.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = X.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, X, Y);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, X, Y);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4321,14 +4367,12 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4389,14 +4433,12 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4514,14 +4556,12 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims, noop_with_empty_axes);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4554,14 +4594,12 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4594,14 +4632,12 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -4650,11 +4686,14 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   "At most one dimension of the new shape can be -1. In this case, the value is"
   "inferred from the size of the tensor and the remaining dimensions. A dimension"
   "could also be 0, in which case the actual dimension value is unchanged (i.e. taken"
-  "from the input tensor). Shape (second input) could be an empty shape, which means converting to a scalar."
+  "from the input tensor). If 'allowzero' is set, and the new shape includes 0, the"
+  "dimension will be set explicitly to zero (i.e. not taken from input tensor)."
+  "Shape (second input) could be an empty shape, which means converting to a scalar."
   "The input tensor's shape and the output tensor's shape are required to have the same number of elements."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
-    TensorOf<[I64]>:$shape);
+    TensorOf<[I64]>:$shape,
+    DefaultValuedAttr<SI64Attr, "0">:$allowzero);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$reshaped);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5694,14 +5733,12 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input, "IntegerAttr":$axis), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis);
+      auto resultType = UnrankedTensorType::get(input.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, input, axis);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -5857,14 +5894,12 @@ def ONNXSplitOp:ONNX_Op<"Split",
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$outputs);
   let builders = [
     OpBuilder<(ins "Value":$input, "Value":$split, "IntegerAttr":$axis), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input, split, axis);
+      auto resultType = UnrankedTensorType::get(input.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, input, split, axis);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -5952,14 +5987,12 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), X);
+      auto resultType = UnrankedTensorType::get(X.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -6016,14 +6049,12 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$squeezed);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -6089,28 +6120,20 @@ def ONNXSubOp:ONNX_Op<"Sub",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -6360,6 +6383,40 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   }];
 }
 
+def ONNXTriluOp:ONNX_Op<"Trilu",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Trilu operation";
+  let description = [{
+  "Given a 2-D matrix or batches of 2-D matrices, returns the upper or lower triangular part of the tensor(s)."
+  "The attribute \"upper\" determines whether the upper or lower part is retained. If set to true,"
+  "the upper triangular matrix is retained. Lower triangular matrix is retained otherwise."
+  "Default value for the \"upper\" attribute is true."
+  "Trilu takes one input tensor of shape [*, N, M], where * is zero or more batch dimensions. The upper triangular part consists"
+  "of the elements on and above the given diagonal (k). The lower triangular part consists of elements on and below the diagonal."
+  "All other elements in the matrix are set to zero."
+  "If k = 0, the triangular part on and above/below the main diagonal is retained."
+  "If upper is set to true, a positive k retains the upper triangular matrix excluding the main diagonal and (k-1) diagonals above it."
+  "A negative k value retains the main diagonal and |k| diagonals below it."
+  "If upper is set to false, a positive k retains the lower triangular matrix including the main diagonal and k diagonals above it."
+  "A negative k value excludes the main diagonal and (|k|-1) diagonals below it."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$input,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$k,
+    DefaultValuedAttr<SI64Attr, "1">:$upper);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXUniqueOp:ONNX_Op<"Unique",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Unique operation";
@@ -6518,14 +6575,12 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$expanded);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
-      auto elementType = data.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{
@@ -6663,28 +6718,20 @@ def ONNXXorOp:ONNX_Op<"Xor",
     OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      build($_builder, $_state, elementType, A, B);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, A, B);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto oTy = nullptr;
-      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);
-      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
-      if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<ShapedType>().getElementType();
-            elementType = UnrankedTensorType::get(elementType);
-      }
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(elementType);
-      build($_builder, $_state, outputTypes, operands, attributes);
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
     }]>
     ];
     let extraClassDeclaration = [{

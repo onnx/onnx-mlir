@@ -23,11 +23,13 @@ void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   // Math
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
-  populateLoweringONNXSoftmaxOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXReductionOpToMhloPattern(patterns, ctx);
   // Neural network
+  populateLoweringONNXNormalizationOpToMhloPattern(patterns, ctx);
   populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
   // Tensor
+  populateLoweringONNXConcatOpToMhloPattern(patterns, ctx);
   populateLoweringONNXConstantOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReshapeOpToMhloPattern(patterns, ctx);
 }
@@ -74,6 +76,9 @@ void FrontendToMhloLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToMhloConversionPattern(patterns, &getContext());
+
+  // add illegal op
+  target.addIllegalOp<ONNXSoftmaxOp>();
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

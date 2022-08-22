@@ -47,20 +47,55 @@ struct MhloDialectOp {
   using Op = void;
 };
 
-template <typename Op>
-using MhloOp = typename MhloDialectOp<Op>::Op;
+template <typename ONNXOp>
+using MhloOp = typename MhloDialectOp<ONNXOp>::Op;
+
+//===----------------------------------------------------------------------===//
+// Common functions used when lowering the ONNX frontend dialect to MHLO.
+//===----------------------------------------------------------------------===//
+
+// Get shaped constant zero for the given input Type. If the input type doesn't
+// have static shape, then add dynamic broadcast.
+Value getShapedZero(Location loc, ConversionPatternRewriter &rewriter,
+    const ShapedType &inpType, Value &inp, const Type &resultType);
+
+// Get shaped constant for the given input Type and float value. If the input
+// type doesn't have static shape, then add dynamic broadcast.
+template <typename T>
+Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
+    const ShapedType &inpType, const T &value, Value &inp,
+    const Type &resultType) {
+  Value broadcastedValue;
+  if (inpType.hasStaticShape())
+    broadcastedValue = rewriter.create<mhlo::ConstantOp>(
+        loc, DenseElementsAttr::get(inpType,
+                 rewriter.getFloatAttr(inpType.getElementType(), value)));
+  else {
+    Type elemType = inpType.getElementType();
+    Value floatValue = rewriter.create<mhlo::ConstantOp>(
+        loc, rewriter.getFloatAttr(elemType, value));
+    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
+    broadcastedValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, resultType, floatValue, shape, rewriter.getI64TensorAttr({}));
+  }
+  return broadcastedValue;
+}
 
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
-void populateLoweringONNXSoftmaxOpToMhloPattern(
-    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGemmOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXReductionOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 // `NN` directory methods:
+void populateLoweringONNXNormalizationOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 // `Tensor` directory methods:
+void populateLoweringONNXConcatOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConstantOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToMhloPattern(

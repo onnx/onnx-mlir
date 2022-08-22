@@ -38,7 +38,7 @@ In general, this and all other builders can be created as follows.
 // Constructors in class declaration.
 struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc);
-  MathBuilder(DialectBuilder &db);
+  MathBuilder(const DialectBuilder &db);
 };
 
 // Usage.
@@ -51,7 +51,7 @@ The Math builder contains the operations listed below. Most are self explanatory
 ```C++
 struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc);
-  MathBuilder(DialectBuilder &db);
+  MathBuilder(const DialectBuilder &db);
 
   Value andi(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);
@@ -76,7 +76,7 @@ An equivalent builder exists for some MemRef operation. At a high level, the fol
 ``` C++
 struct MemRefBuilder : DialectBuilder {
   MemRefBuilder(OpBuilder &b, Location loc);
-  MemRefBuilder(DialectBuilder &db);
+  MemRefBuilder(const DialectBuilder &db);
 
   memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
   memref::AllocaOp alloca(MemRefType type);

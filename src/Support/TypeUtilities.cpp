@@ -30,10 +30,23 @@ bool isRankedShapedType(Type ty) {
   return (ty.isa<ShapedType>() && ty.cast<ShapedType>().hasRank());
 }
 
+/// Check if a type has static shape.
+bool hasStaticShape(mlir::Type ty) {
+  if (!isRankedShapedType(ty))
+    return false;
+  return ty.cast<ShapedType>().hasStaticShape();
+}
+
 /// Get shape.
 ArrayRef<int64_t> getShape(Type ty) {
   assert(isRankedShapedType(ty) && "Type must be ranked");
   return ty.cast<ShapedType>().getShape();
+}
+
+/// Get rank.
+int64_t getRank(Type ty) {
+  assert(isRankedShapedType(ty) && "Type must be ranked");
+  return ty.cast<ShapedType>().getRank();
 }
 
 /// Get the number of elements.

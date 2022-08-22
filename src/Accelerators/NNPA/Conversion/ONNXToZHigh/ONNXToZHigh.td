@@ -509,10 +509,6 @@ def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)"
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
-def GetZeroI64Attr: NativeCodeCall<
-  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
->;
-
 //===----------------------------------------------------------------------===//
 // NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
 // Since alpha and beta were legalized by the pass configuration, we check rank only. 
@@ -618,7 +614,7 @@ def replaceONNXLSTMPattern1 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
-    $input_forget),
+    $input_forget, $layout),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -659,7 +655,7 @@ def replaceONNXLSTMPattern2 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
-     $input_forget),
+     $input_forget, $layout),
   [
    //
    // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
@@ -693,7 +689,7 @@ def replaceONNXLSTMPattern3 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
-    $input_forget),
+    $input_forget, $layout),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -734,7 +730,7 @@ def replaceONNXLSTMPattern4 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
-     $input_forget),
+     $input_forget, $layout),
   [
    //
    // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
@@ -774,7 +770,7 @@ def replaceONNXLSTMPattern4 : Pattern<
 def replaceONNXGRUPattern1 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -813,7 +809,7 @@ def replaceONNXGRUPattern1 : Pattern<
 def replaceONNXGRUPattern2 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Main-process to lower ONNXGRUOp into ZHighGRUOp.
@@ -844,7 +840,7 @@ def replaceONNXGRUPattern2 : Pattern<
 def replaceONNXGRUPattern3 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -883,7 +879,7 @@ def replaceONNXGRUPattern3 : Pattern<
 def replaceONNXGRUPattern4 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Main-process to lower ONNXGRUOp into ZHighGRUOp.

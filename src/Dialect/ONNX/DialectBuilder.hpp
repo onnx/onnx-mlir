@@ -24,7 +24,7 @@ namespace onnx_mlir {
 struct OnnxBuilder : onnx_mlir::DialectBuilder {
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
@@ -34,6 +34,10 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXCeilOp
   mlir::Value ceil(mlir::Value input) const;
+
+  // ONNXConcatOp
+  mlir::Value concat(mlir::Type outputType, mlir::ValueRange inputs,
+      mlir::IntegerAttr axis) const;
 
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
@@ -60,6 +64,14 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXShapeOp
+  mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
+
+  // ONNXSliceOp
+  mlir::Value slice(mlir::Type outputType, mlir::Value input,
+      mlir::Value starts, mlir::Value ends, mlir::Value axes,
+      mlir::Value steps) const;
 
   // ONNXSqueezeOp
   mlir::Value squeeze(
@@ -94,7 +106,7 @@ template <class... Ts>
 struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
 };

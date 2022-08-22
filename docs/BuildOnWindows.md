@@ -15,10 +15,9 @@ Build protobuf as a static library.
 
 [same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-git clone --recurse-submodules https://github.com/protocolbuffers/protobuf.git
-REM Check out a specific branch that is known to work with ONNX-MLIR.
-REM This corresponds to the v3.16.0 tag which is the recommended version of onnx 1.11.0
-cd protobuf && git checkout 2dc747c574b68a808ea4699d26942c8132fe2b09 && cd ..
+REM Check out a specific tag v3.16.0 which is the recommended version of onnx 1.11.0
+set protobuf_version=3.16.0
+git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
 md protobuf_build
@@ -53,7 +52,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 9778ec057cf4214241e4a970f3e764e3cf150181 && cd ..
+cd llvm-project && git checkout 061e0189a3dab6b1831a80d489ff1b15ad93aafb && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
