@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
