@@ -189,7 +189,7 @@ func.func @conv_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #
 // CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<7xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c6_]]{{.}} : memref<7xi64>
-// CHECK:           [[VAR_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = opaque<"zhigh", {{.*}}> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
+// CHECK:           [[VAR_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
 // CHECK:           "zlow.conv2d"([[PARAM_0_]], [[PARAM_1_]], [[VAR_2_]], [[RES_1_]], [[RES_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map0>, memref<2x2x3x1xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<7xi64>, memref<1x32x32x1xf16, #map0>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x1xf16, #map0>
 // CHECK:         }

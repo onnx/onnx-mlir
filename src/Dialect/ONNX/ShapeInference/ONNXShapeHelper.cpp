@@ -276,12 +276,12 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   for (int i = 0; i < spatialRank; ++i) {
     // Strides, default 1.
     strides.emplace_back(
-        strideOpt.hasValue() ? ArrayAttrIntVal(strideOpt, i) : 1);
+        strideOpt.has_value() ? ArrayAttrIntVal(strideOpt, i) : 1);
     // Dilations, default 1.
     dilations.emplace_back(
-        dilationOpt.hasValue() ? ArrayAttrIntVal(dilationOpt, i) : 1);
+        dilationOpt.has_value() ? ArrayAttrIntVal(dilationOpt, i) : 1);
     // Kernel shape from attribute, default from Weight's spatial dims.
-    if (kernelShapeOpt.hasValue()) {
+    if (kernelShapeOpt.has_value()) {
       kernelShape.emplace_back(
           LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
     } else if (hasFilter) {
@@ -293,7 +293,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   }
   // Pads, at this stage a given compile-time literal or default 0.
   for (int i = 0; i < 2 * spatialRank; ++i) {
-    int64_t p = padOpt.hasValue() ? ArrayAttrIntVal(padOpt, i) : 0;
+    int64_t p = padOpt.has_value() ? ArrayAttrIntVal(padOpt, i) : 0;
     pads.emplace_back(LiteralIndexExpr(p));
   }
 
