@@ -354,9 +354,9 @@ OpsWithHelpers = {
 OpsWithResultTypeInference = {
   "Constant":
   '''if (auto attr = valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = sparse_valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }''',
   "Cast":
     '''// ae auto builder = mlir::OpBuilder(getContext());
@@ -364,7 +364,7 @@ OpsWithResultTypeInference = {
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.getType().cast<ShapedType>().getElementType()));
+          attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           FloatType::getF32(getContext())));
@@ -425,11 +425,11 @@ custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
-    auto tensorType = value.getType();
+    auto tensorType = value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
-    auto tensorType = sparse_value.getType();
+    auto tensorType = sparse_value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }

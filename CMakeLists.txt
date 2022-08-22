@@ -10,13 +10,14 @@ option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # On systems that still have legacy lib64 directories (e.g., rhel/fedora,
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
 # CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
-set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_INSTALL_LIBDIR lib)
 
 if (NOT CMAKE_BUILD_TYPE)

@@ -109,8 +109,8 @@ static std::string getExecPath() {
 // to deal with lib64 anymore.
 static std::string getRuntimeDir() {
   const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
-  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
-    return envDir.getValue();
+  if (envDir && llvm::sys::fs::exists(envDir.value()))
+    return envDir.value();
 
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
@@ -170,8 +170,8 @@ struct Command {
 
   // Append a single optional string argument.
   Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
-    if (arg.hasValue())
-      _args.emplace_back(arg.getValue());
+    if (arg.has_value())
+      _args.emplace_back(arg.value());
     return *this;
   }
 
