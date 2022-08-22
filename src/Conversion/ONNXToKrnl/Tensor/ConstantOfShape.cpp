@@ -30,7 +30,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
     auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
                          .value()
-                         .getValue()
+                         .value()
                          .cast<DenseElementsAttr>();
 
     // Convert the output type to MemRefType.
