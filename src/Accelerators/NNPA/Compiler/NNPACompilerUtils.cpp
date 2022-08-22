@@ -72,6 +72,7 @@ void addONNXToZHighPasses(
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addPass(onnx_mlir::createShapeInferencePass());
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(

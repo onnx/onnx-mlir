@@ -142,7 +142,7 @@ func.func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tens
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
   return %0 : tensor<3x4x5xi1>
 // CHECK-LABEL:  func @test_less
-// CHECK:         %0 = "mhlo.compare"(%arg0, %arg1) {compare_type = #mhlo<comparison_type NOTYPE>, comparison_direction = #mhlo<comparison_direction LT>} : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+// CHECK:         %0 = mhlo.compare LT, %arg0, %arg1, NOTYPE : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
 }
 
 func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>, %arg1: tensor<1x?x1xf32>) -> tensor<?x4x5xi1> {
@@ -151,7 +151,7 @@ func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5x
 // CHECK-LABEL:  func @test_binary_elementwise_op_template_unknown_dims
 // CHECK: %3 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK: %4 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<1x?x1xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
-// CHECK: %5 = "mhlo.compare"(%3, %4) {compare_type = #mhlo<comparison_type NOTYPE>, comparison_direction = #mhlo<comparison_direction LT>} : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+// CHECK: %5 = mhlo.compare LT, %3, %4, NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 
 }
 
@@ -161,5 +161,5 @@ func.func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x
 // CHECK-LABEL:  func @test_less_unknown_dims_2
 // CHECK: %3 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x?x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK: %4 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
-// CHECK: %5 = "mhlo.compare"(%3, %4) {compare_type = #mhlo<comparison_type NOTYPE>, comparison_direction = #mhlo<comparison_direction LT>} : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+// CHECK: %5 = mhlo.compare LT, %3, %4, NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 }

@@ -101,8 +101,8 @@ LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
     ONNXSplitV11OpAdaptor operandAdaptor) {
   auto splitAttr = op->split();
   SmallVector<IndexExpr, 4> indexExprArray;
-  if (splitAttr.hasValue()) {
-    ArrayAttributeIndexCapture splitCapture(splitAttr.getValue());
+  if (splitAttr.has_value()) {
+    ArrayAttributeIndexCapture splitCapture(splitAttr.value());
     auto splitRank = splitCapture.size();
     for (unsigned i = 0; i < splitRank; ++i) {
       indexExprArray.emplace_back(splitCapture.getLiteral(i));
