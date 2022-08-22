@@ -303,6 +303,117 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
       /*printBlockTerminators=*/false);
 }
 
+namespace {
+
+struct LoopParser {
+  // Parse input loops and their lower and upper bounds.
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
+  SmallVector<Attribute, 4> boundMaps;
+  OpAsmParser &parser;
+  const Type loopType;
+
+  LoopParser(OpAsmParser &parser, Type loopType)
+      : parser(parser), loopType(loopType) {}
+
+  // A method to parse a lower or upper bound.
+  ParseResult parseBound(bool isUpper, OperationState &result) {
+    Builder builder = parser.getBuilder();
+
+    // 'min' / 'max' prefixes are generally syntactic sugar, but are required
+    // if the map has multiple results.
+    bool failedToParsedMinMax =
+        failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
+
+    // Try parse an SSA operand.
+    OpAsmParser::UnresolvedOperand ssa;
+    OptionalParseResult ssaParseResult = parser.parseOptionalOperand(ssa);
+    if (ssaParseResult.has_value()) {
+      if (failed(ssaParseResult.value()) ||
+          parser.resolveOperand(ssa, builder.getIndexType(), result.operands))
+        return failure();
+
+      AffineMap map = builder.getSymbolIdentityMap();
+      boundMaps.emplace_back(AffineMapAttr::get(map));
+      return success();
+    }
+
+    // Bound is not an SSA id, then it must be an integer.
+    // Parse an integer constant attribute.
+    // Get the attribute location.
+    llvm::SMLoc attrLoc = parser.getCurrentLocation();
+    Attribute boundAttr;
+    NamedAttrList tempBoundAttrContainer;
+    if (parser.parseAttribute(
+            boundAttr, builder.getIndexType(), "temp", tempBoundAttrContainer))
+      return failure();
+
+    if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
+      unsigned currentNumOperands = result.operands.size();
+      unsigned numDims = 0;
+      if (parseDimAndSymbolList(parser, result.operands, numDims))
+        return failure();
+
+      auto map = affineMapAttr.getValue();
+      if (map.getNumDims() != numDims)
+        return parser.emitError(parser.getNameLoc(),
+            "dim operand count and integer set dim count must match");
+
+      unsigned numDimAndSymbolOperands =
+          result.operands.size() - currentNumOperands;
+      if (numDims + map.getNumSymbols() != numDimAndSymbolOperands)
+        return parser.emitError(parser.getNameLoc(),
+            "symbol operand count and integer set symbol count must match");
+
+      // If the map has multiple results, make sure that we parsed the min/max
+      // prefix.
+      if (map.getNumResults() > 1 && failedToParsedMinMax) {
+        if (isUpper)
+          return parser.emitError(attrLoc,
+              "upper loop bound affine map with multiple "
+              "results requires 'min' prefix");
+        return parser.emitError(attrLoc,
+            "lower loop bound affine map with multiple "
+            "results requires 'max' prefix");
+      }
+      boundMaps.emplace_back(AffineMapAttr::get(map));
+      return success();
+    }
+
+    if (auto integerAttr = boundAttr.dyn_cast<IntegerAttr>()) {
+      AffineMap map =
+          builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
+      boundMaps.emplace_back(AffineMapAttr::get(map));
+    }
+    return success();
+  }
+
+  ParseResult parse(OperationState &result) {
+    // Parse an input loop operand;
+    OpAsmParser::UnresolvedOperand loop;
+    if (parser.parseOperand(loop) ||
+        parser.resolveOperand(loop, loopType, result.operands) ||
+        parser.parseArrow())
+      return failure();
+
+    // Parse induction variable.
+    OpAsmParser::UnresolvedOperand inductionVar;
+    if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
+        parser.parseEqual())
+      return failure();
+    inductionVarRefs.emplace_back(inductionVar);
+
+    // Parse bound par (min to max).
+    if (parseBound(/*isUpper=*/false, result) || parser.parseKeyword("to") ||
+        parseBound(/*isUpper=*/true, result))
+      return failure();
+
+    return success();
+  }
+
+}; // struct LoopParser
+
+} // namespace
+
 ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
 
@@ -319,125 +430,28 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
       builder.getI64IntegerAttr(optimizedLoopRefs.size()));
 
-  // Parse input loops and their lower and upper bounds.
-  SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
-  SmallVector<Attribute, 4> boundMaps;
+  LoopParser loopParser(parser, loopType);
 
   if (parser.parseKeyword("with") || parser.parseLParen())
     return failure();
 
   if (failed(parser.parseOptionalRParen())) {
-    // A function to parse a lower or upper bound.
-    auto parseBound = [&parser, &builder, &boundMaps, &result](
-                          bool isUpper) -> ParseResult {
-      // 'min' / 'max' prefixes are generally syntactic sugar, but are required
-      // if the map has multiple results.
-      bool failedToParsedMinMax =
-          failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
-
-      // Try parse an SSA operand.
-      OpAsmParser::UnresolvedOperand ssa;
-      OptionalParseResult ssaParseResult = parser.parseOptionalOperand(ssa);
-      if (ssaParseResult.has_value()) {
-        if (failed(ssaParseResult.value()) ||
-            parser.resolveOperand(ssa, builder.getIndexType(), result.operands))
-          return failure();
-
-        AffineMap map = builder.getSymbolIdentityMap();
-        boundMaps.emplace_back(AffineMapAttr::get(map));
-        return success();
-      }
-
-      // Bound is not an SSA id, then it must be an integer.
-      // Parse an integer constant attribute.
-      // Get the attribute location.
-      llvm::SMLoc attrLoc = parser.getCurrentLocation();
-      Attribute boundAttr;
-      NamedAttrList tempBoundAttrContainer;
-      if (parser.parseAttribute(boundAttr, builder.getIndexType(), "temp",
-              tempBoundAttrContainer))
-        return failure();
-
-      if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
-        unsigned currentNumOperands = result.operands.size();
-        unsigned numDims = 0;
-        if (parseDimAndSymbolList(parser, result.operands, numDims))
-          return failure();
-
-        auto map = affineMapAttr.getValue();
-        if (map.getNumDims() != numDims)
-          return parser.emitError(parser.getNameLoc(),
-              "dim operand count and integer set dim count must match");
-
-        unsigned numDimAndSymbolOperands =
-            result.operands.size() - currentNumOperands;
-        if (numDims + map.getNumSymbols() != numDimAndSymbolOperands)
-          return parser.emitError(parser.getNameLoc(),
-              "symbol operand count and integer set symbol count must match");
-
-        // If the map has multiple results, make sure that we parsed the min/max
-        // prefix.
-        if (map.getNumResults() > 1 && failedToParsedMinMax) {
-          if (isUpper)
-            return parser.emitError(attrLoc,
-                "upper loop bound affine map with multiple "
-                "results requires 'min' prefix");
-          return parser.emitError(attrLoc,
-              "lower loop bound affine map with multiple "
-              "results requires 'max' prefix");
-        }
-        boundMaps.emplace_back(AffineMapAttr::get(map));
-        return success();
-      }
-
-      if (auto integerAttr = boundAttr.dyn_cast<IntegerAttr>()) {
-        AffineMap map =
-            builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
-        boundMaps.emplace_back(AffineMapAttr::get(map));
-      }
-      return success();
-    };
-
-    auto parseLoop = [&parser, &loopType, &parseBound, &inductionVarRefs,
-                         &result] {
-      // Parse an input loop operand;
-      OpAsmParser::UnresolvedOperand loop;
-      if (parser.parseOperand(loop) ||
-          parser.resolveOperand(loop, loopType, result.operands) ||
-          parser.parseArrow())
-        return failure();
-
-      // Parse induction variable.
-      OpAsmParser::UnresolvedOperand inductionVar;
-      if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
-          parser.parseEqual())
-        return failure();
-      inductionVarRefs.emplace_back(inductionVar);
-
-      // Parse bound par (min to max).
-      if (parseBound(/*isUpper=*/false) || parser.parseKeyword("to") ||
-          parseBound(/*isUpper=*/true))
-        return failure();
-
-      return success();
-    };
-
-    if (parser.parseCommaSeparatedList(parseLoop) || parser.parseRParen())
+    if (parser.parseCommaSeparatedList(
+            [&] { return loopParser.parse(result); }) ||
+        parser.parseRParen())
       return failure();
   }
 
-  result.addAttribute(
-      KrnlIterateOp::getBoundsAttrName(), builder.getArrayAttr(boundMaps));
+  result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
+      builder.getArrayAttr(loopParser.boundMaps));
 
   Region *region = result.addRegion();
-  SmallVector<Type, 4> inductionVarTypes(
-      inductionVarRefs.size(), builder.getIndexType());
 
   SmallVector<OpAsmParser::Argument> entryArgs;
-  for (auto it : llvm::zip(inductionVarRefs, inductionVarTypes)) {
+  for (OpAsmParser::UnresolvedOperand name : loopParser.inductionVarRefs) {
     OpAsmParser::Argument arg;
-    arg.ssaName = std::get<0>(it);
-    arg.type = std::get<1>(it);
+    arg.ssaName = name;
+    arg.type = builder.getIndexType();
     entryArgs.push_back(arg);
   }
 
