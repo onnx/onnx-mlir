@@ -30,9 +30,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
-    KrnlBuilder createKrnl(rewriter, loc);
-    SCFBuilder createScf(rewriter, loc);
-
+    //KrnlBuilder createKrnl(rewriter, loc);
+    //SCFBuilder createScf(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, SCFBuilder, MathBuilder, MemRefBuilder> create(rewriter, loc);
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
@@ -42,8 +42,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
     IndexExpr G = LiteralIndexExpr(groupNum);
-    MathBuilder createMath(rewriter, loc);
-    Value fZero = createMath.constant(memRefType.getElementType(), 0);
+    //MathBuilder createMath(rewriter, loc);
+    Value fZero = create.math.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
     // where N is Batch Size,
@@ -87,11 +87,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
-    MemRefBuilder createMemRef(createKrnl);
+    //MemRefBuilder createMemRef(create);
     // Create a local reduction value.
     MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
     // Single scalar, no need for default alignment.
-    Value reductionVal = createMemRef.alloca(tmpType);
+    Value reductionVal = create.mem.alloca(tmpType);
     // createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
     //    [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
     // createScf.parallelLoop(parLbs, parUbs, steps,
@@ -100,7 +100,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //    }
     auto bodyFunction = [&](ValueRange outerIndices) {
       // Compute the Channel In Indices.
-      IndexExprScope outerScope(createKrnl);
+      IndexExprScope outerScope(create.krnl);
       // Compute the channel out index "co".
       // %d\n",outerIndices[0],outerIndices[1],outerIndices[2]);
       DimIndexExpr g(outerIndices[1]);
@@ -110,7 +110,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       IndexExpr gTimesCIPerGroup = g * SymbolIndexExpr(CIPerGroup);
       // Determine the bounds for the output spacial dimensions.
       int spacialRank = outputRank - spatialStartIndex;
-      ValueRange outputSpacialLoops = createKrnl.defineLoops(spacialRank);
+      ValueRange outputSpacialLoops = create.krnl.defineLoops(spacialRank);
       SmallVector<IndexExpr, 3> outputSpacialLbs, outputSpacialUbs;
       for (int i = spatialStartIndex; i < outputRank; ++i) {
         outputSpacialLbs.emplace_back(iZero);
@@ -120,15 +120,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
       // Spacial loops.
       // for ho = 0 .. HO:
       //    for wo = 0 .. WO:
-      createKrnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
+      create.krnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
           outputSpacialLbs, outputSpacialUbs,
-          [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
-            IndexExprScope outputSpacialScope(createKrnl);
+          [&](KrnlBuilder &create, ValueRange outputSpatialIndices) {
+            IndexExprScope outputSpacialScope(create);
             // Reset reduction value to zero.
-            createKrnl.store(fZero, reductionVal);
+            create.store(fZero, reductionVal);
 
             // Bounds for reduction loops.
-            ValueRange redLoops = createKrnl.defineLoops(spacialRank + 1);
+            ValueRange redLoops = create.defineLoops(spacialRank + 1);
             SmallVector<IndexExpr, 4> redLbs, redUbs, pMinOS;
             // First: loop over channel in per group.
             redLbs.emplace_back(iZero);
@@ -158,10 +158,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
             // for ciPerGroup = 0 .. CIPerGroup:
             //   for kh in lb .. ub:
             //     for kw in lb .. ub:
-            createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
-                [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
-                  IndexExprScope redScope(createKrnl);
-                  MathBuilder createMath(createKrnl);
+            create.iterateIE(redLoops, redLoops, redLbs, redUbs,
+                [&](KrnlBuilder &create, ValueRange redIndices) {
+                  IndexExprScope redScope(create);
+                  MathBuilder createMath(create);
                   // Create access function for input image:
                   // [n, ci, ho * sh + kh * dh - ph, wo * sw + kw * dw -
                   // pw].
@@ -181,7 +181,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     IndexExpr t = (k * d) - pos;
                     inputAccessFct.emplace_back(t);
                   }
-                  Value image = createKrnl.loadIE(inputOperand, inputAccessFct);
+                  Value image = create.loadIE(inputOperand, inputAccessFct);
                   // Create access fct for filter: [co, ciPerG, kh, kw].
                   SmallVector<IndexExpr, 4> filterAccessFct;
                   filterAccessFct.emplace_back(DimIndexExpr(co));
@@ -192,19 +192,19 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     filterAccessFct.emplace_back(k);
                   }
                   Value filter =
-                      createKrnl.loadIE(filterOperand, filterAccessFct);
-                  Value oldRed = createKrnl.load(reductionVal);
+                      create.loadIE(filterOperand, filterAccessFct);
+                  Value oldRed = create.load(reductionVal);
                   Value mul = createMath.mul(image, filter);
                   Value newRed = createMath.add(oldRed, mul);
-                  createKrnl.store(newRed, reductionVal);
+                  create.store(newRed, reductionVal);
                 }); // Reduction loops.
                     // Finish the reduction and store in result array.
-            Value result = createKrnl.load(reductionVal);
+            Value result = create.load(reductionVal);
             // Store the result. Optionally add bias.
             SymbolIndexExpr coInOutputSpacial(co);
             if (hasBias) {
-              MathBuilder createMath(createKrnl);
-              Value bias = createKrnl.loadIE(biasOperand, {coInOutputSpacial});
+              MathBuilder createMath(create);
+              Value bias = create.loadIE(biasOperand, {coInOutputSpacial});
               result = createMath.add(result, bias);
             }
             SmallVector<IndexExpr, 4> resAccessFunc;
@@ -212,19 +212,19 @@ struct ONNXConvOpLowering : public ConversionPattern {
             resAccessFunc.emplace_back(coInOutputSpacial);
             for (Value o : outputSpatialIndices)
               resAccessFunc.emplace_back(DimIndexExpr(o));
-            createKrnl.storeIE(result, alloc, resAccessFunc);
+            create.storeIE(result, alloc, resAccessFunc);
           }); // Output spacial loops.
     };
 
     if (enableParallel) {
-      createScf.parallelLoop(parLbs, parUbs, steps,
-          [&](DialectBuilder &createScf, ValueRange outerIndices) {
+      create.scf.parallelLoop(parLbs, parUbs, steps,
+          [&](DialectBuilder &create, ValueRange outerIndices) {
             bodyFunction(outerIndices);
           });
     } else {
-      ValueRange outerLoops = createKrnl.defineLoops(3);
-      createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-          [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+      ValueRange outerLoops = create.krnl.defineLoops(3);
+      create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+          [&](KrnlBuilder &create, ValueRange outerIndices) {
             bodyFunction(outerIndices);
           });
     }
