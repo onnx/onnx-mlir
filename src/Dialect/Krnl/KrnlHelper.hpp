@@ -35,38 +35,6 @@ class KrnlMovableOp;
 namespace onnx_mlir {
 namespace krnl {
 
-class KrnlDialectOperandParser {
-public:
-  explicit KrnlDialectOperandParser(mlir::OpAsmParser &parser)
-      : parser(parser), builder(parser.getBuilder()){};
-
-  // Parse an optional operand.
-  mlir::ParseResult ParseOptionalOperand(
-      const mlir::Type &operandType, mlir::Value &operand);
-
-  // Parse an optional operand and push it to an operand list.
-  mlir::ParseResult ParseOptionalOperand(const mlir::Type &operandType,
-      llvm::SmallVectorImpl<mlir::Value> &operandList);
-
-  // Parse a required operand.
-  mlir::ParseResult ParseOperand(
-      const mlir::Type &operandType, mlir::Value &operand);
-
-  // Parse a required operand and push it to an operand list.
-  mlir::ParseResult ParseOperand(const mlir::Type &operandType,
-      llvm::SmallVectorImpl<mlir::Value> &operandList);
-
-  // Do we have more operands to parse?
-  bool hasOperandLeft() { return !operandRefQueue.empty(); }
-
-private:
-  mlir::OpAsmParser &parser;
-  mlir::Builder &builder;
-
-  // A queue storing the parsed SSA id references.
-  std::queue<mlir::OpAsmParser::UnresolvedOperand> operandRefQueue;
-};
-
 // Adapted from:
 // https://github.com/tensorflow/mlir/blob/6a150d70c7e06fb37cddd7188fa48cde9a90fe59/lib/Dialect/StandardOps/Ops.cpp#L197
 // Main difference is that it advances the iterator `begin` as it consumes

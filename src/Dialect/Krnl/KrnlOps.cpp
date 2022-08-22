@@ -305,15 +305,14 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
 
 ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
-  auto context = builder.getContext();
-  onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
+
+  Type loopType = krnl::LoopType::get(result.getContext());
 
   // Parse optimized loops:
   SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
   if (parser.parseOperandList(
           optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
-      parser.resolveOperands(optimizedLoopRefs,
-          krnl::LoopType::get(result.getContext()), result.operands))
+      parser.resolveOperands(optimizedLoopRefs, loopType, result.operands))
     return failure();
 
   // Record how many optimized loops did we parse.
@@ -327,99 +326,106 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   if (parser.parseKeyword("with") || parser.parseLParen())
     return failure();
 
-  // A function to parse a lower or upper bound.
-  auto parseBound = [&result, &builder, &parser, &operandParser, &boundMaps](
-                        bool isUpper) -> ParseResult {
-    // 'min' / 'max' prefixes are generally syntactic sugar, but are required
-    // if the map has multiple results.
-    bool failedToParsedMinMax =
-        failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
+  if (failed(parser.parseOptionalRParen())) {
+    // A function to parse a lower or upper bound.
+    auto parseBound = [&parser, &builder, &boundMaps, &result](
+                          bool isUpper) -> ParseResult {
+      // 'min' / 'max' prefixes are generally syntactic sugar, but are required
+      // if the map has multiple results.
+      bool failedToParsedMinMax =
+          failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
 
-    // Try parse an SSA operand.
-    if (succeeded(operandParser.ParseOptionalOperand(
-            builder.getIndexType(), result.operands))) {
-      AffineMap map = builder.getSymbolIdentityMap();
-      boundMaps.emplace_back(AffineMapAttr::get(map));
-      return success();
-    }
+      // Try parse an SSA operand.
+      OpAsmParser::UnresolvedOperand ssa;
+      OptionalParseResult ssaParseResult = parser.parseOptionalOperand(ssa);
+      if (ssaParseResult.has_value()) {
+        if (failed(ssaParseResult.value()) ||
+            parser.resolveOperand(ssa, builder.getIndexType(), result.operands))
+          return failure();
 
-    // Bound is not an SSA id, then it must be an integer.
-    // Parse an integer constant attribute.
-    // Get the attribute location.
-    llvm::SMLoc attrLoc = parser.getCurrentLocation();
-    Attribute boundAttr;
-    NamedAttrList tempBoundAttrContainer;
-    if (parser.parseAttribute(
-            boundAttr, builder.getIndexType(), "temp", tempBoundAttrContainer))
-      return failure();
+        AffineMap map = builder.getSymbolIdentityMap();
+        boundMaps.emplace_back(AffineMapAttr::get(map));
+        return success();
+      }
 
-    if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
-      unsigned currentNumOperands = result.operands.size();
-      unsigned numDims = 0;
-      if (parseDimAndSymbolList(parser, result.operands, numDims))
+      // Bound is not an SSA id, then it must be an integer.
+      // Parse an integer constant attribute.
+      // Get the attribute location.
+      llvm::SMLoc attrLoc = parser.getCurrentLocation();
+      Attribute boundAttr;
+      NamedAttrList tempBoundAttrContainer;
+      if (parser.parseAttribute(boundAttr, builder.getIndexType(), "temp",
+              tempBoundAttrContainer))
         return failure();
 
-      auto map = affineMapAttr.getValue();
-      if (map.getNumDims() != numDims)
-        return parser.emitError(parser.getNameLoc(),
-            "dim operand count and integer set dim count must match");
+      if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
+        unsigned currentNumOperands = result.operands.size();
+        unsigned numDims = 0;
+        if (parseDimAndSymbolList(parser, result.operands, numDims))
+          return failure();
 
-      unsigned numDimAndSymbolOperands =
-          result.operands.size() - currentNumOperands;
-      if (numDims + map.getNumSymbols() != numDimAndSymbolOperands)
-        return parser.emitError(parser.getNameLoc(),
-            "symbol operand count and integer set symbol count must match");
+        auto map = affineMapAttr.getValue();
+        if (map.getNumDims() != numDims)
+          return parser.emitError(parser.getNameLoc(),
+              "dim operand count and integer set dim count must match");
 
-      // If the map has multiple results, make sure that we parsed the min/max
-      // prefix.
-      if (map.getNumResults() > 1 && failedToParsedMinMax) {
-        if (isUpper)
+        unsigned numDimAndSymbolOperands =
+            result.operands.size() - currentNumOperands;
+        if (numDims + map.getNumSymbols() != numDimAndSymbolOperands)
+          return parser.emitError(parser.getNameLoc(),
+              "symbol operand count and integer set symbol count must match");
+
+        // If the map has multiple results, make sure that we parsed the min/max
+        // prefix.
+        if (map.getNumResults() > 1 && failedToParsedMinMax) {
+          if (isUpper)
+            return parser.emitError(attrLoc,
+                "upper loop bound affine map with multiple "
+                "results requires 'min' prefix");
           return parser.emitError(attrLoc,
-              "upper loop bound affine map with multiple "
-              "results requires 'min' prefix");
-        return parser.emitError(attrLoc,
-            "lower loop bound affine mapwith "
-            "multiple results requires 'max' prefix");
+              "lower loop bound affine map with multiple "
+              "results requires 'max' prefix");
+        }
+        boundMaps.emplace_back(AffineMapAttr::get(map));
+        return success();
       }
-      boundMaps.emplace_back(AffineMapAttr::get(map));
+
+      if (auto integerAttr = boundAttr.dyn_cast<IntegerAttr>()) {
+        AffineMap map =
+            builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
+        boundMaps.emplace_back(AffineMapAttr::get(map));
+      }
       return success();
-    }
+    };
 
-    if (auto integerAttr = boundAttr.dyn_cast<IntegerAttr>()) {
-      AffineMap map =
-          builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
-      boundMaps.emplace_back(AffineMapAttr::get(map));
-    }
-    return success();
-  };
+    auto parseLoop = [&parser, &loopType, &parseBound, &inductionVarRefs,
+                         &result] {
+      // Parse an input loop operand;
+      OpAsmParser::UnresolvedOperand loop;
+      if (parser.parseOperand(loop) ||
+          parser.resolveOperand(loop, loopType, result.operands) ||
+          parser.parseArrow())
+        return failure();
 
-  while (failed(parser.parseOptionalRParen())) {
-    // Parse an input loop operand;
-    operandParser.ParseOperand(krnl::LoopType::get(context), result.operands);
-    parser.parseArrow();
+      // Parse induction variable.
+      OpAsmParser::UnresolvedOperand inductionVar;
+      if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
+          parser.parseEqual())
+        return failure();
+      inductionVarRefs.emplace_back(inductionVar);
 
-    // Parse induction variable.
-    OpAsmParser::UnresolvedOperand inductionVar;
-    if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
-        parser.parseEqual())
+      // Parse bound par (min to max).
+      if (parseBound(/*isUpper=*/false) || parser.parseKeyword("to") ||
+          parseBound(/*isUpper=*/true))
+        return failure();
+
+      return success();
+    };
+
+    if (parser.parseCommaSeparatedList(parseLoop) || parser.parseRParen())
       return failure();
-    inductionVarRefs.emplace_back(inductionVar);
-
-    // Parse bound par (min to max).
-    if (parseBound(/*isUpper=*/false) || parser.parseKeyword("to") ||
-        parseBound(/*isUpper=*/true))
-      return failure();
-
-    // We may fail to parse a comma if an operand bound is followed by
-    // a comma and the next input loop operand, in which case
-    // the entire "{operand bound}, {input_loop_operand}" sequence will
-    // be parsed as an operand list.
-    parser.parseOptionalComma();
   }
 
-  // At this point, there shouldn't be any operands left to parse.
-  if (operandParser.hasOperandLeft())
-    return parser.emitError(parser.getCurrentLocation());
   result.addAttribute(
       KrnlIterateOp::getBoundsAttrName(), builder.getArrayAttr(boundMaps));
 
