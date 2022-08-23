@@ -1092,10 +1092,30 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
                    "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Set buffer to a given value.";
   let description = [{
-    Krnl operation that set buffer to a given value.
+    Krnl operation that sets a buffer to a given value.
+    In case that the buffer is a MemRef with affine_map, `delayed` indicates
+    whether we set values along original or extended iteration space.
+    
+    For example, given 
+    - an affine_map `#tile = affine_map < (i)->(i floordiv 4, i mod 4) >`, and
+    - a buffer of type `memref<5xf32, #tile>`
+
+    Original iteration space is along the first axis that has 5 elements.
+
+    If we do normalization, the memref becomes `memref<2x4xf32>`. Now we have
+    an extended iteration space along two axes of sizes 2 and 4, respectively.
+    This extended iteration space has 8 elements in total.
+
+    If `delayed = false`, the original iteration space is used to set values.
+    In the above example, only 5 out of 8 elementes will be set to the given value.
+
+    If `delayed = true`, the extended iteration space is used to set values.
+    In the above example, all 8 elements will be set to the given value.
+
   }];
 
-  let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
+  let arguments = (ins AnyMemRef:$dest, AnyType: $value,
+    DefaultValuedAttr<BoolAttr, "false">:$delayed); 
 
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
