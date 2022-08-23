@@ -18,9 +18,9 @@ func.func @main_graph(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attribut
 // CHECK:         [[VAR_7_:%.+]] = "mhlo.reduce_window"([[PARAM_0_]], [[VAR_0_:%.+]]) ({
 // CHECK-NEXT:        ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:          [[VAR_23_:%.+]] = mhlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK-NEXT:          "mhlo.return"([[VAR_23_]]) : (tensor<f32>) -> ()
+// CHECK-NEXT:          mhlo.return [[VAR_23_]] : tensor<f32>
 // CHECK-NEXT:        }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : vector<4xi64>, window_strides = dense<[1, 1, 2, 2]> : vector<4xi64>} : (tensor<1x1x28x28xf32>, tensor<f32>) -> tensor<1x1x14x14xf32>
-// CHECK-DAG:     [[VAR_8_:%.+]] = "mhlo.reshape"([[VAR_7_]]) : (tensor<1x1x14x14xf32>) -> tensor<1x196xf32>
+// CHECK-DAG:     [[VAR_8_:%.+]] = mhlo.reshape [[VAR_7_]] : (tensor<1x1x14x14xf32>) -> tensor<1x196xf32>
 // CHECK-DAG:     [[VAR_9_:%.+]] = "mhlo.transpose"([[VAR_6_:%.+]]) {permutation = dense<[1, 0]> : vector<2xi64>} : (tensor<128x196xf32>) -> tensor<196x128xf32>
 // CHECK:         [[VAR_10_:%.+]] = "mhlo.dot"([[VAR_8_]], [[VAR_9_]]) : (tensor<1x196xf32>, tensor<196x128xf32>) -> tensor<1x128xf32>
 // CHECK-DAG:     [[VAR_11_:%.+]] = mhlo.add [[VAR_10_]], [[VAR_5_:%.+]] : tensor<1x128xf32>
@@ -29,12 +29,12 @@ func.func @main_graph(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attribut
 // CHECK-DAG:     [[VAR_14_:%.+]] = "mhlo.dot"([[VAR_12_]], [[VAR_13_]]) : (tensor<1x128xf32>, tensor<128x10xf32>) -> tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_15_:%.+]] = mhlo.add [[VAR_14_]], [[VAR_2_:%.+]] : tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_16_:%.+]] = mhlo.reduce([[VAR_15_]] init: [[VAR_0_:%.+]]) applies mhlo.maximum across dimensions = [1] : (tensor<1x10xf32>, tensor<f32>) -> tensor<1xf32>
-// CHECK-NEXT:    [[VAR_17_:%.+]] = "mhlo.reshape"([[VAR_16_]]) : (tensor<1xf32>) -> tensor<1x1xf32>
+// CHECK-NEXT:    [[VAR_17_:%.+]] = mhlo.reshape [[VAR_16_]] : (tensor<1xf32>) -> tensor<1x1xf32>
 // CHECK-NEXT:    [[VAR_18_:%.+]] = "mhlo.broadcast_in_dim"([[VAR_17_]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<1x1xf32>) -> tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_19_:%.+]] = mhlo.subtract [[VAR_15_]], [[VAR_18_]] : tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_20_:%.+]] = mhlo.exponential [[VAR_19_]] : tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_21_:%.+]] = mhlo.reduce([[VAR_20_]] init: [[VAR_1_:%.+]]) applies mhlo.add across dimensions = [1] : (tensor<1x10xf32>, tensor<f32>) -> tensor<1xf32>
-// CHECK-NEXT:    [[VAR_22_:%.+]] = "mhlo.reshape"([[VAR_21_]]) : (tensor<1xf32>) -> tensor<1x1xf32>
+// CHECK-NEXT:    [[VAR_22_:%.+]] = mhlo.reshape [[VAR_21_]] : (tensor<1xf32>) -> tensor<1x1xf32>
 // CHECK-NEXT:    [[VAR_23_:%.+]] = "mhlo.broadcast_in_dim"([[VAR_22_]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<1x1xf32>) -> tensor<1x10xf32>
 // CHECK-NEXT:    [[VAR_24_:%.+]] = mhlo.divide [[VAR_20_]], [[VAR_23_]] : tensor<1x10xf32>
 }
