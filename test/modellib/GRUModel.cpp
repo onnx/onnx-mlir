@@ -118,15 +118,15 @@ bool GRULibBuilder::build() {
   return true;
 }
 
-bool GRULibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(hShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(hShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }

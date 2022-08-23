@@ -119,15 +119,15 @@ bool Conv2DLibBuilder::build() {
   return true;
 }
 
-bool Conv2DLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      {N, C, H, W}, dataRangeLL, dataRangeUL);
+      {N, C, H, W}, dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      {C, C, kH, kW}, dataRangeLL, dataRangeUL);
+      {C, C, kH, kW}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }

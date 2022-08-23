@@ -127,17 +127,17 @@ bool LSTMLibBuilder::build() {
   return true;
 }
 
-bool LSTMLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLL;
-  float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUL;
-  float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLL;
-  float dataRangeCUL = (isNoneC) ? 0.0 : dataRangeUL;
+  float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLB;
+  float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUB;
+  float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLB;
+  float dataRangeCUL = (isNoneC) ? 0.0 : dataRangeUB;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
       llvm::makeArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(

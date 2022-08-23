@@ -140,12 +140,12 @@ std::vector<float> ModelLibBuilder::getDataRangeFromEnv(
     std::string rangeString = std::string(envRangeString);
     size_t pos = rangeString.find(',');
     assert(pos != std::string::npos);
-    std::string rangeLLString = rangeString.substr(0, pos);
-    std::string rangeULString = rangeString.substr(pos + 1);
-    std::cout << "Input data range from env: \"" << rangeLLString << " to "
-              << rangeULString << "\"\n";
-    range.emplace_back(std::stof(rangeLLString));
-    range.emplace_back(std::stof(rangeULString));
+    std::string rangeLBString = rangeString.substr(0, pos);
+    std::string rangeUBString = rangeString.substr(pos + 1);
+    std::cout << "Input data range from env: \"" << rangeLBString << " to "
+              << rangeUBString << "\"\n";
+    range.emplace_back(std::stof(rangeLBString));
+    range.emplace_back(std::stof(rangeUBString));
   }
   return range;
 }

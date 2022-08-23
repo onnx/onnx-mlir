@@ -56,15 +56,15 @@ bool MatMul2DLibBuilder::build() {
   return true;
 }
 
-bool MatMul2DLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] =
-      omTensorCreateWithRandomData<float>({I, K}, dataRangeLL, dataRangeUL);
+      omTensorCreateWithRandomData<float>({I, K}, dataRangeLB, dataRangeUB);
   list[1] =
-      omTensorCreateWithRandomData<float>({K, J}, dataRangeLL, dataRangeUL);
+      omTensorCreateWithRandomData<float>({K, J}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }

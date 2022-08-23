@@ -79,17 +79,17 @@ bool GemmLibBuilder::build() {
   return true;
 }
 
-bool GemmLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(aShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(aShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(bShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(bShape), dataRangeLB, dataRangeUB);
   list[2] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(cShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(cShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
 }

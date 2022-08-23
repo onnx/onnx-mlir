@@ -126,15 +126,15 @@ bool ScanLibBuilder::prepareInputs() {
       -omDefaultRangeBound, omDefaultRangeBound);
 }
 
-bool ScanLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
+bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(initialShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(initialShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLL, dataRangeUL);
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
