@@ -114,6 +114,8 @@ public:
   static std::map<std::string, std::string> getTestConfigFromEnv(
       const std::string &envVar);
 
+  static std::vector<float> getDataRangeFromEnv(const std::string &envVar);
+
 protected:
   // Create a function with an empty body.
   // This function will contain the model to be tested.
@@ -204,7 +206,8 @@ public:
       const float alphaVal, const float betaVal);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -221,7 +224,8 @@ public:
       const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -240,7 +244,8 @@ public:
       const std::string &modelName, const int I, const int J, const int K);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -266,7 +271,7 @@ public:
       const int isDynamic);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
   bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
@@ -293,6 +298,8 @@ public:
   ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -313,6 +320,8 @@ public:
   ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -332,6 +341,8 @@ public:
   ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLL, float dataRangeUL);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:

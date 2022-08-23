@@ -34,7 +34,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   return lstm.build() && lstm.compileAndLoad() &&
          lstm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-         lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
+         lstm.prepareInputsFromEnv("TEST_DATARANGE") && lstm.run() &&
+         lstm.verifyOutputs();
 }
 
 } // namespace test

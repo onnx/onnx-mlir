@@ -60,8 +60,9 @@ static bool isOMScanTheSameAsNaiveImplFor(
     printf("attempt %d with S=%d, I=%d, is_v8=%d\n", ++testNum, S, I, is_v8);
 
   ScanLibBuilder scan(SHARED_LIB_BASE.str(), S, I, B, is_v8);
-  return scan.build() && scan.compileAndLoad() && scan.prepareInputs() &&
-         scan.run() && scan.verifyOutputs();
+  return scan.build() && scan.compileAndLoad() &&
+         scan.prepareInputsFromEnv("TEST_DATARANGE") && scan.run() &&
+         scan.verifyOutputs();
 }
 
 } // namespace test

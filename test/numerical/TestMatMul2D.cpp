@@ -25,7 +25,8 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
   return matmul.build() && matmul.compileAndLoad() &&
          matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-         matmul.prepareInputs() && matmul.run() && matmul.verifyOutputs();
+         matmul.prepareInputsFromEnv("TEST_DATARANGE") && matmul.run() &&
+         matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir

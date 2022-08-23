@@ -65,7 +65,7 @@ set(TEST_LINK_LIBS rapidcheck ModelLib)
 
 # Conv2D
 set(TestConvNNPA_instruction zdnn_conv2d)
-set(TestConvNNPA_data_range 0.1)
+set(TestConvNNPA_data_range -0.1,0.1)
 set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
 add_numerical_unittest(TestConvNNPA
    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp

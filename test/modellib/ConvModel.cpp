@@ -119,34 +119,28 @@ bool Conv2DLibBuilder::build() {
   return true;
 }
 
-bool Conv2DLibBuilder::prepareInputs(float dataRange) {
+bool Conv2DLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>({N, C, H, W}, -dataRange, dataRange);
+  list[0] = omTensorCreateWithRandomData<float>(
+      {N, C, H, W}, dataRangeLL, dataRangeUL);
   list[1] = omTensorCreateWithRandomData<float>(
-      {C, C, kH, kW}, -dataRange, dataRange);
+      {C, C, kH, kW}, dataRangeLL, dataRangeUL);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
 
 bool Conv2DLibBuilder::prepareInputs() {
-  constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
-  if (!list)
-    return false;
-  list[0] = omTensorCreateWithRandomData<float>({N, C, H, W});
-  list[1] = omTensorCreateWithRandomData<float>({C, C, kH, kW});
-  inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs && list[0] && list[1];
+  return Conv2DLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
 }
 
 bool Conv2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
-  return getenv(envDataRange.c_str())
-             ? prepareInputs(std::stof(getenv(envDataRange.c_str())))
-             : prepareInputs();
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {

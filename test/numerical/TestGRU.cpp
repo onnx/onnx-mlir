@@ -33,7 +33,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       linearBeforeReset, isDynamicS, isDynamicB);
   return gru.build() && gru.compileAndLoad() &&
          gru.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-         gru.prepareInputs() && gru.run() && gru.verifyOutputs();
+         gru.prepareInputsFromEnv("TEST_DATARANGE") && gru.run() &&
+         gru.verifyOutputs();
 }
 
 } // namespace test

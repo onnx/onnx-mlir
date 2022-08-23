@@ -127,19 +127,33 @@ bool LSTMLibBuilder::build() {
   return true;
 }
 
-bool LSTMLibBuilder::prepareInputs() {
+bool LSTMLibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
   constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
+  float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLL;
+  float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUL;
+  float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLL;
+  float dataRangeCUL = (isNoneC) ? 0.0 : dataRangeUL;
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), dataRangeLL, dataRangeUL);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(hShape), 0.0, (isNoneH) ? 0.0 : 1.0);
+      llvm::makeArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(cShape), 0.0, (isNoneC) ? 0.0 : 1.0);
+      llvm::makeArrayRef(cShape), dataRangeCLL, dataRangeCUL);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
+}
+
+bool LSTMLibBuilder::prepareInputs() {
+  return LSTMLibBuilder::prepareInputs(0.0, 1.0);
+}
+
+bool LSTMLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool LSTMLibBuilder::verifyOutputs() {

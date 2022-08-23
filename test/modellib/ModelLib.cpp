@@ -133,6 +133,23 @@ std::map<std::string, std::string> ModelLibBuilder::getTestConfigFromEnv(
   return opts;
 }
 
+std::vector<float> ModelLibBuilder::getDataRangeFromEnv(
+    const std::string &envVar) {
+  std::vector<float> range;
+  if (const char *envRangeString = std::getenv(envVar.c_str())) {
+    std::string rangeString = std::string(envRangeString);
+    size_t pos = rangeString.find(',');
+    assert(pos != std::string::npos);
+    std::string rangeLLString = rangeString.substr(0, pos);
+    std::string rangeULString = rangeString.substr(pos + 1);
+    std::cout << "Input data range from env: \"" << rangeLLString << " to "
+              << rangeULString << "\"\n";
+    range.emplace_back(std::stof(rangeLLString));
+    range.emplace_back(std::stof(rangeULString));
+  }
+  return range;
+}
+
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {

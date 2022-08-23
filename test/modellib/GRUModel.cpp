@@ -118,17 +118,27 @@ bool GRULibBuilder::build() {
   return true;
 }
 
-bool GRULibBuilder::prepareInputs() {
+bool GRULibBuilder::prepareInputs(float dataRangeLL, float dataRangeUL) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
-  list[1] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), dataRangeLL, dataRangeUL);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(hShape), dataRangeLL, dataRangeUL);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool GRULibBuilder::prepareInputs() {
+  return GRULibBuilder::prepareInputs(0.0, 1.0);
+}
+
+bool GRULibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool GRULibBuilder::verifyOutputs() {
