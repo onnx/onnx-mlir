@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Compiler/CompilerOptions.hpp"
+//#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -21,9 +21,11 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXConvOpLowering : public ConversionPattern {
-  ONNXConvOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXConvOpLowering(TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : ConversionPattern(
-            typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
+            typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx),
+        enableParallel(enableParallel) {}
+  bool enableParallel;
 
   void convUnoptimized(ConversionPatternRewriter &rewriter,
       IndexExprScope *topScope, ONNXConvOp &convOp,
@@ -262,8 +264,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
