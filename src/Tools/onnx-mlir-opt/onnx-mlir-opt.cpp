@@ -38,6 +38,10 @@
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -134,6 +138,8 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
   registry.insert<mlir::tosa::TosaDialect>();
+  registry.insert<mlir::mhlo::MhloDialect>();
+  registry.insert<mlir::torch::Torch::TorchDialect>();
 
   // Initialize accelerators if they exist.
   onnx_mlir::accel::initAccelerators(maccel);

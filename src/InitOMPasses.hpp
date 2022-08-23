@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 #include "src/Pass/Passes.hpp"
 
 namespace onnx_mlir {
@@ -109,6 +110,14 @@ void initOMPasses(int optLevel) {
 #ifdef ONNX_MLIR_ENABLE_MHLO
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createLowerToMhloPass(); });
+#endif
+
+#ifdef ONNX_MLIR_ENABLE_TORCH
+  // mlir::registerPass(
+  //     []() -> std::unique_ptr<mlir::Pass> { return createLowerToTorchPass();
+  //     });
+
+  onnx_mlir::registerONNXFrontendToTorchBackendPasses();
 #endif
 }
 

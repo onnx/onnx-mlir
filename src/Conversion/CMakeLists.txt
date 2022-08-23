@@ -9,3 +9,7 @@ add_subdirectory(ONNXToTOSA)
 if (ONNX_MLIR_ENABLE_MHLO)
   add_subdirectory(ONNXToMhlo)
 endif()
+
+if (ONNX_MLIR_ENABLE_TORCH)
+  add_subdirectory(ONNXToTorch)
+endif()

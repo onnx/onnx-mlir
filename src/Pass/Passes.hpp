@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/Pass/PassManager.h"
 #include <memory>
 
 namespace mlir {
@@ -65,6 +66,16 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
 #ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.
 std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+#endif
+
+#ifdef ONNX_MLIR_ENABLE_TORCH
+/// Add passes for lowering to Torch Backend IR.
+void createONNXFrontendToTorchBackendPasses(mlir::OpPassManager &pm);
+void registerONNXFrontendToTorchBackendPasses();
+std::unique_ptr<mlir::Pass> createLowerToTorchPass();
+std::unique_ptr<mlir::Pass> createFuncTorchTypeConversionPass();
+std::unique_ptr<mlir::Pass> createFinalizingTorchTypeConversionPass();
+std::unique_ptr<mlir::Pass> createEraseONNXEntryPointPass();
 #endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.
