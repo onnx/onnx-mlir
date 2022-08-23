@@ -719,23 +719,23 @@ LogicalResult KrnlMatMulOp::verify() {
   if (operandAdaptor.loops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 
-  if (operandAdaptor.computeTileSize().hasValue()) {
-    ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
+  if (operandAdaptor.computeTileSize().has_value()) {
+    ArrayAttr computeAttr = operandAdaptor.computeTileSize().value();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
       return emitOpError("computeTileSize rank should be 0 or 3");
   }
-  if (operandAdaptor.aTileSize().hasValue()) {
-    ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();
+  if (operandAdaptor.aTileSize().has_value()) {
+    ArrayAttr aTileAttr = operandAdaptor.aTileSize().value();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
       return emitOpError("aTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.bTileSize().hasValue()) {
-    ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();
+  if (operandAdaptor.bTileSize().has_value()) {
+    ArrayAttr bTileAttr = operandAdaptor.bTileSize().value();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
       return emitOpError("bTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.cTileSize().hasValue()) {
-    ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();
+  if (operandAdaptor.cTileSize().has_value()) {
+    ArrayAttr cTileAttr = operandAdaptor.cTileSize().value();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
       return emitOpError("cTileSize rank should be 0 or 2");
   }
@@ -784,12 +784,12 @@ LogicalResult KrnlCopyToBufferOp::verify() {
   if (startRank != srcRank)
     return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().getValue().size();
+    int64_t tRank = opAdaptor.tileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
   if (opAdaptor.padToNext()) {
-    int64_t padRank = opAdaptor.padToNext().getValue().size();
+    int64_t padRank = opAdaptor.padToNext().value().size();
     if (!(padRank == 0 || padRank == bufferRank))
       return emitOpError("Rank of padToNext must be identical to buffer");
   }
@@ -839,7 +839,7 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
   if (startRank != destRank)
     return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().getValue().size();
+    int64_t tRank = opAdaptor.tileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
