@@ -22,7 +22,7 @@ cmake --build . --target check-onnx-lit
 
 ### Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is generated in shared library in adition to accurary check.
+Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is included in shared library. The instruction can be set by using an environment variable `TEST_INSTRUCTION`. Also, to set ATOL and RTOL for checking the accuracy of the results, environment `TEST_ATOL` and `TEST_RTOL` are provided.
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
@@ -31,17 +31,17 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
 
 ##### Conv2D
-Since Conv2D of zDNN library only supports the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided.
-To set data range for input data and weightsi n Conv2D, an environment variable `TestConvNNPA_DATARANGE` are used. Currently the value is 0.1 written in cmake file to pass the test.
+Since Conv2D of zDNN library only supports the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided to test only static dimension case.
+To set data range for input data and weight in Conv2D, an environment variable `TEST_DATARANGE` are used. Currently the value is "-0.1,0.1" written in cmake file to set the range from -0.1 to 0.1.
 
 ##### Gemm
 Since `alpha` and `beta` should be one for Matmul of zDNN library, `-alpha=1` and `-beta=1` options are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
 
 ##### LSTM
-Since LSTM of zDNN library does not support peephole tensor, `-peephole=0` are added in `test/numerial/TestLSTM.cpp` and set in the CMakeLists.
+Since LSTM of zDNN library does not support peephole tensor, `-peephole=0` are added to set the configuration in the tests.
 
 ##### GRU
-Since GRU of zDNN library support only LinearBeforeReset=1, `-linerBeforeReset=1` option is added in `test/numerial/TestGRU.cpp` and set in the CMakeLists.
+Since GRU of zDNN library support only the case where the linear transformation is applied before multiplying by the output of the reset gata, `-linerBeforeReset=1` option is provided to set the configuraiton in the tests.
 
 ### Backend tests
 
