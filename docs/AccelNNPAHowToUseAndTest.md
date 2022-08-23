@@ -22,7 +22,7 @@ cmake --build . --target check-onnx-lit
 
 ### Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run by using following command. These tests check if a zDNN instruction is included in shared library. The instruction can be set by using an environment variable `TEST_INSTRUCTION`. Also, to set ATOL and RTOL for checking the accuracy of the results, environment `TEST_ATOL` and `TEST_RTOL` are provided.
+Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run using following command. These tests check if a zDNN instruction is included in the generated shared library. The instruction can be set with an environment variable `TEST_INSTRUCTION`. Also, to set ATOL and RTOL for checking the accuracy of the results, environment `TEST_ATOL` and `TEST_RTOL` are provided.An environment variable `TEST_DATARANGE` are provided to set lower and upper limit of data range. They can be set "<lower limit>,<upper limit>" such as "-0.1,0.1".
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
@@ -32,7 +32,6 @@ These tests uses the same test code with numerical tests for CPU (`test/modellib
 
 ##### Conv2D
 Since Conv2D of zDNN library only supports the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to use the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided to test only static dimension case.
-To set data range for input data and weight in Conv2D, an environment variable `TEST_DATARANGE` are used. Currently the value is "-0.1,0.1" written in cmake file to set the range from -0.1 to 0.1.
 
 ##### Gemm
 Since `alpha` and `beta` should be one for Matmul of zDNN library, `-alpha=1` and `-beta=1` options are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
