@@ -108,12 +108,12 @@ bool MatMul2DLibBuilder::verifyOutputs() {
 }
 
 // =============================================================================
-// Matmul with broadcast in A or B but not both
+// Matmul with broadcast in A or B but not both.
 
 MatMulSingleBroadcastLibBuilder::MatMulSingleBroadcastLibBuilder(
-    const std::string &modelName, bool broadcastB,
+    const std::string &modelName, bool broadcastingB,
     std::vector<int64_t> broadcastDims, const int I, const int J, const int K)
-    : ModelLibBuilder(modelName), broadcastB(broadcastB),
+    : ModelLibBuilder(modelName), broadcastingB(broadcastingB),
       broadcastDims(broadcastDims), I(I), J(J), K(K) {}
 
 bool MatMulSingleBroadcastLibBuilder::build() {
@@ -122,12 +122,12 @@ bool MatMulSingleBroadcastLibBuilder::build() {
   cShape.clear();
   for (long int s : broadcastDims) {
     cShape.emplace_back(s);
-    if (broadcastB)
-      // B is being broadcasted, so A has a higher rank.
-      aShape.emplace_back(s);
-    else
-      // A is being broadcasted, so B has a higher rank.
+    if (broadcastingB)
+      // B is being broadcasted, so B has a higher rank.
       bShape.emplace_back(s);
+    else
+      // A is being broadcasted, so A has a higher rank.
+      aShape.emplace_back(s);
   }
   // Add I, K for A.
   aShape.emplace_back(I);
@@ -175,53 +175,61 @@ bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
 
 // Vectors are copied as they will be modified in the function.
 void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
-    OMTensor *c, std::vector<int64_t> aBroadcast,
-    std::vector<int64_t> bBroadcast, std::vector<int64_t> cBroadcast) {
-  int64_t aIndex = aBroadcast.size();
-  int64_t bIndex = bBroadcast.size();
-  int64_t cIndex = bBroadcast.size();
+    OMTensor *c, std::vector<int64_t> &aIndexValues,
+    std::vector<int64_t> &bIndexValues, std::vector<int64_t> &cIndexValues) {
+  int64_t aIndex = aIndexValues.size();
+  int64_t bIndex = bIndexValues.size();
+  int64_t cIndex = cIndexValues.size();
   // Do we have to recurse? Remove the last 2 dims that belong to matmul (i,j).
   int broadcastRank = cShape.size() - 2;
   if (cIndex < broadcastRank) {
     int64_t num = cShape[cIndex]; // Size that we need to iterate over.
-    if (broadcastB) {
-      // A has higher dim.
-      for (int64_t i = 0; i < num; i++) {
-        aBroadcast.emplace_back(i);
-        cBroadcast.emplace_back(i);
-        computeOneMatMul(a, b, c, aBroadcast, bBroadcast, cBroadcast);
-      }
-    } else {
+    cIndexValues.emplace_back(0); // Add broadcast index value.
+    if (broadcastingB) {
       // B has higher dim.
+      bIndexValues.emplace_back(0); // Add broadcast index value.
       for (int64_t i = 0; i < num; i++) {
-        bBroadcast.emplace_back(i);
-        cBroadcast.emplace_back(i);
-        computeOneMatMul(a, b, c, aBroadcast, bBroadcast, cBroadcast);
+        // Set the index of the matrix we are computing right now for the
+        // index values b & c and recurse.
+        bIndexValues[bIndex] = cIndexValues[bIndex] = i;
+        computeOneMatMul(a, b, c, aIndexValues, bIndexValues, cIndexValues);
       }
+      bIndexValues.pop_back(); // Remove broadcast index value.
+    } else {
+      // A has higher dim.
+      aIndexValues.emplace_back(0); // Add broadcast index value.
+      for (int64_t i = 0; i < num; i++) {
+        // Set the index of the matrix we are computing right now for the
+        // index values a & c and recurse.
+        aIndexValues[bIndex] = cIndexValues[bIndex] = i;
+        computeOneMatMul(a, b, c, aIndexValues, bIndexValues, cIndexValues);
+      }
+      aIndexValues.pop_back(); // Remove broadcast index value.
     }
     // Done with recursion at this level.
+    cIndexValues.pop_back(); // Remove broadcast index value.
     return;
   }
   // We have reached the recursion level where we can compute the matmul.
-  aBroadcast.emplace_back(0); // aIndex+0: i
-  aBroadcast.emplace_back(0); // aIndex+1: k
-  bBroadcast.emplace_back(0); // bIndex+0: k
-  bBroadcast.emplace_back(0); // bIndex+1: j
-  cBroadcast.emplace_back(0); // cIndex+0: i
-  cBroadcast.emplace_back(0); // cIndex+1: j
+  aIndexValues.emplace_back(0); // aIndex+0: i
+  aIndexValues.emplace_back(0); // aIndex+1: k
+  bIndexValues.emplace_back(0); // bIndex+0: k
+  bIndexValues.emplace_back(0); // bIndex+1: j
+  cIndexValues.emplace_back(0); // cIndex+0: i
+  cIndexValues.emplace_back(0); // cIndex+1: j
   // Compute reference, Matmul A * B.
   for (int64_t i = 0; i < I; ++i) {
     for (int64_t j = 0; j < J; ++j) {
-      cBroadcast[cIndex + 0] = i;
-      cBroadcast[cIndex + 1] = j;
-      aBroadcast[aIndex + 0] = i;
-      bBroadcast[bIndex + 1] = j;
-      omTensorGetElem<float>(c, cBroadcast) = 0;
+      cIndexValues[cIndex + 0] = i;
+      cIndexValues[cIndex + 1] = j;
+      aIndexValues[aIndex + 0] = i;
+      bIndexValues[bIndex + 1] = j;
+      omTensorGetElem<float>(c, cIndexValues) = 0;
       for (int64_t k = 0; k < K; k++) {
-        aBroadcast[aIndex + 1] = bBroadcast[bIndex + 0] = k;
-        omTensorGetElem<float>(c, cBroadcast) +=
-            omTensorGetElem<float>(a, aBroadcast) *
-            omTensorGetElem<float>(b, bBroadcast);
+        aIndexValues[aIndex + 1] = bIndexValues[bIndex + 0] = k;
+        omTensorGetElem<float>(c, cIndexValues) +=
+            omTensorGetElem<float>(a, aIndexValues) *
+            omTensorGetElem<float>(b, bIndexValues);
       }
     }
   }
@@ -238,7 +246,8 @@ bool MatMulSingleBroadcastLibBuilder::verifyOutputs() {
   if (!a || !b || !res || !ref)
     return false;
   // Compute reference, Matmul A * B.
-  computeOneMatMul(a, b, ref, {}, {}, {});
+  std::vector<int64_t> aIndexValues, bIndexValues, cIndexValues;
+  computeOneMatMul(a, b, ref, aIndexValues, bIndexValues, cIndexValues);
 
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);

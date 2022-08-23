@@ -2,6 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//====-- TestConv.cpp - test 2d convolutions -================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test 2D convolutions. Include tests for
+// strides/dilation>1 as well as dynamic NCHW dimensions.
+//
+//===----------------------------------------------------------------------===//
+
 #include <rapidcheck.h>
 
 #include "llvm/Support/FileSystem.h"
@@ -70,18 +81,18 @@ int main(int argc, char *argv[]) {
     printf("test case generation with auto pad = VALID or SAME and %s.\n",
         (isDynamic ? "dynamic" : "static"));
     bool success = rc::check("convolution implementation correctness", []() {
-      const auto S = *rc::gen::inRange(1, 3);
+      const int S = *rc::gen::inRange(1, 3);
       stride = S;
-      const auto D = *rc::gen::inRange(1, 3);
+      const int D = *rc::gen::inRange(1, 3);
       dilation = D;
-      const auto autoPad = (ConvAutoPad)*rc::gen::inRange(
+      const ConvAutoPad autoPad = (ConvAutoPad)*rc::gen::inRange(
           (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
-      const auto N = *rc::gen::inRange(1, 5);
-      const auto C = *rc::gen::inRange(1, 10);
-      const auto H = *rc::gen::inRange(5, 32 * stride);
-      const auto W = *rc::gen::inRange(5, 32 * stride);
-      const auto kH = *rc::gen::inRange(1, 6);
-      const auto kW = *rc::gen::inRange(1, 6);
+      const int N = *rc::gen::inRange(1, 5);
+      const int C = *rc::gen::inRange(1, 10);
+      const int H = *rc::gen::inRange(5, 32 * stride);
+      const int W = *rc::gen::inRange(5, 32 * stride);
+      const int kH = *rc::gen::inRange(1, 6);
+      const int kW = *rc::gen::inRange(1, 6);
       // Make sure we have at least 1 output per dimension.
       RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
       RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
@@ -109,17 +120,17 @@ int main(int argc, char *argv[]) {
         // RapidCheck test case generation for a given stride and dilation.
         bool success =
             rc::check("convolution implementation correctness", []() {
-              const auto N = *rc::gen::inRange(1, 5);
-              const auto C = *rc::gen::inRange(1, 10);
-              const auto H = *rc::gen::inRange(5, 32 * stride);
-              const auto W = *rc::gen::inRange(5, 32 * stride);
-              const auto kH = *rc::gen::inRange(1, 6);
-              const auto kW = *rc::gen::inRange(1, 6);
+              const int N = *rc::gen::inRange(1, 5);
+              const int C = *rc::gen::inRange(1, 10);
+              const int H = *rc::gen::inRange(5, 32 * stride);
+              const int W = *rc::gen::inRange(5, 32 * stride);
+              const int kH = *rc::gen::inRange(1, 6);
+              const int kW = *rc::gen::inRange(1, 6);
               // We don't want an entire window of padding.
-              const auto pHBegin = *rc::gen::inRange(0, kH);
-              const auto pHEnd = *rc::gen::inRange(0, kH);
-              const auto pWBegin = *rc::gen::inRange(0, kW);
-              const auto pWEnd = *rc::gen::inRange(0, kW);
+              const int pHBegin = *rc::gen::inRange(0, kH);
+              const int pHEnd = *rc::gen::inRange(0, kH);
+              const int pWBegin = *rc::gen::inRange(0, kW);
+              const int pWEnd = *rc::gen::inRange(0, kW);
               // Make sure we have at least 1 output per dimension.
               RC_PRE((H / stride >= kH * dilation) &&
                      (W / stride > kW * dilation));

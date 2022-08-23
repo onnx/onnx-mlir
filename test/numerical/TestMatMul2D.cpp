@@ -2,6 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//====-- TestMastMul2D.cpp - test matmul without broadcast -==================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test 2D matrix multiply code.
+//
+//===----------------------------------------------------------------------===//
+
 #include <rapidcheck.h>
 
 #include "llvm/Support/FileSystem.h"
@@ -47,8 +57,8 @@ int main(int argc, char *argv[]) {
   printf("RapidCheck Matrix-Vector test case generation.\n");
   bool success =
       rc::check("Matrix-Vector Matmul implementation correctness", []() {
-        const auto I = *rc::gen::inRange(4, 50);
-        const auto K = *rc::gen::inRange(4, 14);
+        const int I = *rc::gen::inRange(4, 50);
+        const int K = *rc::gen::inRange(4, 14);
 
         RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
       });
@@ -57,9 +67,9 @@ int main(int argc, char *argv[]) {
 
   printf("RapidCheck Matrix-Matrix test case generation.\n");
   success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
-    const auto I = *rc::gen::inRange(1, 50);
-    const auto J = *rc::gen::inRange(1, 50);
-    const auto K = *rc::gen::inRange(1, 50);
+    const int I = *rc::gen::inRange(1, 50);
+    const int J = *rc::gen::inRange(1, 50);
+    const int K = *rc::gen::inRange(1, 50);
 
     RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, J, K));
   });

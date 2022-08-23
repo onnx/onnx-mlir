@@ -247,14 +247,16 @@ private:
 };
 
 // Matmul where there is broadcasting in either A or B, but not both.
-// If broadcasting A, then B has a higher rank; if broadcasting B, then A has a
+// If broadcasting A, then A has a higher rank; if broadcasting B, then B has a
 // higher rank.
 class MatMulSingleBroadcastLibBuilder : public ModelLibBuilder {
 public:
-  // If broadcastA is true, the A
-  MatMulSingleBroadcastLibBuilder(const std::string &modelName, bool broadcastB,
-      std::vector<int64_t> broadcastDims, const int I, const int J,
-      const int K);
+  // If broadcastingB is true, then the rank of B > rank of A=2. The broadcasted
+  // dimensions are given by broadcastDims, and the traditional 2D matrix
+  // multiplication dims are given by I, J, and K.
+  MatMulSingleBroadcastLibBuilder(const std::string &modelName,
+      bool broadcastingB, std::vector<int64_t> broadcastDims, const int I,
+      const int J, const int K);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRange);
@@ -263,10 +265,10 @@ public:
 private:
   // Compute one matmul for a given broadcast
   void computeOneMatMul(OMTensor *a, OMTensor *b, OMTensor *c,
-      std::vector<int64_t> aBroadcast, std::vector<int64_t> bBroadcast,
-      std::vector<int64_t> cBroadcast);
+      std::vector<int64_t> &aIndexValues, std::vector<int64_t> &bIndexValues,
+      std::vector<int64_t> &cIndexValues);
   // Data that defines model.
-  bool broadcastB;
+  bool broadcastingB;
   std::vector<int64_t> broadcastDims;
   const int I, J, K;
   // Computed data from inputs.

@@ -2,6 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//====-- TestLoop.cpp - test Loop code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Loop code. 
+//
+//===----------------------------------------------------------------------===//
+
 #include <algorithm>
 #include <cmath>
 #include <limits>

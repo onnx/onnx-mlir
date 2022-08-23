@@ -281,10 +281,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
-  // Handle the cases with 2x2 matrices both for A, B, and C without
-  // broadcast. Implementation here uses the efficient 1d tiling plus kernel
-  // substitution.
-  void replace2x2Matmul2dBroadcastB(ONNXMatMulOp &matMulOp,
+  // Handle the cases with 2x2 matrices with broadcasting of A (rank of B>2)
+  void replace2x2Matmul2dBroadcastingA(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
@@ -399,7 +397,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcastB(matMulOp, operandAdaptor, elementType,
+      replace2x2Matmul2dBroadcastingA(matMulOp, operandAdaptor, elementType,
           shapeHelper, alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
