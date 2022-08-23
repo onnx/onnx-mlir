@@ -65,7 +65,6 @@ int main(int argc, char *argv[]) {
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   bool success;
-#if 0
   printf("RapidCheck Matrix-Vector with broadcast test case generation.\n");
   success =
       rc::check("Matrix-Vector Matmul implementation correctness", []() {
@@ -80,17 +79,16 @@ int main(int argc, char *argv[]) {
       });
   if (!success)
     return 1;
-#endif
 
   printf("RapidCheck Matrix-Matrix with broadcast test case generation.\n");
   success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
-    const int I = *rc::gen::inRange(1, 50);
-    const int J = *rc::gen::inRange(1, 50);
-    const int K = *rc::gen::inRange(1, 50);
-    const int bRank = *rc::gen::inRange(1, 3);
+    const int I = *rc::gen::inRange(2, 20);
+    const int J = *rc::gen::inRange(2, 20);
+    const int K = *rc::gen::inRange(2, 8);
+    const int bRank = *rc::gen::inRange(1, 4); // Additional rank for broadcast.
     std::vector<int64_t> bDims;
     for (int i = 0; i < bRank; ++i)
-      bDims.emplace_back((int64_t)*rc::gen::inRange(1, 5));
+      bDims.emplace_back((int64_t)*rc::gen::inRange(1, 20));
 
     RC_ASSERT(
         isOMMatmulTheSameAsNaiveImplFor(/*broadcastB*/ true, bDims, I, J, K));

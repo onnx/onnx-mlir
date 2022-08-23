@@ -124,6 +124,12 @@ protected:
       const OMTensor *omt, const mlir::RankedTensorType resultType);
   // Compare results as float.
   bool areCloseFloat(const OMTensor *res, const OMTensor *ref) const;
+  // Print indices rank and values, for debugging.
+  void printIndices(
+      const std::string message, const std::vector<int64_t> &indices) const;
+  // Print tensor, as a python numpy array if requested, for debugging.
+  void printTensor(
+      const std::string varName, const OMTensor *t, bool asNumpy = true) const;
 
   // Data for building and compiling the model.
   const std::string sharedLibBaseName; // Name for the library.
@@ -135,6 +141,11 @@ protected:
   // Data for running the model (freed in destructor).
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
+
+private:
+  // Helper recursive function to print tensors.
+  void printTensor(const OMTensor *t, std::vector<int64_t> &indices,
+      bool isLast = false) const;
 };
 
 template <typename T1, typename T2>
@@ -266,13 +277,13 @@ private:
   // Compute one matmul for a given broadcast
   void computeOneMatMul(OMTensor *a, OMTensor *b, OMTensor *c,
       std::vector<int64_t> &aIndexValues, std::vector<int64_t> &bIndexValues,
-      std::vector<int64_t> &cIndexValues);
+      std::vector<int64_t> &yIndexValues);
   // Data that defines model.
   bool broadcastingB;
   std::vector<int64_t> broadcastDims;
   const int I, J, K;
   // Computed data from inputs.
-  std::vector<int64_t> aShape, bShape, cShape;
+  std::vector<int64_t> aShape, bShape, yShape;
 };
 
 // Padding schemes for Convolutions.

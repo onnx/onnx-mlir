@@ -281,14 +281,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
-  // Handle the cases with 2x2 matrices with broadcasting of A (rank of B>2)
-  void replace2x2Matmul2dBroadcastingA(ONNXMatMulOp &matMulOp,
+  // Handle the cases with 2x2 matrices with broadcasting
+  void replace2x2Matmul2dBroadcasting(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB, Value alloc,
+      Value zeroVal, ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    int64_t BCRank = shapeHelper.bDims.size();
+    int64_t BCRank = shapeHelper.bDims.size(); // xxx
     int64_t BCBroadcastRank = BCRank - 2;
     assert(BCBroadcastRank > 0 && "expected broadcast dims in B & C");
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
@@ -296,7 +296,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = create.math.constantIndex(0);
     Value I = create.mem.dim(C, BCBroadcastRank + 0); // C has broadcast.
     Value J = create.mem.dim(C, BCBroadcastRank + 1);
-    Value K = create.mem.dim(A, 1); // A doesn't have broadcast.
+    Value K = create.mem.dim(A, 1); // A doesn't have broadcast. xxx
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
@@ -346,7 +346,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                 for (int64_t i = 0; i < BCBroadcastRank; ++i)
                   BCGlobalStart.emplace_back(broadcastIndices[i]);
                 BCGlobalStart.emplace_back(zero);
-                BCGlobalStart.emplace_back(zero);                
+                BCGlobalStart.emplace_back(zero);
                 createKrnl.matmul(A, {zero, zero}, B, BCGlobalStart, C,
                     BCGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
                     {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
@@ -397,8 +397,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcastingA(matMulOp, operandAdaptor, elementType,
-          shapeHelper, alloc, zero, rewriter, loc);
+      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
+          shapeHelper, /*broadcasting B*/ true, alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);

@@ -25,6 +25,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
+#define DEBUG 0
+
 // =============================================================================
 // 2D matmul without broadcast
 
@@ -117,17 +119,22 @@ MatMulSingleBroadcastLibBuilder::MatMulSingleBroadcastLibBuilder(
       broadcastDims(broadcastDims), I(I), J(J), K(K) {}
 
 bool MatMulSingleBroadcastLibBuilder::build() {
+  // Create shapes for a, b, and result y with broadcast.
   aShape.clear();
   bShape.clear();
-  cShape.clear();
-  for (long int s : broadcastDims) {
-    cShape.emplace_back(s);
-    if (broadcastingB)
-      // B is being broadcasted, so B has a higher rank.
+  yShape.clear();
+  if (broadcastingB) {
+    // B is being broadcasted, so B has a higher rank.
+    for (long int s : broadcastDims) {
       bShape.emplace_back(s);
-    else
-      // A is being broadcasted, so A has a higher rank.
+      yShape.emplace_back(s);
+    }
+  } else {
+    // A is being broadcasted, so A has a higher rank.
+    for (long int s : broadcastDims) {
       aShape.emplace_back(s);
+      yShape.emplace_back(s);
+    }
   }
   // Add I, K for A.
   aShape.emplace_back(I);
@@ -136,24 +143,23 @@ bool MatMulSingleBroadcastLibBuilder::build() {
   bShape.emplace_back(K);
   bShape.emplace_back(J);
   // Add I, J for C.
-  cShape.emplace_back(I);
-  cShape.emplace_back(J);
-
+  yShape.emplace_back(I);
+  yShape.emplace_back(J);
+  // Create types.
   auto aType = RankedTensorType::get(aShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto yType = RankedTensorType::get(cShape, builder.getF32Type());
-
+  auto yType = RankedTensorType::get(yShape, builder.getF32Type());
+  // Create function.
   llvm::SmallVector<Type, 2> inputsType{aType, bType};
   llvm::SmallVector<Type, 1> outputsType{yType};
-
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
+  // Create op.
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
-
   auto MatmulOp = builder.create<ONNXMatMulOp>(loc,
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
-
+  // Create function return.
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
   builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
@@ -175,24 +181,24 @@ bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
 
 // Vectors are copied as they will be modified in the function.
 void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
-    OMTensor *c, std::vector<int64_t> &aIndexValues,
-    std::vector<int64_t> &bIndexValues, std::vector<int64_t> &cIndexValues) {
+    OMTensor *y, std::vector<int64_t> &aIndexValues,
+    std::vector<int64_t> &bIndexValues, std::vector<int64_t> &yIndexValues) {
   int64_t aIndex = aIndexValues.size();
   int64_t bIndex = bIndexValues.size();
-  int64_t cIndex = cIndexValues.size();
+  int64_t yIndex = yIndexValues.size();
   // Do we have to recurse? Remove the last 2 dims that belong to matmul (i,j).
-  int broadcastRank = cShape.size() - 2;
-  if (cIndex < broadcastRank) {
-    int64_t num = cShape[cIndex]; // Size that we need to iterate over.
-    cIndexValues.emplace_back(0); // Add broadcast index value.
+  int broadcastRank = yShape.size() - 2;
+  if (yIndex < broadcastRank) {
+    int64_t num = yShape[yIndex]; // Size that we need to iterate over.
+    yIndexValues.emplace_back(0); // Add broadcast index value.
     if (broadcastingB) {
       // B has higher dim.
       bIndexValues.emplace_back(0); // Add broadcast index value.
       for (int64_t i = 0; i < num; i++) {
         // Set the index of the matrix we are computing right now for the
         // index values b & c and recurse.
-        bIndexValues[bIndex] = cIndexValues[bIndex] = i;
-        computeOneMatMul(a, b, c, aIndexValues, bIndexValues, cIndexValues);
+        bIndexValues[bIndex] = yIndexValues[bIndex] = i;
+        computeOneMatMul(a, b, y, aIndexValues, bIndexValues, yIndexValues);
       }
       bIndexValues.pop_back(); // Remove broadcast index value.
     } else {
@@ -201,13 +207,13 @@ void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
       for (int64_t i = 0; i < num; i++) {
         // Set the index of the matrix we are computing right now for the
         // index values a & c and recurse.
-        aIndexValues[bIndex] = cIndexValues[bIndex] = i;
-        computeOneMatMul(a, b, c, aIndexValues, bIndexValues, cIndexValues);
+        aIndexValues[bIndex] = yIndexValues[bIndex] = i;
+        computeOneMatMul(a, b, y, aIndexValues, bIndexValues, yIndexValues);
       }
       aIndexValues.pop_back(); // Remove broadcast index value.
     }
     // Done with recursion at this level.
-    cIndexValues.pop_back(); // Remove broadcast index value.
+    yIndexValues.pop_back(); // Remove broadcast index value.
     return;
   }
   // We have reached the recursion level where we can compute the matmul.
@@ -215,24 +221,30 @@ void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
   aIndexValues.emplace_back(0); // aIndex+1: k
   bIndexValues.emplace_back(0); // bIndex+0: k
   bIndexValues.emplace_back(0); // bIndex+1: j
-  cIndexValues.emplace_back(0); // cIndex+0: i
-  cIndexValues.emplace_back(0); // cIndex+1: j
+  yIndexValues.emplace_back(0); // cIndex+0: i
+  yIndexValues.emplace_back(0); // cIndex+1: j
   // Compute reference, Matmul A * B.
   for (int64_t i = 0; i < I; ++i) {
     for (int64_t j = 0; j < J; ++j) {
-      cIndexValues[cIndex + 0] = i;
-      cIndexValues[cIndex + 1] = j;
+      yIndexValues[yIndex + 0] = i;
+      yIndexValues[yIndex + 1] = j;
       aIndexValues[aIndex + 0] = i;
       bIndexValues[bIndex + 1] = j;
-      omTensorGetElem<float>(c, cIndexValues) = 0;
+      omTensorGetElem<float>(y, yIndexValues) = 0;
       for (int64_t k = 0; k < K; k++) {
         aIndexValues[aIndex + 1] = bIndexValues[bIndex + 0] = k;
-        omTensorGetElem<float>(c, cIndexValues) +=
+        omTensorGetElem<float>(y, yIndexValues) +=
             omTensorGetElem<float>(a, aIndexValues) *
             omTensorGetElem<float>(b, bIndexValues);
       }
     }
   }
+  aIndexValues.pop_back();
+  aIndexValues.pop_back();
+  bIndexValues.pop_back();
+  bIndexValues.pop_back();
+  yIndexValues.pop_back();
+  yIndexValues.pop_back();
 }
 
 bool MatMulSingleBroadcastLibBuilder::verifyOutputs() {
@@ -242,7 +254,7 @@ bool MatMulSingleBroadcastLibBuilder::verifyOutputs() {
   OMTensor *a = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *b = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
-  OMTensor *ref = omTensorCreateWithShape<float>(cShape);
+  OMTensor *ref = omTensorCreateWithShape<float>(yShape);
   if (!a || !b || !res || !ref)
     return false;
   // Compute reference, Matmul A * B.
@@ -250,6 +262,13 @@ bool MatMulSingleBroadcastLibBuilder::verifyOutputs() {
   computeOneMatMul(a, b, ref, aIndexValues, bIndexValues, cIndexValues);
 
   bool ok = areCloseFloat(res, ref);
+  if (DEBUG && !ok) {
+    printf("After compute with errors\n");
+    printTensor("A", a);
+    printTensor("B", b);
+    printTensor("Res", res);
+    printTensor("Ref", ref);
+  }
   omTensorDestroy(ref);
   return ok;
 }

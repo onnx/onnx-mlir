@@ -158,5 +158,82 @@ bool ModelLibBuilder::areCloseFloat(
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
+void ModelLibBuilder::printIndices(
+    const std::string message, const std::vector<int64_t> &indices) const {
+  if (!message.empty())
+    printf("%s, ", message.c_str());
+  int rank = indices.size();
+  printf("rank %d, sizes (", rank);
+  for (int i = 0; i < rank; ++i)
+    printf("%d%s", (int)indices[i], i != rank - 1 ? ", " : "");
+  printf(")\n");
+}
+
+// Recursive printing to deal with arbitrary tensor ranks.
+void ModelLibBuilder::printTensor(
+    const OMTensor *t, std::vector<int64_t> &indices, bool isLast) const {
+  int64_t rank = omTensorGetRank(t);
+  int64_t *shape = omTensorGetShape(t);
+  int64_t currSize = indices.size();
+  // Utility to print tabs.
+  auto printTab = [](int currSize) {
+    for (int i = 0; i < currSize; ++i)
+      printf("  ");
+  };
+  auto printNext = [](int currSize, bool isLast) {
+    printf("]");
+    if (!isLast)
+      printf(",\n");
+    else if (currSize != 0)
+      printf("\n");
+  };
+  if (currSize < rank - 1) {
+    indices.emplace_back(0);
+    printTab(currSize);
+    printf("[\n");
+    int size = shape[currSize];
+    for (int64_t i = 0; i < size; ++i) {
+      indices[currSize] = i;
+      printTensor(t, indices, /*is last */ i == size - 1);
+    }
+    indices.pop_back();
+    printTab(currSize);
+    printNext(currSize, isLast);
+    return;
+  }
+  // We need to print the last dim, do it as a one liner.
+  indices.emplace_back(0);
+  printTab(currSize);
+  printf("[");
+  int size = shape[currSize];
+  for (int i = 0; i < size; ++i) {
+    indices[currSize] = i;
+    printf(
+        "%f%s", omTensorGetElem<float>(t, indices), i < size - 1 ? ", " : "");
+  }
+  indices.pop_back();
+  printNext(currSize, isLast);
+}
+
+void ModelLibBuilder::printTensor(
+    const std::string varName, const OMTensor *t, bool asNumpy) const {
+  int64_t rank = omTensorGetRank(t);
+  int64_t *shape = omTensorGetShape(t);
+  std::vector<int64_t> shapeVect(shape, shape + rank);
+  // Print message as comment and add rank and shape.
+  printf("# ");
+  printIndices(varName, shapeVect);
+  // Print the actual tensor values.
+  if (asNumpy) {
+    if (!varName.empty())
+      printf("%s = ", varName.c_str());
+    printf("np.array(");
+  }
+  std::vector<int64_t> indices;
+  printTensor(t, indices, /*isLast*/ true);
+  if (asNumpy)
+    printf(")\n");
+}
+
 } // namespace test
 } // namespace onnx_mlir
