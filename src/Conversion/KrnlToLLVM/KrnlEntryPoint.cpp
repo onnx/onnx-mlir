@@ -14,11 +14,11 @@
 
 #include <errno.h>
 
+#include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Parser/Parser.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/JSON.h"
 
@@ -443,7 +443,7 @@ private:
       auto JSONItem = (*JSONArray)[i].getAsObject();
       auto JSONItemType = JSONItem->getString("type");
       assert(JSONItemType && "failed to get type");
-      Type elemTy = parseType(JSONItemType.getValue(), rewriter.getContext());
+      Type elemTy = parseType(JSONItemType.value(), rewriter.getContext());
       std::string elemTyStr;
       llvm::raw_string_ostream dstream(elemTyStr);
       dstream << elemTy;
@@ -478,7 +478,7 @@ private:
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
-        int64_t dim = JSONDimValue.getValue();
+        int64_t dim = JSONDimValue.value();
         // Verify.
         if (dim == -1) {
           // In case that the reference dimension size is unknown, verify that

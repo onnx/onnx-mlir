@@ -67,12 +67,12 @@ public:
   InstrumentONNXPass() = default;
   InstrumentONNXPass(const InstrumentONNXPass &pass)
       : mlir::PassWrapper<InstrumentONNXPass, OperationPass<func::FuncOp>>() {}
-  InstrumentONNXPass(StringRef ops, int actions) {
+  InstrumentONNXPass(StringRef ops, unsigned actions) {
     this->instrumentONNXOps = ops.str();
-    this->instrumentBefore = actions & onnx_mlir::InstrumentBeforeOp;
-    this->instrumentAfter = actions & onnx_mlir::InstrumentAfterOp;
-    this->reportTime = actions & onnx_mlir::InstrumentReportTime;
-    this->reportMemory = actions & onnx_mlir::InstrumentReportMemory;
+    this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
+    this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
+    this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
+    this->reportMemory = actions & (1 << onnx_mlir::InstrumentReportMemory);
   }
 
 private:
@@ -157,6 +157,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass(
-    StringRef ops, int actions) {
+    StringRef ops, unsigned actions) {
   return std::make_unique<InstrumentONNXPass>(ops, actions);
 }

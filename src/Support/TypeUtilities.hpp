@@ -20,6 +20,8 @@ namespace onnx_mlir {
 mlir::Type getElementType(mlir::Type ty);
 /// Check if a type is ShapedType and has rank.
 bool isRankedShapedType(mlir::Type ty);
+/// Check if a type has static shape.
+bool hasStaticShape(mlir::Type ty);
 /// Get shape.
 llvm::ArrayRef<int64_t> getShape(mlir::Type ty);
 /// Get rank.

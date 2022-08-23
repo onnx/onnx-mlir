@@ -1,7 +1,7 @@
 <?xml version='1.1' encoding='UTF-8'?>
 <project>
   <actions/>
-  <description>This job is triggered periodically. It&apos;s used to build the ONNX-MLIR main branch against the LLVM main branch from time to time to check if updates in LLVM break ONNX-MLIR. This catches the breakage early and makes updating LLVM for ONNX-MLIR easier.</description>
+  <description>This job is triggered periodically. It&apos;s used to build the ONNX-MLIR main branch against the LLVM main branch to locate the next commit we can update to without breaking ONNX-MLIR, as well as the commit that will break ONNX-MLIR. This catches the breakage early and makes updating LLVM for ONNX-MLIR easier.</description>
   <keepDependencies>false</keepDependencies>
   <properties>
     <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.7.1"/>
@@ -51,7 +51,7 @@
       <descriptionTemplate>watch llvm-project commits</descriptionTemplate>
     </org.jenkinsci.plugins.pipeline.BuildDescriptionStep>
     <hudson.tasks.Shell>
-      <command>${WORKSPACE}/.buildbot/jenkins-watch-llvm-project.py</command>
+      <command>PYTHONIOENCODING=utf-8 ${WORKSPACE}/.buildbot/jenkins-watch-llvm-project.py</command>
       <configuredLocalRules/>
     </hudson.tasks.Shell>
   </builders>

@@ -165,7 +165,7 @@ func.func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayou
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<1x?x9xf16, #map0>
-// CHECK:           krnl.memset [[RES_2_]], [[VAR_cst_]] : memref<1x?x9xf16, #map0>
+// CHECK:           krnl.memset [[RES_2_]], [[VAR_cst_]] {delayed = true} : memref<1x?x9xf16, #map0>
 // CHECK-DAG:       [[VAR_7_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
 // CHECK-DAG:       [[VAR_8_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
 // CHECK-NOT: separator of consecutive DAGs
@@ -217,8 +217,8 @@ func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.enco
 // CHECK:           krnl.store [[VAR_5_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK:           [[RES_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 3, 1, 1, 32, 64], value = opaque<"zhigh", {{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
-// CHECK:           [[RES_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 3, 1, 1, 32, 64], value = opaque<"zhigh", {{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK:           [[RES_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh{{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
+// CHECK:           [[RES_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh{{.*}}> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_8_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
 // CHECK-DAG:       [[VAR_9_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
 // CHECK-NOT: separator of consecutive DAGs
