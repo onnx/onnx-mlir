@@ -42,7 +42,7 @@ public:
     Value destVal(operandAdaptor.value());
     Location loc = memsetOp.getLoc();
 
-    // If delayed but the input memref is not normalized yet, do nothing.
+    // If delayed but the input memref has not normalized yet, do nothing.
     if (delayed &&
         !destMemRef.getType().cast<MemRefType>().getLayout().isIdentity())
       return failure();
