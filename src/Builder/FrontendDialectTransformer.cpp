@@ -274,16 +274,6 @@ private:
     llvm_unreachable("unexpected type");
   }
 
-  OptType ImportOptionalType(const onnx::TypeProto &type_proto) {
-    auto input_opt_type = type_proto.optional_type();
-    if (input_opt_type.has_elem_type()) {
-      onnx::TypeProto elem_type = input_opt_type.elem_type();
-      Type mlir_elem_type = ImportType(elem_type);
-      return mlir::OptType::get(mlir_elem_type);
-    }
-    llvm_unreachable("unexpected type");
-  }
-
   Type ImportType(const onnx::TypeProto &type_proto) {
     switch (type_proto.value_case()) {
     case onnx::TypeProto::kTensorType:
@@ -291,9 +281,6 @@ private:
       break;
     case onnx::TypeProto::kSequenceType:
       return ImportSequenceType(type_proto);
-      break;
-    case onnx::TypeProto::kOptionalType:
-      return ImportOptionalType(type_proto);
       break;
     default:
       llvm_unreachable("unexpected type");
@@ -356,12 +343,10 @@ private:
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
-    case onnx::AttributeProto::TYPE_PROTO:
-      mlirAttr = TypeAttr::get(ImportType(attr.tp()));
-      break;
-    case onnx::AttributeProto::GRAPH:
+    case onnx::AttributeProto::GRAPH: {
       llvm_unreachable("Subgraph attribute is imported as regions.");
       break;
+    }
     default:
       llvm_unreachable("datatype for attribute is not implemented");
       break;
@@ -619,7 +604,7 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
-        outputTypes.emplace_back(onnxModelType.value());
+        outputTypes.emplace_back(onnxModelType.getValue());
       } else {
         unsigned int j = i;
         // Variadic output is a single ODS result.
@@ -1069,7 +1054,7 @@ private:
         }
       }
     } else {
-      llvm::errs() << node.op_type();
+      llvm::outs() << node.op_type();
       if (op_dialect_top_version_map_.find(node.op_type()) !=
           op_dialect_top_version_map_.end()) {
         llvm_unreachable(
@@ -1294,28 +1279,28 @@ private:
   }
 
   /*!
-   * Import output value, by doing the following:
-   * - Add the type of this output tensor to a list of
+   * Import output tensor, by doing the following:
+   * - Add the t/yp this output tensor to a list of tensor
    *   types representing return types of this graph function.
-   * - Add this output value to the list of values
+   * - Add this output tensor to the list of Value
    *   to be returned by the function representing computation graph.
-   * @param output onnx output ValueInfoProto.
-   * @param ret_types a vector of types representing graph's output types.
-   * @param ret_vals a vector of mlir Value representing graph's output.
+   * @param output onnx output tensor ValueInfoProto.
+   * @param ret_types a vector of tensor types representing graph's
+   *   output tensor types.
+   * @param ret_vals a vector of mlir Value  representing graph's
+   *   output tensor.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
       llvm::SmallVectorImpl<Value> &ret_vals) {
-    Value val = frontend_symbols_.GetTensorByOnnxName(output.name());
+    Value tensor_val = frontend_symbols_.GetTensorByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        val.setType(ImportType(output.type()));
+        tensor_val.setType(ImportType(output.type()));
       }
-      ret_types.emplace_back(val.getType());
-    } else {
-      ret_types.emplace_back(ImportType(output.type()));
     }
-    ret_vals.push_back(val);
+    ret_types.emplace_back(tensor_val.getType());
+    ret_vals.push_back(tensor_val);
   }
 
   /*!
