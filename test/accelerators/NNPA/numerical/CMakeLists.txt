@@ -25,12 +25,12 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 #   )
 function(add_numerical_unittest test_name check_instruction)
   add_onnx_mlir_executable(${test_name}
+    ${ARGN}
+
     NO_INSTALL
 
     INCLUDE_DIRS PRIVATE
     ${ONNX_NUMERICALTEST_SRC_DIR}
-
-    ${ARGN}
     )
 
   add_dependencies(numerical-nnpa ${test_name})
