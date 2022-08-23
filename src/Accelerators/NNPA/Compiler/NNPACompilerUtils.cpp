@@ -147,9 +147,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
       else {
+        // Partially lower Krnl ops to Affine dialect.
+        addKrnlToAffinePasses(pm);
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
-        // Partially lower Krnl ops to Affine dialect.
+        // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
+        // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);
         // Optimizations at ZLow.
         pm.addPass(zlow::createZLowRewritePass());
