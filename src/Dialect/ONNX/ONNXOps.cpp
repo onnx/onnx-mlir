@@ -4169,7 +4169,7 @@ LogicalResult ONNXHardSwishOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace {
-bool areIfTypesMergeable(Type ifResultType, Type branchResultType) {
+bool areCompatibleIfTypes(Type ifResultType, Type branchResultType) {
   // ifResultType must be tensor/seq/opt type because that's checked in
   // ONNXIfOp::verifyInvariantsImpl()
   if (ShapedType ifShapedType = ifResultType.dyn_cast<ShapedType>()) {
@@ -4181,7 +4181,7 @@ bool areIfTypesMergeable(Type ifResultType, Type branchResultType) {
   }
   if (SeqType ifSeqType = ifResultType.dyn_cast<SeqType>()) {
     if (SeqType branchSeqType = branchResultType.dyn_cast<SeqType>()) {
-      return areIfTypesMergeable(
+      return areCompatibleIfTypes(
           ifSeqType.getElementType(), branchSeqType.getElementType());
     } else {
       return false;
@@ -4189,18 +4189,19 @@ bool areIfTypesMergeable(Type ifResultType, Type branchResultType) {
   }
   if (OptType ifOptType = ifResultType.dyn_cast<OptType>()) {
     if (OptType branchOptType = branchResultType.dyn_cast<OptType>()) {
-      return areIfTypesMergeable(
+      return areCompatibleIfTypes(
           ifOptType.getElementType(), branchOptType.getElementType());
     } else {
       return false;
     }
   }
-  llvm_unreachable("areIfTypesMergeable called with non tensor/seq/opt type");
+  llvm_unreachable("areCompatibleIfTypes called with non tensor/seq/opt type");
 }
 
-// Pre-condition: mergeableIfTypes(ifTy, lhs) && mergeableIfTypes(ifTy, rhs)
-Type mergeIfTypes(Type lhs, Type rhs) {
-  // All asserts below are checked in mergeableIfTypes().
+// Pre-condition: areCompatibleIfTypes(ifTy, lhs) && areCompatibleIfTypes(ifTy,
+// rhs)
+Type unionOfIfTypes(Type lhs, Type rhs) {
+  // All asserts below are checked in areCompatibleIfTypes().
   if (ShapedType lhsShapedType = lhs.dyn_cast<ShapedType>()) {
     ShapedType rhsShapedType = rhs.cast<ShapedType>();
     Type elementType = lhsShapedType.getElementType();
@@ -4225,16 +4226,16 @@ Type mergeIfTypes(Type lhs, Type rhs) {
     int64_t length = lhsSeqType.getLength() == rhsSeqType.getLength()
                          ? lhsSeqType.getLength()
                          : -1;
-    return SeqType::get(
-        mergeIfTypes(lhsSeqType.getElementType(), rhsSeqType.getElementType()),
+    return SeqType::get(unionOfIfTypes(lhsSeqType.getElementType(),
+                            rhsSeqType.getElementType()),
         length);
   }
   if (OptType lhsOptType = lhs.dyn_cast<OptType>()) {
     OptType rhsOptType = rhs.cast<OptType>();
-    return OptType::get(
-        mergeIfTypes(lhsOptType.getElementType(), rhsOptType.getElementType()));
+    return OptType::get(unionOfIfTypes(
+        lhsOptType.getElementType(), rhsOptType.getElementType()));
   }
-  llvm_unreachable("mergeIfTypes called with non tensor/seq/opt type");
+  llvm_unreachable("unionOfIfTypes called with non tensor/seq/opt type");
 }
 } // namespace
 
@@ -4253,10 +4254,10 @@ LogicalResult ONNXIfOp::verify() {
   auto elseResultTypes = elseResults.getTypes();
   for (size_t i = 0; i < ifNumResults; ++i) {
     Type ifResultType = getResultTypes()[i];
-    if (!areIfTypesMergeable(ifResultType, thenResultTypes[i]))
+    if (!areCompatibleIfTypes(ifResultType, thenResultTypes[i]))
       emitOpError() << "then branch disagrees on result type #" << (i + 1)
                     << " of " << ifNumResults;
-    if (!areIfTypesMergeable(ifResultType, elseResultTypes[i]))
+    if (!areCompatibleIfTypes(ifResultType, elseResultTypes[i]))
       emitOpError() << "else branch disagrees on result type #" << (i + 1)
                     << " of " << ifNumResults;
   }
@@ -4277,7 +4278,8 @@ LogicalResult ONNXIfOp::inferShapes(
          ifNumResults == elseResultTypes.size() &&
          "if #results and branches #results differ");
   for (size_t i = 0; i < ifNumResults; ++i) {
-    getResult(i).setType(mergeIfTypes(thenResultTypes[i], elseResultTypes[i]));
+    getResult(i).setType(
+        unionOfIfTypes(thenResultTypes[i], elseResultTypes[i]));
   }
   return success();
 }
