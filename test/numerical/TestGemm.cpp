@@ -87,18 +87,14 @@ int main(int argc, char *argv[]) {
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
   // Set configuration for test
-  int maxHasAlpha, maxHasBeta;
+  int maxHasAlpha = 2, maxHasBeta = 2;
   if (opts["-alpha"] == "1") {
     std::cout << "Alpha from env: \"" << opts["-alpha"] << "\"\n";
     maxHasAlpha = 1; // alpha = 1.0
-  } else {
-    maxHasAlpha = 2; // alpha = 1.0 or 1.2 (default)
   }
   if (opts["-beta"] == "1") {
     std::cout << "Beta from env: \"" << opts["-alpha"] << "\"\n";
     maxHasBeta = 1; // beta = 1.0
-  } else {
-    maxHasBeta = 2; // beta = 1.0 or 0.8 (default)
   }
   if (true) {
     printf("RapidCheck test case generation.\n");

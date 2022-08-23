@@ -62,25 +62,20 @@ int main(int argc, char *argv[]) {
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
   // Set configuration for test
-  int dimType, maxDilation;
-  std::string paddingType;
+  int dimType = 2; // default is for dynamic and static
+  int maxDilation = 3; // maxDilation is an exclusive upper bound
+  std::string paddingType = "valid_upper_lower";
   if (opts["-dim"] == "static") {
     std::cout << "Dimension type from env: \"" << opts["-dim"] << "\"\n";
     dimType = 1; // only static
-  } else {
-    dimType = 2; // static and dynamic (default)
   }
   if (opts["-dilation"] == "1") {
     std::cout << "Dilation from env: \"" << opts["-dilation"] << "\"\n";
-    maxDilation = 2; // dilation = 1
-  } else {
-    maxDilation = 3; // dilation = 1 or 2 (default)
+    maxDilation = 2;
   }
   if (opts["-padding"] == "valid_upper") {
     std::cout << "Padding type from env: \"" << opts["-padding"] << "\"\n";
     paddingType = "valid_upper";
-  } else {
-    paddingType = "valid_upper_lower"; // default
   }
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm

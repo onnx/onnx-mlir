@@ -58,12 +58,10 @@ int main(int argc, char *argv[]) {
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
   // Set configuration for test
-  int minNoneP;
+  int minNoneP = 0; // Peephole is tested by default
   if (opts["-peephole"] == "0") {
     std::cout << "Peephole from env: \"" << opts["-peephole"] << "\"\n";
     minNoneP = 1; // peephole not tested
-  } else {
-    minNoneP = 0; // peephole tested
   }
 
   // RapidCheck test case generation.

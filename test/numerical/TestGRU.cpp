@@ -57,12 +57,10 @@ int main(int argc, char *argv[]) {
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
   // Set configuration for test
-  int minL;
+  int minL = 0; // Lower bound for L
   if (opts["-linearBeforeReset"] == "1") {
     std::cout << "Peephole from env: \"" << opts["-peephole"] << "\"\n";
-    minL = 1; // Set linear_before_reset true. L = 1
-  } else {
-    minL = 0; // default. L = 0 or 1
+    minL = 1;
   }
 
   // RapidCheck test case generation.
