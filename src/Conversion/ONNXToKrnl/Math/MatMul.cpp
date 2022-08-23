@@ -288,15 +288,18 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       Value zeroVal, ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    int64_t BCRank = shapeHelper.bDims.size(); // xxx
-    int64_t BCBroadcastRank = BCRank - 2;
-    assert(BCBroadcastRank > 0 && "expected broadcast dims in B & C");
+    int64_t ARank = shapeHelper.aDims.size();
+    int64_t BRank = shapeHelper.bDims.size();
+    int64_t broadcastRank = (broadcastingB ? BRank : ARank) - 2;
+    assert(broadcastRank > 0 && "expected broadcast dims for A or B");
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
         create(rewriter, loc);
     Value zero = create.math.constantIndex(0);
-    Value I = create.mem.dim(C, BCBroadcastRank + 0); // C has broadcast.
-    Value J = create.mem.dim(C, BCBroadcastRank + 1);
-    Value K = create.mem.dim(A, 1); // A doesn't have broadcast. xxx
+    Value I = create.mem.dim(C, broadcastRank + 0); // C has broadcast.
+    Value J = create.mem.dim(C, broadcastRank + 1); // C has broadcast.
+    // When broadcasting B, A has no broadcast, take K from 2nd dim.
+    // When not broadcasting B, B has no broadcast, take K from 1st dim.
+    Value K = broadcastingB ? create.mem.dim(A, 1) : create.mem.dim(B, 0);
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
@@ -317,10 +320,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // Broadcast loops
-    ValueRange broadcastLoop = create.krnl.defineLoops(BCBroadcastRank);
-    SmallVector<Value, 4> broadcastLB(BCBroadcastRank, zero);
+    ValueRange broadcastLoop = create.krnl.defineLoops(broadcastRank);
+    SmallVector<Value, 4> broadcastLB(broadcastRank, zero);
     SmallVector<Value, 4> broadcastUB;
-    for (int64_t i = 0; i < BCBroadcastRank; ++i)
+    for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
@@ -342,15 +345,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
               {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
                 Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
                 // Compute global start for B/C: {broadcastIndices, 0, 0}
-                SmallVector<Value, 4> BCGlobalStart;
-                for (int64_t i = 0; i < BCBroadcastRank; ++i)
-                  BCGlobalStart.emplace_back(broadcastIndices[i]);
-                BCGlobalStart.emplace_back(zero);
-                BCGlobalStart.emplace_back(zero);
-                createKrnl.matmul(A, {zero, zero}, B, BCGlobalStart, C,
-                    BCGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-                    {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
-                    /*unroll*/ true, /*overcompute*/ false);
+                SmallVector<Value, 4> broadcastGlobalStart;
+                for (int64_t i = 0; i < broadcastRank; ++i)
+                  broadcastGlobalStart.emplace_back(broadcastIndices[i]);
+                broadcastGlobalStart.emplace_back(zero);
+                broadcastGlobalStart.emplace_back(zero);
+                if (broadcastingB)
+                  createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
+                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
+                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                else
+                  createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
+                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
+                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+                      simdize, /*unroll*/ true, /*overcompute*/ false);
               });
         });
   }
@@ -396,9 +405,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
+      // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
       replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
           shapeHelper, /*broadcasting B*/ true, alloc, zero, rewriter, loc);
+    } else if (enableTiling && aRank > 2 && bRank == 2) {
+      // Broadcasting A.
+      assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
+      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
+          shapeHelper, /*broadcasting B*/ false, alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);

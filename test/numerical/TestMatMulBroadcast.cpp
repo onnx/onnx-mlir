@@ -50,6 +50,8 @@ static bool isOMMatmulTheSameAsNaiveImplFor(bool broadcastingB,
 } // namespace test
 } // namespace onnx_mlir
 
+bool broadcastB; // indicates if we broadcast on B (true) or A (false).
+
 int main(int argc, char *argv[]) {
   using namespace onnx_mlir;
   using namespace onnx_mlir::test;
@@ -65,36 +67,29 @@ int main(int argc, char *argv[]) {
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   bool success;
-  printf("RapidCheck Matrix-Vector with broadcast test case generation.\n");
-  success =
-      rc::check("Matrix-Vector Matmul implementation correctness", []() {
-        const int I = *rc::gen::inRange(4, 50);
-        const int K = *rc::gen::inRange(4, 14);
-        const int bRank = *rc::gen::inRange(1, 3);
-        std::vector<int64_t> bDims;
-        for (int i = 0; i < bRank; ++i)
-          bDims.emplace_back(*rc::gen::inRange(1, 5));
-        RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(
-            /*broadcastB*/ true, bDims, I, 1, K));
-      });
-  if (!success)
-    return 1;
+  for (int broadcastDim = 0; broadcastDim < 2; ++broadcastDim) {
+    broadcastB = (broadcastDim == 0);
+    printf("RapidCheck Matrix-vector/Matrix with broadcast %c test case generation.\n",
+        broadcastB ? 'B' : 'A');
+    success =
+        rc::check("Matrix-vector/Matrix Matmul implementation correctness", []() {
+          // There is some tiling up to 64, so pick up a large UB number .
+          const int I = *rc::gen::inRange(2, 80);
+          const int J = *rc::gen::inRange(1, 80);
+          const int K = *rc::gen::inRange(2, 80);
+          const int broadcastRank =
+              *rc::gen::inRange(1, 5); // Additional rank for broadcast.
+          std::vector<int64_t> broadcastDims;
+          for (int i = 0; i < broadcastRank; ++i)
+            // No need for large dims, as broadcast of 2 is enough to uncover bugs.
+            broadcastDims.emplace_back((int64_t)*rc::gen::inRange(2, 4));
 
-  printf("RapidCheck Matrix-Matrix with broadcast test case generation.\n");
-  success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
-    const int I = *rc::gen::inRange(2, 20);
-    const int J = *rc::gen::inRange(2, 20);
-    const int K = *rc::gen::inRange(2, 8);
-    const int bRank = *rc::gen::inRange(1, 4); // Additional rank for broadcast.
-    std::vector<int64_t> bDims;
-    for (int i = 0; i < bRank; ++i)
-      bDims.emplace_back((int64_t)*rc::gen::inRange(1, 20));
-
-    RC_ASSERT(
-        isOMMatmulTheSameAsNaiveImplFor(/*broadcastB*/ true, bDims, I, J, K));
-  });
-  if (!success)
-    return 1;
+          RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(
+              broadcastB, broadcastDims, I, J, K));
+        });
+    if (!success)
+      return 1;
+  }
 
   return 0;
 }

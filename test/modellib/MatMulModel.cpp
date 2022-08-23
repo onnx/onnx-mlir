@@ -25,7 +25,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-#define DEBUG 0
+#define DEBUG 1
 
 // =============================================================================
 // 2D matmul without broadcast
@@ -207,7 +207,7 @@ void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
       for (int64_t i = 0; i < num; i++) {
         // Set the index of the matrix we are computing right now for the
         // index values a & c and recurse.
-        aIndexValues[bIndex] = yIndexValues[bIndex] = i;
+        aIndexValues[aIndex] = yIndexValues[aIndex] = i;
         computeOneMatMul(a, b, y, aIndexValues, bIndexValues, yIndexValues);
       }
       aIndexValues.pop_back(); // Remove broadcast index value.
