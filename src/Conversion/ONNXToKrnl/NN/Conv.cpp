@@ -21,7 +21,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXConvOpLowering : public ConversionPattern {
-  ONNXConvOpLowering(TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXConvOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : ConversionPattern(
             typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx),
         enableParallel(enableParallel) {}
@@ -32,9 +33,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
-    //KrnlBuilder createKrnl(rewriter, loc);
-    //SCFBuilder createScf(rewriter, loc);
-    MultiDialectBuilder<KrnlBuilder, SCFBuilder, MathBuilder, MemRefBuilder> create(rewriter, loc);
+    // KrnlBuilder createKrnl(rewriter, loc);
+    // SCFBuilder createScf(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, SCFBuilder, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
@@ -44,7 +46,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
     IndexExpr G = LiteralIndexExpr(groupNum);
-    //MathBuilder createMath(rewriter, loc);
+    // MathBuilder createMath(rewriter, loc);
     Value fZero = create.math.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
@@ -89,7 +91,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
-    //MemRefBuilder createMemRef(create);
+    // MemRefBuilder createMemRef(create);
     // Create a local reduction value.
     MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
     // Single scalar, no need for default alignment.
@@ -193,8 +195,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     DimIndexExpr k(redIndices[1 + i]);
                     filterAccessFct.emplace_back(k);
                   }
-                  Value filter =
-                      create.loadIE(filterOperand, filterAccessFct);
+                  Value filter = create.loadIE(filterOperand, filterAccessFct);
                   Value oldRed = create.load(reductionVal);
                   Value mul = createMath.mul(image, filter);
                   Value newRed = createMath.add(oldRed, mul);
