@@ -93,10 +93,10 @@ def AddLayoutPropagatePattern1 : Pat<
   (ZHighAddOp
      (ZHighStickOp
         (ONNXTransposeOp
-           (ZHighUnstickOp $x, $unstickLayout),
+           (ZHighUnstickOp $x, $unstickNone),
            $perm),
-        $_,
-        $fromLayout),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (NHWCtoNCHW
@@ -104,83 +104,84 @@ def AddLayoutPropagatePattern1 : Pat<
         (ZHighAddOp
           $x,
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
-            (GetLayout $x),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $y, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           (returnType $x)),
-        $unstickLayout)),
-     (GetLayout $y),
-     $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def AddLayoutPropagatePattern2 : Pat<
   (ZHighAddOp
      $x,
      (ZHighStickOp
-      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
-      $_, 
-      $fromLayout)),
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickNone), $perm),
+      $stickLayout, 
+      $noneLayout)),
   (ZHighStickOp
      (NHWCtoNCHW
       (ZHighUnstickOp
         (ZHighAddOp
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
-            (GetLayout $y),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $x, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           $y, (returnType $y)),
-        $unstickLayout)),
-     (GetLayout $x), $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $y), (IsNotNHWC $x),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def AddLayoutPropagatePattern3 : Pat<
   (ZHighAddOp
      (ZHighStickOp
-        (ZHighUnstickOp $x, $unstickToLayout),
-        $_,
-        $stickFromLayout),
+        (ZHighUnstickOp $x, $unstickNCHW),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighAddOp
          $x,
          (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
+           (ZHighUnstickOp $y, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $x)),
-       $unstickToLayout),
-     (GetLayout $y),
-     (NoneLayoutAttr)),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 def AddLayoutPropagatePattern4 : Pat<
   (ZHighAddOp
      $x,
      (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
-        $_,
-        $stickFromLayout)),
+           (ZHighUnstickOp $y, $unstickNCHW),
+        $stickLayout,
+        $noneLayout)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighAddOp
          $y,
          (ZHighStickOp
-           (ZHighUnstickOp $x, $unstickToLayout),
+           (ZHighUnstickOp $x, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $y)),
-       $unstickToLayout),
-     (GetLayout $x),
-     (NoneLayoutAttr)),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 // If the inputs of zhigh.sub transitively/originally come from zAIU tensors
@@ -191,10 +192,10 @@ def SubLayoutPropagatePattern1 : Pat<
   (ZHighSubOp
      (ZHighStickOp
         (ONNXTransposeOp
-           (ZHighUnstickOp $x, $unstickLayout),
+           (ZHighUnstickOp $x, $unstickNone),
            $perm),
-        $_,
-        $fromLayout),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (NHWCtoNCHW
@@ -202,83 +203,84 @@ def SubLayoutPropagatePattern1 : Pat<
         (ZHighSubOp
           $x,
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
-            (GetLayout $x),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $y, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           (returnType $x)),
-        $unstickLayout)),
-     (GetLayout $y),
-     $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def SubLayoutPropagatePattern2 : Pat<
   (ZHighSubOp
      $x,
      (ZHighStickOp
-      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
-      $_, 
-      $fromLayout)),
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickNone), $perm),
+      $stickLayout, 
+      $noneLayout)),
   (ZHighStickOp
      (NHWCtoNCHW
       (ZHighUnstickOp
         (ZHighSubOp
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
-            (GetLayout $y),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $x, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           $y, (returnType $y)),
-        $unstickLayout)),
-     (GetLayout $x), $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $y), (IsNotNHWC $x),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def SubLayoutPropagatePattern3 : Pat<
   (ZHighSubOp
      (ZHighStickOp
-        (ZHighUnstickOp $x, $unstickToLayout),
-        $_,
-        $stickFromLayout),
+        (ZHighUnstickOp $x, $unstickNCHW),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighSubOp
          $x,
          (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
+           (ZHighUnstickOp $y, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $x)),
-       $unstickToLayout),
-     (GetLayout $y),
-     (NoneLayoutAttr)),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 def SubLayoutPropagatePattern4 : Pat<
   (ZHighSubOp
      $x,
      (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
-        $_,
-        $stickFromLayout)),
+           (ZHighUnstickOp $y, $unstickNCHW),
+        $stickLayout,
+        $noneLayout)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighSubOp
          $y,
          (ZHighStickOp
-           (ZHighUnstickOp $x, $unstickToLayout),
+           (ZHighUnstickOp $x, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $y)),
-       $unstickToLayout),
-     (GetLayout $x),
-     (NoneLayoutAttr)),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 // If the inputs of zhigh.mul transitively/originally come from zAIU tensors
@@ -289,10 +291,10 @@ def MulLayoutPropagatePattern1 : Pat<
   (ZHighMulOp
      (ZHighStickOp
         (ONNXTransposeOp
-           (ZHighUnstickOp $x, $unstickLayout),
+           (ZHighUnstickOp $x, $unstickNone),
            $perm),
-        $_,
-        $fromLayout),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (NHWCtoNCHW
@@ -300,83 +302,84 @@ def MulLayoutPropagatePattern1 : Pat<
         (ZHighMulOp
           $x,
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
-            (GetLayout $x),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $y, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           (returnType $x)),
-        $unstickLayout)),
-     (GetLayout $y),
-     $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def MulLayoutPropagatePattern2 : Pat<
   (ZHighMulOp
      $x,
      (ZHighStickOp
-      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
-      $_, 
-      $fromLayout)),
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickNone), $perm),
+      $stickLayout, 
+      $noneLayout)),
   (ZHighStickOp
      (NHWCtoNCHW
       (ZHighUnstickOp
         (ZHighMulOp
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
-            (GetLayout $y),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $x, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           $y, (returnType $y)),
-        $unstickLayout)),
-     (GetLayout $x), $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $y), (IsNotNHWC $x),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def MulLayoutPropagatePattern3 : Pat<
   (ZHighMulOp
      (ZHighStickOp
-        (ZHighUnstickOp $x, $unstickToLayout),
-        $_,
-        $stickFromLayout),
+        (ZHighUnstickOp $x, $unstickNCHW),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighMulOp
          $x,
          (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
+           (ZHighUnstickOp $y, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $x)),
-       $unstickToLayout),
-     (GetLayout $y),
-     (NoneLayoutAttr)),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 def MulLayoutPropagatePattern4 : Pat<
   (ZHighMulOp
      $x,
      (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
-        $_,
-        $stickFromLayout)),
+           (ZHighUnstickOp $y, $unstickNCHW),
+        $stickLayout,
+        $noneLayout)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighMulOp
          $y,
          (ZHighStickOp
-           (ZHighUnstickOp $x, $unstickToLayout),
+           (ZHighUnstickOp $x, $unstickNCHW),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $y)),
-       $unstickToLayout),
-     (GetLayout $x),
-     (NoneLayoutAttr)),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 // If the inputs of zhigh.div transitively/originally come from zAIU tensors
@@ -387,10 +390,10 @@ def DivLayoutPropagatePattern1 : Pat<
   (ZHighDivOp
      (ZHighStickOp
         (ONNXTransposeOp
-           (ZHighUnstickOp $x, $unstickLayout),
+           (ZHighUnstickOp $x, $unstickNone),
            $perm),
-        $_,
-        $fromLayout),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (NHWCtoNCHW
@@ -398,83 +401,84 @@ def DivLayoutPropagatePattern1 : Pat<
         (ZHighDivOp
           $x,
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
-            (GetLayout $x),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $y, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           (returnType $x)),
-        $unstickLayout)),
-     (GetLayout $y),
-     $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def DivLayoutPropagatePattern2 : Pat<
   (ZHighDivOp
      $x,
      (ZHighStickOp
-      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
-      $_, 
-      $fromLayout)),
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickNone), $perm),
+      $stickLayout, 
+      $noneLayout)),
   (ZHighStickOp
      (NHWCtoNCHW
       (ZHighUnstickOp
         (ZHighDivOp
           (ZHighStickOp
-            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
-            (GetLayout $y),
-            $fromLayout),
+            (NCHWtoNHWC (ZHighUnstickOp $x, (NoneLayoutAttr))),
+            (NHWCLayoutAttr),
+            (NoneLayoutAttr)),
           $y, (returnType $y)),
-        $unstickLayout)),
-     (GetLayout $x), $fromLayout),
+        $unstickNone)),
+     $stickLayout,
+     $noneLayout),
   [(IsNHWC $y), (IsNotNHWC $x),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def DivLayoutPropagatePattern3 : Pat<
   (ZHighDivOp
      (ZHighStickOp
-        (ZHighUnstickOp $x, $unstickToLayout),
-        $_,
-        $stickFromLayout),
+        (ZHighUnstickOp $x, $unstickNCHW),
+        $stickLayout,
+        $noneLayout),
      $y),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighDivOp
          $x,
          (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
+           (ZHighUnstickOp $y, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $x)),
-       $unstickToLayout),
-     (GetLayout $y),
-     (NoneLayoutAttr)),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 def DivLayoutPropagatePattern4 : Pat<
   (ZHighDivOp
      $x,
      (ZHighStickOp
-           (ZHighUnstickOp $y, $unstickToLayout),
-        $_,
-        $stickFromLayout)),
+           (ZHighUnstickOp $y, $unstickNCHW),
+        $stickLayout,
+        $noneLayout)),
   (ZHighStickOp
      (ZHighUnstickOp
        (ZHighDivOp
          $y,
          (ZHighStickOp
-           (ZHighUnstickOp $x, $unstickToLayout),
+           (ZHighUnstickOp $x, (NoneLayoutAttr)),
            (NHWCLayoutAttr),
-           (NoneLayoutAttr)),
+           (NCHWLayoutAttr)),
          (returnType $y)),
-       $unstickToLayout),
-     (GetLayout $x),
-     (NoneLayoutAttr)),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickToLayout),
-   (IsNoneLayout:$stickFromLayout)]
+       $unstickNCHW),
+     $stickLayout,
+     $noneLayout),
+  [(IsNHWC $y), (IsNotNHWC $x), (IsNCHWLayout:$unstickNCHW),
+   (IsNoneLayout:$noneLayout)]
 >;
 
 // If the input of zhigh.relu transitively/originally comes from a zAIU tensor
@@ -485,34 +489,34 @@ def ReluLayoutPropagatePattern1 : Pat<
   (ZHighReluOp
     (ZHighStickOp
       (ONNXTransposeOp
-        (ZHighUnstickOp $x, $unstickLayout),
+        (ZHighUnstickOp $x, $unstickNone),
         $perm),
-      $layout,
-      $fromLayout)),
+      $stickLayout,
+      $noneLayout)),
   (ZHighStickOp
     (NHWCtoNCHW
       (ZHighUnstickOp
         (ZHighReluOp $x, (returnType $x)),
-        $unstickLayout)),
-    $layout,
-    $fromLayout),
+        $unstickNone)),
+    $stickLayout,
+    $noneLayout),
   [(IsNHWC $x), (IsPermToNCHW:$perm),
-   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
+   (IsNoneLayout:$noneLayout), (IsNoneLayout:$unstickNone)]
 >;
 
 def ReluLayoutPropagatePattern2 : Pat<
   (ZHighReluOp
     (ZHighStickOp
-      (ZHighUnstickOp $x, $unstickToLayout),
-      $_,
-      $fromLayout)),
+      (ZHighUnstickOp $x, $unstickNCHW),
+      $stickLayout,
+      $noneLayout)),
   (ZHighStickOp
     (ZHighUnstickOp
       (ZHighReluOp $x, (returnType $x)),
-      $unstickToLayout),
-    (NHWCLayoutAttr),
-    (NoneLayoutAttr)),
-  [(IsNHWC $x), (IsNoneLayout:$fromLayout), (IsNCHWLayout:$unstickToLayout)]
+      $unstickNCHW),
+    $stickLayout,
+    $noneLayout),
+  [(IsNHWC $x), (IsNoneLayout:$noneLayout), (IsNCHWLayout:$unstickNCHW)]
 >;
 
 #endif // ZHIGH_LAYOUT_PROPAGATION

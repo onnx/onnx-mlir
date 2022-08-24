@@ -389,8 +389,7 @@ void ZHighUnstickOp::build(OpBuilder &builder, OperationState &state,
       resShape[2] = inputShape[1];
       resShape[3] = inputShape[2];
     }
-    resType =
-        RankedTensorType::get(inputType.getShape(), inputType.getElementType());
+    resType = RankedTensorType::get(resShape, inputType.getElementType());
   } else
     resType = UnrankedTensorType::get(inputType.getElementType());
   build(builder, state, resType, input, toLayout);
