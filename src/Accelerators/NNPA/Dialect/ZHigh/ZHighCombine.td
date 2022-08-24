@@ -31,6 +31,11 @@ include "src/Dialect/ONNX/ONNX.td"
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
 
+def AreNoneOrEqual: Constraint<
+  CPred<"(!$0 && !$1) || ($0 && $1 && ($0 == $1))">,
+  "are none or equal"
+>;
+
 def SameLayout: Constraint<
   CPred<"($0 && $1 &&"
         " (::onnx_mlir::zhigh::getZTensorLayout($0.getType()) == "
@@ -67,8 +72,9 @@ def NoneTypeStickRemovalPattern : Pat<
 
 // zhigh.Unstick (zhigh.Stick (%X)) = %X
 def UnstickStickRemovalPattern : Pat<
-  (ZHighUnstickOp (ZHighStickOp $arg, $_, $_), $_),
-  (replaceWithValue $arg)
+  (ZHighUnstickOp (ZHighStickOp $arg, $_, $s_fromLayout), $u_toLayout),
+  (replaceWithValue $arg),
+  [(AreNoneOrEqual $s_fromLayout, $u_toLayout)]
 >;
 
 // zhigh.Stick (zhigh.Unstick (%X)) = %X

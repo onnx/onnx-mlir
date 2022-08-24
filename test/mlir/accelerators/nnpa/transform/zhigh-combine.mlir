@@ -21,6 +21,53 @@ func.func @remove_stick_and_unstick(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf
 
 // -----
 
+func.func @remove_unstick_and_stick(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "zhigh.Stick"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>) -> tensor<10x10xf32>
+  "func.return"(%1) : (tensor<10x10xf32>) -> ()
+
+  // CHECK-LABEL: remove_unstick_and_stick
+  // CHECK-NOT: zhigh.Stick
+  // CHECK-NOT: zhigh.Unstick
+  // CHECK: return 
+}
+
+// -----
+
+func.func @remove_stick_and_unstick_nhwc(%arg0 : tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32> {
+  %0 = "zhigh.Stick"(%arg0) { fromLayout = "NCHW", toLayout = "NHWC" } : (tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>
+  %1 = "zhigh.Relu"(%0) : (tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>) -> tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>
+  %2 = "zhigh.Unstick"(%1) { toLayout = "NCHW" } : (tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>) -> tensor<1x2x3x4xf32>
+
+  %3 = "zhigh.Stick"(%2) { fromLayout = "NCHW", toLayout = "NHWC" } : (tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>
+  %4 = "zhigh.Relu"(%3) : (tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>) -> tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>
+  %5 = "zhigh.Unstick"(%4) { toLayout = "NCHW" } : (tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>) -> tensor<1x2x3x4xf32>
+  "func.return"(%5) : (tensor<1x2x3x4xf32>) -> ()
+
+  // CHECK-LABEL: remove_stick_and_unstick_nhwc
+  // CHECK: zhigh.Stick
+  // CHECK: zhigh.Relu
+  // CHECK-NOT: zhigh.Unstick
+  // CHECK-NOT: zhigh.Stick
+  // CHECK: zhigh.Relu
+  // CHECK: zhigh.Unstick
+}
+
+// -----
+
+func.func @remove_unstick_and_stick_nhwc(%arg0 : tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32> {
+  %0 = "zhigh.Stick"(%arg0) { fromLayout = "NCHW", toLayout = "NHWC" } : (tensor<1x2x3x4xf32>) -> tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>
+  %1 = "zhigh.Unstick"(%0) { toLayout = "NCHW" } : (tensor<1x4x2x3xf32, #zhigh.encoding<{ dataLayout = "NHWC"}>>) -> tensor<1x2x3x4xf32>
+  "func.return"(%1) : (tensor<1x2x3x4xf32>) -> ()
+
+  // CHECK-LABEL: remove_unstick_and_stick_nhwc
+  // CHECK-NOT: zhigh.Stick
+  // CHECK-NOT: zhigh.Unstick
+  // CHECK: return 
+}
+
+// -----
+
 func.func @remove_stick_only(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "zhigh.Stick"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>
   %1 = "zhigh.Relu"(%0) : (tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.encoding<{ dataLayout = "2D"}>>
