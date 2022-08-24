@@ -34,6 +34,9 @@ add_onnx_mlir_library(OMZHighLayoutPropagation
   MLIRTransformUtils
   OMZHighOps
   OMONNXOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
 
 add_onnx_mlir_library(OMInstrumentZHigh
