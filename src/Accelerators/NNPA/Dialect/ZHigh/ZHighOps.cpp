@@ -267,7 +267,7 @@ void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
       SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
       // Direct stickify from NCHW to NHWC.
       if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NCHW) &&
-          toLayout.getValue().equals_insensitive(LAYOUT_NHWC)) {
+          toLayout && toLayout.getValue().equals_insensitive(LAYOUT_NHWC)) {
         assert((inputShape.size() == 4) && "Input must have rank 4");
         // NCHW -> NHWC
         resShape[0] = inputShape[0];
@@ -369,16 +369,31 @@ LogicalResult ZHighStickForGRUOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // UnstickOp
 
-void ZHighUnstickOp::build(
-    OpBuilder &builder, OperationState &state, Value input) {
+void ZHighUnstickOp::build(OpBuilder &builder, OperationState &state,
+    Value input, StringAttr toLayout) {
   Type resType;
   ShapedType inputType = input.getType().cast<ShapedType>();
-  if (hasRankedType(input))
+  if (hasRankedType(input)) {
+    // Compute shape.
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+    // Direct unstickify from NHWC to NCHW.
+    StringAttr fromLayout = convertDataLayoutToStringAttr(
+        builder, getZTensorLayout(input.getType()));
+    if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NHWC) &&
+        toLayout && toLayout.getValue().equals_insensitive(LAYOUT_NCHW)) {
+      assert((inputShape.size() == 4) && "Input must have rank 4");
+      // NHWC -> NCHW
+      resShape[0] = inputShape[0];
+      resShape[1] = inputShape[3];
+      resShape[2] = inputShape[1];
+      resShape[3] = inputShape[2];
+    }
     resType =
         RankedTensorType::get(inputType.getShape(), inputType.getElementType());
-  else
+  } else
     resType = UnrankedTensorType::get(inputType.getElementType());
-  build(builder, state, resType, input);
+  build(builder, state, resType, input, toLayout);
 }
 
 LogicalResult ZHighUnstickOp::inferShapes(
@@ -386,10 +401,17 @@ LogicalResult ZHighUnstickOp::inferShapes(
   if (!hasRankedType(In()))
     return success();
 
-  Builder builder(this->getContext());
+  ZHighUnstickOpAdaptor operandAdaptor(*this);
+  ZHighUnstickOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Unstick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
   ShapedType inputType = In().getType().cast<ShapedType>();
   RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType());
+      RankedTensorType::get(outputDims, inputType.getElementType());
   getResult().setType(resType);
   return success();
 }

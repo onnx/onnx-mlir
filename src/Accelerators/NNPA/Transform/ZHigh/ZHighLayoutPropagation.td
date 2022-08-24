@@ -77,30 +77,50 @@ def IsNoneLayout: Constraint<CPred<" !$_self ">, "Layout attribute is null">;
 // applied to remove stick/unstick pairs.
 def AddLayoutPropagatePattern1 : Pat<
   (ZHighAddOp
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $x), $perm), $_, $fromLayout),
+     (ZHighStickOp
+        (ONNXTransposeOp
+           (ZHighUnstickOp $x, $unstickLayout),
+           $perm),
+        $_,
+        $fromLayout),
      $y),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighAddOp
-                                    $x,
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $y)),
-                                                  (GetLayout $x), $fromLayout),
-                                    (returnType $x)))),
-     (GetLayout $y), $fromLayout),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighAddOp
+          $x,
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
+            (GetLayout $x),
+            $fromLayout),
+          (returnType $x)),
+        $unstickLayout)),
+     (GetLayout $y),
+     $fromLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 def AddLayoutPropagatePattern2 : Pat<
   (ZHighAddOp
      $x,
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $y), $perm), $_, $fromLayout)),
+     (ZHighStickOp
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
+      $_, 
+      $fromLayout)),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighAddOp
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $x)),
-                                                  (GetLayout $y), $fromLayout),
-                                    $y,
-                                    (returnType $y)))),
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighAddOp
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
+            (GetLayout $y),
+            $fromLayout),
+          $y, (returnType $y)),
+        $unstickLayout)),
      (GetLayout $x), $fromLayout),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+  [(IsNHWC $y), (IsNotNHWC $x),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 // If the inputs of zhigh.sub transitively/originally come from zAIU tensors
@@ -109,30 +129,50 @@ def AddLayoutPropagatePattern2 : Pat<
 // applied to remove stick/unstick pairs.
 def SubLayoutPropagatePattern1 : Pat<
   (ZHighSubOp
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $x), $perm), $_, $fromLayout),
+     (ZHighStickOp
+        (ONNXTransposeOp
+           (ZHighUnstickOp $x, $unstickLayout),
+           $perm),
+        $_,
+        $fromLayout),
      $y),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighSubOp
-                                    $x,
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $y)),
-                                                  (GetLayout $x), $fromLayout),
-                                    (returnType $x)))),
-     (GetLayout $y), $fromLayout),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighSubOp
+          $x,
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
+            (GetLayout $x),
+            $fromLayout),
+          (returnType $x)),
+        $unstickLayout)),
+     (GetLayout $y),
+     $fromLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 def SubLayoutPropagatePattern2 : Pat<
   (ZHighSubOp
      $x,
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $y), $perm), $_, $fromLayout)),
+     (ZHighStickOp
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
+      $_, 
+      $fromLayout)),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighSubOp
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $x)),
-                                                  (GetLayout $y), $fromLayout),
-                                    $y,
-                                    (returnType $y)))),
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighSubOp
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
+            (GetLayout $y),
+            $fromLayout),
+          $y, (returnType $y)),
+        $unstickLayout)),
      (GetLayout $x), $fromLayout),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+  [(IsNHWC $y), (IsNotNHWC $x),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 // If the inputs of zhigh.mul transitively/originally come from zAIU tensors
@@ -141,30 +181,50 @@ def SubLayoutPropagatePattern2 : Pat<
 // applied to remove stick/unstick pairs.
 def MulLayoutPropagatePattern1 : Pat<
   (ZHighMulOp
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $x), $perm), $_, $fromLayout),
+     (ZHighStickOp
+        (ONNXTransposeOp
+           (ZHighUnstickOp $x, $unstickLayout),
+           $perm),
+        $_,
+        $fromLayout),
      $y),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighMulOp
-                                    $x,
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $y)),
-                                                  (GetLayout $x), $fromLayout),
-                                    (returnType $x)))),
-     (GetLayout $y), $fromLayout),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighMulOp
+          $x,
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
+            (GetLayout $x),
+            $fromLayout),
+          (returnType $x)),
+        $unstickLayout)),
+     (GetLayout $y),
+     $fromLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 def MulLayoutPropagatePattern2 : Pat<
   (ZHighMulOp
      $x,
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $y), $perm), $_, $fromLayout)),
+     (ZHighStickOp
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
+      $_, 
+      $fromLayout)),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighMulOp
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $x)),
-                                                  (GetLayout $y), $fromLayout),
-                                    $y,
-                                    (returnType $y)))),
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighMulOp
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
+            (GetLayout $y),
+            $fromLayout),
+          $y, (returnType $y)),
+        $unstickLayout)),
      (GetLayout $x), $fromLayout),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+  [(IsNHWC $y), (IsNotNHWC $x),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 // If the inputs of zhigh.div transitively/originally come from zAIU tensors
@@ -173,30 +233,50 @@ def MulLayoutPropagatePattern2 : Pat<
 // applied to remove stick/unstick pairs.
 def DivLayoutPropagatePattern1 : Pat<
   (ZHighDivOp
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $x), $perm), $_, $fromLayout),
+     (ZHighStickOp
+        (ONNXTransposeOp
+           (ZHighUnstickOp $x, $unstickLayout),
+           $perm),
+        $_,
+        $fromLayout),
      $y),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighDivOp
-                                    $x,
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $y)),
-                                                  (GetLayout $x), $fromLayout),
-                                    (returnType $x)))),
-     (GetLayout $y), $fromLayout),
-  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighDivOp
+          $x,
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $y, $unstickLayout)),
+            (GetLayout $x),
+            $fromLayout),
+          (returnType $x)),
+        $unstickLayout)),
+     (GetLayout $y),
+     $fromLayout),
+  [(IsNHWC $x), (IsNotNHWC $y), (IsPermToNCHW:$perm),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 def DivLayoutPropagatePattern2 : Pat<
   (ZHighDivOp
      $x,
-     (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $y), $perm), $_, $fromLayout)),
+     (ZHighStickOp
+      (ONNXTransposeOp (ZHighUnstickOp $y, $unstickLayout), $perm),
+      $_, 
+      $fromLayout)),
   (ZHighStickOp
-     (NHWCtoNCHW (ZHighUnstickOp (ZHighDivOp
-                                    (ZHighStickOp (NCHWtoNHWC (ZHighUnstickOp $x)),
-                                                  (GetLayout $y), $fromLayout),
-                                    $y,
-                                    (returnType $y)))),
+     (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighDivOp
+          (ZHighStickOp
+            (NCHWtoNHWC (ZHighUnstickOp $x, $unstickLayout)),
+            (GetLayout $y),
+            $fromLayout),
+          $y, (returnType $y)),
+        $unstickLayout)),
      (GetLayout $x), $fromLayout),
-  [(IsNHWC $y), (IsNotNHWC $x), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+  [(IsNHWC $y), (IsNotNHWC $x),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 
@@ -205,9 +285,22 @@ def DivLayoutPropagatePattern2 : Pat<
 // In other words, propagate the layout NHWC down, so that other rules can be
 // applied to remove stick/unstick pairs.
 def ReluLayoutPropagatePattern : Pat<
-  (ZHighReluOp (ZHighStickOp (ONNXTransposeOp (ZHighUnstickOp $x), $perm), $layout, $fromLayout)),
-  (ZHighStickOp (NHWCtoNCHW (ZHighUnstickOp (ZHighReluOp $x, (returnType $x)))), $layout, $fromLayout),
-  [(IsNHWC $x), (IsPermToNCHW:$perm), (IsNoneLayout:$fromLayout)]
+  (ZHighReluOp
+    (ZHighStickOp
+      (ONNXTransposeOp
+        (ZHighUnstickOp $x, $unstickLayout),
+        $perm),
+      $layout,
+      $fromLayout)),
+  (ZHighStickOp
+    (NHWCtoNCHW
+      (ZHighUnstickOp
+        (ZHighReluOp $x, (returnType $x)),
+        $unstickLayout)),
+    $layout,
+    $fromLayout),
+  [(IsNHWC $x), (IsPermToNCHW:$perm),
+   (IsNoneLayout:$fromLayout), (IsNoneLayout:$unstickLayout)]
 >;
 
 #endif // ZHIGH_LAYOUT_PROPAGATION

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
@@ -99,6 +100,53 @@ LogicalResult ZHighStickOpShapeHelper::computeShape(
     outputDims[1] = inBounds.getDim(2);
     outputDims[2] = inBounds.getDim(3);
     outputDims[3] = inBounds.getDim(1);
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// UnstickOp
+//===----------------------------------------------------------------------===//
+
+ZHighUnstickOpShapeHelper::ZHighUnstickOpShapeHelper(ZHighUnstickOp *newOp)
+    : ZHighOpShapeHelper<ZHighUnstickOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
+
+ZHighUnstickOpShapeHelper::ZHighUnstickOpShapeHelper(
+    ZHighUnstickOp *newOp, OpBuilder *rewriter)
+    : ZHighOpShapeHelper<ZHighUnstickOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, nullptr, nullptr) {}
+
+LogicalResult ZHighUnstickOpShapeHelper::computeShape(
+    ZHighUnstickOpAdaptor operandAdaptor) {
+  OpBuilder b(op->getOperation());
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  Value input = operandAdaptor.In();
+  StringAttr toLayout = op->toLayoutAttr();
+  StringAttr fromLayout =
+      convertDataLayoutToStringAttr(b, getZTensorLayout(input.getType()));
+  MemRefBoundsIndexCapture inBounds(input);
+  int64_t rank = inBounds.getRank();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inBounds.getDim(i));
+
+  // Direct unstickify from NHWC to NCHW.
+  if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NHWC) &&
+      toLayout && toLayout.getValue().equals_insensitive(LAYOUT_NCHW)) {
+    assert((rank == 4) && "Unstickify input must have rank 4");
+    // NHWC -> NCHW
+    outputDims[0] = inBounds.getDim(0);
+    outputDims[1] = inBounds.getDim(3);
+    outputDims[2] = inBounds.getDim(1);
+    outputDims[3] = inBounds.getDim(2);
   }
 
   // Save the final result.

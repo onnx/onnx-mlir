@@ -67,13 +67,13 @@ def NoneTypeStickRemovalPattern : Pat<
 
 // zhigh.Unstick (zhigh.Stick (%X)) = %X
 def UnstickStickRemovalPattern : Pat<
-  (ZHighUnstickOp (ZHighStickOp $arg, $_, $_)),
+  (ZHighUnstickOp (ZHighStickOp $arg, $_, $_), $_),
   (replaceWithValue $arg)
 >;
 
 // zhigh.Stick (zhigh.Unstick (%X)) = %X
 def StickUnstickRemovalPattern : Pat<
-  (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_, $_),
+  (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg, $_), $_, $_),
   (replaceWithValue $arg),
   [(SameLayout $arg, $stick)]
 >;
@@ -120,13 +120,16 @@ def ReplaceONNXConcatByZHighConcatPattern: Pat<
 // model or not.
 def SigmoidLayoutChangingPattern : Pat<
   // From different layouts.
-  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x (ZHighUnstickOp $x),
-                                                $_, $fromLayout))),
+  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x (ZHighUnstickOp $x, $unstickLayout1),
+                                                $_, $fromLayout)),
+                  $unstickLayout2),
   // To the same layouts.
-  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$new_s_x (ZHighUnstickOp $x),
+  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$new_s_x (ZHighUnstickOp $x, $unstickLayout1),
                                                          (GetLayout $x), $fromLayout),
-                                  (returnType $new_s_x))),
-  [(NotSameLayout $x, $s_x), (IsNoneLayout:$fromLayout)]
+                                  (returnType $new_s_x)),
+                  $unstickLayout2),
+  [(NotSameLayout $x, $s_x), (IsNoneLayout:$fromLayout),
+   (IsNoneLayout:$unstickLayout1), (IsNoneLayout:$unstickLayout2)]
 >;
 
 #endif // ZHIGH_COMBINE

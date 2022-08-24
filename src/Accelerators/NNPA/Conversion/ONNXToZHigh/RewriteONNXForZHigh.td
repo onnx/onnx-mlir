@@ -70,7 +70,8 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
         (ZHighBatchNormOp
             (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr)),
             (ZHighStickOp $A, (_1DLayoutAttr), (NoneLayoutAttr)),
-            (ZHighStickOp $B, (_1DLayoutAttr), (NoneLayoutAttr))))
+            (ZHighStickOp $B, (_1DLayoutAttr), (NoneLayoutAttr))),
+        (NCHWLayoutAttr))
   ]
 >;
 

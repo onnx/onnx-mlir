@@ -8,7 +8,7 @@ func.func @should_lower_to_zhigh(%arg0 : tensor<1x3x5x7xf32>) -> tensor<*xf32> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x7xf32>) -> tensor<1x3x1x1xf32> {
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {fromLayout = "NCHW", toLayout = "NHWC"} : (tensor<1x3x5x7xf32>) -> tensor<1x5x7x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MeanReduce2d"([[VAR_1_]]) : (tensor<1x5x7x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x3x1x1xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) {toLayout = "NCHW"} : (tensor<*xf32>) -> tensor<1x3x1x1xf32>
 // CHECK:           return [[VAR_3_]] : tensor<1x3x1x1xf32>
 // CHECK:         }
 }

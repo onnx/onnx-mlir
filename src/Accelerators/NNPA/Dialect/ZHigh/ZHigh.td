@@ -142,6 +142,7 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
   let summary = "ZHigh Stick operation";
   let description = [{
     "ZHigh operation to perform a Stick."
+    "If `fromLayout` is given, it must be NCHW and `toLayout` must be NHWC.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
                        OptionalAttr<StrAttr>:$toLayout,
@@ -162,13 +163,15 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
   let summary = "ZHigh Unstick operation";
   let description = [{
     "ZHigh operation to perform a Unstick."
+    "If `toLayout` is given, it must be NCHW and the input's layout must be NHWC."
   }];
   let arguments = (ins AnyTypeOf<[ZTensor_1D, ZTensor_2D, ZTensor_3D, ZTensor_4D,
                                  ZTensor_2DS, ZTensor_3DS, ZTensor_4DS,
-                                 ZTensor_NHWC, ZTensor_NCHW, ZTensor_HWCK]>:$In);
+                                 ZTensor_NHWC, ZTensor_NCHW, ZTensor_HWCK]>:$In,
+                       OptionalAttr<StrAttr>:$toLayout);
   let results = (outs TensorOf<[F32]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In)>,
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$toLayout)>,
   ];
   let hasCanonicalizer = 1;
 }

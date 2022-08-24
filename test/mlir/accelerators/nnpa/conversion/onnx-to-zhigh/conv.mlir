@@ -12,7 +12,7 @@ func.func @test_onnx_conv2d(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<2x3x2x2
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {toLayout = "HWCK"} : (tensor<2x2x3x2xf32>) -> tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {toLayout = "1D"} : (tensor<2xf32>) -> tensor<2xf32, #zhigh.encoding<{dataLayout = "1D"}>>
 // CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, tensor<2xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) {toLayout = "NCHW"} : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x2x31x31xf32>
 // CHECK:         }
 }
@@ -33,7 +33,7 @@ func.func @test_onnx_conv2d_nobias(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {toLayout = "HWCK"} : (tensor<2x2x3x2xf32>) -> tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_cst_]]) {toLayout = "1D"} : (none) -> none
 // CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, none) -> tensor<*xf32>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) {toLayout = "NCHW"} : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x2x31x31xf32>
 // CHECK:         }
 }
@@ -55,7 +55,7 @@ func.func @test_onnx_conv2d_no_bias_unknown_bias_dims(%arg0: tensor<5x3x32x32xf3
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {toLayout = "HWCK"} : (tensor<2x2x3x?xf32>) -> tensor<2x2x3x?xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_cst_]]) {toLayout = "1D"} : (none) -> none
 // CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x?xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, none) -> tensor<*xf32>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf32>) -> tensor<5x?x31x31xf32>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) {toLayout = "NCHW"} : (tensor<*xf32>) -> tensor<5x?x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x?x31x31xf32>
 // CHECK:         }
 }
@@ -107,7 +107,7 @@ func.func @test_fuse_onnx_relu_conv2d(%arg0: tensor<5x3x32x32xf32>, %arg1 : tens
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {toLayout = "HWCK"} : (tensor<2x2x3x2xf32>) -> tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {toLayout = "1D"} : (tensor<2xf32>) -> tensor<2xf32, #zhigh.encoding<{dataLayout = "1D"}>>
 // CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_RELU", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, tensor<2xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) {toLayout = "NCHW"} : (tensor<*xf32>) -> tensor<5x2x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x2x31x31xf32>
 // CHECK:         }
 }

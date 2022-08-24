@@ -117,6 +117,15 @@ struct ZHighStickOpShapeHelper : public ZHighOpShapeHelper<ZHighStickOp> {
   mlir::LogicalResult computeShape(ZHighStickOpAdaptor operandAdaptor);
 };
 
+//===----------------------------------------------------------------------===//
+// Shape helper for UnstickOp.
+
+struct ZHighUnstickOpShapeHelper : public ZHighOpShapeHelper<ZHighUnstickOp> {
+  ZHighUnstickOpShapeHelper(ZHighUnstickOp *newOp);
+  ZHighUnstickOpShapeHelper(ZHighUnstickOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighUnstickOpAdaptor operandAdaptor);
+};
+
 // =============================================================================
 // Shape helper for StickForLSTMOp.
 

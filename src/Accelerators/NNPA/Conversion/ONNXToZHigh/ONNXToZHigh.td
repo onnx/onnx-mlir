@@ -102,7 +102,7 @@ class EmitOp4<string s> :
 def replaceONNXReluPattern : Pat<
   (ONNXReluOp $x),
   (ZHighUnstickOp (ZHighReluOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
-                               (returnType $s_x)))
+                               (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -111,7 +111,7 @@ def replaceONNXReluPattern : Pat<
 def replaceONNXTanhPattern : Pat<
   (ONNXTanhOp $x),
   (ZHighUnstickOp (ZHighTanhOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
-                               (returnType $s_x)))
+                               (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -120,7 +120,7 @@ def replaceONNXTanhPattern : Pat<
 def replaceONNXSigmoidPattern : Pat<
   (ONNXSigmoidOp $x),
   (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
-                                  (returnType $s_x)))
+                                  (returnType $s_x)), (NoneLayoutAttr))
 >; 
 
 //===----------------------------------------------------------------------===//
@@ -131,7 +131,8 @@ def replaceONNXAddPattern : Pat<
   (ONNXAddOp $x, $y),
   (ZHighUnstickOp (ZHighAddOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x))
+                              (returnType $s_x)),
+                  (NoneLayoutAttr)
 )
 >;
 
@@ -155,7 +156,7 @@ def replaceONNXSumOpPatternRecursion : Pat<
      (ZHighAddOp
         (ZHighStickOp:$s_x (GetNthVariadicOperand<0> $x), (NoneLayoutAttr), (NoneLayoutAttr)),
         (ZHighStickOp (GetONNXSumOpWithoutFirst $x), (NoneLayoutAttr), (NoneLayoutAttr)),
-        (returnType $s_x))),
+        (returnType $s_x)), (NoneLayoutAttr)),
   [(VariadicSizeIsGT<2> $x)], (addBenefit 1)
 >;
 
@@ -166,7 +167,7 @@ def replaceONNXSumOpPatternSingleton : Pat<
      (ZHighAddOp
         (ZHighStickOp:$s_x (GetNthVariadicOperand<0> $x), (NoneLayoutAttr), (NoneLayoutAttr)),
         (ZHighStickOp (GetNthVariadicOperand<1> $x), (NoneLayoutAttr), (NoneLayoutAttr)),
-        (returnType $s_x))),
+        (returnType $s_x)), (NoneLayoutAttr)),
   [(VariadicSizeIs<2> $x)], (addBenefit 0)
 >;
 
@@ -178,7 +179,7 @@ def replaceONNXSubPattern : Pat<
   (ONNXSubOp $x, $y),
   (ZHighUnstickOp (ZHighSubOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -189,7 +190,7 @@ def replaceONNXMulPattern : Pat<
   (ONNXMulOp $x, $y),
   (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -200,7 +201,7 @@ def replaceONNXDivPattern : Pat<
   (ONNXDivOp $x, $y),
   (ZHighUnstickOp (ZHighDivOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -209,7 +210,7 @@ def replaceONNXDivPattern : Pat<
 def replaceONNXLogPattern : Pat<
   (ONNXLogOp $x),
   (ZHighUnstickOp (ZHighLogOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -218,7 +219,7 @@ def replaceONNXLogPattern : Pat<
 def replaceONNXExpPattern : Pat<
   (ONNXExpOp $x),
   (ZHighUnstickOp (ZHighExpOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -231,7 +232,7 @@ def replaceONNXMinPattern : Pat<
                                                  (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp (getNth<1, "x">),
                                             (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -244,7 +245,7 @@ def replaceONNXMaxPattern : Pat<
                                                  (NoneLayoutAttr), (NoneLayoutAttr)),
                               (ZHighStickOp (getNth<1, "x">),
                                             (NoneLayoutAttr), (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x)), (NoneLayoutAttr))
 >;
  
 //===----------------------------------------------------------------------===//
@@ -268,7 +269,7 @@ def replaceONNXSoftmaxPattern : Pattern<
                    (GetI64ArrayAttr<0>)),
                (_3DSLayoutAttr), (NoneLayoutAttr)),
            (GetStringAttr<"ACT_NONE">),
-           (returnType $s_x))),
+           (returnType $s_x)), (NoneLayoutAttr)),
 
    (EmitOp3<"ONNXSqueezeV11Op">
        (GetTypeOf $res),
@@ -304,7 +305,7 @@ def replaceONNXLogSoftmaxPattern : Pattern<
                    (GetI64ArrayAttr<0>)),
                (_3DSLayoutAttr), (NoneLayoutAttr)),
            (GetStringAttr<"ACT_LOG">),
-           (returnType $s_x))),
+           (returnType $s_x)), (NoneLayoutAttr)),
 
    (EmitOp3<"ONNXSqueezeV11Op">
        (GetTypeOf $res),
@@ -323,7 +324,8 @@ def replaceONNXReduceMeanPattern : Pat<
   (ONNXReduceMeanOp:$res $x, $_, $_),
   (ZHighUnstickOp
      (ZHighMeanReduce2DOp
-        (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr))))
+        (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr))),
+     (NCHWLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -364,7 +366,8 @@ def replaceONNXMaxPoolSingleOutPattern : Pattern<
           (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr)),
           $kernel_shape,
           $strides,
-          $padtype))
+          $padtype),
+       (NCHWLayoutAttr))
   ]
 >;
 
@@ -406,7 +409,8 @@ def replaceONNXAveragePoolPattern : Pattern<
           (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr)),
           $kernel_shape,
           $strides,
-          $padtype))
+          $padtype),
+       (NCHWLayoutAttr))
   ]
 >;
 
@@ -436,7 +440,8 @@ def replaceONNXMatMulPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (NoneLayoutAttr)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (NoneLayoutAttr)),
-        (CreateUnitConstant)))
+        (CreateUnitConstant)),
+     (NoneLayoutAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -474,7 +479,8 @@ def replaceONNXMatMulAddPattern1 : Pat<
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (NoneLayoutAttr)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (NoneLayoutAttr)),
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (NoneLayoutAttr)))),
+                                                         (GetRank $y)), (NoneLayoutAttr))),
+     (NoneLayoutAttr)),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
    (HaveSameLastDimR2R1 $y, $b)],
   (addBenefit 0)
@@ -489,7 +495,8 @@ def replaceONNXMatMulAddPattern2 : Pat<
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x)), (NoneLayoutAttr)),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y)), (NoneLayoutAttr)),
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
-                                                         (GetRank $y)), (NoneLayoutAttr)))),
+                                                         (GetRank $y)), (NoneLayoutAttr))),
+     (NoneLayoutAttr)),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
    (HaveSameLastDimR2R1 $y, $b)],
   (addBenefit 0)
@@ -545,7 +552,8 @@ def replaceONNXGemmBiasNoneOr1DPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr), (NoneLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr), (NoneLayoutAttr)),
-        (ZHighStickOp $c, (_1DLayoutAttr), (NoneLayoutAttr)))),
+        (ZHighStickOp $c, (_1DLayoutAttr), (NoneLayoutAttr))),
+     (NoneLayoutAttr)),
   [(IsBiasNoneOr1D:$c)],
   (addBenefit 0)
 >;
@@ -558,6 +566,7 @@ def replaceONNXGemmBias2DPattern : Pat<
           (ZHighStickOp $a, (_2DLayoutAttr), (NoneLayoutAttr)),
           (ZHighStickOp $b, (_2DLayoutAttr), (NoneLayoutAttr)),
           (CreateUnitConstant)),
+       (NoneLayoutAttr),
        (returnType $res)),
     $c),
   [(HasRankOf<2> $c)],
@@ -636,7 +645,7 @@ def replaceONNXLSTMPattern1 : Pattern<
    // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (NoneLayoutAttr), (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
@@ -670,7 +679,7 @@ def replaceONNXLSTMPattern2 : Pattern<
    // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (NoneLayoutAttr), (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
@@ -711,7 +720,7 @@ def replaceONNXLSTMPattern3 : Pattern<
    // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (NoneLayoutAttr)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
@@ -745,7 +754,7 @@ def replaceONNXLSTMPattern4 : Pattern<
    // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (NoneLayoutAttr)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
@@ -792,7 +801,7 @@ def replaceONNXGRUPattern1 : Pattern<
    // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (NoneLayoutAttr), (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
@@ -823,7 +832,7 @@ def replaceONNXGRUPattern2 : Pattern<
    // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (NoneLayoutAttr), (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
@@ -862,7 +871,7 @@ def replaceONNXGRUPattern3 : Pattern<
    // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (NoneLayoutAttr)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
@@ -893,7 +902,7 @@ def replaceONNXGRUPattern4 : Pattern<
    // Post-process to generate three return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (NoneLayoutAttr)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
@@ -947,7 +956,8 @@ def replaceONNXConv2DPattern : Pattern<
        $kernel_shape,
        $strides,
        $padtype,
-       (ACT_NONEAttr)))
+       (ACT_NONEAttr)),
+    (NCHWLayoutAttr))
   ]
 >;
 
@@ -992,7 +1002,8 @@ def replaceONNXReluConvPattern : Pattern<
        $kernel_shape,
        $strides,
        $padtype,
-       (ACT_RELUAttr)))
+       (ACT_RELUAttr)),
+    (NCHWLayoutAttr))
   ],
   [(IsConv2DLegalForZDNN $res)],
   (addBenefit 0)
