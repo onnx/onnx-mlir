@@ -67,7 +67,7 @@ def get_test_models():
     # see utils/genSupportedOps.py
     # command processed by makefile.
 
-    variables.test_to_enable_dict = {
+    variables.node_test_to_enable_dict = {
         ############################################################
         # Elementary ops, ordered in the order they are found in
         # onnx-mlir/third_party/onnx/onnx/backend/test/case/node.
@@ -1024,10 +1024,11 @@ def get_test_models():
         "test_xor_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    }
 
         ############################################################
         # Model (alphabetical order)
-
+    variables.model_test_to_enable_dict = {
         "test_densenet121_cpu": {STATIC_SHAPE:{}},
         "test_inception_v1_cpu": {STATIC_SHAPE:{}},
         "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
@@ -1036,42 +1037,68 @@ def get_test_models():
         "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
 
+    variables.test_to_enable_dict = { **variables.node_test_to_enable_dict,
+                                      **variables.model_test_to_enable_dict }
+
     # Test for static inputs.
+    node_test_to_enable = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if STATIC_SHAPE in value ]
+    model_test_to_enable = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if STATIC_SHAPE in value ]
     test_to_enable = [
-        key for (key, value) in variables.test_to_enable_dict.items() if STATIC_SHAPE in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if STATIC_SHAPE in value ]
 
     # Test for dynamic inputs.
     # Specify the test cases which currently can not pass for dynamic shape
     # Presumably, this list should be empty
     # Except for some operation too difficult to handle for dynamic shape
     # or big models
+    variables.node_test_for_dynamic = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
+    variables.model_test_for_dynamic = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
     variables.test_for_dynamic = [
-        key for (key, value) in variables.test_to_enable_dict.items() if DYNAMIC_SHAPE in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
 
     # Test for constant inputs.
+    variables.node_test_for_constant = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if CONSTANT_INPUT in value ]
+    variables.model_test_for_constant = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if CONSTANT_INPUT in value ]
     variables.test_for_constant = [
-        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value ]
 
     # Specify the test cases which need version converter
     variables.test_need_converter = []
 
     if args.dynamic:
-        print("dynamic shape is enabled", file=sys.stderr)
+        if args.verbose:
+            print("dynamic shape is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_dynamic
+        model_test_to_enable = variables.model_test_for_dynamic
         test_to_enable = variables.test_for_dynamic
 
     if args.constant:
-        print("constant input is enabled", file=sys.stderr)
+        if args.verbose:
+            print("constant input is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_constant
+        model_test_to_enable = variables.model_test_for_constant
         test_to_enable = variables.test_for_constant
 
-    # User case specify one test case with BCKEND_TEST env
+    # User can specify a list of test cases with TEST_CASE_BY_USER
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
     if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
-        test_to_enable = TEST_CASE_BY_USER.split()
+        variables.test_by_user = TEST_CASE_BY_USER.split()
+        variables.node_test_by_user = [
+            x for x in variables.test_by_user if x in node_test_to_enable ]
+        variables.model_test_by_user = [
+            x for x in variables.test_by_user if x in model_test_to_enable ]
 
-    return test_to_enable
+        node_test_to_enable = variables.node_test_by_user
+        model_test_to_enable = variables.model_test_by_user
+        test_to_enable = variables.test_by_user
+
+    return node_test_to_enable, model_test_to_enable, test_to_enable
 
 
 def JniExecutionSession(jar_name, inputs):
