@@ -37,12 +37,6 @@ function(add_numerical_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
 endfunction()
 
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
-
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)

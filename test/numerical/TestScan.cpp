@@ -12,15 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iostream>
-#include <rapidcheck.h>
-#include <string>
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
-#include "llvm/Support/FileSystem.h"
-
-#include "include/OnnxMlirRuntime.h"
 #include "src/Runtime/OMTensorHelper.hpp"
-#include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestScan_main_graph");
 

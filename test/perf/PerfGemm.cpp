@@ -120,5 +120,5 @@ BENCHMARK(BM_GemmSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
-// Will set opt at -O3
+// Will set opt at -O3.
 PERF_MAIN()

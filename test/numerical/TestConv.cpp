@@ -13,11 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <rapidcheck.h>
-
-#include "llvm/Support/FileSystem.h"
-
-#include "test/modellib/ModelLib.hpp"
+// Common.hpp needs to be included first to correctly surpress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
 #define DEBUG 0
 

@@ -14,11 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <rapidcheck.h>
-
-#include "llvm/Support/FileSystem.h"
-
-#include "test/modellib/ModelLib.hpp"
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE(
     "./TestMatmulBroadcast_main_graph");
