@@ -33,6 +33,8 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 
 // Useful test definitions.
 
+def IsNoneLayout: Constraint<CPred<" !$_self ">, "Layout attribute is null">;
+
 // Check an ONNXConstantOp is using dense attribute or not.
 def IsFromDenseONNXConstantOp:
     Constraint<CPred<"isFromDenseONNXConstantOp($_self)">,
@@ -55,9 +57,9 @@ def CreateConstantForStickForGRU : NativeCodeCall<
 def ConstantStickPattern : Pat<
   (ZHighStickOp:$stickOp
      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_),
-     $layout),
-  (CreateConstantForStick $stickOp, $c, $layout),
-  [(IsFromDenseONNXConstantOp:$c)]
+     $toLayout, $fromLayout),
+  (CreateConstantForStick $stickOp, $c, $toLayout),
+  [(IsFromDenseONNXConstantOp:$c), (IsNoneLayout:$fromLayout)]
 >;
 
 // zhigh.StickForLSTM (c1, c2, c3, c4) = krnl.global(c)

@@ -108,6 +108,15 @@ private:
   bool ownScope;
 };
 
+//===----------------------------------------------------------------------===//
+// Shape helper for StickOp.
+
+struct ZHighStickOpShapeHelper : public ZHighOpShapeHelper<ZHighStickOp> {
+  ZHighStickOpShapeHelper(ZHighStickOp *newOp);
+  ZHighStickOpShapeHelper(ZHighStickOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighStickOpAdaptor operandAdaptor);
+};
+
 // =============================================================================
 // Shape helper for StickForLSTMOp.
 

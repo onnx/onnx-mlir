@@ -66,12 +66,11 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
     (ONNXSubOp:$B $b, (ONNXMulOp $mean, $A)),
 
     // Calculate BatchNorm Op using $A and $B
-    (NHWCtoNCHW (GetTypeOf $res),
-        (ZHighUnstickOp
-            (ZHighBatchNormOp
-                (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-                (ZHighStickOp $A, (_1DLayoutAttr)),
-                (ZHighStickOp $B, (_1DLayoutAttr)))))
+    (ZHighUnstickOp
+        (ZHighBatchNormOp
+            (ZHighStickOp $x, (NHWCLayoutAttr), (NCHWLayoutAttr)),
+            (ZHighStickOp $A, (_1DLayoutAttr), (NoneLayoutAttr)),
+            (ZHighStickOp $B, (_1DLayoutAttr), (NoneLayoutAttr))))
   ]
 >;
 

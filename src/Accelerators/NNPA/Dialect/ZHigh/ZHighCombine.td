@@ -52,26 +52,28 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def IsNoneLayout: Constraint<CPred<" !$_self ">, "Layout attribute is null">;
+
 //===----------------------------------------------------------------------===//
 // Transformations
 //===----------------------------------------------------------------------===//
 
 // zhigh.Stick (None) = None 
 def NoneTypeStickRemovalPattern : Pat<
-  (ZHighStickOp:$stick $arg, $layout1),
+  (ZHighStickOp:$stick $arg, $_, $_),
   (replaceWithValue $arg),
   [(IsNoneType:$arg)]
 >;
 
 // zhigh.Unstick (zhigh.Stick (%X)) = %X
 def UnstickStickRemovalPattern : Pat<
-  (ZHighUnstickOp (ZHighStickOp $arg, $_)),
+  (ZHighUnstickOp (ZHighStickOp $arg, $_, $_)),
   (replaceWithValue $arg)
 >;
 
 // zhigh.Stick (zhigh.Unstick (%X)) = %X
 def StickUnstickRemovalPattern : Pat<
-  (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
+  (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_, $_),
   (replaceWithValue $arg),
   [(SameLayout $arg, $stick)]
 >;
@@ -104,7 +106,7 @@ def GetStickifiedInputs: NativeCodeCall<
 //
 // Note: Support NHWC layout only at this moment.
 def ReplaceONNXConcatByZHighConcatPattern: Pat<
-  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
+  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout, $_),
   (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
   [(ProducedByUnstickOp $inputs),
    (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
@@ -119,12 +121,12 @@ def ReplaceONNXConcatByZHighConcatPattern: Pat<
 def SigmoidLayoutChangingPattern : Pat<
   // From different layouts.
   (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x (ZHighUnstickOp $x),
-                                                $_))),
+                                                $_, $fromLayout))),
   // To the same layouts.
   (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$new_s_x (ZHighUnstickOp $x),
-                                                         (GetLayout $x)),
+                                                         (GetLayout $x), $fromLayout),
                                   (returnType $new_s_x))),
-  [(NotSameLayout $x, $s_x)]
+  [(NotSameLayout $x, $s_x), (IsNoneLayout:$fromLayout)]
 >;
 
 #endif // ZHIGH_COMBINE

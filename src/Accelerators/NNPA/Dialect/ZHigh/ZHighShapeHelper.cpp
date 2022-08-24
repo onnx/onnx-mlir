@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
@@ -59,6 +60,50 @@ ZHighOpShapeHelper<OP>::ZHighOpShapeHelper(OP *newOp, int numResults,
       res = getDenseElementAttributeFromONNXValue(array);
     return res;
   };
+}
+
+//===----------------------------------------------------------------------===//
+// StickOp
+//===----------------------------------------------------------------------===//
+
+ZHighStickOpShapeHelper::ZHighStickOpShapeHelper(ZHighStickOp *newOp)
+    : ZHighOpShapeHelper<ZHighStickOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
+
+ZHighStickOpShapeHelper::ZHighStickOpShapeHelper(
+    ZHighStickOp *newOp, OpBuilder *rewriter)
+    : ZHighOpShapeHelper<ZHighStickOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, nullptr, nullptr) {}
+
+LogicalResult ZHighStickOpShapeHelper::computeShape(
+    ZHighStickOpAdaptor operandAdaptor) {
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  Value input = operandAdaptor.In();
+  StringAttr toLayout = op->toLayoutAttr();
+  StringAttr fromLayout = op->fromLayoutAttr();
+  MemRefBoundsIndexCapture inBounds(input);
+  int64_t rank = inBounds.getRank();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inBounds.getDim(i));
+
+  // Direct stickify from NCHW to NHWC.
+  if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NCHW) &&
+      toLayout && toLayout.getValue().equals_insensitive(LAYOUT_NHWC)) {
+    assert((rank == 4) && "Stickify input must have rank 4");
+    // NCHW -> NHWC
+    outputDims[0] = inBounds.getDim(0);
+    outputDims[1] = inBounds.getDim(2);
+    outputDims[2] = inBounds.getDim(3);
+    outputDims[3] = inBounds.getDim(1);
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

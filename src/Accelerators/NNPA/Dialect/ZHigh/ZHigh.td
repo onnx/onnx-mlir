@@ -144,13 +144,15 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
     "ZHigh operation to perform a Stick."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
-                       OptionalAttr<StrAttr>:$layout);
+                       OptionalAttr<StrAttr>:$toLayout,
+                       OptionalAttr<StrAttr>:$fromLayout);
   let results = (outs AnyTypeOf<[ZTensor_1D, ZTensor_2D, ZTensor_3D, ZTensor_4D,
                                  ZTensor_2DS, ZTensor_3DS, ZTensor_4DS,
                                  ZTensor_NHWC,  ZTensor_NCHW, ZTensor_HWCK,
                                  NoneType]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$toLayout,
+                   "::mlir::StringAttr":$fromLayOut)>
   ];
   let hasCanonicalizer = 1;
 }

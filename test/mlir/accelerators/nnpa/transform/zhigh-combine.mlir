@@ -51,9 +51,9 @@ func.func @donot_remove_stick_and_unstick(%arg0 : tensor<5x10x10xf32>) -> tensor
   %1 = "zhigh.Relu"(%0) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>
   %2 = "zhigh.Unstick"(%1) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32>
 
-  %3 = "zhigh.Stick"(%2) {layout = "3DS"} : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
+  %3 = "zhigh.Stick"(%2) {toLayout = "3DS"} : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
   %4 = "zhigh.Relu"(%3) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
-  %5 = "zhigh.Unstick"(%4) {layout = "3DS"} : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
+  %5 = "zhigh.Unstick"(%4) {toLayout = "3DS"} : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
   "func.return"(%5) : (tensor<5x10x10xf32>) -> ()
 
   // CHECK-LABEL: donot_remove_stick_and_unstick
@@ -100,7 +100,7 @@ func.func @replace_onnx_concat_by_zhigh_concat(%arg0: tensor<?x4x4x192xf32, #zhi
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x192xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x192xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 3 : si64} : (tensor<?x4x4x192xf32>, tensor<?x4x4x192xf32>) -> tensor<?x4x4x384xf32>
-  %3 = "zhigh.Stick"(%2) {layout = "NHWC"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+  %3 = "zhigh.Stick"(%2) {toLayout = "NHWC"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
   return %3 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
   // CHECK-LABEL:  func @replace_onnx_concat_by_zhigh_concat
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
@@ -115,7 +115,7 @@ func.func @replace_onnx_concat_by_zhigh_concat_4d(%arg0: tensor<?x4x4x192xf32, #
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 3 : si64} : (tensor<?x4x4x192xf32>, tensor<?x4x4x192xf32>) -> tensor<?x4x4x384xf32>
-  %3 = "zhigh.Stick"(%2) {layout = "4D"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+  %3 = "zhigh.Stick"(%2) {toLayout = "4D"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
   return %3 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
   // CHECK-LABEL:  func @replace_onnx_concat_by_zhigh_concat_4d
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
@@ -130,7 +130,7 @@ func.func @replace_onnx_concat_by_zhigh_concat_4d_nhwc(%arg0: tensor<?x4x4x192xf
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x192xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 3 : si64} : (tensor<?x4x4x192xf32>, tensor<?x4x4x192xf32>) -> tensor<?x4x4x384xf32>
-  %3 = "zhigh.Stick"(%2) {layout = "NHWC"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+  %3 = "zhigh.Stick"(%2) {toLayout = "NHWC"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
   return %3 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
   // CHECK-LABEL:  func @replace_onnx_concat_by_zhigh_concat_4d_nhwc
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {

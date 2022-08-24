@@ -241,8 +241,13 @@ void ZHighDialect::initialize() {
 //===----------------------------------------------------------------------===//
 // StickOp.
 
-void ZHighStickOp::build(
-    OpBuilder &builder, OperationState &state, Value input, StringAttr layout) {
+// LogicalResult ZHighStickOp::verify() {
+//   StringAttr toLayout = this.toLayout();
+//   StringAttr toLayout = this.fromLayout();
+// }
+
+void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
+    StringAttr toLayout, StringAttr fromLayout) {
   Type resType = builder.getNoneType();
   if (!input.getType().isa<NoneType>()) {
     ShapedType inputType = input.getType().cast<ShapedType>();
@@ -250,21 +255,33 @@ void ZHighStickOp::build(
     if (inputType.hasRank()) {
       rank = inputType.getRank();
       ZTensorEncodingAttr::DataLayout dataLayout;
-      if (layout)
-        dataLayout = convertStringAttrToDataLayout(layout);
+      if (toLayout)
+        dataLayout = convertStringAttrToDataLayout(toLayout);
       else {
         dataLayout = getDataLayoutByRank(rank);
         // Create a layout attribute.
-        layout = convertDataLayoutToStringAttr(builder, dataLayout);
+        toLayout = convertDataLayoutToStringAttr(builder, dataLayout);
       }
-      resType = RankedTensorType::get(inputType.getShape(),
-          inputType.getElementType(),
+      // Compute shape.
+      ArrayRef<int64_t> inputShape = inputType.getShape();
+      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+      // Direct stickify from NCHW to NHWC.
+      if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NCHW) &&
+          toLayout.getValue().equals_insensitive(LAYOUT_NHWC)) {
+        assert((inputShape.size() == 4) && "Input must have rank 4");
+        // NCHW -> NHWC
+        resShape[0] = inputShape[0];
+        resShape[1] = inputShape[2];
+        resShape[2] = inputShape[3];
+        resShape[3] = inputShape[1];
+      }
+      resType = RankedTensorType::get(resShape, inputType.getElementType(),
           ZTensorEncodingAttr::get(builder.getContext(), dataLayout));
     } else {
       resType = UnrankedTensorType::get(inputType.getElementType());
     }
   }
-  build(builder, state, resType, input, layout);
+  build(builder, state, resType, input, toLayout, fromLayout);
 }
 
 LogicalResult ZHighStickOp::inferShapes(
@@ -276,14 +293,22 @@ LogicalResult ZHighStickOp::inferShapes(
   ShapedType inputType = In().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
-  StringAttr layout = layoutAttr();
+  ZHighStickOpAdaptor operandAdaptor(*this);
+  ZHighStickOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Stick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  StringAttr layout = toLayoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
     dataLayout = convertStringAttrToDataLayout(layout);
   else
     dataLayout = getDataLayoutByRank(inputShape.size());
   RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType(),
+      RankedTensorType::get(outputDims, inputType.getElementType(),
           ZTensorEncodingAttr::get(this->getContext(), dataLayout));
   getResult().setType(resType);
   return success();

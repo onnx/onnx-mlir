@@ -23,6 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 
@@ -510,6 +511,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ZHighStickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
+    StringAttr fromLayout = cast<ZHighStickOp>(op).fromLayoutAttr();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -522,8 +524,15 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
 
+    // Set layout.
+    StringAttr preTransformLayout = zMemRefType.layout;
+    // If NHWC, we can directly stickify from NCHW.
+    if (fromLayout && fromLayout.getValue().equals_insensitive(LAYOUT_NCHW) &&
+        preTransformLayout.getValue().equals_insensitive(LAYOUT_NHWC))
+      preTransformLayout = rewriter.getStringAttr(LAYOUT_NCHW);
+
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, zMemRefType.layout);
+    rewriter.create<ZLowStickOp>(loc, input, alloc, preTransformLayout);
 
     rewriter.replaceOp(op, alloc);
     return success();

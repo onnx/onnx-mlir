@@ -7,7 +7,7 @@ func.func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func @test_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<10x10xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {toLayout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_NONE"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<10x10xf32>
@@ -25,7 +25,7 @@ func.func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func @test_onnx_logsoftmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<10x10xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {toLayout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_LOG"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<10x10xf32>
@@ -43,7 +43,7 @@ func.func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func @test_onnx_logsoftmax_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<?x?xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {toLayout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_LOG"} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<?x?xf32>
