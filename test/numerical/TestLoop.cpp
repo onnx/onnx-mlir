@@ -2,22 +2,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <random>
-#include <rapidcheck.h>
-#include <string>
-#include <vector>
+// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
-#include "mlir/IR/BuiltinOps.h"
-#include "llvm/Support/FileSystem.h"
-
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
-#include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
