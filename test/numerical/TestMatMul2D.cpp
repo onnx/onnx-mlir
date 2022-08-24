@@ -2,11 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <rapidcheck.h>
-
-#include "llvm/Support/FileSystem.h"
-
-#include "test/modellib/ModelLib.hpp"
+// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
 

@@ -227,7 +227,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     res = insertAllocAndDeallocZMemRefByDim(dims, layout, op, rewriter);
     Value initValue = create.math.constant(rewriter.getF16Type(), 0);
-    create.krnl.memset(res, initValue);
+    create.krnl.memset(res, initValue, /*delayed=*/true);
   }
   return res;
 }

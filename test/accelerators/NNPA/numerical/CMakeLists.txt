@@ -14,17 +14,22 @@ add_custom_target(check-onnx-numerical-nnpa
   )
 set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 
-# add_numerical_unittest(test_name check_instruction sources... options...
+# add_numerical_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
 #   all the rest of the arguments are passed directly to add_onnx_mlir_executable.
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
-#   The check_instruction is an instruction name which should be included in
-#   generated library.
 #   )
 function(add_numerical_unittest test_name)
-  add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
+  add_onnx_mlir_executable(${test_name}
+    ${ARGN}
+
+    NO_INSTALL
+
+    INCLUDE_DIRS PRIVATE
+    ${ONNX_NUMERICALTEST_SRC_DIR}
+    )
 
   add_dependencies(numerical-nnpa ${test_name})
   get_target_property(test_suite_folder numerical-nnpa FOLDER)
@@ -52,12 +57,6 @@ function(add_numerical_unittest test_name)
   endif ()
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "${TEST_ENV_VAR}")
 endfunction()
-
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
