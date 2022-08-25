@@ -277,7 +277,7 @@ void populateLoweringONNXCategoryMapperOpPattern(
 
 // `NN` directory methods:
 void populateLoweringONNXConvOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXNormalizationOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPoolingOpPattern(
