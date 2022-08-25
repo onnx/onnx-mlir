@@ -45,11 +45,11 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     The call operation provides a generic way to call an external function
     at Krnl level.  The `funcName` determines which function to call.
     The `result` is the Value to store the function return. Currently only
-    one output is supported. `result` has to be resultated memref. 
-    Since resultation of the output MemRef involves shape inference on ONNX Op,
-    resultation should be done at lowering ONNX Op, not within krnl.Call.
+    one output is supported. The `result` has to be resulted memref.
+    Since resolution of the output MemRef involves shape inference on ONNX Op,
+    resolution should be done at lowering ONNX Op, not within krnl.Call.
     Another reason is that Krnl.call need to be defined with AllocationOp
-    interface if `result` is allcated inside this Op.
+    interface if `result` is allocated inside this Op.
     The parameters can be of any type: MemRef, NoneType or any llvm type.
     Different types of parameters will be converted, if needed, when KrnlCallOp
     is lowered. Attributes will be converted to parameters too (To be Added).
@@ -104,21 +104,27 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
 
     For instance, say we have the following two
+    ```
     %l0, %l1 = krnl.define_loops 2
     %o0, %o1 = krnl.optimize_loops  {
         // Identity schedule.
         krnl.return_loops %l0, %l1
     }
+    ```
 
     Then, consider the following krnl.iterate operation:
+    ```
     krnl.iterate (%o0, %o1) with (%l0 -> %i0 = 0 to 10, %l1 -> %i1 = 0 to 10) {
       // Some operations.
     }
+    ```
 
     It is equivalent to:
+    ```
     for (i0 = 0; i0 < 10; i0++)
       for (i1 = 0; i1 < 10; i1++)
         // Some operations.
+    ```
   }];
 
   let arguments = (ins Variadic<AnyType>);
@@ -217,14 +223,14 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
   let summary = "Affine boundary for krnl loops";
   let description = [{
     This Op has a region with AffineScope trait and is used to limit the 
-    scope of `affine.for.'. The loop inside krnl.region can be affined if
-    its boundary is defined at the level of krnl.region. krnl.region does 
+    scope of `affine.for`. The loop inside `krnl.region` can be affined if
+    its boundary is defined at the level of `krnl.region`. The `krnl.region` does
     not guarantee or require the loops inside it to be affine.
-    With krnl.oregion, a krnl loop may not be  affine if its boundary symbol
+    With `krnl.region`, a krnl loop may not be  affine if its boundary symbol
     is not defined inside a enclosing region without AffineScope trait.
-    In MLIR, FuncOp has the AffineScope trait. 
+    In MLIR, FuncOp has the AffineScope trait.
     The `krnl.region` will be removed after affine.for is lowered.
-    ToFix: current krnl.region does not have input and output. You cannot 
+    ToFix: current `krnl.region` does not have input and output. You cannot
     create a new memref inside the region and use it outside of the region. 
   }];
 
@@ -280,10 +286,11 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable
 def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
-    Retreieves a MemRef from within another MemRef:
+    Retrieves a MemRef from within another MemRef:
 
+```
     "krnl.getref"(%memref, %offset)
-
+```
     The offset is an integer which is used as an index into the input MemRef. It works
     just like an array index.
   }];
@@ -311,7 +318,9 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let summary = "Krnl block operation";
   let description = [{
     Block a single for loop by a constant tile size. For instance,
+    ```
     $ib, $il = krnl.block %i, 4
+    ```
     means to block the for loop referred to by %i using a tile size of 4.
   }];
 
@@ -413,7 +422,9 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let description = [{
     Emits the dimension of a MemRef independent of the MemRef alloc:
 
+    ```
     "krnl.dim"(%memref, %index)
+    ```
 
     The index identifies the dimension within the shape which is going to be emitted.
     Initially the krnl.dim operation depends on the alloc of the MemRef.
@@ -427,7 +438,7 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
 }
 
 def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
-  let summary = "Krnl operation to retreieve the shape of a MemRef.";
+  let summary = "Krnl operation to retrieve the shape of a MemRef.";
   let description = [{
     Extracts the shape of a MemRef:
     ```
@@ -671,8 +682,10 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
     dimension is divided (floor division) by the vector size to obtain the
     corresponding dimension for target memref type.
 
+    ```
     %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
     %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
+    ```
   }];
 
   let arguments = (ins AnyMemRef:$source);
@@ -716,7 +729,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
-    Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+    Perform a matrix multiplication AA * BB + CC with sizes `[IxK] * [KxJ] + [IxJ]`.
     The original matrices AA, BB, and CC can be buffered in buffered arrays
     which may be padded. The original matrices and the padded array might
     have a higher rank than 2, but the actual matrix multiplication operation
@@ -729,14 +742,17 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
     
-    ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
-    BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
+    ORIGINAL ARRAY: denoted as AA, BB, CC with sizes AA: `*xIxK`; BB: `*xKxJ`; CC: `*xI*J`).
+
+    BUFFER ARRAYS: denoted as A, B, and C. Note that this operation does
       not require the use of buffers arrays. If none are used, then A=AA,
-      B=BB, C=CC. If buffers are used, it is the responsability of the caller
+      B=BB, C=CC. If buffers are used, it is the responsibility of the caller
       to properly fill the buffers with the appropriate data. Buffers are
       typically used for cache tiling.
 
      ORIGINAL ARRAY
+
+```
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -754,64 +770,64 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
      |             +++++++++++++++++++++(4)          ]
      |                                               ]
      -----------------------------------------------(2)
+```
 
-    (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-        kGlobalIndexComputeStart, required, global 1D indices.
-    (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
-    (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
-        required, global nD indices with the same rank as the buffers
-        A, B, and C.
-    (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
-    (5) computeTileSizes, required when tiled computation within buffer,
-        3D sizes (I, J, K).
+* (1) `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/`kGlobalIndexComputeStart`,
+   required, each three are global 1D indices.
+* (2) `iGlobalUB`/`jGlobalUB`/`jGlobalUB`, required, each three are global 1D indices.
+* (3) `aGlobalIndexMemStart`/`bGlobalIndexMemStart`/`cGlobalIndexMemStart`,
+   required, global nD indices with the same rank as the buffers A, B, and C.
+* (4) `aTileSize`/`bTileSize`/`cTileSize`, required when padding, each 2D sizes.
+* (5) `computeTileSizes`, required when tiled computation within buffer, 3D sizes (I, J, K).
 
-    The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-    kGlobalIndexComputeStart (1) indicate the global indices of the
+    The `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/
+    `kGlobalIndexComputeStart` (1) indicate the global indices of the
     first element of a tile to be computed in the original computations.
 
-    The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
+    The `iGlobalUB`/`jGlobalUB`/`kGlobalUB` (2) indicate the global upper bounds
     in the original computations.
 
-    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
+    We provide 3 buffers for matrix multiply: A, B, and C. For each buffer,
     we indicate the global indices pointing the beginning of the buffer:
-    aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
+    `aGlobalIndexMemStart`, `bGlobalIndexMemStart`, and `cGlobalIndexMemStart` (3).
     If no buffers are used, i.e. the computation starts directly in the
-    orginal memory, the global index is 0. If a buffer for AA is used to
-    put data into it starting at indices [i1, k1], where i1 & k1 are the
-    global indices in the original computations, then aGlobalIndexMemStart0
-    and aGlobalIndexMemStart1 are i1 & k1, respectively.
+    original memory, the global index is 0. If a buffer for AA is used to
+    put data into it starting at indices `[i1, k1]`, where `i1` & `k1` are the
+    global indices in the original computations, then `aGlobalIndexMemStart0`
+    and `aGlobalIndexMemStart1` are `i1` & `k1`, respectively.
 
     If the A, B, or C buffers are larger than the actual data tile they
-    contain (see copy_to_tile_buffer), then the actual tile size must be
-    given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
+    contain (see `copy_to_tile_buffer`), then the actual tile size must be
+    given using an optional attribute: `aTileSize`, `bTileSize`, or `cTileSize` (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
     buffers A, B, or C, then the actual computation tile is given by
-    the optional tile attribute computeTileSize (5). Its rank is 3, for the
+    the optional tile attribute `computeTileSize` (5). Its rank is 3, for the
     I, J, and K dimension. The actual A, B, and C buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
-    the I, J, and K computeTileSizes, in their respective
-    dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
+    the I, J, and K `computeTileSizes`, in their respective
+    dimensions (A: `[IxK]`, B: `[KxJ]`, C: `[IxJ]`).
 
     Note that the buffers A, B, and C can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
     At this time, we only support broadcast of arrays having ranks of 2 or
-    more. Because of the broadcast rules, the higher dimenstions have a
+    more. Because of the broadcast rules, the higher dimensions have a
     constant index during one matrix multiply. These fixed indices are
     given as prefix dimensions in the starting indices for AA, BB, and CC
     as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
-    the starting indices for AA are [d, i1, k1] where i1 and k1 are as
-    above, and d is index pointing to the current instance of the IxK
-    AA matrix to be computed. B start indices would be unchanged at [k1, j1].
+    the starting indices for AA are `[d, i1, k1]` where `i1` and `k1` are as
+    above, and d is index pointing to the current instance of the `IxK`
+    AA matrix to be computed. B start indices would be unchanged at `[k1, j1]`.
 
     Simdize is used to state if simdization is requested.
-    Unrolling is used to unroll and jam loops as warrented.
+    Unrolling is used to unroll and jam loops as warranted.
 
     Below is an example calculating a matrix multiply with pre-zeroed
     C matrix with the sizes below.
 
+```
     %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
 
     // 3 tiled loops.
@@ -865,6 +881,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
         krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
           memref<10x8xf32>, memref<40x80xf32>
     }
+```
 
     Note that code is simdized along the J dim (last dim of B and C matrices).
     For simd to be enabled, the simdized flag must be set to true, and the
@@ -874,7 +891,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 
   let arguments = (ins 
-    // Buffer/memory used and indices that correspoond to the begining 
+    // Buffer/memory used and indices that correspoond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Variadic<Index>: $aGlobalIndexMemStart,
@@ -976,23 +993,23 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     because the operation reaches the upper bounds of the source memory,
     several actions may happen.
 
-    * If padToNext attribute is given, the pad value will be copied from
-      the last source data of to the next index for which index modulo padToNext
-      is zero, i.e. to the end of a "cache line" of side padToLine. Pad
+    * If`padToNext` attribute is given, the pad value will be copied from
+      the last source data of to the next index for which index modulo `padToNext`
+      is zero, i.e. to the end of a "cache line" of side `padToLine`. Pad
       of 1 means no padding, pad of buffer size means fully pad the buffer.
-      Default is no padding (1). PadValue is used to initialized the padded
+      Default is no padding (1). `PadValue` is used to initialized the padded
       areas.
 
-    * If overreadToNext attribute is given, the copy may read source past
-      its upperbound value. This enable optimized code, e.g. using SIMD
+    * If `overreadToNext` attribute is given, the copy may read source past
+      its upper bound value. This enable optimized code, e.g. using SIMD
       read operations even if going past the last value of the source
-      memory, or unrolling and jaming copy loops to reduce memory latency.
-      overreadToNext is expressed like padToNext: value of 1 means no
+      memory, or unrolling and jamming copy loops to reduce memory latency.
+      `overreadToNext` is expressed like padToNext: value of 1 means no
       reading past boundary; value of buffer size enables reading
-      as many additional sourve value as needed to fill the full
+      as many additional source value as needed to fill the full
       buffer. Default is buffer-size.
 
-    padToNext and overreadToNext are of the same rank as source and memory
+    `padToNext` and `overreadToNex`t are of the same rank as source and memory
     memrefs.
   }];
 
@@ -1142,7 +1159,7 @@ def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 
-    given two arrays of int32_t values (G and V), whih are used to represent a perfect 
+    given two arrays of int32_t values (G and V), which are used to represent a perfect
     hash table for a dictionary, returns the index corresponding to the input value.
     The index returned is valid only if 'input' is in the dictionary described by G and V.
   }];
@@ -1155,12 +1172,14 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let summary = "Print a tensor.";
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
-    At the begining of the msg string, user can add formatting instructions. The flags are:
-      %s: detailed signature (including shape, type, offsets),
-      %t: compact type (ala MLIR: 32x16xfloat),
-      %d: data values.
-    When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
-    Print operation ends with a newline, except when only requesting a compact types (%t).
+    At the beginning of the msg string, user can add formatting instructions. The flags are:
+
+    *  `%s`: detailed signature (including shape, type, offsets),
+    *  `%t`: compact type (ala MLIR: `32x16xfloat`),
+    *  `%d`: data values.
+
+    When no formatting is provided, `%s%d` is used (detailed signature and data) by default.
+    Print operation ends with a newline, except when only requesting a compact types (`%t`).
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);

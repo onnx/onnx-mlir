@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestGemm.cpp - test GEMM code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Gemm code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly surpress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -58,8 +68,9 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
   return gemm.build() && gemm.compileAndLoad() &&
-         gemm.checkInstructionFromEnv("TestGemmNNPA_INSTRUCTION") &&
-         gemm.prepareInputs() && gemm.run() && gemm.verifyOutputs();
+         gemm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         gemm.prepareInputsFromEnv("TEST_DATARANGE") && gemm.run() &&
+         gemm.verifyOutputs();
 }
 
 } // namespace test
@@ -76,28 +87,35 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configurations
+  int maxHasAlpha = 2, maxHasBeta = 2;
+  // Update configurations from an environment variable or target
+  std::map<std::string, std::string> opts =
+      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
+  if (target == "--maccel=NNPA" || opts["-alpha"] == "1") {
+    std::cout << "Alpha: \"1\"" << std::endl;
+    maxHasAlpha = 1;
+  }
+  if (target == "--maccel=NNPA" || opts["-beta"] == "1") {
+    std::cout << "Beta: \"1\"" << std::endl;
+    maxHasBeta = 1;
+  }
   if (true) {
     printf("RapidCheck test case generation.\n");
-    bool success = rc::check("Gemm implementation correctness", []() {
+    bool success = rc::check("Gemm implementation correctness", [&]() {
       const int maxRange = 50;
-      const auto I = *rc::gen::inRange(1, maxRange);
-      const auto J = *rc::gen::inRange(1, maxRange);
-      const auto K = *rc::gen::inRange(1, maxRange);
-      const auto aTrans = *rc::gen::inRange(0, 2);
-      const auto bTrans = *rc::gen::inRange(0, 2);
-      const auto cRank = *rc::gen::inRange(1, 3);
-#ifdef TEST_GEMM_ALPHA_BETA_1
-      float alpha = 1.0;
-      float beta = 1.0;
-#else
-      const auto hasAlpha = *rc::gen::inRange(0, 2);
-      const auto hasBeta = *rc::gen::inRange(0, 2);
+      const int I = *rc::gen::inRange(1, maxRange);
+      const int J = *rc::gen::inRange(1, maxRange);
+      const int K = *rc::gen::inRange(1, maxRange);
+      const int aTrans = *rc::gen::inRange(0, 2);
+      const int bTrans = *rc::gen::inRange(0, 2);
+      const int cRank = *rc::gen::inRange(1, 3);
+      const int hasAlpha = *rc::gen::inRange(0, maxHasAlpha);
+      const int hasBeta = *rc::gen::inRange(0, maxHasBeta);
       float alpha = hasAlpha ? 1.2 : 1.0;
       float beta = hasBeta ? 0.8 : 1.0;
-#endif
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
           I, J, K, aTrans, bTrans, cRank, alpha, beta));
     });

@@ -86,6 +86,10 @@ def createArrayAttrFromConstantOp : NativeCodeCall<
 def createSequenceConstructOp : NativeCodeCall<
   "::onnx_mlir::createSequenceConstructOp($_builder, $0, $1)">;
 
+def ONNXDataType : NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
+  "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -312,13 +316,10 @@ def ResizeV11Pattern: Pat<
                     $nearest_mode)
 >;
 
-// ToFix: Create type attribute for SequenceEmpty when type is not F32
-// There is a mlirTypeToOnnxType in KrnlToLLVM conversion. 
-// Need to move it into ONNXOpHelper
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp
-        (ONNXSequenceEmptyOp (GetNullIntegerAttr), (returnType $res)),
+        (ONNXSequenceEmptyOp (ONNXDataType $x1), (returnType $res)),
         $x1)
 >;
 

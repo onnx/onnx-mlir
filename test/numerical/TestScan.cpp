@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestScan.cpp - test Scan code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Scan code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -56,8 +66,9 @@ static bool isOMScanTheSameAsNaiveImplFor(
     printf("attempt %d with S=%d, I=%d, is_v8=%d\n", ++testNum, S, I, is_v8);
 
   ScanLibBuilder scan(SHARED_LIB_BASE.str(), S, I, B, is_v8);
-  return scan.build() && scan.compileAndLoad() && scan.prepareInputs() &&
-         scan.run() && scan.verifyOutputs();
+  return scan.build() && scan.compileAndLoad() &&
+         scan.prepareInputsFromEnv("TEST_DATARANGE") && scan.run() &&
+         scan.verifyOutputs();
 }
 
 } // namespace test
@@ -81,8 +92,8 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Scan implementation correctness", []() {
       const int maxRange = 50;
-      const auto S = *rc::gen::inRange(1, maxRange);
-      const auto I = *rc::gen::inRange(1, maxRange);
+      const int S = *rc::gen::inRange(1, maxRange);
+      const int I = *rc::gen::inRange(1, maxRange);
       RC_ASSERT(isOMScanTheSameAsNaiveImplFor(S, I));
     });
     if (!success)

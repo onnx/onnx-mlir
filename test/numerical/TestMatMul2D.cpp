@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestMastMul2D.cpp - test matmul without broadcast -==================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test 2D matrix multiply code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -22,8 +32,9 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
   return matmul.build() && matmul.compileAndLoad() &&
-         matmul.checkInstructionFromEnv("TestMatMul2DNNPA_INSTRUCTION") &&
-         matmul.prepareInputs() && matmul.run() && matmul.verifyOutputs();
+         matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         matmul.prepareInputsFromEnv("TEST_DATARANGE") && matmul.run() &&
+         matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir
@@ -45,8 +56,8 @@ int main(int argc, char *argv[]) {
   printf("RapidCheck Matrix-Vector test case generation.\n");
   bool success =
       rc::check("Matrix-Vector Matmul implementation correctness", []() {
-        const auto I = *rc::gen::inRange(4, 50);
-        const auto K = *rc::gen::inRange(4, 14);
+        const int I = *rc::gen::inRange(4, 50);
+        const int K = *rc::gen::inRange(4, 14);
 
         RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
       });
@@ -55,9 +66,9 @@ int main(int argc, char *argv[]) {
 
   printf("RapidCheck Matrix-Matrix test case generation.\n");
   success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
-    const auto I = *rc::gen::inRange(1, 50);
-    const auto J = *rc::gen::inRange(1, 50);
-    const auto K = *rc::gen::inRange(1, 50);
+    const int I = *rc::gen::inRange(1, 50);
+    const int J = *rc::gen::inRange(1, 50);
+    const int K = *rc::gen::inRange(1, 50);
 
     RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, J, K));
   });
