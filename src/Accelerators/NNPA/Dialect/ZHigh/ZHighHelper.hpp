@@ -47,7 +47,8 @@ ZTensorEncodingAttr getZTensorEncoding(mlir::Type type);
 ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 
 /// Get the layout of a ztensor.
-mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc, mlir::FloatAttr floatAttr, mlir::Value input);
+mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
+    mlir::FloatAttr floatAttr, mlir::Value input);
 
 } // namespace zhigh
 } // namespace onnx_mlir
