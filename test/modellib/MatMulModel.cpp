@@ -56,26 +56,28 @@ bool MatMul2DLibBuilder::build() {
   return true;
 }
 
-bool MatMul2DLibBuilder::prepareInputs() {
+bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] = omTensorCreateWithRandomData<float>({I, K});
-  list[1] = omTensorCreateWithRandomData<float>({K, J});
+  list[0] =
+      omTensorCreateWithRandomData<float>({I, K}, dataRangeLB, dataRangeUB);
+  list[1] =
+      omTensorCreateWithRandomData<float>({K, J}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
 
-bool MatMul2DLibBuilder::prepareInputs(float dataRange) {
-  constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
-  if (!list)
-    return false;
-  list[0] = omTensorCreateWithRandomData<float>({I, K}, -dataRange, dataRange);
-  list[1] = omTensorCreateWithRandomData<float>({K, J}, -dataRange, dataRange);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs && list[0] && list[1];
+bool MatMul2DLibBuilder::prepareInputs() {
+  return MatMul2DLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
+}
+
+bool MatMul2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool MatMul2DLibBuilder::verifyOutputs() {
