@@ -51,6 +51,11 @@ add_numerical_unittest(TestMatMul2D
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
+  add_numerical_unittest(TestMatMulBroadcast
+  TestMatMulBroadcast.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
 add_numerical_unittest(TestGemm
   TestGemm.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
