@@ -155,10 +155,12 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
 
-Value getMinusBcastConst(mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
+Value getMinusBcastConst(
+    mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
   ShapedType xType = X.getType().cast<ShapedType>();
   assert(xType.hasStaticShape() && "expected static shape");
-  Type resType = RankedTensorType::get(xType.getShape(), xType.getElementType());
+  Type resType =
+      RankedTensorType::get(xType.getShape(), xType.getElementType());
   int nElements = ShapedType::getNumElements(xType.getShape());
   float val = floatAttr.getValueAsDouble() * -1.0;
   std::vector<float> array(nElements, val);
