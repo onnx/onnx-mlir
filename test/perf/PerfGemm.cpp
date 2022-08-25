@@ -72,7 +72,7 @@ static void BM_MatmulSquareBroadcastB4x(benchmark::State &state) {
   for (auto _ : state)
     model.run();
   state.SetComplexityN(I);
-  PERF_RECORD_FLOPS(/*broadcast 4x*/ 4.0 /*matmul*/ * 2.0 * I * J * K); 
+  PERF_RECORD_FLOPS(/*broadcast 4x*/ 4.0 /*matmul*/ * 2.0 * I * J * K);
 }
 BENCHMARK(BM_MatmulSquareBroadcastB4x)
     ->RangeMultiplier(2)

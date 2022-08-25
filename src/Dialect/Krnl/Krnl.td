@@ -45,7 +45,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     The call operation provides a generic way to call an external function
     at Krnl level.  The `funcName` determines which function to call.
     The `result` is the Value to store the function return. Currently only
-    one output is supported. The `result` has to be resulted memref. 
+    one output is supported. The `result` has to be resulted memref.
     Since resolution of the output MemRef involves shape inference on ONNX Op,
     resolution should be done at lowering ONNX Op, not within krnl.Call.
     Another reason is that Krnl.call need to be defined with AllocationOp
@@ -891,7 +891,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 
   let arguments = (ins 
-    // Buffer/memory used and indices that correspoond to the beginning 
+    // Buffer/memory used and indices that correspoond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Variadic<Index>: $aGlobalIndexMemStart,
@@ -1159,7 +1159,7 @@ def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 
-    given two arrays of int32_t values (G and V), which are used to represent a perfect 
+    given two arrays of int32_t values (G and V), which are used to represent a perfect
     hash table for a dictionary, returns the index corresponding to the input value.
     The index returned is valid only if 'input' is in the dictionary described by G and V.
   }];

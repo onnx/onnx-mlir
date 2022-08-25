@@ -150,7 +150,7 @@ call operation
 The call operation provides a generic way to call an external function
 at Krnl level.  The `funcName` determines which function to call.
 The `result` is the Value to store the function return. Currently only
-one output is supported. The `result` has to be resulted memref. 
+one output is supported. The `result` has to be resulted memref.
 Since resolution of the output MemRef involves shape inference on ONNX Op,
 resolution should be done at lowering ONNX Op, not within krnl.Call.
 Another reason is that Krnl.call need to be defined with AllocationOp
@@ -358,7 +358,7 @@ Krnl erf scalar operation.
 Retrieve an index into a perfect hash table described by G and V.
 
 This operation can be used to generate a call to a runtime function which, 
-given two arrays of int32_t values (G and V), which are used to represent a perfect 
+given two arrays of int32_t values (G and V), which are used to represent a perfect
 hash table for a dictionary, returns the index corresponding to the input value.
 The index returned is valid only if 'input' is in the dictionary described by G and V.
 
@@ -816,9 +816,34 @@ Syntax:
 operation ::= `krnl.memset` $dest `,` $value attr-dict `:` type($dest)
 ```
 
-Krnl operation that set buffer to a given value.
+Krnl operation that sets a buffer to a given value.
+In case that the buffer is a MemRef with affine_map, `delayed` indicates
+whether we set values along original or extended iteration space.
+
+For example, given 
+- an affine_map `#tile = affine_map < (i)->(i floordiv 4, i mod 4) >`, and
+- a buffer of type `memref<5xf32, #tile>`
+
+Original iteration space is along the first axis that has 5 elements.
+
+If we do normalization, the memref becomes `memref<2x4xf32>`. Now we have
+an extended iteration space along two axes of sizes 2 and 4, respectively.
+This extended iteration space has 8 elements in total.
+
+If `delayed = false`, the original iteration space is used to set values.
+In the above example, only 5 out of 8 elementes will be set to the given value.
+
+If `delayed = true`, the extended iteration space is used to set values.
+In the above example, all 8 elements will be set to the given value.
+
 
 Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `delayed` | ::mlir::BoolAttr | bool attribute
 
 #### Operands:
 
