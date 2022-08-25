@@ -54,25 +54,25 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-  // Get configurations from an environment variable
-  std::map<std::string, std::string> opts =
-      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
-  // Set configuration for test
-  int dimType = 2; // default is for dynamic and static
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configurations
+  int dimType = 2;     // default is for dynamic and static
   int maxDilation = 3; // maxDilation is an exclusive upper bound
   std::string paddingType = "valid_upper_lower";
-  if (opts["-dim"] == "static") {
-    std::cout << "Dimension type from env: \"" << opts["-dim"] << "\"\n";
-    dimType = 1; // only static
+  // Update configurations from an environment variable or target
+  std::map<std::string, std::string> opts =
+      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
+  if (target == "--maccel=NNPA" || opts["-dim"] == "static") {
+    std::cout << "Dimension type : \"static\"" << std::endl;
+    dimType = 1;
   }
-  if (opts["-dilation"] == "1") {
-    std::cout << "Dilation from env: \"" << opts["-dilation"] << "\"\n";
+  if (target == "--maccel=NNPA" || opts["-dilation"] == "1") {
+    std::cout << "Dilation: \"1\"" << std::endl;
     maxDilation = 2;
   }
-  if (opts["-padding"] == "valid_upper") {
-    std::cout << "Padding type from env: \"" << opts["-padding"] << "\"\n";
+  if (target == "--maccel=NNPA" || opts["-padding"] == "valid_upper") {
+    std::cout << "Padding type: \"valid and upper\"" << std::endl;
     paddingType = "valid_upper";
   }
 

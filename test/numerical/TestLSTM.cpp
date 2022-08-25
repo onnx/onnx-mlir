@@ -48,15 +48,15 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-  // Get configurations from an environment variable
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configuration
+  int minNoneP = 0; // Peephole is tested by default
+  // Update configurations from an environment variable or target
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
-  // Set configuration for test
-  int minNoneP = 0; // Peephole is tested by default
-  if (opts["-peephole"] == "0") {
-    std::cout << "Peephole from env: \"" << opts["-peephole"] << "\"\n";
+  if (target == "--maccel=NNPA" || opts["-peephole"] == "0") {
+    std::cout << "Peephole: \"not tested\"" << std::endl;
     minNoneP = 1; // peephole not tested
   }
 

@@ -47,15 +47,15 @@ int main(int argc, char *argv[]) {
   setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-  // Get configurations from an environment variable
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configurations
+  int minL = 0; // Lower bound for L
+  // Update configurations from an environment variable or target
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
-  // Set configuration for test
-  int minL = 0; // Lower bound for L
-  if (opts["-linearBeforeReset"] == "1") {
-    std::cout << "Peephole from env: \"" << opts["-peephole"] << "\"\n";
+  if (target == "--maccel=NNPA" || opts["-linearBeforeReset"] == "1") {
+    std::cout << "linear_before_reset: \"always set\"\n";
     minL = 1;
   }
 

@@ -65,7 +65,8 @@ set(TEST_LINK_LIBS rapidcheck ModelLib)
 # Conv2D
 set(TestConvNNPA_instruction zdnn_conv2d)
 set(TestConvNNPA_data_range -0.1,0.1)
-set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
+# Automatically set following config when using --maccel=NNPA
+# set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
 add_numerical_unittest(TestConvNNPA
    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
    LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
@@ -80,7 +81,8 @@ add_numerical_unittest(TestMatMul2DNNPA
 
 # Gemm
 set(TestGemmNNPA_instruction zdnn_matmul_op)
-set(TestGemmNNPA_config "-alpha=1 -beta=1")
+# Automatically set following config when using --maccel=NNPA
+# set(TestGemmNNPA_config "-alpha=1 -beta=1")
 add_numerical_unittest(TestGemmNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
@@ -88,7 +90,8 @@ add_numerical_unittest(TestGemmNNPA
 
 # LSTM
 set(TestLSTMNNPA_instruction zdnn_lstm)
-set(TestLSTMNNPA_config "-peephole=0")
+# Automatically set following config when using --maccel=NNPA
+# set(TestLSTMNNPA_config "-peephole=0")
 add_numerical_unittest(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
@@ -96,7 +99,8 @@ add_numerical_unittest(TestLSTMNNPA
 
 # GRU
 set(TestGRUNNPA_instruction zdnn_gru)
-set(TestGRUNNPA_config "-linearBeforeReset=1")
+# Automatically set following config when using --maccel=NNPA
+# set(TestGRUNNPA_config "-linearBeforeReset=1")
 add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}

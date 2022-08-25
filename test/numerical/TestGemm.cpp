@@ -77,20 +77,20 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-  // Get configurations from an environment variable
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configurations
+  int maxHasAlpha = 2, maxHasBeta = 2;
+  // Update configurations from an environment variable or target
   std::map<std::string, std::string> opts =
       ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
-  // Set configuration for test
-  int maxHasAlpha = 2, maxHasBeta = 2;
-  if (opts["-alpha"] == "1") {
-    std::cout << "Alpha from env: \"" << opts["-alpha"] << "\"\n";
-    maxHasAlpha = 1; // alpha = 1.0
+  if (target == "--maccel=NNPA" || opts["-alpha"] == "1") {
+    std::cout << "Alpha: \"1\"" << std::endl;
+    maxHasAlpha = 1;
   }
-  if (opts["-beta"] == "1") {
-    std::cout << "Beta from env: \"" << opts["-alpha"] << "\"\n";
-    maxHasBeta = 1; // beta = 1.0
+  if (target == "--maccel=NNPA" || opts["-beta"] == "1") {
+    std::cout << "Beta: \"1\"" << std::endl;
+    maxHasBeta = 1;
   }
   if (true) {
     printf("RapidCheck test case generation.\n");
