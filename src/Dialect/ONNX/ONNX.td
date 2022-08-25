@@ -236,11 +236,11 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
     An list of tensors which may have different shape
   }];
 
-  let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
+  let parameters = (ins "::mlir::Type":$ElementType, "int64_t":$Length);
 
   let hasCustomAssemblyFormat = 1;
   let builders = [
-    TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
+    TypeBuilderWithInferredContext<(ins "::mlir::Type":$elementType,
                                         "int64_t":$length), [{
       return Base::get(elementType.getContext(), elementType, length);
     }]>
