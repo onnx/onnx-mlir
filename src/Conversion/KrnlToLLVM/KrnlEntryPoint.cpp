@@ -448,9 +448,8 @@ private:
       llvm::raw_string_ostream dstream(elemTyStr);
       dstream << elemTy;
       dstream.flush();
-      onnx::TensorProto::DataType dtype = krnl::mlirTypeToOnnxType(elemTy);
-      equalOrFailed(module, rewriter, loc,
-          create.llvm.constant(int64Ty, (int64_t)dtype),
+      int64_t dtype = krnl::mlirTypeToOnnxType(elemTy);
+      equalOrFailed(module, rewriter, loc, create.llvm.constant(int64Ty, dtype),
           RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::GET_DATA_TYPE, {omTensorPtr}),
           "Wrong data type for the input " + std::to_string(i) + ": expect " +

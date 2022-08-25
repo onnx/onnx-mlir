@@ -74,3 +74,11 @@ func.func @check_optionalhaselement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<i
   // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.OptionalHasElement"(%arg0) : (!onnx.Opt<tensor<*xf32>>) -> tensor<i1>
   // CHECK-NEXT: return [[VAR_0_]] : tensor<i1>
 }
+
+// CHECK-LABEL: @check_seq_map(%arg0: tensor<*xf32>) -> !onnx.Seq<tuple<i64, f32>> {
+func.func @check_seq_map(%arg0: tensor<*xf32>) -> !onnx.Seq<tuple<i64, f32>> {
+  %0 = "onnx.ZipMap"(%arg0) {classlabels_int64s = [10, 20, 30]} : (tensor<*xf32>) -> !onnx.Seq<tuple<i64, f32>>
+  return %0 : !onnx.Seq<tuple<i64, f32>>
+  // CHECK-NEXT: %0 = "onnx.ZipMap"(%arg0) {classlabels_int64s = [10, 20, 30]} : (tensor<*xf32>) -> !onnx.Seq<tuple<i64, f32>>
+  // CHECK-NEXT: return %0 : !onnx.Seq<tuple<i64, f32>>
+}
