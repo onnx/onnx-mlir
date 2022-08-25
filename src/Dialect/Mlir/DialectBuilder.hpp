@@ -62,6 +62,8 @@ struct MathBuilder final : DialectBuilder {
       : DialectBuilder(b, loc) {}
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
+  mlir::Value abs(mlir::Value val) const;
+
   mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
 

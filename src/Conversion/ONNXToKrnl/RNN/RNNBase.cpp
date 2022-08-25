@@ -264,11 +264,11 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
     attributes.emplace_back(
-        rewriter.getNamedAttr("alpha", activation.alpha.getValue()));
+        rewriter.getNamedAttr("alpha", activation.alpha.value()));
   }
   if (activation.beta) {
     attributes.emplace_back(
-        rewriter.getNamedAttr("beta", activation.beta.getValue()));
+        rewriter.getNamedAttr("beta", activation.beta.value()));
   }
   Type resType = operand.getType();
 

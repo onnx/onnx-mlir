@@ -24,7 +24,14 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 #   generated library.
 #   )
 function(add_numerical_unittest test_name check_instruction)
-  add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
+  add_onnx_mlir_executable(${test_name}
+    ${ARGN}
+
+    NO_INSTALL
+
+    INCLUDE_DIRS PRIVATE
+    ${ONNX_NUMERICALTEST_SRC_DIR}
+    )
 
   add_dependencies(numerical-nnpa ${test_name})
   get_target_property(test_suite_folder numerical-nnpa FOLDER)
@@ -40,12 +47,6 @@ function(add_numerical_unittest test_name check_instruction)
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
   set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;${test_name}_INSTRUCTION=${check_instruction}")
 endfunction()
-
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.

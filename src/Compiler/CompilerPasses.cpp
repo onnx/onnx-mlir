@@ -20,6 +20,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -70,16 +72,34 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    bool enableInstrumentONNXSignature) {
+    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFormat) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
     pm.addPass(mlir::createCSEPass());
   // Verify ONNX ops before lowering to Krnl.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
+  // Print statistics about ONNX ops if enabled.
+  if (ONNXOpsStatFormat.length() > 0) {
+    transform(ONNXOpsStatFormat.begin(), ONNXOpsStatFormat.end(),
+        ONNXOpsStatFormat.begin(), ::toupper);
+    bool printAsJSON = ONNXOpsStatFormat.compare("JSON") == 0;
+    bool printAsTXT = ONNXOpsStatFormat.compare("TXT") == 0;
+    if (printAsJSON || printAsTXT) {
+      // TODO: we should write the output of this pass in a file but I was not
+      // able to use raw_fd_ostream of a file without it crashing.
+      pm.addNestedPass<func::FuncOp>(
+          mlir::createPrintOpStatsPass(llvm::errs(), printAsJSON));
+    } else {
+      llvm::errs() << "Skip onnx-ops-stats: expected JSON or TXT format, got \""
+                   << ONNXOpsStatFormat << "\"\n";
+    }
+  }
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
       instrumentONNXOps, instrumentControlBits.getBits()));
+  // Print Signatures of each op at runtime if enabled. Should not run signature
+  // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
@@ -91,7 +111,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
-}
+} // namespace onnx_mlir
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
@@ -166,8 +186,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(
-          pm, OptimizationLevel, /*enableCSE*/ true, instrumentONNXSignature);
+      addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
+          instrumentONNXSignature, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

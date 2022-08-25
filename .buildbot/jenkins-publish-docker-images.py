@@ -9,7 +9,9 @@ import requests
 import sys
 
 logging.basicConfig(
-    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO,
+    format = '[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s',
+    datefmt = '%Y-%m-%d %H:%M:%S')
 
 cpu_arch                    = os.getenv('CPU_ARCH')
 docker_pushpull_rwlock      = os.getenv('DOCKER_PUSHPULL_RWLOCK')

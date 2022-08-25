@@ -76,7 +76,7 @@ static RankedTensorType getReductionOutputType(
 
   SmallVector<int64_t, 4> axes;
   if (axesAttrs != llvm::None)
-    for (auto axisAttr : axesAttrs.getValue()) {
+    for (auto axisAttr : axesAttrs.value()) {
       int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
       axis = axis >= 0 ? axis : (rank + axis);
       assert(axis >= -rank && axis <= rank - 1);
@@ -265,7 +265,7 @@ static LogicalResult processConvDilationParam(
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto dilationsOpt = op->dilations();
-  if (dilationsOpt.hasValue()) {
+  if (dilationsOpt.has_value()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank) {
       return op->emitError("dilation rank is not the same as the spatial rank");
     }
@@ -295,7 +295,7 @@ static LogicalResult processConvStrideParam(
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto stridesOpt = op->strides();
-  if (stridesOpt.hasValue()) {
+  if (stridesOpt.has_value()) {
     if (ArrayAttrSize(stridesOpt) != kernelRank)
       return op->emitError("strides rank is not the same as the spatial rank");
     // Check values to be greater than 0.
@@ -334,7 +334,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
   bool updatedPad = false;
   if (autoPad == "NOTSET") {
     auto padsOpt = op->pads();
-    if (padsOpt.hasValue()) {
+    if (padsOpt.has_value()) {
       // Only option where pads are not updated. Pads consists of two entries
       // for each spatial axis.
       if (ArrayAttrSize(padsOpt) != 2 * kernelRank) {
@@ -360,7 +360,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
         return op->emitError("Conv Pads defined as SAME_UPPER or SAME_LOWER "
                              "requires compile time X sizes");
       auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-      if (dilationsOpt.hasValue())
+      if (dilationsOpt.has_value())
         dilationVal = ArrayAttrIntVal(dilationsOpt, i);
       auto strideVal = ArrayAttrIntVal(stridesOpt, i);
       // Output size is input size divided by stride. When stride is 1, then
@@ -461,7 +461,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
                        ArrayAttrIntVal(padsOpt, spatialRank + i);
       auto strideVal = ArrayAttrIntVal(stridesOpt, i);
       int64_t dilationVal = 1;
-      if (dilationsOpt.hasValue())
+      if (dilationsOpt.has_value())
         dilationVal = ArrayAttrIntVal(dilationsOpt, i);
       res = AffineMapIntConstant(builder, dimMap, {inputSize},
           {kernelSize, sumOfPads, strideVal, dilationVal}, 1, 4);
@@ -511,8 +511,8 @@ static LogicalResult RNNShapeInference(T *op) {
 
   // Get hidden size from hidden_size attribute.
   int64_t hiddenSize = -1;
-  if (op->hidden_size().hasValue()) {
-    hiddenSize = op->hidden_size().getValue();
+  if (op->hidden_size().has_value()) {
+    hiddenSize = op->hidden_size().value();
   } else {
     // Infer hidden_size from wShape and rShape if possible.
     if (rShape[2] != -1)
@@ -595,10 +595,10 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
     auto sumOfPads =
         ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
     auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.hasValue())
+    if (dilationsOpt.has_value())
       dilationVal = ArrayAttrIntVal(dilationsOpt, i);
     auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    if (outputPadsOpt.hasValue())
+    if (outputPadsOpt.has_value())
       outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
     // Number of useful values: input plus pad - effective size of kernel (see
     // processConvTypeParams comments to see how this value is derived).
@@ -1827,7 +1827,7 @@ static LogicalResult verifyKernelShape(T *op, Value filterOperand,
       filterOperand ? filterOperand.getType().cast<ShapedType>().getShape()
                     : ArrayRef<int64_t>();
   // 2) Get kernel_shape attribute
-  if (!kernelShapeOpt.hasValue()) {
+  if (!kernelShapeOpt.has_value()) {
     assert(
         filterOperand && "ops without filter have mandatory kernel_shape arg");
     // Don't have a kernel shape explicitly, still make sure that the filter
@@ -1863,7 +1863,7 @@ template <class T>
 static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
   // 1) Get strides attribute.
   auto strides = op->strides();
-  if (!strides.hasValue())
+  if (!strides.has_value())
     return success();
   // 2) Verify that we have the right number.
   if ((int64_t)ArrayAttrSize(strides) != spatialRank)
@@ -1881,7 +1881,7 @@ template <class T>
 static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
   // 1) Get dilation attribute.
   auto dilations = op->dilations();
-  if (!dilations.hasValue())
+  if (!dilations.has_value())
     return success();
   // 2) Verify that we have the right number.
   if ((int64_t)ArrayAttrSize(dilations) != spatialRank)
@@ -1908,7 +1908,7 @@ static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
   }
   // Verify pad values, if defined.
   auto pads = op->pads();
-  if (!pads.hasValue())
+  if (!pads.has_value())
     return success();
   // Verify that we have the right number of pad values.
   if ((int32_t)ArrayAttrSize(pads) != 2 * spatialRank)
@@ -2112,7 +2112,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // Use kernel_shape attribute if present otherwise use size from weight
   // argument.
   auto kernelShape = kernel_shape();
-  if (kernelShape.hasValue()) {
+  if (kernelShape.has_value()) {
     if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
@@ -2144,7 +2144,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto outputShape = output_shape();
   // TODO: handle the spatial dimension computation if output shape is
   // specified
-  assert(!outputShape.hasValue() && "unhandled option in ConvTranspose");
+  assert(!outputShape.has_value() && "unhandled option in ConvTranspose");
 
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
@@ -2159,7 +2159,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       stridesOpt, outputPads, outputShape, dilationsOpt);
 
   // Set the output shape if it's not already set
-  if (!outputShape.hasValue()) {
+  if (!outputShape.has_value()) {
     output_shapeAttr(builder.getI64ArrayAttr(outputDims));
   }
 
@@ -2233,7 +2233,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // Use kernel_shape attribute if present otherwise use size from weight
   // argument.
   auto kernelShape = kernel_shape();
-  if (kernelShape.hasValue()) {
+  if (kernelShape.has_value()) {
     if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
@@ -2501,8 +2501,8 @@ LogicalResult ONNXUnsqueezeOpInferShapesCommon(Op *op,
 
   SmallVector<int64_t, 4> axes;
   bool hasNegativeAxis = false;
-  int64_t outRank = inRank + axisAttrs.getValue().size();
-  for (auto axisAttr : axisAttrs.getValue()) {
+  int64_t outRank = inRank + axisAttrs.value().size();
+  for (auto axisAttr : axisAttrs.value()) {
     int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
     if (axis < -outRank || axis >= outRank)
       return op->emitError("Invalid axis value");
@@ -2571,7 +2571,7 @@ LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
 
   SmallVector<int64_t, 4> axes;
   bool hasNegativeAxis = false;
-  for (auto axisAttr : axisAttrs.getValue()) {
+  for (auto axisAttr : axisAttrs.value()) {
     int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
     if (axis < -inRank || axis >= inRank)
       return op->emitError("Invalid axis value");
@@ -2708,12 +2708,12 @@ LogicalResult ONNXScalerOp::inferShapes(
 
 LogicalResult ONNXConstantOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if ((sparse_value().hasValue() && value().hasValue()) ||
-      (!sparse_value().hasValue() && !value().hasValue()))
+  if ((sparse_value().has_value() && value().has_value()) ||
+      (!sparse_value().has_value() && !value().has_value()))
     return emitError("Require exactly one of the two attributes, "
                      "either value or sparse_value");
   ElementsAttr valAttr;
-  if (sparse_value().hasValue())
+  if (sparse_value().has_value())
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
     valAttr = valueAttr().cast<DenseElementsAttr>();
@@ -3122,9 +3122,9 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   int64_t xRank = operandAdaptor.x().getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
 
-  if (optionalAxis.hasValue()) {
+  if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(input).
-    int64_t axis = optionalAxis.getValue();
+    int64_t axis = optionalAxis.value();
     if (axis < -xRank || axis >= xRank)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "axis", axis,
@@ -3216,7 +3216,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   // Use kernel_shape attribute if present otherwise use size from weight
   // argument.
   auto kernelShape = kernel_shape();
-  if (kernelShape.hasValue()) {
+  if (kernelShape.has_value()) {
     if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitOpError(
           "kernel_shape length incompatible with spatial dimensions");
@@ -3538,7 +3538,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
 
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
-  if (value().hasValue()) {
+  if (value().has_value()) {
     elementType =
         valueAttr().cast<DenseElementsAttr>().getType().getElementType();
   } else {
@@ -3945,9 +3945,9 @@ LogicalResult ONNXCompressOp::verify() {
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
 
-  if (optionalAxis.hasValue()) {
+  if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(input).
-    int64_t axis = optionalAxis.getValue();
+    int64_t axis = optionalAxis.value();
     if (axis < -inputRank || axis >= inputRank)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "axis", axis,
@@ -4417,6 +4417,54 @@ LogicalResult ONNXOneHotOp::inferShapes(
       ONNXOneHotOpAdaptor>(*this, elementType);
 }
 
+LogicalResult ONNXOptionalOp::verify() {
+  if (type().has_value() != input().getType().isa<NoneType>())
+    return emitError(
+        "Optional should have either type attribute or input value");
+  return success();
+}
+
+LogicalResult ONNXOptionalOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type ty;
+  if (auto typeAttr = type()) {
+    ty = typeAttr.value();
+  } else {
+    ty = input().getType();
+    // checked in verify()
+    assert(!ty.isa<NoneType>() && "type attribute or input value needed");
+  }
+  getResult().setType(OptType::get(ty));
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalGetElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalGetElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type elementType = input().getType().cast<OptType>().getElementType();
+  getResult().setType(elementType);
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::verify() {
+  if (!input().getType().isa<OptType>())
+    return emitError("OptionalHasElement input should have optional type");
+  return success();
+}
+
+LogicalResult ONNXOptionalHasElementOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Builder builder(getContext());
+  Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
+  getResult().setType(scalarBoolType);
+  return success();
+}
+
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto outputShape = shape();
@@ -4458,7 +4506,7 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 
   auto elementTypeIDDType = operandAdaptor.dtype();
   if (elementTypeIDDType) {
-    int64_t elementTypeID = elementTypeIDDType.getValue();
+    int64_t elementTypeID = elementTypeIDDType.value();
     if (elementTypeID < 0 || elementTypeID > 2) {
       return emitOpError("dtype not 0, 1 or 2.");
     }
@@ -4491,7 +4539,7 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
   if (!elementTypeIDDType) {
     getResult().setType(outputTensorType);
   } else {
-    int64_t elementTypeID = elementTypeIDDType.getValue();
+    int64_t elementTypeID = elementTypeIDDType.value();
     if (elementTypeID == 0)
       outputTensorType =
           RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
@@ -4682,7 +4730,7 @@ LogicalResult ONNXRoundOp::inferShapes(
 LogicalResult ONNXScanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto &loopBody = getRegion();
-  assert(!scan_input_axes().hasValue());
+  assert(!scan_input_axes().has_value());
 
   // We proceed to set types for loop body function inputs.
   // Set types for loop carried dependencies (i.e., set these loop carried
@@ -5092,9 +5140,9 @@ LogicalResult ONNXTopKOp::inferShapes(
 
 LogicalResult ONNXUniqueOp::verify() {
   Optional<int64_t> optionalSorted = sorted();
-  if (optionalSorted.hasValue()) {
+  if (optionalSorted.has_value()) {
     // optional sorted attribute must be zero or one.
-    int64_t sorted = optionalSorted.getValue();
+    int64_t sorted = optionalSorted.value();
     if (sorted < 0 || sorted > 1)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "sorted", sorted,
@@ -5109,9 +5157,9 @@ LogicalResult ONNXUniqueOp::verify() {
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();
 
-  if (optionalAxis.hasValue()) {
+  if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(X).
-    int64_t axis = optionalAxis.getValue();
+    int64_t axis = optionalAxis.value();
     if (axis < -XRank || axis >= XRank)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "axis", axis,
