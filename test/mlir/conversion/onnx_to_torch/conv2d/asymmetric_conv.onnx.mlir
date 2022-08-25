@@ -1,6 +1,6 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<1x5x10x10xf32>) -> tensor<1x9x3x7xf32> attributes {input_names = ["input.1"], output_names = ["9"]} {
+  func.func @main_graph(%arg0: tensor<1x5x10x10xf32>) -> tensor<1x9x3x7xf32> attributes {input_names = ["input.1"], output_names = ["9"]} {
     %0 = "onnx.Constant"() {value = dense<"0xDEADBEEF"> : tensor<9x5x3x4xf32>} : () -> tensor<9x5x3x4xf32>
     %1 = "onnx.Constant"() {value = dense<[-0.0848599597, -0.11561133, 0.0635902881, 0.0752899796, 0.0742146298, -0.0947614163, -4.916150e-03, -0.0397511758, -0.0190015137]> : tensor<9xf32>} : () -> tensor<9xf32>
 //CHECK-DAG: [[STRIDE:%.]] = torch.prim.ListConstruct %int3{{_*[0-9]*}}, %int1{{_*[0-9]*}} :

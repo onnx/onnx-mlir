@@ -25,7 +25,7 @@ add_onnx_mlir_library(OMONNXToTorch
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MLIRFunc
+  MLIRFuncDialect
   MLIRFuncTransforms 
   OMONNXRewrite
   OMShapeInference

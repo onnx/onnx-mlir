@@ -209,7 +209,7 @@ public:
     if (IsCPresent && C.getDefiningOp<ONNXConstantOp>() &&
         C.getDefiningOp()->hasAttr("value")) {
       auto cTensorOp =
-          C.getDefiningOp()->getAttr("value").getType().cast<TensorType>();
+          C.getDefiningOp()->getAttr("value").cast<TypedAttr>().getType().cast<TensorType>();
       auto cTensorOpShape = cTensorOp.getShape();
       auto cTensorOpType = cTensorOp.getElementType();
 
