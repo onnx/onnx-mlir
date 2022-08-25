@@ -1,9 +1,6 @@
 add_onnx_mlir_library(OMZHighToZLow
   ZHighToZLow.cpp
 
-  DEPENDS
-  libzdnn
-
   LINK_LIBS PUBLIC
   MLIRMemRefTransforms
   OMLayoutHelper
