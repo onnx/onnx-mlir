@@ -6,21 +6,23 @@
 
 #include "src/Runtime/ExecutionSession.hpp"
 
+// Read the arguments from the command line and return a std::string
+std::string readArgs(int argc, char *argv[]) {
+  std::string commandLineStr = "";
+  for (int i = 1; i < argc; i++) {
+    commandLineStr.append(std::string(argv[i]).append(" "));
+  }
+  commandLineStr.append("\0");
+  return commandLineStr;
+}
+
 int main(int argc, char *argv[]) {
   // Read compiler options from command line and compile the doc example into a
   // model library.
   const char *errorMessage = NULL;
   const char *compiledFilename;
-  std::string commandLineStr = "";
-  if (std::string(argv[0]) != "onnx-mlir") {
-    std::cerr << "Wrong program name received." << std::endl;
-    return -1;
-  }
-  for (int i = 1; i < argc; i++) {
-    std::cerr << std::string(argv[i]) << std::endl;
-    commandLineStr.append(std::string(argv[i]).append(" "));
-  }
-  const char *flags = commandLineStr.c_str();
+  std::string commandLineString = readArgs(argc, argv);
+  const char *flags = commandLineString.c_str();
   int rc =
       onnx_mlir::omCompileFromFileViaCommand("add.onnx", "add-cppinterface",
           onnx_mlir::EmitLib, &compiledFilename, flags, &errorMessage);

@@ -115,16 +115,22 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
+ *
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
  * an extention.
+ *
  *  @param emissionTarget Target format to compile to.
+ *
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
+ *
  *  @param flags A char * contains all the options provided to compile the
  * model.
+ *
  *  @param errorMessage Output error message, if any. User is responsible for
  * freeing the string.
+ *
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,

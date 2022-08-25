@@ -80,6 +80,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
       findCustomEnvFlags = true;
     }
   }
+  // If no customEnvFlags is given, we will add a custom env flag to prevent the
+  // normal one to take effect
   if (findCustomEnvFlags == false) {
     onnxmlirCompile.appendStr(
         "-customEnvFlags=" + std::string(inputFilename) + "Process");

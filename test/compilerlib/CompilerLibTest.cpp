@@ -59,17 +59,14 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
   }
 }
 
-// Read the arguments to pass to the testFileName and outputBaseName, other
-// arguments may then be processed by the ONNX-MLIR compiler.
-void readArgsFromCommandLine(int &argc, char *argv[]) {
-  if (std::string(argv[0]) != "onnx-mlir") {
-    std::cerr << "Wrong program name received." << std::endl;
-    exit(1);
-  }
+// Read the arguments from command line and save them as a std::string which may
+// be processed by the ONNX-MLIR compiler.
+void readArgsFromCommandLine(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     commandLineStr.append(std::string(argv[i]).append(" "));
     readArg(std::string(argv[i]));
   }
+  commandLineStr.append("\0");
 }
 
 int main(int argc, char *argv[]) {
