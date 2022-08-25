@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestGemm.cpp - test GEMM code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Gemm code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly surpress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -96,14 +106,14 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Gemm implementation correctness", [&]() {
       const int maxRange = 50;
-      const auto I = *rc::gen::inRange(1, maxRange);
-      const auto J = *rc::gen::inRange(1, maxRange);
-      const auto K = *rc::gen::inRange(1, maxRange);
-      const auto aTrans = *rc::gen::inRange(0, 2);
-      const auto bTrans = *rc::gen::inRange(0, 2);
-      const auto cRank = *rc::gen::inRange(1, 3);
-      const auto hasAlpha = *rc::gen::inRange(0, maxHasAlpha);
-      const auto hasBeta = *rc::gen::inRange(0, maxHasBeta);
+      const int I = *rc::gen::inRange(1, maxRange);
+      const int J = *rc::gen::inRange(1, maxRange);
+      const int K = *rc::gen::inRange(1, maxRange);
+      const int aTrans = *rc::gen::inRange(0, 2);
+      const int bTrans = *rc::gen::inRange(0, 2);
+      const int cRank = *rc::gen::inRange(1, 3);
+      const int hasAlpha = *rc::gen::inRange(0, maxHasAlpha);
+      const int hasBeta = *rc::gen::inRange(0, maxHasBeta);
       float alpha = hasAlpha ? 1.2 : 1.0;
       float beta = hasBeta ? 0.8 : 1.0;
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
