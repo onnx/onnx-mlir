@@ -22,7 +22,7 @@ cmake --build . --target check-onnx-lit
 
 ### Numerical tests
 
-Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run using following command. These tests can check if a zDNN instruction is included in the generated shared library using an environment variable `TEST_INSTRUCTION`. Also, to check the accuracy of the results, ATOL and RTOL can be set by using environment `TEST_ATOL` and `TEST_RTOL`. An environment variable `TEST_DATARANGE` are provided to set lower and upper bound of data range. They can be set "<lower bound>,<upper bound>" such as "-0.1,0.1".
+Numerical tests for NNPA are provided in `test/accelerators/NNPA/numerical`. Currently tests for Conv2D, MatMul2D, Gemm, LSTM, and GRU are provided and run using following command. These tests can check if a zDNN instruction is included in the generated shared library using an environment variable `TEST_INSTRUCTION`. Also, to check the accuracy of the results, ATOL and RTOL can be set by using environment `TEST_ATOL` and `TEST_RTOL`. An environment variable `TEST_DATARANGE` are provided to set lower and upper bound of data range. They can be set "<lower bound>,<upper bound>" such as "-0.1,0.1". To configure the test cases, an environment variable `TEST_CONFIG` are provided. Current configurations are written in section of each test below.
 
 ```
 cmake --build . --config Release --target check-onnx-numerical-nnpa
@@ -31,16 +31,16 @@ cmake --build . --config Release --target check-onnx-numerical-nnpa
 These tests uses the same test code with numerical tests for CPU (`test/modellib` and `test/numerial`), but uses different cmake file(`test/accelerator/NNPA/numerical/CMakeLists.txt`).
 
 ##### Conv2D
-Since Conv2D of zDNN library only supports the case where dilations equal to one, `-dilation=1` option are added in `test/numerical/TestConv.cpp`. Also, since only VALID and SAME_UPPER as pading type are supported, `-padding=valid_upper is prepared to set the pading type. Currently dynamic height and weight dimension are not supported. So `-dim=static` are provided to test only static dimension case.
+Since Conv2D in zDNN library only supports the case where dilation equals to one, dilation is always set to one in the test. Also, padding types are set as VALID and SAME_UPPER since they are only suppored. All dimensions are static since dynamic height and weight dimension are currently not supported. These configurations are set automatically when using `--maccel=NNPA`, which are equivalent to manually setting the environment variable `TEST_CONFIG` to "-dim=static -dilation=1 -padding=valid_upper".
 
 ##### Gemm
-Since `alpha` and `beta` should be one for Matmul of zDNN library, `-alpha=1` and `-beta=1` options are added in `test/numerical/TestGemm.cpp` and set in the CMakeLists.txt (`test/accelerator/NNPA/numerical/CMakeLists.txt`)
+`alpha` and `beta` in Gemm are always one, which are supported case by zDNN library. These configurations are set automatically when using `--maccel=NNPA`, which are equivalent to manually setting the environment variable `TEST_CONFIG` to "-alpha=1 -beta=1".
 
 ##### LSTM
-Since LSTM of zDNN library does not support peephole tensor, `-peephole=0` are added to set the configuration in the tests.
+Peephole tensor is not tested since LSTM in zDNN library does not support it. These configurations are set automatically when using `--maccel=NNPA`, which are equivalent to manually setting the environment variable `TEST_CONFIG` to "-peephole=0".
 
 ##### GRU
-Since GRU of zDNN library supports only the case where the linear transformation is applied before multiplying by the output of the reset gata, `-linerBeforeReset=1` option is provided to set the configuraiton.
+GRU of zDNN library supports only the case where the linear transformation is applied before multiplying by the output of the reset gata. It is configured automatically when using `--maccel=NNPA`, which are equivalent to manually setting the environment variable `TEST_CONFIG` to "-linearBeforeReset=1".
 
 ### Backend tests
 
