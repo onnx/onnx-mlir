@@ -243,6 +243,19 @@ func.func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10
 
 // -----
 
+// Check the combining of two transposes besides leaky relu into a simple transpose and the removing of combined transpose.
+//
+// CHECK-LABEL: func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.LeakyRelu"(%0)  {alpha = 1.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1)  {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.LeakyRelu"(%arg0) {alpha = 1.000000e-01 : f32} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
 // Check the combining of reshape into a simple reshape.
 // CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
