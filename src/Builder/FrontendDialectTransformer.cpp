@@ -604,7 +604,7 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
-        outputTypes.emplace_back(onnxModelType.getValue());
+        outputTypes.emplace_back(onnxModelType.value());
       } else {
         unsigned int j = i;
         // Variadic output is a single ODS result.
