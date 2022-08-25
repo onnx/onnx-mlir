@@ -90,12 +90,16 @@ def ProducedByUnstickOp: Constraint<
 >;
 
 def HaveNoPadsWhenStickified: Constraint<
-  CPred<"haveNoPadsWhenStickified($0, $1, $2)">,
+  CPred<"haveNoPadsWhenStickified($0, $1, $2, $3)">,
   "there are no pads along the given axis when stickifying values by using the given layout"
 >;
 
 def GetStickifiedInputs: NativeCodeCall<
   "getStickifiedInputs($_builder, $_loc, $0)"
+>;
+
+def GetConcatAxis: NativeCodeCall<
+  "getConcatAxis($_builder, $0, $1, $2)"
 >;
 
 // The pattern
@@ -112,10 +116,12 @@ def GetStickifiedInputs: NativeCodeCall<
 //
 // Note: Support NHWC layout only at this moment.
 def ReplaceONNXConcatByZHighConcatPattern: Pat<
-  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout, $_),
-  (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
+  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $toLayout, $fromLayout),
+  (ZHighConcatOp
+    (GetStickifiedInputs $inputs),
+    (GetConcatAxis $toLayout, $fromLayout, $axis)),
   [(ProducedByUnstickOp $inputs),
-   (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
+   (HaveNoPadsWhenStickified $inputs, $toLayout, $fromLayout, $axis)]
 >;
 
 // Since sigmoid is an element-wise op and does not depend on layout, we change

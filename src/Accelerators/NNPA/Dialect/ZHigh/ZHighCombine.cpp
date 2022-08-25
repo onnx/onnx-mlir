@@ -20,6 +20,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -48,26 +49,39 @@ bool areProducedByUnstickOp(ValueRange values) {
 
 // Check if there are no pads along the given axis when stickifying values by
 // using the given layout.
-bool haveNoPadsWhenStickified(
-    ValueRange values, StringAttr layoutAttr, IntegerAttr axisAttr) {
-  if (!layoutAttr)
+bool haveNoPadsWhenStickified(ValueRange values, StringAttr stickToLayout,
+    StringAttr stickFromLayout, IntegerAttr axisAttr) {
+  if (!stickToLayout)
     return false;
   // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
   // stickification scheme.
-  if (!(layoutAttr.getValue().equals_insensitive(onnx_mlir::LAYOUT_NHWC) ||
-          layoutAttr.getValue().equals_insensitive(onnx_mlir::LAYOUT_4D)))
+  if (!(stickToLayout.getValue().equals_insensitive(onnx_mlir::LAYOUT_NHWC) ||
+          stickToLayout.getValue().equals_insensitive(onnx_mlir::LAYOUT_4D)))
     return false;
   // Only support C dimension at this moment.
-  if (axisAttr.getValue().getSExtValue() != 3)
+  int CAxis = 3;
+  if (stickFromLayout &&
+      stickFromLayout.getValue().equals_insensitive(onnx_mlir::LAYOUT_NCHW))
+    CAxis = 1;
+  if (axisAttr.getValue().getSExtValue() != CAxis)
     return false;
+
   // C dimension is tiled by 64 when stickified. Hence, checking `C mod 64` for
   // padding.
   // TODO: get this info from affine_map that is used for stickiyfing NHWC.
   return llvm::all_of(values, [](Value v) {
-    if (v.getType().isa<ShapedType>() &&
-        v.getType().cast<ShapedType>().hasRank()) {
-      ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
-      return (dims[3] % 64 == 0);
+    if (onnx_mlir::isRankedShapedType(v.getType())) {
+      onnx_mlir::zhigh::ZHighUnstickOp unstickOp =
+          cast<onnx_mlir::zhigh::ZHighUnstickOp>(v.getDefiningOp());
+      StringAttr toLayout = unstickOp.toLayoutAttr();
+      ArrayRef<int64_t> dims = onnx_mlir::getShape(v.getType());
+      if (toLayout &&
+          toLayout.getValue().equals_insensitive(onnx_mlir::LAYOUT_NCHW))
+        // NCHW, C is at 1.
+        return (dims[1] % 64 == 0);
+      else
+        // NHWC, C is at 3.
+        return (dims[3] % 64 == 0);
     }
     return false;
   });
@@ -79,6 +93,17 @@ SmallVector<Value, 4> getStickifiedInputs(
   for (Value v : values)
     stickfiedValues.emplace_back(v.getDefiningOp()->getOperands()[0]);
   return stickfiedValues;
+}
+
+IntegerAttr getConcatAxis(PatternRewriter &rewriter, StringAttr toLayout,
+    StringAttr fromLayout, IntegerAttr axisAttr) {
+  int axis = axisAttr.getValue().getSExtValue();
+  SmallVector<int, 4> NCHWtoNHWC = {0, 3, 1, 2};
+  if (fromLayout &&
+      fromLayout.getValue().equals_insensitive(onnx_mlir::LAYOUT_NCHW))
+    return rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, true), NCHWtoNHWC[axis]);
+  return axisAttr;
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
