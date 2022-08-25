@@ -15,7 +15,6 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;

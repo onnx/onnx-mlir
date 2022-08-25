@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Support/KrnlSupport.hpp"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
 

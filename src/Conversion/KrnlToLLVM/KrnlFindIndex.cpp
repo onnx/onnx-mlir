@@ -15,7 +15,6 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
 

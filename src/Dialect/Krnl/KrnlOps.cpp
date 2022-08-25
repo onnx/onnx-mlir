@@ -303,35 +303,41 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
       /*printBlockTerminators=*/false);
 }
 
-namespace {
+ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
+  auto builder = parser.getBuilder();
+  auto context = builder.getContext();
+  onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
 
-struct LoopParser {
+  // Parse optimized loops:
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
+  if (parser.parseOperandList(
+          optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
+      parser.resolveOperands(optimizedLoopRefs,
+          krnl::LoopType::get(result.getContext()), result.operands))
+    return failure();
+
+  // Record how many optimized loops did we parse.
+  result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
+      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
+
   // Parse input loops and their lower and upper bounds.
   SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
   SmallVector<Attribute, 4> boundMaps;
-  OpAsmParser &parser;
-  const Type loopType;
 
-  LoopParser(OpAsmParser &parser, Type loopType)
-      : parser(parser), loopType(loopType) {}
+  if (parser.parseKeyword("with") || parser.parseLParen())
+    return failure();
 
-  // A method to parse a lower or upper bound.
-  ParseResult parseBound(bool isUpper, OperationState &result) {
-    Builder builder = parser.getBuilder();
-
+  // A function to parse a lower or upper bound.
+  auto parseBound = [&result, &builder, &parser, &operandParser, &boundMaps](
+                        bool isUpper) -> ParseResult {
     // 'min' / 'max' prefixes are generally syntactic sugar, but are required
     // if the map has multiple results.
     bool failedToParsedMinMax =
         failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
 
     // Try parse an SSA operand.
-    OpAsmParser::UnresolvedOperand ssa;
-    OptionalParseResult ssaParseResult = parser.parseOptionalOperand(ssa);
-    if (ssaParseResult.has_value()) {
-      if (failed(ssaParseResult.value()) ||
-          parser.resolveOperand(ssa, builder.getIndexType(), result.operands))
-        return failure();
-
+    if (succeeded(operandParser.ParseOptionalOperand(
+            builder.getIndexType(), result.operands))) {
       AffineMap map = builder.getSymbolIdentityMap();
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -372,8 +378,8 @@ struct LoopParser {
               "upper loop bound affine map with multiple "
               "results requires 'min' prefix");
         return parser.emitError(attrLoc,
-            "lower loop bound affine map with multiple "
-            "results requires 'max' prefix");
+            "lower loop bound affine mapwith "
+            "multiple results requires 'max' prefix");
       }
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -385,15 +391,12 @@ struct LoopParser {
       boundMaps.emplace_back(AffineMapAttr::get(map));
     }
     return success();
-  }
+  };
 
-  ParseResult parse(OperationState &result) {
+  while (failed(parser.parseOptionalRParen())) {
     // Parse an input loop operand;
-    OpAsmParser::UnresolvedOperand loop;
-    if (parser.parseOperand(loop) ||
-        parser.resolveOperand(loop, loopType, result.operands) ||
-        parser.parseArrow())
-      return failure();
+    operandParser.ParseOperand(krnl::LoopType::get(context), result.operands);
+    parser.parseArrow();
 
     // Parse induction variable.
     OpAsmParser::UnresolvedOperand inductionVar;
@@ -403,55 +406,32 @@ struct LoopParser {
     inductionVarRefs.emplace_back(inductionVar);
 
     // Parse bound par (min to max).
-    if (parseBound(/*isUpper=*/false, result) || parser.parseKeyword("to") ||
-        parseBound(/*isUpper=*/true, result))
+    if (parseBound(/*isUpper=*/false) || parser.parseKeyword("to") ||
+        parseBound(/*isUpper=*/true))
       return failure();
 
-    return success();
+    // We may fail to parse a comma if an operand bound is followed by
+    // a comma and the next input loop operand, in which case
+    // the entire "{operand bound}, {input_loop_operand}" sequence will
+    // be parsed as an operand list.
+    parser.parseOptionalComma();
   }
 
-}; // struct LoopParser
-
-} // namespace
-
-ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
-  auto builder = parser.getBuilder();
-
-  Type loopType = krnl::LoopType::get(result.getContext());
-
-  // Parse optimized loops:
-  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
-  if (parser.parseOperandList(
-          optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
-      parser.resolveOperands(optimizedLoopRefs, loopType, result.operands))
-    return failure();
-
-  // Record how many optimized loops did we parse.
-  result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
-      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
-
-  LoopParser loopParser(parser, loopType);
-
-  if (parser.parseKeyword("with") || parser.parseLParen())
-    return failure();
-
-  if (failed(parser.parseOptionalRParen())) {
-    if (parser.parseCommaSeparatedList(
-            [&] { return loopParser.parse(result); }) ||
-        parser.parseRParen())
-      return failure();
-  }
-
-  result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
-      builder.getArrayAttr(loopParser.boundMaps));
+  // At this point, there shouldn't be any operands left to parse.
+  if (operandParser.hasOperandLeft())
+    return parser.emitError(parser.getCurrentLocation());
+  result.addAttribute(
+      KrnlIterateOp::getBoundsAttrName(), builder.getArrayAttr(boundMaps));
 
   Region *region = result.addRegion();
+  SmallVector<Type, 4> inductionVarTypes(
+      inductionVarRefs.size(), builder.getIndexType());
 
   SmallVector<OpAsmParser::Argument> entryArgs;
-  for (OpAsmParser::UnresolvedOperand name : loopParser.inductionVarRefs) {
+  for (auto it : llvm::zip(inductionVarRefs, inductionVarTypes)) {
     OpAsmParser::Argument arg;
-    arg.ssaName = name;
-    arg.type = builder.getIndexType();
+    arg.ssaName = std::get<0>(it);
+    arg.type = std::get<1>(it);
     entryArgs.push_back(arg);
   }
 

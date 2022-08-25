@@ -19,7 +19,6 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #define DEBUG_TYPE "krnl_to_llvm"

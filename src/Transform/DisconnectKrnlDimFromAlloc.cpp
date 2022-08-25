@@ -21,7 +21,6 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
