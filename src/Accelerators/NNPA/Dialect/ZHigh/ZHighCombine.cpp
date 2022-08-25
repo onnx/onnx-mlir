@@ -95,6 +95,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<StickUnstickRemovalPattern>(context);
   results.insert<NoneTypeStickRemovalPattern>(context);
   results.insert<ReplaceONNXConcatByZHighConcatPattern>(context);
+  results.insert<ReplaceONNXLeakyReluPattern>(context);
 }
 
 /// Register optimization patterns as "canonicalization" patterns
