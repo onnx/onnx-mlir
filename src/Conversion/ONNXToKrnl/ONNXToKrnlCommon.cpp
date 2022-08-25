@@ -567,11 +567,11 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;

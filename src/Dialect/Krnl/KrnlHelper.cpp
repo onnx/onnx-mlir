@@ -27,67 +27,6 @@ namespace onnx_mlir {
 
 namespace krnl {
 
-ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type &operandType, Value &operand) {
-  // If operand queue is empty, parse more operands and cache them.
-  if (operandRefQueue.empty()) {
-    // Parse operand types:
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 2> operand_refs;
-    if (failed(parser.parseOperandList(operand_refs))) {
-      operand = nullptr;
-      return failure();
-    }
-
-    // Record operands:
-    for (auto &operand_ref : operand_refs)
-      operandRefQueue.emplace(operand_ref);
-  }
-
-  // If we parsed some operand reference(s), resolve the ref to an operand:
-  if (!operandRefQueue.empty()) {
-    auto operand_ref = operandRefQueue.front();
-    operandRefQueue.pop();
-
-    llvm::SmallVector<Value, 1> operands;
-    if (parser.resolveOperand(operand_ref, operandType, operands)) {
-      operand = nullptr;
-      return failure();
-    }
-    operand = operands.front();
-    return success();
-  } else {
-    operand = nullptr;
-    return failure();
-  }
-}
-
-ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
-  Value operand = nullptr;
-  if (ParseOptionalOperand(operandType, operand))
-    return failure();
-
-  operandList.emplace_back(operand);
-  return success();
-}
-
-ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type &operandType, Value &operand) {
-  if (ParseOptionalOperand(operandType, operand))
-    return parser.emitError(
-        parser.getCurrentLocation(), "Expecting an operand.");
-  return success();
-}
-
-ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
-  if (ParseOptionalOperand(operandType, operandList))
-    return parser.emitError(
-        parser.getCurrentLocation(), "Expecting an operand.");
-
-  return success();
-}
-
 void printDimAndSymbolList(Operation::operand_iterator &begin, unsigned numDims,
     unsigned numSymbols, OpAsmPrinter &p) {
   p << '(';
@@ -222,7 +161,7 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   KrnlGlobalOp globalOp =
       dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
   if (globalOp)
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
 
   return nullptr;

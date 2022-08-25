@@ -318,25 +318,6 @@ void RewriteONNXForZHighPass::runOnOperation() {
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
       return true;
 
-    // Only support static shape at this moment though the code supports dynamic
-    // shape as well.
-    //
-    // The reason is that lowering (3Dx3D) ONNXMatMul of dynamic shape to NNPA
-    // led to wrong results for the bertsquad-12 model. In particular, the final
-    // output values were shifted, e.g.
-    // clang-format off
-    // at (0, 252) mismatch -0.7646484375 (actual) vs -6.084146022796631 (reference)
-    // at (0, 253) mismatch -0.7646484375 (actual) vs -6.100776195526123 (reference)
-    // at (0, 254) mismatch -0.7646484375 (actual) vs -6.13942813873291 (reference)
-    // at (0, 255) mismatch -0.7646484375 (actual) vs -6.0835771560668945 (reference)
-    // clang-format on
-    //
-    // It is unclear why it happened to dynamic shape.
-    // There is no accuracy issue if (3Dx3D) ONNXMatMul runs on CPU or has
-    // static shape.
-    if (!hasStaticShape(aType) || !hasStaticShape(bType))
-      return true;
-
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
     if (aRank == 2 && bRank > 3)
