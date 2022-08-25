@@ -33,8 +33,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
-    // KrnlBuilder createKrnl(rewriter, loc);
-    // SCFBuilder createScf(rewriter, loc);
     MultiDialectBuilder<KrnlBuilder, SCFBuilder, MathBuilder, MemRefBuilder>
         create(rewriter, loc);
     // Spatial data starts from the second dimension.
@@ -46,7 +44,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
     IndexExpr G = LiteralIndexExpr(groupNum);
-    // MathBuilder createMath(rewriter, loc);
     Value fZero = create.math.constant(memRefType.getElementType(), 0);
 
     // Bounds for output sizes: [N x CO x HO x WO]:
@@ -91,22 +88,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
-    // MemRefBuilder createMemRef(create);
     // Create a local reduction value.
     MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
     // Single scalar, no need for default alignment.
     Value reductionVal = create.mem.alloca(tmpType);
-    // createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-    //    [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-    // createScf.parallelLoop(parLbs, parUbs, steps,
-    //    [&](DialectBuilder &createScf, ValueRange outerIndices) {
-    //      bodyFunction(outerIndices);
-    //    }
     auto bodyFunction = [&](ValueRange outerIndices) {
       // Compute the Channel In Indices.
       IndexExprScope outerScope(create.krnl);
       // Compute the channel out index "co".
-      // %d\n",outerIndices[0],outerIndices[1],outerIndices[2]);
       DimIndexExpr g(outerIndices[1]);
       DimIndexExpr coPerGroup(outerIndices[2]);
       IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
