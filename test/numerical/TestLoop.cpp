@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestLoop.cpp - test Loop code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Loop code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
