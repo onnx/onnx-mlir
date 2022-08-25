@@ -47,7 +47,7 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
 
   Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
       llvm::cl::desc("max iteration for op transform passes."),
-      llvm::cl::init(3)};
+      llvm::cl::init(10)};
 
   Option<bool> onnxOpTransformReport{*this, "onnx-op-transform-report",
       llvm::cl::desc("Report diagnostic info for op transform passes."),
