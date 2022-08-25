@@ -191,6 +191,26 @@ if (NOT TARGET benchmark)
 endif()
 set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
+# TODO: properly specify the location of torch and its components
+include_directories(
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Conversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/RefBackend
+)
+
+LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/lib/)
+
+
+#find_library(DIA_LIB TorchMLIRTorchDialect)
+#find_library(FOO_LIB TorchMLIRTorchUtils)
+
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})

@@ -29,6 +29,9 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -177,6 +180,29 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   return LLVMLevel;
 }
 
+static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
+    llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Conversion"));
+
+void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
+  if (! RunTorchPass)
+    return;
+  // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+  
+  pm.addPass(createONNXToAtenModifyMainFunctionPass());
+  pm.addPass(createLowerToTorchPass(optLevel));
+
+  // The resolution of `dim` ops tends to create identical ops. CSE them.
+  pm.addNestedPass<func::FuncOp>(mlir::createCSEPass());
+
+  // Clean up any non-canonical code introduced above..
+  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
+
+  // Remove unrealized conversion casts
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+}
+
 void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
@@ -191,6 +217,10 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
+
+  /// torch pass has been added
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+    addONNXToTorchPasses(pm, OptimizationLevel);
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm, /*enableCSE=*/true, verifyInputTensors);

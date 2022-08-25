@@ -33,10 +33,16 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
 
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 #define DEBUG_TYPE "compiler_utils"
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+using namespace mlir::torch;
+using namespace mlir::torch::Torch;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
@@ -615,6 +621,9 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
+  context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
+  context
+      .getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
 // Return 0 on success, error number on failure.

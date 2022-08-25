@@ -30,6 +30,28 @@ void initOMPasses(int optLevel) {
     return createShapeInferencePass();
   });
 
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantOpTransformPass();
+  });*/
+
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantPadNdOpTransformPass();
+  });*/
+
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenLeakyReluOpTransformPass();
+  });*/
+
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenMaxPool2dOpTransformPass();
+  });*/
+
+  /*
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConv2DOpTransformPass();
+  });
+  */
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConstPropONNXToONNXPass();
   });
@@ -68,6 +90,10 @@ void initOMPasses(int optLevel) {
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToKrnlPass(optLevel);
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLowerToTorchPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
