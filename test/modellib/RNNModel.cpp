@@ -110,17 +110,27 @@ bool RNNLibBuilder::build() {
   return true;
 }
 
-bool RNNLibBuilder::prepareInputs() {
+bool RNNLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
-  list[1] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(hShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool RNNLibBuilder::prepareInputs() {
+  return RNNLibBuilder::prepareInputs(0.0, 1.0);
+}
+
+bool RNNLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool RNNLibBuilder::verifyOutputs() {
