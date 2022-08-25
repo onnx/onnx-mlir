@@ -2,7 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestLSTM.cpp - test matmul with broadcast -=========+++++++++++++====//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test LSTM code.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -64,25 +74,25 @@ int main(int argc, char *argv[]) {
   bool success = rc::check("LSTM implementation correctness", [&]() {
     // The number of directions.
     // 1: forward, -1: reverse, 2: bidirectional
-    const auto D = *rc::gen::element(1, -1, 2);
+    const int D = *rc::gen::element(1, -1, 2);
     // Sequence length.
-    const auto S = *rc::gen::inRange(1, 5);
+    const int S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 10);
+    const int B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(5, 10);
+    const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(5, 10);
+    const int H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(0, 1);
+    const int isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(0, 1);
+    const int isDynB = *rc::gen::element(0, 1);
     // Whether initial value of the hidden(initial_h) is specified.
-    const auto isNoneH = *rc::gen::inRange(0, 2);
+    const int isNoneH = *rc::gen::inRange(0, 2);
     // Whether initial value of the cell(initial_c) is specified.
-    const auto isNoneC = *rc::gen::inRange(0, 2);
+    const int isNoneC = *rc::gen::inRange(0, 2);
     // Whether the weight tensor for peepholes(P) is specified.
-    const auto isNoneP = *rc::gen::inRange(minNoneP, 2);
+    const int isNoneP = *rc::gen::inRange(minNoneP, 2);
 
     RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0,
         isDynB == 0, isNoneH == 1, isNoneC == 1, isNoneP == 1));
