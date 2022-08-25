@@ -114,6 +114,42 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
+std::map<std::string, std::string> ModelLibBuilder::getTestConfigFromEnv(
+    const std::string &envVar) {
+  std::map<std::string, std::string> opts;
+  if (const char *envConfigString = std::getenv(envVar.c_str())) {
+    std::stringstream envString;
+    envString << envConfigString;
+    std::string optionString;
+    while (getline(envString, optionString, ' ')) {
+      size_t pos = optionString.find('=');
+      if (pos == std::string::npos)
+        continue;
+      std::string optionNameString = optionString.substr(0, pos);
+      std::string optionValString = optionString.substr(pos + 1);
+      opts[optionNameString] = optionValString;
+    }
+  }
+  return opts;
+}
+
+std::vector<float> ModelLibBuilder::getDataRangeFromEnv(
+    const std::string &envVar) {
+  std::vector<float> range;
+  if (const char *envRangeString = std::getenv(envVar.c_str())) {
+    std::string rangeString = std::string(envRangeString);
+    size_t pos = rangeString.find(',');
+    assert(pos != std::string::npos);
+    std::string rangeLBString = rangeString.substr(0, pos);
+    std::string rangeUBString = rangeString.substr(pos + 1);
+    std::cout << "Input data range from env: \"" << rangeLBString << " to "
+              << rangeUBString << "\"\n";
+    range.emplace_back(std::stof(rangeLBString));
+    range.emplace_back(std::stof(rangeUBString));
+  }
+  return range;
+}
+
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {
