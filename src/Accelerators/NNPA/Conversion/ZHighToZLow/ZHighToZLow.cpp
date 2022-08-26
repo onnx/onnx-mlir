@@ -219,7 +219,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
         HeapAsmResourceBlob::allocateAndCopy(
-            ArrayRef(rawData, sizeInBytes), alignof(char)));
+            llvm::makeArrayRef(rawData, sizeInBytes), alignof(char)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 

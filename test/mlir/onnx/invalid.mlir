@@ -253,6 +253,64 @@ func.func @test_gatherND_verifier_6(%arg0 : tensor<3x4x4x4xf32>) -> tensor<*xf32
 
 // -----
 
+func.func @test_if_verifier_1(%arg0: tensor<i1>) -> tensor<2xf32> {
+  // expected-error @+1 {{'onnx.If' op then branch #results=2 differ from if #results=1}}
+  %0 = "onnx.If"(%arg0) ({
+    %1 = "onnx.Constant"() {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    %2 = "onnx.NoValue"() {value} : () -> none
+    onnx.Return %1, %2 : tensor<2xf32>, none
+  }, {
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    onnx.Return %1 : tensor<2xf32>
+  }) : (tensor<i1>) -> tensor<2xf32>
+  return %0 : tensor<2xf32>
+}
+
+// -----
+
+func.func @test_if_verifier_2(%arg0: tensor<i1>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+1 {{'onnx.If' op else branch #results=2 differ from if #results=1}}
+  %0 = "onnx.If"(%arg0) ({
+    %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+  }, {
+    %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+    %2 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    onnx.Return %1, %2 : !onnx.Seq<tensor<*xf32>>, tensor<2xf32>
+  }) : (tensor<i1>) -> !onnx.Seq<tensor<*xf32>>
+  return %0 : !onnx.Seq<tensor<*xf32>>
+}
+
+// -----
+
+func.func @test_if_verifier_3(%arg0: tensor<i1>) -> tensor<2xf32> {
+  // expected-error @+1 {{'onnx.If' op then branch disagrees on result type #1 of 1}}
+  %0 = "onnx.If"(%arg0) ({
+    %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+  }, {
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    onnx.Return %1 : tensor<2xf32>
+  }) : (tensor<i1>) -> tensor<2xf32>
+  return %0 : tensor<2xf32>
+}
+
+// -----
+
+func.func @test_if_verifier_4(%arg0: tensor<i1>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+1 {{'onnx.If' op else branch disagrees on result type #1 of 1}}
+  %0 = "onnx.If"(%arg0) ({
+    %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+  }, {
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    onnx.Return %1 : tensor<2xf32>
+  }) : (tensor<i1>) -> !onnx.Seq<tensor<*xf32>>
+  return %0 : !onnx.Seq<tensor<*xf32>>
+}
+
+// -----
+
 func.func @test_onehotencoder_verifier_1(%arg0: tensor<2x2xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.OneHotEncoder' op input is a tensor of float, int32, or double, but no cats_int64s attribute}}
   %1 = "onnx.OneHotEncoder"(%arg0) { cats_string = ["a","b","c"]} : (tensor<2x2xf32>) -> tensor<*xf32>
