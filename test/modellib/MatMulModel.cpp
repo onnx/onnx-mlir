@@ -25,7 +25,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-#define DEBUG 1
+#define DEBUG 0
 
 // =============================================================================
 // 2D matmul without broadcast
