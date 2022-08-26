@@ -2541,6 +2541,17 @@ func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64
 }
 
 // -----
+func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>>
+  return %0 : !onnx.Seq<tensor<*xf16>>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_sequence_construct
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3xf16>, [[PARAM_1_:%.+]]: tensor<4x3xf16>) -> !onnx.Seq<tensor<?x3xf16>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<?x3xf16>>
+// CHECK:           return [[VAR_0_]] : !onnx.Seq<tensor<?x3xf16>>
+}
+
+// -----
 func.func @test_seqence_1(%arg0: tensor<2x4xf32>, %arg1: tensor<2x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %cst = "onnx.NoValue"() {value} : () -> none
