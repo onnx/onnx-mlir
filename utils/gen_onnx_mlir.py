@@ -256,6 +256,12 @@ version_dict = {
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", 'type')])
 
+# Manual specification of attribute order:
+# The names in each tuple will be ordered in that sequence.
+special_attr_order = {
+    ("then_branch", "else_branch"),
+}
+
 # Special operation importing handlers.
 special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
@@ -313,6 +319,7 @@ OpsWithVerifier = [
     'GatherElements',
     'GatherND',        
     'Hardmax',
+    'If',
     'InstanceNormalization',
     'LogSoftmax',
     'Mod',
@@ -454,6 +461,22 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
 )
 
 MAX_NUM_TYPES=20
+
+# attribute names are ordered alphabetically except for the
+# manually specified special orderings in special_attr_order
+def order_attr_names(attrNames):
+    attrNames = sorted(attrNames)
+    for namesOrder in special_attr_order:
+        # if attrNames includes all the namesOrder names, then reorder
+        # those names in attrNames to their order in namesOrder
+        if (set(namesOrder).issubset(attrNames)):
+            # namesIndexes are where the namesOrder names appear in attrNames
+            namesIndexes = (attrNames.index(name) for name in namesOrder)
+            # write the namesOrder names into those indexes in the correct order
+            for name, index in zip(namesOrder, sorted(namesIndexes)):
+                attrNames[index] = name
+    return attrNames
+
 
 def should_render_domain(domain):  # type: (Text) -> bool
     return True
@@ -890,7 +913,8 @@ def gen_op_def(schema, with_version = False):
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
-    for _, attr in sorted(schema.attributes.items()):
+    for name in order_attr_names(schema.attributes.keys()):
+      attr = schema.attributes[name]
       if attr.type == OpSchema.AttrType.GRAPH:
         if attr.required:
           regions[attr.name] = "SizedRegion<1>"
