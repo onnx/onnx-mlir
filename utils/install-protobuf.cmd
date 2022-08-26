@@ -1,7 +1,6 @@
-git clone --recurse-submodules https://github.com/protocolbuffers/protobuf.git
-REM Check out a specific branch that is known to work with ONNX-MLIR.
-REM This corresponds to the v3.11.4 tag
-cd protobuf && git checkout d0bfd5221182da1a7cc280f3337b5e41a89539cf && cd ..
+REM Check out a specific tag v3.16.0 which is the recommended version of onnx 1.11.0
+set protobuf_version=3.16.0
+git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
 md protobuf_build

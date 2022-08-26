@@ -21,7 +21,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -37,10 +36,17 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
     auto memsetOp = cast<KrnlMemsetOp>(op);
+    bool delayed = memsetOp.delayed();
     KrnlMemsetOpAdaptor operandAdaptor(memsetOp);
     Value destMemRef(operandAdaptor.dest());
     Value destVal(operandAdaptor.value());
     Location loc = memsetOp.getLoc();
+
+    // If delayed but the input memref has not normalized yet, do nothing.
+    if (delayed &&
+        !destMemRef.getType().cast<MemRefType>().getLayout().isIdentity())
+      return failure();
+
     AffineBuilderKrnlMem createAffine(rewriter, loc);
     IndexExprScope indexScope(createAffine);
     MemRefBoundsIndexCapture destBounds(destMemRef);

@@ -19,6 +19,7 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-reduce/MlirReduceMain.h"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -29,14 +30,18 @@ static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::AffineDialect>();
   registry.insert<mlir::LLVM::LLVMDialect>();
   registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::func::FuncDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 
   registry.insert<mlir::ONNXDialect>();
-  registry.insert<mlir::KrnlOpsDialect>();
+  registry.insert<mlir::KrnlDialect>();
+
+  // Initialize and register dialects used by accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->registerDialects(registry);
 }
 
 int main(int argc, char **argv) {

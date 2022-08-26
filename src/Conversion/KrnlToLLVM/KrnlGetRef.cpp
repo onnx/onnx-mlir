@@ -14,12 +14,13 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #include "llvm/Support/Debug.h"
@@ -27,7 +28,6 @@
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -44,6 +44,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
 
@@ -61,21 +62,21 @@ public:
                            .getType()
                            .cast<LLVM::LLVMStructType>()
                            .getBody()[1];
-    Value alignedMemPoolBase = rewriter.create<LLVM::ExtractValueOp>(loc,
-        memPoolType, operandAdaptor.mempool(), rewriter.getI64ArrayAttr(1));
+    Value alignedMemPoolBase =
+        create.llvm.extractValue(memPoolType, operandAdaptor.mempool(), {1});
 
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
-    auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
-        loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
+    auto outputMemPoolTypePtrAlloc =
+        create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.
     auto llvmOutputElementType = outputElementType.cast<Type>();
-    Value outputTypedPtrAlloc = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(llvmOutputElementType),
-        outputMemPoolTypePtrAlloc);
+    Value outputTypedPtrAlloc =
+        create.llvm.bitcast(LLVM::LLVMPointerType::get(llvmOutputElementType),
+            outputMemPoolTypePtrAlloc);
 
     // Handle the static case.
     if (hasAllConstantDimensions(memRefTy)) {

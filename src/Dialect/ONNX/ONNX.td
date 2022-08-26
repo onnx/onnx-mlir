@@ -13,7 +13,9 @@
 #ifndef ONNX_OPS
 #define ONNX_OPS
 
+include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
+include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
@@ -30,19 +32,26 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()", "SeqType">;
 
+def IsOptTypePred : CPred<"$_self.isa<OptType>()">;
+
+class OptOf<Type type> :
+  ContainerType<type, IsOptTypePred,
+                "$_self.cast<OptType>().getElementType()", "OptType">;
+
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
+  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
 
 def createNoneIntegerConstant : NativeCodeCall<
-  "createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
 def createNoneFloatConstant : NativeCodeCall<
-  "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
+  let useDefaultTypePrinterParser = 1;
 }
 
 // Base class for ONNX dialect operations. This operation inherits from the base
@@ -85,23 +94,14 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let arguments = (ins SymbolRefAttr:$func,
-                       I32Attr:$numInputs,
-                       I32Attr:$numOutputs,
-                       StrAttr:$signature);
+  let arguments = (ins SymbolRefAttr:$func);
 
-  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
-                                 "int":$numOutputs, "std::string":$signature)>];
+  let builders = [OpBuilder<(ins "func::FuncOp":$function)>];
 
   let extraClassDeclaration = [{
-    static ONNXEntryPointOp create(Location location, FuncOp& func,
-                                   int numInputs, int numOutputs,
-                                   std::string signature);
+    static ONNXEntryPointOp create(Location location, func::FuncOp& func);
 
     static StringRef getEntryPointFuncAttrName() { return "func"; }
-    static StringRef getNumInputsAttrName() { return "numInputs"; }
-    static StringRef getNumOutputsAttrName() { return "numOutputs"; }
-    static StringRef getSignatureAttrName() { return "signature"; }
   }];
 }
 
@@ -236,34 +236,30 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
     An list of tensors which may have different shape
   }];
 
-  let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
+  let parameters = (ins "::mlir::Type":$ElementType, "int64_t":$Length);
 
-  // Previous implementation did not print/parse the length field
-  // May add the field in future
-  let printer = [{
-    $_printer << "<" << getImpl()->ElementType << ">";
-  }];
-  let parser = [{
-    if ($_parser.parseLess())
-      return Type();
-    Type elementType;
-    if ($_parser.parseType(elementType))
-      return Type();
-    if ($_parser.parseGreater())
-      return Type();
-    if (!elementType.isa<ShapedType>()) 
-      return Type();
-    else {
-      ShapedType ty = elementType.cast<ShapedType>();
-      return get($_ctxt, ty, -1);
-    }
-  }];
+  let hasCustomAssemblyFormat = 1;
   let builders = [
-    TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
+    TypeBuilderWithInferredContext<(ins "::mlir::Type":$elementType,
                                         "int64_t":$length), [{
       return Base::get(elementType.getContext(), elementType, length);
     }]>
   ];
 }
 
+def ONNX_OptType : ONNX_Type<"Opt", "Opt"> {
+  let summary = " ONNX OptType";
+  let description = [{
+    An optional tensor or sequence
+  }];
+
+  let parameters = (ins "::mlir::Type":$ElementType);
+
+  let assemblyFormat = "`<` $ElementType `>`";
+  let builders = [
+    TypeBuilderWithInferredContext<(ins "::mlir::Type":$elementType), [{
+      return Base::get(elementType.getContext(), elementType);
+    }]>
+  ];
+}
 #endif // ONNX_OPS

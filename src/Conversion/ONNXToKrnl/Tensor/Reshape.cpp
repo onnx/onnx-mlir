@@ -16,10 +16,11 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
-using namespace mlir;
-using llvm::dbgs;
-
 #define DEBUG_TYPE "reshape_onnx_to_krnl"
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXReshapeOpLowering : public ConversionPattern {
   ONNXReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -33,20 +34,25 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     auto loc = op->getLoc();
     Value data = operandAdaptor.data();
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    LLVM_DEBUG(dbgs() << "memRefType: " << memRefType << "\n");
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    LLVM_DEBUG(llvm::dbgs() << "memRefType: " << memRefType << "\n");
 
     ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapeComputed;
     assert(succeeded(shapeComputed) && "Could not compute shape");
 
     // Lower to ReinterpretCastOp so that the data is never copied or modified.
     Value newView = emitMemRefReinterpretCastOp(
-        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
-    LLVM_DEBUG(dbgs() << "newView: " << newView << "\n");
+        rewriter, loc, data, shapeHelper.dimsForOutput());
+    LLVM_DEBUG(llvm::dbgs() << "newView: " << newView << "\n");
 
     rewriter.replaceOp(op, newView);
     return success();
@@ -57,3 +63,5 @@ void populateLoweringONNXReshapeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXReshapeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

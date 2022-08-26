@@ -15,12 +15,12 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -38,6 +38,7 @@ public:
     MLIRContext *context = printTensorOp.getContext();
     Location loc = printTensorOp.getLoc();
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     StringRef msg = printTensorOp.msg();
     Value input = operandAdaptor.input();
@@ -52,8 +53,7 @@ public:
     auto int64Ty = IntegerType::get(context, 64);
     auto memRefTy = input.getType().dyn_cast<LLVM::LLVMStructType>();
     auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
-    auto memRefRankVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(memRefRank));
+    Value memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 

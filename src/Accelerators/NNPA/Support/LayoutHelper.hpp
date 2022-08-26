@@ -13,11 +13,11 @@
 #pragma once
 
 #include "mlir/IR/BuiltinAttributes.h"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "zdnn.h"
 
 namespace onnx_mlir {
 
-/// Note: Keep these strings in sync with the one in Dialect/ZHigh/ZHighOps.td.
+/// Note: Keep these strings in sync with the one in Dialect/ZHigh/ZHigh.td.
 const std::string LAYOUT_1D = "1D";
 const std::string LAYOUT_2D = "2D";
 const std::string LAYOUT_3D = "3D";

@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMEnableMemoryPool
 
   LINK_LIBS PUBLIC
   OMSupport
+  MLIRFuncDialect
   MLIRTransformUtils
   )
 
@@ -45,6 +46,14 @@ add_onnx_mlir_library(OMDisconnectKrnlDimFromAlloc
 
 add_onnx_mlir_library(OMLowerKrnlShape
   LowerKrnlShape.cpp
+
+  LINK_LIBS PUBLIC
+  OMSupport
+  MLIRTransformUtils
+  )
+
+add_onnx_mlir_library(OMLowerKrnlRegion
+  LowerKrnlRegion.cpp
 
   LINK_LIBS PUBLIC
   OMSupport

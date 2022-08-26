@@ -15,12 +15,12 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -37,6 +37,7 @@ public:
     auto printOp = cast<KrnlPrintOp>(op);
     Location loc = printOp.getLoc();
     KrnlPrintOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Value input = operandAdaptor.input();
     StringRef format = printOp.format();
@@ -52,11 +53,9 @@ public:
     Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
-      rewriter.create<CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
-          ArrayRef<Value>({formatSpecPtr, input}));
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});
     else
-      rewriter.create<CallOp>(loc, printfFuncRef, ArrayRef<Type>({}),
-          ArrayRef<Value>({formatSpecPtr}));
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr});
 
     rewriter.eraseOp(op);
     return success();
@@ -65,22 +64,14 @@ public:
 private:
   static FlatSymbolRefAttr getOrInsertPrintf(
       PatternRewriter &rewriter, ModuleOp module) {
-    // Insert the printf declaration if it is not already present.
-    auto printfFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("printf");
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     MLIRContext *ctx = rewriter.getContext();
-
-    if (!printfFunc) {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-      auto voidType = LLVM::LLVMVoidType::get(ctx);
-      Type i8Type = IntegerType::get(ctx, 8);
-      Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-      printfFunc =
-          rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "printf",
-              LLVM::LLVMFunctionType::get(voidType, i8PtrType,
-                  /*isVarArg=*/true));
-    }
-    return SymbolRefAttr::get(ctx, "printf");
+    Type voidType = LLVM::LLVMVoidType::get(ctx);
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    return create.llvm.getOrInsertSymbolRef(module, StringRef("printf"),
+        voidType, {i8PtrType},
+        /*isVarArg=*/true);
   }
 };
 

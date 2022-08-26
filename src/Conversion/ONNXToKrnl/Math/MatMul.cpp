@@ -15,14 +15,18 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+
+#define DEBUG_TYPE "matmul"
+static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 using namespace mlir;
 
-#define DEBUG_TYPE "matmul"
+namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(
@@ -38,15 +42,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Define loops and bounds.
-    KrnlBuilder createKrnl(rewriter, loc);
-    int outerLoopNum = shapeHelper.dimsForOutput(0).size();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
+    int outerLoopNum = shapeHelper.dimsForOutput().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
-    ValueRange loopDef = createKrnl.defineLoops(totLoopNum);
+    ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
-      loopUbs.emplace_back(shapeHelper.dimsForOutput(0)[i]);
+      loopUbs.emplace_back(shapeHelper.dimsForOutput()[i]);
       outerLoops.emplace_back(loopDef[i]);
     }
     int aRank = shapeHelper.aDims.size();
@@ -54,15 +58,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
+    // Single scalar, no need for default alignment.
+    Value reductionVal =
+        create.mem.alignedAlloca(MemRefType::get({}, elementType));
 
     // Non-reduction loop iterations: output-rank.
-    createKrnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
+    create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
-          // Single scalar, no need for default alignment.
-          Value reductionVal =
-              create.mem.alignedAlloca(MemRefType::get({}, elementType));
           create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
@@ -178,29 +182,42 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     });
   }
 
-  void computeTileSizeForMatVectProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
-      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
-      int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatVectProduct(int64_t mVL, DimIndexExpr dimI,
+      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
+      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
 
     // Default values.
-    // Right can only tile by 4.
-    iRegTile = 4; // SIMD dim during multi-reduction.
+    // Right can only tile i and k by (possibly distinct) multiple of mVL.
+    iRegTile = 2 * mVL; // SIMD dim during multi-reduction.
     jRegTile = 1;
-    kRegTile = 4; // SIMD dim during multiplication.
-
-    if (dimI.isLiteral()) {
-      int64_t constI = dimI.getLiteral();
-      if (constI < iRegTile) {
-        simdize = false;
-        // Not enough data, can only support i/k reg tile of 4.
-      }
-    }
+    kRegTile = 16 * mVL; // SIMD dim during multiplication.
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
-      if (constK < kRegTile) {
-        simdize = false;
+      // Register tile in the I Dim is really for the reduction. The
+      // computations will be further tiled to a multiple of mVL inside
+      // krnl.matmul.
+      kRegTile = (constK / mVL) * mVL; // largest multiple
+      if (kRegTile > 64 * mVL) {
+        kRegTile = 64 * mVL;
+        LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: cap tiling k\n"; });
+      } else if (kRegTile < mVL) {
         // Not enough data, can only support i/k reg tile of 4.
+        LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
+        simdize = false;
+        kRegTile = 1;
+      }
+    }
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = (constI / mVL) * mVL; // largest multiple
+        if (iRegTile < mVL) {
+          // Not enough data, can only support i/k reg tile of 4.
+          LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
+          simdize = false;
+          iRegTile = 1;
+        }
       }
     }
     LLVM_DEBUG({
@@ -209,16 +226,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     });
   }
 
-  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
-  // Implementation here uses the efficient 1d tiling plus kernel substitution.
+  // Handle the cases with 2x2 matrices both for A, B, and C without
+  // broadcast. Implementation here uses the efficient 1d tiling plus kernel
+  // substitution.
   void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
+        create(rewriter, loc);
     Value zero = create.math.constantIndex(0);
     Value I = create.mem.dim(C, 0);
     Value J = create.mem.dim(C, 1);
@@ -231,13 +249,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
     int64_t iRegTile, jRegTile, kRegTile;
-    bool isMatVectorProduct = dimJ.isLiteral() && dimJ.getLiteral() == 1;
-    if (isMatVectorProduct)
+    bool isMatVectorProduct =
+        !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct) {
+      int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
-    else
+          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    } else {
       computeTileSizeForMatMatProduct(
           dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    }
 
     // I, J, K loop.
     ValueRange origLoop = create.krnl.defineLoops(3);
@@ -260,6 +281,89 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
+  // Handle the cases with 2x2 matrices with broadcasting
+  void replace2x2Matmul2dBroadcasting(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB, Value alloc,
+      Value zeroVal, ConversionPatternRewriter &rewriter, Location loc) const {
+    // Prepare: loop bounds and zero
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    int64_t ARank = shapeHelper.aDims.size();
+    int64_t BRank = shapeHelper.bDims.size();
+    int64_t broadcastRank = (broadcastingB ? BRank : ARank) - 2;
+    assert(broadcastRank > 0 && "expected broadcast dims for A or B");
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
+        create(rewriter, loc);
+    Value zero = create.math.constantIndex(0);
+    Value I = create.mem.dim(C, broadcastRank + 0); // C has broadcast.
+    Value J = create.mem.dim(C, broadcastRank + 1); // C has broadcast.
+    // When broadcasting B, A has no broadcast, take K from 2nd dim.
+    // When not broadcasting B, B has no broadcast, take K from 1st dim.
+    Value K = broadcastingB ? create.mem.dim(A, 1) : create.mem.dim(B, 0);
+
+    // Initialize alloc/C to zero.
+    create.krnl.memset(alloc, zeroVal);
+    bool simdize = true;
+
+    // Define blocking, with simdization along the j axis.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    int64_t iRegTile, jRegTile, kRegTile;
+    bool isMatVectorProduct =
+        !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct) {
+      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      computeTileSizeForMatVectProduct(
+          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    } else {
+      computeTileSizeForMatMatProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    }
+
+    // Broadcast loops
+    ValueRange broadcastLoop = create.krnl.defineLoops(broadcastRank);
+    SmallVector<Value, 4> broadcastLB(broadcastRank, zero);
+    SmallVector<Value, 4> broadcastUB;
+    for (int64_t i = 0; i < broadcastRank; ++i)
+      broadcastUB.emplace_back(create.mem.dim(C, i));
+    create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
+        [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
+          MultiDialectBuilder<KrnlBuilder> create(createKrnl);
+          // I, J, K loop.
+          ValueRange origLoop = create.krnl.defineLoops(3);
+          // IJK indices.
+          Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
+          // Define blocked loop and permute.
+          ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
+          Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
+          ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
+          Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
+          ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
+          Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
+          create.krnl.permute(
+              {ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+          create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
+              {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
+                Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
+                // Compute global start for B/C: {broadcastIndices, 0, 0}
+                SmallVector<Value, 4> broadcastGlobalStart;
+                for (int64_t i = 0; i < broadcastRank; ++i)
+                  broadcastGlobalStart.emplace_back(broadcastIndices[i]);
+                broadcastGlobalStart.emplace_back(zero);
+                broadcastGlobalStart.emplace_back(zero);
+                if (broadcastingB)
+                  createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
+                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
+                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                else
+                  createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
+                      broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
+                      {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+                      simdize, /*unroll*/ true, /*overcompute*/ false);
+              });
+        });
+  }
+
   // Handle the cases with 2x2 matrices both for A, B, and C without
   // broadcast. Implementation here uses the efficient 2d tiling plus kernel
   // substitution.
@@ -271,27 +375,45 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
+    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Get the constants: zero.
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    MathBuilder createMath(rewriter, loc);
+    Value zero = createMath.constant(elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
+    auto cRank = alloc.getType().cast<MemRefType>().getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
+      assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
+    } else if (enableTiling && aRank == 2 && bRank > 2) {
+      // Broadcasting B.
+      assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
+      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
+          shapeHelper, /*broadcasting B*/ true, alloc, zero, rewriter, loc);
+    } else if (enableTiling && aRank > 2 && bRank == 2) {
+      // Broadcasting A.
+      assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
+      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
+          shapeHelper, /*broadcasting B*/ false, alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
@@ -300,9 +422,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, alloc);
     return success();
   }
-};
+}; // namespace onnx_mlir
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir

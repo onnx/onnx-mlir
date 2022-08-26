@@ -15,8 +15,8 @@
 #define ZHIGH_TO_ZLOW
 
 #ifndef OP_BASE
-include "Dialect/ZHigh/ZHighOps.td"
-include "Dialect/ZLow/ZLowOps.td"
+include "Dialect/ZHigh/ZHigh.td"
+include "Dialect/ZLow/ZLow.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:

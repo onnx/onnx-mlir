@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -106,13 +107,16 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-  // Use an opaque attribute to store stickified data.
+  // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  OpaqueElementsAttr valueAttr =
-      OpaqueElementsAttr::get(stickifiedConstant.getOperation()->getDialect(),
-          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          StringRef((char *)ztensor->buffer, sizeInBytes));
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      stickifiedConstant.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      HeapAsmResourceBlob::allocateAndCopy(
+          ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
 
   stickifiedConstant.valueAttr(valueAttr);
 
@@ -297,7 +301,10 @@ namespace {
 
 struct ZHighConstPropagationPass
     //: public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
-    : public PassWrapper<ZHighConstPropagationPass, OperationPass<FuncOp>> {
+    : public PassWrapper<ZHighConstPropagationPass,
+          OperationPass<func::FuncOp>> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighConstPropagationPass)
 
   StringRef getArgument() const override { return "constprop-zhigh"; }
 

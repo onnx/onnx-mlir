@@ -15,21 +15,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
-bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
+  func::FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
 
@@ -51,7 +53,7 @@ bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
     }
   });
 
-  function.walk([&opIsReturned, allocOp, castOpResults](ReturnOp op) {
+  function.walk([&opIsReturned, allocOp, castOpResults](func::ReturnOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands()) {
       // Determine if current function returns the result value of the
@@ -111,7 +113,7 @@ public:
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
     // Only enable pooling for top level memrefs.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // For now only handle constant MemRefs.
@@ -131,9 +133,9 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = (allocOp.alignment().hasValue())
+      newAlloc = (allocOp.alignment().has_value())
                      ? create.mem.alignedAlloc(
-                           memPoolMemRefType, allocOp.alignment().getValue())
+                           memPoolMemRefType, allocOp.alignment().value())
                      : create.mem.alloc(memPoolMemRefType);
 
     } else {
@@ -143,9 +145,9 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = (allocOp.alignment().hasValue())
+      newAlloc = (allocOp.alignment().has_value())
                      ? create.mem.alignedAlloc(memPoolMemRefType,
-                           dyanmicTotalSize, allocOp.alignment().getValue())
+                           dyanmicTotalSize, allocOp.alignment().value())
                      : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 
@@ -188,9 +190,11 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
-class KrnlEnableMemoryPoolPass
-    : public PassWrapper<KrnlEnableMemoryPoolPass, OperationPass<FuncOp>> {
+class KrnlEnableMemoryPoolPass : public PassWrapper<KrnlEnableMemoryPoolPass,
+                                     OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlEnableMemoryPoolPass)
+
   StringRef getArgument() const override { return "enable-memory-pool"; }
 
   StringRef getDescription() const override {

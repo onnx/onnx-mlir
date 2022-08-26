@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Size.cpp - Lowering Size Op
-//-------------------===//
+//===--------------------- Size.cpp - Lowering Size Op --------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXSizeOpLowering : public ConversionPattern {
   ONNXSizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -34,7 +35,12 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
     Value resultOperand = sizeOp.size();
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     Value alloc =
         (hasAllConstantDimensions(memRefType))
@@ -52,11 +58,11 @@ struct ONNXSizeOpLowering : public ConversionPattern {
         allStaticDimensions = false;
     }
     // Accumulate the remaining dimensions that are unknown.
-    Value noElements = emitConstantOp(
-        rewriter, loc, memRefType.getElementType(), staticNumElement);
+    MathBuilder createMath(rewriter, loc);
+    Value noElements =
+        createMath.constant(memRefType.getElementType(), staticNumElement);
     if (!allStaticDimensions) {
       MemRefBuilder createMemRef(rewriter, loc);
-      MathBuilder createMath(createMemRef);
       for (size_t i = 0; i < dataShape.size(); i++) {
         if (dataShape[i] == -1) {
           Value index = createMemRef.dim(data, i);
@@ -76,3 +82,5 @@ void populateLoweringONNXSizeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSizeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

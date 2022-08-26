@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct LstmState {
   // returned states.
@@ -83,7 +85,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
   activationReverse.g.name = "tanh";
   activationReverse.h.name = "tanh";
   if (activations) {
-    ArrayAttr activationArrAttr = activations.getValue();
+    ArrayAttr activationArrAttr = activations.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -120,7 +122,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayAttr activationArrAttr = activationAlpha.getValue();
+    ArrayAttr activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -154,7 +156,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayAttr activationArrAttr = activationBeta.getValue();
+    ArrayAttr activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -387,7 +389,8 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
 
 template <>
 LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
-    ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
+    ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, ONNXLSTMOp *op,
     typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
 
@@ -397,15 +400,15 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   // Insert allocation and deallocation for the results of this operation.
   // If the result is not returned, then no allocation happens.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y(),
       checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
       checkInsertDealloc(op->getOperation(), 1));
   // Y_c :: [num_directions, batch_size, hidden_size]
-  state.ct = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+  state.ct = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
       checkInsertDealloc(op->getOperation(), 2));
 
@@ -473,8 +476,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Xt * (Wi^T ++ Wo^T ++ Wf^T ++ Wc^T)
   // Ht * (Ri^T ++ Ro^T ++ Rf^T ++ Rc^T)
   // where '++' is matrix concatenation.
-  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
-  Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
+  Value XtWT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT));
+  Value HtRT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
@@ -614,3 +619,5 @@ void populateLoweringONNXLSTMOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack,
       LstmWeightPack, LstmBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

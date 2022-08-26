@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
   ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -28,11 +30,15 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
     auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
                          .value()
-                         .getValue()
+                         .value()
                          .cast<DenseElementsAttr>();
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto elementType = memRefType.getElementType();
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    Type elementType = memRefType.getElementType();
     size_t rank = memRefType.cast<ShapedType>().getRank();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -67,29 +73,29 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     if (elementType.isa<IntegerType>()) {
       auto valueIt = valueAttr.getValues<IntegerAttr>().begin();
       auto valueInt = (*valueIt++).cast<IntegerAttr>().getInt();
-      constantVal = emitConstantOp(rewriter, loc, elementType, valueInt);
+      constantVal = create.math.constant(elementType, valueInt);
     } else if (elementType.isa<FloatType>()) {
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
-      constantVal = emitConstantOp(rewriter, loc, elementType, valueFloat);
+      constantVal = create.math.constant(elementType, valueFloat);
     } else
       llvm_unreachable("unsupported element type");
 
-    SmallVector<Value, 4> loopIVs;
+    KrnlBuilder createKrnl(rewriter, loc);
     // Create a Krnl iterate if the output is not a scalar tensor.
     if (!hasAllScalarValues({alloc})) {
-      BuildKrnlLoop loops(rewriter, loc, rank);
-      loops.createDefineAndIterateOp(alloc);
-      Block *iterationBlock = loops.getIterateBlock();
-      // Get IVs.
-      for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-    }
-
-    // Store the constant value to the output.
-    create.krnl.store(constantVal, alloc, loopIVs);
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            createKrnl.store(constantVal, alloc, loopInd);
+          });
+    } else
+      createKrnl.store(constantVal, alloc);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);
@@ -102,3 +108,5 @@ void populateLoweringONNXConstantOfShapeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOfShapeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

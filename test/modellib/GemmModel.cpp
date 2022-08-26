@@ -17,14 +17,15 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
 
-GemmLibBuilder::GemmLibBuilder(const string &modelName, const int I,
+namespace onnx_mlir {
+namespace test {
+
+GemmLibBuilder::GemmLibBuilder(const std::string &modelName, const int I,
     const int J, const int K, const int aTrans, const int bTrans,
     const int cRank, const float alphaVal, const float betaVal)
     : ModelLibBuilder(modelName), I(I), J(J), K(K), aTrans(aTrans),
@@ -52,7 +53,7 @@ bool GemmLibBuilder::build() {
   llvm::SmallVector<Type, 3> inputsType{aType, bType, cType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto aVal = entryBlock.getArgument(0);
@@ -71,23 +72,37 @@ bool GemmLibBuilder::build() {
   gemmOp.getResult().setType(yType);
 
   llvm::SmallVector<Value, 1> results = {gemmOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
   return true;
 }
 
-bool GemmLibBuilder::prepareInputs() {
-  const int num = 3;
+bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
+  constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape));
-  list[1] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape));
-  list[2] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape));
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(aShape), dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(bShape), dataRangeLB, dataRangeUB);
+  list[2] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(cShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
+}
+
+bool GemmLibBuilder::prepareInputs() {
+  return GemmLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
+}
+
+bool GemmLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool GemmLibBuilder::verifyOutputs() {
@@ -134,5 +149,10 @@ bool GemmLibBuilder::verifyOutputs() {
           alphaVal * omTensorGetElem<float>(ref, {i, j}) + betaVal * cVal;
     }
   }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
+
+} // namespace test
+} // namespace onnx_mlir

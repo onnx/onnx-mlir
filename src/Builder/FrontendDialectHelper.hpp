@@ -18,7 +18,7 @@
 #include <regex>
 #include <tuple>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -41,15 +41,8 @@
 
 namespace onnx_mlir {
 
-struct InitializedTensorMapping : SymbolMapping<onnx::TensorProto> {
-  mlir::Value EmitInitializerForInputTensor(
-      mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
-
-  // Get initialized tensor.
-  onnx::TensorProto GetInitializedTensor(std::string name) {
-    return GetTensorByOnnxName(name);
-  }
-};
+mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     mlir::OpBuilder &builder, const onnx::TensorProto &initializer);

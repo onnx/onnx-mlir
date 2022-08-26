@@ -28,11 +28,16 @@ bool compileFromFile = false;
     NAME = true;                                                               \
     return true;                                                               \
   }
+#define PARSE_UNSUPPORTED_FLAG(FLAG)                                           \
+  if (arg.find(FLAG) == 0) {                                                   \
+    return true;                                                               \
+  }
 
 // Return 1 if arg used, 0 if unused.
 bool readArg(const std::string &arg) {
   PARSE_ARG(outputBaseName, "-o");
   PARSE_FLAG(compileFromFile, "--fromfile");
+  PARSE_UNSUPPORTED_FLAG("--EmitLib");
   IGNORE_ARG("-"); // Ignore all other options.
   testFileName = arg;
   return true;
@@ -63,23 +68,22 @@ int main(int argc, char *argv[]) {
 
   int retVal = 0;
   const char *errorMessage = NULL;
+  const char *compiledFilename;
   if (compileFromFile) {
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, &errorMessage);
-    if (errorMessage != NULL) {
+        onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
+    if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
-      retVal = 0xf;
-    }
   } else {
     std::ifstream inFile(
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = omCompileFromArray(test.data(), test.size(),
-        outputBaseName.c_str(), onnx_mlir::EmitLib, &errorMessage);
-    if (errorMessage != NULL) {
+    retVal =
+        omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
+            onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
+    if (retVal != CompilerSuccess && errorMessage != NULL) {
       std::cerr << errorMessage;
-      retVal = 0xf;
     }
   }
   if (retVal != 0) {

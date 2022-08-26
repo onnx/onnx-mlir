@@ -33,7 +33,8 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "third_party/zdnn-lib/zdnn/zdnn.h"
+#include "src/Support/Diagnostic.hpp"
+#include "zdnn.h"
 
 using namespace mlir;
 
@@ -222,11 +223,10 @@ void ZTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-ZHighDialect::ZHighDialect(MLIRContext *ctx)
-    : Dialect(getDialectNamespace(), ctx, TypeID::get<ZHighDialect>()) {
+void ZHighDialect::initialize() {
   addAttributes<
 #define GET_ATTRDEF_LIST
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
       >();
   addOperations<
 #define GET_OP_LIST
@@ -571,8 +571,8 @@ LogicalResult ZHighMatMulOp::inferShapes(
   return success();
 }
 
-static LogicalResult verify(ZHighMatMulOp op) {
-  ZHighMatMulOpAdaptor operandAdaptor(op);
+LogicalResult ZHighMatMulOp::verify() {
+  ZHighMatMulOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value X = operandAdaptor.X();
   Value Y = operandAdaptor.Y();
@@ -617,8 +617,8 @@ static LogicalResult verify(ZHighMatMulOp op) {
 //===----------------------------------------------------------------------===//
 // LSTMOp
 
-static LogicalResult verify(ZHighLSTMOp op) {
-  ZHighLSTMOpAdaptor operandAdaptor(op);
+LogicalResult ZHighLSTMOp::verify() {
+  ZHighLSTMOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value W = operandAdaptor.input_weights();
   Value R = operandAdaptor.hidden_weights();
@@ -626,7 +626,7 @@ static LogicalResult verify(ZHighLSTMOp op) {
   Value RB = operandAdaptor.hidden_bias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = op.hidden_size();
+  int64_t hiddenSize = hidden_size();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -693,8 +693,8 @@ LogicalResult ZHighLSTMOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // GRUOp
 
-static LogicalResult verify(ZHighGRUOp op) {
-  ZHighGRUOpAdaptor operandAdaptor(op);
+LogicalResult ZHighGRUOp::verify() {
+  ZHighGRUOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value W = operandAdaptor.input_weights();
   Value R = operandAdaptor.hidden_weights();
@@ -702,7 +702,7 @@ static LogicalResult verify(ZHighGRUOp op) {
   Value RB = operandAdaptor.hidden_bias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = op.hidden_size();
+  int64_t hiddenSize = hidden_size();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -764,20 +764,20 @@ LogicalResult ZHighGRUOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Conv2DOp
 
-static LogicalResult verify(ZHighConv2DOp op) {
-  ZHighConv2DOpAdaptor operandAdaptor(op);
+LogicalResult ZHighConv2DOp::verify() {
+  ZHighConv2DOpAdaptor operandAdaptor(*this);
   // Get operands.
   Value K = operandAdaptor.input_kernel();
   Value B = operandAdaptor.input_bias();
 
   // Verify attributes.
   // - padding_type must be SAME_PADDING or VALID_PADDING.
-  StringRef paddingType = op.padding_type();
+  StringRef paddingType = padding_type();
   if (!(paddingType.equals_insensitive("SAME_PADDING") ||
           paddingType.equals_insensitive("VALID_PADDING")))
     return failure();
   // - act_func must be ACT_NONE or ACT_RELU.
-  StringRef actFunc = op.act_func();
+  StringRef actFunc = act_func();
   if (!(actFunc.equals_insensitive("ACT_NONE") ||
           actFunc.equals_insensitive("ACT_RELU")))
     return failure();
@@ -792,7 +792,7 @@ static LogicalResult verify(ZHighConv2DOp op) {
   }
 
   // Verify kernel shape.
-  ArrayAttr kernelShape = op.kernel_shape();
+  ArrayAttr kernelShape = kernel_shape();
   int64_t attrKH = kernelShape[0].cast<IntegerAttr>().getInt();
   int64_t attrKW = kernelShape[1].cast<IntegerAttr>().getInt();
   if (hasRankedType(K)) {
@@ -878,6 +878,93 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ConcatOp
+
+LogicalResult ZHighConcatOp::verify() {
+  ZHighConcatOpAdaptor operandAdaptor(*this);
+  // Check all inputs.
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    if (!hasRankedType(operand)) {
+      // Won't be able to do any checking at this stage.
+      return success();
+    }
+  }
+
+  auto commonType =
+      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  if (axisIndex < -commonRank || axisIndex >= commonRank)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(**this, "axis",
+        axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
+
+  if (axisIndex < 0)
+    axisIndex += commonRank;
+
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> currShape =
+        operand.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)currShape.size() != commonRank)
+      return emitError("Concat inputs must all have the same rank");
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex)
+        continue;
+      if (currShape[j] != -1 && commonShape[j] != -1 &&
+          currShape[j] != commonShape[j]) {
+        return emitError("Concat input dimensions must be all identical, "
+                         "except for dimension on the axis of the "
+                         "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operand.getType() << " instead.";
+      }
+    }
+  }
+
+  return success();
+}
+
+LogicalResult ZHighConcatOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // The check of constraints is kept
+  // However, current check handles dynamic dim only for the concat dim
+  int inputNum = getNumOperands();
+  for (int i = 0; i < inputNum; ++i) {
+    if (!hasRankedType(getOperand(i)))
+      return success();
+  }
+  // Checking value of axis parameter.
+  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
+  auto commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = axis();
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = commonRank + axisIndex;
+    // Tong Chen:
+    // TOFIX: attribute modification should be into canonicalization
+    // I did not move the code into ShapeHelper
+    auto builder = mlir::Builder(getContext());
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  ZHighConcatOpAdaptor operandAdaptor(*this);
+  ZHighConcatOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Tile parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  Type resType = RankedTensorType::get(
+      outputDims, commonType.getElementType(), commonType.getEncoding());
+  getResult().setType(resType);
+
+  return success();
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir
 
@@ -890,4 +977,6 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
 
 #define GET_ATTRDEF_CLASSES
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.cpp.inc"
+
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighDialect.cpp.inc"

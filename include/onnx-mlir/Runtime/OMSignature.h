@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "onnx-mlir/Compiler/OMCompilerMacros.h"
+
 #ifdef __cplusplus
 #pragma once
 
@@ -24,7 +26,7 @@ extern "C" {
  * @param entry point name
  * @return pointer to input signature JSON string
  */
-const char *omInputSignature(const char *entryPointName);
+OM_EXTERNAL_VISIBILITY const char *omInputSignature(const char *entryPointName);
 
 /**
  * \brief Return the output signature of the given entry point as a JSON string.
@@ -32,7 +34,8 @@ const char *omInputSignature(const char *entryPointName);
  * @param entry point name
  * @return pointer to output signature JSON string
  */
-const char *omOutputSignature(const char *entryPointName);
+OM_EXTERNAL_VISIBILITY const char *omOutputSignature(
+    const char *entryPointName);
 
 #ifdef __cplusplus
 }

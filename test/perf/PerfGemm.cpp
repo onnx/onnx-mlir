@@ -16,25 +16,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cassert>
-#include <iostream>
-#include <string>
-
 #include <benchmark/benchmark.h>
 
 #include "include/OnnxMlirCompiler.h"
 #include "test/modellib/ModelLib.hpp"
 #include "test/perf/PerfHelper.hpp"
 
-using namespace std;
-
 const std::string modelName("./perfgemm");
+
+static void BM_MatrixVectorProduct(benchmark::State &state) {
+  int I = state.range(0);
+  int J = 1;
+  int K = state.range(0);
+  onnx_mlir::test::MatMul2DLibBuilder model(modelName, I, J, K);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed matmul");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  PERF_RECORD_FLOPS(2.0 * I * J * K);
+}
+BENCHMARK(BM_MatrixVectorProduct)
+    ->RangeMultiplier(2)
+    ->Range(16, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
 
 static void BM_MatmulSquare(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   int K = state.range(0);
-  MatMul2DLibBuilder model(modelName, I, J, K);
+  onnx_mlir::test::MatMul2DLibBuilder model(modelName, I, J, K);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed matmul");
   for (auto _ : state)
@@ -48,11 +60,32 @@ BENCHMARK(BM_MatmulSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
+// Broadcast same matrices as above, but with 4x broadcast on B
+static void BM_MatmulSquareBroadcastB4x(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  int K = state.range(0);
+  onnx_mlir::test::MatMulSingleBroadcastLibBuilder model(
+      modelName, /*broadcast B*/ true, {4}, I, J, K);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed matmul");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  PERF_RECORD_FLOPS(/*broadcast 4x*/ 4.0 /*matmul*/ * 2.0 * I * J * K);
+}
+BENCHMARK(BM_MatmulSquareBroadcastB4x)
+    ->RangeMultiplier(2)
+    ->Range(16, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
 static void BM_MatMulWithGemmSquare(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   int K = state.range(0);
-  GemmLibBuilder model(modelName, I, J, K, false, false, 1, 1.0, 0.0);
+  onnx_mlir::test::GemmLibBuilder model(
+      modelName, I, J, K, false, false, 1, 1.0, 0.0);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed gemm");
   for (auto _ : state)
@@ -71,7 +104,8 @@ static void BM_GemmSquare(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   int K = state.range(0);
-  GemmLibBuilder model(modelName, I, J, K, false, false, 1, 1.0, 1.0);
+  onnx_mlir::test::GemmLibBuilder model(
+      modelName, I, J, K, false, false, 1, 1.0, 1.0);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed gemm");
   for (auto _ : state)
@@ -86,4 +120,5 @@ BENCHMARK(BM_GemmSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
-PERF_MAIN();
+// Will set opt at -O3.
+PERF_MAIN()

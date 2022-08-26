@@ -14,18 +14,18 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -123,6 +123,15 @@ struct MathFunctionName<KrnlAtanhOp> {
   }
 };
 
+template <>
+struct MathFunctionName<KrnlIsNaNOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32() || type.isF64())
+      return "isnan";
+    llvm_unreachable("Unsupported type for isnan");
+  }
+};
+
 template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
@@ -152,7 +161,7 @@ public:
         MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmType);
 
     // Emit function call.
-    auto funcCall = rewriter.create<CallOp>(
+    auto funcCall = rewriter.create<func::CallOp>(
         loc, mathFunctionRef, llvmType, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
@@ -165,21 +174,9 @@ private:
   //
   FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
       ModuleOp module, std::string mathFuncName, mlir::Type llvmType) const {
-    auto *context = module.getContext();
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
-      return SymbolRefAttr::get(context, mathFuncName);
-
-    // Create function declaration.
-    // auto llvmF32Ty = FloatType::get(context);
-    auto llvmFnType =
-        LLVM::LLVMFunctionType::get(llvmType, ArrayRef<mlir::Type>({llvmType}));
-
-    // Insert the unary math function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), mathFuncName, llvmFnType);
-    return SymbolRefAttr::get(context, mathFuncName);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef(mathFuncName), llvmType, {llvmType});
   }
 };
 

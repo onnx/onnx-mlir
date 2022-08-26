@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
   ONNXSequenceEmptyOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -26,7 +28,11 @@ struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =
@@ -40,3 +46,5 @@ void populateLoweringONNXSequenceEmptyOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSequenceEmptyOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -19,10 +19,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
@@ -30,6 +31,7 @@
 #include "ElideKrnlGlobalConstants.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 constexpr uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold;
 
@@ -38,38 +40,38 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
   Location loc = op.getLoc();
 
   // Only elide if value is available.
-  if (!op.value().hasValue())
+  if (!op.value().has_value())
     return success();
 
-  // Only elide dense and opaque attributes.
+  // Only elide dense and dense resource attributes.
   if (!(op.value()->isa<DenseElementsAttr>() ||
-          op.value()->isa<OpaqueElementsAttr>()))
+          op.value()->isa<DenseResourceElementsAttr>()))
     return success();
 
   MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
+  bool elide = false;
+
   if (op.value()->isa<DenseElementsAttr>()) {
-    // Elide the dense attribute.
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
-      IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
-      IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
-      auto newGlobalOp =
-          create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
-              op.name(), None, offsetAttr, alignmentAttr);
-      rewriter.replaceOp(op, newGlobalOp);
+      elide = true;
     }
   } else {
-    // Elide the opaque attribute.
-    const auto &valAttr = op.valueAttr().dyn_cast_or_null<OpaqueElementsAttr>();
-    if ((unsigned int)valAttr.getValue().size() > elisionThreshold) {
-      IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
-      IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
-      auto newGlobalOp =
-          create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
-              op.name(), None, offsetAttr, alignmentAttr);
-      rewriter.replaceOp(op, newGlobalOp);
+    const auto &valAttr =
+        op.valueAttr().dyn_cast_or_null<DenseResourceElementsAttr>();
+    if (valAttr.getNumElements() > elisionThreshold) {
+      elide = true;
     }
+  }
+
+  if (elide) {
+    IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+    IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
+    auto newGlobalOp =
+        create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
+            op.name(), None, offsetAttr, alignmentAttr);
+    rewriter.replaceOp(op, newGlobalOp);
   }
 
   return success();
@@ -79,9 +81,11 @@ namespace {
 /*!
  *  Function pass that performs constant value elision of Krnl globals.
  */
-class ElideConstGlobalValuePass
-    : public PassWrapper<ElideConstGlobalValuePass, OperationPass<FuncOp>> {
+class ElideConstGlobalValuePass : public PassWrapper<ElideConstGlobalValuePass,
+                                      OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstGlobalValuePass)
+
   StringRef getArgument() const override { return "elide-krnl-constants"; }
 
   StringRef getDescription() const override {

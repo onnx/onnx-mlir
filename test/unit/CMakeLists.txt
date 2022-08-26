@@ -5,6 +5,9 @@ add_onnx_mlir_executable(TestInstrumentation
 
   NO_INSTALL
 
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
   LINK_LIBS PRIVATE
   cruntime
   )
@@ -12,3 +15,4 @@ add_onnx_mlir_executable(TestInstrumentation
 add_test(NAME TestInstrumentation COMMAND TestInstrumentation)
 
 add_subdirectory(Runtime)
+add_subdirectory(Einsum)

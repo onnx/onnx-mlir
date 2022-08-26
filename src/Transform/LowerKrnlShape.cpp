@@ -14,15 +14,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -63,8 +65,7 @@ public:
           create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
 
       // Store value in the new MemRef.
-      Value idxValue =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      Value idxValue = create.math.constant(rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
       rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
@@ -79,8 +80,10 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlShapePass)
+
   StringRef getArgument() const override { return "lower-krnl-shape"; }
 
   StringRef getDescription() const override {

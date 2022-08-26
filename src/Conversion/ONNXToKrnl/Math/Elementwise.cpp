@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 /// Emit post-processing for variadic element-wise ops.
 template <typename Op>
@@ -34,6 +37,12 @@ template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
+};
+
+template <>
+struct ScalarOp<ONNXAbsOp> {
+  using FOp = math::AbsFOp;
+  using IOp = math::AbsIOp;
 };
 
 template <>
@@ -139,6 +148,12 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
+struct ScalarOp<ONNXIsNaNOp> {
+  using FOp = KrnlIsNaNOp;
+  using IOp = KrnlIsNaNOp; // Not used.
+};
+
+template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
   using IOp = KrnlAcosOp; // Not used.
@@ -198,15 +213,13 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
   //                         ConstantOp 2)
   Value operand = scalarOperands[0];
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two = emitConstantOp(rewriter, loc, elementType, 2);
-  auto neg = rewriter.create<arith::SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<math::ExpOp>(loc, operand);
-  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
-  auto result = rewriter.create<arith::DivFOp>(
-      loc, rewriter.create<arith::SubFOp>(loc, exp, negExp), two);
-
-  return result;
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value two = createMath.constant(elementType, 2);
+  Value neg = createMath.sub(zero, operand);
+  Value exp = createMath.exp(operand);
+  Value negExp = createMath.exp(neg);
+  return createMath.div(createMath.sub(exp, negExp), two);
 }
 
 //===----------------------------------------------------------------------===//
@@ -220,15 +233,13 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
   //                         ConstantOp 2)
   Value operand = scalarOperands[0];
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two = emitConstantOp(rewriter, loc, elementType, 2);
-  auto neg = rewriter.create<arith::SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<math::ExpOp>(loc, operand);
-  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
-  auto result = rewriter.create<arith::DivFOp>(
-      loc, rewriter.create<arith::AddFOp>(loc, exp, negExp), two);
-
-  return result;
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value two = createMath.constant(elementType, 2);
+  Value neg = createMath.sub(zero, operand);
+  Value exp = createMath.exp(operand);
+  Value negExp = createMath.exp(neg);
+  return createMath.div(createMath.add(exp, negExp), two);
 }
 
 //===----------------------------------------------------------------------===//
@@ -242,14 +253,12 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
   //                            AddFOp(ConstantOp 1, ExpOp(NegFOp(%X))))
   Value operand = scalarOperands[0];
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
-  auto neg = rewriter.create<arith::SubFOp>(loc, zero, operand);
-  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
-  auto result = rewriter.create<arith::DivFOp>(
-      loc, one, rewriter.create<arith::AddFOp>(loc, one, negExp));
-
-  return result;
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value one = createMath.constant(elementType, 1);
+  Value neg = createMath.sub(zero, operand);
+  Value negExp = createMath.exp(neg);
+  return createMath.div(one, createMath.add(one, negExp));
 }
 
 //===----------------------------------------------------------------------===//
@@ -272,21 +281,19 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
   auto betaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXHardSigmoidOp>(op).beta().convertToFloat());
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value one = createMath.constant(elementType, 1);
   auto alpha = rewriter.create<arith::ConstantOp>(loc, alphaAttribute);
   auto beta = rewriter.create<arith::ConstantOp>(loc, betaAttribute);
 
-  auto add = rewriter.create<arith::AddFOp>(
-      loc, rewriter.create<arith::MulFOp>(loc, alpha, operand), beta);
+  Value add = createMath.add(createMath.mul(alpha, operand), beta);
   auto maxPredicate =
       rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, add, zero);
-  auto max = rewriter.create<arith::SelectOp>(loc, maxPredicate, add, zero);
+  Value max = createMath.select(maxPredicate, add, zero);
   auto minPredicate =
       rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLT, max, one);
-  auto result = rewriter.create<arith::SelectOp>(loc, minPredicate, max, one);
-
-  return result;
+  return createMath.select(minPredicate, max, one);
 }
 
 //===----------------------------------------------------------------------===//
@@ -303,18 +310,15 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXEluOp>(op).alpha().convertToFloat());
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value one = createMath.constant(elementType, 1);
   auto alpha = rewriter.create<arith::ConstantOp>(loc, alphaAttribute);
-  auto exp = rewriter.create<math::ExpOp>(loc, operand);
+  Value exp = createMath.exp(operand);
   auto lessThanZero = rewriter.create<arith::CmpFOp>(
       loc, arith::CmpFPredicate::OLT, operand, zero);
-  auto result = rewriter.create<arith::SelectOp>(loc, lessThanZero,
-      rewriter.create<arith::MulFOp>(
-          loc, alpha, rewriter.create<arith::SubFOp>(loc, exp, one)),
-      operand);
-
-  return result;
+  return createMath.select(
+      lessThanZero, createMath.mul(alpha, createMath.sub(exp, one)), operand);
 }
 
 //===----------------------------------------------------------------------===//
@@ -329,13 +333,11 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
   //                           %X)
   Value operand = scalarOperands[0];
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
   auto lessThanZero = rewriter.create<arith::CmpFOp>(
       loc, arith::CmpFPredicate::OLT, operand, zero);
-  auto result =
-      rewriter.create<arith::SelectOp>(loc, lessThanZero, zero, operand);
-
-  return result;
+  return createMath.select(lessThanZero, zero, operand);
 }
 
 //===----------------------------------------------------------------------===//
@@ -352,14 +354,13 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXLeakyReluOp>(op).alpha().convertToFloat());
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
   auto alpha = rewriter.create<arith::ConstantOp>(loc, alphaAttribute);
   auto lessThanZero = rewriter.create<arith::CmpFOp>(
       loc, arith::CmpFPredicate::OLT, operand, zero);
-  auto result = rewriter.create<arith::SelectOp>(loc, lessThanZero,
-      rewriter.create<arith::MulFOp>(loc, alpha, operand), operand);
-
-  return result;
+  return createMath.select(
+      lessThanZero, createMath.mul(alpha, operand), operand);
 }
 
 //===----------------------------------------------------------------------===//
@@ -374,19 +375,20 @@ Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   Value slope = scalarOperands[1];
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
   Value lessThanZero, result;
 
   if (elementType.isa<FloatType>()) {
     lessThanZero = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OLT, operand, zero);
-    result = rewriter.create<arith::SelectOp>(loc, lessThanZero,
-        rewriter.create<arith::MulFOp>(loc, slope, operand), operand);
+    result = createMath.select(
+        lessThanZero, createMath.mul(slope, operand), operand);
   } else if (elementType.isa<IntegerType>()) {
     lessThanZero = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::slt, operand, zero);
-    result = rewriter.create<arith::SelectOp>(loc, lessThanZero,
-        rewriter.create<arith::MulIOp>(loc, slope, operand), operand);
+    result = createMath.select(
+        lessThanZero, createMath.mul(slope, operand), operand);
   } else
     llvm_unreachable("unsupported element type");
 
@@ -411,18 +413,16 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
   auto gammaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXSeluOp>(op).gamma().convertToFloat());
 
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
   auto alpha = rewriter.create<arith::ConstantOp>(loc, alphaAttribute);
   auto gamma = rewriter.create<arith::ConstantOp>(loc, gammaAttribute);
-  auto exp = rewriter.create<math::ExpOp>(loc, operand);
+  Value exp = createMath.exp(operand);
   auto greaterThanZero = rewriter.create<arith::CmpFOp>(
       loc, arith::CmpFPredicate::OGT, operand, zero);
-  auto select = rewriter.create<arith::SelectOp>(loc, greaterThanZero, operand,
-      rewriter.create<arith::SubFOp>(
-          loc, rewriter.create<arith::MulFOp>(loc, alpha, exp), alpha));
-  auto result = rewriter.create<arith::MulFOp>(loc, gamma, select);
-
-  return result;
+  Value select = createMath.select(greaterThanZero, operand,
+      createMath.sub(createMath.mul(alpha, exp), alpha));
+  return createMath.mul(gamma, select);
 }
 
 //===----------------------------------------------------------------------===//
@@ -434,10 +434,9 @@ Value emitScalarOpFor<ONNXReciprocalOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   // ONNXReciprocalOp(%X) = DivFOp(ConstantOp 1, %X)
   Value operand = scalarOperands[0];
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
-  auto result = rewriter.create<arith::DivFOp>(loc, one, operand);
-
-  return result;
+  MathBuilder createMath(rewriter, loc);
+  Value one = createMath.constant(elementType, 1);
+  return createMath.div(one, operand);
 }
 
 //===----------------------------------------------------------------------===//
@@ -451,8 +450,9 @@ Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
 
   auto exp = rewriter.create<math::ExpOp>(loc, operand);
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
-  auto add = rewriter.create<arith::AddFOp>(loc, exp, one);
+  MathBuilder createMath(rewriter, loc);
+  Value one = createMath.constant(elementType, 1);
+  Value add = createMath.add(exp, one);
   auto result = rewriter.create<math::LogOp>(loc, add);
 
   return result;
@@ -468,12 +468,11 @@ Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
   Value operand = scalarOperands[0];
 
-  auto abs = rewriter.create<math::AbsOp>(loc, operand);
-  auto one = emitConstantOp(rewriter, loc, elementType, 1);
-  auto add = rewriter.create<arith::AddFOp>(loc, abs, one);
-  auto result = rewriter.create<arith::DivFOp>(loc, operand, add);
-
-  return result;
+  MathBuilder createMath(rewriter, loc);
+  Value abs = createMath.abs(operand);
+  Value one = createMath.constant(elementType, 1);
+  Value add = createMath.add(abs, one);
+  return createMath.div(operand, add);
 }
 
 //===----------------------------------------------------------------------===//
@@ -484,6 +483,10 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   Value operand = scalarOperands[0];
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value one = createMath.constant(elementType, 1);
+  Value minusOne = createMath.constant(elementType, -1);
   // TODO: unsigned int should be supported separately?
   if (elementType.isa<IntegerType>()) {
     // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
@@ -492,18 +495,12 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     // ONNXSignOp(%X) = SelectOP(CmpIOp(EQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
-    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-    auto one = emitConstantOp(rewriter, loc, elementType, 1);
-    auto minusOne = emitConstantOp(rewriter, loc, elementType, -1);
     auto plusPredicate = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::sgt, operand, zero);
-    auto plusSelect =
-        rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
+    Value plusSelect = createMath.select(plusPredicate, one, minusOne);
     auto zeroPredicate = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::eq, operand, zero);
-    auto result =
-        rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
-    return result;
+    return createMath.select(zeroPredicate, zero, plusSelect);
   } else if (elementType.isa<FloatType>()) {
     // %Y = SelectOP(CmpFOp(OGT, %X, ConstantOp 0),
     //               ConstantOp 1,
@@ -511,18 +508,12 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     // ONNXSignOp(%X) = SelectOP(CmpFOp(OEQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
-    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-    auto one = emitConstantOp(rewriter, loc, elementType, 1);
-    auto minusOne = emitConstantOp(rewriter, loc, elementType, -1);
     auto plusPredicate = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OGT, operand, zero);
-    auto plusSelect =
-        rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
+    Value plusSelect = createMath.select(plusPredicate, one, minusOne);
     auto zeroPredicate = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OEQ, operand, zero);
-    auto result =
-        rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
-    return result;
+    return createMath.select(zeroPredicate, zero, plusSelect);
   } else {
     llvm_unreachable("unsupported element type");
   }
@@ -589,29 +580,6 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXAbsOp
-//===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  Value operand = scalarOperands[0];
-
-  if (elementType.isa<FloatType>()) {
-    return rewriter.create<math::AbsOp>(loc, operand);
-  } else if (elementType.isa<IntegerType>()) {
-    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-    auto lessThanZero = rewriter.create<arith::CmpIOp>(
-        loc, arith::CmpIPredicate::slt, operand, zero);
-    auto negativeOperand = rewriter.create<arith::SubIOp>(loc, zero, operand);
-    return rewriter.create<arith::SelectOp>(
-        loc, lessThanZero, negativeOperand, operand);
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
-}
-
-//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNegOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -623,8 +591,9 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
   if (elementType.isa<FloatType>()) {
     return rewriter.create<arith::NegFOp>(loc, operand);
   } else if (elementType.isa<IntegerType>()) {
-    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-    return rewriter.create<arith::SubIOp>(loc, zero, operand); // 0 - X = -X
+    MathBuilder createMath(rewriter, loc);
+    Value zero = createMath.constant(elementType, 0);
+    return createMath.sub(zero, operand); // 0 - X = -X
   } else {
     llvm_unreachable("unsupported element type");
   }
@@ -748,11 +717,12 @@ Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   Value val = scalarOperands[0];
-  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-  Value one = emitConstantOp(rewriter, loc, elementType, 1);
+  MathBuilder createMath(rewriter, loc);
+  Value zero = createMath.constant(elementType, 0);
+  Value one = createMath.constant(elementType, 1);
   Value isZero =
       rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, val, zero);
-  return rewriter.create<arith::SelectOp>(loc, isZero, one, zero);
+  return createMath.select(isZero, one, zero);
 }
 
 //===----------------------------------------------------------------------===//
@@ -790,9 +760,10 @@ struct ScalarOp<ONNXMeanOp> {
 template <>
 Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType, Value scalarResult) {
-  Value n = emitConstantOp(rewriter, loc, elementType, op->getNumOperands());
+  MathBuilder createMath(rewriter, loc);
+  Value n = createMath.constant(elementType, op->getNumOperands());
   // Input and output type are floating point, so it is safe to use DivFOp.
-  return rewriter.create<arith::DivFOp>(loc, scalarResult, n);
+  return createMath.div(scalarResult, n);
 }
 
 //===----------------------------------------------------------------------===//
@@ -823,31 +794,30 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     // }
     // return y;
     // ```
-    Value one = emitConstantOp(rewriter, loc, elementType, 1.0);
-    Value two = emitConstantOp(rewriter, loc, elementType, 2.0);
-    Value half = emitConstantOp(rewriter, loc, elementType, 0.5);
+    MathBuilder createMath(rewriter, loc);
+    Value one = createMath.constant(elementType, 1.0);
+    Value two = createMath.constant(elementType, 2.0);
+    Value half = createMath.constant(elementType, 0.5);
     Value y = rewriter.create<math::FloorOp>(loc, x);
-    Value r = rewriter.create<arith::SubFOp>(loc, x, y);
+    Value r = createMath.sub(x, y);
 
     // r > 0.5
     Value rGreaterThanHalf =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, r, half);
-    Value y1 = rewriter.create<arith::SelectOp>(
-        loc, rGreaterThanHalf, rewriter.create<arith::AddFOp>(loc, y, one), y);
+    Value y1 = createMath.select(rGreaterThanHalf, createMath.add(y, one), y);
 
     // r == 0.5: round to nearest even.
-    Value y2 = rewriter.create<arith::MulFOp>(loc, half, y);
+    Value y2 = createMath.mul(half, y);
     y2 = rewriter.create<math::FloorOp>(loc, y2);
-    y2 = rewriter.create<arith::MulFOp>(loc, y2, two);
-    Value rr = rewriter.create<arith::SubFOp>(loc, y, y2);
+    y2 = createMath.mul(y2, two);
+    Value rr = createMath.sub(y, y2);
     Value rrEqualOne =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, rr, one);
-    y2 = rewriter.create<arith::SelectOp>(
-        loc, rrEqualOne, rewriter.create<arith::AddFOp>(loc, y, one), y);
+    y2 = createMath.select(rrEqualOne, createMath.add(y, one), y);
 
     Value rEqualHalf =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, r, half);
-    return rewriter.create<arith::SelectOp>(loc, rEqualHalf, y2, y1);
+    return createMath.select(rEqualHalf, y2, y1);
   } else {
     llvm_unreachable("unsupported element type");
   }
@@ -862,8 +832,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
             typeConverter, ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ElementwiseUnaryOp>(op);
-    auto X = operands[0];
+    Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
+    Value X = operands[0];
 
     // If type is scalar or vector, there is no need to allocate a buffer. Just
     // call scalar computation and return the result. This is efficient when
@@ -875,9 +845,13 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       return success();
     }
 
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
+    // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
@@ -887,28 +861,30 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
 
-    SmallVector<Value, 4> loopIVs;
+    KrnlBuilder createKrnl(rewriter, loc);
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
-      loops.createDefineAndIterateOp(X);
-      Block *iterationBlock = loops.getIterateBlock();
-
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(memRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture bounds(X);
+      SmallVector<IndexExpr, 4> ubs;
+      bounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value loadedVal = createKrnl.load(X, loopInd);
+            auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                rewriter, loc, op, memRefType.getElementType(), {loadedVal});
+            // Store result in the resulting array.
+            createKrnl.store(loweredOpResult, alloc, loopInd);
+          });
+    } else {
+      Value loadedVal = createKrnl.load(X);
+      auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+          rewriter, loc, op, memRefType.getElementType(), {loadedVal});
+      // Store result in the resulting array.
+      createKrnl.store(loweredOpResult, alloc);
     }
-
-    KrnlBuilder createKrnl(rewriter, loc);
-    Value loadedVal = createKrnl.load(X, loopIVs);
-    auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-        rewriter, loc, op, memRefType.getElementType(), {loadedVal});
-    // Store result in the resulting array.
-    createKrnl.store(loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -932,64 +908,79 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                ElementwiseBinaryOp::getOperationName()),
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseBinaryOp::getOperationName()),
         op->getLoc());
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputElementType = outputMemRefType.getElementType();
-    auto outputRank = outputMemRefType.getRank();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type outputElementType = outputMemRefType.getElementType();
+    uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
         isUniBroadcasting);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     // Scope for krnl ops
     IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
-    // Emit main computation.
-    SmallVector<IndexExpr, 4> outputAccessExprs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
-      loops.createDefineAndIterateOp(alloc);
-      Block *iterationBlock = loops.getIterateBlock();
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(DimIndexExpr(arg));
+      ValueRange loopDef = createKrnl.defineLoops(outputRank);
+      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            SmallVector<IndexExpr, 4> outputAccessExprs;
+            for (uint64_t i = 0; i < outputRank; ++i)
+              outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
+
+            // Load the first value.
+            SmallVector<IndexExpr, 4> lhsAccessExprs;
+            LogicalResult res = shapeHelper.GetAccessExprs(
+                operands[0], 0, outputAccessExprs, lhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
+
+            // Load the second value.
+            SmallVector<IndexExpr, 4> rhsAccessExprs;
+            res = shapeHelper.GetAccessExprs(
+                operands[1], 1, outputAccessExprs, rhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
+
+            // Apply the element-wise function.
+            Value result = emitScalarOpFor<ElementwiseBinaryOp>(
+                rewriter, loc, op, outputElementType, {lhs, rhs});
+
+            // Store result in the resulting array.
+            createKrnl.store(result, alloc, loopInd);
+          });
+    } else {
+      Value lhs = createKrnl.load(operands[0]);
+      Value rhs = createKrnl.load(operands[1]);
+
+      // Apply the element-wise function.
+      Value result = emitScalarOpFor<ElementwiseBinaryOp>(
+          rewriter, loc, op, outputElementType, {lhs, rhs});
+
+      // Store result in the resulting array.
+      createKrnl.store(result, alloc);
     }
-
-    // Load the first value.
-    SmallVector<IndexExpr, 4> lhsAccessExprs;
-    LogicalResult res = shapeHelper.GetAccessExprs(
-        operands[0], 0, outputAccessExprs, lhsAccessExprs);
-    assert(succeeded(res));
-    Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
-
-    // Load the second value.
-    SmallVector<IndexExpr, 4> rhsAccessExprs;
-    res = shapeHelper.GetAccessExprs(
-        operands[1], 1, outputAccessExprs, rhsAccessExprs);
-    assert(succeeded(res));
-    Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
-
-    // Apply the element-wise function.
-    Value result = emitScalarOpFor<ElementwiseBinaryOp>(
-        rewriter, loc, op, outputElementType, {lhs, rhs});
-
-    // Store result in the resulting array.
-    createKrnl.storeIE(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1007,73 +998,94 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             typeConverter, ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                ElementwiseVariadicOp::getOperationName()),
+    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                    ElementwiseVariadicOp::getOperationName()),
         op->getLoc());
-    auto numArgs = op->getNumOperands();
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputElementType = outputMemRefType.getElementType();
-    auto outputRank = outputMemRefType.getRank();
+    unsigned numArgs = op->getNumOperands();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type outputElementType = outputMemRefType.getElementType();
+    uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
 
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
     DimsExpr empty;
     LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
-    // Emit main computation.
-    SmallVector<IndexExpr, 4> outputAccessExprs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
-      loops.createDefineAndIterateOp(alloc);
+      ValueRange loopDef = createKrnl.defineLoops(outputRank);
+      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            SmallVector<IndexExpr, 4> outputAccessExprs;
+            for (uint64_t i = 0; i < outputRank; ++i)
+              outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
-      Block *iterationBlock = loops.getIterateBlock();
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(DimIndexExpr(arg));
+            // Fold over operands for each of their scalar values.
+            // Obtain the first operand.
+            SmallVector<IndexExpr, 4> oprdAccessExprs;
+            LogicalResult res = shapeHelper.GetAccessExprs(
+                operands[0], 0, outputAccessExprs, oprdAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
+
+            // Iterate over the remaining operands.
+            for (unsigned i = 1; i < numArgs; i++) {
+              // Obtain the next operand.
+              SmallVector<IndexExpr, 4> oprdAccessExprs;
+              LogicalResult res = shapeHelper.GetAccessExprs(
+                  operands[i], i, outputAccessExprs, oprdAccessExprs);
+              assert(succeeded(res) && "Could not compute access indices");
+              Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
+              // Fold.
+              accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
+                  rewriter, loc, op, outputElementType, {accumulated, next});
+            }
+
+            Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
+                rewriter, loc, op, outputElementType, accumulated);
+
+            // Store result in the resulting array.
+            createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
+          });
+    } else {
+      Value accumulated = createKrnl.load(operands[0]);
+
+      // Iterate over the remaining operands.
+      for (unsigned i = 1; i < numArgs; i++) {
+        // Obtain the next operand.
+        Value next = createKrnl.load(operands[i]);
+        // Fold.
+        accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
+            rewriter, loc, op, outputElementType, {accumulated, next});
+      }
+
+      Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
+          rewriter, loc, op, outputElementType, accumulated);
+
+      // Store result in the resulting array.
+      createKrnl.store(finalResult, alloc);
     }
-
-    // Fold over operands for each of their scalar values.
-    // Obtain the first operand.
-    SmallVector<IndexExpr, 4> oprdAccessExprs;
-    LogicalResult res = shapeHelper.GetAccessExprs(
-        operands[0], 0, outputAccessExprs, oprdAccessExprs);
-    assert(succeeded(res));
-    Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
-
-    // Iterate over the remaining operands.
-    for (unsigned i = 1; i < numArgs; i++) {
-      // Obtain the next operand.
-      SmallVector<IndexExpr, 4> oprdAccessExprs;
-      LogicalResult res = shapeHelper.GetAccessExprs(
-          operands[i], i, outputAccessExprs, oprdAccessExprs);
-      assert(succeeded(res));
-      Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
-      // Fold.
-      accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
-          rewriter, loc, op, outputElementType, {accumulated, next});
-    }
-
-    Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
-        rewriter, loc, op, outputElementType, accumulated);
-
-    // Store result in the resulting array.
-    createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1091,68 +1103,92 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = NameLoc::get(
+    Location loc = NameLoc::get(
         StringAttr::get(op->getContext(), ONNXWhereOp::getOperationName()),
         op->getLoc());
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputRank = outputMemRefType.getRank();
 
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    uint64_t outputRank = outputMemRefType.getRank();
+
+    ONNXWhereOpAdaptor operandAdaptor(operands);
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     // Scope for krnl ops
     IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
-    // Emit main computation.
-    SmallVector<IndexExpr, 4> outputAccessExprs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
-      loops.createDefineAndIterateOp(alloc);
-      Block *iterationBlock = loops.getIterateBlock();
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(DimIndexExpr(arg));
+      ValueRange loopDef = createKrnl.defineLoops(outputRank);
+      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            SmallVector<IndexExpr, 4> outputAccessExprs;
+            for (uint64_t i = 0; i < outputRank; ++i)
+              outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
+
+            // Load the condition value.
+            SmallVector<IndexExpr, 4> condAccessExprs;
+            LogicalResult res =
+                shapeHelper.GetAccessExprs(operandAdaptor.condition(), 0,
+                    outputAccessExprs, condAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value cond =
+                createKrnl.loadIE(operandAdaptor.condition(), condAccessExprs);
+
+            // Load the first value.
+            SmallVector<IndexExpr, 4> lhsAccessExprs;
+            res = shapeHelper.GetAccessExprs(
+                operandAdaptor.X(), 1, outputAccessExprs, lhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value lhs = createKrnl.loadIE(operandAdaptor.X(), lhsAccessExprs);
+
+            // Load the second value.
+            SmallVector<IndexExpr, 4> rhsAccessExprs;
+            res = shapeHelper.GetAccessExprs(
+                operandAdaptor.Y(), 2, outputAccessExprs, rhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value rhs = createKrnl.loadIE(operandAdaptor.Y(), rhsAccessExprs);
+
+            // Return lhs if cond is true else rhs.
+            Value result =
+                rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+
+            // Store result in the resulting array.
+            createKrnl.storeIE(result, alloc, outputAccessExprs);
+          });
+    } else {
+      // Load the condition value.
+      Value cond = createKrnl.load(operandAdaptor.condition());
+
+      // Load the first value.
+      Value lhs = createKrnl.load(operandAdaptor.X());
+
+      // Load the second value.
+      Value rhs = createKrnl.load(operandAdaptor.Y());
+
+      // Return lhs if cond is true else rhs.
+      Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+
+      // Store result in the resulting array.
+      createKrnl.store(result, alloc);
     }
-
-    // Load the condition value.
-    SmallVector<IndexExpr, 4> condAccessExprs;
-    LogicalResult res = shapeHelper.GetAccessExprs(
-        operands[0], 0, outputAccessExprs, condAccessExprs);
-    assert(succeeded(res));
-    Value cond = createKrnl.loadIE(operands[0], condAccessExprs);
-
-    // Load the first value.
-    SmallVector<IndexExpr, 4> lhsAccessExprs;
-    res = shapeHelper.GetAccessExprs(
-        operands[1], 1, outputAccessExprs, lhsAccessExprs);
-    assert(succeeded(res));
-    Value lhs = createKrnl.loadIE(operands[1], lhsAccessExprs);
-
-    // Load the second value.
-    SmallVector<IndexExpr, 4> rhsAccessExprs;
-    res = shapeHelper.GetAccessExprs(
-        operands[2], 2, outputAccessExprs, rhsAccessExprs);
-    assert(succeeded(res));
-    Value rhs = createKrnl.loadIE(operands[2], rhsAccessExprs);
-
-    // Return lhs if cond is true else rhs.
-    Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
-
-    // Store result in the resulting array.
-    createKrnl.storeIE(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1184,6 +1220,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXIsNaNOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,
@@ -1216,3 +1253,5 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       typeConverter, ctx, /*isUniBroadcasting=*/true);
 }
+
+} // namespace onnx_mlir

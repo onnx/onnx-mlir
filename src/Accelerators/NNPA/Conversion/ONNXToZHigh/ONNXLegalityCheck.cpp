@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
@@ -40,8 +41,10 @@ bool isValidElementType(Value val) {
 /// detect whether the shapes are exactly the same or not. Hence, return false.
 /// Also, check the ranks of two tensors, they must be in range of (0, 4].
 bool haveSameStaticShape(Value value1, Value value2) {
-  auto valueType1 = value1.getType().cast<ShapedType>();
-  auto valueType2 = value2.getType().cast<ShapedType>();
+  ShapedType valueType1 = value1.getType().cast<ShapedType>();
+  ShapedType valueType2 = value2.getType().cast<ShapedType>();
+  if (!valueType1.hasRank() || !valueType2.hasRank())
+    return false;
   // Different rank, return false.
   if (valueType1.getRank() != valueType2.getRank())
     return false;
@@ -188,20 +191,20 @@ StringRef getStrPaddingType(OP op) {
         return StringRef();
 
       // Compute pad values according to zDNN.
-      LiteralIndexExpr zero(0);
-      LiteralIndexExpr two(2);
+      LiteralIndexExpr zeroIE(0);
+      LiteralIndexExpr twoIE(2);
       IndexExpr padH =
           (ho - 1) * shapeHelper.strides[0] + shapeHelper.kernelShape[0] - hi;
       IndexExpr padW =
           (wo - 1) * shapeHelper.strides[1] + shapeHelper.kernelShape[1] - wi;
-      IndexExpr pH = IndexExpr::max(padH, zero);
-      IndexExpr pW = IndexExpr::max(padW, zero);
+      IndexExpr pH = IndexExpr::max(padH, zeroIE);
+      IndexExpr pW = IndexExpr::max(padW, zeroIE);
       if (!pH.isLiteral() || !pW.isLiteral())
         return StringRef();
 
-      IndexExpr pHTop = pH.floorDiv(two);
+      IndexExpr pHTop = pH.floorDiv(twoIE);
       IndexExpr pHBottom = pH - pHTop;
-      IndexExpr pWLeft = pW.floorDiv(two);
+      IndexExpr pWLeft = pW.floorDiv(twoIE);
       IndexExpr pWRight = pW - pWLeft;
 
       // Compare ONNX pads and zDNN pads.
@@ -359,8 +362,9 @@ template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return ((op.axis() == 1 || op.axis() == -1) &&
-          (op.input().getType().cast<ShapedType>().getRank() == 2));
+  ShapedType inputType = op.getType().cast<ShapedType>();
+  return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
+         (inputType.getRank() == 2);
 }
 
 /// Check legality for ONNXRelu.
@@ -368,7 +372,8 @@ template <>
 bool isSuitableForZDNN<ONNXReluOp>(ONNXReluOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  return (op.X().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType xType = op.X().getType().cast<ShapedType>();
+  return xType.hasRank() && (xType.getRank() <= 4);
 }
 
 /// Check legality for ONNXTanh.
@@ -376,7 +381,8 @@ template <>
 bool isSuitableForZDNN<ONNXTanhOp>(ONNXTanhOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXSigmoid.
@@ -384,7 +390,8 @@ template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(ONNXSigmoidOp op) {
   if (!isValidElementType(op.X()))
     return false;
-  return (op.X().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType xType = op.X().getType().cast<ShapedType>();
+  return xType.hasRank() && (xType.getRank() <= 4);
 }
 
 /// Check legality for ONNXLog.
@@ -392,7 +399,8 @@ template <>
 bool isSuitableForZDNN<ONNXLogOp>(ONNXLogOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXExp.
@@ -400,7 +408,8 @@ template <>
 bool isSuitableForZDNN<ONNXExpOp>(ONNXExpOp op) {
   if (!isValidElementType(op.input()))
     return false;
-  return (op.input().getType().cast<ShapedType>().getRank() <= 4);
+  ShapedType inputType = op.input().getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
 }
 
 /// Check legality for ONNXMatMul.
@@ -484,13 +493,9 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   if (!aType.getElementType().isF32() || !bType.getElementType().isF32() ||
       (hasC && !cType.getElementType().isF32()))
     return false;
-  // A and B's rank must be 2 and C's rank must be 1.
+  // A and B's rank must be 2 and C's rank must be 1 or 2.
   if ((aShape.size() != 2) || (bShape.size() != 2) ||
-      (hasC && (cShape.size() != 1)))
-    return false;
-  // Shape must be static.
-  if (!aType.hasStaticShape() || !bType.hasStaticShape() ||
-      (hasC && !cType.hasStaticShape()))
+      (hasC && (cShape.size() != 1) && (cShape.size() != 2)))
     return false;
 
   ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
@@ -499,10 +504,15 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
     return false;
   }
   auto bShape1 = gemmOp.transB() ? bShape[0] : bShape[1];
-  // Only support B's second dim is the same with C's dim
+  // If C's rank is 1: Only support B's second dim is the same with C's dim
   // (A(m, n) * B(n, p) + C(p))
-  if (hasC && (cShape[0] != bShape1))
-    return false;
+  if (hasC && cShape.size() == 1) {
+    // Cannot check broadcasting at compile time.
+    if (cShape[0] == -1)
+      return false;
+    if (cShape[0] != bShape1)
+      return false;
+  }
   return true;
 }
 
@@ -543,10 +553,15 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
+
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
 
   // Check data type.
   if (!isValidElementType(W))
@@ -558,15 +573,14 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
-  // Check if R has static dimensions.
-  if (!R.getType().cast<ShapedType>().hasStaticShape())
+  // Check if R has static dimensions, and the direction dim is 1 or 2.
+  ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
+  if (!R.getType().cast<ShapedType>().hasStaticShape() ||
+      (rShape[0] != 1 && rShape[0] != 2))
     return false;
   // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
@@ -577,6 +591,12 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // check if B, initial_h and initial_c have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
   if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
@@ -597,7 +617,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // other inputs.
   if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
     return false;
-  // zDNN does not support input_forgaet.
+  // zDNN does not support input_forget.
   if (op.input_forget() != 0)
     return false;
   return true;
@@ -607,10 +627,15 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
+
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
 
   // Check data type.
   if (!isValidElementType(W))
@@ -622,12 +647,9 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
@@ -641,6 +663,12 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   // check if B and initial_h have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support activation_alpha and activation_beta.
   if (op.activation_alpha() || op.activation_beta())
     return false;
@@ -680,13 +708,16 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
          "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
 
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.o_Y()))
+    return false;
+
   // dilations not supported. Only default one is accepted.
   if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
     return false;
 
-  return checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-      op, op.o_Y());
+  return true;
 }
 
 /// Check legality for ONNXAveragePool.
@@ -732,8 +763,8 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
       if (outputDim != ceil((float)inputDim / stride))
         return false;
     } else { // VALID_PADDING
-      // inputDim must be > kernelDim.
-      if (inputDim <= kernelDim)
+      // inputDim must be >= kernelDim.
+      if (inputDim < kernelDim)
         return false;
       // height_out restriction.
       if (outputDim != ceil((float)(inputDim - kernelDim + 1) / stride))

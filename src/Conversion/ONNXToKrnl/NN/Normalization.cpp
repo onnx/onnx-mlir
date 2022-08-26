@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXBatchNormalizationInferenceModeOpLowering
     : public ConversionPattern {
   ONNXBatchNormalizationInferenceModeOpLowering(
@@ -33,7 +35,12 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+
     Value epsilon = create.math.constant(memRefType.getElementType(),
         cast<ONNXBatchNormalizationInferenceModeOp>(op)
             .epsilon()
@@ -71,7 +78,8 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
-      KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
+      // TODO use new KrnlDialectBuilder.
+      krnl::KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       KrnlIterateOp cIterateOp = create.krnl.iterate(cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
@@ -95,7 +103,8 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     for (size_t i = 0; i < axes.size(); ++i)
       packLoops.emplace_back(originalLoops[axes[i]]);
 
-    KrnlIterateOperandPack pack(rewriter, packLoops);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack pack(rewriter, packLoops);
     for (size_t i = 0; i < axes.size(); ++i)
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
 
@@ -148,7 +157,11 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
     Value epsilon = create.math.constant(elementType,
         cast<ONNXInstanceNormalizationOp>(op).epsilon().convertToDouble());
@@ -174,6 +187,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
     MemRefType tmpType = MemRefType::get({}, elementType);
     Value fZero = create.math.constant(elementType, 0);
+    Value tmpMemRef = create.mem.alloca(tmpType);
 
     // Compute the number of values in a single channel: product of spatial
     // dimensions, converted to float.
@@ -205,7 +219,6 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
           // values.
-          Value tmpMemRef = create.mem.alloca(tmpType);
           create.krnl.store(fZero, tmpMemRef, {});
           // Iterate over kernel and add values.
           ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
@@ -286,3 +299,5 @@ void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

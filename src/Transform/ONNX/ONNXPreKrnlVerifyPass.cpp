@@ -15,7 +15,7 @@
 
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
@@ -26,7 +26,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -37,10 +36,12 @@ namespace {
  * The current condition is that all input tensors have to be ranked
  */
 
-class ONNXPreKrnlVerifyPass
-    : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, OperationPass<FuncOp>> {
+class ONNXPreKrnlVerifyPass : public mlir::PassWrapper<ONNXPreKrnlVerifyPass,
+                                  OperationPass<func::FuncOp>> {
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXPreKrnlVerifyPass)
+
   StringRef getArgument() const override { return "onnx-pre-krnl-verify"; }
 
   StringRef getDescription() const override { return "Verify onnx ops."; }
@@ -61,8 +62,13 @@ public:
 private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
-      if (!ty.isa<RankedTensorType>() && !ty.isa<SeqType>() &&
-          !ty.isa<NoneType>()) {
+      if (ty.isa<SeqType>()) {
+        auto seqTy = ty.cast<SeqType>();
+        if (!seqTy.getElementType().isa<RankedTensorType>()) {
+          op.emitError("SeqType with unranked Sequence Element");
+          return failure();
+        }
+      } else if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
         op.emitError("not ranked");
         return failure();
       }

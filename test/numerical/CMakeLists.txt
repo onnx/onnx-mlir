@@ -29,29 +29,13 @@ function(add_numerical_unittest test_name)
     set_property(TARGET ${test_name} PROPERTY FOLDER "${test_suite_folder}")
   endif ()
 
-  # Force -O3 when invoking the numerical tests, so that the models in the test
-  # are compiled with -O3. TODO: make that a runtime env variable.
-  add_test(NAME ${test_name} COMMAND ${test_name} -O3 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
+  add_test(NAME ${test_name}
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
-
-  if (WIN32)
-    # On Windows, we need a .def file to specify the export functions from a DLL.
-    # The name of the .def file must match the name of the DLL being created, so
-    # we follow the same naming convention as the tests (e.g. TestConv_main_graph)
-    # (see SHARED_LIB_BASE in each of the test files).
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/numerical.def
-      ${CMAKE_CURRENT_BINARY_DIR}/${test_name}_main_graph.def
-      COPYONLY
-      )
-  endif()
 endfunction()
-
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
@@ -64,6 +48,11 @@ add_numerical_unittest(TestConv
 
 add_numerical_unittest(TestMatMul2D
   TestMatMul2D.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+  add_numerical_unittest(TestMatMulBroadcast
+  TestMatMulBroadcast.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
@@ -89,5 +78,10 @@ add_numerical_unittest(TestGRU
 
 add_numerical_unittest(TestLoop
   TestLoop.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_unittest(TestScan
+  TestScan.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )

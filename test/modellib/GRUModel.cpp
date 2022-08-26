@@ -17,17 +17,18 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 /// Sigmoid
 static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
-GRULibBuilder::GRULibBuilder(const string &modelName, const int direction,
+GRULibBuilder::GRULibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H,
     const int linearBeforeReset, const bool isDynamicS, const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
@@ -69,7 +70,7 @@ bool GRULibBuilder::build() {
   SmallVector<Type, 2> inputsType{xType, hType};
   SmallVector<Type, 2> outputsType{yType, yHType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
@@ -87,9 +88,9 @@ bool GRULibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
-  auto linearBeforeResetAttr =
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, linearBeforeReset, /*isSigned=*/true));
+
+  int64_t linearBeforeResetArg = linearBeforeReset;
+  int64_t layout = 0 /*layout=1 is not supported*/;
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
@@ -105,29 +106,39 @@ bool GRULibBuilder::build() {
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*linear_before_reset=*/linearBeforeResetAttr);
+      /*layout=*/layout, /*linear_before_reset=*/linearBeforeResetArg);
 
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(loc, gruOp.getResults());
+  builder.create<func::ReturnOp>(loc, gruOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
   return true;
 }
 
-bool GRULibBuilder::prepareInputs() {
-  const int num = 2;
+bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
-  list[1] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(hShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool GRULibBuilder::prepareInputs() {
+  return GRULibBuilder::prepareInputs(0.0, 1.0);
+}
+
+bool GRULibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool GRULibBuilder::verifyOutputs() {
@@ -285,10 +296,11 @@ bool GRULibBuilder::verifyOutputs() {
   omTensorDestroy(rt);
   omTensorDestroy(zt);
 
-  if (!areCloseFloat(gruY, refY))
-    return false;
-  if (!areCloseFloat(gruYh, refYh))
-    return false;
-
-  return true;
+  bool ok = areCloseFloat(gruY, refY) && areCloseFloat(gruYh, refYh);
+  omTensorDestroy(refY);
+  omTensorDestroy(refYh);
+  return ok;
 }
+
+} // namespace test
+} // namespace onnx_mlir

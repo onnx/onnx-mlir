@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -47,10 +47,10 @@ public:
     auto loc = op.getLoc();
     auto constOp = llvm::dyn_cast<ONNXConstantOp>(&op);
 
-    if (constOp->sparse_value().hasValue())
+    if (constOp->sparse_value().has_value())
       return emitError(loc, "Only support dense values at this time");
 
-    if (constOp->value().hasValue()) {
+    if (constOp->value().has_value()) {
       auto newConstOp = rewriter.create<ONNXConstantOp>(loc,
           constOp->getResult().getType(), nullptr, nullptr, nullptr, nullptr,
           nullptr, nullptr, nullptr, nullptr);
@@ -64,8 +64,10 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public PassWrapper<ElideConstantValuePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ElideConstantValuePass, OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElideConstantValuePass)
+
   StringRef getArgument() const override { return "elide-constants"; }
 
   StringRef getDescription() const override {

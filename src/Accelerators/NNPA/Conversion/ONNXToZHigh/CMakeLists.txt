@@ -1,6 +1,4 @@
-set(LLVM_TARGET_DEFINITIONS ONNXToZHigh.td)
-mlir_tablegen(ONNXToZHigh.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
-add_public_tablegen_target(OMONNXToZHighIncGen)
+add_onnx_mlir_rewriter(ONNXToZHigh)
 
 add_onnx_mlir_library(OMONNXToZHigh
   ONNXLegalityCheck.cpp
@@ -8,16 +6,18 @@ add_onnx_mlir_library(OMONNXToZHigh
   ONNXToZHighCommon.cpp
 
   DEPENDS
-  OMONNXToZHighIncGen
+  OMONNXONNXToZHighIncGen
+  libzdnn
 
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
 
-set(LLVM_TARGET_DEFINITIONS RewriteONNXForZHigh.td)
-mlir_tablegen(RewriteONNXForZHigh.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
-add_public_tablegen_target(OMRewriteONNXForZHighIncGen)
+add_onnx_mlir_rewriter(RewriteONNXForZHigh)
 
 add_onnx_mlir_library(OMRewriteONNXForZHigh
   ONNXLegalityCheck.cpp
@@ -25,9 +25,13 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   ONNXToZHighCommon.cpp
 
   DEPENDS
-  OMRewriteONNXForZHighIncGen
+  OMONNXRewriteONNXForZHighIncGen
+  libzdnn
   
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )

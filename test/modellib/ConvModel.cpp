@@ -18,12 +18,13 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/OMTensorHelper.h"
+#include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
 static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
@@ -37,8 +38,8 @@ Conv2DLibBuilder::Conv2DLibBuilder(const std::string &modelName, const int N,
       autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd), pWBegin(pWBegin),
       pWEnd(pWEnd), stride(stride), dilation(dilation), isDynamic(isDynamic) {}
 
-const string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
-  static const string autoPadName[] = {
+const std::string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
+  static const std::string autoPadName[] = {
       "NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
   return autoPadName[autoPad];
 }
@@ -72,7 +73,7 @@ bool Conv2DLibBuilder::build() {
   llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
   auto xVal = entryBlock.getArgument(0);
@@ -111,32 +112,45 @@ bool Conv2DLibBuilder::build() {
   convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(loc, results);
+  builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
   return true;
 }
 
-bool Conv2DLibBuilder::prepareInputs() {
-  const int num = 2;
+bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
+  constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] = omTensorCreateWithRandomData<float>({N, C, H, W});
-  list[1] = omTensorCreateWithRandomData<float>({C, C, kH, kW});
+  list[0] = omTensorCreateWithRandomData<float>(
+      {N, C, H, W}, dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData<float>(
+      {C, C, kH, kW}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool Conv2DLibBuilder::prepareInputs() {
+  return Conv2DLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
+}
+
+bool Conv2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
   // Check first params.
   if (N != NOut) {
-    cerr << "N mismatch: in " << N << ", out " << NOut << endl;
+    std::cerr << "N mismatch: in " << N << ", out " << NOut << std::endl;
     return false;
   }
   if (C != COut) {
-    cerr << "C mismatch: in " << C << ", out " << COut << endl;
+    std::cerr << "C mismatch: in " << C << ", out " << COut << std::endl;
     return false;
   }
 
@@ -183,8 +197,8 @@ bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
       }
     }
     if (myO[i] != O[i]) {
-      cerr << "output sizes mismatch: computed " << myO[i] << ", got " << O[i]
-           << endl;
+      std::cerr << "output sizes mismatch: computed " << myO[i] << ", got "
+                << O[i] << std::endl;
       return false;
     }
   }
@@ -227,5 +241,10 @@ bool Conv2DLibBuilder::verifyOutputs() {
                                    w * stride + kw * dilation - pWBegin}) *
                       omTensorGetElem<float>(filter, {c, ci, kh, kw});
         }
-  return areCloseFloat(res, ref);
+  bool ok = areCloseFloat(res, ref);
+  omTensorDestroy(ref);
+  return ok;
 }
+
+} // namespace test
+} // namespace onnx_mlir

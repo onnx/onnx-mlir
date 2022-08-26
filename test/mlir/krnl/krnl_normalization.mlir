@@ -4,7 +4,7 @@
 
 // CHECK-LABEL: test_krnl_memcpy_norm
 // CHECK-SAME: -> memref<1x16x1x1x32x32xf32> {
-func @test_krnl_memcpy_norm(%arg0: memref<1x16384xf32>) -> memref<1x16x4x4xf32, #map_tile> {
+func.func @test_krnl_memcpy_norm(%arg0: memref<1x16384xf32>) -> memref<1x16x4x4xf32, #map_tile> {
   %0 = memref.alloc() : memref<1x16x4x4xf32, #map_tile>
   // CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<1x16x1x1x32x32xf32>
   %c16384 = arith.constant 16384 : i64
@@ -16,7 +16,7 @@ func @test_krnl_memcpy_norm(%arg0: memref<1x16384xf32>) -> memref<1x16x4x4xf32, 
 }
 
 // CHECK-LABEL: test_getref_norm
-func @test_getref_norm() ->  () {
+func.func @test_getref_norm() ->  () {
   %c0_i64 = arith.constant 0 : i64
   %0 = memref.alloc() : memref<1x81920xf32>
   %1 = memref.alloc() : memref<1x16x4x4xf32, #map_tile>

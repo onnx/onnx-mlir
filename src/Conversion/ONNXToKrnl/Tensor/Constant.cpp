@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXConstantOpLowering : public ConversionPattern {
   ONNXConstantOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -26,21 +28,19 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     Location loc = ONNXLoc<ONNXConstantOp>(op);
     auto constantOp = cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().hasValue())
+    if (constantOp.sparse_value().has_value())
       return emitError(loc, "Only support dense values at this time");
 
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
-
-    // Shape based computations.
-    auto shape = memRefType.getShape();
-    int64_t numElements = 1;
-    for (size_t i = 0; i < shape.size(); ++i)
-      numElements *= shape[i];
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     Value constantGlobal = create.krnl.constant(
-        memRefType, "constant_", constantOp.value().getValue());
+        memRefType, "constant_", constantOp.value().value());
 
     // Replace this operation with the generated krnl.global.
     rewriter.replaceOp(op, constantGlobal);
@@ -53,3 +53,5 @@ void populateLoweringONNXConstantOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

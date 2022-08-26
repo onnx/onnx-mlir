@@ -17,22 +17,15 @@
 #include <iostream>
 #include <set>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Interfaces/CallInterfaces.h"
-#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -42,12 +35,9 @@ using namespace mlir;
 
 namespace {
 
-/*!
- * This pass insert KrnlInstrumentOp before and after each ONNX ops
- */
-
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                  OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXOpTransformPass)
 
   StringRef getArgument() const override { return "onnx-op-transform"; }
 
@@ -59,25 +49,30 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::desc("max iteration for op transform passes."),
       llvm::cl::init(3)};
 
+  Option<bool> onnxOpTransformReport{*this, "onnx-op-transform-report",
+      llvm::cl::desc("Report diagnostic info for op transform passes."),
+      llvm::cl::init(false)};
+
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold_) {
-    this->onnxOpTransformThreshold = threshold_;
+  ONNXOpTransformPass(int threshold, bool report) {
+    this->onnxOpTransformThreshold = threshold;
+    this->onnxOpTransformReport = report;
   }
 
   void runOnOperation() final;
 
 private:
-  void outputCode(mlir::ModuleOp module, std::string filename) {
+  LogicalResult outputCode(mlir::ModuleOp module, std::string filename) {
     mlir::OpPrintingFlags flags;
 
     std::string errorMessage;
     auto output = mlir::openOutputFile(filename, &errorMessage);
     if (!output) {
       llvm::errs() << errorMessage << "\n";
-      exit(1);
+      return failure();
     }
 
     module->print(output->os(), flags);
@@ -86,6 +81,7 @@ private:
     // Code may be needed with flag control for debugging in future
     // if (printIR)
     // module->print(llvm::outs(), flags);
+    return success();
   }
 
   uint64_t hashFile(std::string filename) {
@@ -102,39 +98,52 @@ private:
     return Result.low();
   }
 
-  uint64_t createTagForIR(mlir::ModuleOp module) {
-    char tempFile[64];
-#ifdef _WIN32
-    strcpy(tempFile, "onnxtempdumpXXXXXX");
-    _mktemp(tempFile);
-#else
-    strcpy(tempFile, "/tmp/onnxtempdumpXXXXXX");
-    (void)mkstemp(tempFile);
-#endif
-    outputCode(module, tempFile);
-    uint64_t r = hashFile(tempFile);
-    remove(tempFile);
-    return r;
+  LogicalResult createTagForIR(mlir::ModuleOp module, uint64_t *tag) {
+    llvm::SmallString<64> tempFile;
+    // LLVM provides functionality for securely creating randomly named files in
+    // the appropriate tmp directory (it works on any platform). Use it here
+    // rather than directly calling OS-specific methods.
+    if (auto ec =
+            llvm::sys::fs::createTemporaryFile("onnxtempdump", "", tempFile)) {
+      llvm::errs() << ec.message() << "\n";
+      return failure();
+    }
+
+    // This will remove the file when it goes out of scope.
+    llvm::FileRemover tempFileRemover(tempFile);
+
+    if (failed(outputCode(module, std::string(tempFile))))
+      return failure();
+
+    *tag = hashFile(std::string(tempFile));
+    return success();
   }
 };
 
 void ONNXOpTransformPass::runOnOperation() {
   auto module = getOperation();
 
-  uint64_t currentTag = createTagForIR(module);
+  uint64_t currentTag;
   uint64_t previousTag;
+
+  if (failed(createTagForIR(module, &currentTag)))
+    return signalPassFailure();
 
   int n = onnxOpTransformThreshold;
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createDecomposeONNXToONNXPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
-    currentTag = createTagForIR(module);
+    if (failed(createTagForIR(module, &currentTag)))
+      return signalPassFailure();
   } while (currentTag != previousTag && --n > 0);
   if (currentTag != previousTag) {
     module->emitWarning()
@@ -159,6 +168,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold) {
-  return std::make_unique<ONNXOpTransformPass>(threshold);
+    int threshold, bool report) {
+  return std::make_unique<ONNXOpTransformPass>(threshold, report);
 }

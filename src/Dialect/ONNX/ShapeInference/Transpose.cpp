@@ -11,16 +11,9 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+using namespace mlir;
 
-ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+namespace onnx_mlir {
 
 LogicalResult ONNXTransposeOpShapeHelper::computeShape(
     ONNXTransposeOpAdaptor operandAdaptor) {
@@ -52,6 +45,8 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape(
   }
 
   // Set type for the first output.
-  dimsForOutput(0) = transposedDims;
+  dimsForOutput() = transposedDims;
   return success();
 }
+
+} // namespace onnx_mlir

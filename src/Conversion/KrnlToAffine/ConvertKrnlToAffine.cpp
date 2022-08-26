@@ -13,15 +13,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
-#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -210,11 +210,11 @@ public:
 
     for (const Movable &transferPt : opsToTransfer) {
       assert(insertPt != loopBody.end() && "Expecting insertPt in the loop");
-      assert(transferPt.loopsToSkip.hasValue() !=
-                 transferPt.movableOp.hasValue() &&
+      assert(transferPt.loopsToSkip.has_value() !=
+                 transferPt.movableOp.has_value() &&
              "Expecting non-equal values");
-      if (transferPt.movableOp.hasValue()) {
-        KrnlMovableOp movableOp = transferPt.movableOp.getValue();
+      if (transferPt.movableOp.has_value()) {
+        KrnlMovableOp movableOp = transferPt.movableOp.value();
 
         loopBody.getOperations().splice(insertPt,
             movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
@@ -231,12 +231,11 @@ public:
         if (insertPt == movableOp->getIterator())
           insertPt++;
         movableOp->erase();
-      } else if (transferPt.loopsToSkip.hasValue()) {
+      } else if (transferPt.loopsToSkip.has_value()) {
         llvm::Optional<AffineForOp> loopToSkip;
-        loopToSkip =
-            transferPt.loopsToSkip.getValue().empty()
-                ? loopToSkip
-                : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
+        loopToSkip = transferPt.loopsToSkip.value().empty()
+                         ? loopToSkip
+                         : loopRefToOp[transferPt.loopsToSkip.value().front()];
 
         // Move iterator to point to the next AffineFor Op.
         while (insertPt != loopBody.end() &&
@@ -248,7 +247,7 @@ public:
 
         // Assert that now insertion point points to the loop to skip.
         if (loopToSkip)
-          assert(insertPt == loopToSkip.getValue()->getIterator());
+          assert(insertPt == loopToSkip.value()->getIterator());
 
         // Skip loop by incrementing insertion point.
         insertPt++;
@@ -394,8 +393,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   } else {
     // Transfer krnl.iterate region to innermost for op.
     AffineForOp innermostForOp = currentNestedForOps.back().second;
-    innermostForOp.region().getBlocks().clear();
-    Region &innerMostRegion = innermostForOp.region();
+    innermostForOp.getRegion().getBlocks().clear();
+    Region &innerMostRegion = innermostForOp.getRegion();
     innerMostRegion.getBlocks().splice(
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
@@ -568,6 +567,31 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   return success();
 }
 
+AffineTypeConverter::AffineTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
@@ -576,7 +600,8 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
-    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<FuncOp>> {
+    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToAffinePass);
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
 
@@ -586,8 +611,8 @@ struct ConvertKrnlToAffinePass
 };
 
 void ConvertKrnlToAffinePass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (funcOp.body().empty()) // external function: nothing to do
+  func::FuncOp funcOp = getOperation();
+  if (funcOp.getBody().empty()) // external function: nothing to do
     return;
 
   MLIRContext *ctx = &getContext();
@@ -596,19 +621,19 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
       &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
-  options.emitCWrappers = true;
+  // Request C wrapper emission via attribute.
+  funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+      UnitAttr::get(&getContext()));
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    LogicalResult res =
-        moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
-    assert(succeeded(res) && "failed to move loop invariant code");
+    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
 
   // We use the end of the function body as a staging area for movable ops.
-  builder.setInsertionPoint(
-      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
+  builder.setInsertionPoint(&funcOp.getBody().front(),
+      funcOp.getBody().front().without_terminator().end());
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
@@ -654,19 +679,17 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
-  target.addIllegalOp<KrnlMemsetOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Patterns.
   RewritePatternSet patterns(ctx);
-  LLVMTypeConverter typeConverter(ctx, options);
-  customizeTypeConverter(typeConverter);
+  AffineTypeConverter typeConverter;
 
   populateKrnlToAffineConversion(typeConverter, patterns, ctx);
 
@@ -708,7 +731,7 @@ std::unique_ptr<Pass> createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }
 
-void populateKrnlToAffineConversion(LLVMTypeConverter &typeConverter,
+void populateKrnlToAffineConversion(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   krnl::populateLoweringKrnlCopyFromBufferOpPattern(
       typeConverter, patterns, ctx);

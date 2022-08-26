@@ -16,17 +16,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
+
 namespace {
 
 // Handling of static memory pool on a block-basis in each function. For each
@@ -307,7 +310,7 @@ Operation *getOutermostLoop(Operation *op) {
   // Compute parent operation of the current block. Every block has
   // a parent operation.
   Operation *parentBlockOp = currentBlock->getParentOp();
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp)) {
     if (llvm::dyn_cast_or_null<KrnlIterateOp>(parentBlockOp))
       outermostLoop = parentBlockOp;
     parentBlockOp = parentBlockOp->getBlock()->getParentOp();
@@ -517,7 +520,7 @@ public:
 
     // TODO: relax this condition.
     // If this is not the top block fail.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // List of all GetRefs which share the slot with firstGetRef.
@@ -756,7 +759,7 @@ public:
       return failure();
 
     // If this is not the top block, fail.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // Compute size of all krnl.getref operations that use this memory pool.
@@ -781,9 +784,9 @@ public:
 
     // We need to emit a new alloc of smaller size.
     memref::AllocOp newStaticMemPool =
-        (allocOp.alignment().hasValue())
+        (allocOp.alignment().has_value())
             ? create.mem.alignedAlloc(
-                  newStaticMemPoolType, allocOp.alignment().getValue())
+                  newStaticMemPoolType, allocOp.alignment().value())
             : create.mem.alloc(newStaticMemPoolType);
 
     newStaticMemPool.getOperation()->moveBefore(allocOp);
@@ -866,11 +869,14 @@ public:
  *  Function pass that optimizes memory pools.
  */
 class KrnlOptimizeMemoryPoolsPass
-    : public PassWrapper<KrnlOptimizeMemoryPoolsPass, OperationPass<FuncOp>> {
+    : public PassWrapper<KrnlOptimizeMemoryPoolsPass,
+          OperationPass<func::FuncOp>> {
   BlockToCompactedAlignments blockToStaticPoolAlignments;
   BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlOptimizeMemoryPoolsPass)
+
   StringRef getArgument() const override { return "optimize-memory-pools"; }
 
   StringRef getDescription() const override {

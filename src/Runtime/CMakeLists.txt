@@ -2,6 +2,9 @@
 
 add_subdirectory(jni)
 
+# TODO: should add for each accelerator its subdirectory that implements InitAccel##name
+# and ShutdownAccel##name.
+
 # Create static libcruntime.a to be embedded in model.so to make model.so self contained.
 # However, by default object code for static library is not compiled with -fPIC. Embedding
 # such static library in a shared library can cause runtime failure on some architectures,
@@ -10,9 +13,13 @@ add_onnx_mlir_library(cruntime STATIC
   OMIndexLookup.c
   OMInstrument.c
   OMRandomNormal.c
+  OMResize.c
   OMTensor.c
   OMTensorList.c
   OnnxDataType.c
+
+  DEPENDS
+  AcceleratorsInc
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -29,9 +36,13 @@ add_onnx_mlir_library(OMTensorUtils
   OMIndexLookup.cpp
   OMInstrument.cpp
   OMRandomNormal.cpp
+  OMResize.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OnnxDataType.cpp
+
+  DEPENDS 
+  AcceleratorsInc
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -97,4 +108,9 @@ target_include_directories(PyRuntime
 target_link_libraries(PyRuntime
   PRIVATE
   ExecutionSession
+  )
+llvm_update_compile_flags(PyRuntime)
+
+install(TARGETS PyRuntime
+  DESTINATION lib
   )

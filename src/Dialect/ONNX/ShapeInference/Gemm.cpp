@@ -10,17 +10,22 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp)
+using namespace mlir;
+
+namespace onnx_mlir {
+
+ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
+    ONNXGemmOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXGemmOp>(
-          newOp, newOp->getOperation()->getNumResults()),
+          newOp, newOp->getOperation()->getNumResults(), inScope),
       aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
 ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXGemmOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal),
+          fLoadVal, inScope),
       aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
 LogicalResult ONNXGemmOpShapeHelper::computeShape(
@@ -102,7 +107,9 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape(
     }
   }
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  dimsForOutput() = outputDims;
 
   return success();
 }
+
+} // namespace onnx_mlir

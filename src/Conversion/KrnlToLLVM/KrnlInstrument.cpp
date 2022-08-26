@@ -15,18 +15,18 @@
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -44,22 +44,18 @@ public:
     KrnlInstrumentOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value nodeName =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.opID()));
-    Value tag =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.tag()));
+    Value nodeName = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.opID());
+    Value tag = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
 
-    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName, tag}));
+    create.llvm.call({}, instrumentRef, {nodeName, tag});
 
     rewriter.eraseOp(op);
     return success();
@@ -70,19 +66,12 @@ private:
   //   `void (i64, i64)`
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    std::string funcName("OMInstrumentPoint");
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-      return SymbolRefAttr::get(context, funcName);
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
-    return SymbolRefAttr::get(context, funcName);
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("OMInstrumentPoint"), llvmVoidTy, {llvmI64Ty, llvmI64Ty});
   }
 };
 

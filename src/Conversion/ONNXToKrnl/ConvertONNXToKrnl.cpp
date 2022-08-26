@@ -13,12 +13,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
+#include "src/Compiler/CompilerOptions.hpp"
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
@@ -28,27 +32,146 @@ class ONNXEntryPointLowering : public OpRewritePattern<ONNXEntryPointOp> {
 public:
   using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
 
+  // A type mapping used to generate a signature in JSON.
+  static std::map<std::string, std::string> typeMap;
+
   LogicalResult matchAndRewrite(
       ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(op,
-        op->getAttrOfType<SymbolRefAttr>(
-            ONNXEntryPointOp::getEntryPointFuncAttrName()),
-        op->getAttrOfType<IntegerAttr>(
-            ONNXEntryPointOp::getNumInputsAttrName()),
-        op->getAttrOfType<IntegerAttr>(
-            ONNXEntryPointOp::getNumOutputsAttrName()),
-        op->getAttrOfType<StringAttr>(
-            ONNXEntryPointOp::getSignatureAttrName()));
+    ModuleOp module = op.getOperation()->getParentOfType<ModuleOp>();
+
+    SymbolRefAttr funcRefAttr = op->getAttrOfType<SymbolRefAttr>(
+        ONNXEntryPointOp::getEntryPointFuncAttrName());
+    StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
+    Operation *entryPointOp = module.lookupSymbol(entryPointName);
+    func::FuncOp entryPointFunc = cast<func::FuncOp>(entryPointOp);
+
+    IntegerAttr numInputsAttr =
+        rewriter.getI32IntegerAttr(entryPointFunc.getArgumentTypes().size());
+    IntegerAttr numOutputsAttr =
+        rewriter.getI32IntegerAttr(entryPointFunc.getResultTypes().size());
+    std::string sig =
+        getSignature(entryPointFunc.getFunctionType(), entryPointOp);
+    StringAttr sigAtrr = rewriter.getStringAttr(sig);
+
+    rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
+        op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAtrr);
     return success();
+  }
+
+private:
+  // Construct JSON type from the argument type.
+  // for example - a 3D array of f32 would produce something like
+  //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
+  // data type list:
+  //     "i1" / "i8" / "i16" / "i32" / "i64"
+  //     "ui8" / "ui16" / "ui32" / "ui64"
+  //     "f32" / "f64"
+  void concatTypeString(
+      Type argType, Attribute attr, llvm::raw_ostream &dstream) const {
+    std::string comma = std::string("");
+
+    TypeSwitch<Type>(argType)
+        .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
+          auto et = seqTy.getElementType();
+          dstream << "   {\"seq\" : ";
+          concatTypeString(et, attr, dstream);
+        })
+        .Case<ShapedType>([&](ShapedType tensorTy) {
+          auto et = tensorTy.getElementType();
+          dstream << "   { \"type\" : ";
+          et.print(dstream);
+          dstream << " , \"dims\" : [";
+          if (tensorTy.hasRank()) {
+            int64_t rank = tensorTy.getRank();
+            for (int j = 0; j < rank; j++) {
+              dstream << comma << tensorTy.getDimSize(j);
+              comma = std::string(" , ");
+            }
+          } else {
+          }
+          dstream << "] ";
+          auto name = attr.cast<mlir::StringAttr>().getValue().str();
+          dstream << ", \"name\" : \"" << name << "\"";
+        })
+        .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
+    dstream << " }\n";
+  }
+
+  std::string getSignature(FunctionType funcType, Operation *op) const {
+    OpBuilder b(op);
+    auto inputs = funcType.getInputs();
+    auto outputs = funcType.getResults();
+
+    ArrayAttr inputNames = op->getAttrOfType<ArrayAttr>("input_names");
+    if (!inputNames) {
+      SmallVector<StringRef, 4> names;
+      for (uint64_t i = 0; i < inputs.size(); ++i)
+        names.emplace_back(StringRef("input_" + std::to_string(i)));
+      inputNames = b.getStrArrayAttr(names);
+    }
+    ArrayAttr outputNames = op->getAttrOfType<ArrayAttr>("output_names");
+    if (!outputNames) {
+      SmallVector<StringRef, 4> names;
+      for (uint64_t i = 0; i < outputs.size(); ++i)
+        names.emplace_back(StringRef("output_" + std::to_string(i)));
+      outputNames = b.getStrArrayAttr(names);
+    }
+
+    std::string dstring;
+    llvm::raw_string_ostream dstream(dstring);
+    dstream << "[ ";
+    std::string comma = std::string("");
+    for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
+      dstream << comma;
+      concatTypeString(inputs[i], inputNames[i], dstream);
+      comma = std::string(" , ");
+    }
+    dstream << "\n]";
+    dstream.flush();
+    dstring.push_back('\0'); // null terminate the input signature string
+    dstream << "@[";
+    comma = std::string("");
+    for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
+      dstream << comma;
+      concatTypeString(outputs[i], outputNames[i], dstream);
+      comma = std::string(" , ");
+    }
+    dstream << "\n]";
+    dstream.flush();
+    dstring.push_back('\0'); // null terminate the output signature string
+    for (auto const &x : typeMap) {
+      size_t start_pos = 0;
+      while (
+          (start_pos = dstring.find(x.first, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, x.first.length(), x.second);
+        start_pos += x.first.length();
+      }
+    }
+
+    return dstring;
   }
 };
 
+std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
+    {std::string(" f32 "), std::string(" \"f32\" ")},
+    {std::string(" f64 "), std::string(" \"f64\" ")},
+    {std::string(" i32 "), std::string(" \"i32\" ")},
+    {std::string(" i64 "), std::string(" \"i64\" ")},
+    {std::string(" i16 "), std::string(" \"i16\" ")},
+    {std::string(" i8 "), std::string(" \"i8\" ")},
+    {std::string(" i1 "), std::string(" \"i1\" ")},
+    {std::string(" ui32 "), std::string(" \"ui32\" ")},
+    {std::string(" ui64 "), std::string(" \"ui64\" ")},
+    {std::string(" ui16 "), std::string(" \"ui16\" ")},
+    {std::string(" ui8 "), std::string(" \"ui8\" ")}};
+
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
+    bool enableParallel) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
       patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
@@ -83,11 +206,15 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
@@ -105,8 +232,10 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   // Neural network
-  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConvOpPattern(
+      patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
@@ -128,9 +257,10 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering to Krnl loops of the ONNX operations.
-namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FrontendToKrnlLoweringPass)
 
   StringRef getArgument() const override { return "convert-onnx-to-krnl"; }
 
@@ -143,15 +273,18 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc, bool enableTiling) {
+  FrontendToKrnlLoweringPass(
+      bool emitDealloc, bool enableTiling, bool enableParallel) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
+    // this->enableParallel = enableParallel;
   }
   FrontendToKrnlLoweringPass(int optLevel)
       : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3) {}
+            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
+            /*enableParallel*/ false) {}
 
   void runOnOperation() final;
 
@@ -178,7 +311,6 @@ public:
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
 };
-} // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -192,13 +324,16 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target
-      .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
-          StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
-          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
+  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithmeticDialect,
+      func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
+      memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+  // Make ONNXNoneOp legal so that other ONNX ops can use it during the
+  // lowering. ONNXNoneOp will be dangling and removed by calling
+  // canonicalization after the lowering.
+  target.addLegalOp<::mlir::ONNXNoneOp>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
@@ -234,31 +369,39 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
   }
 
+  // Conversion target for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->conversionTargetONNXToKrnl(target);
+
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
 
   // Convert types to legal types for the Krnl dialect.
   KrnlTypeConverter krnlTypeConverter;
-  target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
-    return krnlTypeConverter.isSignatureLegal(op.getType());
+    return krnlTypeConverter.isSignatureLegal(op.getFunctionType());
   });
 
-  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
     // CallOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isLegal(op);
   });
 
   // Operations that are legal only if types are not tensors.
-  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
+  target.addDynamicallyLegalOp<mlir::func::ReturnOp>([&](Operation *op) {
     return llvm::none_of(op->getOperandTypes(),
         [](Type type) { return type.isa<TensorType>(); });
   });
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(
-      patterns, krnlTypeConverter, &getContext(), enableTiling);
+      patterns, krnlTypeConverter, &getContext(), enableTiling, enableParallel);
+
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->rewritePatternONNXToKrnl(patterns, krnlTypeConverter, &getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -268,16 +411,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass() {
+std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(int optLevel) {
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
 }
 
-std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling) {
+std::unique_ptr<Pass> createLowerToKrnlPass(
+    bool emitDealloc, bool enableTiling, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      emitDealloc, enableTiling);
+      emitDealloc, enableTiling, enableParallel);
 }
+
+} // namespace onnx_mlir

@@ -16,17 +16,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SetVector.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -48,14 +50,14 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
+ATTRIBUTE(unused) func::FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+  while (!llvm::dyn_cast_or_null<func::FuncOp>(parentFuncOp))
     parentFuncOp = parentFuncOp->getParentOp();
 
-  return cast<FuncOp>(parentFuncOp);
+  return cast<func::FuncOp>(parentFuncOp);
 }
 
 // Check if this value is an argument of one of the blocks nested
@@ -74,7 +76,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
     parentBlockOp = currentBlock->getParentOp();
     currentBlock = parentBlockOp->getBlock();
 
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
+  } while (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlockOp));
 
   return false;
 }
@@ -239,9 +241,9 @@ public:
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
 
     memref::AllocOp newStaticMemPoolAlloc =
-        (staticMemPoolAlloc.alignment().hasValue())
+        (staticMemPoolAlloc.alignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
-                  staticMemPoolAlloc.alignment().getValue())
+                  staticMemPoolAlloc.alignment().value())
             : create.mem.alloc(bundledMemPoolMemRefType);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
@@ -434,16 +436,16 @@ public:
     if (!currentAllocGetRef)
       return failure();
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
     if (isFirstBundledAllocWithThisAlignment) {
-      Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+      Value zero = create.math.constant(rewriter.getIndexType(), 0);
       zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
     }
-
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
 
     arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
@@ -459,10 +461,10 @@ public:
 
     // We need to emit a new alloc which contains the additional MemRef.
     memref::AllocOp bundledAlloc =
-        (oldDynamicMemoryPool.alignment().hasValue())
+        (oldDynamicMemoryPool.alignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
                   bundledAllocOperand.getResult(),
-                  oldDynamicMemoryPool.alignment().getValue())
+                  oldDynamicMemoryPool.alignment().value())
             : create.mem.alloc(
                   bundledMemPoolMemRefType, bundledAllocOperand.getResult());
 
@@ -503,7 +505,7 @@ public:
     auto parentBlock = constOp.getOperation()->getBlock();
 
     // Ensure it's the top block.
-    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+    if (!llvm::dyn_cast_or_null<func::FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // Move instruction to the top.
@@ -516,13 +518,15 @@ public:
  *  Function pass that enables memory pooling for MemRefs.
  */
 
-class KrnlBundleMemoryPoolsPass
-    : public PassWrapper<KrnlBundleMemoryPoolsPass, OperationPass<FuncOp>> {
+class KrnlBundleMemoryPoolsPass : public PassWrapper<KrnlBundleMemoryPoolsPass,
+                                      OperationPass<func::FuncOp>> {
 
   BlockToMemPool blockToStaticPool;
   BlockToMemPool blockToDynamicPool;
 
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KrnlBundleMemoryPoolsPass)
+
   StringRef getArgument() const override { return "bundle-memory-pools"; }
 
   StringRef getDescription() const override {

@@ -15,10 +15,9 @@ Build protobuf as a static library.
 
 [same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-git clone --recurse-submodules https://github.com/protocolbuffers/protobuf.git
-REM Check out a specific branch that is known to work with ONNX-MLIR.
-REM This corresponds to the v3.11.4 tag
-cd protobuf && git checkout d0bfd5221182da1a7cc280f3337b5e41a89539cf && cd ..
+REM Check out a specific tag v3.16.0 which is the recommended version of onnx 1.11.0
+set protobuf_version=3.16.0
+git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
 md protobuf_build
@@ -41,6 +40,11 @@ Before running CMake for onnx-mlir, ensure that the bin directory to this protob
 set PATH=%root_dir%\protobuf_install\bin;%PATH%
 ```
 
+If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matchin version of protobuf through pip:
+```shell
+python3 -m pip install protobuf==3.16
+```
+
 #### MLIR
 Install MLIR (as a part of LLVM-Project):
 
@@ -48,7 +52,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout a7ac120a9ad784998a5527fc0a71b2d0fd55eccb && cd ..
+cd llvm-project && git checkout 59548fe873d8d98e359fb21fbb2a0852fed17ff5 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -94,9 +98,13 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
    -DLLVM_EXTERNAL_LIT=%lit_path% ^
    -DLLVM_LIT_ARGS=-v ^
-   -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir
+   -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir ^
    -DONNX_MLIR_BUILD_TESTS=OFF
 
 call cmake --build . --config Release --target onnx-mlir
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+### Trouble shooting build issues
+
+Check this [page](TestingHighLevel.md) for helpful hints.

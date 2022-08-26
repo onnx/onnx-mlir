@@ -14,11 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
-
-using namespace onnx_mlir;
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
+
+namespace onnx_mlir {
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
@@ -26,6 +28,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
+  MultiDialectBuilder<OnnxBuilder> create(b, loc);
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -38,14 +41,15 @@ Value OnnxToKrnlBuilder::reshape(
     auto constantOp =
         createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
 
-    Value reshapeRes = b.create<ONNXReshapeOp>(
-        loc, MemRefType::get(shape, elementType), input, constantOp);
+    Value reshapeRes = create.onnx.reshape(
+        MemRefType::get(shape, elementType), input, constantOp);
 
     return reshapeRes;
   }
 
   MemRefBuilder memRefBuilder(b, loc);
   KrnlBuilder krnlBuilder(memRefBuilder);
+  MathBuilder createMath(b, loc);
 
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the putput dimension
@@ -56,7 +60,7 @@ Value OnnxToKrnlBuilder::reshape(
       memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value index = createMath.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
     krnlBuilder.store(data, alloc, index);
   }
@@ -64,8 +68,8 @@ Value OnnxToKrnlBuilder::reshape(
   // Now create the 'onnx.Reshape' operation. Because the shape is not a
   // compile time constant it is effectively unknown.
   SmallVector<int64_t> shape(length, -1);
-  Value reshapeRes = b.create<ONNXReshapeOp>(
-      loc, MemRefType::get(shape, elementType), input, alloc);
+  Value reshapeRes =
+      create.onnx.reshape(MemRefType::get(shape, elementType), input, alloc);
 
   // The 'onnx.Reshape' operation yields a memref with unknown extents, so we
   // need to explicitly cast the result to the know size.
@@ -73,8 +77,8 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(
-      reshapeRes, MemRefType::get(castOutputShape, elementType));
+  Value castRes = memRefBuilder.cast(create.onnx.toMemref(reshapeRes),
+      MemRefType::get(castOutputShape, elementType));
 
   return castRes;
 }
@@ -85,6 +89,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
          "Expecting valid permutation array");
+  MultiDialectBuilder<OnnxBuilder> create(b, loc);
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -93,9 +98,9 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
 
   // Create the "onnx.Transpose" operation.
   ShapedType inputType = input.getType().cast<ShapedType>();
-  Value transposeRes = b.create<ONNXTransposeOp>(loc,
-      MemRefType::get(shape, inputType.getElementType()), input,
-      b.getI64ArrayAttr(perm));
+  Value transposeRes =
+      create.onnx.transpose(MemRefType::get(shape, inputType.getElementType()),
+          input, b.getI64ArrayAttr(perm));
 
   return transposeRes;
 }
@@ -109,39 +114,16 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
-/// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
-MemRefType convertToMemRefType(Type type) {
-  // Convert the element type of the (tensor or memref) to a valid Krnl type.
-  auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<ONNXStringType>())
-      return krnl::StringType::get(elemType.getContext());
-    return elemType;
-  };
+/// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
+/// integer constants.
+bool indicesAreNonNegativeConstants(Value indices) {
+  DenseElementsAttr valueAttribute =
+      krnl::getDenseElementAttributeFromKrnlValue(indices);
+  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+    return false;
 
-  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    MemRefType memRefType = MemRefType::get(
-        tensorType.getShape(), convertElemType(tensorType.getElementType()));
-    return memRefType;
-  }
-
-  if (auto seqType = type.dyn_cast_or_null<SeqType>()) {
-    ShapedType seqElementType = seqType.getElementType();
-    Type seqElementMemRefType =
-        seqElementType.hasRank()
-            ? (Type)convertToMemRefType(seqElementType)
-            : (Type)UnrankedMemRefType::get(seqElementType.getElementType(), 0);
-    SmallVector<int64_t, 1> dims;
-    dims.emplace_back(seqType.getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType memRefType = MemRefType::get(shape, seqElementMemRefType);
-    return memRefType;
-  }
-
-  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
-  auto memRefType = type.cast<MemRefType>();
-  return MemRefType::get(
-      memRefType.getShape(), convertElemType(memRefType.getElementType()));
+  return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
+      [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -260,21 +242,21 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   }
   // If there is at least one result to investigate.
   if (currentOp->getNumResults() > 0) {
-    parentBlock->walk(
-        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
-          auto result = currentOp->getResult(resultIndex);
-          for (const auto &operand : op.getOperands()) {
-            // Determine if current function returns the result value of the
-            // current op.
-            if (operand == result)
-              insertDealloc = false;
-            // Determin if the result value of reinterpret_cast op whose operand
-            // is the result value of current op
-            for (const auto &castOpResult : castOpResults)
-              if (operand == castOpResult)
-                insertDealloc = false;
-          }
-        });
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          func::ReturnOp op) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &operand : op.getOperands()) {
+        // Determine if current function returns the result value of the
+        // current op.
+        if (operand == result)
+          insertDealloc = false;
+        // Determin if the result value of reinterpret_cast op whose operand
+        // is the result value of current op
+        for (const auto &castOpResult : castOpResults)
+          if (operand == castOpResult)
+            insertDealloc = false;
+      }
+    });
   }
   return insertDealloc;
 }
@@ -313,7 +295,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
-    KrnlIterateOperandPack &pack, Value operand, int index) {
+    krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
@@ -348,22 +330,26 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+    free(outputBuffer);
     free(inputBuffer);
-    return constVal;
+    return create.onnx.toMemref(constVal);
   } else {
-    return rewriter
-        .create<ONNXSqueezeV11Op>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
+    return create.onnx.toMemref(
+        rewriter
+            .create<ONNXSqueezeV11Op>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
+            .getResult());
   }
 }
 
@@ -371,22 +357,25 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+    free(outputBuffer);
     free(inputBuffer);
-    return constVal;
+    return create.onnx.toMemref(constVal);
   } else {
-    return rewriter
-        .create<ONNXUnsqueezeV11Op>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
+    return create.onnx.toMemref(
+        rewriter
+            .create<ONNXUnsqueezeV11Op>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
+            .getResult());
   }
 }
 
@@ -395,8 +384,14 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
 /// Only support evenly splitting.
 std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
-  std::vector<Value> resVals;
 
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  SmallVector<Type, 4> convertedTypes;
+  for (auto t : resultTypes) {
+    convertedTypes.emplace_back(create.onnx.toTensor(t));
+  }
+
+  std::vector<Value> resVals;
   int outputNum = resultTypes.size();
   auto inputType = input.getType().cast<ShapedType>();
   auto inputShape = inputType.getShape();
@@ -410,7 +405,7 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -422,19 +417,23 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
         resBuffers);
 
     for (int i = 0; i < outputNum; ++i) {
-      Value constVal = createDenseONNXConstantOp(
-          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
-                           .getResult();
-      resVals.emplace_back(constVal);
+      char *outputBuffer =
+          allocateBufferFor(convertedTypes[i], /*useMaxSize=*/false);
+      convertDoubleInt64ToExactType(
+          convertedTypes[i], resBuffers[i], outputBuffer);
+      Value constVal =
+          create.onnx.constantFromRawBuffer(convertedTypes[i], outputBuffer);
+      resVals.emplace_back(create.onnx.toMemref(constVal));
+      free(outputBuffer);
       free(resBuffers[i]);
     }
     free(inputBuffer);
   } else {
-    ONNXSplitV11Op split =
-        rewriter.create<ONNXSplitV11Op>(loc, resultTypes, input,
-            /*axis=*/axis, nullptr);
+    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
+        create.onnx.toTensor(input),
+        /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(split.outputs()[i]);
+      resVals.emplace_back(create.onnx.toMemref(split.outputs()[i]));
   }
   return resVals;
 }
@@ -453,7 +452,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   for (auto permVal : permAttr.getValue())
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
             ->getAttrOfType<::mlir::Attribute>("value")
@@ -462,22 +462,28 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
     ConstPropTransposeImpl(
         elementType, inputBuffer, inputShape, perm, resultShape, resBuffer);
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), resBuffer)
-                         .getResult();
+    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
+    convertDoubleInt64ToExactType(resultType, resBuffer, outputBuffer);
+    Value constVal =
+        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+
+    free(outputBuffer);
     free(resBuffer);
     free(inputBuffer);
-    return constVal;
-  } else
-    return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
-        .getResult();
+    return create.onnx.toMemref(constVal);
+  } else {
+    return create.onnx.toMemref(
+        rewriter
+            .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
+                create.onnx.toTensor(input), permAttr)
+            .getResult());
+  }
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
-/// The new view is created using the given 'memRefType' and 'outputDims'.
+/// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, const MemRefType &memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
   MemRefBuilder createMemRef(rewriter, loc);
   return createMemRef.reinterpretCast(data, outputDims);
 }
@@ -519,7 +525,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange loopDef = createKrnl.defineLoops(rank);
   createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + LiteralIndexExpr(1);
+        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
             [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
@@ -561,11 +567,11 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;
@@ -604,6 +610,13 @@ KrnlTypeConverter::KrnlTypeConverter() {
     if (tensorType.getElementType().isa<ONNXStringType>()) {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
+    }
+    // Acccelators may have special versions of TensorType. Call the conversions
+    // of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
+      if (memRefType)
+        return memRefType;
     }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });
@@ -644,3 +657,5 @@ KrnlTypeConverter::KrnlTypeConverter() {
         .getResult(0);
   });
 }
+
+} // namespace onnx_mlir

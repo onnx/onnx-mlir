@@ -20,6 +20,7 @@ add_onnx_mlir_rewriter(ConstProp)
 
 add_onnx_mlir_library(OMONNXRewrite
   Decompose.cpp
+  DecomposeEinsum.cpp
   ConstProp.cpp
 
   DEPENDS
@@ -37,17 +38,21 @@ add_onnx_mlir_library(OMShapeInference
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
+  MLIRFuncDialect
   MLIRPass
   )
 
 add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXPass.cpp
+  InstrumentONNXSignaturePass.cpp
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
   OMONNXOps
   OMKrnlOps
   MLIRPass
-  OMSupport
   )
 
 add_onnx_mlir_library(OMOpTransform
@@ -56,7 +61,6 @@ add_onnx_mlir_library(OMOpTransform
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRPass
-  OMSupport
   OMONNXRewrite
   OMShapeInference
   MLIRTransforms

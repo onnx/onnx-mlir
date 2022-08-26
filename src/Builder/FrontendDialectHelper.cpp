@@ -94,6 +94,10 @@ struct TransformValueToONNXData<bool> {
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+  // Return an emtpy array if the raw data is empty.
+  if (initializer.dims().size() == 1 && initializer.dims().data()[0] == 0)
+    return std::vector<T>();
+
   size_t size;
   if (initializer.raw_data().size()) {
     // Copy & take care of endianness.
@@ -133,11 +137,8 @@ std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
   return std::vector<bool>(&data[0], &data[0] + data.size());
 }
 
-mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
-    mlir::Location loc, mlir::OpBuilder &builder, const std::string &name) {
-  // Initializer for input.
-  onnx::TensorProto initializer = GetInitializedTensor(name);
-
+mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer) {
   // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());

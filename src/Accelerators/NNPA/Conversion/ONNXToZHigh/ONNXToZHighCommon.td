@@ -16,7 +16,7 @@
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNXOps.td"
-include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -56,5 +56,11 @@ def ACT_LOGAttr: NativeCodeCall<"$_builder.getStringAttr(\"ACT_LOG\")">;
 def ACT_RELUAttr: NativeCodeCall<"$_builder.getStringAttr(\"ACT_RELU\")">;
 
 def GetTypeOf : NativeCodeCall<"$0.getType()" >;
+
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetZeroI64Attr: NativeCodeCall<
+  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
+>;
 
 #endif // ONNX_TO_ZHIGH_COMMON

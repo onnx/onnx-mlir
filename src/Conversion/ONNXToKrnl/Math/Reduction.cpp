@@ -13,47 +13,54 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 // Identity values
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.negativeInf(type);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.negativeInf(type);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMinOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.positiveInf(type);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.positiveInf(type);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceProdOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 1);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 1);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumV11Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMeanOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitConstantOp(rewriter, loc, type, 0);
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
 }
 
 // Scalar ops
@@ -88,11 +95,11 @@ template <>
 Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value max = create.math.sgt(lhs, rhs);
-  return create.math.select(max, lhs, rhs);
+  Value max = createMath.sgt(lhs, rhs);
+  return createMath.select(max, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -102,11 +109,11 @@ template <>
 Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MathBuilder createMath(rewriter, loc);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  Value min = create.math.slt(lhs, rhs);
-  return create.math.select(min, lhs, rhs);
+  Value min = createMath.slt(lhs, rhs);
+  return createMath.select(min, lhs, rhs);
 }
 
 template <typename ONNXReductionOp>
@@ -142,10 +149,14 @@ struct ONNXReductionOpLowering : public ConversionPattern {
      * }
      *
      */
-    auto loc = op->getLoc();
-    auto input = operands[0];
-    auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
+    Location loc = op->getLoc();
+    Value input = operands[0];
+    MemRefType memRefInType = input.getType().cast<MemRefType>();
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
@@ -218,7 +229,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
     // Iteration information
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -245,7 +257,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -314,13 +327,18 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      BuildKrnlLoop meanLoops(rewriter, loc, outRank);
-      meanLoops.createDefineAndIterateOp(alloc);
-      rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
-      auto meanIVs = meanLoops.getAllInductionVar();
-      Value loadData = create.krnl.load(alloc, meanIVs);
-      Value meanVal = create.math.div(loadData, divisor);
-      create.krnl.store(meanVal, alloc, meanIVs);
+      KrnlBuilder createKrnl(rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(outRank);
+      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value loadData = createKrnl.load(alloc, loopInd);
+            Value meanVal = create.math.div(loadData, divisor);
+            createKrnl.store(meanVal, alloc, loopInd);
+          });
     }
 
     rewriter.replaceOp(op, alloc);
@@ -361,17 +379,29 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      * }
      *
      */
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
+    ONNXReduceSumOpAdaptor operandAdaptor(operands);
+    ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
     auto input = operands[0];
     auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
     // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReduceSumOp>(op).keepdims();
-    bool isKeepdims = (keepdims == 1) ? true : false;
+    int64_t keepdims = reduceSumOp.keepdims();
+    bool isKeepdims = (keepdims == 1);
+
+    ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
@@ -387,7 +417,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
 
-    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
+    Value axesValue = reduceSumOp.axes();
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
@@ -400,18 +430,22 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
+      // Convert the mask type to MemRefType.
+      Type convertedMaskType = typeConverter->convertType(maskType);
+      assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
+             "Failed to convert type to MemRefType");
+      MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
       maskVal = insertAllocAndDealloc(
-          convertToMemRefType(maskType), loc, rewriter, insertDealloc);
-      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
-      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
+          maskTypeInMemRefType, loc, rewriter, insertDealloc);
+      falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
+      trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
       // Initialize mask to 0
       // Unless noop_with_empty_axesDim is false and axesDim is -1
       Value initVal;
-      if (axesDim == -1 &&
-          !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+      if (axesDim == -1 && !reduceSumOp.noop_with_empty_axes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
         Value zeroIndex = create.math.constantIndex(0);
@@ -430,24 +464,23 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // maskVal[axes[i] < 0 ? axes[i]+inRank: axes[i]] = 1
       auto axesElementType =
           axesVal.getType().cast<MemRefType>().getElementType();
-      auto dataDimConst =
-          emitConstantOp(rewriter, loc, axesElementType, inRank);
-      Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
+      auto dataDimConst = create.math.constant(axesElementType, inRank);
+      Value zeroValue = create.math.constant(axesElementType, 0);
       if (axesDim == -1) {
         // When axes is dynamic, generate a Krnl loop
-        BuildKrnlLoop axesLoops(rewriter, loc, 1);
-        axesLoops.createDefineAndIterateOp(axesVal);
-        auto axesLoopBody = rewriter.saveInsertionPoint();
-        rewriter.setInsertionPointToStart(axesLoops.getIterateBlock());
-        // Loop body
-        Value axe = create.krnl.load(axesVal, axesLoops.getInductionVar(0));
-        Value cond = create.math.slt(axe, zeroValue);
-        Value dim =
-            create.math.select(cond, create.math.add(axe, dataDimConst), axe);
-        Value jVal = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), dim);
-        create.krnl.store(trueVal, maskVal, jVal);
-        rewriter.restoreInsertionPoint(axesLoopBody);
+        KrnlBuilder createKrnl(rewriter, loc);
+        ValueRange loopDef = createKrnl.defineLoops(1);
+        SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+        createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              Value axe = createKrnl.load(axesVal, loopInd[0]);
+              Value cond = create.math.slt(axe, zeroValue);
+              Value dim = create.math.select(
+                  cond, create.math.add(axe, dataDimConst), axe);
+              Value jVal = rewriter.create<arith::IndexCastOp>(
+                  loc, rewriter.getIndexType(), dim);
+              createKrnl.store(trueVal, maskVal, jVal);
+            });
       } else {
         for (int64_t i = 0; i < axesDim; ++i) {
           Value indexVal = create.math.constantIndex(i);
@@ -486,7 +519,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
             axes.push_back(newaxis);
         }
-      } else if (!llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+      } else if (!reduceSumOp.noop_with_empty_axes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }
@@ -536,7 +569,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
     // Iteration information
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -564,7 +598,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    // TODO use new KrnlDialectBuilder.
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -634,13 +669,18 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      BuildKrnlLoop meanLoops(rewriter, loc, outRank);
-      meanLoops.createDefineAndIterateOp(alloc);
-      rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
-      auto meanIVs = meanLoops.getAllInductionVar();
-      Value loadData = create.krnl.load(alloc, meanIVs);
-      Value meanVal = create.math.div(loadData, divisor);
-      create.krnl.store(meanVal, alloc, meanIVs);
+      KrnlBuilder createKrnl(rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(outRank);
+      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value loadData = createKrnl.load(alloc, loopInd);
+            Value meanVal = create.math.div(loadData, divisor);
+            createKrnl.store(meanVal, alloc, loopInd);
+          });
     }
 
     rewriter.replaceOp(op, alloc);
@@ -658,3 +698,5 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       typeConverter, ctx, /*computeMean=*/true);
 }
+
+} // namespace onnx_mlir

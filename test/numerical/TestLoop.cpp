@@ -2,33 +2,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <limits>
-#include <random>
-#include <rapidcheck.h>
-#include <string>
-#include <vector>
+//====-- TestLoop.cpp - test Loop code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Loop code.
+//
+//===----------------------------------------------------------------------===//
 
-#include "mlir/IR/BuiltinOps.h"
-#include "llvm/Support/FileSystem.h"
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
-#include "src/Runtime/OMTensorHelper.h"
-#include "test/modellib/ModelLib.hpp"
+#include "src/Runtime/OMTensorHelper.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 std::string testLoopSimpleIR = R"(
 module {
-  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
     %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %body_0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
@@ -37,12 +36,15 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
-std::string testLoopWithEarlyTermination = R"(
+// Scan output for early termination is not supported yet.
+// Previous implementation may fail if the maximum iteration count is too large.
+// Save this model for future
+std::string testLoopWithEarlyTermination_Orig = R"(
 module {
-  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y", "res_scan"]} {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y", "res_scan"]} {
     %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
@@ -52,12 +54,27 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+})";
+
+std::string testLoopWithEarlyTermination = R"(
+module {
+  func.func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y"]} {
+    %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
+    ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
+      %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
+      %1 = "onnx.Less"(%body_arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
+      %2 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+    onnx.Return %1, %2 : tensor<i1>, tensor<1xi64>
+    }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
+    return %0 : tensor<1xi64>
+  }
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
 std::string testLoopWithParentScopeVariable = R"(
 module {
-  func @main_graph(%max_trip_count: tensor<i64>, %cond: tensor<i1>, %y_initial: tensor<1xi64>) ->
+  func.func @main_graph(%max_trip_count: tensor<i64>, %cond: tensor<i1>, %y_initial: tensor<1xi64>) ->
         (tensor<1xi64>, tensor<?x1xi64>) {
     %const_offset = "onnx.Constant"() {value = dense<7> : tensor<i64>} : () -> tensor<i64>
     %y_final, %y_scan = "onnx.Loop"(%max_trip_count, %cond, %y_initial) ({
@@ -68,7 +85,7 @@ module {
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %y_final, %y_scan : tensor<1xi64>, tensor<?x1xi64>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32, signature = "[    ]"} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 })";
 
 // Returns whether onnx-mlir compiled loop operation is producing the same
@@ -82,11 +99,11 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   MLIRContext ctx;
   registerDialects(ctx);
 
-  auto module = mlir::parseSourceString(moduleIR, &ctx);
+  auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib);
-  onnx_mlir::ExecutionSession sess(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+  if (compileModule(
+          moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib) != 0)
+    return false;
 
   std::vector<OMTensorUniquePtr> inputs;
   auto tripCountTensor = OMTensorUniquePtr(
@@ -108,7 +125,15 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
   inputs.emplace_back(move(yInitTensor));
 
-  auto outputs = sess.run(move(inputs));
+  onnx_mlir::ExecutionSession sess(
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
+  std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
+  try {
+    outputs = sess.run(move(inputs));
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while running: " << error.what() << std::endl;
+    return false;
+  }
 
   auto *yRefInitShape = new int64_t[1]{1};
   auto vFinalRef = OMTensorUniquePtr(
@@ -124,13 +149,22 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   return omTensorAreTwoOmtsClose<int64_t>(vFinal.get(), vFinalRef.get());
 }
 
-int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+} // namespace test
+} // namespace onnx_mlir
 
+int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
+  llvm::FileRemover remover(
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
+
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+  std::cout << "Target options: \""
+            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // Loop tests, simple.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));
@@ -139,12 +173,16 @@ int main(int argc, char *argv[]) {
 
   // Loop tests, with early termination. The early termination trip count is
   // hard-coded in the IR as a constant operation as 3.
+
+  // Early termination for scan output is tempoarily disabled
+#if 0
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 0, 42, /*earlyTerminationTripCount=*/3));
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 1, 42, /*earlyTerminationTripCount=*/3));
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 10, 42, /*earlyTerminationTripCount=*/3));
+#endif
 
   // Loop tests, in which loop body makes reference to values defined in the
   // parent scope.

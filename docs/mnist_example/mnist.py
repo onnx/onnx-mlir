@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import numpy as np
 from PyRuntime import ExecutionSession
 
@@ -271,7 +273,8 @@ input = np.array([-0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923], np.dtype(np.float32)).reshape(1,1,28,28)
-    # Run the model.
+# Run the model. It is best to always use the [] around the inputs as the inputs
+# are an vector of numpy arrays.
 outputs = session.run([input])
 # Analyze the output (first array in the list, of signature 1x10xf32).
 prediction = outputs[0]

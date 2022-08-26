@@ -16,15 +16,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -129,8 +131,10 @@ public:
  */
 class DisconnectKrnlDimFromAllocPass
     : public PassWrapper<DisconnectKrnlDimFromAllocPass,
-          OperationPass<FuncOp>> {
+          OperationPass<func::FuncOp>> {
 public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DisconnectKrnlDimFromAllocPass)
+
   StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
 
   StringRef getDescription() const override {

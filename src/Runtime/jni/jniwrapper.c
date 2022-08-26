@@ -705,23 +705,30 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
   return java_oomtl;
 }
 
-/* On z/OS, we convert signature in EBCDIC into ASCII for the JNI
+#ifdef __MVS__
+/* On z/OS, we convert entry point name in ASCII into EBCDIC for
+ * the omInputSignature/omOutputSignaturee function using __a2e_s.
+ * However, __a2e_s converts in place so we need to make a copy of
+ * the entry point name.
+ *
+ * On z/OS, we convert signature in EBCDIC into ASCII for the JNI
  * NewStringUTF function using __e2a_s. However, __e2a_s converts
  * in place so we need to make a copy of the signature.
  */
-#ifdef __MVS__
-static inline char *sig_e2a(const char *origsig) {
-  char *dupsig = strdup(origsig);
-  if (dupsig == NULL)
+#define __a2e(s) conv(s, __a2e_s)
+#define __e2a(s) conv(s, __e2a_s)
+static inline char *conv(const char *str, size_t (*fptr)(char *)) {
+  char *dup = strdup(str);
+  if (dup == NULL)
     return NULL;
 
-  /* Convert EBCDIC to ASCII in place */
-  if (__e2a_s(dupsig) < 0) {
-    free(dupsig);
+  /* Convert ASCII to EBCDIC in place */
+  if (fptr(dup) < 0) {
+    free(dup);
     return NULL;
   }
 
-  return dupsig;
+  return dup;
 }
 #endif
 
@@ -752,21 +759,28 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
    */
   for (int64_t i = 0; i < neps; i++) {
     char ep[32];
-    sprintf(ep, "ep[%ld]", i);
+    sprintf(ep, "ep[%lld]", (long long)i);
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 
+    /* On z/OS, convert entry point name in EBCDIC to ASCII */
 #ifdef __MVS__
     CHECK_CALL(
-        char *, epptr, sig_e2a(jni_eps[i]), epptr != NULL, "epptr=%p", epptr);
+        char *, epptr, __e2a(jni_eps[i]), epptr != NULL, "epptr=%p", epptr);
 #else
     const char *epptr = jni_eps[i];
 #endif
+
+    /* Convert to Java String object */
     JNI_TYPE_VAR_CALL(env, jstring, jstr_ep, (*env)->NewStringUTF(env, epptr),
         jstr_ep != NULL, jecpt_cls, "jstr_ep=%p", jstr_ep);
+
+    /* On z/OS, free the ASCII entry point name no longer needed */
 #ifdef __MVS__
     free(epptr);
 #endif
+
+    /* Put Java String object into the String array */
     JNI_CALL(env, (*env)->SetObjectArrayElement(env, java_eps, i, jstr_ep), 1,
         NULL, "");
   }
@@ -789,9 +803,25 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
       (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
       "jni_ep=%p", jni_ep);
 
+  /* On z/OS, convert entry point name in UTF-8 to EBCDIC */
+#ifdef __MVS__
+  CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
+#else
+  const char *epptr = jni_ep;
+#endif
+
+  /* Entry point name in hex and string format for debugging */
+  HEX_DEBUG("ep", epptr, strlen(epptr));
+  LOG_PRINTF(LOG_DEBUG, "ep(%d):%s", strlen(epptr), epptr);
+
   /* Call model input signature API */
-  CHECK_CALL(const char *, jni_isig, omInputSignature(jni_ep), jni_isig != NULL,
+  CHECK_CALL(const char *, jni_isig, omInputSignature(epptr), jni_isig != NULL,
       "jni_isig=%p", jni_isig);
+
+  /* On z/OS, free the EBCDIC entry point name no longer needed */
+#ifdef __MVS__
+  free(epptr);
+#endif
 
   /* Release reference to the signature Java String object */
   JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
@@ -800,15 +830,19 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
   HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
   LOG_PRINTF(LOG_DEBUG, "isig(%d):%s", strlen(jni_isig), jni_isig);
 
-  /* Convert to Java String object */
+  /* On z/OS, convert input signature in EBCDIC to ASCII */
 #ifdef __MVS__
   CHECK_CALL(
-      char *, sigptr, sig_e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
+      char *, sigptr, __e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_isig;
 #endif
+
+  /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, java_isig, (*env)->NewStringUTF(env, sigptr),
       java_isig != NULL, jecpt_cls, "java_isig=%p", java_isig);
+
+  /* On z/OS, free the ASCII input signature no longer needed */
 #ifdef __MVS__
   free(sigptr);
 #endif
@@ -831,9 +865,25 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
       (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
       "jni_ep=%p", jni_ep);
 
+  /* On z/OS, convert entry point name in UTF-8 to EBCDIC */
+#ifdef __MVS__
+  CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
+#else
+  const char *epptr = jni_ep;
+#endif
+
+  /* Entry point name in hex and string format for debugging */
+  HEX_DEBUG("ep", epptr, strlen(epptr));
+  LOG_PRINTF(LOG_DEBUG, "ep(%d):%s", strlen(epptr), epptr);
+
   /* Call model output signature API */
-  CHECK_CALL(const char *, jni_osig, omOutputSignature(jni_ep),
-      jni_osig != NULL, "jni_osig=%p", jni_osig);
+  CHECK_CALL(const char *, jni_osig, omOutputSignature(epptr), jni_osig != NULL,
+      "jni_osig=%p", jni_osig);
+
+  /* On z/OS, free the EBCDIC entry point name no longer needed */
+#ifdef __MVS__
+  free(epptr);
+#endif
 
   /* Release reference to the signature Java String object */
   JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
@@ -842,15 +892,19 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
   HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
   LOG_PRINTF(LOG_DEBUG, "osig(%d):%s", strlen(jni_osig), jni_osig);
 
-  /* Convert to Java String object */
+  /* On z/OS, convert output signature in EBCDIC to ASCII */
 #ifdef __MVS__
   CHECK_CALL(
-      char *, sigptr, sig_e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
+      char *, sigptr, __e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_osig;
 #endif
+
+  /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, java_osig, (*env)->NewStringUTF(env, sigptr),
       java_osig != NULL, jecpt_cls, "java_osig=%p", java_osig);
+
+  /* On z/OS, free the ASCII output signature no longer needed */
 #ifdef __MVS__
   free(sigptr);
 #endif

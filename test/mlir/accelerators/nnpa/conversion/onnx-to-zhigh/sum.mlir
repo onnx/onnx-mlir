@@ -1,11 +1,11 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 // COM: Check the singleton case of lowering ONNXSumOp to ZHighAddOp,
 // COM: where ONNXSumOp has two inputs and is lowered to a single ZHighAddOp.
 
-func @test_sum_2_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
+func.func @test_sum_2_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_sum_2_operands
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -23,9 +23,9 @@ func @test_sum_2_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) 
 // COM: where ONNXSumOp has N inputs (N > 2), and is recursively unfolded to
 // COM: multiple ZHighAddOp(s).
 
-func @test_sum_4_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>, %arg2 : tensor<10x10xf32>, %arg3 : tensor<10x10xf32>) -> tensor<*xf32> {
+func.func @test_sum_4_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>, %arg2 : tensor<10x10xf32>, %arg3 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_sum_4_operands
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>, [[PARAM_2_:%.+]]: tensor<10x10xf32>, [[PARAM_3_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -48,9 +48,9 @@ func @test_sum_4_operands(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>, 
 // -----
 
 /// Do not lower broadcasting onnx.Sum to zHigh.
-func @test_sum_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10xf32>) -> tensor<*xf32> {
+func.func @test_sum_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sum_not_lowered_diff_shape
 }
@@ -59,9 +59,9 @@ func @test_sum_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<
 
 /// Do not lower onnx.Sum to zHigh if inputs have different shape including unknown dimensions.
 /// Need to check whether input tensors is really different at runtime.
-func @test_sum_not_lowered_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?xf32>) -> tensor<*xf32> {
+func.func @test_sum_not_lowered_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x?xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_sum_not_lowered_unknown_dims
 }
@@ -72,9 +72,9 @@ func @test_sum_not_lowered_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tenso
 /// COM: Not lowered when dimensin size exceeds DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE in `third_party/zdnn-lib/zdnn_limit.h`
 /// COM: DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE depends on zAIU HW. Please check the value if these tests fails.
 
-func @test_exceed_limit_sum(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32769x10xf32>) -> tensor<*xf32> {
+func.func @test_exceed_limit_sum(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<32769x10xf32>, tensor<32769x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_exceed_limit_sum
 // CHECK:        "onnx.Sum"

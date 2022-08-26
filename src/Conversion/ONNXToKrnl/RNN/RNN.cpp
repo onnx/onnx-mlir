@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct RnnState {
   // returned states.
   Value allH;
@@ -82,7 +84,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayRef<Attribute> activationArrAttr = activationAlpha.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -102,7 +104,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayRef<Attribute> activationArrAttr = activationBeta.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -256,7 +258,8 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 
 template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
-    ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op,
+    ConversionPatternRewriter &rewriter, Location loc,
+    TypeConverter *typeConverter, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
 
@@ -265,11 +268,11 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y(),
       checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
       checkInsertDealloc(op->getOperation(), 1));
 
@@ -317,8 +320,10 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
-  Value XtWi = create.onnx.matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = create.onnx.matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Xt, weightPack.Wi));
+  Value HtRi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Ri));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
@@ -377,3 +382,5 @@ void populateLoweringONNXRNNOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack,
       RnnWeightPack, RnnBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
