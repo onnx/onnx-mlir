@@ -78,12 +78,7 @@ public:
             op, resultType, flattenedElem);
     }
     else {
-    //Reshape
-        //auto TargetType = Torch::ValueTensorType::get(context,
-        //  llvm::makeArrayRef(targetShape), inputTensorType.getElementType());
-        //Value targetValue = rewriter.create<PrimListConstructOp>(loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{TargetType});
-        //Value Shape = TargetType;
-        //rewriter.replaceOpWithNewOp<Torch::AtenReshapeOp>(op, resultType, inputValue, targetValue);
+    //TODO : Add AtenReshapeOp generation when reshape is not semantically equivalent to a Flatten
     }
     return success();
   }
