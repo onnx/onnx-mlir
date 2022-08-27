@@ -21,6 +21,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -398,6 +399,110 @@ private:
   }
 };
 
+namespace {
+// RNNOpRewriteLayoutPattern helper functions and classes.
+
+template <typename ONNXOp>
+void inferShapes(ONNXOp op) {
+  if (failed(op.inferShapes([](Region &region) {})))
+    llvm_unreachable("unexpected inferShapes failure");
+}
+
+// To transpose between [batch_size, seq_length/num_directions, size]
+//                  and [seq_length/num_directions, batch_size, size].
+ArrayAttr perm3RNN(Builder &b) { return b.getI64ArrayAttr({1, 0, 2}); }
+
+// To transpose from [seq_length, num_directions, batch_size, hidden_size]
+//                to [batch_size, seq_length, num_directions, hidden_size].
+ArrayAttr perm4RNN(Builder &b) { return b.getI64ArrayAttr({2, 0, 1, 3}); }
+
+class InputOutputTransposer {
+public:
+  InputOutputTransposer(mlir::OpBuilder &b, mlir::Location loc)
+      : create(b, loc) {}
+
+  void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
+    assert(operand.size() == 1);
+    Value input = operand[0];
+    if (!input.getType().isa<NoneType>()) {
+      Value transposed = transpose(input, perm);
+      operand.assign(transposed);
+    }
+  }
+
+  void transposeOutput(Value output, ArrayAttr perm) {
+    if (!output.getType().isa<NoneType>()) {
+      Value transposed = transpose(output, perm);
+      output.replaceAllUsesExcept(transposed, transposed.getDefiningOp());
+    }
+  }
+
+private:
+  // Helper to create an ONNX transposition, using
+  // ONNXTransposeOp::inferShapes() to infer the output shape.
+  Value transpose(Value input, ArrayAttr perm) {
+    Type elType = onnx_mlir::getElementType(input.getType());
+    Type unrankedType = UnrankedTensorType::get({elType}); // placeholder
+    Value transposed = create.transpose(unrankedType, input, perm);
+    auto transposeOp = llvm::cast<ONNXTransposeOp>(transposed.getDefiningOp());
+    inferShapes(transposeOp); // sets transposed's shape
+    return transposed;
+  }
+
+  onnx_mlir::OnnxBuilder create;
+};
+} // namespace
+
+// Rewrites layout=1 to layout=0 by transposing inputs and outputs.
+template <typename ONNXOp>
+class RNNOpRewriteLayoutPattern : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp onnxOp, PatternRewriter &rewriter) const override {
+    if (onnxOp.layout() == 0) {
+      return success();
+    }
+
+    InputOutputTransposer transposer(rewriter, onnxOp.getLoc());
+    ArrayAttr perm3 = perm3RNN(rewriter);
+
+    // LSTM requires extra work for initial_c input and Y_c output.
+    ONNXLSTMOp onnxLSTMOp = llvm::dyn_cast<ONNXLSTMOp>(*onnxOp);
+
+    // Rewrite in-place because there are so many attributes, inputs, outputs.
+    // Constructing a new op would be lengthy and hard to maintain.
+    rewriter.updateRootInPlace(onnxOp, [&]() {
+      // Transpose the X and initial_h inputs by inserting an ONNXTransposeOp
+      // before each and replacing the each input with the transpose output.
+      rewriter.setInsertionPoint(onnxOp); // insert before (redundant)
+      transposer.transposeInput(onnxOp.XMutable(), perm3);
+      transposer.transposeInput(onnxOp.initial_hMutable(), perm3);
+      if (onnxLSTMOp)
+        transposer.transposeInput(onnxLSTMOp.initial_cMutable(), perm3);
+      // Set layout to zero.
+      onnxOp->setAttr(onnxOp.layoutAttrName(),
+          rewriter.getIntegerAttr(
+              rewriter.getIntegerType(64, /*isSigned=*/true), 0));
+      // Update the output shape.
+      inferShapes(onnxOp);
+    });
+    // Transpose the Y and Y_h outputs by inserting an ONNXTransposeOp
+    // after each and replace all uses of each with the transpose output.
+    ValueRange results = onnxOp.getResults();
+    if (results.size() > 0) {
+      rewriter.setInsertionPointAfter(onnxOp);
+      transposer.transposeOutput(onnxOp.Y(), perm4RNN(rewriter));
+      transposer.transposeOutput(onnxOp.Y_h(), perm3);
+      if (onnxLSTMOp)
+        transposer.transposeOutput(onnxLSTMOp.Y_c(), perm3);
+    }
+
+    return success();
+  }
+};
+
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
@@ -570,4 +675,22 @@ void ONNXLessOp::getCanonicalizationPatterns(
 void ONNXLoopOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LoopOpRewriteMaxTripCountPattern>(context);
+}
+
+/// on the ONNXGRUOp.
+void ONNXGRUOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
+}
+
+/// on the ONNXLSTMOp.
+void ONNXLSTMOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+}
+
+/// on the ONNXRNNOp.
+void ONNXRNNOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
 }
