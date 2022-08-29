@@ -243,14 +243,40 @@ func.func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10
 
 // -----
 
-// Check the combining of two transposes besides leaky relu into a simple transpose and the removing of combined transpose.
+// Check the combining of two transposes besides Atan op into a simple transpose and the removing of combined transpose. (No attribute case)
+//
+// CHECK-LABEL: func @test_transpose_besides_atan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_atan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.Atan"(%0) : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.Atan"(%arg0) : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of two transposes besides leaky relu op into a simple transpose and the removing of combined transpose. (One attribute case)
 //
 // CHECK-LABEL: func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func.func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
-  %0 = "onnx.Transpose"(%arg0)  {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
-  %1 = "onnx.LeakyRelu"(%0)  {alpha = 1.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
-  %2 = "onnx.Transpose"(%1)  {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.LeakyRelu"(%0) {alpha = 1.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: %{{.*}} = "onnx.LeakyRelu"(%arg0) {alpha = 1.000000e-01 : f32} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of two transposes besides HardSigmoid op into a simple transpose and the removing of combined transpose. (Two attribute case)
+//
+// CHECK-LABEL: func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.HardSigmoid"(%0)  {alpha = 1.000000e-01 : f32, beta = 2.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1)  {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.HardSigmoid"(%arg0) {alpha = 1.000000e-01 : f32, beta = 2.000000e-01 : f32} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
   "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
 }
 

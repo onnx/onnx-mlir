@@ -432,7 +432,39 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
+  result.insert<FuseTransposeAndAtanPattern>(context);
+  result.insert<FuseTransposeAndCastPattern>(context);
+  result.insert<FuseTransposeAndCeilPattern>(context);
+  result.insert<FuseTransposeAndCosPattern>(context);
+  result.insert<FuseTransposeAndCoshPattern>(context);
+  result.insert<FuseTransposeAndEluPattern>(context);
+  result.insert<FuseTransposeAndErfPattern>(context);
+  result.insert<FuseTransposeAndAcosPattern>(context);
+  result.insert<FuseTransposeAndAcoshPattern>(context);
+  result.insert<FuseTransposeAndAsinPattern>(context);
+  result.insert<FuseTransposeAndAsinhPattern>(context);
+  result.insert<FuseTransposeAndAtanhPattern>(context);
+  result.insert<FuseTransposeAndExpPattern>(context);
+  result.insert<FuseTransposeAndFloorPattern>(context);
+  result.insert<FuseTransposeAndHardSigmoidPattern>(context);
+  result.insert<FuseTransposeAndIsNaNPattern>(context);
   result.insert<FuseTransposeAndLeakyReluPattern>(context);
+  result.insert<FuseTransposeAndLogPattern>(context);
+  result.insert<FuseTransposeAndNegPattern>(context);
+  result.insert<FuseTransposeAndNotPattern>(context);
+  result.insert<FuseTransposeAndReciprocalPattern>(context);
+  result.insert<FuseTransposeAndReluPattern>(context);
+  result.insert<FuseTransposeAndRoundPattern>(context);
+  result.insert<FuseTransposeAndSeluPattern>(context);
+  result.insert<FuseTransposeAndSigmoidPattern>(context);
+  result.insert<FuseTransposeAndSignPattern>(context);
+  result.insert<FuseTransposeAndSinPattern>(context);
+  result.insert<FuseTransposeAndSinhPattern>(context);
+  result.insert<FuseTransposeAndSoftplusPattern>(context);
+  result.insert<FuseTransposeAndSoftsignPattern>(context);
+  result.insert<FuseTransposeAndSqrtPattern>(context);
+  result.insert<FuseTransposeAndTanPattern>(context);
+  result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
 }
