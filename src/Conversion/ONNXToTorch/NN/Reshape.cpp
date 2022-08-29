@@ -2,7 +2,7 @@
 //===------- ReshapeOp.cpp - ONNX Op Transform ------------------===//
 // ===================================================================
 //
-// This file implements a combined pass that dynamically invoke several
+// This file implements a combined pass that dynamically invokes several
 // transformation on ONNX ops.
 //
 //===-------------------------------------------------------------===//
@@ -29,7 +29,7 @@ static llvm::Optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const
     }
     // Found a difference, we check that the difference can be the result of a flattening
     unsigned acc = 1;
-    for (unsigned endDim = startDim; (endDim < inputShape.size() && (endDim - startDim) <= dimDiff); ++endDim) {
+    for (int endDim = startDim; (endDim < inputShape.size() && (endDim - startDim) <= dimDiff); ++endDim) {
       unsigned tmpAcc = acc * inputShape[endDim];
       if (tmpAcc == targetShape[startDim]) {
         //Result saved but not returned in case it's not the longest result to match the flattening
@@ -40,6 +40,23 @@ static llvm::Optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const
   }
   return savedResult;
 }
+
+// Reshape input into a different-sized tensor.
+// It can be semantically equivalent to a Flatten operation if
+// the result shape is a multiplication of two or more dimensions from
+// the input shape.
+// TODO: For Resnet18 purposes, only the flattening part of this operator
+// is implemented. If you need to generate a AtenReshapeOp out of it, please
+// replace the assert from the second part by your implementation.
+//
+// Operands:
+//    input:
+//              data: The input tensor to be reshaped
+//              shape: The expected shape of the output
+//
+// Results:
+//    output:   A tensor of the shape of the `shape` argument
+//              based on the `data` argument.
 
 class ONNXReshapeOpToTorchLowering : public OpConversionPattern<ONNXReshapeOp> {
 public:
@@ -52,9 +69,7 @@ public:
 
     Value inputData = op.data();
     Value inputValue = adaptor.data();
-    //Value targetData = adaptor.shape();
     TensorType inputTensorType = inputData.getType().cast<TensorType>();
-    //TensorType targetTensorType = targetData.getType().cast<TensorType>();
 
     TensorType resultTensorType = op.getResult().getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(context,
@@ -64,7 +79,9 @@ public:
       
     ArrayRef<int64_t> targetShape = targetTensorType.getShape();
     ArrayRef<int64_t> inputShape = inputTensorType.getShape();
-    // Flatten
+    // Generate a Flatten operator when reshape is equivalent to a Flatten
+    // i.e when the resulting shape is the result of merging two or more
+    // dimensions together.
     if (auto dimPair = isEquivalentToFlatten(inputShape, targetShape)) {
         IntegerType ty = IntegerType::get(op.getContext(), 64);
         IntegerAttr startDimInt = IntegerAttr::get(ty, (dimPair->first));
@@ -78,7 +95,7 @@ public:
             op, resultType, flattenedElem);
     }
     else {
-    //TODO : Add AtenReshapeOp generation when reshape is not semantically equivalent to a Flatten
+      assert(false && "Generation of ReshapeOP is not implemented.");
     }
     return success();
   }
