@@ -185,8 +185,8 @@ static std::string getExecPath() {
 // to deal with lib64 anymore.
 static std::string getRuntimeDir() {
   const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
-  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
-    return envDir.getValue();
+  if (envDir && llvm::sys::fs::exists(envDir.value()))
+    return envDir.value();
 
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
