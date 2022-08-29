@@ -257,8 +257,19 @@ void ZHighStickOp::build(
         // Create a layout attribute.
         layout = convertDataLayoutToStringAttr(builder, dataLayout);
       }
-      resType = RankedTensorType::get(inputType.getShape(),
-          inputType.getElementType(),
+      // Compute shape.
+      ArrayRef<int64_t> inputShape = inputType.getShape();
+      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+      // Direct stickify from NCHW to NHWC.
+      if (isNHWCLayout(layout)) {
+        assert((inputShape.size() == 4) && "Input must have rank 4");
+        // NCHW -> NHWC
+        resShape[0] = inputShape[0];
+        resShape[1] = inputShape[2];
+        resShape[2] = inputShape[3];
+        resShape[3] = inputShape[1];
+      }
+      resType = RankedTensorType::get(resShape, inputType.getElementType(),
           ZTensorEncodingAttr::get(builder.getContext(), dataLayout));
     } else {
       resType = UnrankedTensorType::get(inputType.getElementType());
@@ -276,6 +287,14 @@ LogicalResult ZHighStickOp::inferShapes(
   ShapedType inputType = In().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
+  ZHighStickOpAdaptor operandAdaptor(*this);
+  ZHighStickOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Stick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
   StringAttr layout = layoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
@@ -283,7 +302,7 @@ LogicalResult ZHighStickOp::inferShapes(
   else
     dataLayout = getDataLayoutByRank(inputShape.size());
   RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType(),
+      RankedTensorType::get(outputDims, inputType.getElementType(),
           ZTensorEncodingAttr::get(this->getContext(), dataLayout));
   getResult().setType(resType);
   return success();
@@ -348,10 +367,23 @@ void ZHighUnstickOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
   Type resType;
   ShapedType inputType = input.getType().cast<ShapedType>();
-  if (hasRankedType(input))
-    resType =
-        RankedTensorType::get(inputType.getShape(), inputType.getElementType());
-  else
+  if (hasRankedType(input)) {
+    // Compute shape.
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+    // Direct unstickify from NHWC to NCHW.
+    StringAttr layout = convertDataLayoutToStringAttr(
+        builder, getZTensorLayout(input.getType()));
+    if (isNHWCLayout(layout)) {
+      assert((inputShape.size() == 4) && "Input must have rank 4");
+      // NHWC -> NCHW
+      resShape[0] = inputShape[0];
+      resShape[1] = inputShape[3];
+      resShape[2] = inputShape[1];
+      resShape[3] = inputShape[2];
+    }
+    resType = RankedTensorType::get(resShape, inputType.getElementType());
+  } else
     resType = UnrankedTensorType::get(inputType.getElementType());
   build(builder, state, resType, input);
 }
@@ -361,10 +393,22 @@ LogicalResult ZHighUnstickOp::inferShapes(
   if (!hasRankedType(In()))
     return success();
 
-  Builder builder(this->getContext());
+  OpBuilder b(this->getContext());
+
+  StringAttr layout =
+      convertDataLayoutToStringAttr(b, getZTensorLayout(In().getType()));
+
+  ZHighUnstickOpAdaptor operandAdaptor(*this);
+  ZHighUnstickOpShapeHelper shapeHelper(this, layout);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Unstick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
   ShapedType inputType = In().getType().cast<ShapedType>();
   RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType());
+      RankedTensorType::get(outputDims, inputType.getElementType());
   getResult().setType(resType);
   return success();
 }
