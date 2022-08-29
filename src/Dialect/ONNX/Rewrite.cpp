@@ -422,7 +422,7 @@ public:
       : create(b, loc) {}
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
-    assert(operand.size() == 1);
+    assert(operand.size() == 1 && "should be called with singleton range");
     Value input = operand[0];
     if (!input.getType().isa<NoneType>()) {
       Value transposed = transpose(input, perm);
@@ -469,7 +469,7 @@ public:
     ArrayAttr perm3 = perm3RNN(rewriter);
 
     // LSTM requires extra work for initial_c input and Y_c output.
-    ONNXLSTMOp onnxLSTMOp = llvm::dyn_cast<ONNXLSTMOp>(*onnxOp);
+    auto onnxLSTMOp = llvm::dyn_cast<ONNXLSTMOp>(*onnxOp);
 
     // Rewrite in-place because there are so many attributes, inputs, outputs.
     // Constructing a new op would be lengthy and hard to maintain.

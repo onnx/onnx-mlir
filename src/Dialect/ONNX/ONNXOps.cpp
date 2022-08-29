@@ -573,7 +573,7 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
   }
 
   // Get direction.
-  int numDir;
+  int64_t numDir;
   if ((op->direction() == "forward") || (op->direction() == "reverse"))
     numDir = 1;
   else if (op->direction() == "bidirectional")
@@ -583,8 +583,10 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
         "direction attribute must be one of the strings: forward, "
         "reverse, and bidirectional");
 
-  // Set result types.
-  assert(op->getNumResults() == 2 || op->getNumResults() == 3);
+  // Set result types. There are always 2 (RNN, GRU) or 3 results
+  // but they are sometimes optional in which case they have NoneType.
+  assert((op->getNumResults() == 2 || op->getNumResults() == 3) &&
+         "RNN, GRU have 2 results, LSTM has 3");
   // Y :: [batch_size, seq_length, num_dir, hidden_size] if batchwiseLayout
   // Y :: [seq_length, num_dir, batch_size, hidden_size] otherwise
   Type yTy = op->getResult(0).getType();
