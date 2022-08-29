@@ -23,6 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 
@@ -508,22 +509,29 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
+    ZHighStickOp stickOp = llvm::dyn_cast<ZHighStickOp>(op);
     ZHighStickOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.In();
+    StringAttr layout = cast<ZHighStickOp>(op).layoutAttr();
+
+    ZHighStickOpShapeHelper shapeHelper(&stickOp, &rewriter);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
-    Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+
+    // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, zMemRefType.layout);
+    rewriter.create<ZLowStickOp>(loc, operandAdaptor.In(), alloc, layout);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -617,23 +625,30 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
+    ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
+    StringAttr layout = readLayout(input);
+
+    ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, dims, op, rewriter, /*alignment=*/-1);
+        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+
+    // Set layout: if NHWC, we can directly unstickify to NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowUnstickOp>(loc, input, alloc, readLayout(input));
+    rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
