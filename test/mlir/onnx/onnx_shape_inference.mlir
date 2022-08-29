@@ -964,6 +964,19 @@ func.func @test_lstm_all_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2x
 
 // -----
 
+func.func @test_lstm_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<?x?x?xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<?x?x?xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: test_lstm_infer_hidden_size_from_W
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-NEXT: %{{.*}}, [[RES:%.+]], %{{.*}} = "onnx.LSTM"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]], [[CST]], [[CST]]) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<?x?x?xf32>, none, none, none, none, none) -> (tensor<4x1x3x3xf32>, tensor<1x3x3xf32>, tensor<1x3x3xf32>)
+  // CHECK: return [[RES]] : tensor<1x3x3xf32>
+}
+
+// -----
+
 func.func @test_lstm_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> () {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, none, none)
