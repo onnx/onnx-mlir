@@ -2,23 +2,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- TestScan.cpp - test Scan code -======================================//
+//====-- TestLeakyRelu.cpp - test GEMM code -======================================//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the code to test Scan code.
+// This file contains the code to test LeakyRelu code.
 //
 //===----------------------------------------------------------------------===//
 
-// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// Common.hpp needs to be included first to correctly surpress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
 #include "src/Runtime/OMTensorHelper.hpp"
 
-static const llvm::StringRef SHARED_LIB_BASE("./TestScan_main_graph");
+static const llvm::StringRef SHARED_LIB_BASE("./TestLeakyRelu_main_graph");
 
 using namespace mlir;
 
@@ -52,23 +52,15 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
   }
 }
 
-// Returns whether onnx-mlir compiled Scan is producing the same results
-// as a naive implementation of Scan for a specific set of Scan
-// parameters/configuration.
-static bool isOMScanTheSameAsNaiveImplFor(
-    const int S, const int I, const int B = 1, const bool is_v8 = false) {
-
+static bool isOMLeakyReluTheSameAsNaiveImplFor(const int N, const float alphaVal) {
   static int testNum = 0;
-  if (is_v8)
-    printf("attempt %d with S=%d, I=%d, B=%d, is_v8=%d\n", ++testNum, S, I, B,
-        is_v8);
-  else
-    printf("attempt %d with S=%d, I=%d, is_v8=%d\n", ++testNum, S, I, is_v8);
+  printf("attempt %d with N %d, alpha %7.3f\n", ++testNum, N, (double)alphaVal);
 
-  ScanLibBuilder scan(SHARED_LIB_BASE.str(), S, I, B, is_v8);
-  return scan.build() && scan.compileAndLoad() &&
-         scan.prepareInputsFromEnv("TEST_DATARANGE") && scan.run() &&
-         scan.verifyOutputs();
+  LeakyReluLibBuilder leakyRelu( SHARED_LIB_BASE.str(), N, alphaVal);
+  return leakyRelu.build() && leakyRelu.compileAndLoad() &&
+         leakyRelu.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         leakyRelu.prepareInputsFromEnv("TEST_DATARANGE") && leakyRelu.run() &&
+         leakyRelu.verifyOutputs();
 }
 
 } // namespace test
@@ -84,17 +76,16 @@ int main(int argc, char *argv[]) {
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestScan\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-
+      argc, argv, "TestLeakyRelu\n", nullptr, "TEST_ARGS");
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
   if (true) {
     printf("RapidCheck test case generation.\n");
-    bool success = rc::check("Scan implementation correctness", []() {
+    bool success = rc::check("LeakyRelu implementation correctness", [&]() {
       const int maxRange = 50;
-      const int S = *rc::gen::inRange(1, maxRange);
-      const int I = *rc::gen::inRange(1, maxRange);
-      RC_ASSERT(isOMScanTheSameAsNaiveImplFor(S, I));
+      const int N = *rc::gen::inRange(1, maxRange);
+      float alpha = *rc::gen::inRange(-10, 10) / 10.0;
+      RC_ASSERT(isOMLeakyReluTheSameAsNaiveImplFor(N, alpha));
     });
     if (!success)
       return 1;

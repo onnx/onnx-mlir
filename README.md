@@ -40,10 +40,12 @@ Detailed instructions are provided below.
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
+python >= 3.8
 gcc >= 6.4
 protobuf >= 3.16.0
 cmake >= 3.13.4
-ninja >= 1.10.2
+make >= 4.2.1 or ninja >= 1.10.2
+java >= 1.11 (optional)
 ```
 
 Help to update the prerequisites is found [here](docs/Prerequisite.md).

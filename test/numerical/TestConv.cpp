@@ -2,7 +2,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Common.hpp needs to be included first to correctly suprress the rapidcheck.h
+//====-- TestConv.cpp - test 2d convolutions -================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test 2D convolutions. Include tests for
+// strides/dilation>1 as well as dynamic NCHW dimensions.
+//
+//===----------------------------------------------------------------------===//
+
+// Common.hpp needs to be included first to correctly surpress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
 
@@ -83,9 +94,9 @@ int main(int argc, char *argv[]) {
     printf("test case generation with auto pad = VALID or SAME and %s.\n",
         (isDynamic ? "dynamic" : "static"));
     bool success = rc::check("convolution implementation correctness", [&]() {
-      const auto S = *rc::gen::inRange(1, 3);
+      const int S = *rc::gen::inRange(1, 3);
       stride = S;
-      const auto D = *rc::gen::inRange(1, maxDilation);
+      const int D = *rc::gen::inRange(1, maxDilation);
       dilation = D;
       ConvAutoPad autoPad;
       if (paddingType == "valid_upper")
@@ -94,13 +105,12 @@ int main(int argc, char *argv[]) {
       else
         autoPad = (ConvAutoPad)*rc::gen::inRange(
             (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
-
-      const auto N = *rc::gen::inRange(1, 5);
-      const auto C = *rc::gen::inRange(1, 10);
-      const auto H = *rc::gen::inRange(5, 32 * stride);
-      const auto W = *rc::gen::inRange(5, 32 * stride);
-      const auto kH = *rc::gen::inRange(1, 6);
-      const auto kW = *rc::gen::inRange(1, 6);
+      const int N = *rc::gen::inRange(1, 5);
+      const int C = *rc::gen::inRange(1, 10);
+      const int H = *rc::gen::inRange(5, 32 * stride);
+      const int W = *rc::gen::inRange(5, 32 * stride);
+      const int kH = *rc::gen::inRange(1, 6);
+      const int kW = *rc::gen::inRange(1, 6);
       // Make sure we have at least 1 output per dimension.
       RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
       RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
@@ -128,25 +138,25 @@ int main(int argc, char *argv[]) {
         // RapidCheck test case generation for a given stride and dilation.
         bool success =
             rc::check("convolution implementation correctness", [&]() {
-              const auto N = *rc::gen::inRange(1, 5);
-              const auto C = *rc::gen::inRange(1, 10);
-              const auto H = *rc::gen::inRange(5, 32 * stride);
-              const auto W = *rc::gen::inRange(5, 32 * stride);
-              const auto kH = *rc::gen::inRange(1, 6);
-              const auto kW = *rc::gen::inRange(1, 6);
+              const int N = *rc::gen::inRange(1, 5);
+              const int C = *rc::gen::inRange(1, 10);
+              const int H = *rc::gen::inRange(5, 32 * stride);
+              const int W = *rc::gen::inRange(5, 32 * stride);
+              const int kH = *rc::gen::inRange(1, 6);
+              const int kW = *rc::gen::inRange(1, 6);
               // We don't want an entire window of padding.
-              auto pHBegin = *rc::gen::inRange(0, kH);
-              auto pWBegin = *rc::gen::inRange(0, kW);
-              auto pHEnd = *rc::gen::inRange(0, kH);
-              auto pWEnd = *rc::gen::inRange(0, kW);
+              int pHBegin = *rc::gen::inRange(0, kH);
+              int pWBegin = *rc::gen::inRange(0, kW);
+              int pHEnd = *rc::gen::inRange(0, kH);
+              int pWEnd = *rc::gen::inRange(0, kW);
               if (paddingType == "valid_upper") {
                 if (pHBegin != 0 || pWBegin != 0 || pHEnd != 0 || pWEnd != 0) {
                   // Update pads for SAME_UPPER
-                  const auto Hout = std::ceil(float(H) / float(stride));
-                  const auto Wout = std::ceil(float(W) / float(stride));
-                  const auto Hpad =
+                  const int Hout = std::ceil(float(H) / float(stride));
+                  const int Wout = std::ceil(float(W) / float(stride));
+                  const int Hpad =
                       std::max(int((Hout - 1) * stride + kH - H), 0);
-                  const auto Wpad =
+                  const int Wpad =
                       std::max(int((Wout - 1) * stride + kW - W), 0);
                   pHBegin = Hpad / 2;
                   pWBegin = Wpad / 2;
