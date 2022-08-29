@@ -37,7 +37,7 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXConcatOp
   mlir::Value concat(mlir::Type outputType, mlir::ValueRange inputs,
-      mlir::IntegerAttr axis) const;
+      int64_t axis) const;
 
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;

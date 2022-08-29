@@ -51,9 +51,20 @@ Value OnnxBuilder::ceil(Value input) const {
   return b.create<ONNXCeilOp>(loc, toTensor(input.getType()), input);
 }
 
+// hi alex: remove
+#if 0
 Value OnnxBuilder::concat(
     Type outputType, ValueRange inputs, IntegerAttr axis) const {
   return b.create<ONNXConcatOp>(loc, toTensor(outputType), inputs, axis);
+}
+#endif
+
+Value OnnxBuilder::concat(
+    Type outputType, ValueRange inputs, int64_t axis) const {
+  IntegerAttr concatAxisAttr = IntegerAttr::get(
+      b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));
+  return b.create<ONNXConcatOp>(
+      loc, toTensor(outputType), inputs, concatAxisAttr);
 }
 
 Value OnnxBuilder::constant(Attribute denseAttr) const {
@@ -140,7 +151,9 @@ Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
   return b.create<ONNXSliceOp>(loc, toTensor(outputType), toTensor(input),
       toTensor(starts), toTensor(ends), toTensor(axes), toTensor(steps));
 }
-// 1D slice
+
+// 1D slice: take ints instead of values, and axis is by default 0 since we deal
+// here with 1D vectors.
 Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
     int64_t end, int64_t step) const {
   Value zeroVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({0})));
@@ -254,17 +267,15 @@ Value OnnxBuilder::reshapeToNDim(
   int64_t end = collapseMostSignificant ? rank : N;          // Exclusive.
   Value keepVal = slice(keepIntType, inputShapeVal, start, end, /*steps*/ 1);
   // Concat -1 and keep vals
-  IntegerAttr concatAxis = IntegerAttr::get(
-      b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));
   Value newShapeVal;
   if (collapseMostSignificant)
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
     newShapeVal =
-        concat(outputIntType, ValueRange({minusOneVal, keepVal}), concatAxis);
+        concat(outputIntType, ValueRange({minusOneVal, keepVal}), 0);
   else
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
     newShapeVal =
-        concat(outputIntType, ValueRange({keepVal, minusOneVal}), concatAxis);
+        concat(outputIntType, ValueRange({keepVal, minusOneVal}), 0);
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   std::vector<int64_t> rankedTensorDims;

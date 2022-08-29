@@ -422,7 +422,7 @@ private:
      XX = reshape(X, <N, CO, H*W>) // flatten the last 2 dims.
      WW = squeeze(W) // get rid of the last 2 1s in the dims.
      MM = matmul(WW, XX) //  <CO, CI> * <N, CI, H*W> = <N, CO, H*W>
-     res = reshape(MM, <N, CO, H, W)
+     res = reshape(MM, <N, CO, H, W>)
 
    Note: since there is no pad, dilation, stride, the output spacial dims (H, W)
    are the same on inputs and outputs.

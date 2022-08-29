@@ -73,10 +73,6 @@ Value getMatMulResultShape(
   // rhs shape: B1xB2x...xBkxNxP or NxP
 
   int64_t rank = std::max(lhsRank, rhsRank);
-  IntegerAttr concatAxisAttr =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-
   Type rI64Type = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type lhsRType = RankedTensorType::get({lhsRank}, rewriter.getI64Type());
   Type lhsR1Type = RankedTensorType::get({lhsRank - 1}, rewriter.getI64Type());
@@ -110,7 +106,7 @@ Value getMatMulResultShape(
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
     shapeVal =
-        create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), concatAxisAttr);
+        create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
     Value lhsR2Const = create.onnx.constant(
         rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 2})));
@@ -123,7 +119,7 @@ Value getMatMulResultShape(
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
     shapeVal = create.onnx.concat(
-        rI64Type, ValueRange({bVal, mVal, pVal}), concatAxisAttr);
+        rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;
 }
