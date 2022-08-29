@@ -14,6 +14,8 @@
 
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/Utils.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
@@ -21,6 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 
@@ -205,15 +208,18 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             /*value=*/nullptr,
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-    // Use an opaque attribute to store stickified data.
+    // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = getMemRefSizeInBytes(resType).getValue();
+    int64_t sizeInBytes = getMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
-    OpaqueElementsAttr valueAttr =
-        OpaqueElementsAttr::get(stickifiedConstant.getOperation()->getDialect(),
-            RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-            StringRef(rawData, sizeInBytes));
+    DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+        RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+        stickifiedConstant.getOperation()
+            ->getDialect()
+            ->getNamespace(), // use the dialect as the blob "hint"
+        HeapAsmResourceBlob::allocateAndCopy(
+            llvm::makeArrayRef(rawData, sizeInBytes), alignof(char)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 
@@ -222,7 +228,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     res = insertAllocAndDeallocZMemRefByDim(dims, layout, op, rewriter);
     Value initValue = create.math.constant(rewriter.getF16Type(), 0);
-    create.krnl.memset(res, initValue);
+    create.krnl.memset(res, initValue, /*delayed=*/true);
   }
   return res;
 }
@@ -503,22 +509,29 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
+    ZHighStickOp stickOp = llvm::dyn_cast<ZHighStickOp>(op);
     ZHighStickOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.In();
+    StringAttr layout = cast<ZHighStickOp>(op).layoutAttr();
+
+    ZHighStickOpShapeHelper shapeHelper(&stickOp, &rewriter);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
-    Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+
+    // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, input, alloc, zMemRefType.layout);
+    rewriter.create<ZLowStickOp>(loc, operandAdaptor.In(), alloc, layout);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -612,23 +625,30 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
+    ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
+    StringAttr layout = readLayout(input);
+
+    ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, dims, op, rewriter, /*alignment=*/-1);
+        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+
+    // Set layout: if NHWC, we can directly unstickify to NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowUnstickOp>(loc, input, alloc, readLayout(input));
+    rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -663,11 +683,14 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
-    // Get Opaque attribute.
-    StringRef data = stickifiedConstOp.value()
-                         .getValue()
-                         .cast<OpaqueElementsAttr>()
-                         .getValue();
+    // Get dense resource attribute.
+    auto blob = stickifiedConstOp.value()
+                    .value()
+                    .cast<DenseResourceElementsAttr>()
+                    .getRawHandle()
+                    .getBlob();
+    assert(blob && "Expecting dense resource with a valid blob");
+    ArrayRef<char> data = blob->getData();
 
     // Validate the stickified tensor.
     int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);

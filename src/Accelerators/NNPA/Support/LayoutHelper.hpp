@@ -13,6 +13,7 @@
 #pragma once
 
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/PatternMatch.h"
 #include "zdnn.h"
 
 namespace onnx_mlir {
@@ -35,5 +36,10 @@ const std::string LAYOUT_BZRH = "BZRH";
 
 zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     int64_t rank, mlir::StringAttr layoutAttr);
+
+bool is4DLayout(mlir::StringAttr layout);
+bool isNHWCLayout(mlir::StringAttr layout);
+
+mlir::StringAttr getNCHWLayoutAttr(mlir::PatternRewriter &rewriter);
 
 } // namespace onnx_mlir

@@ -2,13 +2,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <rapidcheck.h>
+//====-- TestLSTM.cpp - test matmul with broadcast -=========+++++++++++++====//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test LSTM code.
+//
+//===----------------------------------------------------------------------===//
 
-#include "llvm/Support/FileSystem.h"
-
-#include "include/OnnxMlirRuntime.h"
-#include "src/Runtime/OMTensorHelper.hpp"
-#include "test/modellib/ModelLib.hpp"
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLSTM_main_graph");
 
@@ -33,8 +39,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
   return lstm.build() && lstm.compileAndLoad() &&
-         lstm.checkInstructionFromEnv("TestLSTMNNPA_INSTRUCTION") &&
-         lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
+         lstm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         lstm.prepareInputsFromEnv("TEST_DATARANGE") && lstm.run() &&
+         lstm.verifyOutputs();
 }
 
 } // namespace test
@@ -51,36 +58,41 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
-  std::cout << "Target options: \""
-            << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
+  std::string target = getCompilerOption(OptionKind::TargetAccel);
+  std::cout << "Target options: \"" << target << "\"\n";
+  // Set default configuration
+  int minNoneP = 0; // Peephole is tested by default
+  // Update configurations from an environment variable or target
+  std::map<std::string, std::string> opts =
+      ModelLibBuilder::getTestConfigFromEnv("TEST_CONFIG");
+  if (target == "--maccel=NNPA" || opts["-peephole"] == "0") {
+    std::cout << "Peephole: \"not tested\"" << std::endl;
+    minNoneP = 1; // peephole not tested
+  }
 
   // RapidCheck test case generation.
-  bool success = rc::check("LSTM implementation correctness", []() {
-  // The number of directions.
-  // 1: forward, -1: reverse, 2: bidirectional
-    const auto D = *rc::gen::element(1, -1, 2);
+  bool success = rc::check("LSTM implementation correctness", [&]() {
+    // The number of directions.
+    // 1: forward, -1: reverse, 2: bidirectional
+    const int D = *rc::gen::element(1, -1, 2);
     // Sequence length.
-    const auto S = *rc::gen::inRange(1, 5);
+    const int S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 10);
+    const int B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(5, 10);
+    const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(5, 10);
+    const int H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(0, 1);
+    const int isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(0, 1);
+    const int isDynB = *rc::gen::element(0, 1);
     // Whether initial value of the hidden(initial_h) is specified.
-    const auto isNoneH = *rc::gen::element(0, 1);
+    const int isNoneH = *rc::gen::inRange(0, 2);
     // Whether initial value of the cell(initial_c) is specified.
-    const auto isNoneC = *rc::gen::element(0, 1);
+    const int isNoneC = *rc::gen::inRange(0, 2);
     // Whether the weight tensor for peepholes(P) is specified.
-#ifdef TEST_LSTM_NONEP_ONLY
-    const auto isNoneP = 1;
-#else
-    const auto isNoneP = *rc::gen::element(0, 1);
-#endif
+    const int isNoneP = *rc::gen::inRange(minNoneP, 2);
 
     RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0,
         isDynB == 0, isNoneH == 1, isNoneC == 1, isNoneP == 1));
@@ -88,11 +100,6 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
 
-#ifdef TEST_LSTM_NONEP_ONLY
-  int min_nonep = 1;
-#else
-  int min_nonep = 0;
-#endif
   // Exhaustive test case generation.
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
@@ -102,7 +109,7 @@ int main(int argc, char *argv[]) {
             for (int64_t dynb = 0; dynb < 2; dynb++)
               for (int64_t noneh = 0; noneh < 2; noneh++)
                 for (int64_t nonec = 0; nonec < 2; nonec++)
-                  for (int64_t nonep = min_nonep; nonep < 2; nonep++) {
+                  for (int64_t nonep = minNoneP; nonep < 2; nonep++) {
                     // forward
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));

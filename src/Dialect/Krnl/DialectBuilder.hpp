@@ -135,7 +135,7 @@ struct KrnlBuilder : public DialectBuilder {
 
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value size) const;
-  void memset(mlir::Value dest, mlir::Value val) const;
+  void memset(mlir::Value dest, mlir::Value val, bool delayed = false) const;
   mlir::Value strncmp(
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;

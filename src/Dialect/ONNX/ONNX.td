@@ -32,6 +32,12 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()", "SeqType">;
 
+def IsOptTypePred : CPred<"$_self.isa<OptType>()">;
+
+class OptOf<Type type> :
+  ContainerType<type, IsOptTypePred,
+                "$_self.cast<OptType>().getElementType()", "OptType">;
+
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
 
@@ -230,15 +236,30 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
     An list of tensors which may have different shape
   }];
 
-  let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
+  let parameters = (ins "::mlir::Type":$ElementType, "int64_t":$Length);
 
   let hasCustomAssemblyFormat = 1;
   let builders = [
-    TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
+    TypeBuilderWithInferredContext<(ins "::mlir::Type":$elementType,
                                         "int64_t":$length), [{
       return Base::get(elementType.getContext(), elementType, length);
     }]>
   ];
 }
 
+def ONNX_OptType : ONNX_Type<"Opt", "Opt"> {
+  let summary = " ONNX OptType";
+  let description = [{
+    An optional tensor or sequence
+  }];
+
+  let parameters = (ins "::mlir::Type":$ElementType);
+
+  let assemblyFormat = "`<` $ElementType `>`";
+  let builders = [
+    TypeBuilderWithInferredContext<(ins "::mlir::Type":$elementType), [{
+      return Base::get(elementType.getContext(), elementType);
+    }]>
+  ];
+}
 #endif // ONNX_OPS

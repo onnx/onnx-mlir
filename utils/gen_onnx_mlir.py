@@ -169,6 +169,9 @@ version_dict = {
  'Not': [1],
  'OneHot': [11],
  'OneHotEncoder': [1],
+ 'Optional' : [15],
+ 'OptionalGetElement' : [15],
+ 'OptionalHasElement' : [15],
  'Or': [7],
  'PRelu': [16],
  'Pad': [13, 11, 2],
@@ -253,6 +256,12 @@ version_dict = {
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", 'type')])
 
+# Manual specification of attribute order:
+# The names in each tuple will be ordered in that sequence.
+special_attr_order = {
+    ("then_branch", "else_branch"),
+}
+
 # Special operation importing handlers.
 special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
@@ -310,12 +319,16 @@ OpsWithVerifier = [
     'GatherElements',
     'GatherND',        
     'Hardmax',
+    'If',
     'InstanceNormalization',
     'LogSoftmax',
     'Mod',
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
+    'Optional',
+    'OptionalGetElement',
+    'OptionalHasElement',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',
@@ -348,9 +361,9 @@ OpsWithHelpers = {
 OpsWithResultTypeInference = {
   "Constant":
   '''if (auto attr = valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = sparse_valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }''',
   "Cast":
     '''// ae auto builder = mlir::OpBuilder(getContext());
@@ -358,7 +371,7 @@ OpsWithResultTypeInference = {
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.getType().cast<ShapedType>().getElementType()));
+          attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           FloatType::getF32(getContext())));
@@ -419,11 +432,11 @@ custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
-    auto tensorType = value.getType();
+    auto tensorType = value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
-    auto tensorType = sparse_value.getType();
+    auto tensorType = sparse_value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
@@ -448,6 +461,22 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
 )
 
 MAX_NUM_TYPES=20
+
+# attribute names are ordered alphabetically except for the
+# manually specified special orderings in special_attr_order
+def order_attr_names(attrNames):
+    attrNames = sorted(attrNames)
+    for namesOrder in special_attr_order:
+        # if attrNames includes all the namesOrder names, then reorder
+        # those names in attrNames to their order in namesOrder
+        if (set(namesOrder).issubset(attrNames)):
+            # namesIndexes are where the namesOrder names appear in attrNames
+            namesIndexes = (attrNames.index(name) for name in namesOrder)
+            # write the namesOrder names into those indexes in the correct order
+            for name, index in zip(namesOrder, sorted(namesIndexes)):
+                attrNames[index] = name
+    return attrNames
+
 
 def should_render_domain(domain):  # type: (Text) -> bool
     return True
@@ -485,7 +514,9 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
-    elif onnx_attr_type == 'type':
+    elif onnx_attr_type in {'type', 'type_proto'}:
+        # 'type' is the attribute type used in special_attr_types,
+        # 'type_proto' is Optional op's type attribute's type
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
@@ -609,7 +640,7 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        (str_types,isOptional) = get_onnx_mlir_types(schema, type_str_dict,  value)
+        str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
         # In case the type string is used more than once
         types = str_types.copy()
@@ -617,13 +648,10 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
 
-        # ToFix: In Opset 16, the parameter of IdentityOp has optionalType
-        # but this Optional flag is not set 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
-        elif isOptional :
-            types.append("NoneType")
-        elif OpSchema.FormalParameterOption.Variadic == value.option:
+
+        if OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
@@ -803,9 +831,6 @@ def get_type_inference_func(s, indent, type_inference_code):
 def parse_type_str(allowedType):
     # AnyI may be used for uint because the onnx_mlir is not generating uint output
     # This will be fixed later and UI will be replace AnyI
-    # ToFix: the optional type should use MLIR Optional
-    # The issue is Optional accepts Type not type list
-    # Need more complicated replacement code 
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
@@ -833,14 +858,10 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    # onnx v1.11.0 added optional on individual type, not just a flag to
-    # parameter. MILR supports Optional<Type>, but not AnyType<[Optional<Type>
-    # Keep using AnyTye<[Type, ..., NoneType] for optional.   
-    # Convert "optional" in type str to empty and a separate flag
-    isOptional = False
+    # optional(...) always appears outermost
     if allowedType.find("optional") == 0 :
-      allowedType = allowedType.replace("optional(", "", 1);
-      allowedType = allowedType[:-1]
+      allowedType = allowedType.replace("optional(", "OptOf<", 1);
+      allowedType = allowedType[:-1] + '>'
 
     # Apply substitutions in decreasing order of key-length, so that float16 is replaced
     # before float, and uint16 is replaced before int16, etc.
@@ -848,25 +869,21 @@ def parse_type_str(allowedType):
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
         allowedType = allowedType.replace(key, item)
-    return (allowedType, isOptional)
+    return allowedType
 
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
-    isOptional = False
     for allowedType in allowedTypes:
-        (mlirType, optional) = parse_type_str(allowedType)
+        mlirType = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
-        if optional :
-          isOptional = True
 
     # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
-    # optional type may introduce redundant, but it doesnot matter
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    return (mlirTypes, isOptional)
+    return mlirTypes
 
 def parse_type_constraints(schema):
     type_str_dict = dict()
@@ -879,9 +896,8 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             (type_str, isOptional) = parse_type_str(input.typeStr)
-             # throw away optional flag
-             return [[type_str], isOptional]
+             type_str = parse_type_str(input.typeStr)
+             return [type_str]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -897,7 +913,8 @@ def gen_op_def(schema, with_version = False):
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
-    for _, attr in sorted(schema.attributes.items()):
+    for name in order_attr_names(schema.attributes.keys()):
+      attr = schema.attributes[name]
       if attr.type == OpSchema.AttrType.GRAPH:
         if attr.required:
           regions[attr.name] = "SizedRegion<1>"
