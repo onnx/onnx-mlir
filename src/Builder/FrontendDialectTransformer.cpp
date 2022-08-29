@@ -470,6 +470,8 @@ private:
       }
     }
 
+    // The compiler assumes the model is correct and doesn't try to do
+    // exhaustive correctness checking of its own
     for (const auto &internal : graph.value_info()) {
       AddValueInfo(internal, true);
     }
