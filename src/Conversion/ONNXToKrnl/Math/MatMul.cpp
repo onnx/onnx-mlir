@@ -281,11 +281,18 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
-  // Handle the cases with 2x2 matrices with broadcasting
+  // Handle the cases with 2x2 matrices with broadcasting.
+  // Either broadcast A (and then B has rank 2, broadcastingB is false) or
+  // broadcast B (and then A has rank 2, broadcastingB is true). But we can also
+  // use this same algorithm when both A and B have identical, static
+  // broadcasting ranks. In such case, sameStaticBroadcast is true, and the
+  // value of broadcastingB does not matter as they treated as both
+  // broadcasting.
   void replace2x2Matmul2dBroadcasting(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB, Value alloc,
-      Value zeroVal, ConversionPatternRewriter &rewriter, Location loc) const {
+      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB,
+      bool sameStaticBroadcast, Value alloc, Value zeroVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     int64_t ARank = shapeHelper.aDims.size();
@@ -297,9 +304,13 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = create.math.constantIndex(0);
     Value I = create.mem.dim(C, broadcastRank + 0); // C has broadcast.
     Value J = create.mem.dim(C, broadcastRank + 1); // C has broadcast.
-    // When broadcasting B, A has no broadcast, take K from 2nd dim.
-    // When not broadcasting B, B has no broadcast, take K from 1st dim.
-    Value K = broadcastingB ? create.mem.dim(A, 1) : create.mem.dim(B, 0);
+    // When sameStaticBroadcast: A & B have broadcast, take K from broadcastRank
+    // +0 of B (same as +1 from A). When broadcasting B, A has no broadcast,
+    // take K from 2nd dim. When not broadcasting B, B has no broadcast, take K
+    // from 1st dim.
+    Value K = sameStaticBroadcast ? create.mem.dim(B, broadcastRank + 0)
+                                  : (broadcastingB ? create.mem.dim(A, 1)
+                                                   : create.mem.dim(B, 0));
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
@@ -350,24 +361,34 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                   broadcastGlobalStart.emplace_back(broadcastIndices[i]);
                 broadcastGlobalStart.emplace_back(zero);
                 broadcastGlobalStart.emplace_back(zero);
-                if (broadcastingB)
+                if (sameStaticBroadcast) {
+                  // Each of A, B, & C starts at broadcastGlobalStart.
+                  createKrnl.matmul(A, broadcastGlobalStart, B,
+                      broadcastGlobalStart, C, broadcastGlobalStart,
+                      {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
+                      {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+                      /*unroll*/ true, /*overcompute*/ false);
+                } else if (broadcastingB) {
+                  // B & C start at broadcastGlobalStart, A starts at {0,0}.
                   createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
                       simdize, /*unroll*/ true, /*overcompute*/ false);
-                else
+                } else {
+                  // A & C start at broadcastGlobalStart, B starts at {0,0}.
                   createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
                       simdize, /*unroll*/ true, /*overcompute*/ false);
+                }
               });
         });
   }
 
   // Handle the cases with 2x2 matrices both for A, B, and C without
-  // broadcast. Implementation here uses the efficient 2d tiling plus kernel
-  // substitution.
-
+  // broadcast, broadcast of A to rank 2 B,  broadcast of B to rank 2 A, or
+  // static, identical shaped broadcasting size A & B.
+  // Implementation here uses the efficient 2d tiling plus kernel substitution.
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
@@ -396,9 +417,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = createMath.constant(elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
-    auto aRank = A.getType().cast<MemRefType>().getShape().size();
-    auto bRank = B.getType().cast<MemRefType>().getShape().size();
-    auto cRank = alloc.getType().cast<MemRefType>().getShape().size();
+    int aRank = A.getType().cast<MemRefType>().getShape().size();
+    int bRank = B.getType().cast<MemRefType>().getShape().size();
+    int cRank = alloc.getType().cast<MemRefType>().getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
@@ -408,15 +429,37 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
       replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
-          shapeHelper, /*broadcasting B*/ true, alloc, zero, rewriter, loc);
+          shapeHelper, /*broadcasting B*/ true,
+          /*same static broadcast*/ false, alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank > 2 && bRank == 2) {
       // Broadcasting A.
       assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
       replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
-          shapeHelper, /*broadcasting B*/ false, alloc, zero, rewriter, loc);
+          shapeHelper, /*broadcasting B*/ false,
+          /*same static broadcast*/ false, alloc, zero, rewriter, loc);
     } else {
-      replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, rewriter, loc);
+      // Test if have A and B have identical static broadcast shapes.
+      bool sameStaticBroadcast = (enableTiling && aRank > 2 && aRank == bRank);
+      if (sameStaticBroadcast) {
+        auto aShape = A.getType().cast<MemRefType>().getShape();
+        auto bShape = B.getType().cast<MemRefType>().getShape();
+        for (int i = 0; i < aRank - 2; ++i)
+          if (aShape[i] <= 0 || aShape[i] != bShape[i]) {
+            sameStaticBroadcast = false;
+            break;
+          }
+      }
+      // While there is technically no broadcasting there, we can use nearly the
+      // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
+      if (sameStaticBroadcast) {
+        assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
+        replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
+            shapeHelper, /*broadcasting B*/ true,
+            /*same static broadcast*/ true, alloc, zero, rewriter, loc);
+      } else {
+        replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+            alloc, zero, rewriter, loc);
+      }
     }
     // Done.
     rewriter.replaceOp(op, alloc);
