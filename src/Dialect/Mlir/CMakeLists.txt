@@ -5,6 +5,10 @@ add_onnx_mlir_library(OMMlirDialects
   IndexExprDetail.cpp
   DialectBuilder.cpp
 
+  DEPENDS
+  OMKrnlIncGen
+  OMSpecializedKernelOpInterface
+
   LINK_LIBS PUBLIC
   MLIRMathDialect
   MLIRAffineDialect

@@ -54,7 +54,7 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling);
+    bool emitDealloc, bool enableTiling, bool enableParallel);
 
 /// Add pass for lowering to Mhlo IR.
 std::unique_ptr<mlir::Pass> createLowerToMhloPass();
