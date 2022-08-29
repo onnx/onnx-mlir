@@ -249,6 +249,26 @@ private:
   std::string moduleIR;
 };
 
+class LeakyReluLibBuilder : public ModelLibBuilder {
+public:
+  LeakyReluLibBuilder(
+      const std::string &modelName, const int N, const float alpha);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int N;
+  const float alphaVal;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> xShape, yShape;
+  // model definition in std::string
+  std::string moduleIR;
+};
+
 // 2x2 matmul with no broadcast
 class MatMul2DLibBuilder : public ModelLibBuilder {
 public:
