@@ -140,6 +140,15 @@ Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
   return b.create<ONNXSliceOp>(loc, toTensor(outputType), toTensor(input),
       toTensor(starts), toTensor(ends), toTensor(axes), toTensor(steps));
 }
+// 1D slice
+Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
+    int64_t end, int64_t step) const {
+  Value zeroVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({0})));
+  Value startVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({start})));
+  Value endVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({end})));
+  Value stepVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({step})));
+  return slice(outputType, input, startVal, endVal, /*axis*/ zeroVal, stepVal);
+}
 
 Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
   return b.create<ONNXSqueezeOp>(
@@ -239,16 +248,11 @@ Value OnnxBuilder::reshapeToNDim(
   // Get input shape value.
   Value inputShapeVal = shape(inputShapeType, val);
   // Construct ONNX constants.
-  Value zeroVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value oneVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({1})));
   Value minusOneVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({-1})));
+  // Shape values that we keep.
   int64_t start = collapseMostSignificant ? rank - keep : 0; // Inclusive.
   int64_t end = collapseMostSignificant ? rank : N;          // Exclusive.
-  Value startVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({start})));
-  Value endVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({end})));
-  // Shape values that we keep.
-  Value keepVal = slice(keepIntType, inputShapeVal, startVal, endVal,
-      /*axis*/ zeroVal, /*steps*/ oneVal);
+  Value keepVal = slice(keepIntType, inputShapeVal, start, end, /*steps*/ 1);
   // Concat -1 and keep vals
   IntegerAttr concatAxis = IntegerAttr::get(
       b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));

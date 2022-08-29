@@ -421,7 +421,7 @@ private:
    to:
      XX = reshape(X, <N, CO, H*W>) // flatten the last 2 dims.
      WW = squeeze(W) // get rid of the last 2 1s in the dims.
-     MM = matmul(WW, XX)
+     MM = matmul(WW, XX) //  <CO, CI> * <N, CI, H*W> = <N, CO, H*W>
      res = reshape(MM, <N, CO, H, W)
 
    Note: since there is no pad, dilation, stride, the output spacial dims (H, W)
@@ -435,18 +435,21 @@ public:
   LogicalResult matchAndRewrite(
       ONNXConvOp onnxConvOp, PatternRewriter &rewriter) const override {
     Location loc = onnxConvOp.getLoc();
-    Operation *convOp = onnxConvOp.getOperation();
-    // hi alex
-    #if 0
+    // hi alex Operation *convOp = onnxConvOp.getOperation();
     // Get rank info.
     Value X = onnxConvOp.X();
-    Value W = onnxCOnvOp.W();
-    if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
+    Value W = onnxConvOp.W();
+    Type elementType = X.getType().cast<ShapedType>().getElementType();
+    if (!onnx_mlir::hasShapeAndRank(X) || !onnx_mlir::hasShapeAndRank(W))
       return failure();
     auto xShape = X.getType().cast<ShapedType>().getShape();
     auto wShape = W.getType().cast<ShapedType>().getShape();
     int xRank = xShape.size();
     int wRank = wShape.size();
+    int batchSize = xShape[0];
+    // hi alex int Hin = xShape[2];
+    // hi alex int Win = xShape[3];
+    int Cout = wShape[0];
     int spacialRank = wRank - 2;
     assert(spacialRank > 0 && xRank == wRank && "ill formed convolution");
     int spacialOffset = 2; // For X: NxCI, for W: COxCI
@@ -457,41 +460,44 @@ public:
     auto dilations = onnxConvOp.dilations();
     if (dilations.has_value()) {
       for (int i = 0; i < spacialRank; ++i)
-        if (ArrayAttrIntVal(dilations, i) != 1)
+        if (onnx_mlir::ArrayAttrIntVal(dilations, i) != 1)
           return failure();
     }
     // ELiminate conv ops with strides>1.
     auto strides = onnxConvOp.strides();
     if (strides.has_value()) {
       for (int i = 0; i < spacialRank; ++i)
-        if (ArrayAttrIntVal(strides, i) != 1)
+        if (onnx_mlir::ArrayAttrIntVal(strides, i) != 1)
           return failure();
     }
     // Eliminate conv ops with any padding.
-    autoPad = onnxConvOp.auto_pad();
+    auto autoPad = onnxConvOp.auto_pad();
     if (autoPad == "NOTSET") {
       // Explicitly given padding, check that it is all zero. Don't have to
       // worry about the other cases (SAME_UPPER/LOWER, VALID), as with 1x1
       // kernel of stride/dilation of 1, there is never any padding for the
       // (deprecated) automatic padding options.
-      auto pads = onnxConvOp->pads();
+      auto pads = onnxConvOp.pads();
       if (pads.has_value()) {
         for (int i = 0; i < 2 * spacialRank; ++i) // 2x for before/after.
-          if (ArrayAttrIntVal(pads, i) != 0)
+          if (onnx_mlir::ArrayAttrIntVal(pads, i) != 0)
             return failure();
       }
     }
-    // Eliminate conv ops with filter other than 1x1 (for arbitrary spacial
-    // dims)
-    int spacialXSize = 1; // Needed for reshape of XX in top comment.
-    for (int i = spacialOffset; i < wRank; ++i) {
-      if (wShape[i] != 1)
-        // Eliminates the dynamic (-1) as well as the non-unit dimensions.
-        return failure();
-      spacialXSize *= xShape[i];
-    }
     // All conditions satisfied, start transforming.
-#endif
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+    Value XX =
+        create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
+    // Squeeze <Cout, Cin, 1, 1> can be implemented by a reshape to <Cout, *>.
+    Value WW =
+        create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
+    // Leave last dim runtime so that its actual H*W size can be generated
+    // during shape inference.
+    MemRefType MMOutputType =
+        MemRefType::get({batchSize, Cout, -1}, elementType);
+    Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
+    // Value res = create;
     return success();
   }
 };
