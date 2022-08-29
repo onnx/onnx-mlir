@@ -67,4 +67,16 @@ zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
   return zDNNDataLayout;
 }
 
+bool is4DLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_4D));
+}
+
+bool isNHWCLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_NHWC));
+}
+
+mlir::StringAttr getNCHWLayoutAttr(PatternRewriter &rewriter) {
+  return rewriter.getStringAttr(LAYOUT_NCHW);
+}
+
 } // namespace onnx_mlir
