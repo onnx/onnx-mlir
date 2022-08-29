@@ -603,11 +603,11 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
   Type yhTy = op->getResult(1).getType();
   if (!yhTy.isa<NoneType>()) {
     if (batchwiseLayout) {
-      yhTy = RankedTensorType::get(
-          {batchSize, numDir, hiddenSize}, elementType);
+      yhTy =
+          RankedTensorType::get({batchSize, numDir, hiddenSize}, elementType);
     } else {
-      yhTy = RankedTensorType::get(
-          {numDir, batchSize, hiddenSize}, elementType);
+      yhTy =
+          RankedTensorType::get({numDir, batchSize, hiddenSize}, elementType);
     }
     op->getResult(1).setType(yhTy);
   }
@@ -617,11 +617,11 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
     Type ycTy = op->getResult(2).getType();
     if (!ycTy.isa<NoneType>()) {
       if (batchwiseLayout) {
-        ycTy = RankedTensorType::get(
-            {batchSize, numDir, hiddenSize}, elementType);
+        ycTy =
+            RankedTensorType::get({batchSize, numDir, hiddenSize}, elementType);
       } else {
-        ycTy = RankedTensorType::get(
-            {numDir, batchSize, hiddenSize}, elementType);
+        ycTy =
+            RankedTensorType::get({numDir, batchSize, hiddenSize}, elementType);
       }
       op->getResult(2).setType(ycTy);
     }
