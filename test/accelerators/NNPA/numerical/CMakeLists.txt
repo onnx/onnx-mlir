@@ -107,7 +107,7 @@ add_numerical_unittest(TestGRUNNPA
   )
 
 # LeakyRelu
-set(TestLeakyReluNNPA_instruction zdnn_leakyrelu)
+set(TestLeakyReluNNPA_instruction zdnn_relu)
 # Automatically set following config when using --maccel=NNPA
 add_numerical_unittest(TestLeakyReluNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLeakyRelu.cpp
