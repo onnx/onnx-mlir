@@ -3,7 +3,6 @@
 // COM: Current MLIR normalize-memres does not support multiple dereferencing uses
 // in a single op, check expected failure emitted by MLIR. 
 
-// FAILED-LABEL: onnx-mlir-opt 
 // FAILED: "multiple dereferencing uses in a single op not supported"
 
 // RUN: onnx-mlir-opt --maccel=NNPA --zlow-dummyop-for-multideref --normalize-memrefs --canonicalize %s | FileCheck --check-prefix=PASSED %s
