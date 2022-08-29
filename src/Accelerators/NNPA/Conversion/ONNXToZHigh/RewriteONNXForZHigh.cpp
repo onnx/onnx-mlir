@@ -59,41 +59,7 @@ Value getSqrtResultBatchNormA(
 // Reshape: B1xB2x...xBkxMxN to BxMxN
 Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  int64_t rank = getRank(val.getType());
-  assert(rank > 3 && "Require rank > 3");
-  ArrayRef<int64_t> shape = getShape(val.getType());
-  Type elementType = getElementType(val.getType());
-  Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-  Type twoI64Type = RankedTensorType::get({2}, rewriter.getI64Type());
-  Type threeI64Type = RankedTensorType::get({3}, rewriter.getI64Type());
-
-  Value shapeVal = create.onnx.shape(shapeType, val);
-
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value minusOne =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({-1})));
-  Value r2Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank - 2})));
-  Value rConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank})));
-  Value lastTwoDimVal =
-      create.onnx.slice(twoI64Type, shapeVal, r2Const, rConst, zero, one);
-
-  IntegerAttr concatAxis =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-  // newShapeVal is [-1, M, N] where M and N are the last dims in the input.
-  Value newShapeVal = create.onnx.concat(
-      threeI64Type, ValueRange({minusOne, lastTwoDimVal}), concatAxis);
-
-  // Shape inference will infer the correct shape later.
-  return create.onnx.reshape(
-      RankedTensorType::get(
-          {-1, shape[rank - 2], shape[rank - 1]}, elementType),
-      val, newShapeVal);
+  return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
 }
 
 // Get a value that store the shape of the matmul result.

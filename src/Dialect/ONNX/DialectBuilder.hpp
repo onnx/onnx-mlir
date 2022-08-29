@@ -64,6 +64,12 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  // Reshape input val to a N-dimensional shape; when collapseMostSignificant is
+  // true, we collapse the most significant dimensions (and preserve the N-1
+  // least significant dims); otherwise we collapse the least significant
+  // dimensions (and preserve the N-1 most significant dims).
+  mlir::Value reshapeToNDim(
+      mlir::Value val, int64_t N, bool collapseMostSignificant) const;
 
   // ONNXShapeOp
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;

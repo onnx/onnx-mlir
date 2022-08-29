@@ -26,6 +26,10 @@ namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
+// =============================================================================
+// Basic operations
+// =============================================================================
+
 Value OnnxBuilder::add(Value A, Value B) const {
   assert((A.getType().cast<ShapedType>().getElementType() ==
              B.getType().cast<ShapedType>().getElementType()) &&
@@ -199,6 +203,75 @@ Value OnnxBuilder::where(
     Type outputType, Value condition, Value X, Value Y) const {
   return b.create<ONNXWhereOp>(
       loc, toTensor(outputType), toTensor(condition), toTensor(X), toTensor(Y));
+}
+
+// =============================================================================
+// More advanced operations
+// =============================================================================
+
+// Reshape input value "val" to a "N" dimensional vector. When
+// "collapseMostSignificant" is true, then we collapse the R-N+1 most
+// significant dimensions and keep the N-1 least significant dimensions as is.
+//
+// e.g. val has type 2x3x4x5xf32
+// reshape(val, 3, true) -> reshape([-1, 4, 5], val, [-1, 4, 5])
+
+// When  "collapseMostSignificant" is false, then we collapse the R-N+1 least
+// significant dimensions and keep the N-1 most significant dimensions as is.
+//
+// e.g. reshape(val, 3, false) -> reshape([2, 3, -1], val, [2, 3, -1])
+
+Value OnnxBuilder::reshapeToNDim(
+    Value val, int64_t N, bool collapseMostSignificant) const {
+  // Get rank of the original shape and determine if we have anything to do.
+  int64_t rank = val.getType().cast<RankedTensorType>().getRank();
+  int64_t keep = N - 1; // 1 dim for collapsed dims, keep N -1 from original.
+  assert(rank >= N && "Require rank >= N");
+  if (rank == N)
+    // No collapse is needed, return self.
+    return val;
+  // Compute types.
+  ArrayRef<int64_t> inputShape = val.getType().cast<ShapedType>().getShape();
+  Type elementType = val.getType().cast<ShapedType>().getElementType();
+  Type inputShapeType = RankedTensorType::get({rank}, b.getI64Type());
+  Type keepIntType = RankedTensorType::get({keep}, b.getI64Type());
+  Type outputIntType = RankedTensorType::get({N}, b.getI64Type());
+  // Get input shape value.
+  Value inputShapeVal = shape(inputShapeType, val);
+  // Construct ONNX constants.
+  Value zeroVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({0})));
+  Value oneVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({1})));
+  Value minusOneVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({-1})));
+  int64_t start = collapseMostSignificant ? rank - keep : 0; // Inclusive.
+  int64_t end = collapseMostSignificant ? rank : N;          // Exclusive.
+  Value startVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({start})));
+  Value endVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({end})));
+  // Shape values that we keep.
+  Value keepVal = slice(keepIntType, inputShapeVal, startVal, endVal,
+      /*axis*/ zeroVal, /*steps*/ oneVal);
+  // Concat -1 and keep vals
+  IntegerAttr concatAxis = IntegerAttr::get(
+      b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));
+  Value newShapeVal;
+  if (collapseMostSignificant)
+    // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
+    newShapeVal =
+        concat(outputIntType, ValueRange({minusOneVal, keepVal}), concatAxis);
+  else
+    // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
+    newShapeVal =
+        concat(outputIntType, ValueRange({keepVal, minusOneVal}), concatAxis);
+  // Shape inference will infer the correct shape later, thus use -1 for
+  // collapsed dims.
+  std::vector<int64_t> rankedTensorDims;
+  if (collapseMostSignificant)
+    rankedTensorDims.emplace_back(-1);
+  for (int i = start; i < end; ++i)
+    rankedTensorDims.emplace_back(inputShape[i]);
+  if (!collapseMostSignificant)
+    rankedTensorDims.emplace_back(-1);
+  return reshape(
+      RankedTensorType::get(rankedTensorDims, elementType), val, newShapeVal);
 }
 
 } // namespace onnx_mlir
