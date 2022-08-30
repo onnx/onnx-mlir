@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -117,6 +117,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Not** |1 | | |
 | **OneHot** |11 | | |
 | **OneHotEncoder** | |unsupported | |
+| **Optional** | |unsupported | |
+| **OptionalGetElement** | |unsupported | |
+| **OptionalHasElement** | |unsupported | |
 | **Or** |7 | | |
 | **PRelu** |16 | | |
 | **Pad** |13, 11, 2 | | |
@@ -159,7 +162,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **SequenceConstruct** | |unsupported | |
 | **SequenceEmpty** | |unsupported | |
 | **SequenceErase** | |unsupported | |
-| **SequenceInsert** |11 | | |
+| **SequenceInsert** |11 |Does not support unranked sequence element. | |
 | **SequenceLength** | |unsupported | |
 | **Shape** |13 | | |
 | **Shrink** | |unsupported | |
