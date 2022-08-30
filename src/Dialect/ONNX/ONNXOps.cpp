@@ -3045,14 +3045,10 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
   int64_t dimSize = shape[axisIndex];
 
   // start with length unknown and dims == shape with unknown dimension size
-  // for axis, and edit it as needed below
+  // for axis (-1 is ShapedType::kDynamicSize), and edit it as needed below
   int64_t length = -1;
   SmallVector<int64_t, 4> dims(shape.begin(), shape.end());
   dims[axisIndex] = -1;
-  // corner case: if the input dimension size for axis is zero, any tensors in
-  // the output sequence must also be zero
-  if (dimSize == 0)
-    dims[axisIndex] = 0;
 
   Value splitValue = split();
   if (splitValue.getType().isa<NoneType>()) {
@@ -3061,8 +3057,8 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
     assert(0 <= keep && keep <= 1 && "keepdims out of range");
     length = dimSize;
     if (keep == 1) {
-      if (dimSize != 0)
-        dims[axisIndex] = 1;
+      // if dimSize is zero we can choose any value here, 1 is fine
+      dims[axisIndex] = 1;
     } else {
       dims.erase(dims.begin() + axisIndex);
     }
@@ -3097,6 +3093,12 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
       }
     } else if (splitRank == 1 && splitShape[0] != -1) {
       length = splitShape[0];
+      // corner case: if the input dimension size for axis is zero, any tensors
+      // in the output sequence must also be zero if the sequence is non-empty
+      if (length > 0 && dimSize == 0)
+        dims[axisIndex] = 0;
+      // if length and dimSize are both zero, we can choose any value,
+      // leaving it be -1 is fine
     }
   }
   getResult().setType(SeqType::get(

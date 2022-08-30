@@ -2722,15 +2722,17 @@ func.func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !
 
 // -----
 
+// when the split input is none we always infer that the splits will have dim
+// size 1 on the split axis even if we know the output sequence will be empty
 func.func @test_splittosequence_0(%arg0: tensor<0x?x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<0x?x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
 // CHECK-LABEL:  func @test_splittosequence_0
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<0x?x4xf32>) -> !onnx.Seq<tensor<0x?x4xf32>> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<0x?x4xf32>) -> !onnx.Seq<tensor<1x?x4xf32>> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK:           [[VAR_1_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_0_]]) : (tensor<0x?x4xf32>, none) -> !onnx.Seq<tensor<0x?x4xf32>>
-// CHECK:           return [[VAR_1_]] : !onnx.Seq<tensor<0x?x4xf32>>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_0_]]) : (tensor<0x?x4xf32>, none) -> !onnx.Seq<tensor<1x?x4xf32>>
+// CHECK:           return [[VAR_1_]] : !onnx.Seq<tensor<1x?x4xf32>>
 }
 
 // -----
@@ -2785,11 +2787,22 @@ func.func @test_splittosequence_4(%arg0: tensor<2x?x4xf32>, %arg1: tensor<3xi64>
 
 // -----
 
-func.func @test_splittosequence_5(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
-  %cst = "onnx.Constant"(){value = dense<2> : tensor<i64>} : () -> tensor<i64>
-  %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<4x?x3xf32>, tensor<i64>) -> !onnx.Seq<tensor<*xf32>>
+func.func @test_splittosequence_5(%arg0: tensor<0x?x4xf32>, %arg1: tensor<3xi64>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SplitToSequence"(%arg0, %arg1) : (tensor<0x?x4xf32>, tensor<3xi64>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
 // CHECK-LABEL:  func @test_splittosequence_5
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<0x?x4xf32>, [[PARAM_1_:%.+]]: tensor<3xi64>) -> !onnx.Seq<tensor<0x?x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<0x?x4xf32>, tensor<3xi64>) -> !onnx.Seq<tensor<0x?x4xf32>>
+// CHECK:           return [[VAR_0_]] : !onnx.Seq<tensor<0x?x4xf32>>
+}
+
+// -----
+
+func.func @test_splittosequence_6(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %cst = "onnx.Constant"() {value = dense<2> : tensor<i64>} : () -> tensor<i64>
+  %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<4x?x3xf32>, tensor<i64>) -> !onnx.Seq<tensor<*xf32>>
+  return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_splittosequence_6
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<2x?x3xf32>> {
 // CHECK:           [[VAR_cst_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<i64>} : () -> tensor<i64>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_cst_]]) : (tensor<4x?x3xf32>, tensor<i64>) -> !onnx.Seq<tensor<2x?x3xf32>>
@@ -2798,11 +2811,11 @@ func.func @test_splittosequence_5(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<
 
 // -----
 
-func.func @test_splittosequence_6(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
-  %cst = "onnx.Constant"(){value = dense<3> : tensor<i64>} : () -> tensor<i64>
+func.func @test_splittosequence_7(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %cst = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
   %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<4x?x3xf32>, tensor<i64>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
-// CHECK-LABEL:  func @test_splittosequence_6
+// CHECK-LABEL:  func @test_splittosequence_7
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<?x?x3xf32>> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_0_]]) : (tensor<4x?x3xf32>, tensor<i64>) -> !onnx.Seq<tensor<?x?x3xf32>>
@@ -2811,11 +2824,11 @@ func.func @test_splittosequence_6(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<
 
 // -----
 
-func.func @test_splittosequence_7(%arg0: tensor<?x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
-  %cst = "onnx.Constant"(){value = dense<[2, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+func.func @test_splittosequence_8(%arg0: tensor<?x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %cst = "onnx.Constant"() {value = dense<[2, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<?x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
-// CHECK-LABEL:  func @test_splittosequence_7
+// CHECK-LABEL:  func @test_splittosequence_8
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3xf32>) -> !onnx.Seq<tensor<2x?x3xf32>> {
 // CHECK:           [[VAR_cst_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<2xi64>} : () -> tensor<2xi64>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_cst_]]) : (tensor<?x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<2x?x3xf32>>
@@ -2824,11 +2837,11 @@ func.func @test_splittosequence_7(%arg0: tensor<?x?x3xf32>) -> !onnx.Seq<tensor<
 
 // -----
 
-func.func @test_splittosequence_8(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
-  %cst = "onnx.Constant"(){value = dense<[3, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+func.func @test_splittosequence_9(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %cst = "onnx.Constant"() {value = dense<[3, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
   %0 = "onnx.SplitToSequence"(%arg0, %cst) : (tensor<4x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
-// CHECK-LABEL:  func @test_splittosequence_8
+// CHECK-LABEL:  func @test_splittosequence_9
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<?x?x3xf32>> {
 // CHECK:           [[VAR_cst_:%.+]] = "onnx.Constant"() {value = dense<[3, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_cst_]]) : (tensor<4x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<?x?x3xf32>>
