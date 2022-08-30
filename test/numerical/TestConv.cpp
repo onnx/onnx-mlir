@@ -87,6 +87,13 @@ int main(int argc, char *argv[]) {
     paddingType = "valid_upper";
   }
 
+  // hi alex: test that fails
+  if (1) {
+    isDynamic = 1;
+    bool myres = isOMConvTheSameAsNaiveImplFor(
+        1, 1, 5, 5, 1, 1, 0, 0, 0, 0, ConvAutoPad::VALID);
+    assert(myres && "my test failed");
+  }
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
   for (isDynamic = 0; isDynamic < dimType; ++isDynamic) {

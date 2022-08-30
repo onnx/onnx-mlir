@@ -23,6 +23,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
@@ -264,7 +265,7 @@ private:
   // ```
   std::pair<bool, Value> matchOp(
       PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
-    onnx_mlir::OnnxBuilder onnx(rewriter, loc);
+    OnnxBuilder onnx(rewriter, loc);
     Operation *loopOp = onnxLoopOp.getOperation();
     Value maxTripCountValue = loopOp->getOperands()[0];
 
@@ -439,20 +440,30 @@ public:
     // Get rank info.
     Value X = onnxConvOp.X();
     Value W = onnxConvOp.W();
+    Value Y = onnxConvOp.Y();
+    if (0)
+      return failure(); // hi alex, make it fail
     Type elementType = X.getType().cast<ShapedType>().getElementType();
-    if (!onnx_mlir::hasShapeAndRank(X) || !onnx_mlir::hasShapeAndRank(W))
+    if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
+      return failure();
+    if (!hasShapeAndRank(Y))
       return failure();
     auto xShape = X.getType().cast<ShapedType>().getShape();
     auto wShape = W.getType().cast<ShapedType>().getShape();
+    // auto yShape = Y.getType().cast<ShapedType>().getShape();
     int xRank = xShape.size();
     int wRank = wShape.size();
+    // int yRank = yShape.size();
     int batchSize = xShape[0];
-    // hi alex int Hin = xShape[2];
-    // hi alex int Win = xShape[3];
     int Cout = wShape[0];
-    int spacialRank = wRank - 2;
+    int spacialRank =
+        wRank - 2; // Spacial is all but N & Cin in X, Cout & Cin in W.
+    int spacialIndex = 2;
     assert(spacialRank > 0 && xRank == wRank && "ill formed convolution");
-    int spacialOffset = 2; // For X: NxCI, for W: COxCI
+    // Eliminating conv with spacial dims of the kernel that are not 1.
+    for (int i = spacialIndex; i < wRank; ++i)
+      if (wShape[i] != 1)
+        return failure();
     // Eliminate conv ops with groups>1.
     if (onnxConvOp.group() != 1)
       return failure();
@@ -460,14 +471,14 @@ public:
     auto dilations = onnxConvOp.dilations();
     if (dilations.has_value()) {
       for (int i = 0; i < spacialRank; ++i)
-        if (onnx_mlir::ArrayAttrIntVal(dilations, i) != 1)
+        if (ArrayAttrIntVal(dilations, i) != 1)
           return failure();
     }
     // ELiminate conv ops with strides>1.
     auto strides = onnxConvOp.strides();
     if (strides.has_value()) {
       for (int i = 0; i < spacialRank; ++i)
-        if (onnx_mlir::ArrayAttrIntVal(strides, i) != 1)
+        if (ArrayAttrIntVal(strides, i) != 1)
           return failure();
     }
     // Eliminate conv ops with any padding.
@@ -480,13 +491,15 @@ public:
       auto pads = onnxConvOp.pads();
       if (pads.has_value()) {
         for (int i = 0; i < 2 * spacialRank; ++i) // 2x for before/after.
-          if (onnx_mlir::ArrayAttrIntVal(pads, i) != 0)
+          if (ArrayAttrIntVal(pads, i) != 0)
             return failure();
       }
     }
+
     // All conditions satisfied, start transforming.
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-        rewriter, loc);
+    printf("hi alex, test conv start transforming\n");
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Reshape [N, CI, H, W] to [N, CI, H*W] 
     Value XX =
         create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
     // Squeeze <Cout, Cin, 1, 1> can be implemented by a reshape to <Cout, *>.
@@ -497,7 +510,16 @@ public:
     MemRefType MMOutputType =
         MemRefType::get({batchSize, Cout, -1}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
-    // Value res = create;
+    // Get output shape value.
+    Type outputShapeType = RankedTensorType::get({4}, rewriter.getI64Type());
+    Value outputShapeVals = create.onnx.shape(outputShapeType, Y);
+    // std::vector<int64_t> rankedTensorDims;
+    // for (int i = 0; i < yRank; ++i)
+    //   rankedTensorDims.emplace_back(yShape[i]);
+    Value res = create.onnx.reshape(
+        Y.getType().cast<RankedTensorType>(), MM, outputShapeVals);
+    // Replace op and declare success.
+    rewriter.replaceOp(onnxConvOp, res);
     return success();
   }
 };

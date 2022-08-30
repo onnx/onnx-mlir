@@ -46,7 +46,7 @@ const std::string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
 
 bool Conv2DLibBuilder::build() {
   if (autoPad != ConvAutoPad::NOTSET) {
-    // Make sure all pads are initially zero, only value tolarated.
+    // Make sure all pads are initially zero, only value tolerated.
     assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
   }
 
