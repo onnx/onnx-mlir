@@ -142,6 +142,7 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
   let summary = "ZHigh Stick operation";
   let description = [{
     "ZHigh operation to perform a Stick."
+    "If layout=NHWC, input must be in NCHW and output will be in NHWC."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
                        OptionalAttr<StrAttr>:$layout);

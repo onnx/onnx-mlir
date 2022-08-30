@@ -65,8 +65,8 @@ static void BM_MatmulSquareBroadcastB4x(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   int K = state.range(0);
-  onnx_mlir::test::MatMulSingleBroadcastLibBuilder model(
-      modelName, /*broadcast B*/ true, {4}, I, J, K);
+  onnx_mlir::test::MatMulSingleBroadcastLibBuilder model(modelName,
+      /*broadcast B*/ true, /*same static broadcast*/ false, {4}, I, J, K);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed matmul");
   for (auto _ : state)
