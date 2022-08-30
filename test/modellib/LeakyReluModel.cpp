@@ -8,7 +8,8 @@
 //
 // =============================================================================
 //
-// This file contains a function that builds a LeakyRelu model and compiles it.
+// This file contains a function that builds a model consisting of onnx.Add,
+// onnx.LeakyRelu and onnx.Sub ops, and compiles it to check if the second 
 //
 //===----------------------------------------------------------------------===//
 
@@ -48,10 +49,14 @@ bool LeakyReluLibBuilder::build() {
   auto xVal = entryBlock.getArgument(0);
 
   FloatAttr alphaAttr = FloatAttr::get(builder.getF32Type(), alphaVal);
+  auto addOp = builder.create<ONNXAddOp>(loc,
+      /*Y=*/yType, /*X=*/xVal, /*X=*/xVal);
   auto leakyReluOp = builder.create<ONNXLeakyReluOp>(loc,
-      /*Y=*/yType, /*X=*/xVal, /*alpha=*/alphaAttr);
+      /*Y=*/yType, /*X=*/addOp, /*alpha=*/alphaAttr);
+  auto subOp = builder.create<ONNXSubOp>(loc,
+      /*Y=*/yType, /*X=*/leakyReluOp, /*X=*/xVal);
 
-  llvm::SmallVector<Value, 1> results = {leakyReluOp.getResult()};
+  llvm::SmallVector<Value, 1> results = {subOp.getResult()};
   builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
@@ -90,8 +95,10 @@ bool LeakyReluLibBuilder::verifyOutputs() {
   if (!x || !res || !ref)
     return false;
   for (int64_t i = 0; i < N; ++i) {
-    float val = omTensorGetElem<float>(x, {i});
-    omTensorGetElem<float>(ref, {i}) = (val > 0.0) ? val : (val * alphaVal);
+    float val1= omTensorGetElem<float>(x, {i}) * 2;
+    float val2 = (val1 > 0.0) ? val1 : (val1 * alphaVal);
+    float val3 = val2 + omTensorGetElem<float>(x, {i});
+    omTensorGetElem<float>(ref, {i}) = val3;
   }
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
