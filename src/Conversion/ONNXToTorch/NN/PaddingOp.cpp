@@ -94,8 +94,17 @@ public:
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
-    for (auto n : denseAttr.getValues<APInt>())
+    bool paddingNeeded = false;
+    for (auto n : denseAttr.getValues<APInt>()) {
       intValues.push_back(n);
+      if (!n.isZero())
+        paddingNeeded = true;   
+    }
+    if (! paddingNeeded) {
+      // We do not need to represent the no-op pad in the resulting MLIR
+      rewriter.replaceOp(op, {dataTorchTensor});
+      return success();
+    }
 
     // Rearrange the pad values.
     // ONNX : b1, e1, b2, e2, b3, e3, b4, e4
