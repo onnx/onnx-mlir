@@ -156,11 +156,13 @@ def SigmoidLayoutChangingPattern : Pat<
 //   - %X should have static shape, and %alpha should be constant.
 //
 def ReplaceONNXLeakyReluPattern: Pat<
-  (ZHighStickOp (ONNXLeakyReluOp (ZHighUnstickOp $X), $alpha), $layout),
+  (ZHighStickOp (ONNXLeakyReluOp:$out (ZHighUnstickOp $X), $alpha),
+                $layout),
   (ZHighSubOp
      (ZHighReluOp $X, (returnType $X)),
      (ZHighReluOp (ZHighMulOp $X,
-                              (ZHighStickOp (GetMinusBcastConst $alpha, $X),
+                              (ZHighStickOp (GetMinusBcastConst $alpha,
+                                             $out),
                                             $layout),
                               (returnType $X)),
                   (returnType $X))),
