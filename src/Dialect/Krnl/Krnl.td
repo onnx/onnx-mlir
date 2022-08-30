@@ -191,15 +191,32 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
   let results = (outs AnyType:$output);
 }
 
-def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
-  let summary = "Krnl store into a seq";
+def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
+  let summary = "Insert an element into a seq";
   let description = [{
     sequence is represented with memref<memref<>>.
-    This op will copy the tensor to be stored, and cast the type if needed.
+    This op will create a new seq from the input seq by inserting the input
+    tensor at the desired position. The input tensor will be copied before 
+    inserted into the new seq, and the type will be casted to the type of seq 
+    element if needed.
     The motivation to introduce this Op is to help bufferization::deallocation
     The experiment showed that memref will be freed after the memref is stored.
     However, the store of memref only write out the pointer for the memref,
     and its memory cannot be freed.
+  }];
+  let arguments = (ins AnyType:$input_element,
+                       AnyMemRef:$input_sequence,
+                       Index:$index);
+  let results = (outs AnyType:$output);
+}
+
+
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+  let summary = "Krnl store into a seq";
+  let description = [{
+    This op assumes that the input seq has the space for the new element and 
+    only need to copy the tensor to be stored, and cast the type if needed.
+    There is no return of a new seq, different from KrnlSeqInsertOp.
   }];
   let arguments = (ins AnyType:$input,
                        AnyMemRef:$seq,

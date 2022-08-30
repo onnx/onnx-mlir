@@ -47,11 +47,13 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     SymbolIndexExpr boundIE(dimSize);
 
     // Output sequence has one more element
+#if 0
     auto outputBound = boundIE + 1;
     SmallVector<IndexExpr, 1> ubsIE;
     ubsIE.emplace_back(outputBound);
     Value alloc =
         insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
+#endif
 
     // Fill the output sequence
 
@@ -69,6 +71,10 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
           IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
     }
 
+    Value alloc = rewriter.create<KrnlSeqInsertOp>(loc, outputMemRefType, operandAdaptor.tensor(),
+     operandAdaptor.input_sequence(), positionIE.getValue());
+
+#if 0
     // Copy elements before the insertion position
     SmallVector<IndexExpr, 1> lbs;
     lbs.emplace_back(LiteralIndexExpr(0));
@@ -104,6 +110,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
               create.math.add(indicesLoopInd[0], create.math.constantIndex(1));
           createKrnl.store(converted, alloc, outputIndex);
         });
+#endif
 
     rewriter.replaceOp(op, alloc);
     return success();
