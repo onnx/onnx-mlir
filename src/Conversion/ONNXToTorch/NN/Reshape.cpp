@@ -17,7 +17,7 @@ using namespace mlir::torch;
 
 static llvm::Optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const llvm::ArrayRef<int64_t> &inputShape, const llvm::ArrayRef<int64_t> &targetShape) {
   llvm::Optional<std::pair<unsigned, unsigned>> savedResult;
-  int dimDiff = inputShape.size() - targetShape.size(); 
+  unsigned dimDiff = inputShape.size() - targetShape.size(); 
   if (dimDiff > 0) {
     //Case of ending with ones
     unsigned startDim = 0;
@@ -29,7 +29,7 @@ static llvm::Optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const
     }
     // Found a difference, we check that the difference can be the result of a flattening
     unsigned acc = 1;
-    for (int endDim = startDim; (endDim < inputShape.size() && (endDim - startDim) <= dimDiff); ++endDim) {
+    for (unsigned endDim = startDim; (endDim < inputShape.size() && (endDim - startDim) <= dimDiff); ++endDim) {
       unsigned tmpAcc = acc * inputShape[endDim];
       if (tmpAcc == targetShape[startDim]) {
         //Result saved but not returned in case it's not the longest result to match the flattening
