@@ -3,6 +3,34 @@
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the default behavior of unary lement-wise ops users give the shape of
+/// the output.
+/// Taking Sigmoid as an example.
+//===----------------------------------------------------------------------===//
+
+// COM: User output shape is better, do not change the output shape.
+func.func @test_default_unary_elementwise_user_shape_1(%arg0 : tensor<2x3x?xf32>) -> tensor<2x3x4xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x?xf32>) -> tensor<2x3x4xf32>
+  "func.return"(%0) : (tensor<2x3x4xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_1
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<2x3x?xf32>) -> tensor<2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<2x3x4xf32>
+}
+
+// COM: Infered output shape is better, update the output shape.
+func.func @test_default_unary_elementwise_user_shape_2(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x?xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x?xf32>
+  "func.return"(%0) : (tensor<2x3x?xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_2
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the default behavior of argmax when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
 //===----------------------------------------------------------------------===//
@@ -2541,6 +2569,17 @@ func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64
 }
 
 // -----
+func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>>
+  return %0 : !onnx.Seq<tensor<*xf16>>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_sequence_construct
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3xf16>, [[PARAM_1_:%.+]]: tensor<4x3xf16>) -> !onnx.Seq<tensor<?x3xf16>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<?x3xf16>>
+// CHECK:           return [[VAR_0_]] : !onnx.Seq<tensor<?x3xf16>>
+}
+
+// -----
 func.func @test_seqence_1(%arg0: tensor<2x4xf32>, %arg1: tensor<2x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -2645,4 +2684,71 @@ func.func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK-LABEL: func @test_celu
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for If.
+//===----------------------------------------------------------------------===//
+
+func.func @test_if_1(%arg0: tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor<*xui8>) {
+  %0, %1, %2 = "onnx.If"(%arg0) ({
+    %3 = "onnx.Constant"() {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<*xf32>
+    %4 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi16>} : () -> tensor<*xi16>
+    %5 = "onnx.Constant"() {value = dense<1> : tensor<2x3xui8>} : () -> tensor<*xui8>
+    onnx.Return %3, %4, %5 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>
+  }, {
+    %3 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<*xf32>
+    %4 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi16>} : () -> tensor<*xi16>
+    %5 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xui8>} : () -> tensor<*xui8>
+    onnx.Return %3, %4, %5 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>
+  }) : (tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor<*xui8>)
+  return %0, %1, %2 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>
+
+// CHECK-LABEL:  func @test_if_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>) {
+// CHECK-DAG:       [[VAR_0_:%.+]]:3 = "onnx.If"([[PARAM_0_]]) ({
+// CHECK-DAG:         [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+// CHECK-DAG:         [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi16>} : () -> tensor<2xi16>
+// CHECK-DAG:         [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<2x3xui8>} : () -> tensor<2x3xui8>
+// CHECK:             onnx.Return [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf32>, tensor<2xi16>, tensor<2x3xui8>
+// CHECK:           }, {
+// CHECK-DAG:         [[VAR_1_1_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+// CHECK-DAG:         [[VAR_2_1_:%.+]] = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi16>} : () -> tensor<3xi16>
+// CHECK-DAG:         [[VAR_3_1_:%.+]] = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xui8>} : () -> tensor<3xui8>
+// CHECK:             onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : tensor<2xf32>, tensor<3xi16>, tensor<3xui8>
+// CHECK:           }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
+// CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : tensor<2xf32>, tensor<?xi16>, tensor<*xui8>
+}
+
+func.func @test_if_2(%arg0: tensor<i1>, %arg1: !onnx.Seq<tensor<2xf32>>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>) {
+  %0, %1, %2 = "onnx.If"(%arg0) ({
+    %3 = "onnx.NoValue"() {value} : () -> none
+    %4 = "onnx.Optional"(%3) {type = tensor<2xi1>} : (none) -> !onnx.Opt<tensor<*xi1>>
+    %5 = "onnx.Optional"(%3) {type = !onnx.Seq<tensor<1xf32>>} : (none) -> !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
+    onnx.Return %arg1, %4, %5 : !onnx.Seq<tensor<2xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
+  }, {
+    %3 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+    %4 = "onnx.Optional"(%arg0) : (tensor<i1>) -> !onnx.Opt<tensor<*xi1>>
+    %5 = "onnx.Optional"(%arg1) : (!onnx.Seq<tensor<2xf32>>) -> !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
+    onnx.Return %3, %4, %5 : !onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
+  }) : (tensor<i1>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>)
+  return %0, %1, %2 : !onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>
+
+// CHECK-LABEL:  func @test_if_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i1>, [[PARAM_1_:%.+]]: !onnx.Seq<tensor<2xf32>>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<?xf32>>>) {
+// CHECK-DAG:       [[VAR_0_:%.+]]:3 = "onnx.If"([[PARAM_0_]]) ({
+// CHECK-DAG:         [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_2_:%.+]] = "onnx.Optional"([[VAR_1_]]) {type = tensor<2xi1>} : (none) -> !onnx.Opt<tensor<2xi1>>
+// CHECK-DAG:         [[VAR_3_:%.+]] = "onnx.Optional"([[VAR_1_]]) {type = !onnx.Seq<tensor<1xf32>>} : (none) -> !onnx.Opt<!onnx.Seq<tensor<1xf32>>>
+// CHECK:             onnx.Return [[PARAM_1_]], [[VAR_2_]], [[VAR_3_]] : !onnx.Seq<tensor<2xf32>>, !onnx.Opt<tensor<2xi1>>, !onnx.Opt<!onnx.Seq<tensor<1xf32>>>
+// CHECK:           }, {
+// CHECK-DAG:         [[VAR_1_1_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:         [[VAR_2_1_:%.+]] = "onnx.Optional"([[PARAM_0_]]) : (tensor<i1>) -> !onnx.Opt<tensor<i1>>
+// CHECK-DAG:         [[VAR_3_1_:%.+]] = "onnx.Optional"([[PARAM_1_]]) : (!onnx.Seq<tensor<2xf32>>) -> !onnx.Opt<!onnx.Seq<tensor<2xf32>>>
+// CHECK:             onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : !onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<i1>>, !onnx.Opt<!onnx.Seq<tensor<2xf32>>>
+// CHECK:           }) : (tensor<i1>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<?xf32>>>)
+// CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : !onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<?xf32>>>
 }

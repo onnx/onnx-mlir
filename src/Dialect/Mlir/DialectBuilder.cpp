@@ -22,6 +22,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
@@ -45,6 +46,12 @@ namespace onnx_mlir {
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
+Value MathBuilder::abs(Value val) const {
+  if (val.getType().isa<IntegerType>() || val.getType().isa<IndexType>())
+    return b.create<math::AbsIOp>(loc, val);
+  return b.create<math::AbsFOp>(loc, val);
+}
+
 Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
@@ -61,12 +68,14 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
     return b.create<arith::AddIOp>(loc, lhs, rhs);
   return b.create<arith::AddFOp>(loc, lhs, rhs);
 }
+
 Value MathBuilder::sub(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::SubIOp>(loc, lhs, rhs);
   return b.create<arith::SubFOp>(loc, lhs, rhs);
 }
+
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
@@ -645,6 +654,19 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+    ValueRange steps,
+    function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
+  // SmallVectorImpl<Value> ivStorage;
+  b.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps,
+      [&](OpBuilder &childBuilder, Location childLoc,
+          ValueRange inductionVars) {
+        KrnlBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVars);
+        yield();
+      });
+}
+
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
 
 //===----------------------------------------------------------------------===//
@@ -877,7 +899,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
@@ -889,7 +911,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 void LLVMBuilder::condBr(Value cond, Block *trueBlock,
@@ -947,8 +969,7 @@ Value LLVMBuilder::constant(Type type, double val) const {
 
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
-  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
+  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, position);
 }
 
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
@@ -973,9 +994,8 @@ Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
 
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
   return b.create<LLVM::InsertValueOp>(
-      loc, resultType, container, val, posAttr);
+      loc, resultType, container, val, position);
 }
 
 Value LLVMBuilder::load(Value addr) const {

@@ -60,6 +60,26 @@ BENCHMARK(BM_MatmulSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
+// Broadcast same matrices as above, but with 4x broadcast on B
+static void BM_MatmulSquareBroadcastB4x(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  int K = state.range(0);
+  onnx_mlir::test::MatMulSingleBroadcastLibBuilder model(modelName,
+      /*broadcast B*/ true, /*same static broadcast*/ false, {4}, I, J, K);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed matmul");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  PERF_RECORD_FLOPS(/*broadcast 4x*/ 4.0 /*matmul*/ * 2.0 * I * J * K);
+}
+BENCHMARK(BM_MatmulSquareBroadcastB4x)
+    ->RangeMultiplier(2)
+    ->Range(16, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
 static void BM_MatMulWithGemmSquare(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
@@ -100,4 +120,5 @@ BENCHMARK(BM_GemmSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
+// Will set opt at -O3.
 PERF_MAIN()

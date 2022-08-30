@@ -218,8 +218,8 @@ void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
   b.create<KrnlMemcpyOp>(loc, dest, src, size);
 }
 
-void KrnlBuilder::memset(Value dest, Value val) const {
-  b.create<KrnlMemsetOp>(loc, dest, val);
+void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
+  b.create<KrnlMemsetOp>(loc, dest, val, b.getBoolAttr(delayed));
 }
 
 Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {
