@@ -386,6 +386,95 @@ def FuseTransposePattern:  Pat<
   // Transpose with combined pattern.
   (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
 
+class FuseTransposeAndElementwiseUnaryOpPattern<Op elmOp>:  Pat<
+  // Transpose of elmOp on a transpose.
+  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1)), $p2),
+  // elmOp on Transpose with combined pattern.
+  (ONNXTransposeOp (elmOp $v, (returnType $v)),
+                   (CreateCombinedTransposedPattern $p1, $p2))>;
+
+class FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<Op elmOp>:  Pat<
+  // Transpose of elmOp on a transpose.
+  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1), $p2),
+  // elmOp on Transpose with combined pattern.
+  (ONNXTransposeOp (elmOp $v, $arg1, (returnType $v)),
+                   (CreateCombinedTransposedPattern $p1, $p2))>;
+
+class FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<Op elmOp>:  Pat<
+  // Transpose of elmOp on a transpose.
+  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1, $arg2), $p2),
+  // elmOp on Transpose with combined pattern.
+  (ONNXTransposeOp (elmOp $v, $arg1, $arg2, (returnType $v)),
+                   (CreateCombinedTransposedPattern $p1, $p2))>;
+
+def FuseTransposeAndAtanPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanOp>;
+def FuseTransposeAndCastPattern :
+    FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<ONNXCastOp>;
+def FuseTransposeAndCeilPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXCeilOp>;
+def FuseTransposeAndCosPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXCosOp>;
+def FuseTransposeAndCoshPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXCoshOp>;
+def FuseTransposeAndEluPattern :
+    FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<ONNXEluOp>;
+def FuseTransposeAndErfPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXErfOp>;
+def FuseTransposeAndAcosPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAcosOp>;
+def FuseTransposeAndAcoshPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAcoshOp>;
+def FuseTransposeAndAsinPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAsinOp>;
+def FuseTransposeAndAsinhPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAsinhOp>;
+def FuseTransposeAndAtanhPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanhOp>;
+def FuseTransposeAndExpPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXExpOp>;
+def FuseTransposeAndFloorPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXFloorOp>;
+def FuseTransposeAndHardSigmoidPattern :
+    FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<ONNXHardSigmoidOp>;
+def FuseTransposeAndIsNaNPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXIsNaNOp>;
+def FuseTransposeAndLeakyReluPattern :
+    FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<ONNXLeakyReluOp>;
+def FuseTransposeAndLogPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXLogOp>;
+def FuseTransposeAndNegPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXNegOp>;
+def FuseTransposeAndNotPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXNotOp>;
+def FuseTransposeAndReciprocalPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXReciprocalOp>;
+def FuseTransposeAndReluPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXReluOp>;
+def FuseTransposeAndRoundPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXRoundOp>;
+def FuseTransposeAndSeluPattern :
+    FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<ONNXSeluOp>;
+def FuseTransposeAndSigmoidPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSigmoidOp>;
+def FuseTransposeAndSignPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSignOp>;
+def FuseTransposeAndSinPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSinOp>;
+def FuseTransposeAndSinhPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSinhOp>;
+def FuseTransposeAndSoftplusPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSoftplusOp>;
+def FuseTransposeAndSoftsignPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSoftsignOp>;
+def FuseTransposeAndSqrtPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXSqrtOp>;
+def FuseTransposeAndTanPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXTanOp>;
+def FuseTransposeAndTanhPattern :
+    FuseTransposeAndElementwiseUnaryOpPattern<ONNXTanhOp>;
+
+
 def RemoveIdentityTransposePattern:  Pat<
   // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
   (ONNXTransposeOp $val, $p),
