@@ -22,6 +22,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
@@ -651,6 +652,19 @@ void SCFBuilder::ifThenElse(Value cond,
           yield();
         });
   }
+}
+
+void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+    ValueRange steps,
+    function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
+  // SmallVectorImpl<Value> ivStorage;
+  b.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps,
+      [&](OpBuilder &childBuilder, Location childLoc,
+          ValueRange inductionVars) {
+        KrnlBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVars);
+        yield();
+      });
 }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }

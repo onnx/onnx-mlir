@@ -152,6 +152,23 @@ static RankedTensorType getReductionOutputType(ShapedType operandTy,
   return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
+static bool isInferedShapeBetter(
+    ArrayRef<int64_t> inferedShape, ArrayRef<int64_t> userShape) {
+  // Only get the infered shape if unknown dims in userShape get static values
+  // in inferedShape.
+  for (unsigned i = 0; i < userShape.size(); ++i) {
+    int64_t inferedDim = inferedShape[i];
+    int64_t userDim = userShape[i];
+    // userDim is static but inferedDim is unknown: not good.
+    if ((userDim != -1) && (inferedDim == -1))
+      return false;
+    // inferedDim is different from userDim. Believe in userDim.
+    if ((userDim != -1) && (inferedDim != -1) && (userDim != inferedDim))
+      return false;
+  }
+  return true;
+}
+
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
@@ -218,6 +235,27 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   auto operandTy = op.getOperand().getType().template cast<ShapedType>();
   auto resultTy = getReductionOutputType(operandTy, op.axes(), op.keepdims());
   op.getResult().setType(resultTy);
+  return success();
+}
+
+// Handle shape inference for unary element-wise operators.
+static LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
+  if (!hasShapeAndRank(op->getOperand(0)))
+    return success();
+
+  // When the output has ranked, see if its shape is better than the input's
+  // shape.
+  if (hasShapeAndRank(op->getResult(0))) {
+    ArrayRef<int64_t> inputShape =
+        op->getOperand(0).getType().cast<ShapedType>().getShape();
+    ArrayRef<int64_t> userOutputShape =
+        op->getResult(0).getType().cast<ShapedType>().getShape();
+    if (!isInferedShapeBetter(inputShape, userOutputShape))
+      // The current output shape is good, do nothing.
+      return success();
+  }
+
+  op->getResult(0).setType(op->getOperand(0).getType());
   return success();
 }
 
@@ -713,8 +751,7 @@ OpFoldResult ONNXNoneOp::fold(ArrayRef<Attribute> operands) {
 /// shape inference interface.
 LogicalResult ONNXExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -724,8 +761,7 @@ LogicalResult ONNXExpOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAtanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -735,8 +771,7 @@ LogicalResult ONNXAtanOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXTanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -746,8 +781,7 @@ LogicalResult ONNXTanOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXTanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -757,8 +791,7 @@ LogicalResult ONNXTanhOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -768,8 +801,7 @@ LogicalResult ONNXSinOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSinhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -779,8 +811,7 @@ LogicalResult ONNXSinhOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXCoshOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -790,8 +821,7 @@ LogicalResult ONNXCoshOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXCosOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -801,8 +831,7 @@ LogicalResult ONNXCosOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAcosOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -812,8 +841,7 @@ LogicalResult ONNXAcosOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAcoshOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -823,8 +851,7 @@ LogicalResult ONNXAcoshOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAsinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -834,8 +861,7 @@ LogicalResult ONNXAsinOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAsinhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -845,8 +871,7 @@ LogicalResult ONNXAsinhOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAtanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -856,8 +881,7 @@ LogicalResult ONNXAtanhOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXLogOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -867,8 +891,7 @@ LogicalResult ONNXLogOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXHardSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -878,8 +901,7 @@ LogicalResult ONNXHardSigmoidOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -889,8 +911,7 @@ LogicalResult ONNXSigmoidOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXCeluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -900,8 +921,7 @@ LogicalResult ONNXCeluOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXEluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -911,8 +931,7 @@ LogicalResult ONNXEluOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -922,8 +941,7 @@ LogicalResult ONNXReluOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXLeakyReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -933,8 +951,7 @@ LogicalResult ONNXLeakyReluOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSeluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 // Sequence related operations
@@ -1164,8 +1181,7 @@ LogicalResult ONNXPReluOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXReciprocalOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1175,8 +1191,7 @@ LogicalResult ONNXReciprocalOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1186,8 +1201,7 @@ LogicalResult ONNXSoftmaxOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSoftplusOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1197,8 +1211,7 @@ LogicalResult ONNXSoftplusOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSoftsignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1208,8 +1221,7 @@ LogicalResult ONNXSoftsignOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSqrtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1219,8 +1231,7 @@ LogicalResult ONNXSqrtOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXSignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1230,8 +1241,7 @@ LogicalResult ONNXSignOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXAbsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1240,8 +1250,7 @@ LogicalResult ONNXAbsOp::inferShapes(
 
 LogicalResult ONNXErfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1371,8 +1380,7 @@ LogicalResult ONNXMinOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXNegOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1652,8 +1660,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
 
 LogicalResult ONNXTriluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperands()[0].getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -4206,14 +4213,132 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
 LogicalResult ONNXHardSwishOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXIfOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+bool areCompatibleIfTypes(Type ifResultType, Type branchResultType) {
+  // ifResultType must be tensor/seq/opt type because that's checked in
+  // ONNXIfOp::verifyInvariantsImpl()
+  if (ShapedType ifShapedType = ifResultType.dyn_cast<ShapedType>()) {
+    if (ShapedType branchShapedType = branchResultType.dyn_cast<ShapedType>()) {
+      return ifShapedType.getElementType() == branchShapedType.getElementType();
+    } else {
+      return false;
+    }
+  }
+  if (SeqType ifSeqType = ifResultType.dyn_cast<SeqType>()) {
+    if (SeqType branchSeqType = branchResultType.dyn_cast<SeqType>()) {
+      return areCompatibleIfTypes(
+          ifSeqType.getElementType(), branchSeqType.getElementType());
+    } else {
+      return false;
+    }
+  }
+  if (OptType ifOptType = ifResultType.dyn_cast<OptType>()) {
+    if (OptType branchOptType = branchResultType.dyn_cast<OptType>()) {
+      return areCompatibleIfTypes(
+          ifOptType.getElementType(), branchOptType.getElementType());
+    } else {
+      return false;
+    }
+  }
+  llvm_unreachable("areCompatibleIfTypes called with non tensor/seq/opt type");
+}
+
+// Pre-condition: areCompatibleIfTypes(ifTy, lhs) && areCompatibleIfTypes(ifTy,
+// rhs)
+Type unionOfIfTypes(Type lhs, Type rhs) {
+  // All asserts below are checked in areCompatibleIfTypes().
+  if (ShapedType lhsShapedType = lhs.dyn_cast<ShapedType>()) {
+    ShapedType rhsShapedType = rhs.cast<ShapedType>();
+    Type elementType = lhsShapedType.getElementType();
+    assert(elementType == rhsShapedType.getElementType() &&
+           "tensor element types mismatch");
+    if (lhsShapedType.hasRank() && rhsShapedType.hasRank() &&
+        lhsShapedType.getRank() == rhsShapedType.getRank()) {
+      int64_t rank = lhsShapedType.getRank();
+      auto lhsShape = lhsShapedType.getShape();
+      auto rhsShape = rhsShapedType.getShape();
+      SmallVector<int64_t, 4> shape;
+      for (int64_t i = 0; i < rank; ++i) {
+        shape.push_back(lhsShape[i] == rhsShape[i] ? lhsShape[i] : -1);
+      }
+      return RankedTensorType::get(shape, elementType);
+    } else {
+      return UnrankedTensorType::get(elementType);
+    }
+  }
+  if (SeqType lhsSeqType = lhs.dyn_cast<SeqType>()) {
+    SeqType rhsSeqType = rhs.cast<SeqType>();
+    int64_t length = lhsSeqType.getLength() == rhsSeqType.getLength()
+                         ? lhsSeqType.getLength()
+                         : -1;
+    return SeqType::get(unionOfIfTypes(lhsSeqType.getElementType(),
+                            rhsSeqType.getElementType()),
+        length);
+  }
+  if (OptType lhsOptType = lhs.dyn_cast<OptType>()) {
+    OptType rhsOptType = rhs.cast<OptType>();
+    return OptType::get(unionOfIfTypes(
+        lhsOptType.getElementType(), rhsOptType.getElementType()));
+  }
+  llvm_unreachable("unionOfIfTypes called with non tensor/seq/opt type");
+}
+} // namespace
+
+LogicalResult ONNXIfOp::verify() {
+  size_t ifNumResults = getNumResults();
+  assert(ifNumResults == outputs().size() && "outputs() != all results");
+  auto thenResults = then_branch().back().getTerminator()->getOperands();
+  if (ifNumResults != thenResults.size())
+    return emitOpError() << "then branch #results=" << thenResults.size()
+                         << " differ from if #results=" << ifNumResults;
+  auto elseResults = else_branch().back().getTerminator()->getOperands();
+  if (ifNumResults != elseResults.size())
+    return emitOpError() << "else branch #results=" << elseResults.size()
+                         << " differ from if #results=" << ifNumResults;
+  auto thenResultTypes = thenResults.getTypes();
+  auto elseResultTypes = elseResults.getTypes();
+  for (size_t i = 0; i < ifNumResults; ++i) {
+    Type ifResultType = getResultTypes()[i];
+    if (!areCompatibleIfTypes(ifResultType, thenResultTypes[i]))
+      emitOpError() << "then branch disagrees on result type #" << (i + 1)
+                    << " of " << ifNumResults;
+    if (!areCompatibleIfTypes(ifResultType, elseResultTypes[i]))
+      emitOpError() << "else branch disagrees on result type #" << (i + 1)
+                    << " of " << ifNumResults;
+  }
   return success();
 }
 
 LogicalResult ONNXIfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  doShapeInference(then_branch());
+  doShapeInference(else_branch());
+  size_t ifNumResults = getNumResults();
+  auto thenResultTypes =
+      then_branch().back().getTerminator()->getOperandTypes();
+  auto elseResultTypes =
+      else_branch().back().getTerminator()->getOperandTypes();
+  // assert is checked in verify()
+  assert(ifNumResults == thenResultTypes.size() &&
+         ifNumResults == elseResultTypes.size() &&
+         "if #results and branches #results differ");
+  for (size_t i = 0; i < ifNumResults; ++i) {
+    getResult(i).setType(
+        unionOfIfTypes(thenResultTypes[i], elseResultTypes[i]));
+  }
+  return success();
 }
+
+//===------------------------------------------------------------------------===//
+// IsInfOp
+//===------------------------------------------------------------------------===//
 
 LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -4271,14 +4396,12 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 LogicalResult ONNXLpNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 LogicalResult ONNXLpPoolOp::inferShapes(
@@ -4313,8 +4436,7 @@ LogicalResult ONNXMeanOp::inferShapes(
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 LogicalResult ONNXModOp::verify() {
@@ -4406,8 +4528,7 @@ LogicalResult ONNXNonZeroOp::inferShapes(
 
 LogicalResult ONNXNotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 LogicalResult ONNXOneHotOp::verify() {
@@ -4769,8 +4890,7 @@ LogicalResult ONNXRoiAlignOp::verify() {
 
 LogicalResult ONNXRoundOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 LogicalResult ONNXScanOp::inferShapes(
@@ -5069,8 +5189,7 @@ LogicalResult ONNXScatterNDOp::inferShapes(
 
 LogicalResult ONNXShrinkOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -5132,8 +5251,7 @@ LogicalResult ONNXTfIdfVectorizerOp::inferShapes(
 
 LogicalResult ONNXThresholdedReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//

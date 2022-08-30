@@ -45,13 +45,11 @@ def GetSqrtResultBatchNormA :
 // Rewrite
 //
 // ONNXBatchNormalizationInferenceModeOp %X
-//             = NHWCtoNCHW
-//                 (ZHighUnstickOp
-//                     (ZHighBatchNormOp
-//                         (ZHighStickOp
-//                             (NCHWtoNHWC %X)),
-//                         (ZHighStickOp %A),
-//                         (ZHighStickOp %B)))
+//   (ZHighUnstickOp
+//       (ZHighBatchNormOp
+//           (ZHighStickOp %X),
+//           (ZHighStickOp %A),
+//           (ZHighStickOp %B)))
 //
 // %A = $scale / sqrt($var + $epsilon))
 // %B = $b - $mean * %A
@@ -66,12 +64,11 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
     (ONNXSubOp:$B $b, (ONNXMulOp $mean, $A)),
 
     // Calculate BatchNorm Op using $A and $B
-    (NHWCtoNCHW (GetTypeOf $res),
-        (ZHighUnstickOp
-            (ZHighBatchNormOp
-                (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-                (ZHighStickOp $A, (_1DLayoutAttr)),
-                (ZHighStickOp $B, (_1DLayoutAttr)))))
+    (ZHighUnstickOp
+        (ZHighBatchNormOp
+            (ZHighStickOp $x, (NHWCLayoutAttr)),
+            (ZHighStickOp $A, (_1DLayoutAttr)),
+            (ZHighStickOp $B, (_1DLayoutAttr))))
   ]
 >;
 
