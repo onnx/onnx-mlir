@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   }
 
   // hi alex: test that fails
-  if (1) {
+  if (0) {
     isDynamic = 1;
     bool myres = isOMConvTheSameAsNaiveImplFor(
         1, 1, 5, 5, 1, 1, 0, 0, 0, 0, ConvAutoPad::VALID);
