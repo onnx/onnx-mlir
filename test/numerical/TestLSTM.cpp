@@ -29,15 +29,15 @@ namespace test {
 bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     const int B, const int I, const int H, bool isDynamicS = false,
     bool isDynamicB = false, bool isNoneH = false, bool isNoneC = false,
-    bool isNoneP = false) {
+    bool isNoneP = false, int layout = 0) {
 
   static int testNum = 0;
   printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, isDynS %d, "
-         "isDynB %d, isNoneH %d, isNoneC %d, isNoneP %d\n",
+         "isDynB %d, isNoneH %d, isNoneC %d, isNoneP %d, layout %d\n",
       ++testNum, direction, S, B, I, H, isDynamicS, isDynamicB, isNoneH,
-      isNoneC, isNoneP);
+      isNoneC, isNoneP, layout);
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
-      isDynamicB, isNoneH, isNoneC, isNoneP);
+      isDynamicB, isNoneH, isNoneC, isNoneP, layout);
   return lstm.build() && lstm.compileAndLoad() &&
          lstm.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          lstm.prepareInputsFromEnv("TEST_DATARANGE") && lstm.run() &&
@@ -83,6 +83,8 @@ int main(int argc, char *argv[]) {
     const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
     const int H = *rc::gen::inRange(5, 10);
+    // Layout.
+    const int layout = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
     const int isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
@@ -95,7 +97,7 @@ int main(int argc, char *argv[]) {
     const int isNoneP = *rc::gen::inRange(minNoneP, 2);
 
     RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0,
-        isDynB == 0, isNoneH == 1, isNoneC == 1, isNoneP == 1));
+        isDynB == 0, isNoneH == 1, isNoneC == 1, isNoneP == 1, layout));
   });
   if (!success)
     return 1;

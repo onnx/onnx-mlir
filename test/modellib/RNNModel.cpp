@@ -27,10 +27,10 @@ namespace test {
 
 RNNLibBuilder::RNNLibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H, const bool isDynamicS,
-    const bool isDynamicB)
-    : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
-      isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(), hShape(),
-      wOmt(nullptr), rOmt(nullptr), bOmt(nullptr) {}
+    const bool isDynamicB, const int layout)
+    : RNNModelLibBuilder(modelName, layout), direction(direction), S(S), B(B),
+      I(I), H(H), isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(),
+      hShape(), wOmt(nullptr), rOmt(nullptr), bOmt(nullptr) {}
 
 RNNLibBuilder::~RNNLibBuilder() {
   omTensorDestroy(wOmt);
@@ -46,13 +46,13 @@ bool RNNLibBuilder::build() {
   if (isDynamicB)
     B1 = -1;
 
-  xShape = {S, B, I};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
-  llvm::SmallVector<int64_t, 3> wShape = {D, H, I};
-  llvm::SmallVector<int64_t, 3> rShape = {D, H, H};
-  llvm::SmallVector<int64_t, 2> bShape = {D, 2 * H};
-  hShape = {D, B, H};
-  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
+  xShape = perm3(S, B, I);
+  std::vector<int64_t> xShapeSymbol = perm3(S1, B1, I);
+  std::vector<int64_t> wShape = {D, H, I};
+  std::vector<int64_t> rShape = {D, H, H};
+  std::vector<int64_t> bShape = {D, 2 * H};
+  hShape = perm3(D, B, H);
+  std::vector<int64_t> hShapeSymbol = perm3(D, B1, H);
 
   auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
@@ -84,6 +84,9 @@ bool RNNLibBuilder::build() {
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
   auto activationsAttr = builder.getStrArrayAttr({"Tanh", "Tanh"});
+  auto layoutAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, layout, /*isSigned=*/true));
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
@@ -98,7 +101,8 @@ bool RNNLibBuilder::build() {
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/activationsAttr, /*clip=*/FloatAttr(),
-      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
+      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
+      /*layout=*/layoutAttr);
 
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
@@ -148,8 +152,8 @@ bool RNNLibBuilder::verifyOutputs() {
   OMTensor *recurr = rOmt;
   OMTensor *bias = bOmt;
   // Get inputs and outputs.
-  OMTensor *refY = omTensorCreateWithShape<float>({S, D, B, H});
-  OMTensor *refYh = omTensorCreateWithShape<float>({D, B, H});
+  OMTensor *refY = omTensorCreateWithShape<float>(perm4(S, D, B, H));
+  OMTensor *refYh = omTensorCreateWithShape<float>(perm3(D, B, H));
   OMTensor *input = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *initialH = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *rnnY = omTensorListGetOmtByIndex(outputs, 0);
@@ -159,8 +163,8 @@ bool RNNLibBuilder::verifyOutputs() {
   for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++)
-        omTensorGetElem<float>(refYh, {d, b, h}) =
-            omTensorGetElem<float>(initialH, {d, b, h});
+        omTensorGetElem<float>(refYh, perm3(d, b, h)) =
+            omTensorGetElem<float>(initialH, perm3(d, b, h));
 
   // Main computation.
   OMTensor *XtWi = omTensorCreateWithShape<float>({B, H});
@@ -175,13 +179,13 @@ bool RNNLibBuilder::verifyOutputs() {
         for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            float xt = omTensorGetElem<float>(input, {seq, b, k});
+            float xt = omTensorGetElem<float>(input, perm3(seq, b, k));
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight, {d, h, k});
           }
           omTensorGetElem<float>(HtRi, {b, h}) = 0;
           for (int64_t k = 0; k < H; k++) {
-            float previousHt = omTensorGetElem<float>(refYh, {d, b, k});
+            float previousHt = omTensorGetElem<float>(refYh, perm3(d, b, k));
             omTensorGetElem<float>(HtRi, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr, {d, h, k});
           }
@@ -194,8 +198,8 @@ bool RNNLibBuilder::verifyOutputs() {
                           omTensorGetElem<float>(HtRi, {b, h}) +
                           omTensorGetElem<float>(bias, {d, h}) +
                           omTensorGetElem<float>(bias, {d, h + H}));
-          omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
-          omTensorGetElem<float>(refY, {seq, d, b, h}) = Ht;
+          omTensorGetElem<float>(refYh, perm3(d, b, h)) = Ht;
+          omTensorGetElem<float>(refY, perm4(seq, d, b, h)) = Ht;
         }
       }
     }

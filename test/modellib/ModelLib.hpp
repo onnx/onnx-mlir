@@ -335,12 +335,42 @@ private:
   int NOut, COut, HOut, WOut;
 };
 
-class LSTMLibBuilder : public ModelLibBuilder {
+class RNNModelLibBuilder : public ModelLibBuilder {
+public:
+  RNNModelLibBuilder(const std::string &sharedLibBaseName, int64_t layout);
+  virtual ~RNNModelLibBuilder();
+
+protected:
+  // To transpose between [batch_size, seq_length/num_directions, size]
+  //                  and [seq_length/num_directions, batch_size, size]
+  // when layout == 1.
+  std::vector<int64_t> perm3(int64_t a, int64_t b, int64_t c) const {
+    if (layout == 0)
+      return {a, b, c};
+    else
+      return {b, a, c};
+  }
+
+  // To transpose from [seq_length, num_directions, batch_size, hidden_size]
+  //                to [batch_size, seq_length, num_directions, hidden_size]
+  // when layout == 1.
+  std::vector<int64_t> perm4(int64_t s, int64_t d, int64_t b, int64_t h) const {
+    if (layout == 0)
+      return {s, d, b, h};
+    else
+      return {b, s, d, h};
+  }
+
+  const int64_t layout;
+};
+
+class LSTMLibBuilder : public RNNModelLibBuilder {
 public:
   LSTMLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
       const bool isDynamicB, const bool isNoneH = false,
-      const bool isNoneC = false, const bool isNoneP = false);
+      const bool isNoneC = false, const bool isNoneP = false,
+      const int layout = 0);
   ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -354,15 +384,15 @@ private:
   const bool isDynamicS, isDynamicB, isNoneH, isNoneC, isNoneP;
   // Computed parameters.
   int D;
-  llvm::SmallVector<int64_t, 3> xShape, hShape, cShape;
+  std::vector<int64_t> xShape, hShape, cShape;
   OMTensor *wOmt, *rOmt, *bOmt, *pOmt;
 };
 
-class GRULibBuilder : public ModelLibBuilder {
+class GRULibBuilder : public RNNModelLibBuilder {
 public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const int linearBeforeReset,
-      const bool isDynamicS, const bool isDynamicB);
+      const bool isDynamicS, const bool isDynamicB, const int layout = 0);
   ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -375,15 +405,15 @@ private:
   const int direction, S, B, I, H, linearBeforeReset, isDynamicS, isDynamicB;
   // Computed parameters.
   int D;
-  llvm::SmallVector<int64_t, 3> xShape, hShape;
+  std::vector<int64_t> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
-class RNNLibBuilder : public ModelLibBuilder {
+class RNNLibBuilder : public RNNModelLibBuilder {
 public:
   RNNLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
-      const bool isDynamicB);
+      const bool isDynamicB, const int layout = 0);
   ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -396,7 +426,7 @@ private:
   const int direction, S, B, I, H, isDynamicS, isDynamicB;
   // Computed parameters.
   int D;
-  llvm::SmallVector<int64_t, 3> xShape, hShape;
+  std::vector<int64_t> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
