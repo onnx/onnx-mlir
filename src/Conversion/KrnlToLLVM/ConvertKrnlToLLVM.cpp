@@ -43,7 +43,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 
-//#include "onnx/onnx_pb.h"
+#include "onnx/onnx_pb.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"

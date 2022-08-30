@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-//#include "onnx/onnx_pb.h"
+#include "onnx/onnx_pb.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
 
