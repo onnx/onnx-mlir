@@ -290,12 +290,16 @@ private:
 // higher rank.
 class MatMulSingleBroadcastLibBuilder : public ModelLibBuilder {
 public:
-  // If broadcastingB is true, then the rank of B > rank of A=2. The broadcasted
-  // dimensions are given by broadcastDims, and the traditional 2D matrix
-  // multiplication dims are given by I, J, and K.
+  // When broadcastingB is true, then the rank of B > rank of A=2. When
+  // broadcastingB is false, then the rank of A > rank of B=2.
+  // But when sameStaticBroadcast, then both A & B's rank >2, and they must have
+  // the same static broadcasting ranks. The broadcasted dimensions are given by
+  // broadcastDims, and the traditional 2D matrix multiplication dims are given
+  // by I, J, and K.
   MatMulSingleBroadcastLibBuilder(const std::string &modelName,
-      bool broadcastingB, std::vector<int64_t> broadcastDims, const int I,
-      const int J, const int K);
+      bool broadcastingB, bool sameStaticBroadcast,
+      std::vector<int64_t> broadcastDims, const int I, const int J,
+      const int K);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRange);
@@ -308,6 +312,7 @@ private:
       std::vector<int64_t> &yIndexValues);
   // Data that defines model.
   bool broadcastingB;
+  bool sameStaticBroadcast;
   std::vector<int64_t> broadcastDims;
   const int I, J, K;
   // Computed data from inputs.
