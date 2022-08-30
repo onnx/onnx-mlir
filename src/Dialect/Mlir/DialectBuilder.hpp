@@ -180,7 +180,8 @@ struct SCFBuilder final : DialectBuilder {
 
   void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
       mlir::ValueRange steps,
-      mlir::function_ref<void(DialectBuilder &, mlir::ValueRange)> bodyFn) const;
+      mlir::function_ref<void(DialectBuilder &, mlir::ValueRange)> bodyFn)
+      const;
   void yield() const;
 };
 
