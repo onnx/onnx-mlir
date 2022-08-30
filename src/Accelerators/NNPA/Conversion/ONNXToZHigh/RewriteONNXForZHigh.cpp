@@ -83,16 +83,11 @@ Value getMatMulResultShape(
   Value lhsShape = create.onnx.shape(lhsRType, lhs);
   Value rhsShape = create.onnx.shape(rhsRType, rhs);
 
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value lhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 1})));
-  Value rhsRConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank})));
-  Value rhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 1})));
+  Value zero = create.onnx.constantInt64({0});
+  Value one = create.onnx.constantInt64({1});
+  Value lhsR1Const = create.onnx.constantInt64({lhsRank - 1});
+  Value rhsRConst = create.onnx.constantInt64({rhsRank});
+  Value rhsR1Const = create.onnx.constantInt64({rhsRank - 1});
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -105,21 +100,17 @@ Value getMatMulResultShape(
         create.onnx.slice(lhsR1Type, lhsShape, zero, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal =
-        create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
-    Value lhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 2})));
-    Value rhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 2})));
+    Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
+    Value rhsR2Const = create.onnx.constantInt64({rhsRank - 2});
     Value bVal =
         create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
     Value mVal = create.onnx.slice(
         oneI64Type, lhsShape, lhsR2Const, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal = create.onnx.concat(
-        rI64Type, ValueRange({bVal, mVal, pVal}), 0);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;
 }

@@ -51,14 +51,6 @@ Value OnnxBuilder::ceil(Value input) const {
   return b.create<ONNXCeilOp>(loc, toTensor(input.getType()), input);
 }
 
-// hi alex: remove
-#if 0
-Value OnnxBuilder::concat(
-    Type outputType, ValueRange inputs, IntegerAttr axis) const {
-  return b.create<ONNXConcatOp>(loc, toTensor(outputType), inputs, axis);
-}
-#endif
-
 Value OnnxBuilder::concat(
     Type outputType, ValueRange inputs, int64_t axis) const {
   IntegerAttr concatAxisAttr = IntegerAttr::get(
@@ -69,6 +61,11 @@ Value OnnxBuilder::concat(
 
 Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
+  Attribute denseAttr = b.getI64TensorAttr(intVals);
+  return constant(denseAttr);
 }
 
 Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
@@ -261,19 +258,23 @@ Value OnnxBuilder::reshapeToNDim(
   // Get input shape value.
   Value inputShapeVal = shape(inputShapeType, val);
   // Construct ONNX constants.
-  Value minusOneVal = constant(b.getI64TensorAttr(ArrayRef<int64_t>({-1})));
+  Value minusOneVal = constantInt64({-1});
   // Shape values that we keep.
   int64_t start = collapseMostSignificant ? rank - keep : 0; // Inclusive.
   int64_t end = collapseMostSignificant ? rank : N - 1;      // Exclusive.
   Value keepVal = slice(keepIntType, inputShapeVal, start, end, /*steps*/ 1);
   // Concat -1 and keep vals
   Value newShapeVal;
+#if 0
+
+#else
   if (collapseMostSignificant)
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
     newShapeVal = concat(outputIntType, ValueRange({minusOneVal, keepVal}), 0);
   else
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
     newShapeVal = concat(outputIntType, ValueRange({keepVal, minusOneVal}), 0);
+#endif
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   std::vector<int64_t> rankedTensorDims;
