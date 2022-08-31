@@ -344,7 +344,7 @@ protected:
   // To transpose between [batch_size, seq_length/num_directions, size]
   //                  and [seq_length/num_directions, batch_size, size]
   // when layout == 1.
-  std::vector<int64_t> perm3(int64_t a, int64_t b, int64_t c) const {
+  SmallVector<int64_t, 3> perm3(int64_t a, int64_t b, int64_t c) const {
     if (layout == 0)
       return {a, b, c};
     else
@@ -354,7 +354,8 @@ protected:
   // To transpose from [seq_length, num_directions, batch_size, hidden_size]
   //                to [batch_size, seq_length, num_directions, hidden_size]
   // when layout == 1.
-  std::vector<int64_t> perm4(int64_t s, int64_t d, int64_t b, int64_t h) const {
+  SmallVector<int64_t, 4> perm4(
+      int64_t s, int64_t d, int64_t b, int64_t h) const {
     if (layout == 0)
       return {s, d, b, h};
     else
@@ -384,7 +385,7 @@ private:
   const bool isDynamicS, isDynamicB, isNoneH, isNoneC, isNoneP;
   // Computed parameters.
   int D;
-  std::vector<int64_t> xShape, hShape, cShape;
+  SmallVector<int64_t, 3> xShape, hShape, cShape;
   OMTensor *wOmt, *rOmt, *bOmt, *pOmt;
 };
 
@@ -405,7 +406,7 @@ private:
   const int direction, S, B, I, H, linearBeforeReset, isDynamicS, isDynamicB;
   // Computed parameters.
   int D;
-  std::vector<int64_t> xShape, hShape;
+  SmallVector<int64_t, 3> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
@@ -426,7 +427,7 @@ private:
   const int direction, S, B, I, H, isDynamicS, isDynamicB;
   // Computed parameters.
   int D;
-  std::vector<int64_t> xShape, hShape;
+  SmallVector<int64_t, 3> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
