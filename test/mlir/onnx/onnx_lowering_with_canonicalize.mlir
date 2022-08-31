@@ -1088,26 +1088,28 @@ func.func private @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<2x3x10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
   // mlir2FileCheck.py -a'["A", "B"]' -n'{"0": "RES"}'
-// CHECK-LABEL:  func private @test_matmul3
+// CHECK-LABEL:  func.func private @test_matmul3
 // CHECK-SAME:   ([[A_:%.+]]: memref<2x3x10x5xf32>, [[B_:%.+]]: memref<2x3x5x10xf32>) -> memref<2x3x10x10xf32> {
+// CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[VAR_c10_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x10x10xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:5 = krnl.define_loops 5
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<f32>
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 10, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 10, [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 5){
-// CHECK:             [[VAR_3_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK:             krnl.store [[VAR_cst_]], [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.iterate([[LOOP_0_]]#4) with (){
-// CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]#4) : (!krnl.loop) -> index
-// CHECK-DAG:           [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2, [[VAR_5_]]{{.}} : memref<2x3x10x5xf32>
-// CHECK-DAG:           [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_5_]], [[VAR_3_]]#3] : memref<2x3x5x10xf32>
-// CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               [[VAR_9_:%.+]] = arith.mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
-// CHECK:               [[VAR_10_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_9_]] : f32
-// CHECK:               krnl.store [[VAR_10_]], [[RES_1_]][] : memref<f32>
+// CHECK:           krnl.memset [[RES_]], [[VAR_cst_]] {delayed = false} : memref<2x3x10x10xf32>
+// CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = [[VAR_c0_]] to [[VAR_c3_]]){
+// CHECK-DAG:         [[VAR_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_1_]]#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_1_]]#1 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             [[BLOCK_TILE__2_:%.+]], [[BLOCK_IN__2_:%.+]] = krnl.block [[LOOP_1_]]#2 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.permute([[BLOCK_TILE__0_]], [[BLOCK_IN__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_IN__0_]]_1, [[BLOCK_TILE__0_]]_2, [[BLOCK_IN__0_]]_3) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+// CHECK:             krnl.iterate([[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_TILE__0_]]_2) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = [[VAR_c0_]] to [[VAR_c10_]], [[LOOP_1_]]#1 -> [[I_3_:%.+]] = [[VAR_c0_]] to [[VAR_c10_]], [[LOOP_1_]]#2 -> [[I_4_:%.+]] = [[VAR_c0_]] to [[VAR_c5_]]){
+// CHECK:               [[VAR_4_:%.+]]:3 = krnl.get_induction_var_value([[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_TILE__0_]]_2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:               krnl.matmul [[A_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_c0_]], [[VAR_c0_]]{{.}}, [[B_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_c0_]], [[VAR_c0_]]{{.}}, [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_c0_]], [[VAR_c0_]]{{.}}, ([[BLOCK_IN__0_]], [[BLOCK_IN__0_]]_1, [[BLOCK_IN__0_]]_3), ([[VAR_4_]]#0, [[VAR_4_]]#1, [[VAR_4_]]#2), ([[VAR_c10_]], [[VAR_c10_]], [[VAR_c5_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 8, 5], overcompute = false, simdize = true, unroll = true} : memref<2x3x10x5xf32>, memref<2x3x5x10xf32>, memref<2x3x10x10xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
 // CHECK:             }
-// CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1, [[VAR_3_]]#2, [[VAR_3_]]#3] : memref<2x3x10x10xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x3x10x10xf32>
 // CHECK:         }
