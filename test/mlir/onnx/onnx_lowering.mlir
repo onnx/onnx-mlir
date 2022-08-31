@@ -671,7 +671,7 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
-  // CHECK: [[ABS:%.+]] = math.abs [[LOAD]] : f32
+  // CHECK: [[ABS:%.+]] = math.absf [[LOAD]] : f32
   // CHECK: [[ONE:%.+]] = arith.constant {{1.+}} : f32
   // CHECK: [[ADD:%.+]] = arith.addf [[ABS]], [[ONE]] : f32
   // CHECK: [[SOFTSIGN_RES:%.+]] = arith.divf [[LOAD]], [[ADD]] : f32
@@ -1354,7 +1354,7 @@ func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
-  // CHECK: [[ABS:%.+]] = math.abs [[LOAD]] : f32
+  // CHECK: [[ABS:%.+]] = math.absf [[LOAD]] : f32
   // CHECK: krnl.store [[ABS]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
