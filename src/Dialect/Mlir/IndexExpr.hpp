@@ -440,7 +440,7 @@ public:
   bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
   bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
-  // All element in list are literals.
+  // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
@@ -453,7 +453,9 @@ public:
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
 
-  // Helpers for list of IndexExpressions
+  // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
+  // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
+  // of) IndexExpr.
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
       llvm::SmallVectorImpl<int64_t> &intDimList);
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
