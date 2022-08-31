@@ -889,9 +889,15 @@ private:
     if (nOps == 2) {
       llvm::SmallVector<int64_t, 2> dims;
       dims.push_back(1);
-      llvm::SmallVector<float, 2> values;
-      values.push_back(0.);
-      auto elementType = builder_.getF32Type();
+
+      std::vector<Value> inputs;
+      getNodeInputs(node, inputs);
+      auto elementType =
+          inputs[0].getType().cast<TensorType>().getElementType();
+
+      llvm::SmallVector<Attribute, 2> values(
+          1, builder_.getZeroAttr(elementType));
+
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
@@ -901,17 +907,6 @@ private:
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
-      std::vector<Value> inputs;
-      for (const auto &item : node.input()) {
-        if (const onnx::TensorProto *tensorPtr =
-                initializedTensors.GetByOnnxName(item)) {
-          inputs.push_back(EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, *tensorPtr));
-        } else if (const Value *valuePtr =
-                       frontend_symbols_.GetByOnnxName(item)) {
-          inputs.push_back(*valuePtr);
-        }
-      }
       inputs.push_back(constantResult);
 
       int nIn = ONNXPadOp::getNumberOfOperands();

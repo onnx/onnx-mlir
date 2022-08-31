@@ -329,6 +329,7 @@ OpsWithVerifier = [
     'Optional',
     'OptionalGetElement',
     'OptionalHasElement',
+    'Pad',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',

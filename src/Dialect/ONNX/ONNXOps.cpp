@@ -2440,6 +2440,21 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 // Pad
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXPadOp::verify() {
+  ShapedType dataTy = data().getType().cast<ShapedType>();
+  Type constTy = constant_value().getType();
+
+  if (!constTy.isa<NoneType>()) {
+    // Check that the constant has the same element type as the input
+    ShapedType shapedConstTy = constTy.cast<ShapedType>();
+    if (dataTy.getElementType() != shapedConstTy.getElementType()) {
+      return emitOpError("Pad with constant_value that doesn't match the "
+                         "element type of the input.");
+    }
+  }
+  return success();
+}
+
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
