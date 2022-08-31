@@ -80,7 +80,7 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
       mlir::Value starts, mlir::Value ends, mlir::Value axes,
       mlir::Value steps) const;
   mlir::Value slice(mlir::Type outputType, mlir::Value input, int64_t start,
-      int64_t end, int64_t step) const; // 1D slice
+      int64_t end, int64_t step=1) const; // 1D slice
 
   // ONNXSqueezeOp
   mlir::Value squeeze(

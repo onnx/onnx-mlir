@@ -222,6 +222,10 @@ bool Conv2DLibBuilder::verifyOutputs() {
     return false;
   if (!verifyShapeAndComputeBeginEnd())
     return false;
+  // hi alex:
+  //printTensor("img", img);
+  //printTensor("filter", filter);
+  //printTensor("res", res);
   // Compute reference.
   for (int64_t n = 0; n < NOut; n++)
     for (int64_t c = 0; c < COut; c++)
@@ -241,6 +245,8 @@ bool Conv2DLibBuilder::verifyOutputs() {
                                    w * stride + kw * dilation - pWBegin}) *
                       omTensorGetElem<float>(filter, {c, ci, kh, kw});
         }
+  // hi alex
+  //printTensor("ref", ref);
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
   return ok;

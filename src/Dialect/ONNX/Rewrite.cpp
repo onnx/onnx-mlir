@@ -436,33 +436,32 @@ public:
   LogicalResult matchAndRewrite(
       ONNXConvOp onnxConvOp, PatternRewriter &rewriter) const override {
     Location loc = onnxConvOp.getLoc();
-    // Get rank info.
+    // Get type, shape, and rank info for X and W inputs.
     Value X = onnxConvOp.X();
     Value W = onnxConvOp.W();
-    Type elementType = X.getType().cast<ShapedType>().getElementType();
     if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
       return failure();
-    if (!hasShapeAndRank(Y))
-      return failure();
-    auto xShape = X.getType().cast<ShapedType>().getShape();
-    auto wShape = W.getType().cast<ShapedType>().getShape();
-    // auto yShape = Y.getType().cast<ShapedType>().getShape();
-    int xRank = xShape.size();
-    int wRank = wShape.size();
-    // int yRank = yShape.size();
+    ShapedType xType = X.getType().cast<ShapedType>();
+    ShapedType wType = W.getType().cast<ShapedType>();
+    Type elementType = xType.getElementType();
+    auto xShape = xType.getShape();
+    auto wShape = wType.getShape();
+    int64_t rank = xShape.size();
+    assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
+    assert(rank > 2 && "X and W should have to spatial dims");
+    // Get dimensions.
     int batchSize = xShape[0];
     int Cout = wShape[0];
-    int spatialRank =
-        wRank - 2; // Spacial is all but N & Cin in X, Cout & Cin in W.
+    // Compute spatial rank: all but N & Cin in X, Cout & Cin in W.
+    int spatialRank = rank - 2;
     int spatialIndex = 2;
-    assert(spacialRank > 0 && xRank == wRank && "ill formed convolution");
-    // Eliminating conv with spacial dims of the kernel that are not 1.
-    for (int i = spatialIndex; i < wRank; ++i)
-      if (wShape[i] != 1)
-        return failure();
-    // Eliminate conv ops with groups>1.
+    // Eliminate conv ops with groups > 1.
     if (onnxConvOp.group() != 1)
       return failure();
+    // Eliminating conv with spacial dims of the kernel that are not 1.
+    for (int i = spatialIndex; i < rank; ++i)
+      if (wShape[i] != 1)
+        return failure();
     // Eliminate conv op with dilations>1.
     auto dilations = onnxConvOp.dilations();
     if (dilations.has_value()) {
@@ -495,26 +494,44 @@ public:
     // All conditions satisfied, start transforming.
     printf("hi alex, test conv start transforming\n");
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    // Reshape [N, CI, H, W] to [N, CI, H*W] by collapsing all spatial dims.
+    // Reshape [N, CI, H, W,...] to [N, CI, H*W*...] by collapsing all spatial
+    // dims.
     Value XX =
         create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
-    // Squeeze <Cout, Cin, 1, 1> can be implemented by a reshape to <Cout, *>,
-    // collapsing all spatial dims.
+    // Squeeze <Cout, Cin, 1, 1, ...> can be implemented by a reshape to <Cout,
+    // *>, collapsing all spatial dims.
     Value WW =
         create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
-    // Leave last dim runtime so that its actual H*W size can be generated
-    // during shape inference.
-    MemRefType MMOutputType =
-        MemRefType::get({batchSize, Cout, -1}, elementType);
+    // Perform the matrix multiplication on WW * XX. Leave last dim runtime so
+    // that its actual H*W size can be generated during shape inference.
+    RankedTensorType MMOutputType =
+        RankedTensorType::get({batchSize, Cout, -1}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
-    // Get output shape value.
-    Type outputShapeType = RankedTensorType::get({4}, rewriter.getI64Type());
-    Value outputShapeVals = create.onnx.shape(outputShapeType, Y);
-    // std::vector<int64_t> rankedTensorDims;
-    // for (int i = 0; i < yRank; ++i)
-    //   rankedTensorDims.emplace_back(yShape[i]);
-    Value res = create.onnx.reshape(
-        Y.getType().cast<RankedTensorType>(), MM, outputShapeVals);
+    // Get type for shapes
+    Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
+    Type batchCoutShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
+    Type spatialShapeType =
+        RankedTensorType::get({spatialRank}, rewriter.getI64Type());
+    // Get shape value from X, W.
+    Value xShapeVals = create.onnx.shape(shapeType, X);
+    Value wShapeVals = create.onnx.shape(shapeType, W);
+    Value batchShapeVal =
+        create.onnx.slice(batchCoutShapeType, xShapeVals, 0, 1);
+    Value CoutShapeVal =
+        create.onnx.slice(batchCoutShapeType, wShapeVals, 0, 1);
+    Value spatialShapeVal =
+        create.onnx.slice(spatialShapeType, xShapeVals, 2, rank + 1);
+    // Output shape values: batch, Cout, spatial shape values
+    Value outputShapeVals = create.onnx.concat(
+        shapeType, {batchShapeVal, CoutShapeVal, spatialShapeVal}, 0);
+    // Output type is the same as input, except for Cin becomes Cout.
+    std::vector<int64_t> outputTensorDims;
+    for (int i = 0; i < rank; ++i)
+      outputTensorDims.emplace_back(xShape[i]);
+    outputTensorDims[1] = Cout;
+    Type outputType = RankedTensorType::get(outputTensorDims, elementType);
+    // Reshape results from matrix multiply MM.
+    Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(onnxConvOp, res);
     return success();
