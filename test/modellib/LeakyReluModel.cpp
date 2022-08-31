@@ -95,7 +95,7 @@ bool LeakyReluLibBuilder::verifyOutputs() {
   for (int64_t i = 0; i < N; ++i) {
     float val1= omTensorGetElem<float>(x, {i}) * 2;
     float val2 = (val1 > 0.0) ? val1 : (val1 * alphaVal);
-    float val3 = val2 + omTensorGetElem<float>(x, {i});
+    float val3 = val2 - omTensorGetElem<float>(x, {i});
     omTensorGetElem<float>(ref, {i}) = val3;
   }
   bool ok = areCloseFloat(res, ref);
