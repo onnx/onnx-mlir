@@ -25,33 +25,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-void *omTensorGetAllocatedPtr(OMTensor *tensor);
-template <typename TYPE>
-void omPrintAsPython(OMTensor *tensor, std::string name) {
-  int rank = omTensorGetRank(tensor);
-  int64_t *shape = omTensorGetShape(tensor);
-  if (false) {
-    printf("# tensor 0x%llx, allocated addr 0x%llx, data addr 0x%llx\n",
-        (long long)tensor, (long long)omTensorGetAllocatedPtr(tensor),
-        (long long)omTensorGetDataPtr(tensor));
-  }
-  if (rank == 2) {
-    std::cout << name << " = np.array([";
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      if (i)
-        std::cout << ", ";
-      std::cout << "[";
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        if (j)
-          std::cout << ", ";
-        std::cout << omTensorGetElem<TYPE>(tensor, {i, j});
-      }
-      std::cout << "]";
-    }
-    std::cout << "])\n";
-  }
-}
-
 static bool isOMLeakyReluTheSameAsNaiveImplFor(const int N, const float alphaVal) {
   static int testNum = 0;
   printf("attempt %d with N %d, alpha %7.3f\n", ++testNum, N, (double)alphaVal);

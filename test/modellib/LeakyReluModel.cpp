@@ -26,10 +26,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-#define DEBUG 1
-
 // =============================================================================
-// 2D matmul without broadcast
+// Model consisting of onnx.Add, onnx.LeakyRelu and onnx.Sub ops
 
 LeakyReluLibBuilder::LeakyReluLibBuilder(
     const std::string &modelName, const int N, const float alphaVal)
