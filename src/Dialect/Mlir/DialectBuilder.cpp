@@ -662,7 +662,6 @@ void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
         KrnlBuilder builder(childBuilder, childLoc);
-        printf("%d\n", inductionVars.size());
         bodyFn(builder, inductionVars);
         yield();
       });

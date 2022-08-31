@@ -118,7 +118,7 @@ MatMulSingleBroadcastLibBuilder::MatMulSingleBroadcastLibBuilder(
     const std::string &modelName, bool broadcastingB, bool sameStaticBroadcast,
     std::vector<int64_t> broadcastDims, const int I, const int J, const int K)
     : ModelLibBuilder(modelName), broadcastingB(broadcastingB),
-      broadcastDims(broadcastDims), sameStaticBroadcast(sameStaticBroadcast),
+      sameStaticBroadcast(sameStaticBroadcast), broadcastDims(broadcastDims),
       I(I), J(J), K(K) {}
 
 bool MatMulSingleBroadcastLibBuilder::build() {
