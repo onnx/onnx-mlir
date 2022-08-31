@@ -34,7 +34,7 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-//#include "onnx/onnx_pb.h"
+#include "onnx/onnx_pb.h"
 #include "src/Builder/SymbolTable.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
