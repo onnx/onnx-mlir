@@ -97,8 +97,9 @@ public:
   }
 
   static LogicalResult runShapeInferenceOnRegion(Region &r) {
-    std::function<void(Region &)> doShapeInference =
-        &ShapeInferencePass::runShapeInferenceOnRegion;
+    std::function<void(Region &)> doShapeInference = [](Region &region) {
+      (void)ShapeInferencePass::runShapeInferenceOnRegion(region);
+    };
 
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
