@@ -436,13 +436,9 @@ public:
   LogicalResult matchAndRewrite(
       ONNXConvOp onnxConvOp, PatternRewriter &rewriter) const override {
     Location loc = onnxConvOp.getLoc();
-    // hi alex Operation *convOp = onnxConvOp.getOperation();
     // Get rank info.
     Value X = onnxConvOp.X();
     Value W = onnxConvOp.W();
-    Value Y = onnxConvOp.Y();
-    if (0)
-      return failure(); // hi alex, make it fail
     Type elementType = X.getType().cast<ShapedType>().getElementType();
     if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
       return failure();
@@ -456,12 +452,12 @@ public:
     // int yRank = yShape.size();
     int batchSize = xShape[0];
     int Cout = wShape[0];
-    int spacialRank =
+    int spatialRank =
         wRank - 2; // Spacial is all but N & Cin in X, Cout & Cin in W.
-    int spacialIndex = 2;
+    int spatialIndex = 2;
     assert(spacialRank > 0 && xRank == wRank && "ill formed convolution");
     // Eliminating conv with spacial dims of the kernel that are not 1.
-    for (int i = spacialIndex; i < wRank; ++i)
+    for (int i = spatialIndex; i < wRank; ++i)
       if (wShape[i] != 1)
         return failure();
     // Eliminate conv ops with groups>1.
@@ -470,14 +466,14 @@ public:
     // Eliminate conv op with dilations>1.
     auto dilations = onnxConvOp.dilations();
     if (dilations.has_value()) {
-      for (int i = 0; i < spacialRank; ++i)
+      for (int i = 0; i < spatialRank; ++i)
         if (ArrayAttrIntVal(dilations, i) != 1)
           return failure();
     }
     // ELiminate conv ops with strides>1.
     auto strides = onnxConvOp.strides();
     if (strides.has_value()) {
-      for (int i = 0; i < spacialRank; ++i)
+      for (int i = 0; i < spatialRank; ++i)
         if (ArrayAttrIntVal(strides, i) != 1)
           return failure();
     }
@@ -490,7 +486,7 @@ public:
       // (deprecated) automatic padding options.
       auto pads = onnxConvOp.pads();
       if (pads.has_value()) {
-        for (int i = 0; i < 2 * spacialRank; ++i) // 2x for before/after.
+        for (int i = 0; i < 2 * spatialRank; ++i) // 2x for before/after.
           if (ArrayAttrIntVal(pads, i) != 0)
             return failure();
       }
@@ -499,10 +495,11 @@ public:
     // All conditions satisfied, start transforming.
     printf("hi alex, test conv start transforming\n");
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    // Reshape [N, CI, H, W] to [N, CI, H*W] 
+    // Reshape [N, CI, H, W] to [N, CI, H*W] by collapsing all spatial dims.
     Value XX =
         create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
-    // Squeeze <Cout, Cin, 1, 1> can be implemented by a reshape to <Cout, *>.
+    // Squeeze <Cout, Cin, 1, 1> can be implemented by a reshape to <Cout, *>,
+    // collapsing all spatial dims.
     Value WW =
         create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
     // Leave last dim runtime so that its actual H*W size can be generated

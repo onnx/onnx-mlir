@@ -240,8 +240,6 @@ Value OnnxBuilder::where(
 //
 // e.g. reshape(val, 3, false) -> reshape([2, 3, -1], val, [2, 3, -1])
 
-#define USE_NEW_SCHEME 1
-
 Value OnnxBuilder::reshapeToNDim(
     Value val, int64_t N, bool collapseMostSignificant) const {
   // Get rank of the original shape and determine if we have anything to do.
@@ -258,27 +256,13 @@ Value OnnxBuilder::reshapeToNDim(
   Type keepIntType = RankedTensorType::get({keep}, b.getI64Type());
   Type outputIntType = RankedTensorType::get({N}, b.getI64Type());
   // Get input shape value.
-  #if ! USE_NEW_SCHEME
-  Value inputShapeVal = shape(inputShapeType, val);
-  #endif
   // Construct ONNX constants.
   Value minusOneVal = constantInt64({-1});
   // Shape values that we keep.
   int64_t start = collapseMostSignificant ? rank - keep : 0; // Inclusive.
   int64_t end = collapseMostSignificant ? rank : N - 1;      // Exclusive.
-  // Concat -1 and keep vals
-#if USE_NEW_SCHEME
-  SmallVector<int64_t, 4> dims(N, 0);
-  if (collapseMostSignificant) {
-    // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
-    dims[0] = -1;
-  } else {
-    // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
-    dims[N - 1] = -1;
-  }
-  Value newShapeVal = constantInt64(dims);
-#else
   Value keepVal = slice(keepIntType, inputShapeVal, start, end, /*steps*/ 1);
+  // Concat -1 and keep vals
   Value newShapeVal;
   if (collapseMostSignificant)
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
@@ -286,7 +270,6 @@ Value OnnxBuilder::reshapeToNDim(
   else
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
     newShapeVal = concat(outputIntType, ValueRange({keepVal, minusOneVal}), 0);
-#endif
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   std::vector<int64_t> rankedTensorDims;
