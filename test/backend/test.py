@@ -29,12 +29,14 @@ from __future__ import unicode_literals
 import sys
 import onnx
 import unittest
+import pprint
 
 import inspect
 from inference_backend import (
     InferenceBackendTest,
     InferenceBackend,
     get_test_models,
+    save_all_test_names,
 )
 from signature_backend import SignatureBackendTest, SignatureBackend
 from input_verification_backend import InputVerificationBackendTest, InputVerificationBackend
@@ -66,6 +68,11 @@ else:
     )
     all_tests += variables.node_model_tests
     all_test_names = list(map(lambda x: x[0], all_tests))
+    if args.case_check :
+        # pprint.pprint(all_test_names)
+        #print(len(variables.test_to_enable_dict))
+        save_all_test_names(all_test_names)
+        quit()
 
     # Ensure that test names specified in test_to_enable actually exist.
     for test_name_symbol in test_to_enable:
