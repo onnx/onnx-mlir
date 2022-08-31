@@ -97,7 +97,7 @@ public:
   }
 
   static LogicalResult runShapeInferenceOnRegion(Region &r) {
-    std::function<void(Region &)> doShapeInference = [&](Region &region) {
+    std::function<void(Region &)> doShapeInference = [](Region &region) {
       (void)ShapeInferencePass::runShapeInferenceOnRegion(region);
     };
 
