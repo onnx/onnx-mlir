@@ -138,3 +138,6 @@ void populateLoweringONNXToTorchBinaryOpPattern(
 
 void populateLoweringONNXToTorchArgmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchReshapeOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
