@@ -296,6 +296,9 @@ LogicalResult ZHighStickOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   StringAttr layout = layoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
@@ -326,6 +329,10 @@ LogicalResult ZHighStickForLSTMOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::FICO);
@@ -352,6 +359,10 @@ LogicalResult ZHighStickForGRUOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::ZRH);
@@ -518,11 +529,7 @@ LogicalResult ZHighSoftmaxOp::inferShapes(
 
 LogicalResult ZHighBatchNormOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()))
-    return success();
-
-  getResult().setType(input().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -535,9 +542,15 @@ LogicalResult ZHighMeanReduce2DOp::inferShapes(
 
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> shape = inputType.getShape();
+
+  SmallVector<int64_t, 4> outputDims = {shape[0], 1, 1, shape[3]};
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   // Input is NHWC, and H and W are reduction dimensions.
-  Type resType = RankedTensorType::get({shape[0], 1, 1, shape[3]},
-      inputType.getElementType(), inputType.getEncoding());
+  Type resType = RankedTensorType::get(
+      outputDims, inputType.getElementType(), inputType.getEncoding());
   getResult().setType(resType);
   return success();
 }
@@ -565,6 +578,10 @@ LogicalResult ZHighMatMulOp::inferShapes(
   else if (outputDims.size() == 3)
     encoding = ZTensorEncodingAttr::get(
         this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   RankedTensorType resType =
       RankedTensorType::get(outputDims, elementType, encoding);
   getResult().setType(resType);
@@ -677,6 +694,10 @@ LogicalResult ZHighLSTMOp::inferShapes(
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
   IndexExpr::getShape(shapeHelper.dimsForOutput(1), cfOutputDims);
 
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(hnOutputDims, getResults()[0]);
+  tryImproveInferredShape(cfOutputDims, getResults()[1]);
+
   // Output type is 3DS.
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
@@ -751,6 +772,10 @@ LogicalResult ZHighGRUOp::inferShapes(
 
   SmallVector<int64_t, 4> hnOutputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(hnOutputDims, getResult());
+
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
@@ -820,6 +845,10 @@ LogicalResult ZHighConv2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type resType = RankedTensorType::get(
       outputDims, inputType.getElementType(), inputType.getEncoding());
@@ -845,6 +874,10 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type resType = RankedTensorType::get(
       outputDims, inputType.getElementType(), inputType.getEncoding());
@@ -870,6 +903,10 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type resType = RankedTensorType::get(
       outputDims, inputType.getElementType(), inputType.getEncoding());
@@ -958,6 +995,11 @@ LogicalResult ZHighConcatOp::inferShapes(
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+
+
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
+
   Type resType = RankedTensorType::get(
       outputDims, commonType.getElementType(), commonType.getEncoding());
   getResult().setType(resType);

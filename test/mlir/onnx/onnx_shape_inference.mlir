@@ -3,12 +3,11 @@
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Test the default behavior of unary lement-wise ops users give the shape of
-/// the output.
+/// Test shape inference when the output shape exists.
 /// Taking Sigmoid as an example.
 //===----------------------------------------------------------------------===//
 
-// COM: User output shape is better, do not change the output shape.
+// COM: Existing output shape is better, do not change the output shape.
 func.func @test_default_unary_elementwise_user_shape_1(%arg0 : tensor<2x3x?xf32>) -> tensor<2x3x4xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x?xf32>) -> tensor<2x3x4xf32>
   "func.return"(%0) : (tensor<2x3x4xf32>) -> ()
@@ -18,13 +17,27 @@ func.func @test_default_unary_elementwise_user_shape_1(%arg0 : tensor<2x3x?xf32>
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
-// COM: Infered output shape is better, update the output shape.
+// -----
+
+// COM: Infered shape is better, update the output shape.
 func.func @test_default_unary_elementwise_user_shape_2(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x?xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x?xf32>
   "func.return"(%0) : (tensor<2x3x?xf32>) -> ()
 
   // CHECK-LABEL: test_default_unary_elementwise_user_shape_2
   // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+// COM: Mix of infered shape and existing output shape.
+func.func @test_default_unary_elementwise_user_shape_3(%arg0 : tensor<?x3x4xf32>) -> tensor<2x3x?xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x4xf32>) -> tensor<2x3x?xf32>
+  "func.return"(%0) : (tensor<2x3x?xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_3
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<?x3x4xf32>) -> tensor<2x3x4xf32>
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
