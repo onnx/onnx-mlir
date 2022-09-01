@@ -97,7 +97,7 @@ public:
     //    end_dim will 0. Flatten from 0 to 0  flatten was not emitted.
     //
     // Because of these reasons, need to emit flatten once with
-    //   start=1, end=-1.
+    //   start=1, end=Input rank.
     //
     // If axisValue is more than 1, emit the flatten two times like below.
     //    a) Flattening is about bringing the flattened zone into a
@@ -113,8 +113,7 @@ public:
     //  1) flatten the region from 0 position to axis - 1.
     //  2) Since all dimensions before `axis` have already been
     //     condensed into a single one (dim 0),
-    //     we set start=1. We use -1 as the end value, which tells torch
-    //     to go until the last dimension.
+    //     we set start=1, and end as the size. 
     /********************************************************************/
 
     if (axisValue > 1) {
