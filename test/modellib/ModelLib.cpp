@@ -271,5 +271,13 @@ void ModelLibBuilder::printTensor(
     printf(")\n");
 }
 
+RNNModelLibBuilder::RNNModelLibBuilder(
+    const std::string &sharedLibBaseName, int64_t layout)
+    : ModelLibBuilder(sharedLibBaseName), layout(layout) {
+  assert(0 <= layout && layout <= 1 && "layout must be 0 or 1");
+}
+
+RNNModelLibBuilder::~RNNModelLibBuilder() {}
+
 } // namespace test
 } // namespace onnx_mlir
