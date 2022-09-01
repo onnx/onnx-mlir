@@ -77,7 +77,8 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> graphName("graphName",
-    llvm::cl::desc("Specifies the name of the graph for the ONNX model. Defaults to \"main_graph\"."),
+    llvm::cl::desc("Specifies the name of the graph for the ONNX model. "
+                   "Defaults to \"main_graph\"."),
     llvm::cl::init("main_graph"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> mtriple("mtriple",
