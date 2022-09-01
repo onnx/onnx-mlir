@@ -14,6 +14,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 
@@ -159,16 +160,10 @@ Value getMinusBcastConst(
     mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
   ShapedType xType = X.getType().cast<ShapedType>();
   assert(xType.hasStaticShape() && "expected static shape");
-  Type resType =
-      RankedTensorType::get(xType.getShape(), xType.getElementType());
-  int nElements = ShapedType::getNumElements(xType.getShape());
   float val = floatAttr.getValueAsDouble() * -1.0;
-  std::vector<float> array(nElements, val);
-  DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(resType, llvm::makeArrayRef(array));
-  return builder.create<mlir::ONNXConstantOp>(loc, resType, Attribute(),
-      denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
-      StringAttr(), ArrayAttr());
+  DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  return create.onnx.constant(denseAttr);
 }
 
 } // namespace zhigh
