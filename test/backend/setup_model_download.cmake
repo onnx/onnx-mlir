@@ -66,7 +66,7 @@ function(setup_model_download backend_test variation)
 	    # Also curl will only download if remote file has a newer
 	    # timestamp.
             curl ${MODEL_URL} --silent --retry 8 --time-cond ${MODEL_FILE}
-                 --output-dir ${MODEL_DIR} --output ${MODEL_FILE} &&
+                 --output ${MODEL_FILE} &&
 	    tar zxf ${MODEL_FILE} --directory ${MODEL_DIR}
 	  )
       endif()
