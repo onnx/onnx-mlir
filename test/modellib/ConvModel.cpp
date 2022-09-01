@@ -86,15 +86,14 @@ bool Conv2DLibBuilder::build() {
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
   auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
   auto strides = builder.getI64ArrayAttr({stride, stride});
-
+  auto group = IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+      APInt(64, 1, /*isSigned=*/true));
   auto convOp = builder.create<ONNXConvOp>(loc,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr(getAutoPadName(autoPad)),
       /*dilations=*/dilations,
-      /*group=*/
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 1, /*isSigned=*/true)),
+      /*group=*/group,
       /*kernel_shape=*/kernel_shape, /*pads=*/pads,
       /*strides=*/strides);
 

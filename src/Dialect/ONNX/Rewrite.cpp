@@ -410,6 +410,7 @@ private:
   }
 };
 
+#if 0 // hi alex
 // =============================================================================
 
 /*
@@ -541,6 +542,7 @@ public:
     return success();
   }
 };
+#endif
 
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
@@ -722,5 +724,6 @@ void ONNXLoopOp::getCanonicalizationPatterns(
 
 void ONNXConvOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<Conv1x1ToMatmulPattern>(context);
+  // hi alex, disable
+  // results.insert<Conv1x1ToMatmulPattern>(context);
 }
