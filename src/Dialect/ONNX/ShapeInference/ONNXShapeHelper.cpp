@@ -415,10 +415,20 @@ void tryImproveInferredShape(
          "Inferred shape and existing shape are inconsistent in the number of "
          "elements");
 
-  for (unsigned i = 0; i < inferredShape.size(); ++i)
+  for (unsigned i = 0; i < inferredShape.size(); ++i) {
     // existingDim is static but inferedDim is unknown: update the inferredDim.
     if ((existingShape[i] != -1) && (inferredShape[i] == -1))
       inferredShape[i] = existingShape[i];
+    // inferedDim is different from existingDim. Believe in existingDim.
+    if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
+        (existingShape[i] != inferredShape[i])) {
+      // Warning for users.
+      llvm::outs() << "Shape inference: the inferred dim (" << inferredShape[i]
+                   << ") is different from the existing dim ("
+                   << existingShape[i] << "). Use the existing dim instead.\n";
+      inferredShape[i] = existingShape[i];
+    }
+  }
 }
 
 /// Handle shape inference for unary element-wise operators.
