@@ -25,7 +25,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-#define DEBUG 1
+#define DEBUG 0
 
 // =============================================================================
 // 2D matmul without broadcast
@@ -115,28 +115,26 @@ bool MatMul2DLibBuilder::verifyOutputs() {
 // Matmul with broadcast in A or B but not both.
 
 MatMulSingleBroadcastLibBuilder::MatMulSingleBroadcastLibBuilder(
-    const std::string &modelName, bool broadcastingB,
+    const std::string &modelName, bool broadcastingB, bool sameStaticBroadcast,
     std::vector<int64_t> broadcastDims, const int I, const int J, const int K)
     : ModelLibBuilder(modelName), broadcastingB(broadcastingB),
-      broadcastDims(broadcastDims), I(I), J(J), K(K) {}
+      sameStaticBroadcast(sameStaticBroadcast), broadcastDims(broadcastDims),
+      I(I), J(J), K(K) {}
 
 bool MatMulSingleBroadcastLibBuilder::build() {
   // Create shapes for a, b, and result y with broadcast.
   aShape.clear();
   bShape.clear();
   yShape.clear();
-  if (broadcastingB) {
-    // B is being broadcasted, so B has a higher rank.
-    for (long int s : broadcastDims) {
-      bShape.emplace_back(s);
-      yShape.emplace_back(s);
-    }
-  } else {
-    // A is being broadcasted, so A has a higher rank.
-    for (long int s : broadcastDims) {
+  // Init shapes of A, B, and Y.
+  for (long int s : broadcastDims) {
+    if (sameStaticBroadcast || !broadcastingB)
+      // A is being broadcasted, so A has a higher rank.
       aShape.emplace_back(s);
-      yShape.emplace_back(s);
-    }
+    if (sameStaticBroadcast || broadcastingB)
+      // B is being broadcasted, so B has a higher rank.
+      bShape.emplace_back(s);
+    yShape.emplace_back(s);
   }
   // Add I, K for A.
   aShape.emplace_back(I);
@@ -193,7 +191,19 @@ void MatMulSingleBroadcastLibBuilder::computeOneMatMul(OMTensor *a, OMTensor *b,
   if (yIndex < broadcastRank) {
     int64_t num = yShape[yIndex]; // Size that we need to iterate over.
     yIndexValues.emplace_back(0); // Add broadcast index value.
-    if (broadcastingB) {
+    if (sameStaticBroadcast) {
+      // A & B have higher dim.
+      aIndexValues.emplace_back(0); // Add broadcast index value.
+      bIndexValues.emplace_back(0); // Add broadcast index value.
+      for (int64_t i = 0; i < num; i++) {
+        // Set the index of the matrix we are computing right now for the
+        // index values a, b, & c and recurse.
+        aIndexValues[aIndex] = bIndexValues[bIndex] = yIndexValues[bIndex] = i;
+        computeOneMatMul(a, b, y, aIndexValues, bIndexValues, yIndexValues);
+      }
+      aIndexValues.pop_back(); // Remove broadcast index value.
+      bIndexValues.pop_back(); // Remove broadcast index value.
+    } else if (broadcastingB) {
       // B has higher dim.
       bIndexValues.emplace_back(0); // Add broadcast index value.
       for (int64_t i = 0; i < num; i++) {
