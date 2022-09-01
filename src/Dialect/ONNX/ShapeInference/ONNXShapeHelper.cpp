@@ -399,6 +399,47 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   return success();
 }
 
+/// Check if the given inferredShape is better than the existing shape of val.
+bool isInferredShapeBetter(ArrayRef<int64_t> inferredShape, Value val) {
+  // Val is unranked. Any inferred shape is better.
+  if (!hasShapeAndRank(val))
+    return true;
+
+  ArrayRef<int64_t> existingShape = val.getType().cast<ShapedType>().getShape();
+
+  // Only get the infered shape if unknown dims in existingShape get static
+  // values in inferredShape.
+  for (unsigned i = 0; i < existingShape.size(); ++i) {
+    int64_t inferedDim = inferredShape[i];
+    int64_t existingDim = existingShape[i];
+    // existingDim is static but inferedDim is unknown: not good.
+    if ((existingDim != -1) && (inferedDim == -1))
+      return false;
+    // inferedDim is different from existingDim. Believe in existingDim.
+    if ((existingDim != -1) && (inferedDim != -1) &&
+        (existingDim != inferedDim))
+      return false;
+  }
+  return true;
+}
+
+/// Handle shape inference for unary element-wise operators.
+LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
+  if (!hasShapeAndRank(op->getOperand(0)))
+    return success();
+
+  // When the output has ranked, see if its shape is better than the input's
+  // shape.
+  ArrayRef<int64_t> inputShape =
+      op->getOperand(0).getType().cast<ShapedType>().getShape();
+  if (!isInferredShapeBetter(inputShape, op->getResult(0)))
+    // The current output shape is good, do nothing.
+    return success();
+
+  op->getResult(0).setType(op->getOperand(0).getType());
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Shape Helper template instantiation
 // Keep template instantiation at the end of the file.

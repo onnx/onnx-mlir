@@ -152,23 +152,6 @@ static RankedTensorType getReductionOutputType(ShapedType operandTy,
   return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
-static bool isInferedShapeBetter(
-    ArrayRef<int64_t> inferedShape, ArrayRef<int64_t> userShape) {
-  // Only get the infered shape if unknown dims in userShape get static values
-  // in inferedShape.
-  for (unsigned i = 0; i < userShape.size(); ++i) {
-    int64_t inferedDim = inferedShape[i];
-    int64_t userDim = userShape[i];
-    // userDim is static but inferedDim is unknown: not good.
-    if ((userDim != -1) && (inferedDim == -1))
-      return false;
-    // inferedDim is different from userDim. Believe in userDim.
-    if ((userDim != -1) && (inferedDim != -1) && (userDim != inferedDim))
-      return false;
-  }
-  return true;
-}
-
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
@@ -235,27 +218,6 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   auto operandTy = op.getOperand().getType().template cast<ShapedType>();
   auto resultTy = getReductionOutputType(operandTy, op.axes(), op.keepdims());
   op.getResult().setType(resultTy);
-  return success();
-}
-
-// Handle shape inference for unary element-wise operators.
-static LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
-  if (!hasShapeAndRank(op->getOperand(0)))
-    return success();
-
-  // When the output has ranked, see if its shape is better than the input's
-  // shape.
-  if (hasShapeAndRank(op->getResult(0))) {
-    ArrayRef<int64_t> inputShape =
-        op->getOperand(0).getType().cast<ShapedType>().getShape();
-    ArrayRef<int64_t> userOutputShape =
-        op->getResult(0).getType().cast<ShapedType>().getShape();
-    if (!isInferedShapeBetter(inputShape, userOutputShape))
-      // The current output shape is good, do nothing.
-      return success();
-  }
-
-  op->getResult(0).setType(op->getOperand(0).getType());
   return success();
 }
 
@@ -5658,9 +5620,3 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-
-namespace onnx_mlir {
-template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
-    ONNXMaxPoolSingleOutOpAdaptor>;
-
-}

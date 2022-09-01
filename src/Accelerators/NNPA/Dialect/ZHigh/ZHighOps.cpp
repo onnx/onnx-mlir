@@ -33,6 +33,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 #include "zdnn.h"
 
@@ -406,6 +407,10 @@ LogicalResult ZHighUnstickOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
+  // Do nothing if the inferred shape does not improve the current shape.
+  if (!isInferredShapeBetter(outputDims, getResult()))
+    return success();
+
   ShapedType inputType = In().getType().cast<ShapedType>();
   RankedTensorType resType =
       RankedTensorType::get(outputDims, inputType.getElementType());
@@ -418,11 +423,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
 
 LogicalResult ZHighAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -430,11 +431,7 @@ LogicalResult ZHighAddOp::inferShapes(
 
 LogicalResult ZHighSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -442,11 +439,7 @@ LogicalResult ZHighSubOp::inferShapes(
 
 LogicalResult ZHighMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -454,11 +447,7 @@ LogicalResult ZHighMulOp::inferShapes(
 
 LogicalResult ZHighDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -466,11 +455,7 @@ LogicalResult ZHighDivOp::inferShapes(
 
 LogicalResult ZHighMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -478,11 +463,7 @@ LogicalResult ZHighMinOp::inferShapes(
 
 LogicalResult ZHighMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -490,11 +471,7 @@ LogicalResult ZHighMaxOp::inferShapes(
 
 LogicalResult ZHighLogOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -502,11 +479,7 @@ LogicalResult ZHighLogOp::inferShapes(
 
 LogicalResult ZHighExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -514,11 +487,7 @@ LogicalResult ZHighExpOp::inferShapes(
 
 LogicalResult ZHighReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -526,11 +495,7 @@ LogicalResult ZHighReluOp::inferShapes(
 
 LogicalResult ZHighTanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -538,11 +503,7 @@ LogicalResult ZHighTanhOp::inferShapes(
 
 LogicalResult ZHighSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -550,11 +511,7 @@ LogicalResult ZHighSigmoidOp::inferShapes(
 
 LogicalResult ZHighSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
