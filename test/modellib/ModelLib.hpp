@@ -310,8 +310,8 @@ enum ConvAutoPad {
 
 class Conv2DLibBuilder : public ModelLibBuilder {
 public:
-  Conv2DLibBuilder(const std::string &modelName, const int N, const int C,
-      const int H, const int W, const int kH, const int kW,
+  Conv2DLibBuilder(const std::string &modelName, const int N, const int Cin,
+      const int Cout, const int H, const int W, const int kH, const int kW,
       const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
       const int pWBegin, const int pWEnd, const int stride, const int dilation,
       const int isDynamic);
@@ -328,11 +328,11 @@ private:
 
   // Data that defines model, where const define model, non-const are derived
   // parameters.
-  const int N, C, H, W, kH, kW;
+  const int N, CIn, COut, H, W, kH, kW;
   const ConvAutoPad autoPad;
   int pHBegin, pHEnd, pWBegin, pWEnd;
   const int stride, dilation, isDynamic;
-  int NOut, COut, HOut, WOut;
+  int modelNOut, modelCOut, modelHOut, modelWOut;
 };
 
 class LSTMLibBuilder : public ModelLibBuilder {

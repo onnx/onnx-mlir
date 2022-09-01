@@ -456,7 +456,8 @@ public:
     int spatialRank = rank - 2;
     int spatialIndex = 2;
     // Eliminate conv ops with groups > 1.
-    if (onnxConvOp.group() != 1)
+    int G = onnxConvOp.group();
+    if (G != 1)
       return failure();
     // Eliminating conv with spacial dims of the kernel that are not 1.
     for (int i = spatialIndex; i < rank; ++i)
@@ -492,7 +493,10 @@ public:
     }
 
     // All conditions satisfied, start transforming.
-    printf("hi alex, test conv start transforming\n");
+    printf("hi alex, opt conv 1x1 with N %d, group %d, Ci %d, Co %d, H %d, W "
+           "%d, rank %d\n",
+        (int)xShape[0], (int)G, (int)xShape[1], (int)wShape[0], (int)xShape[2],
+        (int)xShape[3], (int)rank);
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     // Reshape [N, CI, H, W,...] to [N, CI, H*W*...] by collapsing all spatial
     // dims.

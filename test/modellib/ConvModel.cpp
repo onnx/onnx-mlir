@@ -30,13 +30,14 @@ static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
 static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 
 Conv2DLibBuilder::Conv2DLibBuilder(const std::string &modelName, const int N,
-    const int C, const int H, const int W, const int kH, const int kW,
-    const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
+    const int CIn, const int COut, const int H, const int W, const int kH,
+    const int kW, const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
     const int pWBegin, const int pWEnd, const int stride, const int dilation,
     const int isDynamic)
-    : ModelLibBuilder(modelName), N(N), C(C), H(H), W(W), kH(kH), kW(kW),
-      autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd), pWBegin(pWBegin),
-      pWEnd(pWEnd), stride(stride), dilation(dilation), isDynamic(isDynamic) {}
+    : ModelLibBuilder(modelName), N(N), CIn(CIn), COut(COut), H(H), W(W),
+      kH(kH), kW(kW), autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd),
+      pWBegin(pWBegin), pWEnd(pWEnd), stride(stride), dilation(dilation),
+      isDynamic(isDynamic) {}
 
 const std::string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
   static const std::string autoPadName[] = {
@@ -55,16 +56,17 @@ bool Conv2DLibBuilder::build() {
   // (dynamic value) so that the compiler may not infer the size of the model,
   // and instead generate code to figure the sizes at run time.
   int N1 = N;
-  int C1 = C;
+  int CIn1 = CIn;
+  int COut1 = COut;
   int H1 = H;
   int W1 = W;
   if (isDynamic)
-    N1 = C1 = H1 = W1 = -1;
+    N1 = CIn1 = COut1 = H1 = W1 = -1;
 
-  llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, C1, H1, W1};
-  llvm::SmallVector<int64_t, 1> bShape = {C};
-  llvm::SmallVector<int64_t, 4> wShape = {C, C, kH, kW};
+  llvm::SmallVector<int64_t, 4> xShape = {N, CIn, H, W};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, CIn1, H1, W1};
+  llvm::SmallVector<int64_t, 1> bShape = {COut};
+  llvm::SmallVector<int64_t, 4> wShape = {COut, CIn, kH, kW};
   auto xType = RankedTensorType::get(xShape, builder.getF32Type());
   auto xTypeSymbol = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
@@ -104,10 +106,10 @@ bool Conv2DLibBuilder::build() {
     return false;
 
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
-  NOut = outputShape[0];
-  COut = outputShape[1];
-  HOut = outputShape[2];
-  WOut = outputShape[3];
+  modelNOut = outputShape[0];
+  modelCOut = outputShape[1];
+  modelHOut = outputShape[2];
+  modelWOut = outputShape[3];
   convOp.getResult().setType(yType);
   convOp.X().setType(xTypeSymbol);
 
@@ -125,9 +127,9 @@ bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      {N, C, H, W}, dataRangeLB, dataRangeUB);
+      {N, CIn, H, W}, dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      {C, C, kH, kW}, dataRangeLB, dataRangeUB);
+      {COut, CIn, kH, kW}, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }
@@ -145,12 +147,13 @@ bool Conv2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
 
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
   // Check first params.
-  if (N != NOut) {
-    std::cerr << "N mismatch: in " << N << ", out " << NOut << std::endl;
+  if (N != modelNOut) {
+    std::cerr << "N mismatch: in " << N << ", out " << modelNOut << std::endl;
     return false;
   }
-  if (C != COut) {
-    std::cerr << "C mismatch: in " << C << ", out " << COut << std::endl;
+  if (COut != modelCOut) {
+    std::cerr << "C mismatch: in " << COut << ", out " << modelCOut
+              << std::endl;
     return false;
   }
 
@@ -162,7 +165,7 @@ bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
   int p[] = {pHBegin + pHEnd, pWBegin + pWEnd};
   int s[] = {stride, stride};
   int d[] = {dilation, dilation};
-  int O[] = {HOut, WOut};
+  int O[] = {modelHOut, modelWOut};
 
   // Check dimensions for the spatial axes. From MaxPool:
   // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
@@ -217,36 +220,31 @@ bool Conv2DLibBuilder::verifyOutputs() {
   OMTensor *img = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *filter = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
-  OMTensor *ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
+  OMTensor *ref = omTensorCreateWithShape<float>(
+      {modelNOut, modelCOut, modelHOut, modelWOut});
   if (!img || !filter || !res || !ref)
     return false;
   if (!verifyShapeAndComputeBeginEnd())
     return false;
-  // hi alex:
-  //printTensor("img", img);
-  //printTensor("filter", filter);
-  //printTensor("res", res);
   // Compute reference.
-  for (int64_t n = 0; n < NOut; n++)
-    for (int64_t c = 0; c < COut; c++)
-      for (int64_t h = 0; h < HOut; h++)
-        for (int64_t w = 0; w < WOut; w++) {
-          omTensorGetElem<float>(ref, {n, c, h, w}) = 0;
-          for (int64_t ci = 0; ci < C; ci++)
+  for (int64_t n = 0; n < modelNOut; n++)
+    for (int64_t co = 0; co < modelCOut; co++)
+      for (int64_t h = 0; h < modelHOut; h++)
+        for (int64_t w = 0; w < modelWOut; w++) {
+          omTensorGetElem<float>(ref, {n, co, h, w}) = 0;
+          for (int64_t ci = 0; ci < CIn; ci++)
             for (int64_t kh = 0; kh < kH; kh++)
               for (int64_t kw = 0; kw < kW; kw++)
                 if ((h * stride + kh * dilation - pHBegin >= 0 &&
                         h * stride + kh * dilation - pHBegin < H) &&
                     (w * stride + kw * dilation - pWBegin >= 0 &&
                         w * stride + kw * dilation - pWBegin < W))
-                  omTensorGetElem<float>(ref, {n, c, h, w}) +=
+                  omTensorGetElem<float>(ref, {n, co, h, w}) +=
                       omTensorGetElem<float>(
                           img, {n, ci, h * stride + kh * dilation - pHBegin,
                                    w * stride + kw * dilation - pWBegin}) *
-                      omTensorGetElem<float>(filter, {c, ci, kh, kw});
+                      omTensorGetElem<float>(filter, {co, ci, kh, kw});
         }
-  // hi alex
-  //printTensor("ref", ref);
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
   return ok;
