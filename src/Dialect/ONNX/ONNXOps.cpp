@@ -4933,6 +4933,10 @@ LogicalResult ONNXScanOp::inferShapes(
         std::get<0>(vScanOutputValToTy).getType().cast<RankedTensorType>();
     auto shape = rankedScanTy.getShape();
     SmallVector<int64_t, 4> squeezedShape(shape.begin() + 1, shape.end());
+
+    // Try to improve the inferred shape using the output's shape if possbile.
+    tryImproveInferredShape(squeezedShape, std::get<1>(vScanOutputValToTy));
+
     // Note that we may know the extent of the scan output leading
     // dimension, which is very likely just the trip count specified as an
     // input to Loop operation, but we need to eliminate the possibility of
@@ -4979,6 +4983,10 @@ LogicalResult ONNXScanOp::inferShapes(
     auto scanExtent =
         scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
     unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
+
+    // Try to improve the inferred shape using the output's shape if possbile.
+    tryImproveInferredShape(unsqueezedShape, std::get<0>(vScanOutputValToTy));
+
     std::get<0>(vScanOutputValToTy)
         .setType(RankedTensorType::get(
             unsqueezedShape, rankedScanTy.getElementType()));
@@ -5570,6 +5578,10 @@ LogicalResult ONNXLoopOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+
+    // Try to improve the inferred shape using the output's shape if possbile.
+    tryImproveInferredShape(unsqueezedShape, std::get<0>(vScanOutputValToTy));
+
     std::get<0>(vScanOutputValToTy)
         .setType(RankedTensorType::get(
             unsqueezedShape, rankedScanTy.getElementType()));

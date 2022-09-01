@@ -996,7 +996,6 @@ LogicalResult ZHighConcatOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
 
-
   // Try to improve the inferred shape using the output's shape if possbile.
   tryImproveInferredShape(outputDims, getResult());
 
