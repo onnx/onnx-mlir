@@ -1597,6 +1597,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
 
 def ONNXGRUOp:ONNX_Op<"GRU",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GRU operation";
   let description = [{
   "Computes an one-layer GRU. This operator is usually supported via some custom"
@@ -2399,6 +2400,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX LSTM operation";
   let description = [{
   "Computes an one-layer LSTM. This operator is usually supported via some"
@@ -4063,6 +4065,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
 
 def ONNXRNNOp:ONNX_Op<"RNN",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX RNN operation";
   let description = [{
   "Computes an one-layer simple RNN. This operator is usually supported"

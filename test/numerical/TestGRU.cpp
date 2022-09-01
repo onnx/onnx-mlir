@@ -28,15 +28,15 @@ namespace test {
 // parameters/configuration.
 bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, const int linearBeforeReset,
-    bool isDynamicS = false, bool isDynamicB = false) {
+    bool isDynamicS = false, bool isDynamicB = false, int layout = 0) {
 
   static int testNum = 0;
   printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, "
-         "linearBeforeReset %d, isDynS %d, isDynB %d\n",
+         "linearBeforeReset %d, isDynS %d, isDynB %d, layout %d\n",
       ++testNum, direction, S, B, I, H, linearBeforeReset, isDynamicS,
-      isDynamicB);
+      isDynamicB, layout);
   GRULibBuilder gru(SHARED_LIB_BASE.str(), direction, S, B, I, H,
-      linearBeforeReset, isDynamicS, isDynamicB);
+      linearBeforeReset, isDynamicS, isDynamicB, layout);
   return gru.build() && gru.compileAndLoad() &&
          gru.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          gru.prepareInputsFromEnv("TEST_DATARANGE") && gru.run() &&
@@ -82,6 +82,8 @@ int main(int argc, char *argv[]) {
     const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
     const int H = *rc::gen::inRange(5, 10);
+    // Layout.
+    const int layout = *rc::gen::element(0, 1);
     // LinearBeforeReset.
     const int L = *rc::gen::inRange(minL, 2);
     // Whether test dynamic dimension for sequence.
@@ -90,7 +92,7 @@ int main(int argc, char *argv[]) {
     const int isDynB = *rc::gen::element(0, 1);
 
     RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
-        D, S, B, I, H, L, isDynS == 0, isDynB == 0));
+        D, S, B, I, H, L, isDynS == 0, isDynB == 0, layout));
   });
   if (!success)
     return 1;
