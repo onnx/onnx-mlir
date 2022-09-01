@@ -54,20 +54,24 @@ function(setup_model_download backend_test variation)
 
       # Now create a target for downloading this model if the
       # target doesn't already exist.
+      #
+      # Don't use a directory for DEPENDS and OUTPUT. Otherwise
+      # the custom command will always be run.
       if (NOT (TARGET download_model_for_${m}))
-	add_custom_target(download_model_for_${m} DEPENDS ${MODEL_DIR}/${m})
+	add_custom_target(download_model_for_${m}
+	  DEPENDS ${MODEL_DIR}/${MODEL_FILE})
 	add_custom_command(
 	  OUTPUT
-            ${MODEL_DIR}/${m}
+            ${MODEL_DIR}/${MODEL_FILE}
 	  COMMAND
             mkdir -p ${MODEL_DIR} &&
             cd ${MODEL_DIR} &&
 	    # Retry in case of download failure is handled by curl.
 	    # Also curl will only download if remote file has a newer
 	    # timestamp.
-            curl ${MODEL_URL} --silent --retry 8 --time-cond ${MODEL_FILE}
-                 --output ${MODEL_FILE} &&
-	    tar zxf ${MODEL_FILE} --directory ${MODEL_DIR}
+            curl ${MODEL_URL} --silent --retry 8
+                 --time-cond ${MODEL_FILE} --output ${MODEL_FILE} &&
+            tar zxf ${MODEL_FILE}
 	  )
       endif()
 
