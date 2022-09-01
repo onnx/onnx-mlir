@@ -56,14 +56,14 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
 // as a naive implementation of Gemm for a specific set of Gemm
 // parameters/configuration. Gemm: A[IxK] * B[KxJ] = C[IxJ]
 static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
-    const int aTrans, const int bTrans, const int cRank, const float alphaVal,
-    const float betaVal) {
+    const int aTrans, const int bTrans, const int cRank, const double alphaVal,
+    const double betaVal) {
 
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d, alpha %7.3f, beta "
          "%7.3f\n",
       ++testNum, I, J, K, (aTrans ? ", aTrans" : ""),
-      (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
+      (bTrans ? ", bTrans" : ""), cRank, alphaVal, betaVal);
 
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
