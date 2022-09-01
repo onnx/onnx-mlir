@@ -285,7 +285,6 @@ OpsWithCanonicalizer = [
     'Add',
     'Cast',
     'Constant',
-    'Conv',
     'DepthToSpace',
     'Dropout',
     'GlobalAveragePool',

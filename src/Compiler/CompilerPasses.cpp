@@ -50,11 +50,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // hi alex, add new pass
-  int ENABLE_CONVOPT = 1;
-  if (ENABLE_CONVOPT) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass());
-    pm.addPass(onnx_mlir::createShapeInferencePass());
-  }
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass());
+  pm.addPass(onnx_mlir::createShapeInferencePass());
 
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.

@@ -139,12 +139,9 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addPass(mlir::createCanonicalizerPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     // hi alex: add new pass
-    int ENABLE_CONVOPT = 1;
-    if (ENABLE_CONVOPT) {
-      dynamicPM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConvOptONNXToONNXPass());
-      dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
-    }
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConvOptONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))

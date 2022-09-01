@@ -37,11 +37,6 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   Value W = convOp.W();
   Value B = convOp.B();
   bool hasBias = !isFromNone(B);
-  // hi alex, get rid of this
-  // if (!isFromNone(B)) {
-  //  printf("hi alex: b not supported yet\n");
-  //  return false;
-  //}
   if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
     return false;
   if (hasBias && !hasShapeAndRank(B))
@@ -67,7 +62,6 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   // Eliminate conv op with dilations>1.
   auto dilations = convOp.dilations();
   if (dilations.has_value()) {
-    // printf("  hi alex: has dilations\n");
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(dilations, i) != 1)
         return false;
@@ -75,7 +69,6 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   // ELiminate conv ops with strides>1.
   auto strides = convOp.strides();
   if (strides.has_value()) {
-    // printf("  hi alex: has strides\n");
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(strides, i) != 1)
         return false;
@@ -89,15 +82,14 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
     // (deprecated) automatic padding options.
     auto pads = convOp.pads();
     if (pads.has_value()) {
-      // printf("  hi alex: has pads\n");
       for (int i = 0; i < 2 * spatialRank; ++i) // 2x for before/after.
         if (ArrayAttrIntVal(pads, i) != 0)
           return false;
     }
   }
   if (verbose)
-    printf("hi alex, opt conv 1x1 with N %d, group %d, Ci %d, Co %d, H %d, W "
-           "%d, rank %d, with%s bias\n",
+    printf("optimize conv 1x1 with matmul: N %d, group %d, Ci %d, Co %d, H %d, "
+           "W %d, rank %d, with%s bias\n",
         (int)xShape[0], (int)G, (int)xShape[1], (int)wShape[0], (int)xShape[2],
         (int)xShape[3], (int)rank, hasBias ? "" : "out");
   return true;
