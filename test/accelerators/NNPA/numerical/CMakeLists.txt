@@ -105,3 +105,11 @@ add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
+# LeakyRelu
+set(TestLeakyReluNNPA_instruction zdnn_mul)
+# Automatically set following config when using --maccel=NNPA
+add_numerical_unittest(TestLeakyReluNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLeakyRelu.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
