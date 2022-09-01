@@ -52,6 +52,21 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def GetMinusBcastConst : NativeCodeCall<
+  "::onnx_mlir::zhigh::getMinusBcastConst($_builder, $_loc, $0, $1)"
+>;
+
+def IsStaticShapeTensor:
+  Constraint<
+    CPred<
+      "$0.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+    "hasStaticShape">;
+
+def IsPlusConstantFloat : Constraint<
+  CPred<"($0.getValueAsDouble() > 0.0)">,
+  "Is the float attribute is greater than 0"
+>;
+
 //===----------------------------------------------------------------------===//
 // Transformations
 //===----------------------------------------------------------------------===//
@@ -129,6 +144,29 @@ def SigmoidLayoutChangingPattern : Pat<
                                                          (GetLayout $x)),
                                   (returnType $new_s_x))),
   [(NotSameLayout $x, $s_x)]
+>;
+
+// The pattern
+//   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
+// can be replaced by
+//   zhigh.Sub (zhigh.Relu(%X),
+//              zhigh.Relu(zhigh.Mul(%X, MinusBcastConst(%alpha))))
+//
+// Constraints:
+//   - %X should have static shape, and %alpha should be constant.
+//
+def ReplaceONNXLeakyReluPattern: Pat<
+  (ZHighStickOp (ONNXLeakyReluOp:$out (ZHighUnstickOp $X), $alpha),
+                $layout),
+  (ZHighSubOp
+     (ZHighReluOp $X, (returnType $X)),
+     (ZHighReluOp (ZHighMulOp $X,
+                              (ZHighStickOp (GetMinusBcastConst $alpha,
+                                             $out),
+                                            $layout),
+                              (returnType $X)),
+                  (returnType $X))),
+  [(IsStaticShapeTensor $X), (IsPlusConstantFloat $alpha)]
 >;
 
 #endif // ZHIGH_COMBINE
