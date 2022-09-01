@@ -276,14 +276,14 @@ Value OnnxBuilder::reshapeToNDim(
         concat(outputShapeType, ValueRange({keepVals, minusOneVal}), 0);
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
-  std::vector<int64_t> rankedTensorDims;
+  llvm::SmallVector<int64_t, 4> outputDims;
   if (collapseMostSignificant)
-    rankedTensorDims.emplace_back(-1);
+    outputDims.emplace_back(-1);
   for (int i = start; i < end; ++i)
-    rankedTensorDims.emplace_back(inputShape[i]);
+    outputDims.emplace_back(inputShape[i]);
   if (!collapseMostSignificant)
-    rankedTensorDims.emplace_back(-1);
-  Type outputType = RankedTensorType::get(rankedTensorDims, elementType);
+    outputDims.emplace_back(-1);
+  Type outputType = RankedTensorType::get(outputDims, elementType);
   return reshape(outputType, val, newShapeVals);
 }
 

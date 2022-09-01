@@ -87,78 +87,76 @@ int main(int argc, char *argv[]) {
     paddingType = "valid_upper";
   }
 
-  if (1) {
-    printf("\nTest cases seen in backend benchmarks.\n");
-    // Set global settings.
-    stride = dilation = 1;
-    isDynamic = 0;
-    // Some 1x1 conv in inception.
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_inception_v1_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 192, 64, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_inception_v1_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 512, 144, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_inception_v1_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 832, 128, 6, 6, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_inception_v1_cpu");
-    // All 1x1 conv in squeezenet.
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 64, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 128, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 128, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 256, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 256, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 384, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 384, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 512, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    assert(isOMConvTheSameAsNaiveImplFor(
-               1, 512, 1000, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
-           "failed test from test_squeezenet_cpu");
-    return 0;
-  }
+  printf("\nTest cases seen in backend benchmarks.\n");
+  // Set global settings.
+  stride = dilation = 1;
+  isDynamic = 0;
+  // Some 1x1 conv in inception.
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 192, 64, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 144, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 832, 128, 6, 6, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  // All 1x1 conv in squeezenet.
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 128, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 128, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 256, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 256, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 384, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 384, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 1000, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
   for (isDynamic = 0; isDynamic < dimType; ++isDynamic) {

@@ -23,7 +23,8 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
-#define DEBUG 1
+// Enables a minimum of printing.
+#define DEBUG 0
 
 using namespace mlir;
 
@@ -132,7 +133,7 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     assert(onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG) &&
            "should I expect to pass test");
     if (DEBUG)
-      printf("hi alex/match&rewrite: go for the actual conv 1x1 opt.\n");
+      printf("ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
     // All conditions satisfied, get info.
     Value X = convOp.X();
     Value W = convOp.W();
@@ -189,11 +190,11 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value outputShapeVals = create.onnx.concat(
         shapeType, {batchShapeVal, CoutShapeVal, spatialShapeVal}, 0);
     // Output type is the same as input, except for Cin becomes Cout.
-    std::vector<int64_t> outputTensorDims;
+    llvm::SmallVector<int64_t, 4> outputDims;
     for (int i = 0; i < rank; ++i)
-      outputTensorDims.emplace_back(xShape[i]);
-    outputTensorDims[1] = Cout;
-    Type outputType = RankedTensorType::get(outputTensorDims, elementType);
+      outputDims.emplace_back(xShape[i]);
+    outputDims[1] = Cout;
+    Type outputType = RankedTensorType::get(outputDims, elementType);
     // Reshape results from matrix multiply MM.
     Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
     // Replace op and declare success.

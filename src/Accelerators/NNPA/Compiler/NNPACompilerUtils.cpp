@@ -117,7 +117,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm);
+    addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
+        /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
