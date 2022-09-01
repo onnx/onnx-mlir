@@ -76,6 +76,10 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<std::string> graphName("graphName",
+    llvm::cl::desc("Specifies the name of the graph for the ONNX model. Defaults to \"main_graph\"."),
+    llvm::cl::init("main_graph"), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),

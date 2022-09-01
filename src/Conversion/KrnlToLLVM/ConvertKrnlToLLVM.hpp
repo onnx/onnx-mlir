@@ -19,8 +19,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
-const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
-
 namespace onnx_mlir {
 namespace krnl {
 

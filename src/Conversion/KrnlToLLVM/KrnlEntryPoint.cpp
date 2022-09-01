@@ -92,8 +92,6 @@ public:
     // When there is only a single entry point function in a model, use
     // DEFAULT_DYN_ENTRY_POINT.
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
-    if (singleEntryPoint)
-      dynEntryPointName = DEFAULT_DYN_ENTRY_POINT;
 
     // Record entry point name, input and output signatures in order to emit
     // signature-related functions later.

@@ -37,6 +37,7 @@ extern llvm::cl::opt<bool> preserveMLIR;
 extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;
 extern llvm::cl::opt<std::string> shapeInformation;
+extern llvm::cl::opt<std::string> graphName;
 extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;

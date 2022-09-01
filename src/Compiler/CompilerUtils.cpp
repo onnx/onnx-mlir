@@ -639,6 +639,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.graphName = graphName;
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
@@ -654,6 +655,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.shapeInformation = shapeInformation;
+  options.graphName = graphName;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
