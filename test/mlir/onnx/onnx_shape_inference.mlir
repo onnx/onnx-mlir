@@ -2447,9 +2447,9 @@ func.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor
 
 // -----
 
-func.func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
-    %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
-    return %0 : tensor<?x?xf32>
+func.func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<*xf32> {
+    %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py -a'["input", "condition"]'
 // CHECK-LABEL:  func @compress_no_axis

@@ -15,6 +15,7 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
 
@@ -399,44 +400,47 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   return success();
 }
 
-/// Check if the given inferredShape is better than the existing shape of val.
-bool isInferredShapeBetter(ArrayRef<int64_t> inferredShape, Value val) {
+/// Use the val's shape to improve the given shape.
+/// - If the val is unranked, no update.
+/// - If a dim is static in the val's shape but unknown (-1) in the given shape,
+/// update it in the given shape to the static value.
+void tryImproveInferredShape(
+    SmallVectorImpl<int64_t> &inferredShape, Value val) {
   // Val is unranked. Any inferred shape is better.
   if (!hasShapeAndRank(val))
-    return true;
+    return;
 
-  ArrayRef<int64_t> existingShape = val.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> existingShape = getShape(val.getType());
+  assert(inferredShape.size() == existingShape.size() &&
+         "Inferred shape and existing shape are inconsistent in the number of "
+         "elements");
 
-  // Only get the infered shape if unknown dims in existingShape get static
-  // values in inferredShape.
-  for (unsigned i = 0; i < existingShape.size(); ++i) {
-    int64_t inferedDim = inferredShape[i];
-    int64_t existingDim = existingShape[i];
-    // existingDim is static but inferedDim is unknown: not good.
-    if ((existingDim != -1) && (inferedDim == -1))
-      return false;
-    // inferedDim is different from existingDim. Believe in existingDim.
-    if ((existingDim != -1) && (inferedDim != -1) &&
-        (existingDim != inferedDim))
-      return false;
-  }
-  return true;
+  for (unsigned i = 0; i < inferredShape.size(); ++i)
+    // existingDim is static but inferedDim is unknown: update the inferredDim.
+    if ((existingShape[i] != -1) && (inferredShape[i] == -1))
+      inferredShape[i] = existingShape[i];
 }
 
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
-  if (!hasShapeAndRank(op->getOperand(0)))
+  Value input = op->getOperand(0);
+  Value output = op->getResult(0);
+
+  if (!hasShapeAndRank(input))
     return success();
 
-  // When the output has ranked, see if its shape is better than the input's
-  // shape.
-  ArrayRef<int64_t> inputShape =
-      op->getOperand(0).getType().cast<ShapedType>().getShape();
-  if (!isInferredShapeBetter(inputShape, op->getResult(0)))
-    // The current output shape is good, do nothing.
-    return success();
+  // Inferred shape is getting from the input's shape.
+  ArrayRef<int64_t> inputShape = getShape(input.getType());
+  SmallVector<int64_t, 4> inferredShape(inputShape.begin(), inputShape.end());
 
-  op->getResult(0).setType(op->getOperand(0).getType());
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(inferredShape, output);
+
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  auto inferredType = RankedTensorType::get(
+      inferredShape, inputType.getElementType(), inputType.getEncoding());
+
+  output.setType(inferredType);
   return success();
 }
 

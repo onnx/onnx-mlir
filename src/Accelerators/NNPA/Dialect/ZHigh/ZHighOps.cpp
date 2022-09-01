@@ -407,9 +407,8 @@ LogicalResult ZHighUnstickOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
-  // Do nothing if the inferred shape does not improve the current shape.
-  if (!isInferredShapeBetter(outputDims, getResult()))
-    return success();
+  // Try to improve the inferred shape using the output's shape if possbile.
+  tryImproveInferredShape(outputDims, getResult());
 
   ShapedType inputType = In().getType().cast<ShapedType>();
   RankedTensorType resType =
