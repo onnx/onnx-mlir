@@ -137,11 +137,12 @@ public:
       
     }
 
-    // 2) Flatten the region from start=1, end=-1.
+    // 2) Flatten the region from start=1 to the end
     Value flattenedInput;
     if (!tmpValue || inputTensorType.getRank() - axisValue >= 2) {
+      int highBound = axisValue > 1 ? inputTensorType.getRank() - axisValue : inputTensorType.getRank() - 1;
       flattenedInput = createAtenFlattenOp(rewriter, loc, tmpValue ? tmpValue : inputValue, resultType,
-          /*start=*/1, /*end=*/-1, op);
+          /*start=*/1, /*end=*/highBound, op);
     }
     rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
         op, resultType, flattenedInput ? flattenedInput : tmpValue);
