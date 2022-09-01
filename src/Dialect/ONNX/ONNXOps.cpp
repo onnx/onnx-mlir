@@ -1133,7 +1133,8 @@ LogicalResult ONNXPReluOp::inferShapes(
 
 LogicalResult ONNXPReluOp::verify() {
   ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> slopeShape = slope().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> slopeShape =
+      slope().getType().cast<ShapedType>().getShape();
 
   // PRelu supports unidirectional broadcasting, that is slope should be
   // unidirectional broadcastable to input X.
