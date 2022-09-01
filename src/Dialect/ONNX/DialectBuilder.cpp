@@ -262,15 +262,18 @@ Value OnnxBuilder::reshapeToNDim(
   // Shape values that we keep.
   int64_t start = collapseMostSignificant ? rank - keep : 0; // Inclusive.
   int64_t end = collapseMostSignificant ? rank : N - 1;      // Exclusive.
-  Value keepVals = slice(keepShapeType, inputShapeVals, start, end, /*steps*/ 1);
+  Value keepVals =
+      slice(keepShapeType, inputShapeVals, start, end, /*steps*/ 1);
   // Concat -1 and keep vals
   Value newShapeVals;
   if (collapseMostSignificant)
     // NewShapeVal is [-1,M,N] where M & N are the kept vals from the input.
-    newShapeVals = concat(outputShapeType, ValueRange({minusOneVal, keepVals}), 0);
+    newShapeVals =
+        concat(outputShapeType, ValueRange({minusOneVal, keepVals}), 0);
   else
     // NewShapeVal is [M,N,-1] where M & N are the kept vals from the input.
-    newShapeVals = concat(outputShapeType, ValueRange({keepVals, minusOneVal}), 0);
+    newShapeVals =
+        concat(outputShapeType, ValueRange({keepVals, minusOneVal}), 0);
   // Shape inference will infer the correct shape later, thus use -1 for
   // collapsed dims.
   std::vector<int64_t> rankedTensorDims;
