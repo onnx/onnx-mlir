@@ -407,7 +407,7 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
     return %0 : tensor<4x12x256x?xf32>
 
 // MATMUL-LABEL:  func.func @test_matmul_broadcast_dyn_dims
-// MATMUL-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<?x?x?x?xf32> {
+// MATMUL-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32> {
 // MATMUL-DAG:       [[VAR_0_:%.+]] = "onnx.Shape"([[PARAM_1_]]) : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
 // MATMUL-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
 // MATMUL-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -432,7 +432,7 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
 // MATMUL-DAG:       [[VAR_20_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_17_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
 // MATMUL-DAG:       [[VAR_21_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_16_]], [[VAR_15_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
 // MATMUL:           [[VAR_22_:%.+]] = "onnx.Concat"([[VAR_19_]], [[VAR_20_]], [[VAR_21_]]) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
-// MATMUL:           [[VAR_23_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_22_]]) {allowzero = 0 : si64} : (tensor<?x256x?xf32>, tensor<4xi64>) -> tensor<?x?x?x?xf32>
-// MATMUL:           return [[VAR_23_]] : tensor<?x?x?x?xf32>
+// MATMUL:           [[VAR_23_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_22_]]) {allowzero = 0 : si64} : (tensor<?x256x?xf32>, tensor<4xi64>) -> tensor<4x12x256x?xf32>
+// MATMUL:           return [[VAR_23_]] : tensor<4x12x256x?xf32>
 // MATMUL:         }
 }
