@@ -1,5 +1,39 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
+//===----------------------------------------------------------------------===//
+/// Test the default behavior of unary lement-wise ops users give the shape of
+/// the output.
+/// Taking Sigmoid as an example.
+//===----------------------------------------------------------------------===//
+
+// COM: User output shape is better, do not change the output shape.
+func.func @test_default_unary_elementwise_user_shape_1(%arg0: tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>> { 
+  %0 = "zhigh.Sigmoid"(%arg0) : (tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+  return %0 : tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+
+// CHECK-LABEL: test_default_unary_elementwise_user_shape_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Sigmoid"([[PARAM_0_]]) : (tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Infered output shape is better, update the output shape.
+func.func @test_default_unary_elementwise_user_shape_2(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>> { 
+  %0 = "zhigh.Sigmoid"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+  return %0 : tensor<3x4x?xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+
+// CHECK-LABEL: test_default_unary_elementwise_user_shape_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Sigmoid"([[PARAM_0_]]) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>
+// CHECK:         }
+}
+
+// -----
+
 func.func @add(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
   %0 = "zhigh.Add"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>

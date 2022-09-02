@@ -674,10 +674,11 @@ inline bool omTensorAreTwoOmtsClose(
   auto aShape = std::vector<int64_t>(a->_shape, a->_shape + a->_rank);
   auto bShape = std::vector<int64_t>(b->_shape, b->_shape + b->_rank);
   if (aShape != bShape) {
-    std::cerr << "Shape mismatch ";
+    std::cerr << "Shape mismatch in omTensorAreTwoOmtsClose a: ";
     printVector(aShape, ",", std::cerr);
-    std::cerr << " != ";
+    std::cerr << " != b: ";
     printVector(bShape, ",", std::cerr);
+    std::cerr << std::endl;
     return false;
   }
 
@@ -711,6 +712,7 @@ inline bool omTensorAreTwoOmtsClose(
   if (!satisfied) {
     // Figure out where and what went wrong, this can be slow; but hopefully
     // we don't need this often.
+    std::cerr << "result mismatch in omTensorAreTwoOmtsClose" << std::endl;
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);
