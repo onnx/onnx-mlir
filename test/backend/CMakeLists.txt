@@ -190,6 +190,12 @@ setup_model_download(check-onnx-backend "")
 setup_model_download(check-onnx-backend-dynamic --dynamic)
 setup_model_download(check-onnx-backend-constant --constant)
 
+add_dependencies(check-onnx-backend-numerical check-onnx-backend)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-constant)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-signature)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-input-verification)
+
 if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JNI backend tests        : ON")
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
@@ -239,6 +245,10 @@ if (ONNX_MLIR_ENABLE_JNI)
   setup_model_download(check-onnx-backend-jni "")
   setup_model_download(check-onnx-backend-dynamic-jni --dynamic)
   setup_model_download(check-onnx-backend-constant-jni --constant)
+
+  add_dependencies(check-onnx-backend-numerical check-onnx-backend-jni)
+  add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic-jni)
+  add_dependencies(check-onnx-backend-numerical check-onnx-backend-constant-jni)
 
 else()
   message(STATUS "JNI backend tests         : OFF")

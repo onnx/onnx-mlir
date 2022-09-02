@@ -59,10 +59,10 @@ function(setup_model_download backend_test variation)
       # the custom command will always be run.
       if (NOT (TARGET download_model_for_${m}))
 	add_custom_target(download_model_for_${m}
-	  DEPENDS ${MODEL_DIR}/.${m})
+	  DEPENDS ${MODEL_DIR}/${MODEL_FILE})
 	add_custom_command(
 	  OUTPUT
-            ${MODEL_DIR}/.${m}
+            ${MODEL_DIR}/${MODEL_FILE}
 	  COMMAND
             mkdir -p ${MODEL_DIR} &&
             cd ${MODEL_DIR} &&
@@ -71,7 +71,7 @@ function(setup_model_download backend_test variation)
 	    # timestamp.
             curl ${MODEL_URL} --silent --retry 8
                  --time-cond ${MODEL_FILE} --output ${MODEL_FILE} &&
-            tar zxf ${MODEL_FILE} && touch .${m}
+            tar zxf ${MODEL_FILE}
 	  )
       endif()
 
