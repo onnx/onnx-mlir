@@ -488,9 +488,9 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
   MemRefBuilder createMemRef(rewriter, loc);
   Value newView = createMemRef.reinterpretCast(data, outputDims);
   // Set type to the output type to avoid unrealized_conversion_cast.
-  // It's because the output type is sometimes better than the inferred
-  // type, e.g. the output type has a static dim (e.g. set by users) that
-  // can be dynamic in the inferred type.
+  // It's because the output type is sometimes better than the inferred type,
+  // e.g. the output type has a static dim (e.g. set by users) that can be
+  // dynamic in the inferred type.
   newView.setType(outputType);
   return newView;
 }
