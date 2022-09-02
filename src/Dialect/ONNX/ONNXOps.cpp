@@ -3782,8 +3782,8 @@ LogicalResult ONNXLessOp::inferShapes(
   }
   Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 4> dims(
-      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape());
+  ArrayRef<int64_t> dims =
+      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
 
   updateType(getResult(), dims, IntegerType::get(getContext(), /*width=*/1));
   return success();
@@ -3825,7 +3825,6 @@ LogicalResult ONNXClipOp::inferShapes(
     return success();
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
-  SmallVector<int64_t, 4> outputDims(inputTy.getShape());
   // Look at optional min.
   if (!min().getType().isa<NoneType>()) {
     // Has a min, make sure its of the right type.
@@ -3851,7 +3850,7 @@ LogicalResult ONNXClipOp::inferShapes(
       return emitError("Min tensor ranked with nonzero size");
   }
 
-  updateType(getResult(), outputDims, elementType);
+  updateType(getResult(), inputTy.getShape(), elementType);
   return success();
 }
 
