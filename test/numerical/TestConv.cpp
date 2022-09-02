@@ -32,19 +32,19 @@ namespace test {
 // as a naive implementation of convolution for a specific set of convolution
 // parameters/configuration. Stride and dilation are square (same along H and
 // W).
-bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
-    const int W, const int kH, const int kW, int pHBegin, int pHEnd,
-    int pWBegin, int pWEnd, const ConvAutoPad autoPad) {
+bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
+    const int H, const int W, const int kH, const int kW, int pHBegin,
+    int pHEnd, int pWBegin, int pWEnd, const ConvAutoPad autoPad) {
   static int testNum = 0;
-  printf("attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
-         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
-         "dilation %d\n",
-      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
+  printf("attempt %d with N %d, Cin %d, Cout %d, H %d, W %d, kH %d, kW %d, "
+         "pHBegin %d, pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic "
+         "%d, stride %d, dilation %d\n",
+      ++testNum, N, CIn, COut, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
       Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,
       dilation);
 
-  Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
-      pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
+  Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, CIn, COut, H, W, kH, kW,
+      autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
   return conv.build() && conv.compileAndLoad() &&
          conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
@@ -87,11 +87,81 @@ int main(int argc, char *argv[]) {
     paddingType = "valid_upper";
   }
 
+  printf("\nTest cases seen in backend benchmarks.\n");
+  // Set global settings.
+  stride = dilation = 1;
+  isDynamic = 0;
+  // Some 1x1 conv in inception.
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 192, 64, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 144, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 832, 128, 6, 6, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_inception_v1_cpu");
+  // All 1x1 conv in squeezenet.
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 128, 16, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 16, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 128, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 256, 32, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 32, 128, 27, 27, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 256, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 384, 48, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 48, 192, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 384, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 64, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 64, 256, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             1, 512, 1000, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_squeezenet_cpu");
+
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
   for (isDynamic = 0; isDynamic < dimType; ++isDynamic) {
     // First test: check auto pads that set the pad values.
-    printf("test case generation with auto pad = VALID or SAME and %s.\n",
+    printf("\nTest case generation with auto pad = VALID or SAME and %s.\n",
         (isDynamic ? "dynamic" : "static"));
     bool success = rc::check("convolution implementation correctness", [&]() {
       const int S = *rc::gen::inRange(1, 3);
@@ -106,7 +176,8 @@ int main(int argc, char *argv[]) {
         autoPad = (ConvAutoPad)*rc::gen::inRange(
             (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
       const int N = *rc::gen::inRange(1, 5);
-      const int C = *rc::gen::inRange(1, 10);
+      const int CIn = *rc::gen::inRange(1, 10);
+      const int COut = *rc::gen::inRange(1, 10);
       const int H = *rc::gen::inRange(5, 32 * stride);
       const int W = *rc::gen::inRange(5, 32 * stride);
       const int kH = *rc::gen::inRange(1, 6);
@@ -114,7 +185,7 @@ int main(int argc, char *argv[]) {
       // Make sure we have at least 1 output per dimension.
       RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
       RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
-          N, C, H, W, kH, kW, 0, 0, 0, 0, autoPad));
+          N, CIn, COut, H, W, kH, kW, 0, 0, 0, 0, autoPad));
     });
     if (!success)
       return 1;
@@ -139,7 +210,8 @@ int main(int argc, char *argv[]) {
         bool success =
             rc::check("convolution implementation correctness", [&]() {
               const int N = *rc::gen::inRange(1, 5);
-              const int C = *rc::gen::inRange(1, 10);
+              const int CIn = *rc::gen::inRange(1, 10);
+              const int COut = *rc::gen::inRange(1, 10);
               const int H = *rc::gen::inRange(5, 32 * stride);
               const int W = *rc::gen::inRange(5, 32 * stride);
               const int kH = *rc::gen::inRange(1, 6);
@@ -167,8 +239,8 @@ int main(int argc, char *argv[]) {
               // Make sure we have at least 1 output per dimension.
               RC_PRE((H / stride >= kH * dilation) &&
                      (W / stride > kW * dilation));
-              RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, C, H, W, kH, kW,
-                  pHBegin, pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
+              RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, CIn, COut, H, W, kH,
+                  kW, pHBegin, pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
             });
         if (!success)
           return 1;
@@ -184,7 +256,7 @@ int main(int argc, char *argv[]) {
         for (int pHEnd = 0; pHEnd < 3; pHEnd++)
           for (int pWBegin = 0; pWBegin < 3; pWBegin++)
             for (int pWEnd = 0; pWEnd < 3; pWEnd++)
-              assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
+              assert(isOMConvTheSameAsNaiveImplFor(2, 2, 4, 5, 5, 3, 3, pHBegin,
                   pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
     }
 

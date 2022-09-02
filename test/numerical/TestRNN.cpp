@@ -27,8 +27,8 @@ namespace test {
 // naive implementation of RNN for a specific set of RNN
 // parameters/configuration.
 bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
-    const int I, const int H, bool isDynamicS = false,
-    bool isDynamicB = false) {
+    const int I, const int H, bool isDynamicS = false, bool isDynamicB = false,
+    int layout = 0) {
 
   RNNLibBuilder rnn(
       SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS, isDynamicB);
@@ -68,13 +68,15 @@ int main(int argc, char *argv[]) {
     const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
     const int H = *rc::gen::inRange(5, 10);
+    // Layout.
+    const int layout = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
     const int isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
     const int isDynB = *rc::gen::element(0, 1);
 
-    RC_ASSERT(
-        isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
+    RC_ASSERT(isOMRNNTheSameAsNaiveImplFor(
+        D, S, B, I, H, isDynS == 0, isDynB == 0, layout));
   });
   if (!success)
     return 1;
