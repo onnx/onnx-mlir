@@ -53,6 +53,32 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
+std::string getExecPath() {
+  // argv0 is only used as a fallback for rare environments
+  // where /proc isn't mounted and mainExecAddr is only needed for
+  // unknown unix-like platforms
+  auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  if (execPath.empty()) {
+    llvm::errs()
+        << "Warning: Could not find path to current executable, falling "
+           "back to default install path: "
+        << kExecPath << "\n";
+    return kExecPath;
+  }
+  return execPath;
+}
+
+std::string getToolPath(std::string tool) {
+  std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
+  llvm::SmallString<8> toolPath(execDir);
+  llvm::sys::path::append(toolPath, tool);
+  std::string p = llvm::StringRef(toolPath).str();
+  if (llvm::sys::fs::can_execute(p))
+    return p;
+  else
+    return std::string();
+}
+
 ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char *flags, const char **errorMessage) {

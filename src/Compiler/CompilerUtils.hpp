@@ -23,20 +23,18 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/Passes.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-
-#include "onnx-mlir/Compiler/OMCompilerTypes.h"
-
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "mlir/Transforms/Passes.h"
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -53,7 +51,6 @@
 
 namespace onnx_mlir {
 
-// Helper struct to make command construction and execution easy & readable.
 struct Command {
 
   std::string _path;
@@ -69,25 +66,6 @@ struct Command {
   Command &resetArgs();
   int exec(std::string wdir = "") const;
 };
-
-// onnx-mlir currently requires llvm tools llc and opt and they are assumed
-// to be under llvm-project/build/bin. This doesn't work with the case where
-// llvm-project has been installed system wide (typically under /usr/local/...)
-// and its source has been removed.
-//
-// To account for this scenario, we first search for the tools in the same
-// directory where onnx-mlir is run. If they are found, it means both onnx-mlir
-// and llvm-project have been installed system wide under the same directory,
-// so we get them from that directory (typically /usr/local/bin). Otherwise,
-// at least one of onnx-mlir and llvm-project has not been installed system
-// wide. In this case, getToolPath returns an empty string and we will fallback
-// to llvm-project/build/bin.
-//
-// Note that this will not work if both onnx-mlir and llvm-project have been
-// installed system wide but to different places and their sources have been
-// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
-// llvm-project.
-std::string getToolPath(std::string tool);
 
 void registerDialects(mlir::MLIRContext &context);
 
@@ -122,5 +100,4 @@ int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // depending on the underlying machine and/or operating system.
 std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target);
-
 } // namespace onnx_mlir
