@@ -249,6 +249,26 @@ private:
   std::string moduleIR;
 };
 
+class LeakyReluLibBuilder : public ModelLibBuilder {
+public:
+  LeakyReluLibBuilder(
+      const std::string &modelName, const int N, const float alpha);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int N;
+  const float alphaVal;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> xShape, yShape;
+  // model definition in std::string
+  std::string moduleIR;
+};
+
 // 2x2 matmul with no broadcast
 class MatMul2DLibBuilder : public ModelLibBuilder {
 public:
@@ -310,8 +330,8 @@ enum ConvAutoPad {
 
 class Conv2DLibBuilder : public ModelLibBuilder {
 public:
-  Conv2DLibBuilder(const std::string &modelName, const int N, const int C,
-      const int H, const int W, const int kH, const int kW,
+  Conv2DLibBuilder(const std::string &modelName, const int N, const int Cin,
+      const int Cout, const int H, const int W, const int kH, const int kW,
       const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
       const int pWBegin, const int pWEnd, const int stride, const int dilation,
       const int isDynamic);
@@ -328,19 +348,50 @@ private:
 
   // Data that defines model, where const define model, non-const are derived
   // parameters.
-  const int N, C, H, W, kH, kW;
+  const int N, CIn, COut, H, W, kH, kW;
   const ConvAutoPad autoPad;
   int pHBegin, pHEnd, pWBegin, pWEnd;
   const int stride, dilation, isDynamic;
-  int NOut, COut, HOut, WOut;
+  int modelNOut, modelCOut, modelHOut, modelWOut;
 };
 
-class LSTMLibBuilder : public ModelLibBuilder {
+class RNNModelLibBuilder : public ModelLibBuilder {
+public:
+  RNNModelLibBuilder(const std::string &sharedLibBaseName, int64_t layout);
+  virtual ~RNNModelLibBuilder();
+
+protected:
+  // To transpose between [batch_size, seq_length/num_directions, size]
+  //                  and [seq_length/num_directions, batch_size, size]
+  // when layout == 1.
+  llvm::SmallVector<int64_t, 3> perm3(int64_t a, int64_t b, int64_t c) const {
+    if (layout == 0)
+      return {a, b, c};
+    else
+      return {b, a, c};
+  }
+
+  // To transpose from [seq_length, num_directions, batch_size, hidden_size]
+  //                to [batch_size, seq_length, num_directions, hidden_size]
+  // when layout == 1.
+  llvm::SmallVector<int64_t, 4> perm4(
+      int64_t s, int64_t d, int64_t b, int64_t h) const {
+    if (layout == 0)
+      return {s, d, b, h};
+    else
+      return {b, s, d, h};
+  }
+
+  const int64_t layout;
+};
+
+class LSTMLibBuilder : public RNNModelLibBuilder {
 public:
   LSTMLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
       const bool isDynamicB, const bool isNoneH = false,
-      const bool isNoneC = false, const bool isNoneP = false);
+      const bool isNoneC = false, const bool isNoneP = false,
+      const int layout = 0);
   ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -358,11 +409,11 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt, *pOmt;
 };
 
-class GRULibBuilder : public ModelLibBuilder {
+class GRULibBuilder : public RNNModelLibBuilder {
 public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const int linearBeforeReset,
-      const bool isDynamicS, const bool isDynamicB);
+      const bool isDynamicS, const bool isDynamicB, const int layout = 0);
   ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
@@ -379,11 +430,11 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
-class RNNLibBuilder : public ModelLibBuilder {
+class RNNLibBuilder : public RNNModelLibBuilder {
 public:
   RNNLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
-      const bool isDynamicB);
+      const bool isDynamicB, const int layout = 0);
   ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
