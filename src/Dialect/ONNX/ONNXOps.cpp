@@ -152,23 +152,6 @@ static RankedTensorType getReductionOutputType(ShapedType operandTy,
   return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
-static bool isInferedShapeBetter(
-    ArrayRef<int64_t> inferedShape, ArrayRef<int64_t> userShape) {
-  // Only get the infered shape if unknown dims in userShape get static values
-  // in inferedShape.
-  for (unsigned i = 0; i < userShape.size(); ++i) {
-    int64_t inferedDim = inferedShape[i];
-    int64_t userDim = userShape[i];
-    // userDim is static but inferedDim is unknown: not good.
-    if ((userDim != -1) && (inferedDim == -1))
-      return false;
-    // inferedDim is different from userDim. Believe in userDim.
-    if ((userDim != -1) && (inferedDim != -1) && (userDim != inferedDim))
-      return false;
-  }
-  return true;
-}
-
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
@@ -235,27 +218,6 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   auto operandTy = op.getOperand().getType().template cast<ShapedType>();
   auto resultTy = getReductionOutputType(operandTy, op.axes(), op.keepdims());
   op.getResult().setType(resultTy);
-  return success();
-}
-
-// Handle shape inference for unary element-wise operators.
-static LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
-  if (!hasShapeAndRank(op->getOperand(0)))
-    return success();
-
-  // When the output has ranked, see if its shape is better than the input's
-  // shape.
-  if (hasShapeAndRank(op->getResult(0))) {
-    ArrayRef<int64_t> inputShape =
-        op->getOperand(0).getType().cast<ShapedType>().getShape();
-    ArrayRef<int64_t> userOutputShape =
-        op->getResult(0).getType().cast<ShapedType>().getShape();
-    if (!isInferedShapeBetter(inputShape, userOutputShape))
-      // The current output shape is good, do nothing.
-      return success();
-  }
-
-  op->getResult(0).setType(op->getOperand(0).getType());
   return success();
 }
 
@@ -512,7 +474,9 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 // Support function that infers shape for RNN operations.
 //===----------------------------------------------------------------------===//
 template <typename T>
-static LogicalResult RNNShapeInference(T *op) {
+static LogicalResult RNNShapeInference(T *op, int gates) {
+  bool batchwiseLayout = op->layout() == 1;
+
   Value X = op->X();
   Value W = op->W();
   Value R = op->R();
@@ -526,11 +490,12 @@ static LogicalResult RNNShapeInference(T *op) {
   auto xTy = X.getType().cast<RankedTensorType>();
   auto elementType = xTy.getElementType();
 
-  // xShape :: [seq_length, batch_size, input_size]
+  // xShape :: [batch_size, seq_length, input_size] if batchwiseLayout
+  // xShape :: [seq_length, batch_size, input_size] otherwise
   auto xShape = xTy.getShape();
-  // wShape :: [num_directions, 4*hidden_size, input_size]
+  // wShape :: [num_dir, gates*hidden_size, input_size]
   auto wShape = W.getType().cast<RankedTensorType>().getShape();
-  // rShape :: [num_directions, 4*hidden_size, hidden_size]
+  // rShape :: [num_dir, gates*hidden_size, hidden_size]
   auto rShape = R.getType().cast<RankedTensorType>().getShape();
 
   if (xShape.size() != 3) {
@@ -543,9 +508,9 @@ static LogicalResult RNNShapeInference(T *op) {
     return op->emitError("The third input tensor must have rank 3");
   }
 
-  // Get sequence length, batch size and input size.
-  auto sequenceLength = xShape[0];
-  auto batchSize = xShape[1];
+  // Get sequence length, batch size.
+  int64_t seqLength = batchwiseLayout ? xShape[1] : xShape[0];
+  int64_t batchSize = batchwiseLayout ? xShape[0] : xShape[1];
 
   // Get hidden size from hidden_size attribute.
   int64_t hiddenSize = -1;
@@ -556,9 +521,9 @@ static LogicalResult RNNShapeInference(T *op) {
     if (rShape[2] != -1)
       hiddenSize = rShape[2];
     else if (rShape[1] != -1)
-      hiddenSize = rShape[1] / 4;
+      hiddenSize = rShape[1] / gates;
     else if (wShape[1] != -1)
-      hiddenSize = wShape[1] / 4;
+      hiddenSize = wShape[1] / gates;
     // Update hidden_size attribute.
     if (hiddenSize != -1) {
       auto builder = mlir::Builder(op->getContext());
@@ -570,48 +535,62 @@ static LogicalResult RNNShapeInference(T *op) {
   }
 
   // Get direction.
-  int numDirection;
+  int64_t numDir;
   if ((op->direction() == "forward") || (op->direction() == "reverse"))
-    numDirection = 1;
+    numDir = 1;
   else if (op->direction() == "bidirectional")
-    numDirection = 2;
+    numDir = 2;
   else
-    numDirection = -1;
-  if (numDirection == -1) {
     return op->emitError(
         "direction attribute must be one of the strings: forward, "
         "reverse, and bidirectional");
+
+  // Set result types. There are always 2 (RNN, GRU) or 3 results
+  // but they are sometimes optional in which case they have NoneType.
+  assert((op->getNumResults() == 2 || op->getNumResults() == 3) &&
+         "RNN, GRU have 2 results, LSTM has 3");
+  // Y :: [batch_size, seq_length, num_dir, hidden_size] if batchwiseLayout
+  // Y :: [seq_length, num_dir, batch_size, hidden_size] otherwise
+  Type yTy = op->getResult(0).getType();
+  if (!yTy.isa<NoneType>()) {
+    if (batchwiseLayout) {
+      yTy = RankedTensorType::get(
+          {batchSize, seqLength, numDir, hiddenSize}, elementType);
+    } else {
+      yTy = RankedTensorType::get(
+          {seqLength, numDir, batchSize, hiddenSize}, elementType);
+    }
+    op->getResult(0).setType(yTy);
+  }
+  // Y_h :: [batch_size, num_dir, hidden_size] if batchwiseLayout
+  // Y_h :: [num_dir, batch_size, hidden_size] otherwise
+  Type yhTy = op->getResult(1).getType();
+  if (!yhTy.isa<NoneType>()) {
+    if (batchwiseLayout) {
+      yhTy =
+          RankedTensorType::get({batchSize, numDir, hiddenSize}, elementType);
+    } else {
+      yhTy =
+          RankedTensorType::get({numDir, batchSize, hiddenSize}, elementType);
+    }
+    op->getResult(1).setType(yhTy);
+  }
+  if (op->getNumResults() == 3) {
+    // Y_c :: [batch_size, num_dir, hidden_size] if batchwiseLayout
+    // Y_c :: [num_dir, batch_size, hidden_size] otherwise
+    Type ycTy = op->getResult(2).getType();
+    if (!ycTy.isa<NoneType>()) {
+      if (batchwiseLayout) {
+        ycTy =
+            RankedTensorType::get({batchSize, numDir, hiddenSize}, elementType);
+      } else {
+        ycTy =
+            RankedTensorType::get({numDir, batchSize, hiddenSize}, elementType);
+      }
+      op->getResult(2).setType(ycTy);
+    }
   }
 
-  // Set result types.
-  unsigned numOfResults = op->getNumResults();
-  if (numOfResults > 0) {
-    // Y :: [seq_length, num_directions, batch_size, hidden_size]
-    Type yTy = op->getResults()[0].getType();
-    if (!yTy.isa<NoneType>()) {
-      yTy = RankedTensorType::get(
-          {sequenceLength, numDirection, batchSize, hiddenSize}, elementType);
-      op->getResults()[0].setType(yTy);
-    }
-  }
-  if (numOfResults > 1) {
-    // Y_h :: [num_directions, batch_size, hidden_size]
-    Type yhTy = op->getResults()[1].getType();
-    if (!yhTy.isa<NoneType>()) {
-      yhTy = RankedTensorType::get(
-          {numDirection, batchSize, hiddenSize}, elementType);
-      op->getResults()[1].setType(yhTy);
-    }
-  }
-  if (numOfResults > 2) {
-    // Y_c :: [num_directions, batch_size, hidden_size]
-    Type ycTy = op->getResults()[2].getType();
-    if (!ycTy.isa<NoneType>()) {
-      ycTy = RankedTensorType::get(
-          {numDirection, batchSize, hiddenSize}, elementType);
-      op->getResults()[2].setType(ycTy);
-    }
-  }
   return success();
 }
 
@@ -2854,7 +2833,8 @@ LogicalResult ONNXConcatFromSequenceOp::inferShapes(
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return RNNShapeInference<>(this);
+  int gates = 1;
+  return RNNShapeInference(this, gates);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2863,7 +2843,8 @@ LogicalResult ONNXRNNOp::inferShapes(
 
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return RNNShapeInference<>(this);
+  int gates = 4;
+  return RNNShapeInference(this, gates);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2872,7 +2853,8 @@ LogicalResult ONNXLSTMOp::inferShapes(
 
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return RNNShapeInference<>(this);
+  int gates = 3;
+  return RNNShapeInference(this, gates);
 }
 
 //===----------------------------------------------------------------------===//
@@ -4375,7 +4357,41 @@ LogicalResult ONNXMaxPoolOp::inferShapes(
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  if (!rois().getType().isa<RankedTensorType>())
+    return success();
+
+  auto x_type = X().getType().cast<RankedTensorType>();
+  auto x_shape = x_type.getShape();
+  auto rois_rank = rois().getType().cast<RankedTensorType>().getRank();
+  if (rois_rank != 2)
+    return success();
+
+  // 2d tensor: (num_rois, 5)
+  auto roi_shape = rois().getType().cast<RankedTensorType>().getShape();
+  int64_t num_rois = roi_shape[0];
+  SmallVector<int64_t, 2> pooled_dims;
+
+  auto pooled_shape_array_attr = pooled_shape();
+  for (auto pooled_shape_attr : pooled_shape_array_attr) {
+    auto pooled_shape_int_attr = pooled_shape_attr.dyn_cast<IntegerAttr>();
+    if (!pooled_shape_int_attr)
+      return success();
+    pooled_dims.push_back(pooled_shape_int_attr.getInt());
+  }
+
+  // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
+  SmallVector<int64_t, 2> output_dims;
+  output_dims.push_back(num_rois);
+  output_dims.push_back(x_shape[1]); // channel
+  output_dims.push_back(pooled_dims[0]);
+  output_dims.push_back(pooled_dims[1]);
+
+  getResult().setType(
+      RankedTensorType::get(output_dims, x_type.getElementType()));
+  return success();
 }
 
 LogicalResult ONNXMaxUnpoolOp::inferShapes(
@@ -5624,9 +5640,3 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-
-namespace onnx_mlir {
-template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
-    ONNXMaxPoolSingleOutOpAdaptor>;
-
-}

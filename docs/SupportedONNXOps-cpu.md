@@ -63,7 +63,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **FeatureVectorizer** | |unsupported | |
 | **Flatten** |13 | | |
 | **Floor** |13 | | |
-| **GRU** |14 |layout is not supported. | |
+| **GRU** |14 | | |
 | **Gather** |13 | | |
 | **GatherElements** |13 | | |
 | **GatherND** |13 | | |
@@ -84,7 +84,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **IsInf** | |unsupported | |
 | **IsNaN** | |unsupported | |
 | **LRN** |13 | | |
-| **LSTM** |14 |layout is not supported. | |
+| **LSTM** |14 | | |
 | **LabelEncoder** | |unsupported | |
 | **LeakyRelu** |16 | | |
 | **Less** |13 | | |
@@ -127,7 +127,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
 | **QuantizeLinear** | |unsupported | |
-| **RNN** |14 |layout is not supported. | |
+| **RNN** |14 | | |
 | **RandomNormal** | |unsupported | |
 | **RandomNormalLike** | |unsupported | |
 | **RandomUniform** | |unsupported | |
