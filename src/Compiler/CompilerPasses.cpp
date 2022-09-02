@@ -194,7 +194,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
+    addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
         /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {

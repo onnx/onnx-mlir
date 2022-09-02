@@ -185,7 +185,7 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value CoutShapeVal =
         create.onnx.slice(batchCoutShapeType, wShapeVals, 0, 1);
     Value spatialShapeVal =
-        create.onnx.slice(spatialShapeType, xShapeVals, 2, rank + 1);
+        create.onnx.slice(spatialShapeType, xShapeVals, 2, rank);
     // Output shape values: batch, Cout, spatial shape values
     Value outputShapeVals = create.onnx.concat(
         shapeType, {batchShapeVal, CoutShapeVal, spatialShapeVal}, 0);
