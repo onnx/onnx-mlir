@@ -435,7 +435,7 @@ void updateType(
       if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
           (existingShape[i] != inferredShape[i])) {
         // Warning for users.
-        llvm::outs() << "Shape inference: the inferred dim ("
+        llvm::outs() << "Warning: [Shape inference] the inferred dim ("
                      << inferredShape[i]
                      << ") is different from the existing dim ("
                      << existingShape[i]
