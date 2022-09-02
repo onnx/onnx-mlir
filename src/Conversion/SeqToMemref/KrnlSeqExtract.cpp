@@ -20,6 +20,7 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -41,6 +42,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqExtractOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
+    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     auto output = rewriter
                       .create<memref::LoadOp>(
@@ -51,8 +53,25 @@ public:
     // if the element is read from seq after extracted, or deep deallocation
     // is added when seq is freed
 
-    rewriter.replaceOp(op, output);
-    return success();
+    if (operandAdaptor.copy() == 0) {
+      rewriter.replaceOp(op, output);
+      return success();
+    } else {
+      if (!output.getType().isa<MemRefType>())
+        llvm_unreachable(
+            "Not supported: type of onnx seq element is not tensor");
+      auto outputType = output.getType().cast<MemRefType>();
+      SmallVector<mlir::Value, 4> allocParams;
+      for (size_t i = 0; i < outputType.getShape().size(); i++) {
+        if (outputType.getShape()[i] == -1) {
+          allocParams.emplace_back(create.mem.dim(output, i));
+        }
+      }
+      Value alloc = create.mem.alignedAlloc(outputType, allocParams);
+      rewriter.create<memref::CopyOp>(loc, output, alloc);
+      rewriter.replaceOp(op, alloc);
+      return success();
+    }
   }
 };
 

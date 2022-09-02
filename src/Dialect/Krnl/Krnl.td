@@ -183,10 +183,12 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     sequence is represented with memref<memref<>>.
     This op loads a tensor for the sequence 'seq' at position 'index',
     and return the tensor, which will be freed by Bufferization::Deallocation.
-    The element in the sequence will become null.
+    When the attribute 'copy' is 0: the tensor directly returned
+    When the attribute 'copy' is 1: the tensor is copied and then return, 
   }];
   let arguments = (ins AnyMemRef:$seq,
-                       Index:$index);
+                       Index:$index,
+                       DefaultValuedAttr<SI64Attr, "0">:$copy);
 
   let results = (outs AnyType:$output);
 }

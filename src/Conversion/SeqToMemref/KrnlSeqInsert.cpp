@@ -1,7 +1,8 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-//===------ KrnlSeqInsert.cpp - Lower KrnlSeqInsertOp ----------------------===//
+//===------ KrnlSeqInsert.cpp - Lower KrnlSeqInsertOp
+//----------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -15,13 +16,13 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
-#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -44,8 +45,7 @@ public:
     KrnlSeqInsertOpAdaptor operandAdaptor(operands);
     KrnlSeqInsertOp thisOp = dyn_cast<KrnlSeqInsertOp>(op);
     auto loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
     IndexExpr positionIE = SymbolIndexExpr(operandAdaptor.index());
 
@@ -67,13 +67,17 @@ public:
     ubsIE.emplace_back(outputBound);
     Value allocOutput =
         insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
-    
+
     // Allocate a new tensor and copy input tensor into it
-    auto inputType = operandAdaptor.input_element().getType().cast<MemRefType>();
+    if (!operandAdaptor.input_element().getType().isa<MemRefType>())
+      llvm_unreachable("Not supported: type of onnx seq element is not tensor");
+    auto inputType =
+        operandAdaptor.input_element().getType().cast<MemRefType>();
     SmallVector<mlir::Value, 4> allocParams;
     for (size_t i = 0; i < inputType.getShape().size(); i++) {
       if (inputType.getShape()[i] == -1) {
-        allocParams.emplace_back(create.mem.dim(operandAdaptor.input_element(), i));
+        allocParams.emplace_back(
+            create.mem.dim(operandAdaptor.input_element(), i));
       }
     }
     Value alloc = create.mem.alignedAlloc(inputType, allocParams);
@@ -86,40 +90,44 @@ public:
     auto casted = create.mem.cast(alloc, seqElementType);
 
     // Copy the tensors in the sequence without duplicating the object
-    // ToFix: An analysis pass is needed to determine whether duplicating 
+    // ToFix: An analysis pass is needed to determine whether duplicating
     // is needed.
 
     // Copy elements before the insertion position
-    SmallVector<IndexExpr, 1> lbs;
-    lbs.emplace_back(LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 1> ubs;
-    ubs.emplace_back(positionIE);
-    ValueRange firstLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
+    rewriter.create<scf::ForOp>(loc, create.math.constantIndex(0),
+        positionIE.getValue(), create.math.constantIndex(1), ValueRange(),
+        [&](OpBuilder &bodyBuilder, Location bodyLoc, Value forInduction,
+            ValueRange iterArgs) {
+          MultiDialectBuilder<MathBuilder, MemRefBuilder> create(
+              bodyBuilder, bodyLoc);
+          // onnx_mlir memref builder does not support load/store
+          auto element = bodyBuilder.create<memref::LoadOp>(
+              bodyLoc, operandAdaptor.input_sequence(), forInduction);
           auto converted = create.mem.cast(element, seqElementConvertedType);
-          createKrnl.store(converted, allocOutput, indicesLoopInd[0]);
+          bodyBuilder.create<memref::StoreOp>(
+              bodyLoc, converted, allocOutput, forInduction);
+          bodyBuilder.create<scf::YieldOp>(bodyLoc);
         });
 
     // Store the tensor
-    rewriter.create<memref::StoreOp>(loc, casted, allocOutput, operandAdaptor.index());
+    rewriter.create<memref::StoreOp>(
+        loc, casted, allocOutput, operandAdaptor.index());
 
     // Copy elements after the insertion position
-    SmallVector<IndexExpr, 1> lbs1;
-    lbs1.emplace_back(positionIE + 1);
-    SmallVector<IndexExpr, 1> ubs1;
-    ubs1.emplace_back(outputBound);
-    ValueRange secondLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
+    rewriter.create<scf::ForOp>(loc, (positionIE + 1).getValue(),
+        outputBound.getValue(), create.math.constantIndex(1), ValueRange(),
+        [&](OpBuilder &bodyBuilder, Location bodyLoc, Value forInduction,
+            ValueRange iterArgs) {
+          MultiDialectBuilder<MathBuilder, MemRefBuilder> create(
+              bodyBuilder, bodyLoc);
+          auto element = bodyBuilder.create<memref::LoadOp>(
+              bodyLoc, operandAdaptor.input_sequence(), forInduction);
           auto converted = create.mem.cast(element, seqElementConvertedType);
           auto outputIndex =
-              create.math.add(indicesLoopInd[0], create.math.constantIndex(1));
-          createKrnl.store(converted, allocOutput, outputIndex);
+              create.math.add(forInduction, create.math.constantIndex(1));
+          bodyBuilder.create<memref::StoreOp>(
+              bodyLoc, converted, allocOutput, outputIndex);
+          bodyBuilder.create<scf::YieldOp>(bodyLoc);
         });
 
     rewriter.replaceOp(op, allocOutput);
