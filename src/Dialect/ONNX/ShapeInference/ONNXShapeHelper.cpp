@@ -415,7 +415,7 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
   return success();
 }
 
-/// Update a tensor type by using the given shape and elementType.
+/// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(
     Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
   SmallVector<int64_t, 4> inferredShape(shape);

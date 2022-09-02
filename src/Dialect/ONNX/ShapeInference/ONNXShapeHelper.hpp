@@ -381,7 +381,7 @@ DECLARE_BROADCASTED_SHAPE_HELPER(ONNXExpandOp)
 /// Handle shape inference for unary element-wise operators.
 mlir::LogicalResult inferShapeForUnaryElementwiseOps(mlir::Operation *op);
 
-/// Update a tensor type by using the given shape and elementType.
+/// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr);
 
