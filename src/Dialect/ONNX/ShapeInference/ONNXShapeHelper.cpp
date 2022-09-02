@@ -15,6 +15,7 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
 
@@ -399,45 +400,68 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   return success();
 }
 
-/// Check if the given inferredShape is better than the existing shape of val.
-bool isInferredShapeBetter(ArrayRef<int64_t> inferredShape, Value val) {
-  // Val is unranked. Any inferred shape is better.
-  if (!hasShapeAndRank(val))
-    return true;
-
-  ArrayRef<int64_t> existingShape = val.getType().cast<ShapedType>().getShape();
-
-  // Only get the infered shape if unknown dims in existingShape get static
-  // values in inferredShape.
-  for (unsigned i = 0; i < existingShape.size(); ++i) {
-    int64_t inferedDim = inferredShape[i];
-    int64_t existingDim = existingShape[i];
-    // existingDim is static but inferedDim is unknown: not good.
-    if ((existingDim != -1) && (inferedDim == -1))
-      return false;
-    // inferedDim is different from existingDim. Believe in existingDim.
-    if ((existingDim != -1) && (inferedDim != -1) &&
-        (existingDim != inferedDim))
-      return false;
-  }
-  return true;
-}
-
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
-  if (!hasShapeAndRank(op->getOperand(0)))
+  Value input = op->getOperand(0);
+  Value output = op->getResult(0);
+
+  if (!hasShapeAndRank(input))
     return success();
 
-  // When the output has ranked, see if its shape is better than the input's
-  // shape.
-  ArrayRef<int64_t> inputShape =
-      op->getOperand(0).getType().cast<ShapedType>().getShape();
-  if (!isInferredShapeBetter(inputShape, op->getResult(0)))
-    // The current output shape is good, do nothing.
-    return success();
-
-  op->getResult(0).setType(op->getOperand(0).getType());
+  // Inferred shape is getting from the input's shape.
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  updateType(output, inputType.getShape(), inputType.getElementType(),
+      inputType.getEncoding());
   return success();
+}
+
+/// Update a tensor type by using the given shape, elementType and encoding.
+void updateType(
+    Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+  SmallVector<int64_t, 4> inferredShape(shape);
+
+  // Try to combine the given shape and the output's shape if possbile.
+  if (hasShapeAndRank(val)) {
+    ArrayRef<int64_t> existingShape = getShape(val.getType());
+    assert(
+        inferredShape.size() == existingShape.size() &&
+        "Inferred shape and existing shape are inconsistent in the number of "
+        "elements");
+    for (unsigned i = 0; i < inferredShape.size(); ++i) {
+      // existingDim is static, inferedDim is unknown: update the inferredDim.
+      if ((existingShape[i] != -1) && (inferredShape[i] == -1))
+        inferredShape[i] = existingShape[i];
+      // inferedDim is different from existingDim. Believe in existingDim.
+      if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
+          (existingShape[i] != inferredShape[i])) {
+        // Warning for users.
+        llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                     << inferredShape[i]
+                     << ") is different from the existing dim ("
+                     << existingShape[i]
+                     << "). Use the existing dim instead.\n";
+        inferredShape[i] = existingShape[i];
+      }
+    }
+  }
+
+  // Get element type.
+  if (!elementType)
+    elementType = getElementType(val.getType());
+
+  // Get encoding.
+  if (auto valType = val.getType().dyn_cast<RankedTensorType>())
+    if (!encoding)
+      encoding = valType.getEncoding();
+
+  // Build result type.
+  RankedTensorType resType;
+  if (encoding)
+    resType = RankedTensorType::get(inferredShape, elementType, encoding);
+  else
+    resType = RankedTensorType::get(inferredShape, elementType);
+
+  val.setType(resType);
 }
 
 //===----------------------------------------------------------------------===//
