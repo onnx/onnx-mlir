@@ -35,6 +35,7 @@
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "zdnn.h"
 
 using namespace mlir;
@@ -296,19 +297,15 @@ LogicalResult ZHighStickOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   StringAttr layout = layoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
     dataLayout = convertStringAttrToDataLayout(layout);
   else
     dataLayout = getDataLayoutByRank(inputShape.size());
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, inputType.getElementType(),
-          ZTensorEncodingAttr::get(this->getContext(), dataLayout));
-  getResult().setType(resType);
+
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      ZTensorEncodingAttr::get(this->getContext(), dataLayout));
   return success();
 }
 
@@ -329,16 +326,10 @@ LogicalResult ZHighStickForLSTMOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::FICO);
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -359,16 +350,10 @@ LogicalResult ZHighStickForGRUOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::ZRH);
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -417,14 +402,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
-  ShapedType inputType = In().getType().cast<ShapedType>();
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, inputType.getElementType());
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, getElementType(In().getType()));
   return success();
 }
 
@@ -543,15 +521,9 @@ LogicalResult ZHighMeanReduce2DOp::inferShapes(
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> shape = inputType.getShape();
 
-  SmallVector<int64_t, 4> outputDims = {shape[0], 1, 1, shape[3]};
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   // Input is NHWC, and H and W are reduction dimensions.
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
+  updateType(getResult(), {shape[0], 1, 1, shape[3]},
+      inputType.getElementType(), inputType.getEncoding());
   return success();
 }
 
@@ -579,12 +551,7 @@ LogicalResult ZHighMatMulOp::inferShapes(
     encoding = ZTensorEncodingAttr::get(
         this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
 
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -690,24 +657,15 @@ LogicalResult ZHighLSTMOp::inferShapes(
   if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan ZHigh LSTM parameters successfully");
 
+  // Output type is 4DS.
   SmallVector<int64_t, 4> hnOutputDims, cfOutputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
   IndexExpr::getShape(shapeHelper.dimsForOutput(1), cfOutputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(hnOutputDims, getResults()[0]);
-  tryImproveInferredShape(cfOutputDims, getResults()[1]);
-
-  // Output type is 3DS.
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
-  RankedTensorType hnType =
-      RankedTensorType::get(hnOutputDims, elementType, encoding);
-  RankedTensorType cfType =
-      RankedTensorType::get(cfOutputDims, elementType, encoding);
-  getResults()[0].setType(hnType);
-  getResults()[1].setType(cfType);
+  updateType(getResults()[0], hnOutputDims, elementType, encoding);
+  updateType(getResults()[1], cfOutputDims, elementType, encoding);
   return success();
 }
 
@@ -772,17 +730,10 @@ LogicalResult ZHighGRUOp::inferShapes(
 
   SmallVector<int64_t, 4> hnOutputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(hnOutputDims, getResult());
-
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
-  RankedTensorType hnType =
-      RankedTensorType::get(hnOutputDims, elementType, encoding);
-  getResult().setType(hnType);
-
+  updateType(getResult(), hnOutputDims, elementType, encoding);
   return success();
 }
 
@@ -845,15 +796,9 @@ LogicalResult ZHighConv2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -874,15 +819,9 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -903,15 +842,9 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -995,14 +928,8 @@ LogicalResult ZHighConcatOp::inferShapes(
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(outputDims, getResult());
-
-  Type resType = RankedTensorType::get(
-      outputDims, commonType.getElementType(), commonType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, commonType.getElementType(),
+      commonType.getEncoding());
   return success();
 }
 

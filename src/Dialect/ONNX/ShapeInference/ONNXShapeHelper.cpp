@@ -400,37 +400,6 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   return success();
 }
 
-/// Use the val's shape to improve the given shape.
-/// - If the val is unranked, no update.
-/// - If a dim is static in the val's shape but unknown (-1) in the given shape,
-/// update it in the given shape to the static value.
-void tryImproveInferredShape(
-    SmallVectorImpl<int64_t> &inferredShape, Value val) {
-  // Val is unranked. Any inferred shape is better.
-  if (!hasShapeAndRank(val))
-    return;
-
-  ArrayRef<int64_t> existingShape = getShape(val.getType());
-  assert(inferredShape.size() == existingShape.size() &&
-         "Inferred shape and existing shape are inconsistent in the number of "
-         "elements");
-
-  for (unsigned i = 0; i < inferredShape.size(); ++i) {
-    // existingDim is static but inferedDim is unknown: update the inferredDim.
-    if ((existingShape[i] != -1) && (inferredShape[i] == -1))
-      inferredShape[i] = existingShape[i];
-    // inferedDim is different from existingDim. Believe in existingDim.
-    if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
-        (existingShape[i] != inferredShape[i])) {
-      // Warning for users.
-      llvm::outs() << "Shape inference: the inferred dim (" << inferredShape[i]
-                   << ") is different from the existing dim ("
-                   << existingShape[i] << "). Use the existing dim instead.\n";
-      inferredShape[i] = existingShape[i];
-    }
-  }
-}
-
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
   Value input = op->getOperand(0);
@@ -440,18 +409,59 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
     return success();
 
   // Inferred shape is getting from the input's shape.
-  ArrayRef<int64_t> inputShape = getShape(input.getType());
-  SmallVector<int64_t, 4> inferredShape(inputShape.begin(), inputShape.end());
-
-  // Try to improve the inferred shape using the output's shape if possbile.
-  tryImproveInferredShape(inferredShape, output);
-
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  auto inferredType = RankedTensorType::get(
-      inferredShape, inputType.getElementType(), inputType.getEncoding());
-
-  output.setType(inferredType);
+  updateType(output, inputType.getShape(), inputType.getElementType(),
+      inputType.getEncoding());
   return success();
+}
+
+/// Update a tensor type by using the given shape and elementType.
+void updateType(
+    Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+  SmallVector<int64_t, 4> inferredShape(shape);
+
+  // Try to combine the given shape and the output's shape if possbile.
+  if (hasShapeAndRank(val)) {
+    ArrayRef<int64_t> existingShape = getShape(val.getType());
+    assert(
+        inferredShape.size() == existingShape.size() &&
+        "Inferred shape and existing shape are inconsistent in the number of "
+        "elements");
+    for (unsigned i = 0; i < inferredShape.size(); ++i) {
+      // existingDim is static, inferedDim is unknown: update the inferredDim.
+      if ((existingShape[i] != -1) && (inferredShape[i] == -1))
+        inferredShape[i] = existingShape[i];
+      // inferedDim is different from existingDim. Believe in existingDim.
+      if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
+          (existingShape[i] != inferredShape[i])) {
+        // Warning for users.
+        llvm::outs() << "Shape inference: the inferred dim ("
+                     << inferredShape[i]
+                     << ") is different from the existing dim ("
+                     << existingShape[i]
+                     << "). Use the existing dim instead.\n";
+        inferredShape[i] = existingShape[i];
+      }
+    }
+  }
+
+  // Get element type.
+  if (!elementType)
+    elementType = getElementType(val.getType());
+
+  // Get encoding.
+  if (auto valType = val.getType().dyn_cast<RankedTensorType>())
+    if (!encoding)
+      encoding = valType.getEncoding();
+
+  // Build result type.
+  RankedTensorType resType;
+  if (encoding)
+    resType = RankedTensorType::get(inferredShape, elementType, encoding);
+  else
+    resType = RankedTensorType::get(inferredShape, elementType);
+
+  val.setType(resType);
 }
 
 //===----------------------------------------------------------------------===//
