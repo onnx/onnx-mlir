@@ -41,6 +41,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqExtractOpAdaptor operandAdaptor(operands);
+    KrnlSeqExtractOp thisOp = dyn_cast<KrnlSeqExtractOp>(op);
     auto loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
@@ -53,7 +54,7 @@ public:
     // if the element is read from seq after extracted, or deep deallocation
     // is added when seq is freed
 
-    if (operandAdaptor.copy() == 0) {
+    if (thisOp.copy() == 0) {
       rewriter.replaceOp(op, output);
       return success();
     } else {
