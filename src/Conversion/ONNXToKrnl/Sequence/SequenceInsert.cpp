@@ -46,17 +46,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
 
-    // Output sequence has one more element
-#if 0
-    auto outputBound = boundIE + 1;
-    SmallVector<IndexExpr, 1> ubsIE;
-    ubsIE.emplace_back(outputBound);
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
-#endif
-
-    // Fill the output sequence
-
+    // Handle Optional and negative position
     IndexExpr positionIE;
     if (isFromNone(operandAdaptor.position())) {
       // Insert at the end of the sequence
@@ -71,46 +61,9 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
           IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
     }
 
-    Value alloc = rewriter.create<KrnlSeqInsertOp>(loc, outputMemRefType, operandAdaptor.tensor(),
-     operandAdaptor.input_sequence(), positionIE.getValue());
-
-#if 0
-    // Copy elements before the insertion position
-    SmallVector<IndexExpr, 1> lbs;
-    lbs.emplace_back(LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 1> ubs;
-    ubs.emplace_back(positionIE);
-    ValueRange firstLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto converted = create.mem.cast(element, seqElementConvertedType);
-          createKrnl.store(converted, alloc, indicesLoopInd[0]);
-        });
-
-    // Insert the input tensor
-    // ToDo (chentong): need to duplicate the tensor
-    auto element =
-        create.mem.cast(operandAdaptor.tensor(), seqElementConvertedType);
-    create.krnl.store(element, alloc, positionIE.getValue());
-
-    // Copy elements after the insertion position
-    SmallVector<IndexExpr, 1> lbs1;
-    lbs1.emplace_back(positionIE + 1);
-    SmallVector<IndexExpr, 1> ubs1;
-    ubs1.emplace_back(outputBound);
-    ValueRange secondLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto converted = create.mem.cast(element, seqElementConvertedType);
-          auto outputIndex =
-              create.math.add(indicesLoopInd[0], create.math.constantIndex(1));
-          createKrnl.store(converted, alloc, outputIndex);
-        });
-#endif
+    Value alloc = rewriter.create<KrnlSeqInsertOp>(loc, outputMemRefType,
+        operandAdaptor.tensor(), operandAdaptor.input_sequence(),
+        positionIE.getValue());
 
     rewriter.replaceOp(op, alloc);
     return success();
