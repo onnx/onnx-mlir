@@ -40,8 +40,6 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
-    auto seqElementConvertedType =
-        outputMemRefType.getElementType().cast<MemRefType>();
     auto input_sequence = operandAdaptor.input_sequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);

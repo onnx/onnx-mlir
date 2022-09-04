@@ -2943,6 +2943,7 @@ func.func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
   %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
   %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
+// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 2)>
 // CHECK-LABEL:  func.func @test_sequence_ops1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>) -> memref<3xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<1xi64>} : () -> memref<i64>
@@ -2958,26 +2959,35 @@ func.func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
 // CHECK-DAG:       [[VAR_c1_3_:%.+]] = arith.constant 1 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.seqinsert"([[PARAM_0_]], [[VAR_3_]], [[VAR_c1_3_]]) : (memref<?x4x5xf32>, memref<1xmemref<?x4x5xf32>>, index) -> memref<2xmemref<?x4x5xf32>>
+// CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[VAR_c2_5_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
-// CHECK:           [[VAR_6_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
-// CHECK-DAG:       [[VAR_7_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_6_]]) {copy = 1 : si64} : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_6_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
+// CHECK-DAG:       [[VAR_c0_6_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_7_:%.+]] = arith.cmpi slt, [[VAR_6_]], [[VAR_c0_6_]] : index
+// CHECK-DAG:       [[VAR_8_:%.+]] = affine.apply #map(){{.}}[[VAR_6_]]{{.}}
+// CHECK:           [[VAR_9_:%.+]] = arith.select [[VAR_7_]], [[VAR_8_]], [[VAR_6_]] : index
+// CHECK-DAG:       [[VAR_10_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_9_]]) {copy = 1 : si64} : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
-// CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[VAR_c0_7_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = memref.dim [[VAR_7_]], [[VAR_c0_4_]] : memref<?x4x5xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = memref.dim [[VAR_10_]], [[VAR_c0_7_]] : memref<?x4x5xf32>
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_10_:%.+]] = arith.index_cast [[VAR_9_]] : index to i64
-// CHECK-DAG:       [[VAR_c0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c0_5_]]{{.}} : memref<3xi64>
-// CHECK-DAG:       [[VAR_11_:%.+]] = arith.index_cast [[VAR_c4_]] : index to i64
-// CHECK-DAG:       [[VAR_c1_6_:%.+]] = arith.constant 1 : index
-// CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c1_6_]]{{.}} : memref<3xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = arith.index_cast [[VAR_c5_]] : index to i64
-// CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
-// CHECK:           krnl.store [[VAR_12_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = arith.index_cast [[VAR_12_]] : index to i64
+// CHECK-DAG:       [[VAR_c0_8_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.store [[VAR_13_]], [[RES_1_]]{{.}}[[VAR_c0_8_]]{{.}} : memref<3xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = arith.index_cast [[VAR_c4_]] : index to i64
+// CHECK-DAG:       [[VAR_c1_9_:%.+]] = arith.constant 1 : index
+// CHECK:           krnl.store [[VAR_14_]], [[RES_1_]]{{.}}[[VAR_c1_9_]]{{.}} : memref<3xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = arith.index_cast [[VAR_c5_]] : index to i64
+// CHECK-DAG:       [[VAR_c2_10_:%.+]] = arith.constant 2 : index
+// CHECK:           krnl.store [[VAR_15_]], [[RES_1_]]{{.}}[[VAR_c2_10_]]{{.}} : memref<3xi64>
 // CHECK:           return [[RES_1_]] : memref<3xi64>
 // CHECK:         }
 }

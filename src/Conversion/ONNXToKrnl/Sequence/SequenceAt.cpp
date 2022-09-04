@@ -34,8 +34,13 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
     Value input_sequence = operandAdaptor.input_sequence();
     Type outputMemRefType =
         input_sequence.getType().cast<MemRefType>().getElementType();
+    auto dimSize = create.mem.dim(input_sequence, 0);
+    SymbolIndexExpr boundIE(dimSize);
     IndexExpr positionIE =
         SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
+    // Handle the negative position
+    positionIE =
+        IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
 
     Value outputVal = rewriter.create<KrnlSeqExtractOp>(loc, outputMemRefType,
         input_sequence, positionIE.getValue(),
