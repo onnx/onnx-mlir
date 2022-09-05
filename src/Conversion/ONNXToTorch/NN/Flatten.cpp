@@ -86,8 +86,8 @@ public:
     Value tmpValue;
 
     // if axisValue is negative
-    if (axisValue < 0)
-      return op->emitError("negative axis not supported");
+    if (axisValue <= 0)
+      return op->emitError("negative axis and 0 axis are not supported");
 
     /***************************************************************/
     // if axisValue is 0 or 1, we need to flatten once.
