@@ -117,7 +117,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm);
+    addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
+        /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
@@ -140,6 +141,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
+      // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true,
           instrumentONNXSignature, ONNXOpStats);
 
@@ -150,6 +152,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         addKrnlToAffinePasses(pm);
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
+        // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
+        // to Affine when its operands are normalized.
+        addKrnlToAffinePasses(pm);
         // Optimizations at ZLow.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());

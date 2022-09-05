@@ -33,7 +33,9 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "zdnn.h"
 
 using namespace mlir;
@@ -257,8 +259,19 @@ void ZHighStickOp::build(
         // Create a layout attribute.
         layout = convertDataLayoutToStringAttr(builder, dataLayout);
       }
-      resType = RankedTensorType::get(inputType.getShape(),
-          inputType.getElementType(),
+      // Compute shape.
+      ArrayRef<int64_t> inputShape = inputType.getShape();
+      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+      // Direct stickify from NCHW to NHWC.
+      if (isNHWCLayout(layout)) {
+        assert((inputShape.size() == 4) && "Input must have rank 4");
+        // NCHW -> NHWC
+        resShape[0] = inputShape[0];
+        resShape[1] = inputShape[2];
+        resShape[2] = inputShape[3];
+        resShape[3] = inputShape[1];
+      }
+      resType = RankedTensorType::get(resShape, inputType.getElementType(),
           ZTensorEncodingAttr::get(builder.getContext(), dataLayout));
     } else {
       resType = UnrankedTensorType::get(inputType.getElementType());
@@ -276,16 +289,23 @@ LogicalResult ZHighStickOp::inferShapes(
   ShapedType inputType = In().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
+  ZHighStickOpAdaptor operandAdaptor(*this);
+  ZHighStickOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Stick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
   StringAttr layout = layoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
     dataLayout = convertStringAttrToDataLayout(layout);
   else
     dataLayout = getDataLayoutByRank(inputShape.size());
-  RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType(),
-          ZTensorEncodingAttr::get(this->getContext(), dataLayout));
-  getResult().setType(resType);
+
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      ZTensorEncodingAttr::get(this->getContext(), dataLayout));
   return success();
 }
 
@@ -309,9 +329,7 @@ LogicalResult ZHighStickForLSTMOp::inferShapes(
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::FICO);
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -335,9 +353,7 @@ LogicalResult ZHighStickForGRUOp::inferShapes(
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::ZRH);
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -348,10 +364,23 @@ void ZHighUnstickOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
   Type resType;
   ShapedType inputType = input.getType().cast<ShapedType>();
-  if (hasRankedType(input))
-    resType =
-        RankedTensorType::get(inputType.getShape(), inputType.getElementType());
-  else
+  if (hasRankedType(input)) {
+    // Compute shape.
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+    // Direct unstickify from NHWC to NCHW.
+    StringAttr layout = convertDataLayoutToStringAttr(
+        builder, getZTensorLayout(input.getType()));
+    if (isNHWCLayout(layout)) {
+      assert((inputShape.size() == 4) && "Input must have rank 4");
+      // NHWC -> NCHW
+      resShape[0] = inputShape[0];
+      resShape[1] = inputShape[3];
+      resShape[2] = inputShape[1];
+      resShape[3] = inputShape[2];
+    }
+    resType = RankedTensorType::get(resShape, inputType.getElementType());
+  } else
     resType = UnrankedTensorType::get(inputType.getElementType());
   build(builder, state, resType, input);
 }
@@ -361,11 +390,19 @@ LogicalResult ZHighUnstickOp::inferShapes(
   if (!hasRankedType(In()))
     return success();
 
-  Builder builder(this->getContext());
-  ShapedType inputType = In().getType().cast<ShapedType>();
-  RankedTensorType resType =
-      RankedTensorType::get(inputType.getShape(), inputType.getElementType());
-  getResult().setType(resType);
+  OpBuilder b(this->getContext());
+
+  StringAttr layout =
+      convertDataLayoutToStringAttr(b, getZTensorLayout(In().getType()));
+
+  ZHighUnstickOpAdaptor operandAdaptor(*this);
+  ZHighUnstickOpShapeHelper shapeHelper(this, layout);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ZHigh Unstick parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  updateType(getResult(), outputDims, getElementType(In().getType()));
   return success();
 }
 
@@ -374,11 +411,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
 
 LogicalResult ZHighAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -386,11 +419,7 @@ LogicalResult ZHighAddOp::inferShapes(
 
 LogicalResult ZHighSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -398,11 +427,7 @@ LogicalResult ZHighSubOp::inferShapes(
 
 LogicalResult ZHighMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -410,11 +435,7 @@ LogicalResult ZHighMulOp::inferShapes(
 
 LogicalResult ZHighDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -422,11 +443,7 @@ LogicalResult ZHighDivOp::inferShapes(
 
 LogicalResult ZHighMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -434,11 +451,7 @@ LogicalResult ZHighMinOp::inferShapes(
 
 LogicalResult ZHighMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -446,11 +459,7 @@ LogicalResult ZHighMaxOp::inferShapes(
 
 LogicalResult ZHighLogOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -458,11 +467,7 @@ LogicalResult ZHighLogOp::inferShapes(
 
 LogicalResult ZHighExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -470,11 +475,7 @@ LogicalResult ZHighExpOp::inferShapes(
 
 LogicalResult ZHighReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -482,11 +483,7 @@ LogicalResult ZHighReluOp::inferShapes(
 
 LogicalResult ZHighTanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -494,11 +491,7 @@ LogicalResult ZHighTanhOp::inferShapes(
 
 LogicalResult ZHighSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -506,11 +499,7 @@ LogicalResult ZHighSigmoidOp::inferShapes(
 
 LogicalResult ZHighSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()))
-    return success();
-
-  getResult().setType(X().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -518,11 +507,7 @@ LogicalResult ZHighSoftmaxOp::inferShapes(
 
 LogicalResult ZHighBatchNormOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()))
-    return success();
-
-  getResult().setType(input().getType());
-  return success();
+  return inferShapeForUnaryElementwiseOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -535,10 +520,10 @@ LogicalResult ZHighMeanReduce2DOp::inferShapes(
 
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> shape = inputType.getShape();
+
   // Input is NHWC, and H and W are reduction dimensions.
-  Type resType = RankedTensorType::get({shape[0], 1, 1, shape[3]},
+  updateType(getResult(), {shape[0], 1, 1, shape[3]},
       inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
   return success();
 }
 
@@ -565,9 +550,8 @@ LogicalResult ZHighMatMulOp::inferShapes(
   else if (outputDims.size() == 3)
     encoding = ZTensorEncodingAttr::get(
         this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
-  RankedTensorType resType =
-      RankedTensorType::get(outputDims, elementType, encoding);
-  getResult().setType(resType);
+
+  updateType(getResult(), outputDims, elementType, encoding);
   return success();
 }
 
@@ -673,20 +657,15 @@ LogicalResult ZHighLSTMOp::inferShapes(
   if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan ZHigh LSTM parameters successfully");
 
+  // Output type is 4DS.
   SmallVector<int64_t, 4> hnOutputDims, cfOutputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
   IndexExpr::getShape(shapeHelper.dimsForOutput(1), cfOutputDims);
-
-  // Output type is 3DS.
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
-  RankedTensorType hnType =
-      RankedTensorType::get(hnOutputDims, elementType, encoding);
-  RankedTensorType cfType =
-      RankedTensorType::get(cfOutputDims, elementType, encoding);
-  getResults()[0].setType(hnType);
-  getResults()[1].setType(cfType);
+  updateType(getResults()[0], hnOutputDims, elementType, encoding);
+  updateType(getResults()[1], cfOutputDims, elementType, encoding);
   return success();
 }
 
@@ -754,10 +733,7 @@ LogicalResult ZHighGRUOp::inferShapes(
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
-  RankedTensorType hnType =
-      RankedTensorType::get(hnOutputDims, elementType, encoding);
-  getResult().setType(hnType);
-
+  updateType(getResult(), hnOutputDims, elementType, encoding);
   return success();
 }
 
@@ -821,10 +797,8 @@ LogicalResult ZHighConv2DOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -846,10 +820,8 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -871,10 +843,8 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type resType = RankedTensorType::get(
-      outputDims, inputType.getElementType(), inputType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, inputType.getElementType(),
+      inputType.getEncoding());
   return success();
 }
 
@@ -958,10 +928,8 @@ LogicalResult ZHighConcatOp::inferShapes(
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-  Type resType = RankedTensorType::get(
-      outputDims, commonType.getElementType(), commonType.getEncoding());
-  getResult().setType(resType);
-
+  updateType(getResult(), outputDims, commonType.getElementType(),
+      commonType.getEncoding());
   return success();
 }
 

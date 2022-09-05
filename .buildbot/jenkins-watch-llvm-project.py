@@ -78,6 +78,7 @@ ONNX_MLIR_DOCKERFILE        = os.path.join(workspace_dir,
                                            'docker', 'Dockerfile.onnx-mlir-dev')
 
 ONNX_MLIR_JOB_NAME          = 'ONNX-MLIR-Pipeline-Docker-Build'
+LLVM_WATCH_JOB_NAME         = 'LLVM-Watch-Docker-Build'
 
 AMCHARTS_URL                = 'https://cdn.amcharts.com/lib/5/'
 AMCHARTS_THEMES_URL         = AMCHARTS_URL + 'themes/'
@@ -136,7 +137,7 @@ def get_repo_sha1_date(github_repo, access_token, commit_sha1):
 def get_remote_repo_sha1_history(github_repo, access_token,
                                  commit_sha1_oldest, commit_sha1_newest=None):
 
-    logging.info('Fetch llvm-project commit history until ' + commit_sha1_oldest)
+    logging.info('Fetch LLVM commit history until ' + commit_sha1_oldest)
     sha1_history = []
     date_history = []
     stat_history = []
@@ -250,6 +251,17 @@ def remove_dangling_images(build):
     # Remove all the images
     remove_docker_images(images)
 
+# Remove recent failed or succeeded docker image, and if requested also
+# reset the corresponding new watch_state key.
+def remove_recent_image(curr_state, watch_state, key, reset=False):
+    build = curr_state['recent'][key][1]
+    if build:
+        remove_docker_images([ LLVM_PROJECT_WATCH_IMAGE + ':' + build,
+                               ONNX_MLIR_WATCH_IMAGE + ':' + build ])
+    if reset:
+        watch_state['recent'][key] = [
+            { 'sha1': '', 'date': EPOCH0, 'stat': {}, 'mesg': '' }, '' ]
+
 # Build watch image
 def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_tag):
     image_full = image_repo + ':' + image_tag
@@ -294,16 +306,20 @@ def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_ta
 
     return True
 
-# Check if an ONNX-MLIR build is running
+# Check if an active ONNX-MLIR build or a previous LLVM watch build is running
 def check_running_job():
     jenkins_server = jenkins.Jenkins(url = jenkins_rest_api_url,
                                      username = jenkins_rest_api_user,
                                      password = jenkins_rest_api_token)
     running_builds = jenkins_server.get_running_builds()
     for build in running_builds:
-        if build['name'] == ONNX_MLIR_JOB_NAME:
+        # An active build is found in ONNX-MLIR-Pipeline-Docker-Build, or
+        # a previous build in LLVM-Watch-Docker-Build is still running.
+        if (build['name'] == ONNX_MLIR_JOB_NAME or
+            (build['name'] == LLVM_WATCH_JOB_NAME and
+             build['number'] < int(build_number))):
             logging.info('Active build(s) find in {}, skip this run'.format(
-                ONNX_MLIR_JOB_NAME))
+                build['name']))
             return True
 
     return False
@@ -396,6 +412,8 @@ def compute_range_build_next():
     #
     llvm_onnx_mlir = extract_pattern_from_file(LLVM_PROJECT_SHA1_FILE,
                                                LLVM_PROJECT_SHA1_REGEX)
+    logging.info('ONNX-MLIR currently using LLVM commit {}'.format(
+        llvm_onnx_mlir))
 
     # Instead of always retrieve all the way back until llvm_onnx_mlir,
     # we only need to retrieve back until the head of the previous
@@ -413,13 +431,19 @@ def compute_range_build_next():
     # Merge newly retrieved llvm_history with watch_state['llvm_history_github']
     # then advance the tail of the history to the sha1 that just passes
     # llvm_onnx_mlir.
+    #
+    # Search for llvm_onnx_mlir in new_llvm_history['history'] to find its index.
+    # If not found, set llvm_onnx_mlir_index to length of new_llvm_history['history'].
     new_llvm_history['history'] += watch_state['llvm_history_github']['history']
-    try:
-        llvm_onnx_mlir_index = new_llvm_history['history'].index(llvm_onnx_mlir)
-    except:
-        # We didn't find llvm_onnx_mlir, which means we haven't
-        # advanced llvm_onnx_mlir yet.
-        llvm_onnx_mlir_index = len(new_llvm_history['history'])
+    new_llvm_history_len = len(new_llvm_history['history'])
+    llvm_onnx_mlir_index = next((index for (index, hist) in
+                                 enumerate(new_llvm_history['history'])
+                                 if hist['sha1'] == llvm_onnx_mlir),
+                                new_llvm_history_len)
+    logging.info('commit {} index={}, history length={}'.format(
+        llvm_onnx_mlir, llvm_onnx_mlir_index, new_llvm_history_len))
+
+    # Advance tail of new_llvm_history just past llvm_onnx_mlir
     llvm_history_all = new_llvm_history['history'][0:llvm_onnx_mlir_index]
 
     # The bisect search algorithm depends on the assumption that
@@ -432,7 +456,7 @@ def compute_range_build_next():
     # when searching. But this adds unncessary complexities.
     #
     # So instead, we run the commit history through the
-    # long increasing/decreasing subseqence and drop those
+    # longest increasing/decreasing subseqence and drop those
     # commits that are "out-of-order". The number of dropped
     # commits should typically be small and shouldn't affect
     # our search too much.
@@ -464,9 +488,7 @@ def compute_range_build_next():
     curr_converged       = curr_state['converged']
     curr_recent          = curr_state['recent']
     curr_failed          = curr_recent['failed'][0]
-    curr_failed_build    = curr_recent['failed'][1]
     curr_succeeded       = curr_recent['succeeded'][0]
-    curr_succeeded_build = curr_recent['succeeded'][1]
 
     build_history        = curr_state['build_history']
     curr                 = build_history[-1]
@@ -746,6 +768,7 @@ def compute_range_build_next():
             watch_state['build_history'][-1]['build'] += [ build_number ]
         else:
             watch_state['build_history'][-1]['build'][-1] = build_number
+    # We have not converged, build to check the next commit
     else:
         next_status = (build_watch_image('LLVM_PROJECT',
                                          next_middle,
@@ -761,24 +784,32 @@ def compute_range_build_next():
                                          build_number))
         remove_dangling_images(build_number)
 
+        # Build successful
         if next_status:
             # clean up previous succeeded image
-            if curr_succeeded_build:
-                remove_docker_images([ LLVM_PROJECT_WATCH_IMAGE + ':' + curr_succeeded_build,
-                                       ONNX_MLIR_WATCH_IMAGE + ':' + curr_succeeded_build ])
-
+            remove_recent_image(curr_state, watch_state, 'succeeded')
             watch_state['recent']['succeeded'] = [ next_middle, build_number ]
+
+            # If converged changes from true to false, it means that
+            # we are starting a new search cycle so we start a new
+            # watch_state['recent']['failed'].
+            if curr_converged:
+                remove_recent_image(curr_state, watch_state, 'failed', reset=True)
+        # Build failed
         else:
             # clean up previous failed image
-            if curr_failed_build:
-                remove_docker_images([ LLVM_PROJECT_WATCH_IMAGE + ':' + curr_failed_build,
-                                       ONNX_MLIR_WATCH_IMAGE + ':' + curr_failed_build ])
-
+            remove_recent_image(curr_state, watch_state, 'failed')
             watch_state['recent']['failed'] = [ next_middle, build_number ]
 
-        # If converged changes from true to false, it means that we are
-        # starting a new search cycle so we start a new watch_state['build_history']
-        # as well.
+            # If converged changes from true to false, it means that
+            # we are starting a new search cycle so we start a new
+            # watch_state['recent']['succeeded'].
+            if curr_converged:
+                remove_recent_image(curr_state, watch_state, 'succeeded', reset=True)
+
+        # If converged changes from true to false, it means that
+        # we are starting a new search cycle so we start a new
+        # watch_state['build_history'].
         hist = [ { 'head':   next_head,
                    'middle': next_middle,
                    'tail':   next_tail,

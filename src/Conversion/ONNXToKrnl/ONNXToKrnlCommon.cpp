@@ -483,9 +483,16 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims,
+    Type outputType) {
   MemRefBuilder createMemRef(rewriter, loc);
-  return createMemRef.reinterpretCast(data, outputDims);
+  Value newView = createMemRef.reinterpretCast(data, outputDims);
+  // Set type to the output type to avoid unrealized_conversion_cast.
+  // It's because the output type is sometimes better than the inferred type,
+  // e.g. the output type has a static dim (e.g. set by users) that can be
+  // dynamic in the inferred type.
+  newView.setType(outputType);
+  return newView;
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
@@ -567,11 +574,11 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;

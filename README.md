@@ -40,10 +40,12 @@ Detailed instructions are provided below.
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
+python >= 3.8
 gcc >= 6.4
 protobuf >= 3.16.0
 cmake >= 3.13.4
-ninja >= 1.10.2
+make >= 4.2.1 or ninja >= 1.10.2
+java >= 1.11 (optional)
 ```
 
 Help to update the prerequisites is found [here](docs/Prerequisite.md).
@@ -114,7 +116,7 @@ For example, use the following command to lower an ONNX model (e.g., add.onnx) t
 The output should look like:
 ```mlir
 module {
-  func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
+  func.func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
     return %0 : tensor<10x10x10xf32>
   }

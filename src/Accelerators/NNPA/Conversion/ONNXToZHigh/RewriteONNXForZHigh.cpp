@@ -59,41 +59,7 @@ Value getSqrtResultBatchNormA(
 // Reshape: B1xB2x...xBkxMxN to BxMxN
 Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  int64_t rank = getRank(val.getType());
-  assert(rank > 3 && "Require rank > 3");
-  ArrayRef<int64_t> shape = getShape(val.getType());
-  Type elementType = getElementType(val.getType());
-  Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-  Type twoI64Type = RankedTensorType::get({2}, rewriter.getI64Type());
-  Type threeI64Type = RankedTensorType::get({3}, rewriter.getI64Type());
-
-  Value shapeVal = create.onnx.shape(shapeType, val);
-
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value minusOne =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({-1})));
-  Value r2Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank - 2})));
-  Value rConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank})));
-  Value lastTwoDimVal =
-      create.onnx.slice(twoI64Type, shapeVal, r2Const, rConst, zero, one);
-
-  IntegerAttr concatAxis =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-  // newShapeVal is [-1, M, N] where M and N are the last dims in the input.
-  Value newShapeVal = create.onnx.concat(
-      threeI64Type, ValueRange({minusOne, lastTwoDimVal}), concatAxis);
-
-  // Shape inference will infer the correct shape later.
-  return create.onnx.reshape(
-      RankedTensorType::get(
-          {-1, shape[rank - 2], shape[rank - 1]}, elementType),
-      val, newShapeVal);
+  return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
 }
 
 // Get a value that store the shape of the matmul result.
@@ -107,10 +73,6 @@ Value getMatMulResultShape(
   // rhs shape: B1xB2x...xBkxNxP or NxP
 
   int64_t rank = std::max(lhsRank, rhsRank);
-  IntegerAttr concatAxisAttr =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-
   Type rI64Type = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type lhsRType = RankedTensorType::get({lhsRank}, rewriter.getI64Type());
   Type lhsR1Type = RankedTensorType::get({lhsRank - 1}, rewriter.getI64Type());
@@ -121,16 +83,11 @@ Value getMatMulResultShape(
   Value lhsShape = create.onnx.shape(lhsRType, lhs);
   Value rhsShape = create.onnx.shape(rhsRType, rhs);
 
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value lhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 1})));
-  Value rhsRConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank})));
-  Value rhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 1})));
+  Value zero = create.onnx.constantInt64({0});
+  Value one = create.onnx.constantInt64({1});
+  Value lhsR1Const = create.onnx.constantInt64({lhsRank - 1});
+  Value rhsRConst = create.onnx.constantInt64({rhsRank});
+  Value rhsR1Const = create.onnx.constantInt64({rhsRank - 1});
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -143,21 +100,17 @@ Value getMatMulResultShape(
         create.onnx.slice(lhsR1Type, lhsShape, zero, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal =
-        create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), concatAxisAttr);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
-    Value lhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 2})));
-    Value rhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 2})));
+    Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
+    Value rhsR2Const = create.onnx.constantInt64({rhsRank - 2});
     Value bVal =
         create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
     Value mVal = create.onnx.slice(
         oneI64Type, lhsShape, lhsR2Const, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal = create.onnx.concat(
-        rI64Type, ValueRange({bVal, mVal, pVal}), concatAxisAttr);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;
 }
@@ -316,25 +269,6 @@ void RewriteONNXForZHighPass::runOnOperation() {
     Type aType = op.A().getType();
     Type bType = op.B().getType();
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
-      return true;
-
-    // Only support static shape at this moment though the code supports dynamic
-    // shape as well.
-    //
-    // The reason is that lowering (3Dx3D) ONNXMatMul of dynamic shape to NNPA
-    // led to wrong results for the bertsquad-12 model. In particular, the final
-    // output values were shifted, e.g.
-    // clang-format off
-    // at (0, 252) mismatch -0.7646484375 (actual) vs -6.084146022796631 (reference)
-    // at (0, 253) mismatch -0.7646484375 (actual) vs -6.100776195526123 (reference)
-    // at (0, 254) mismatch -0.7646484375 (actual) vs -6.13942813873291 (reference)
-    // at (0, 255) mismatch -0.7646484375 (actual) vs -6.0835771560668945 (reference)
-    // clang-format on
-    //
-    // It is unclear why it happened to dynamic shape.
-    // There is no accuracy issue if (3Dx3D) ONNXMatMul runs on CPU or has
-    // static shape.
-    if (!hasStaticShape(aType) || !hasStaticShape(bType))
       return true;
 
     int64_t aRank = getRank(aType);

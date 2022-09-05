@@ -210,17 +210,16 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
   static int32_t constantID = 0;
   return b.create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
       b.getStringAttr(name + std::to_string(constantID++)),
-      value.hasValue() ? value.getValue() : nullptr,
-      offset.hasValue() ? offset.getValue() : nullptr,
-      alignment.hasValue() ? alignment.getValue() : nullptr);
+      value.value_or(nullptr), offset.value_or(nullptr),
+      alignment.value_or(nullptr));
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
   b.create<KrnlMemcpyOp>(loc, dest, src, size);
 }
 
-void KrnlBuilder::memset(Value dest, Value val) const {
-  b.create<KrnlMemsetOp>(loc, dest, val);
+void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
+  b.create<KrnlMemsetOp>(loc, dest, val, b.getBoolAttr(delayed));
 }
 
 Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {

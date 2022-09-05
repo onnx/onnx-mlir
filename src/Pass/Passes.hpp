@@ -25,10 +25,12 @@ namespace onnx_mlir {
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
-    int threshold, bool report);
+    int threshold, bool report, bool targetCPU);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
+
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
@@ -54,7 +56,7 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling);
+    bool emitDealloc, bool enableTiling, bool enableParallel);
 
 /// Add pass for lowering to Mhlo IR.
 std::unique_ptr<mlir::Pass> createLowerToMhloPass();

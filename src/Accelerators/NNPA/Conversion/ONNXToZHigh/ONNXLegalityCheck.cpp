@@ -533,7 +533,7 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
     return false;
 
   // Check axes.
-  mlir::ArrayAttr axesVal = axes.getValue();
+  mlir::ArrayAttr axesVal = axes.value();
   SmallVector<Attribute> axesAttrs(axesVal.begin(), axesVal.end());
   if ((axesAttrs.size() != 2) ||
       (axesAttrs[0].dyn_cast<IntegerAttr>().getInt() != 2) ||
@@ -601,21 +601,20 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
-  if ((activations && (activations.getValue().size() > 0) &&
-          (activations.getValue()[0].cast<StringAttr>().getValue() !=
+  if ((activations && (activations.value().size() > 0) &&
+          (activations.value()[0].cast<StringAttr>().getValue() !=
               "Sigmoid")) ||
-      (activations && (activations.getValue().size() > 1) &&
-          (activations.getValue()[1].cast<StringAttr>().getValue() !=
-              "Tanh")) ||
-      (activations && (activations.getValue().size() > 2) &&
-          (activations.getValue()[2].cast<StringAttr>().getValue() != "Tanh")))
+      (activations && (activations.value().size() > 1) &&
+          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+      (activations && (activations.value().size() > 2) &&
+          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
   // zDNN does not supprt clip(Cell clip threshold).
   if (op.clip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
+  if (op.hidden_size() && (op.hidden_size().value() != hidden_size))
     return false;
   // zDNN does not support input_forget.
   if (op.input_forget() != 0)
@@ -673,21 +672,20 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   if (op.activation_alpha() || op.activation_beta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
-  if ((activations && (activations.getValue().size() > 0) &&
-          (activations.getValue()[0].cast<StringAttr>().getValue() !=
+  if ((activations && (activations.value().size() > 0) &&
+          (activations.value()[0].cast<StringAttr>().getValue() !=
               "Sigmoid")) ||
-      (activations && (activations.getValue().size() > 1) &&
-          (activations.getValue()[1].cast<StringAttr>().getValue() !=
-              "Tanh")) ||
-      (activations && (activations.getValue().size() > 2) &&
-          (activations.getValue()[2].cast<StringAttr>().getValue() != "Tanh")))
+      (activations && (activations.value().size() > 1) &&
+          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+      (activations && (activations.value().size() > 2) &&
+          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
   // zDNN does not supprt clip(Cell clip threshold).
   if (op.clip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
+  if (op.hidden_size() && (op.hidden_size().value() != hidden_size))
     return false;
   // zDNN support the "linear_before_reset==1" case only.
   if (op.linear_before_reset() != 1)
