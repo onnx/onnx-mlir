@@ -3663,6 +3663,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",

@@ -24,8 +24,13 @@
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
+
+// =============================================================================
+// Helper functions for Rewrite.td and Rewrite.cpp files.
+// =============================================================================
 
 // If 'A' is NoneType, return -B. Otherwise return A-B.
 Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
@@ -34,7 +39,7 @@ Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+// Create an ArrayAttr of IntegerAttr(s) of values in [1, N].
 ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   SmallVector<int64_t, 4> vals;
   for (int i = 1; i <= N; ++i)
@@ -42,7 +47,7 @@ ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [N, M].
+// Create an ArrayAttr of IntegerAttr(s) of values in [N, M].
 ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   SmallVector<int64_t, 4> vals;
   for (int i = N; i <= M; ++i)
@@ -99,8 +104,15 @@ bool areProducedByTransposeOp(ValueRange values) {
 
 } // namespace onnx_mlir
 
+// =============================================================================
 /// Include the patterns defined in the Declarative Rewrite framework.
+// =============================================================================
+
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
+
+// =============================================================================
+// Rewrite pattern for loop (not handled in Rewrite.td).
+// =============================================================================
 
 // In some ONNX models, the maximum trip count for LoopOp is set to a big value,
 // e.g. LONG_MAX and termination depends on the break condition inside the loop.
@@ -123,10 +135,10 @@ bool areProducedByTransposeOp(ValueRange values) {
 //
 // i = 0
 // k = LB
-// keepgoing = true
-// while (i < max_trip_count && keepgoing == true) {
+// keepGoing = true
+// while (i < max_trip_count && keepGoing == true) {
 //    k = k + STEP
-//    keepgoing = (k < UB)
+//    keepGoing = (k < UB)
 // }
 // ```
 //
@@ -139,8 +151,8 @@ bool areProducedByTransposeOp(ValueRange values) {
 //
 // i = 0
 // k = LB
-// keepgoing = true
-// while (i < max_trip_count && keepgoing == true) {
+// keepGoing = true
+// while (i < max_trip_count && keepGoing == true) {
 //    k = k + STEP
 // }
 // ```
@@ -224,13 +236,13 @@ private:
                    ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
   }
 
-  // A helper function to get the value that is fed to an operattion's argument.
+  // A helper function to get the value that is fed to an operation's argument.
   Value getFedValue(Value arg, Operation *op) const {
     return op->getOperands()[arg.cast<BlockArgument>().getArgNumber()];
   }
 
   // A helper function to get an integer constant from a value.
-  int64_t getOneIntergerConstant(Value v) const {
+  int64_t getOneIntegerConstant(Value v) const {
     Operation *definingOp = v.getDefiningOp();
     DenseElementsAttr valueAttr =
         cast<ONNXConstantOp>(definingOp).valueAttr().cast<DenseElementsAttr>();
@@ -254,7 +266,7 @@ private:
   // ```
   std::pair<bool, Value> matchOp(
       PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
-    onnx_mlir::OnnxBuilder onnx(rewriter, loc);
+    OnnxBuilder onnx(rewriter, loc);
     Operation *loopOp = onnxLoopOp.getOperation();
     Value maxTripCountValue = loopOp->getOperands()[0];
 
@@ -291,7 +303,7 @@ private:
       return std::make_pair(false, maxTripCountValue);
     Value newCounterValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
-    // Input type of Less must be interger.
+    // Input type of Less must be integer.
     if (!newCounterValue.getType()
              .cast<ShapedType>()
              .getElementType()
@@ -350,14 +362,14 @@ private:
     if (isDefinedByIntegerConstantOp(lbValue) &&
         isDefinedByIntegerConstantOp(ubValue) &&
         isDefinedByIntegerConstantOp(stepValue)) {
-      int64_t lowerBound = getOneIntergerConstant(lbValue);
-      int64_t upperBound = getOneIntergerConstant(ubValue);
-      int64_t step = getOneIntergerConstant(stepValue);
+      int64_t lowerBound = getOneIntegerConstant(lbValue);
+      int64_t upperBound = getOneIntegerConstant(ubValue);
+      int64_t step = getOneIntegerConstant(stepValue);
       if ((step <= 0) || (upperBound <= lowerBound))
         return std::make_pair(false, maxTripCountValue);
       int64_t derivedTripCount =
           ceil((1.0 * (upperBound - lowerBound)) / (1.0 * step));
-      int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
+      int64_t maxTripCount = getOneIntegerConstant(maxTripCountValue);
 
       // Check that the new trip count is smaller than the original trip count.
       if (maxTripCount <= derivedTripCount)
@@ -503,7 +515,11 @@ public:
   }
 };
 
-/// Register optimization patterns as "canonicalization" patterns
+// =============================================================================
+/// Register optimization patterns as "canonicalization" patterns.
+/// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
+// =============================================================================
+
 /// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
