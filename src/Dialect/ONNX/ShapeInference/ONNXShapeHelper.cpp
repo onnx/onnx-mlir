@@ -423,24 +423,28 @@ void updateType(
   // Try to combine the given shape and the output's shape if possbile.
   if (hasShapeAndRank(val)) {
     ArrayRef<int64_t> existingShape = getShape(val.getType());
-    assert(
-        inferredShape.size() == existingShape.size() &&
-        "Inferred shape and existing shape are inconsistent in the number of "
-        "elements");
-    for (unsigned i = 0; i < inferredShape.size(); ++i) {
-      // existingDim is static, inferedDim is unknown: update the inferredDim.
-      if ((existingShape[i] != -1) && (inferredShape[i] == -1))
-        inferredShape[i] = existingShape[i];
-      // inferedDim is different from existingDim. Believe in existingDim.
-      if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
-          (existingShape[i] != inferredShape[i])) {
-        // Warning for users.
-        llvm::outs() << "Warning: [Shape inference] the inferred dim ("
-                     << inferredShape[i]
-                     << ") is different from the existing dim ("
-                     << existingShape[i]
-                     << "). Use the existing dim instead.\n";
-        inferredShape[i] = existingShape[i];
+    // Do not handle the case of scalar tensor whose type can be tensor<f32> or
+    // tensor<1xf32>. Just use the inferredShape in this case.
+    if (existingShape.size() >= 1 && inferredShape.size() >= 1) {
+      assert(
+          (inferredShape.size() == existingShape.size()) &&
+          "Inferred shape and existing shape are inconsistent in the number of "
+          "elements");
+      for (unsigned i = 0; i < inferredShape.size(); ++i) {
+        // existingDim is static, inferedDim is unknown: update the inferredDim.
+        if ((existingShape[i] != -1) && (inferredShape[i] == -1))
+          inferredShape[i] = existingShape[i];
+        // inferedDim is different from existingDim. Believe in existingDim.
+        if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
+            (existingShape[i] != inferredShape[i])) {
+          // Warning for users.
+          llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                       << inferredShape[i]
+                       << ") is different from the existing dim ("
+                       << existingShape[i]
+                       << "). Use the existing dim instead.\n";
+          inferredShape[i] = existingShape[i];
+        }
       }
     }
   }
