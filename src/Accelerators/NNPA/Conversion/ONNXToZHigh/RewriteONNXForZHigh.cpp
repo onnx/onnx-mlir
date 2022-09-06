@@ -62,6 +62,12 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
 }
 
+// Reshape: B1xB2x...xBkxM to BxM
+Value reshapeTo2DKeepLast(PatternRewriter &rewriter, Location loc, Value val) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  return create.onnx.reshapeToNDim(val, 2, /*collapseMostSignificant*/ true);
+}
+
 // Get a value that store the shape of the matmul result.
 Value getMatMulResultShape(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
@@ -353,8 +359,23 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Illegalize PowOp if
   // - exponent is a scalar integer, and
   // - exponent is <= 64.
+  // This PowOp will be rewritten by using multiple MulOp.
   target.addDynamicallyLegalOp<ONNXPowOp>(
       [](ONNXPowOp op) { return LegalExpandPowOpToMul(op); });
+
+  // Illegalize SoftmaxOp if
+  // - axis is the last dimension.
+  // This SoftmaxOp will be rewritten in which its input is reshaped to 2D.
+  target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
+    Value input = op.input();
+    if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
+      if ((shapedType.getRank() > 2) &&
+          ((op.axis() == shapedType.getRank() - 1) || (op.axis() == -1))) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
