@@ -57,8 +57,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       // Handle the negative position
       IndexExpr condIE = positionIE < 0;
       IndexExpr fixedPosition = positionIE + boundIE;
-      positionIE =
-        IndexExpr::select(condIE, fixedPosition, positionIE);
+      positionIE = IndexExpr::select(condIE, fixedPosition, positionIE);
     }
 
     Value alloc = rewriter.create<KrnlSeqInsertOp>(loc, outputMemRefType,
