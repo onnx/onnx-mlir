@@ -2988,8 +2988,8 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
     axisIndex += inputRank;
 
   Value splitValue = split();
-  if (splitValue.getType().isa<NoneType>()) {
-    // keepdims attribute is ignored unless split input is specified
+  if (isFromNone(splitValue)) {
+    // since split is not specified, check the keepdims attribute
     int64_t keep = keepdims();
     // keepdims must be 0 or 1
     if (keep < 0 || keep > 1)
@@ -3051,8 +3051,8 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
   dims[axisIndex] = -1;
 
   Value splitValue = split();
-  if (splitValue.getType().isa<NoneType>()) {
-    // keepdims attribute is ignored unless split input is specified
+  if (isFromNone(splitValue)) {
+    // since split is not specified, check the keepdims attribute
     int64_t keep = keepdims();
     assert(0 <= keep && keep <= 1 && "keepdims out of range");
     length = dimSize;
