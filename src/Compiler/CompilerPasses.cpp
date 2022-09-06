@@ -115,7 +115,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
-  pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel));
+  pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.

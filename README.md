@@ -25,6 +25,15 @@ Current level of support for ONNX operations are listed here for
 [CPUs](docs/SupportedONNXOps-cpu.md) and
 [IBM's Telum NNPA accelerator](docs/SupportedONNXOps-NNPA.md).
 
+## Interacting with the community.
+
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
+A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+
+You may also open GitHub Issues for any questions and/or suggestions you may have.
+
+For security-related issues please use exclusively the channels listed in the [SECURITY](SECURITY.md) page.
+
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with Dockers are [here](docs/Docker.md).
@@ -102,7 +111,9 @@ These are frontend options.
       --O3           - Optimization level 3.
 ```
 
-The full list of options is given by the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
+The full list of options is given by the `-help` option. 
+The `-` and the `--` prefix for flags can be used interchangeably.
+Note that just as most compilers, the default optimization level is `-O0`. 
 We recommend using `-O3` for most applications.
 
 Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For example, `ONNX_MLIR_FLAGS="-O3"` will ensure `-O3` for all compilations.
@@ -129,16 +140,6 @@ An example based on the add operation is found [here](docs/doc_example), which b
 
 An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using our
 C/C++, Python, or Java interface.
-
-## Interacting via Slack and GitHub.
-
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
-This channel can be used for asking quick questions related to this project.
-A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
-
-You may also open GitHub Issues for any questions and/or suggestions you may have.
-
-Do not use public channels to discuss any security-related issues; use instead the specific instructions provided in the [SECURITY](SECURITY.md) page.
 
 ## Documentation
 
