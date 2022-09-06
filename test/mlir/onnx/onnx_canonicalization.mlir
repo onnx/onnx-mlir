@@ -819,3 +819,54 @@ func.func @test_loop_derive_max_trip_count_non_constant_ub(%arg0: tensor<?x30xf3
 // CHECK:           return [[VAR_13_]]#3 : tensor<?x?x30xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_rnn_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>, %arg3: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %arg3) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<5x1x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>)
+  return %Y_h : tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_rnn_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x3x2xf32>, [[PARAM_2_:%.+]]: tensor<1x3x3xf32>, [[PARAM_3_:%.+]]: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
+// CHECK:           %Y, %Y_h = "onnx.RNN"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<1x5x3xf32>) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gru_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>) {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>)
+  return %Y, %Y_h : tensor<5x4x1x3xf32>, tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_gru_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x9x2xf32>, [[PARAM_2_:%.+]]: tensor<1x9x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK:           %Y, %Y_h = "onnx.GRU"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"(%Y) {perm = [2, 0, 1, 3]} : (tensor<4x1x5x3xf32>) -> tensor<5x4x1x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_2_]], [[VAR_3_]] : tensor<5x4x1x3xf32>, tensor<5x1x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_lstm_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>, %arg3: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %arg3, %cst) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<5x1x3xf32>, none) -> (tensor<5x4x1x3xf32>, none, tensor<5x1x3xf32>)
+  return %Y_c : tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_lstm_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x12x2xf32>, [[PARAM_2_:%.+]]: tensor<1x12x3xf32>, [[PARAM_3_:%.+]]: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
+// CHECK:           %Y, %Y_h, %Y_c = "onnx.LSTM"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<1x5x3xf32>, none) -> (tensor<4x1x5x3xf32>, none, tensor<1x5x3xf32>)
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_c) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
+// CHECK:         }
+}

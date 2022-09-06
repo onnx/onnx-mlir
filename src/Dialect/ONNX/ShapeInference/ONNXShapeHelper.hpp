@@ -378,10 +378,11 @@ DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
 DECLARE_BROADCASTED_SHAPE_HELPER(ONNXExpandOp)
 #undef DECLARE_BROADCASTED_SHAPE_HELPER
 
-/// Check if the given inferredShape is better than the existing shape of val.
-bool isInferredShapeBetter(
-    llvm::ArrayRef<int64_t> inferredShape, mlir::Value val);
 /// Handle shape inference for unary element-wise operators.
 mlir::LogicalResult inferShapeForUnaryElementwiseOps(mlir::Operation *op);
+
+/// Update a tensor type by using the given shape, elementType and encoding.
+void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
+    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr);
 
 } // namespace onnx_mlir

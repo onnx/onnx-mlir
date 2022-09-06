@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+# After modifying this file, the script will need to run to rebuild the
+# onnx-mlir ONNX Dialect. This is performed by calling
+# `make OMONNXOpsIncTranslation` in the build dir.
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -78,10 +83,12 @@ version_dict = {
  'Atan': [7],
  'Atanh': [9],
  'AveragePool': [11],
- 'BatchNormalization': [14],
+ 'BatchNormalization': [15],
+ 'Bernoulli': [15],
  'Binarizer': [1],
  'BitShift': [11],
  'Cast': [13],
+ 'CastLike': [15],
  'CastMap': [1],
  'CategoryMapper': [1],
  'Ceil': [13],
@@ -284,11 +291,14 @@ OpsWithCanonicalizer = [
     'Dropout',
     'GlobalAveragePool',
     'GlobalMaxPool',
+    'GRU',
     'Identity',
     'Less',
     'Loop',
+    'LSTM',
     'Mul',
     'Reshape',
+    'RNN',
     'Shape',
     'Size',
     'SpaceToDepth',
@@ -331,6 +341,7 @@ OpsWithVerifier = [
     'OptionalHasElement',
     'Pad',
     'Pow',
+    'PRelu',
     'RandomNormalLike',
     'ReverseSequence',
     "RoiAlign",

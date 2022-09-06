@@ -27,6 +27,10 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createConvOptONNXToONNXPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createShapeInferencePass();
   });
 
@@ -67,7 +71,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToKrnlPass(optLevel);
+    return createLowerToKrnlPass(optLevel, /* enableParallel */ false);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
