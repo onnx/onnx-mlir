@@ -436,3 +436,19 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
 // MATMUL:           return [[VAR_23_]] : tensor<4x12x256x?xf32>
 // MATMUL:         }
 }
+
+// -----
+
+// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
+func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = "onnx.Constant"() {value = dense<3.0> : tensor<f32>} : () -> tensor<f32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+
+// CHECK-LABEL:  func.func @expand_pow_into_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           return [[VAR_2_]] : tensor<3x4x5xf32>
+// CHECK:        }
+}

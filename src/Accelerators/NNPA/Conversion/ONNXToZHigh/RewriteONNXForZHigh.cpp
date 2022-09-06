@@ -218,18 +218,18 @@ bool LegalExpandPowOpToMul(ONNXPowOp op) {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
-class ExpandPowToMulPattern : public OpRewritePattern<ONNXPowOp> {
-public:
-  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
-    // Match
-    if (LegalExpandPowOpToMul(powOp))
-      return failure();
+struct ExpandPowToMulPattern : public ConversionPattern {
+  ExpandPowToMulPattern(MLIRContext *context)
+      : ConversionPattern(ONNXPowOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto powOp = llvm::dyn_cast<ONNXPowOp>(op);
+    Location loc = powOp.getLoc();
+    // Illegal conditions must be satisfied at this point.
+    assert(!LegalExpandPowOpToMul(powOp) && "Illegal conditions failed");
 
     // Rewrite
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, powOp.getLoc());
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Value input = powOp.X();
     int64_t exponent;
 
@@ -252,12 +252,11 @@ public:
       return failure();
 
     Value result = input;
-    for (unsigned i = 1; i < exponent; ++i) {
-      result = create.onnx.mul(result, input);
-    }
+    Type resultType = powOp.Z().getType();
+    for (unsigned i = 1; i < exponent; ++i)
+      result = create.onnx.mul(resultType, result, input);
 
-    powOp.Z().replaceAllUsesWith(result);
-    rewriter.eraseOp(powOp);
+    rewriter.replaceOp(op, {result});
     return success();
   };
 };
