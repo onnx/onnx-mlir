@@ -100,7 +100,7 @@ public:
       if (!n.isZero())
         paddingNeeded = true;   
     }
-    if (! paddingNeeded) {
+    if (!paddingNeeded) {
       // We do not need to represent the no-op pad in the resulting MLIR
       rewriter.replaceOp(op, {dataTorchTensor});
       return success();
