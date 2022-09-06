@@ -279,12 +279,12 @@ struct FrontendToKrnlLoweringPass
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
-    // this->enableParallel = enableParallel;
+    this->enableParallel = enableParallel;
   }
-  FrontendToKrnlLoweringPass(int optLevel)
+  FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
       : FrontendToKrnlLoweringPass(
             /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
-            /*enableParallel*/ false) {}
+            enableParallel) {}
 
   void runOnOperation() final;
 
@@ -310,6 +310,8 @@ public:
   Option<bool> enableTiling{*this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
+  Option<bool> enableParallel{*this, "enable-parallel",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 };
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
@@ -415,8 +417,8 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel, enableParallel);
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(
