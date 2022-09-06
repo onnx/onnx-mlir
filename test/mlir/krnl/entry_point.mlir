@@ -7,7 +7,7 @@ module {
   "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 
 // CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
-// CHECK:         llvm.mlir.global external constant @_entry_point_0("run_main_graph\00")
+// CHECK:         llvm.mlir.global external constant @_entry_point_0("run_first_entry\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig]\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig]\00")
 
@@ -17,8 +17,8 @@ module {
 
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<2 x ptr<i8>> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr<i8>>
-// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK:           [[VAR_3_:%.+]] = llvm.getelementptr [[VAR_2_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
+// CHECK:           [[VAR_3_:%.+]] = llvm.getelementptr [[VAR_2_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
 // CHECK:           [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_3_]], [[VAR_0_]][0] : !llvm.array<2 x ptr<i8>>
 // CHECK:           [[VAR_5_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           [[VAR_6_:%.+]] = llvm.insertvalue [[VAR_5_]], [[VAR_4_]][1] : !llvm.array<2 x ptr<i8>>
@@ -41,9 +41,9 @@ module {
 
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_4_:%.+]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-DAG:       [[VAR_4_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.getelementptr [[VAR_4_5_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
-// CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.constant(15 : i64) : i64
+// CHECK-DAG:       [[VAR_4_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
+// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.getelementptr [[VAR_4_5_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.constant(16 : i64) : i64
 // CHECK:           [[VAR_7_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_4_]], [[VAR_6_3_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_0_4_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_1_]], ^bb1, ^bb2
@@ -58,9 +58,9 @@ module {
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_5_:%.+]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-DAG:       [[VAR_4_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK-DAG:       [[VAR_5_5_:%.+]] = llvm.getelementptr [[VAR_4_6_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
-// CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.mlir.constant(15 : i64) : i64
+// CHECK-DAG:       [[VAR_4_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
+// CHECK-DAG:       [[VAR_5_5_:%.+]] = llvm.getelementptr [[VAR_4_6_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.mlir.constant(16 : i64) : i64
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_5_]], [[VAR_6_4_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_0_5_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_2_]], ^bb1, ^bb2
