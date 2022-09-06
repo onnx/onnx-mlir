@@ -2,7 +2,7 @@
 // XFAIL: *
 // We expect this to fail, due to the use of an optional `C` argument (implemented as a NoneType in onnx-mlir)
 module attributes {}  {
-  func @main_graph(%arg0: tensor<3x5xf32>, %arg1: tensor<5x4xf32>) -> tensor<3x4xf32> attributes {input_names = ["a", "b"], output_names = ["y"]} {
+  func.func @main_graph(%arg0: tensor<3x5xf32>, %arg1: tensor<5x4xf32>) -> tensor<3x4xf32> attributes {input_names = ["a", "b"], output_names = ["y"]} {
 //CHECK: %[[CONST:.*]] = torch.constant.int 1
 //CHECK: [[ALPHA:%[^ ]*]] = torch.constant.float 5.000000e-01 
     %none = "onnx.NoValue"() {value} : () -> none

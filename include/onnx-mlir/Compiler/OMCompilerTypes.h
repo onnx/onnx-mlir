@@ -50,6 +50,24 @@ typedef enum {
   InstrumentReportMemory
 } InstrumentActions;
 
+/* Onnx Mlir Compiler return code on errors; zero is success */
+typedef enum {
+  CompilerSuccess = 0,            /* Zero is success. */
+  InvalidCompilerOption = 1,      /* Could not process given compiler option. */
+  InvalidInputFile = 2,           /* Got a file with an unexpected format. */
+  InvalidInputFileAccess = 3,     /* Could not successfully open input file. */
+  InvalidOutputFileAccess = 4,    /* Could not successfully open output file. */
+  InvalidTemporaryFileAccess = 5, /* Could not access a temporary file. */
+  InvalidOnnxFormat = 6,          /* Could not successfully parse ONNX file. */
+  CompilerFailureInMLIRToLLVM = 7, /* Failed to lower MLIR to LLVM */
+  CompilerFailureInLLVMOpt = 8,    /* Failed to optimize LLVM */
+  CompilerFailureInLLVMToObj = 9,  /* Failed to lower LLVM to obj */
+  CompilerFailureInGenJniObj = 10, /* Failed to lower object to Jni object */
+  CompilerFailureInGenJni = 11,    /* Failed to lower Jni object to Jni */
+  CompilerFailureInObjToLib = 12,  /* Failed to link object to a library */
+  CompilerFailure = 13,            /* Failed to compile valid input file. */
+} OnnxMlirCompilerErrorCodes;
+
 #ifdef __cplusplus
 } // namespace onnx_mlir
 #endif

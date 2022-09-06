@@ -12,14 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/AffineExpr.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 
@@ -63,6 +58,14 @@ Value KrnlBuilder::load(Value memref, ValueRange indices) const {
   return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
+mlir::Value KrnlBuilder::load(mlir::Value memref, mlir::ValueRange indices,
+    mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  return load(memref, computedIndices);
+}
+
 Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
@@ -71,6 +74,14 @@ Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
 
 void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<KrnlStoreOp>(loc, val, memref, indices);
+}
+
+void KrnlBuilder::store(mlir::Value val, mlir::Value memref,
+    mlir::ValueRange indices, mlir::ValueRange offsets) const {
+  SmallVector<Value, 4> computedIndices;
+  MathBuilder createMath(*this);
+  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  store(val, memref, computedIndices);
 }
 
 void KrnlBuilder::storeIE(
@@ -239,12 +250,14 @@ void KrnlBuilder::printf(StringRef msg) const {
   b.create<KrnlPrintOp>(loc, msg, noneValue);
 }
 
-void KrnlBuilder::printf(StringRef msg, Value input, Type inputType) const {
+void KrnlBuilder::printf(
+    StringRef msg, Value input, Type inputType, bool endsWithNewLine) const {
   StringRef format = getFormat(inputType);
-  std::string concat(msg.str() + format.str());
+  std::string concat(msg.str() + format.str() + (endsWithNewLine ? "\n" : ""));
   StringRef newFormat(concat);
   b.create<KrnlPrintOp>(loc, newFormat, input);
 }
+
 void KrnlBuilder::printf(Value input, Type inputType) const {
   StringRef format = getFormat(inputType);
   b.create<KrnlPrintOp>(loc, format, input);

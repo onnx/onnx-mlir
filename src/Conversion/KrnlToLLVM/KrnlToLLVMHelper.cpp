@@ -176,26 +176,20 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   // Set ownership, i.e., free after OMTensor is destroyed.
-  Value owning = rewriter.create<LLVM::ConstantOp>(
-      loc, int64Ty, rewriter.getI64IntegerAttr(outOwning));
+  Value owning = create.llvm.constant(int64Ty, (int64_t)outOwning);
 
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
-      rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[0],
-          outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
-  outMemRefAllocatedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-      LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-      outMemRefAllocatedPtr);
+      create.llvm.extractValue(outMemRefTy.getBody()[0], outMemRef, {0});
+  outMemRefAllocatedPtr = create.llvm.bitcastI8Ptr(outMemRefAllocatedPtr);
 
   // Extract the aligned pointer.
   Value outMemRefAlignedPtr =
-      rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[1],
-          outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
-  outMemRefAlignedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-      LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-      outMemRefAlignedPtr);
+      create.llvm.extractValue(outMemRefTy.getBody()[1], outMemRef, {1});
+  outMemRefAlignedPtr = create.llvm.bitcastI8Ptr(outMemRefAlignedPtr);
 
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
@@ -205,8 +199,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
   onnx::TensorProto::DataType onnxTy = krnl::mlirTypeToOnnxType(elemTy);
-  auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-      loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
+  Value onnxTyVal = create.llvm.constant(int64Ty, (int64_t)onnxTy);
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
 
@@ -217,33 +210,26 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
 
   for (decltype(rank) i = 0; i < rank; i++) {
-    auto dimIdx = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(i));
-
+    Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
     // Transfer size of dimension from memref to dynamic memref.
-    auto dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-        outMemRef,
-        rewriter.getArrayAttr(
-            {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
-    auto dimSizePtr =
-        rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+    Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
+    Value dimSizePtr =
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-    rewriter.create<LLVM::StoreOp>(loc, dimSize, dimSizePtr);
+    create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
-    auto dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-        outMemRef,
-        rewriter.getArrayAttr(
-            {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
-    auto dimStridePtr =
-        rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+    Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
+    Value dimStridePtr =
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-    rewriter.create<LLVM::StoreOp>(loc, dimStride, dimStridePtr);
+    create.llvm.store(dimStride, dimStridePtr);
   }
 }
 
 LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
+  MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
   LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str);
   if (!global) {
@@ -251,9 +237,9 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(module.getBody());
 
-    auto i8Type = IntegerType::get(builder.getContext(), 8);
-    auto type = LLVM::LLVMArrayType::get(i8Type, str.size());
-    global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+    Type i8Type = IntegerType::get(builder.getContext(), 8);
+    Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
+    global = create.llvm.globalOp(type, /*isConstant=*/true,
         LLVM::Linkage::Internal, str, builder.getStringAttr(str));
 
     krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
@@ -265,15 +251,13 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 // Return a pointer to the first character in a global string.
 Value getPtrToGlobalString(
     const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) {
+  MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   Type i8Type = IntegerType::get(builder.getContext(), 8);
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
   Type i64Type = IntegerType::get(builder.getContext(), 64);
-  Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, global);
-  Value zero =
-      builder.create<LLVM::ConstantOp>(loc, i64Type, builder.getIndexAttr(0));
-
-  return builder.create<LLVM::GEPOp>(
-      loc, i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
+  Value globalPtr = create.llvm.addressOf(global);
+  Value zero = create.llvm.constant(i64Type, (int64_t)0);
+  return create.llvm.getElemPtr(i8PtrType, globalPtr, {zero, zero});
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
@@ -292,36 +276,16 @@ void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
     global.setAlignmentAttr(builder.getI64IntegerAttr(MinGlobalAlign));
 }
 
-Optional<FlatSymbolRefAttr> getFunctionDeclaration(
-    ModuleOp module, StringRef funcName) {
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-    return SymbolRefAttr::get(module.getContext(), funcName);
-  else
-    return None;
-}
-
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
-  constexpr const char *funcName = "strncmp";
-  Optional<FlatSymbolRefAttr> optFuncDecl =
-      krnl::getFunctionDeclaration(module, funcName);
-  if (optFuncDecl.hasValue())
-    return optFuncDecl.getValue();
-
-  // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
   MLIRContext *ctx = module.getContext();
   Type i8Type = IntegerType::get(ctx, 8);
   Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type fnType = LLVM::LLVMFunctionType::get(builder.getI32Type(),
-      ArrayRef<Type>({i8PtrTy, i8PtrTy, builder.getI64Type()}), false);
-
-  // Insert the function declaration the module.
-  PatternRewriter::InsertionGuard insertGuard(builder);
-  builder.setInsertionPointToStart(module.getBody());
-  builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
-
-  return SymbolRefAttr::get(ctx, funcName);
+  // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
+  return create.llvm.getOrInsertSymbolRef(module, StringRef("strncmp"),
+      builder.getI32Type(), {i8PtrTy, i8PtrTy, builder.getI64Type()});
 }
 
 std::string a2e_s(std::string a_s) {
@@ -336,6 +300,20 @@ std::string e2a_s(std::string e_s) {
   for (unsigned int i = 0; i < r.size(); i++)
     r[i] = e2a[(int)r[i]];
   return r;
+}
+
+void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
+  Type int32Ty = builder.getI32Type();
+  Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
+  LLVMBuilder createLLVM(builder, loc);
+  LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
+  // Create '__errno_location' function signature: `i32 *()`
+  FlatSymbolRefAttr errnoSymbolRef = createLLVMModuleLoc.getOrInsertSymbolRef(
+      module, StringRef("__errno_location"), int32PtrTy, {});
+  Value errNoPos =
+      createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
+  Value errNoVal = createLLVM.constant(int32Ty, (int64_t)errCode);
+  createLLVM.store(errNoVal, errNoPos);
 }
 
 } // namespace krnl

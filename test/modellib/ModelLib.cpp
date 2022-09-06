@@ -41,18 +41,41 @@ ModelLibBuilder::~ModelLibBuilder() {
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
-  if (rc != 0)
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
+      CompilerSuccess)
     return false;
-  exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
+  std::string libFilename =
+      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
+  exec = new ExecutionSession(libFilename);
   return exec != nullptr;
 }
 
 bool ModelLibBuilder::compileAndLoad(
     const onnx_mlir::CompilerOptionList &list) {
-  if (setCompilerOptions(list) != 0)
+  if (setCompilerOptions(list) != CompilerSuccess)
     return false;
   return compileAndLoad();
+}
+
+bool ModelLibBuilder::checkInstructionFromEnv(
+    const std::string envCheckInstruction) {
+  std::string instructionName = getenv(envCheckInstruction.c_str())
+                                    ? getenv(envCheckInstruction.c_str())
+                                    : "";
+  return checkInstruction(instructionName);
+}
+
+bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+  if (instructionName.empty())
+    return true;
+  llvm::sys::DynamicLibrary sharedLibraryHandle =
+      exec->getSharedLibraryHandle();
+  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+  if (!addr) {
+    printf("%s not found.\n", instructionName.c_str());
+    return false;
+  }
+  return true;
 }
 
 bool ModelLibBuilder::run() {
@@ -61,17 +84,14 @@ bool ModelLibBuilder::run() {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
-  outputs = exec->run(inputs);
-  return outputs != nullptr;
-}
-
-std::string ModelLibBuilder::getSharedLibName(
-    const std::string &sharedLibBaseName) {
-#ifdef _WIN32
-  return sharedLibBaseName + ".dll";
-#else
-  return sharedLibBaseName + ".so";
-#endif
+  try {
+    outputs = exec->run(inputs);
+  } catch (const std::runtime_error &error) {
+    std::cerr << "error while running: " << error.what() << std::endl;
+    return false;
+  }
+  assert(outputs && "when no exception are issued, output should exist");
+  return true;
 }
 
 void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
@@ -103,7 +123,8 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
   FunctionType funcType = builder.getFunctionType(inputsType, outputsType);
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp = builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
+  auto funcOp =
+      builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
@@ -111,9 +132,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 }
 
 void ModelLibBuilder::createEntryPoint(func::FuncOp &funcOp) {
-  FunctionType funcType = funcOp.getFunctionType();
-  auto entryPoint = ONNXEntryPointOp::create(
-      loc, funcOp, funcType.getNumInputs(), funcType.getNumResults(), "");
+  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp);
   module.push_back(entryPoint);
 }
 

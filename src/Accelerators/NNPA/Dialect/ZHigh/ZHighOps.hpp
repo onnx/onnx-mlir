@@ -48,31 +48,10 @@ public:
 } // namespace OpTrait
 } // namespace mlir
 
-namespace onnx_mlir {
-namespace zhigh {
+/// Include the auto-generated header files containing the declarations of the
+/// ZHigh dialect and operations.
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighDialect.hpp.inc"
 
-class ZHighDialect : public mlir::Dialect {
-public:
-  ZHighDialect(mlir::MLIRContext *context);
-
-  /// Parse an instance of an attribute registered to the zhigh dialect.
-  mlir::Attribute parseAttribute(
-      mlir::DialectAsmParser &parser, mlir::Type type) const override;
-
-  /// Print an instance of an attribute registered to the zhigh dialect.
-  void printAttribute(
-      mlir::Attribute attr, mlir::DialectAsmPrinter &printer) const override;
-
-  /// Provide a utility accessor to the dialect namespace. This is used by
-  /// several utilities for casting between dialects.
-  static mlir::StringRef getDialectNamespace() { return "zhigh"; }
-};
-
-} // namespace zhigh
-} // namespace onnx_mlir
-
-/// Include the auto-generated header file containing the declarations of the
-/// ZHigh operations.
 #define GET_ATTRDEF_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttributes.hpp.inc"
 

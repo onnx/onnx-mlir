@@ -80,11 +80,11 @@ public:
         valueAttrFinalized = valueAttribute;
       }
     } else {
-      if (auto intType = valueAttribute.getType().cast<IntegerType>()) {
+      if (auto intType = valueAttribute.cast<TypedAttr>().getType().cast<IntegerType>()) {
         elementType = ::mlir::IntegerType::get(
             context, intType.getWidth(), IntegerType::Signed);
         valueAttrFinalized = valueAttribute;
-      } else if (valueAttribute.getType().cast<::mlir::FloatType>()) {
+      } else if (valueAttribute.cast<TypedAttr>().getType().cast<::mlir::FloatType>()) {
         elementType = ::mlir::FloatType::getF32(context);
         valueAttrFinalized = valueAttribute;
       }

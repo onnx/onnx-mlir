@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "FrontendDialectTransformer.hpp"
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Support/SuppressWarnings.h"
@@ -102,7 +103,10 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
+  // onnxop: list of versions for dialect
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
+  // onnxop: the top version in third_part/onnx
+  std::map<std::string, int> op_dialect_top_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -600,7 +604,7 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
-        outputTypes.emplace_back(onnxModelType.getValue());
+        outputTypes.emplace_back(onnxModelType.value());
       } else {
         unsigned int j = i;
         // Variadic output is a single ODS result.
@@ -1018,11 +1022,6 @@ private:
     }
     auto current_opset = opset_map_.find(node.domain())->second;
 
-    if (current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "Warning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
-                   << ", which is quite old. Please consider regenerating your "
-                      "model with a newer Opset.\n";
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
@@ -1036,6 +1035,15 @@ private:
       // But the lowest opset in op_dialect_version_map_ is an exception.
       // It is the current opset when onnx-mlir project is started.
       // All opset lower than the last opset should use the last opset(version)
+
+      if (node.domain().compare("ai.onnx.ml") != 0 &&
+          current_opset < opset_list[opset_list.size() - 1] &&
+          current_opset < MINIMUM_SUPPORTED_OPSET)
+        llvm::outs()
+            << "Warning: ONNX " << node.op_type()
+            << " in your model is using Opset " << current_opset
+            << ", which is quite old. Please consider regenerating your "
+               "model with a newer Opset.\n";
       if (opset_list.size() == 1)
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
@@ -1044,6 +1052,16 @@ private:
                                   << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
+      }
+    } else {
+      llvm::outs() << node.op_type();
+      if (op_dialect_top_version_map_.find(node.op_type()) !=
+          op_dialect_top_version_map_.end()) {
+        llvm_unreachable(
+            " this Op is not found in the onnx version being used");
+      } else {
+        llvm_unreachable(
+            " this Op is not supported by onnx-mlir's onnx dialect");
       }
     }
     return std::string("");
@@ -1285,104 +1303,6 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  // construct JSON type from the argument type
-  // for example - a 3D array of f32 would produce something like
-  //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
-  // data type list:
-  //     "i1" / "i8" / "i16" / "i32" / "i64"
-  //     "ui8" / "ui16" / "ui32" / "ui64"
-  //     "f32" / "f64"
-  void concatTypeString(
-      Type argType, Attribute attr, llvm::raw_ostream &dstream) {
-    std::string comma = std::string("");
-
-    TypeSwitch<Type>(argType)
-        .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
-          auto et = seqTy.getElementType();
-          dstream << "   {\"seq\" : ";
-          concatTypeString(et, attr, dstream);
-        })
-        .Case<ShapedType>([&](ShapedType tensorTy) {
-          auto et = tensorTy.getElementType();
-          dstream << "   { \"type\" : ";
-          et.print(dstream);
-          dstream << " , \"dims\" : [";
-          if (tensorTy.hasRank()) {
-            int64_t rank = tensorTy.getRank();
-            for (int j = 0; j < rank; j++) {
-              dstream << comma << tensorTy.getDimSize(j);
-              comma = std::string(" , ");
-            }
-          } else {
-          }
-          dstream << "] ";
-          auto name = attr.cast<mlir::StringAttr>().getValue().str();
-          dstream << ", \"name\" : \"" << name << "\"";
-        })
-        .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
-    dstream << " }\n";
-  }
-
-  std::string getSignature(FunctionType funcType, Operation *op) {
-    auto inputs = funcType.getInputs();
-    auto outputs = funcType.getResults();
-
-    auto input_names = op->getAttrOfType<mlir::ArrayAttr>("input_names");
-    auto output_names = op->getAttrOfType<mlir::ArrayAttr>("output_names");
-
-    std::string const sf32 = std::string(" f32 ");
-    std::string const sf64 = std::string(" f64 ");
-    std::string const si32 = std::string(" i32 ");
-    std::string const si64 = std::string(" i64 ");
-    std::string const si16 = std::string(" i16 ");
-    std::string const si8 = std::string(" i8 ");
-    std::string const si1 = std::string(" i1 ");
-    std::string const sui32 = std::string(" ui32 ");
-    std::string const sui64 = std::string(" ui64 ");
-    std::string const sui16 = std::string(" ui16 ");
-    std::string const sui8 = std::string(" ui8 ");
-
-    std::map<std::string, std::string> typeMap = {
-        {sf32, std::string(" \"f32\" ")}, {sf64, std::string(" \"f64\" ")},
-        {si32, std::string(" \"i32\" ")}, {si64, std::string(" \"i64\" ")},
-        {si16, std::string(" \"i16\" ")}, {si8, std::string(" \"i8\" ")},
-        {si1, std::string(" \"i1\" ")}, {sui32, std::string(" \"ui32\" ")},
-        {sui64, std::string(" \"ui64\" ")}, {sui16, std::string(" \"ui16\" ")},
-        {sui8, std::string(" \"ui8\" ")}};
-    std::string dstring;
-    llvm::raw_string_ostream dstream(dstring);
-    dstream << "[ ";
-    std::string comma = std::string("");
-    for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
-      dstream << comma;
-      concatTypeString(inputs[i], input_names[i], dstream);
-      comma = std::string(" , ");
-    }
-    dstream << "\n]";
-    dstream.flush();
-    dstring.push_back('\0'); // null terminate the input signature string
-    dstream << "@[";
-    comma = std::string("");
-    for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
-      dstream << comma;
-      concatTypeString(outputs[i], output_names[i], dstream);
-      comma = std::string(" , ");
-    }
-    dstream << "\n]";
-    dstream.flush();
-    dstring.push_back('\0'); // null terminate the output signature string
-    for (auto const &x : typeMap) {
-      size_t start_pos = 0;
-      while (
-          (start_pos = dstring.find(x.first, start_pos)) != std::string::npos) {
-        dstring.replace(start_pos, x.first.length(), x.second);
-        start_pos += x.first.length();
-      }
-    }
-
-    return dstring;
-  }
-
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
@@ -1401,13 +1321,8 @@ private:
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
 
-    std::string sig = getSignature(funcType, mainFunc.getOperation());
-
     // Emit entry point op describing inference function signature.
-    auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/funcType.getNumInputs(),
-        /*numOutputs=*/funcType.getNumResults(),
-        /*signature=*/sig);
+    auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);
     module_.push_back(entryPoint);
 
     return mainFunc;
@@ -1445,17 +1360,23 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   }
 }
 
-void ImportFrontendModelArray(const void *onnxBuffer, int size,
+// Return 0 on success, error otherwise.
+int ImportFrontendModelArray(const void *onnxBuffer, int size,
     MLIRContext &context, OwningOpRef<ModuleOp> &module,
-    ImportOptions options) {
+    std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
 
-  auto parse_success = model.ParseFromArray(onnxBuffer, size);
-  assert(parse_success && "Onnx Model Parsing Failed.");
+  bool parse_success = model.ParseFromArray(onnxBuffer, size);
+  if (!parse_success) {
+    *errorMessage = "Unable to parse onnxBuffer";
+    return InvalidOnnxFormat;
+  }
   ImportFrontendModelInternal(model, context, module, options);
+  return CompilerSuccess;
 }
 
-void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+// Return 0 on success, error otherwise.
+int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
@@ -1463,15 +1384,16 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   // check if the input file is opened
   if (!input.is_open()) {
     *errorMessage = "Unable to open or access " + model_fname;
-    return;
+    return InvalidInputFileAccess;
   }
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {
     *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
-    return;
+    return InvalidOnnxFormat;
   }
   ImportFrontendModelInternal(model, context, module, options);
+  return CompilerSuccess;
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

@@ -29,6 +29,7 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
+  let useDefaultTypePrinterParser = 1;
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
@@ -36,31 +37,36 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
-def KrnlCallOp : Op<Krnl_Dialect, "call"> {
+def KrnlCallOp : Op<Krnl_Dialect, "call", 
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "call operation";
   let description = [{
     The call operation provides a generic way to call an external function
     at Krnl level.  The `funcName` determines which function to call.
-    The `alloc` is the Value to store the function return. Since allocation
-    of the return MemRef involves shape inference usually with IndexExpr.
-    Thus most of time the allocation should stay in compiler, not in runtime library.
+    The `result` is the Value to store the function return. Currently only
+    one output is supported. `result` has to be resultated memref. 
+    Since resultation of the output MemRef involves shape inference on ONNX Op,
+    resultation should be done at lowering ONNX Op, not within krnl.Call.
+    Another reason is that Krnl.call need to be defined with AllocationOp
+    interface if `result` is allcated inside this Op.
     The parameters can be of any type: MemRef, NoneType or any llvm type.
     Different types of parameters will be converted, if needed, when KrnlCallOp
     is lowered. Attributes will be converted to parameters too (To be Added).
     The function signature will be determined with the types of parameters.
     An LLVM::CallOp to either a runtime library or a llvm intrinsic function
     will be generated.
+    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion.
   }];
 
-  let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
-  let results =(outs AnyType:$result);
+  let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);
 
   // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
   // The name of function can be determined by the op name and elemnt type of the return,
   // or given to builder if the simple rule does not work
   // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
-  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
-      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+  let builders = [OpBuilder<(ins "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
  
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
@@ -208,11 +214,18 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
 
 def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
     AffineScope]> {
-  let summary = "Affine Region for Krnl";
+  let summary = "Affine boundary for krnl loops";
   let description = [{
-    This Op has AffineScope trait and is used to limit the scope of affine.for.
-    Otherwise, the affine.for might be illegal if a symbol is not defined at
-    the top of function, which has the AffineScope trait. 
+    This Op has a region with AffineScope trait and is used to limit the 
+    scope of `affine.for.'. The loop inside krnl.region can be affined if
+    its boundary is defined at the level of krnl.region. krnl.region does 
+    not guarantee or require the loops inside it to be affine.
+    With krnl.oregion, a krnl loop may not be  affine if its boundary symbol
+    is not defined inside a enclosing region without AffineScope trait.
+    In MLIR, FuncOp has the AffineScope trait. 
+    The `krnl.region` will be removed after affine.for is lowered.
+    ToFix: current krnl.region does not have input and output. You cannot 
+    create a new memref inside the region and use it outside of the region. 
   }];
 
   let regions = (region SizedRegion<1>:$bodyRegion);
@@ -435,6 +448,16 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
+}
+
+def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
+  let summary = "Krnl isnan scalar operation";
+  let description = [{
+    Krnl isnan scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs I1:$out);
 }
 
 def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
@@ -1041,7 +1064,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
@@ -1112,6 +1135,12 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let summary = "Print a tensor.";
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
+    At the begining of the msg string, user can add formatting instructions. The flags are:
+      %s: detailed signature (including shape, type, offsets),
+      %t: compact type (ala MLIR: 32x16xfloat),
+      %d: data values.
+    When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
+    Print operation ends with a newline, except when only requesting a compact types (%t).
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);

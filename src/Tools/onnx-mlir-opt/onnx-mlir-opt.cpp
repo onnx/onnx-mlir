@@ -39,6 +39,8 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 
+// #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -115,7 +117,9 @@ int main(int argc, char **argv) {
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::ONNXDialect>();
-  registry.insert<mlir::KrnlOpsDialect>();
+  registry.insert<mlir::KrnlDialect>();
+  registry.insert<mlir::tosa::TosaDialect>();
+  // registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::torch::Torch::TorchDialect>();
   registry.insert<mlir::torch::TorchConversion::TorchConversionDialect>();
 

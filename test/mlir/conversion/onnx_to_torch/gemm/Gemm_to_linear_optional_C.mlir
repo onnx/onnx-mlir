@@ -4,7 +4,7 @@
 // create a bias with values of 0. Our testing relies on the lowering from torch to host code and this
 // will allow us to run the lowering passes.
 module attributes {}  {
-  func @main_graph(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> tensor<1x4xf32> attributes {input_names = ["a", "b"], output_names = ["y"]} {
+  func.func @main_graph(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> tensor<1x4xf32> attributes {input_names = ["a", "b"], output_names = ["y"]} {
     %none = "onnx.NoValue"() {value} : () -> none
     %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, none) -> tensor<1x4xf32>
 //CHECK: %[[CONSTANT:.*]] = torch.vtensor.literal(dense<0.000000e+00> : tensor<4xf32>) : !torch.vtensor<[4],f32>

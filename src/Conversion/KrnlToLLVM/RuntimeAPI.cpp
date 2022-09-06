@@ -12,8 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+
+#include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 using namespace mlir;
 
@@ -22,15 +24,17 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 void RuntimeAPI::declareAPI(ModuleOp &module, OpBuilder &builder) {
-  auto funcType = LLVM::LLVMFunctionType::get(outputTy, inputTys,
-      /*isVarArg=*/false);
-  symbolRef = getOrInsertExternFunc(name, module, funcType, builder);
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::LLVMBuilder> create(
+      builder, module.getLoc());
+  symbolRef =
+      create.llvm.getOrInsertSymbolRef(module, name, outputTy, inputTys);
 }
 
 // Call a registered API, return the return SSA values if only one result is
 // returned, otherwise return nullptr.
 Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
     const RuntimeAPIRegistry &registry, API apiId, ArrayRef<Value> params) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::LLVMBuilder> create(builder, loc);
   // To be used as parameters in LLVM::CallOp, voidTy must be converted
   // to empty list to avoid emission of an SSA value with voidTy. However,
   // we still keep using LLVM voidTy (as opposed to empty list) when recording
@@ -43,26 +47,8 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
   auto outputTy = runtimeAPI.outputTy;
   if (!outputTy.isa<LLVM::LLVMVoidType>())
     outputTys.emplace_back(outputTy);
-  auto returnVals = builder.create<LLVM::CallOp>(loc, ArrayRef<Type>(outputTys),
+  return create.llvm.call(ArrayRef<Type>(outputTys),
       registry.getAPI(apiId).symbolRef, ArrayRef<Value>(params));
-  if (returnVals.getNumResults() == 1)
-    return returnVals.getResult(0);
-  return nullptr;
-}
-
-FlatSymbolRefAttr RuntimeAPI::getOrInsertExternFunc(StringRef funcName,
-    ModuleOp module, mlir::Type funcType, OpBuilder &builder) {
-  MLIRContext *context = module.getContext();
-  if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    assert(sym.getFunctionType() == funcType && "wrong symbol type");
-    return SymbolRefAttr::get(context, funcName);
-  }
-
-  // Insert the function into the body of the parent module.
-  PatternRewriter::InsertionGuard insertGuard(builder);
-  builder.setInsertionPointToStart(module.getBody());
-  builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
-  return SymbolRefAttr::get(context, funcName);
 }
 
 //===----------------------------------------------------------------------===//
@@ -104,12 +90,14 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     RuntimeAPI(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
     RuntimeAPI(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
     RuntimeAPI(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
+    RuntimeAPI(API::GET_DATA_RANK, "omTensorGetRank", int64Ty, {opaquePtrTy}),
     RuntimeAPI(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
     RuntimeAPI(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
     RuntimeAPI(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
     RuntimeAPI(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
     RuntimeAPI(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy, opaquePtrTy}),
+    RuntimeAPI(API::GET_OMTENSOR_LIST_SIZE, "omTensorListGetSize", int64Ty, {opaquePtrTy}),
   };
   // clang-format on
 

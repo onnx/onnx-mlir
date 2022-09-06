@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Version/Version.hpp"
+#include <iostream>
 
 using namespace std;
 using namespace onnx_mlir;
@@ -54,6 +56,8 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
+  llvm::cl::SetVersionPrinter(getVersionPrinter);
+
   // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
   llvm::cl::ParseCommandLineOptions(argc, argv,
       "ONNX-MLIR modular optimizer driver\n", nullptr,
@@ -61,9 +65,10 @@ int main(int argc, char *argv[]) {
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
-  processInputFile(inputFilename, context, module, &errorMessage);
-  if (!errorMessage.empty()) {
-    printf("%s\n", errorMessage.c_str());
+  int rc = processInputFile(inputFilename, context, module, &errorMessage);
+  if (rc != 0) {
+    if (!errorMessage.empty())
+      std::cerr << errorMessage << std::endl;
     return 1;
   }
 
@@ -76,7 +81,8 @@ int main(int argc, char *argv[]) {
            outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
            std::regex("[\\.]*$")))) {
     if (b)
-      printf("Invalid -o option value %s ignored.\n", outputBaseName.c_str());
+      std::cerr << "Invalid -o option value " << outputBaseName << " ignored."
+                << std::endl;
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
   }
 

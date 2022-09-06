@@ -1,6 +1,6 @@
 // RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<1x5x10x10xf32>) -> tensor<1x5x5x13xf32> attributes {input_names = ["0"], output_names = ["2"]} {
+  func.func @main_graph(%arg0: tensor<1x5x10x10xf32>) -> tensor<1x5x5x13xf32> attributes {input_names = ["0"], output_names = ["2"]} {
 // CHECK-DAG: [[STRIDE:%.]] = torch.prim.ListConstruct %int2, %int1 : (!torch.int, !torch.int) -> !torch.list<int>
 // CHECK-DAG: [[PAD:%.]] = torch.prim.ListConstruct %int1, %int3, %int0, %int2 : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // CHECK-DAG: [[DILATION:%.]] = torch.prim.ListConstruct %int1, %int1 : (!torch.int, !torch.int) -> !torch.list<int>

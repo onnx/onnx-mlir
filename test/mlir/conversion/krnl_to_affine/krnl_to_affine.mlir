@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @test_lower_degenerate_iterate(%arg0: memref<f32>) -> memref<f32> {
+func.func @test_lower_degenerate_iterate(%arg0: memref<f32>) -> memref<f32> {
   %0 = memref.alloc() : memref<f32>
   krnl.iterate() with () {
     %1 = memref.load %arg0[] : memref<f32>
@@ -17,7 +17,7 @@ func @test_lower_degenerate_iterate(%arg0: memref<f32>) -> memref<f32> {
 // -----
 
 // COM: Simple krnl.load/store to affine.load/store.
-func @test_krnl_load_store(%arg0: memref<10x10xf32>) -> memref<1xf32> {
+func.func @test_krnl_load_store(%arg0: memref<10x10xf32>) -> memref<1xf32> {
   %c0 = arith.constant 0 : index
   %1 = krnl.load %arg0[%c0, %c0] : memref<10x10xf32>
   %2 = memref.alloc() : memref<1xf32>
@@ -35,7 +35,7 @@ func @test_krnl_load_store(%arg0: memref<10x10xf32>) -> memref<1xf32> {
 // -----
 
 // COM: Check whether krnl.load is lowered to std.load due to non-affine indices.
-func @test_krnl_load_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
+func.func @test_krnl_load_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -62,7 +62,7 @@ func @test_krnl_load_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<1
 // -----
 
 // COM: Check whether krnl.store is lowered to std.load due to non-affine indices.
-func @test_krnl_store_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
+func.func @test_krnl_store_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -90,7 +90,7 @@ func @test_krnl_store_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<
 
 // COM: Check whether krnl.load/store is lowered to affine.load/store due to affine indices.
 #map = affine_map<(d0) -> (d0 + 1)>
-func @test_krnl_load_store_with_affine(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
+func.func @test_krnl_load_store_with_affine(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<10x10xf32> {
   %0 = memref.alloc() : memref<10x10xf32>
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index

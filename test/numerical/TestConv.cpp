@@ -40,8 +40,9 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
       pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
-  return conv.build() && conv.compileAndLoad() && conv.prepareInputs() &&
-         conv.run() && conv.verifyOutputs();
+  return conv.build() && conv.compileAndLoad() &&
+         conv.checkInstructionFromEnv("TestConvNNPA_INSTRUCTION") &&
+         conv.prepareInputs() && conv.run() && conv.verifyOutputs();
 }
 
 } // namespace test
@@ -52,7 +53,7 @@ int main(int argc, char *argv[]) {
   using namespace onnx_mlir::test;
 
   llvm::FileRemover remover(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");

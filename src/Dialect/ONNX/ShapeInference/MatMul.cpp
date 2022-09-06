@@ -134,7 +134,7 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     outputDims.emplace_back(bDims[bM]);
   // For the case where both aRank == bRank == 1
   if (ABounds.getRank() == 1 && BBounds.getRank() == 1) {
-    outputDims.emplace_back(oneIE);
+    assert(outputDims.empty() && "1-D x 1-D results in scalar");
   }
   // Save the final result.
   dimsForOutput() = outputDims;

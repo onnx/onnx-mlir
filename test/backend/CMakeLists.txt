@@ -21,6 +21,11 @@ file(GENERATE
   )
 
 file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/input_verification_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/input_verification_backend.py
+  )
+
+file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/variables.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/variables.py
   )
@@ -78,14 +83,6 @@ else()
   set(BACKEND_TEST_ARGS "")
 endif()
 
-set(LD_PRELOADS $<TARGET_FILE:cruntime>)
-
-get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
-set(LIBSTDCXX_LIB "${CXX_BIN_DIR}/../lib64/libstdc++.so")
-if (EXISTS ${LIBSTDCXX_LIB})
-  set(LD_PRELOADS ${LIBSTDCXX_LIB}:${LD_PRELOADS})
-endif()
-
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
 # C/C++ and JNI tests run in parallel so they must use a different
@@ -126,6 +123,17 @@ add_custom_target(check-onnx-backend-signature
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+# Do not use pytest-xdist for this check because pytest-xdist swallows stdout
+# and this test cannot check messages from stdout.
+add_custom_target(check-onnx-backend-input-verification
+  COMMAND
+  TEST_INPUT_VERIFICATION=true
+    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py --input_verification
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(check-onnx-backend-compilerlib
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
@@ -150,6 +158,8 @@ add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
 add_dependencies(check-onnx-backend-signature onnx-mlir)
 add_dependencies(check-onnx-backend-signature PyRuntime)
+add_dependencies(check-onnx-backend-input-verification onnx-mlir)
+add_dependencies(check-onnx-backend-input-verification PyRuntime)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 
@@ -197,5 +207,5 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(check-onnx-backend-constant-jni javaruntime)
   add_dependencies(check-onnx-backend-constant-jni jniruntime)
 else()
-  message(STATUS "  JNI backend tests         : OFF")
+  message(STATUS "JNI backend tests         : OFF")
 endif()

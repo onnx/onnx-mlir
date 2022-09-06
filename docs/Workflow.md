@@ -178,7 +178,7 @@ Specific testing help is provided in these pages to [run](TestingHighLevel.md) a
 
 ## Step 7: Commit & Push
 
-ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://wiki.linuxfoundation.org/dco).
+ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
 THere is a one time setup to register your name and email.
 The commands are listed below, where you substitute your name and email address in the "John Doe" fields.
 
@@ -187,7 +187,8 @@ git config --global user.name "John Doe"
 git config --global user.email johndoe@example.com
 ```
 
-You may also be asked to sign a Contributor License Agreement (CLA) at some times during the PR review.
+You may also be asked to sign a Developer Certificate of Origin (DCO)
+at some times during the PR review.
 If you do, you will have to accept in order to contribute code.
 
 Once these initial tasks are done, you are ready to sign your code by using the `-s` flag during your commits.

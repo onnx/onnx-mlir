@@ -1,7 +1,7 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 
 module {
-  func @main_graph(%arg0: tensor<20x16x44x32xf32>) -> tensor<20x16x48x38xf32> attributes {input_names = ["0"], output_names = ["2"]} {
+  func.func @main_graph(%arg0: tensor<20x16x44x32xf32>) -> tensor<20x16x48x38xf32> attributes {input_names = ["0"], output_names = ["2"]} {
     //CHECK: [[VAL:%[^ ]*]] = torch.constant.float 0xFFF0000000000000
     //CHECK: [[PAD:%.]] = torch.prim.ListConstruct %int2{{_*[0-9]*}}, %int4{{_*[0-9]*}}, %int1{{_*[0-9]*}}, %int3{{_*[0-9]*}} :
     //CHECK: torch.aten.constant_pad_nd %arg0, [[PAD]], [[VAL]] : !torch.vtensor<[20,16,44,32],f32>, !torch.list<int>, !torch.float -> !torch.vtensor<[20,16,48,38],f32>

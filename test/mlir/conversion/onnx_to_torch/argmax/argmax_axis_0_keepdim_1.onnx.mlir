@@ -1,6 +1,6 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<4x4xf32>) -> tensor<1x4xi64> attributes {input_names = ["0"], output_names = ["1"]} {
+  func.func @main_graph(%arg0: tensor<4x4xf32>) -> tensor<1x4xi64> attributes {input_names = ["0"], output_names = ["1"]} {
 //CHECK-DAG: %[[DIM:.*]] = torch.constant.int 0
 //CHECK-DAG: %[[TRUE:.*]] = torch.constant.bool true
 //CHECK: torch.aten.argmax %arg0, %[[DIM]], %[[TRUE]] : !torch.vtensor<[4,4],f32>, !torch.int, !torch.bool -> !torch.vtensor<[1,4],si64>

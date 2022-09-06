@@ -40,13 +40,18 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
+parser.add_argument("--list-operation-version",
+                    help="list the version stored in  version_dicts without performing checks",
+                    action="store_true",
+                    default=False)
 
 args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
+list_operation_version = args.list_operation_version
 current_onnx_version = "1.11.0"
 # check the version of onnx package being used
-if (not check_operation_version) and current_onnx_version != onnx.__version__ :
+if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
           "while onnx package being used is {}".format(onnx.__version__))
     quit()
@@ -56,13 +61,14 @@ if (not check_operation_version) and current_onnx_version != onnx.__version__ :
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
+ 
 version_dict = {
  'Abs': [13],
  'Acos': [7],
  'Acosh': [9],
  'Adagrad': [1],
  'Adam': [1],
- 'Add': [13],
+ 'Add': [14],
  'And': [7],
  'ArgMax': [13],
  'ArgMin': [13],
@@ -72,7 +78,7 @@ version_dict = {
  'Atan': [7],
  'Atanh': [9],
  'AveragePool': [11],
- 'BatchNormalization': [9],
+ 'BatchNormalization': [14],
  'Binarizer': [1],
  'BitShift': [11],
  'Cast': [13],
@@ -91,12 +97,12 @@ version_dict = {
  'ConvTranspose': [11],
  'Cos': [7],
  'Cosh': [9],
- 'CumSum': [11],
+ 'CumSum': [14],
  'DepthToSpace': [13],
  'DequantizeLinear': [13],
  'Det': [11],
  'DictVectorizer': [1],
- 'Div': [13],
+ 'Div': [14],
  'Dropout': [13],
  'DynamicQuantizeLinear': [11],
  'Einsum': [12],
@@ -109,7 +115,7 @@ version_dict = {
  'FeatureVectorizer': [1],
  'Flatten': [13],
  'Floor': [13],
- 'GRU': [7],
+ 'GRU': [14],
  'Gather': [13],
  'GatherElements': [13],
  'GatherND': [13],
@@ -119,26 +125,27 @@ version_dict = {
  'GlobalMaxPool': [1],
  'Gradient': [1],
  'Greater': [13],
- 'GreaterOrEqual': [12],
+ 'GreaterOrEqual': [16],
  'HardSigmoid': [6],
  'Hardmax': [13],
- 'Identity': [13],
- 'If': [13],
+ 'HardSwish': [14],
+ 'Identity': [16],
+ 'If': [16],
  'Imputer': [1],
  'InstanceNormalization': [6],
  'IsInf': [10],
  'IsNaN': [13],
  'LRN': [13],
- 'LSTM': [7],
+ 'LSTM': [14],
  'LabelEncoder': [2],
- 'LeakyRelu': [6],
+ 'LeakyRelu': [16],
  'Less': [13],
- 'LessOrEqual': [12],
+ 'LessOrEqual': [16],
  'LinearClassifier': [1],
  'LinearRegressor': [1],
  'Log': [13],
  'LogSoftmax': [13],
- 'Loop': [13],
+ 'Loop': [16],
  'LpNormalization': [1],
  'LpPool': [11],
  'MatMul': [13],
@@ -152,7 +159,7 @@ version_dict = {
  'Min': [13],
  'Mod': [13],
  'Momentum': [1],
- 'Mul': [13],
+ 'Mul': [14],
  'Multinomial': [7],
  'Neg': [13],
  'NegativeLogLikelihoodLoss': [13],
@@ -162,14 +169,17 @@ version_dict = {
  'Not': [1],
  'OneHot': [11],
  'OneHotEncoder': [1],
+ 'Optional' : [15],
+ 'OptionalGetElement' : [15],
+ 'OptionalHasElement' : [15],
  'Or': [7],
- 'PRelu': [9],
+ 'PRelu': [16],
  'Pad': [13, 11, 2],
- 'Pow': [13],
+ 'Pow': [15],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
  'QuantizeLinear': [13],
- 'RNN': [7],
+ 'RNN': [14],
  'RandomNormal': [1],
  'RandomNormalLike': [1],
  'RandomUniform': [1],
@@ -186,8 +196,8 @@ version_dict = {
  'ReduceProd': [13],
  'ReduceSum': [13, 11],
  'ReduceSumSquare': [13],
- 'Relu': [13],
- 'Reshape': [13],
+ 'Relu': [14],
+ 'Reshape': [14],
  'Resize': [13, 11, 10],
  'ReverseSequence': [10],
  'RoiAlign': [10],
@@ -195,10 +205,10 @@ version_dict = {
  'SVMClassifier': [1],
  'SVMRegressor': [1],
  'Scaler': [1],
- 'Scan': [11],
+ 'Scan': [16],
  'Scatter': [11],
  'ScatterElements': [13],
- 'ScatterND': [13],
+ 'ScatterND': [16],
  'Selu': [6],
  'SequenceAt': [11],
  'SequenceConstruct': [11],
@@ -224,7 +234,7 @@ version_dict = {
  'Sqrt': [13],
  'Squeeze': [13, 11],
  'StringNormalizer': [10],
- 'Sub': [13],
+ 'Sub': [14],
  'Sum': [13],
  'Tan': [7],
  'Tanh': [13],
@@ -233,12 +243,13 @@ version_dict = {
  'Tile': [13],
  'TopK': [11],
  'Transpose': [13],
+ 'Trilu': [14],
  'TreeEnsembleClassifier': [1],
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  'Unsqueeze': [13, 11],
  'Upsample': [10, 9, 7],
- 'Where': [9],
+ 'Where': [16],
  'Xor': [7],
  'ZipMap': [1]}
 
@@ -263,14 +274,18 @@ OpsWithCanonicalizer = [
     'Add',
     'Cast',
     'Constant',
+    'DepthToSpace',
     'Dropout',
     'GlobalAveragePool',
     'GlobalMaxPool',
     'Identity',
+    'Less',
+    'Loop',
     'Mul',
     'Reshape',
     'Shape',
     'Size',
+    'SpaceToDepth',
     'Squeeze',
     'SqueezeV11',
     'Transpose',
@@ -291,6 +306,7 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'DequantizeLinear',
+    'Einsum',
     'Expand',
     'Flatten',
     'Gather',
@@ -303,6 +319,9 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
+    'Optional',
+    'OptionalGetElement',
+    'OptionalHasElement',
     'Pow',
     'RandomNormalLike',
     'ReverseSequence',
@@ -335,9 +354,9 @@ OpsWithHelpers = {
 OpsWithResultTypeInference = {
   "Constant":
   '''if (auto attr = valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = sparse_valueAttr()) {
-        resultTypes.push_back(attr.getType());
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }''',
   "Cast":
     '''// ae auto builder = mlir::OpBuilder(getContext());
@@ -345,7 +364,7 @@ OpsWithResultTypeInference = {
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.getType().cast<ShapedType>().getElementType()));
+          attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           FloatType::getF32(getContext())));
@@ -406,11 +425,11 @@ custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
-    auto tensorType = value.getType();
+    auto tensorType = value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
-    auto tensorType = sparse_value.getType();
+    auto tensorType = sparse_value.cast<TypedAttr>().getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
@@ -472,7 +491,9 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
-    elif onnx_attr_type == 'type':
+    elif onnx_attr_type in {'type', 'type_proto'}:
+        # 'type' is the attribute type used in special_attr_types,
+        # 'type_proto' is Optional op's type attribute's type
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
@@ -596,45 +617,18 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        types = get_onnx_mlir_types(schema, type_str_dict,  value)
+        str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
-        '''
-        structure, elem_types = get_allowed_elem_types(schema, type_str_dict,  value)
+        # In case the type string is used more than once
+        types = str_types.copy()
 
-        if structure == 'tensor' :
-            if elem_types is None:
-                types = ["AnyMemRef", "AnyTensor"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'seq' :
-            # Seq is not supported yet.
-            # Use of TensorOf<[AnyTensor]> as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TensorOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TensorOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        elif structure == 'map' :
-            # Map is not supported yet.
-            # Use of TupleOf as a placeholder for tablegen.
-            # When the Operation is used, warning/error will be generated at runtime.
-            if elem_types is None:
-                types = ["AnyMemRef", "TupleOf<[AnyTensor]>"]
-            else:
-                elem_types_str = ','.join(elem_types)
-                types = ["TupleOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
-                types = list(map(lambda x: x.format(elem_types_str), types))
-        else:
-            types = ["AnyMemRef", "AnyTensor"]
-        '''
+        # No need to add AnyMemRef type. Keep the code in case.
+        # types.append("AnyMemRef")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
-        elif OpSchema.FormalParameterOption.Variadic == value.option:
+
+        if OpSchema.FormalParameterOption.Variadic == value.option:
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
@@ -841,6 +835,11 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
+    # optional(...) always appears outermost
+    if allowedType.find("optional") == 0 :
+      allowedType = allowedType.replace("optional(", "OptOf<", 1);
+      allowedType = allowedType[:-1] + '>'
+
     # Apply substitutions in decreasing order of key-length, so that float16 is replaced
     # before float, and uint16 is replaced before int16, etc.
     mapping = list(onnx_to_mlir_type_dict.items())
@@ -855,13 +854,12 @@ def parse_a_type_constraint(constraint):
     for allowedType in allowedTypes:
         mlirType = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
+
     # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
 
-    # MemRef is always needed
-    mlirTypes.append("AnyMemRef")
     return mlirTypes
 
 def parse_type_constraints(schema):
@@ -875,7 +873,8 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             return [parse_type_str(input.typeStr), "AnyMemRef"]
+             type_str = parse_type_str(input.typeStr)
+             return [type_str]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -962,89 +961,67 @@ def gen_op_def(schema, with_version = False):
             raise RuntimeWarning(
                 "warning: not generate custom build methods for " +
                 schema.name + " since it does not have operands.")
-        else:
-            s += indent + 'let builders = [\n'
-            # Custom builders with operands and attributes having a separate parameter.
-            # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
-            indent = inc_indent(indent)
-            s += indent + 'OpBuilder<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
-            attrs_dict = get_attrs(schema)
-            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name) for name, ty in operands_dict.items())
-            if operands_dict and attrs_dict:
-                s += ', '
-            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
-                                      name) for name, ty in attrs_dict.items())
-            s += '), [{\n'
-            indent = inc_indent(indent)
 
-            # Get output type from first operand's type.
-            first_operand_name = list(ins.items())[0][0]
-            build_type_name = ''
-            bool_type = "$_builder.getI1Type()"
-            oTy = "nullptr"
+        r = '' # r is the resultType, use it with r.format(*operands, indent=indent)
+        if opName in custom_builder_broadcast_ops_list:
+            numOperands = 2
+            r += '{indent}auto lhsTy = {0}.getType();\n'
+            r += '{indent}auto rhsTy = {1}.getType();\n'
             if opName in custom_builder_broadcast_to_bool_ops_list:
-              oTy = bool_type
-            if opName in custom_builder_broadcast_ops_list:
-                second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType();\n'. \
-                    format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType();\n'. \
-                    format(second_operand_name)
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-                build_type_name = 'elementType'
+                r += '{indent}auto elTy = $_builder.getI1Type();\n'
+                elTy = 'elTy'
             else:
-                s += indent + 'auto elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<ShapedType>().getElementType();\n'
-                build_type_name = 'UnrankedTensorType::get(elementType)'
-            s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
-            for name, _ in ins.items():
-                s += ', ' + name
-            s += ');\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>,\n'
+                elTy = ''
+            r += '{indent}auto resultType = getBroadcastedRankedType(lhsTy, rhsTy' + \
+                (', ' + elTy if elTy else '') + ');\n'
+            r += '{indent}auto shapedType = resultType.dyn_cast_or_null<ShapedType>();\n'
+            r += '{indent}if (!shapedType || !shapedType.hasStaticShape())\n'
+            r += '{indent}  resultType = UnrankedTensorType::get(' + \
+                (elTy if elTy else 'lhsTy.cast<ShapedType>().getElementType()') + ');\n'
+        else:
+            numOperands = 1
+            r += '{indent}auto resultType = UnrankedTensorType::get(' + \
+                '{0}.getType().cast<ShapedType>().getElementType());\n'
+        resultType = r
 
-            # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<(ins "ValueRange operands,
-            #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<(ins ' + \
-                '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
-            indent = inc_indent(indent)
-            if opName in custom_builder_broadcast_ops_list:
-                s += indent + 'auto lhsTy = operands[0].getType();\n'
-                s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto oTy = {};\n'.format(oTy)
-                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy, oTy);\n'
-                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
-                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
-                if opName in custom_builder_broadcast_to_bool_ops_list:
-                    s += indent + indent + 'elementType = {};\n'.format(bool_type)
-                else:
-                    s += indent + indent + 'elementType = operands[0]' + \
-                        '.getType().cast<ShapedType>().getElementType();\n';
-                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
-                s += indent + '}\n';
-            else:
-                s += indent + 'auto elementType = operands[0].getType().' + \
-                    'cast<ShapedType>().getElementType();\n'
-            s += indent + 'std::vector<mlir::Type> outputTypes;\n'
-            s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
-            s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
-            indent = dec_indent(indent)
-            s += indent + '}]>'
+        s += indent + 'let builders = [\n'
+        # Custom builders with operands and attributes having a separate parameter.
+        # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
+        indent = inc_indent(indent)
+        s += indent + 'OpBuilder<(ins '
+        operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+        attrs_dict = get_attrs(schema)
+        s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                    name) for name, ty in operands_dict.items())
+        if operands_dict and attrs_dict:
+            s += ', '
+        s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                    name) for name, ty in attrs_dict.items())
+        s += '), [{\n'
+        indent = inc_indent(indent)
+        # Get output type from first operand's type.
+        operands = operands_dict.keys()
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, resultType'
+        for name, _ in ins.items():
+            s += ', ' + name
+        s += ');\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>,\n'
 
-            s += '\n' + indent + '];\n'
+        # Custom builders with all operands and attributes having aggregate parameters.
+        # E.g. OpBuilder<(ins "ValueRange operands,
+        #    ArrayRef<NamedAttribute> attributes", [{}]>'
+        s += indent + 'OpBuilder<(ins ' + \
+            '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
+        indent = inc_indent(indent)
+        operands = (f'operands[{i}]' for i in range(numOperands))
+        s += resultType.format(*operands, indent=indent)
+        s += indent + 'build($_builder, $_state, {resultType}, operands, attributes);\n'
+        indent = dec_indent(indent)
+        s += indent + '}]>'
+
+        s += '\n' + indent + '];\n'
 
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
@@ -1088,6 +1065,16 @@ def gen_op_versions(file) :
     for key, item in version_dict.items() :
         s += indent + 'op_dialect_version_map_["' + key +'"] = '
         s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
+    file.write(s)
+
+# create the top opset value of each op for current onnx
+
+def gen_op_new_version(file, new_version_dict) :
+    indent = inc_indent()
+    s = ""
+    for key, item in new_version_dict.items() :
+        s += indent + 'op_dialect_top_version_map_["' + key +'"] = '
+        s +=  "{}".format(", ".join(str(x) for x in item)) + ";\n"
     file.write(s)
 
 """
@@ -1165,7 +1152,7 @@ def build_operator_schemas():
                 if schema.name in exsting_ops:
                     continue
 
-                if check_operation_version :
+                if check_operation_version:
                     # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
@@ -1206,6 +1193,10 @@ def build_operator_schemas():
 
 
 def main(args):  # type: (Type[Args]) -> None
+    if list_operation_version:
+        pprint.pprint(version_dict)
+        return
+
     curr_utc_time = datetime.datetime.now(
         datetime.timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
     autogen_warning = (
@@ -1229,19 +1220,20 @@ def main(args):  # type: (Type[Args]) -> None
             # Generate Op with version number if not the latest version
             previous_name = ""
             for op_type, schema, versions in namemap:
-                if check_operation_version:
-                    new_version_dict[schema.name] = [schema.since_version]
-                else:
+                new_version_dict[schema.name] = [schema.since_version]
+                if not check_operation_version :
                     with_version = previous_name == schema.name
                     gen_op_importer(schema, op_importer, with_version)
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
+
+    gen_op_new_version(op_importer, new_version_dict)
     if check_operation_version :
         for key in version_dict :
             if not key in new_version_dict :
                 print("op {} is not in the version".format(key))
-            # Assume the top version will be upgreaded to the latest version
+            # Assume the top version will be upgraded to the latest version
             # The existing extra version (from index 1) will be kept
             for x in version_dict[key][1:] :
                 new_version_dict[key].append(x)

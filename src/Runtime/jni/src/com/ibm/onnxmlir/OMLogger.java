@@ -83,7 +83,7 @@ public class OMLogger {
 		fh.setLevel(l == null ? Level.INFO : l); // Must also set handler level
                 logger.addHandler(fh);
             } catch (SecurityException|IOException e) {
-                e.printStackTrace();
+                System.out.println(e.getMessage());
             }
         }
     }

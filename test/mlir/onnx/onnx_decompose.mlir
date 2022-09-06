@@ -3,7 +3,7 @@
 // -----
 
 // CHECK-LABEL: @test_reducel1(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceL1"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -15,7 +15,7 @@ func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // -----
 
 // CHECK-LABEL: @test_reducel2(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducel2(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducel2(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceL2"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -28,7 +28,7 @@ func @test_reducel2(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // -----
 
 // CHECK-LABEL: @test_reducelogsum(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducelogsum(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducelogsum(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSum"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -40,7 +40,7 @@ func @test_reducelogsum(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // -----
 
 // CHECK-LABEL: @test_reducelogsumexp(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSumExp"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -58,7 +58,7 @@ func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 // -----
 
 // CHECK-LABEL: @test_reducelogsumexp_keepdims(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducelogsumexp_keepdims(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducelogsumexp_keepdims(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceLogSumExp"(%arg0) {axes=[1], keepdims = 1 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -75,7 +75,7 @@ func @test_reducelogsumexp_keepdims(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> 
 // -----
 
 // CHECK-LABEL: @test_reducesumsquare(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
-func @test_reducesumsquare(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+func.func @test_reducesumsquare(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSumSquare"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -90,7 +90,7 @@ func @test_reducesumsquare(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
 
 // null
 // CHECK-LABEL: func @test_scaler_null_float(%{{.*}}: tensor<3xf32>) -> tensor<3xf32> {
-func @test_scaler_null_float(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+func.func @test_scaler_null_float(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -101,7 +101,7 @@ func @test_scaler_null_float(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 
 // null not float
 // CHECK-LABEL: func @test_scaler_null(%{{.*}}: tensor<3xi32>) -> tensor<3xf32> {
-func @test_scaler_null(%arg0: tensor<3xi32>) -> tensor<3xf32> {
+func.func @test_scaler_null(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -113,7 +113,7 @@ func @test_scaler_null(%arg0: tensor<3xi32>) -> tensor<3xf32> {
 
 // scaler no offset
 // CHECK-LABEL: func @test_scaler_no_offset(%{{.*}}: tensor<3xf32>) -> tensor<3xf32> {
-func @test_scaler_no_offset(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+func.func @test_scaler_no_offset(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -126,7 +126,7 @@ func @test_scaler_no_offset(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 
 // scaler no offset, int input
 // CHECK-LABEL: func @test_scaler_no_offset2(%{{.*}}: tensor<3xi32>) -> tensor<3xf32> {
-func @test_scaler_no_offset2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
+func.func @test_scaler_no_offset2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -140,7 +140,7 @@ func @test_scaler_no_offset2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
 
 // scaler no scale
 // CHECK-LABEL: func @test_scaler_no_scale(%{{.*}}: tensor<3xf32>) -> tensor<3xf32> {
-func @test_scaler_no_scale(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+func.func @test_scaler_no_scale(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -153,7 +153,7 @@ func @test_scaler_no_scale(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 
 // scaler no scale, int input
 // CHECK-LABEL: func @test_scaler_no_scale2(%{{.*}}: tensor<3xi32>) -> tensor<3xf32> {
-func @test_scaler_no_scale2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
+func.func @test_scaler_no_scale2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -167,7 +167,7 @@ func @test_scaler_no_scale2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
 
 // normal scaler
 // CHECK-LABEL: func @test_scaler_normal(%{{.*}}: tensor<3xf32>) -> tensor<3xf32> {
-func @test_scaler_normal(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+func.func @test_scaler_normal(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32], scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -182,7 +182,7 @@ func @test_scaler_normal(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 
 // normal scaler, int input
 // CHECK-LABEL: func @test_scaler_normal2(%{{.*}}: tensor<3xi32>) -> tensor<3xf32> {
-func @test_scaler_normal2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
+func.func @test_scaler_normal2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32], scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -198,7 +198,7 @@ func @test_scaler_normal2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
 
 // normal scaler with constant offset and scale
 // CHECK-LABEL: func @test_scaler_constant(%{{.*}}: tensor<3xf32>) -> tensor<3xf32> {
-func @test_scaler_constant(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+func.func @test_scaler_constant(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32], scale = [3.125000e-02 : f32]} : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -212,7 +212,7 @@ func @test_scaler_constant(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 // -----
 
 // Rewrite LogSoftmax using Log and Softmax.
-func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+func.func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.LogSoftmax"(%arg0) {axis=1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -224,7 +224,7 @@ func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
+func.func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
   %0 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
   return %0 : tensor<1x1x4x6xf32>
   // CHECK-LABEL: test_upsample
@@ -236,7 +236,7 @@ func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<
 
 // -----
 
-func @test_upsamplev9(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
+func.func @test_upsamplev9(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
   %0 = "onnx.UpsampleV9"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
   return %0 : tensor<1x1x4x6xf32>
   // CHECK-LABEL: test_upsamplev9
@@ -248,7 +248,7 @@ func @test_upsamplev9(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tenso
 
 // -----
 
-func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
+func.func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
   %0 = "onnx.UpsampleV7"(%arg0) {mode = "nearest", scales = [0.1 : f32, 0.2 : f32, 0.3 : f32, 0.4 : f32]} : (tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32>
   return %0 : tensor<1x1x4x6xf32>
   // CHECK-LABEL: test_upsamplev7
@@ -261,7 +261,7 @@ func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
 
 // -----
 
-func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
+func.func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     %0 = "onnx.PadV2"(%arg0) {mode = "reflect", pads = [0, 0, 4, 4, 0, 0, 4, 4]} : (tensor<1x3x224x224xf32>) -> tensor<*xf32>
     return %0 : tensor<*xf32>
     // CHECK-LABEL: test_padv2
@@ -273,7 +273,7 @@ func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
 
 // -----
 
-  func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
+  func.func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
     %0 = "onnx.ResizeV10"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<4xf32>) -> tensor<*xf32>
     return %0 : tensor<*xf32>
 
@@ -285,7 +285,7 @@ func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     // CHECK:           return [[VAR_2_]] : tensor<*xf32>
   }
 
-  func @test_resizev11(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<*xf32> {
+  func.func @test_resizev11(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<*xf32> {
     %0 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
     %1 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
     %2 = "onnx.Resize"(%arg0, %0, %0, %arg1) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
@@ -299,7 +299,7 @@ func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     // CHECK:           return [[VAR_2_]] : tensor<*xf32>
   }
 
-func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
+func.func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<*xf32>, tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
 
@@ -314,7 +314,7 @@ func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) -> !o
 
 // -----
 
-func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
+func.func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
   %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
   return 
 
@@ -328,7 +328,7 @@ func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
 
 // -----
 
-func @test_scatter(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
+func.func @test_scatter(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
   %0 = "onnx.Scatter"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 

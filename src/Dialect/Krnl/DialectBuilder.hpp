@@ -24,13 +24,19 @@ namespace onnx_mlir {
 struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
   mlir::Value loadIE(
       mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 
@@ -134,8 +140,8 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
   void printf(mlir::StringRef msg) const;
-  void printf(
-      mlir::StringRef msg, mlir::Value input, mlir::Type inputType) const;
+  void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
+      bool endsWithNewLine = false) const;
   void printf(mlir::Value input, mlir::Type inputType) const;
 
   // Onnx-mlir runtime functions.
@@ -151,7 +157,7 @@ template <class... Ts>
 struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), krnl(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), krnl(db) {}
   KrnlBuilder krnl;
 };
@@ -172,7 +178,7 @@ struct MultiDialectBuilder<AffineBuilderKrnlMem, Ts...>
     : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), affineKMem(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), affineKMem(db) {}
   AffineBuilderKrnlMem affineKMem;
 };

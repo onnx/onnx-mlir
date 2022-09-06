@@ -25,10 +25,16 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     bool isDynamicB = false, bool isNoneH = false, bool isNoneC = false,
     bool isNoneP = false) {
 
+  static int testNum = 0;
+  printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, isDynS %d, "
+         "isDynB %d, isNoneH %d, isNoneC %d, isNoneP %d\n",
+      ++testNum, direction, S, B, I, H, isDynamicS, isDynamicB, isNoneH,
+      isNoneC, isNoneP);
   LSTMLibBuilder lstm(SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS,
       isDynamicB, isNoneH, isNoneC, isNoneP);
-  return lstm.build() && lstm.compileAndLoad() && lstm.prepareInputs() &&
-         lstm.run() && lstm.verifyOutputs();
+  return lstm.build() && lstm.compileAndLoad() &&
+         lstm.checkInstructionFromEnv("TestLSTMNNPA_INSTRUCTION") &&
+         lstm.prepareInputs() && lstm.run() && lstm.verifyOutputs();
 }
 
 } // namespace test
@@ -39,7 +45,7 @@ int main(int argc, char *argv[]) {
   using namespace onnx_mlir::test;
 
   llvm::FileRemover remover(
-      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
@@ -50,8 +56,8 @@ int main(int argc, char *argv[]) {
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {
-    // The number of directions.
-    // 1: forward, -1: reverse, 2: bidirectional
+  // The number of directions.
+  // 1: forward, -1: reverse, 2: bidirectional
     const auto D = *rc::gen::element(1, -1, 2);
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
@@ -70,14 +76,23 @@ int main(int argc, char *argv[]) {
     // Whether initial value of the cell(initial_c) is specified.
     const auto isNoneC = *rc::gen::element(0, 1);
     // Whether the weight tensor for peepholes(P) is specified.
+#ifdef TEST_LSTM_NONEP_ONLY
+    const auto isNoneP = 1;
+#else
     const auto isNoneP = *rc::gen::element(0, 1);
+#endif
 
     RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0,
-        isDynB == 0, isNoneH == 0, isNoneC == 0, isNoneP == 0));
+        isDynB == 0, isNoneH == 1, isNoneC == 1, isNoneP == 1));
   });
   if (!success)
     return 1;
 
+#ifdef TEST_LSTM_NONEP_ONLY
+  int min_nonep = 1;
+#else
+  int min_nonep = 0;
+#endif
   // Exhaustive test case generation.
   for (int64_t s = 3; s < 4; s++)
     for (int64_t b = 3; b < 4; b++)
@@ -87,7 +102,7 @@ int main(int argc, char *argv[]) {
             for (int64_t dynb = 0; dynb < 2; dynb++)
               for (int64_t noneh = 0; noneh < 2; noneh++)
                 for (int64_t nonec = 0; nonec < 2; nonec++)
-                  for (int64_t nonep = 0; nonep < 2; nonep++) {
+                  for (int64_t nonep = min_nonep; nonep < 2; nonep++) {
                     // forward
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         1, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
@@ -98,6 +113,5 @@ int main(int argc, char *argv[]) {
                     assert(isOMLSTMTheSameAsNaiveImplFor(
                         2, s, b, i, h, dyns, dynb, noneh, nonec, nonep));
                   }
-
   return 0;
 }

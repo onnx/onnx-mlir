@@ -19,8 +19,13 @@
  * variables to to all the stages.
  */
 def call() {
+  def modelZooBuildBadge = addEmbeddableBadgeConfiguration(id: 'modelzoo', subject: 'Models')
+
   pipeline {
-    options { skipDefaultCheckout() }
+    options {
+      skipDefaultCheckout()
+      buildDiscarder(logRotator(numToKeepStr:'1000'))
+    }
 
     agent {
       node {
@@ -73,12 +78,27 @@ def call() {
       /* We may get one with @2, @3, etc. appended */
       JENKINS_WORKSPACE_AT = "${WORKSPACE}"
 
+      /* Model zoo tests are run only when we are merging a PR
+       * into the main branch (push event). For other PR events,
+       * we simply copy the PROJECT level report into the BUILD
+       * level report so it can be "published" back. We have to
+       * do this because it appears that otherwise we would lose
+       * the PROJECT level link to the report.
+       */
+      MODELZOO_WORKDIR      = 'modelzoo'
+      MODELZOO_REPORTDIR    = 'modelzoo_report'
+      MODELZOO_HTML         = 'modelzoo.html'
+      MODELZOO_STDOUT       = 'modelzoo.stdout'
+      MODELZOO_PUBLISH      = "${JENKINS_HOME}/jobs/${JOB_NAME}/htmlreports/Model_20Zoo_20Report"
+
       /* External stage build scripts */
       JENKINS_SCRIPT_DIR="${JENKINS_WORKSPACE_AT}/.buildbot"
+      JENKINS_RWLOCK="${JENKINS_SCRIPT_DIR}/jenkins-rwlock.py"
       JENKINS_STOP_PREVIOUS_BUILD="${JENKINS_SCRIPT_DIR}/jenkins-stop-previous-build.py"
       JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
       JENKINS_BUILD_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-project.py"
       JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
+      JENKINS_CHECK_MODEL_ZOO="${JENKINS_SCRIPT_DIR}/jenkins-check-model-zoo.py"
       JENKINS_CLEANUP_BUILD_STATES="${JENKINS_SCRIPT_DIR}/jenkins-cleanup-build-states.py"
 
       /* Depending on the system, python3 default I/O encoding could be set to
@@ -106,15 +126,15 @@ def call() {
         steps {
           /* uncomment for debugging */
           /*sh 'printenv'*/
+          echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "BUILD_URL                = ${BUILD_URL}"
           echo "JENKINS_SCRIPTSPACE      = ${JENKINS_SCRIPTSPACE}"
           echo "JENKINS_SCRIPTSPACE_AT   = ${JENKINS_SCRIPTSPACE_AT}"
           echo "JENKINS_WORKSPACE        = ${JENKINS_WORKSPACE}"
           echo "JENKINS_WORKSPACE_AT     = ${JENKINS_WORKSPACE_AT}"
-	  echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
-	  echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
-	  echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
-          echo "CPU_ARCH                 = ${CPU_ARCH}"
+          echo "JENKINS_START_TIME       = ${JENKINS_START_TIME}"
+          echo "JENKINS_REST_API_URL     = ${JENKINS_REST_API_URL}"
+          echo "JENKINS_REST_API_USER    = ${JENKINS_REST_API_USER}"
           echo "GITHUB_CONTEXT           = ${GITHUB_CONTEXT}"
           echo "GITHUB_EVENT             = ${GITHUB_EVENT}"
           echo "GITHUB_PR_SENDER         = ${GITHUB_PR_SENDER}"
@@ -129,12 +149,17 @@ def call() {
           echo "GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}"
           echo "GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}"
           echo "GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}"
-	  echo "GITHUB_PR_BASEREF        = ${GITHUB_PR_BASEREF}"
+          echo "GITHUB_PR_BASEREF        = ${GITHUB_PR_BASEREF}"
           echo "GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}"
           echo "GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}"
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
           echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
+          echo "MODELZOO_WORKDIR         = ${MODELZOO_WORKDIR}"
+          echo "MODELZOO_REPORTDIR       = ${MODELZOO_REPORTDIR}"
+          echo "MODELZOO_HTML            = ${MODELZOO_HTML}"
+          echo "MODELZOO_STDOUT          = ${MODELZOO_STDOUT}"
+          echo "MODELZOO_PUBLISH         = ${MODELZOO_PUBLISH}"
 
           checkout_pr_source("${GITHUB_PR_REPO_URL}",
                              "${GITHUB_PR_REMOTE}",
@@ -146,8 +171,8 @@ def call() {
 
       stage('Pre build preparation') {
         steps {
-	  /* Set build result to UNKNOWN so we know we are starting up */
           script {
+            /* Set build result to UNKNOWN so we know we are starting up */
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
           }
 
@@ -177,19 +202,34 @@ def call() {
         }
       }
 
-      stage('Publish docker images') {
+      stage('Publish') {
         when { anyOf { environment name: 'GITHUB_PR_PHRASE',
                        value: 'push';
                        environment name: 'GITHUB_PR_PHRASE',
                        value: 'publish' }
         }
-        steps {
-          sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
+
+        /* Publish docker images and model zoo test report in parallel */
+        parallel {
+          stage('Publish docker images') {
+            steps {
+              sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
+            }
+          }
+          stage('Publish model zoo test report') {
+            steps {
+              sh "${JENKINS_CHECK_MODEL_ZOO}"
+            }
+          }
         }
       }
+
     } // stages
 
     post {
+      always {
+        publish_modelzoo_report(modelZooBuildBadge)
+      }
       success {
         post_build_status("${GITHUB_EVENT}", 'success')
       }
@@ -213,7 +253,7 @@ def call() {
           } catch (e) {
             echo e.getMessage()
           }
-        } // script
+        }
       } // cleanup
     } // post
   } // pipeline
@@ -308,6 +348,50 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
             [ $class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true ]
         ]
     ])
+}
+
+/* Publish model zoo test report */
+def publish_modelzoo_report(badge) {
+    /* Acquire model zoo publish lock, if lock doesn't exist, it will be created.
+     * when no build is referencing the lock, it disappears.
+     */
+    lock(resource: 'modelzoo-publish-lock') {
+        try {
+            /* For regular PRs not running the model zoo test, or for merging PR
+             * failing to run the model zoo test, the report is copied from the
+             * already published report and then published again.
+             */
+            if ("${GITHUB_PR_PHRASE}" != 'push' &&
+                "${GITHUB_PR_PHRASE}" != 'publish' ||
+                "${currentBuild.currentResult}" != 'SUCCESS') {
+                echo 'rsync model zoo test report'
+                sh (script: """#!/bin/bash +x
+                    mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
+                    mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
+                    rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
+            }
+
+            /* Publish the copied/generated report */
+            publishHTML(target : [allowMissing:          true,
+                                  alwaysLinkToLastBuild: true,
+                                  /* true: BUILD level, false: PROJECT level */
+                                  keepAll:               false,
+                                  reportDir:             "${MODELZOO_REPORTDIR}",
+                                  reportFiles:           "${MODELZOO_HTML}",
+                                  reportName:            'Model Zoo Report',
+                                  reportTitles:          'Model Zoo Report'])
+
+            /* setLink currently has no effect since github transforms
+             * badge image url to its own githubusercontent.com url.
+             */
+            badge.setStatus(readFile(
+              "${WORKSPACE}/${MODELZOO_REPORTDIR}/${MODELZOO_STDOUT}").trim())
+            badge.setLink(
+              "${JENKINS_URL}job/${JOB_NAME}/Model_20Zoo_20Report")
+        } catch(e) {
+            echo e.getMessage()
+        }
+    } // lock
 }
 
 /* Must return contents as an object to be assigned by load to a variable */

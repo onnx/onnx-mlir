@@ -1,6 +1,6 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<1x4x15x15xf32>) -> tensor<1x5xf32> attributes {input_names = ["input.1"], output_names = ["10"]} {
+  func.func @main_graph(%arg0: tensor<1x4x15x15xf32>) -> tensor<1x5xf32> attributes {input_names = ["input.1"], output_names = ["10"]} {
     %0 = "onnx.Constant"() {value = dense<"0xDEADBEEF"> : tensor<6x4x7x7xf32>} : () -> tensor<6x4x7x7xf32>
     %1 = "onnx.Constant"() {value = dense<"0xDEADBEEF"> : tensor<6xf32>} : () -> tensor<6xf32>
 //CHECK: torch.aten.conv2d %arg0, %{{[^,]*}}, %{{[^,]*}}, %{{[^,]*}}, %{{[^,]*}}, %{{[^,]*}}, %{{[^,]*}} : !torch.vtensor<[1,4,15,15],f32>, !torch.vtensor<[6,4,7,7],f32>, !torch.vtensor<[6],f32>, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.int -> !torch.vtensor<[1,6,5,5],f32>   

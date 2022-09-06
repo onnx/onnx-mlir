@@ -41,6 +41,7 @@ public:
     auto *context = op->getContext();
     KrnlMemcpyOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
@@ -51,22 +52,18 @@ public:
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
-    Value alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, dstType, operandAdaptor.dest(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedDstMemory);
+    Value alignedDstMemory =
+        create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
+    Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
     Type srcType = operandAdaptor.src()
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
-    Value alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, srcType, operandAdaptor.src(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedSrcMemory);
+    Value alignedSrcMemory =
+        create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
+    Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
     Value int64Size = rewriter.create<LLVM::SExtOp>(
@@ -74,13 +71,12 @@ public:
 
     // Is volatile (set to false).
     Value isVolatile =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+        create.llvm.constant(IntegerType::get(context, 1), (int64_t)0);
 
     // Memcpy call
-    rewriter.create<func::CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
-            int64Size, isVolatile}));
+    create.llvm.call({}, memcpyRef,
+        {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
+            isVolatile});
 
     rewriter.eraseOp(op);
     return success();
@@ -91,25 +87,17 @@ private:
   /// module if necessary.
   FlatSymbolRefAttr getOrInsertMemcpy(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-      return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmI1Ty = IntegerType::get(context, 1);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-        ArrayRef<mlir::Type>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
-        false);
-
-    // Insert the memcpy function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(
-        module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-    return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI1Ty = IntegerType::get(context, 1);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("llvm.memcpy.p0.p0.i64"), llvmVoidTy,
+        {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty});
   }
 };
 

@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
-func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+func.func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -17,7 +17,7 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+func.func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
   %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
@@ -35,7 +35,7 @@ func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
+func.func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) : (tensor<?x?xf32>) -> tensor<*xf32>
   %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
@@ -58,7 +58,7 @@ func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
 /// COM: DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE depends on zAIU HW. Please check the value if these tests fails.
 
 
-func @test_exceed_limit_softmax(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
+func.func @test_exceed_limit_softmax(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<32769x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 

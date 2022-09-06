@@ -163,6 +163,8 @@ template <>
 std::tuple<GruWeightPack, GruWeightPack>
 getWeightPack<ONNXGRUOp, GruWeightPack>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   // Return values.
   GruWeightPack weightForward, weightReverse;
 
@@ -277,6 +279,8 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   // direction
   StringRef direction = op->direction();
 
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
   // Split B.
   if (!isNoneType(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
@@ -415,7 +419,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       MemRefType::get({batchSize, 3 * hiddenSize}, elementType);
 
   // Common matrix multiplications.
-  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
+  Value XtWT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT));
   Value one = create.math.constant(elementType, 1);
 
   // Lower and upper bounds derived from Ht tensor.
@@ -433,7 +438,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
     // In this case, we can do all matrix multiplications first, then fuse all
     // element-wise computations into a single nested loop.
-    Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
+    Value HtRT = create.onnx.toMemref(
+        create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT));
 
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops = create.krnl.defineLoops(htRank);
@@ -505,8 +511,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // In this case, besides computing matrix multiplications, we need to
     // compute rt and (rt (.) Ht-1) first, then fuse the remaining element-wise
     // computations into a single nested loop.
-    Value HtRz = create.onnx.matmul(matrixType, Ht, weightPack.Rz);
-    Value HtRr = create.onnx.matmul(matrixType, Ht, weightPack.Rr);
+    Value HtRz =
+        create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rz));
+    Value HtRr =
+        create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rr));
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
       rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
@@ -549,7 +557,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         });
 
     // Emit (rt (.) Ht-1)*(Rh^T)
-    Value rtHtRh = create.onnx.matmul(matrixType, rtHt, weightPack.Rh);
+    Value rtHtRh = create.onnx.toMemref(
+        create.onnx.matmul(matrixType, rtHt, weightPack.Rh));
 
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops2 = create.krnl.defineLoops(htRank);

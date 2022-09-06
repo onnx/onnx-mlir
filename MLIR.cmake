@@ -73,6 +73,22 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
 endfunction()
 add_custom_target(onnx-mlir-docs)
 
+# Create the list of supported ops. Pass the input file to scan, and the target architecture.
+# Target will create a docs/SupportedONNXOps-<arch>.md file listed
+# Useful options are "--notes", "--unsupported". Check python documentOps.py -h for more info.
+function(add_onnx_mlir_supported_ops input_file arch)
+  set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/SupportedONNXOps-${arch}.md)
+  set(supported_ops_cmd ${Python3_EXECUTABLE} ${ONNX_MLIR_SRC_ROOT}/utils/documentOps.py -a ${arch} -i ${input_file} -p ${ONNX_MLIR_SRC_ROOT}/utils)
+  add_custom_command(
+    OUTPUT ${GEN_DOC_FILE} 
+    COMMAND ${supported_ops_cmd}  --notes --unsupported > ${GEN_DOC_FILE}
+    DEPENDS ${input_file})
+  add_custom_target(onnx_mlir_supported_ops_${arch} DEPENDS ${GEN_DOC_FILE})
+  add_dependencies(onnx_mlir_supported_ops onnx_mlir_supported_ops_${arch})
+endfunction()
+add_custom_target(onnx_mlir_supported_ops)
+set_target_properties(onnx_mlir_supported_ops PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+
 # If an extra parameter, the dialect name, is provided,
 # this function will generate dialect and type from the td file
 function(add_onnx_mlir_dialect dialect dialect_name)
@@ -198,12 +214,14 @@ endfunction(add_onnx_mlir_library)
 #     Same semantics as target_include_directories().
 #   LINK_LIBS lib_targets...
 #     Same semantics as target_link_libraries().
+#   DEFINE define_targets...
+#     Same semantics as target_compile_definitions()
 #   )
 function(add_onnx_mlir_executable name)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     ""
-    "DEPENDS;INCLUDE_DIRS;LINK_LIBS"
+    "DEPENDS;INCLUDE_DIRS;LINK_LIBS;DEFINE"
     ${ARGN}
     )
 
@@ -229,5 +247,9 @@ function(add_onnx_mlir_executable name)
 
   if (NOT ARG_NO_INSTALL)
     install(TARGETS ${name} DESTINATION bin)
+  endif()
+
+  if (ARG_DEFINE)
+    target_compile_definitions(${name} ${ARG_DEFINE})
   endif()
 endfunction(add_onnx_mlir_executable)

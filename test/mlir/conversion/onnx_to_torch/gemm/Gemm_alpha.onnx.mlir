@@ -1,6 +1,6 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<3x5xf32>, %arg1: tensor<5x4xf32>, %arg2: tensor<1x4xf32>) -> tensor<3x4xf32> attributes {input_names = ["a", "b", "c"], output_names = ["y"]} {
+  func.func @main_graph(%arg0: tensor<3x5xf32>, %arg1: tensor<5x4xf32>, %arg2: tensor<1x4xf32>) -> tensor<3x4xf32> attributes {input_names = ["a", "b", "c"], output_names = ["y"]} {
 //CHECK-DAG: %[[CONST:.*]] = torch.constant.int 1
 //CHECK-DAG: [[ALPHA:%[^ ]*]] = torch.constant.float 5.000000e-01 
     %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 5.000000e-01 : f32} : (tensor<3x5xf32>, tensor<5x4xf32>, tensor<1x4xf32>) -> tensor<3x4xf32>

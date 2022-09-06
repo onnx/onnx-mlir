@@ -12,38 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iostream>
-#include <queue>
-
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/Block.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/IntegerSet.h"
-#include "mlir/IR/Matchers.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallBitVector.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"
 
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// KrnlOpsDialect
+// KrnlDialect
 //===----------------------------------------------------------------------===//
 
-KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
-    : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
+void KrnlDialect::initialize() {
   addTypes<krnl::LoopType, krnl::StringType>();
   addOperations<
 #define GET_OP_LIST
@@ -51,7 +34,7 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
       >();
 }
 
-Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
+Type KrnlDialect::parseType(DialectAsmParser &parser) const {
   StringRef keyword;
   if (parser.parseKeyword(&keyword))
     return Type();
@@ -66,7 +49,7 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
   return Type();
 }
 
-void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
+void KrnlDialect::printType(Type type, DialectAsmPrinter &os) const {
   TypeSwitch<Type>(type)
       .Case<krnl::LoopType>([&](Type) { os << "loop"; })
       .Case<krnl::StringType>([&](Type) { os << "string"; })
@@ -89,25 +72,34 @@ static std::string typeToString(Type ty) {
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     std::string funcNameStr, Value resultVal, Operation *op,
     ValueRange operands, bool copyAttrs) {
-  // Creates inputs
+  // Creates parameters for KrnlCall for Optional input (with NoneType)
+  // The semantics of optional input is ONNX Op specific and should be
+  // handled when lowering ONNX Op, not lowering KrnlCall.
+  // For now, None input is picked out from parameters of KrnCall.
+  // The Op will decide which external function to call based on the input.
+  // For future work: it might be possible to assume None type is
+  // always for a tensor and implemented with a nullptr in llvm.
+  // Then the None input can be handled inside the external function.
+  // Currently, onnx-mlir::NoneType is not handled by typeConverter of
+  // ONNXToKrnl conversion.
   SmallVector<Value, 4> allInputs;
   allInputs.emplace_back(resultVal);
-  for (auto operand : operands)
-    allInputs.emplace_back(operand);
+  for (auto operand : operands) {
+    if (!isFromNone(operand))
+      allInputs.emplace_back(operand);
+  }
 
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
   if (!copyAttrs) {
-    build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
-        operands);
+    build(builder, odsState, funcNameAttr, resultVal, allInputs);
   } else {
     std::vector<NamedAttribute> attributes;
     attributes.emplace_back(namedAttr);
     for (auto namedAttr : op->getAttrs()) {
       attributes.emplace_back(namedAttr);
     }
-    build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
-        attributes);
+    build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
   }
 }
 
@@ -121,6 +113,17 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   std::string funcNameStr = name + "_" + typeToString(elementType);
 
   build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+}
+
+void KrnlCallOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  for (auto parameter : parameters()) {
+    effects.emplace_back(MemoryEffects::Read::get(), parameter,
+        SideEffects::DefaultResource::get());
+  }
+  effects.emplace_back(MemoryEffects::Write::get(), result(),
+      SideEffects::DefaultResource::get());
 }
 
 //===----------------------------------------------------------------------===//
@@ -397,7 +400,8 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 
     // Parse induction variable.
     OpAsmParser::UnresolvedOperand inductionVar;
-    if (parser.parseRegionArgument(inductionVar) || parser.parseEqual())
+    if (parser.parseOperand(inductionVar, /*allowResultNumber=*/false) ||
+        parser.parseEqual())
       return failure();
     inductionVarRefs.emplace_back(inductionVar);
 
@@ -422,7 +426,16 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   Region *region = result.addRegion();
   SmallVector<Type, 4> inductionVarTypes(
       inductionVarRefs.size(), builder.getIndexType());
-  if (parser.parseRegion(*region, inductionVarRefs, inductionVarTypes))
+
+  SmallVector<OpAsmParser::Argument> entryArgs;
+  for (auto it : llvm::zip(inductionVarRefs, inductionVarTypes)) {
+    OpAsmParser::Argument arg;
+    arg.ssaName = std::get<0>(it);
+    arg.type = std::get<1>(it);
+    entryArgs.push_back(arg);
+  }
+
+  if (parser.parseRegion(*region, entryArgs))
     return failure();
 
   // Ensure iterate region is closed off with krnl.terminate.
@@ -479,6 +492,8 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
   IntegerAttr attr = builder.getI64IntegerAttr(opID);
   auto tagAttr = builder.getI64IntegerAttr(tag);
+  StringAttr nameAttr = builder.getStringAttr(StringRef(opName));
+  state.addAttribute("opName", nameAttr);
   state.addAttribute("opID", attr);
   state.addAttribute("tag", tagAttr);
 }
@@ -704,22 +719,22 @@ LogicalResult KrnlMatMulOp::verify() {
   if (operandAdaptor.loops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 
-  if (operandAdaptor.computeTileSize().hasValue()) {
+  if (operandAdaptor.computeTileSize().has_value()) {
     ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
       return emitOpError("computeTileSize rank should be 0 or 3");
   }
-  if (operandAdaptor.aTileSize().hasValue()) {
+  if (operandAdaptor.aTileSize().has_value()) {
     ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
       return emitOpError("aTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.bTileSize().hasValue()) {
+  if (operandAdaptor.bTileSize().has_value()) {
     ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
       return emitOpError("bTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.cTileSize().hasValue()) {
+  if (operandAdaptor.cTileSize().has_value()) {
     ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
       return emitOpError("cTileSize rank should be 0 or 2");
@@ -858,3 +873,5 @@ Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
+
+#include "src/Dialect/Krnl/KrnlDialect.cpp.inc"

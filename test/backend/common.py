@@ -15,10 +15,12 @@ from __future__ import unicode_literals
 
 import sys
 import os
+import ctypes
 import onnx
 import subprocess
 import variables
 from variables import *
+import _ctypes
 
 # determine the dynamic input and dim
 def determine_dynamic_parameters(test_name):
@@ -62,6 +64,16 @@ def execute_commands(cmds, dynamic_inputs_dims):
                     env_string += "," + str(dim_index)
         my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
+
+
+def check_instruction(test_name, exec_name):
+    if args.instruction_check and test_name in variables.test_to_enable_symbol_dict:
+        symbol_name = variables.test_to_enable_symbol_dict[test_name]
+        if symbol_name:
+            lib = ctypes.cdll.LoadLibrary(exec_name)
+            # Raise AttributeError if symbol undefined
+            symbol = getattr(lib, symbol_name)
+            _ctypes.dlclose(lib._handle)
 
 
 def compile_model(model, emit):
@@ -111,6 +123,10 @@ def compile_model(model, emit):
         command_list.append("--march=" + args.march)
     if args.mtriple:
         command_list.append("--mtriple=" + args.mtriple)
+    if args.maccel:
+        command_list.append("--maccel=" + args.maccel)
+    if args.input_verification:
+        command_list.append("--verifyInputTensors=")
     if args.converter or name in variables.test_need_converter:
         command_list.append("--invokeOnnxVersionConverter=true")
     command_list.append(target[emit])
@@ -126,4 +142,8 @@ def compile_model(model, emit):
     # Check if compiled model file exists
     if not os.path.exists(exec_name):
         print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
+
+    # Check if specific instruction are included in the compiled model.
+    check_instruction(name + "_cpu", exec_name)
+
     return exec_name
