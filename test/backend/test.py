@@ -52,7 +52,11 @@ elif args.input_verification:
     backend_test = InputVerificationBackendTest(InputVerificationBackend, __name__)
 else:
     # Models to test
-    test_to_enable = get_test_models()
+    test_by_type = { "node": [], "model": [] }
+    test_by_type["node"], test_by_type["model"], test_to_enable = get_test_models()
+    if args.list:
+        print(" ".join(test_by_type[args.list]))
+        sys.exit()
 
     # Backend Test
     backend_test = InferenceBackendTest(InferenceBackend, __name__)
