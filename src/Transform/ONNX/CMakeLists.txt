@@ -19,11 +19,13 @@ add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
 add_onnx_mlir_library(OMONNXRewrite
+  ConstProp.cpp
+  ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
-  ConstProp.cpp
 
   DEPENDS
+  OMONNXOps
   OMONNXDecomposeIncGen
   OMONNXConstPropIncGen
 

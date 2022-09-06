@@ -3,12 +3,11 @@
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Test the default behavior of unary lement-wise ops users give the shape of
-/// the output.
+/// Test shape inference when the output shape exists.
 /// Taking Sigmoid as an example.
 //===----------------------------------------------------------------------===//
 
-// COM: User output shape is better, do not change the output shape.
+// COM: Existing output shape is better, do not change the output shape.
 func.func @test_default_unary_elementwise_user_shape_1(%arg0 : tensor<2x3x?xf32>) -> tensor<2x3x4xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x?xf32>) -> tensor<2x3x4xf32>
   "func.return"(%0) : (tensor<2x3x4xf32>) -> ()
@@ -18,13 +17,27 @@ func.func @test_default_unary_elementwise_user_shape_1(%arg0 : tensor<2x3x?xf32>
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
-// COM: Infered output shape is better, update the output shape.
+// -----
+
+// COM: Infered shape is better, update the output shape.
 func.func @test_default_unary_elementwise_user_shape_2(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x?xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x?xf32>
   "func.return"(%0) : (tensor<2x3x?xf32>) -> ()
 
   // CHECK-LABEL: test_default_unary_elementwise_user_shape_2
   // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+// COM: Mix of infered shape and existing output shape.
+func.func @test_default_unary_elementwise_user_shape_3(%arg0 : tensor<?x3x4xf32>) -> tensor<2x3x?xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x4xf32>) -> tensor<2x3x?xf32>
+  "func.return"(%0) : (tensor<2x3x?xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_3
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<?x3x4xf32>) -> tensor<2x3x4xf32>
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
@@ -2525,9 +2538,9 @@ func.func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor
 
 // -----
 
-func.func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
-    %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
-    return %0 : tensor<?x?xf32>
+func.func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<*xf32> {
+    %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py -a'["input", "condition"]'
 // CHECK-LABEL:  func @compress_no_axis
@@ -2775,6 +2788,30 @@ func.func @test_celu(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK-LABEL: func @test_celu
   // CHECK: [[RES:%.+]] = "onnx.Celu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Bernoulli.
+//===----------------------------------------------------------------------===//
+
+func.func @test_bernoulli_1(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
+  %1 = "onnx.Bernoulli"(%arg0) {dtype = 1 : si64, seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_bernoulli_1
+  // CHECK: [[RES:%.+]] = "onnx.Bernoulli"(%arg0) {dtype = 1 : si64, seed = 2.000000e+00 : f32} : (tensor<8x8xf16>) -> tensor<8x8xf32>
+  // CHECK: return [[RES]] : tensor<8x8xf32>
+}
+
+func.func @test_bernoulli_2(%arg0 : tensor<8x8xf16>) -> tensor<*xf16> {
+  %1 = "onnx.Bernoulli"(%arg0) {seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf16>
+  "func.return"(%1) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: test_bernoulli_2
+  // CHECK: [[RES:%.+]] = "onnx.Bernoulli"(%arg0) {seed = 2.000000e+00 : f32} : (tensor<8x8xf16>) -> tensor<8x8xf16>
+  // CHECK: return [[RES]] : tensor<8x8xf16>
 }
 
 // -----

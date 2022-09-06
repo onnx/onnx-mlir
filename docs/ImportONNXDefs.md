@@ -101,10 +101,13 @@ If the definition of an operation needs extra code other than described above, y
 the code in the dictionary `custom_definition_misc`. The key is the operation name and the value is the code.
 
 # Build <a name="build"></a>
-In order to run gen_onnx_mlir.py, ONNX has to be installed. Refer to Readme. In your build
-directory, execute command `make OMONNXOpsIncTranslation`. This command will generate those two
-files (src/Dialect/ONNX/ONNXOps.td.inc and OpBuilderTable.inc),
-and copy them to the right place in src directory.
+In order to run gen_onnx_mlir.py, ONNX has to be installed. Refer to Readme.
+In your build directory, execute the following command.
+ ```
+ make OMONNXOpsIncTranslation
+ ```
+This command will generate those two files (src/Dialect/ONNX/ONNXOps.td.inc and
+OpBuilderTable.inc), and copy them to the right place in src directory.
 If you modified gen_onnx_mlir.py, you need to check in two generated files too. They are treated 
 source file in ONNX-MLIR build so that user of ONNX-MLIR does not need to install the particular
 version of ONNX. Do not modify these files directly.

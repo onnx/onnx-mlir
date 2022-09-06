@@ -112,7 +112,8 @@ bool MatMul2DLibBuilder::verifyOutputs() {
 }
 
 // =============================================================================
-// Matmul with broadcast in A or B but not both.
+// Matmul with broadcast in A or B but not both, or both have same static
+// broadcast dims.
 
 MatMulSingleBroadcastLibBuilder::MatMulSingleBroadcastLibBuilder(
     const std::string &modelName, bool broadcastingB, bool sameStaticBroadcast,
