@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --fold-std-alloc %s -split-input-file | FileCheck %s
 
-func @should_fold() -> memref<3xi64> {
+func.func @should_fold() -> memref<3xi64> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -23,7 +23,7 @@ func @should_fold() -> memref<3xi64> {
 
 // -----
 
-func @should_not_fold_not_constant_value(%arg0 : memref<1xi64>) -> memref<1xi64> {
+func.func @should_not_fold_not_constant_value(%arg0 : memref<1xi64>) -> memref<1xi64> {
   %c0 = arith.constant 0 : index
   %1 = krnl.load %arg0[%c0] : memref<1xi64>
 
@@ -38,7 +38,7 @@ func @should_not_fold_not_constant_value(%arg0 : memref<1xi64>) -> memref<1xi64>
 
 // -----
 
-func @should_not_fold_not_constant_i64(%arg0 : memref<1xindex>) -> memref<1xi64> {
+func.func @should_not_fold_not_constant_i64(%arg0 : memref<1xindex>) -> memref<1xi64> {
   %c0 = arith.constant 0 : index
   %c0_i64 = arith.constant 0 : i64
   %1 = krnl.load %arg0[%c0] : memref<1xindex>
@@ -54,7 +54,7 @@ func @should_not_fold_not_constant_i64(%arg0 : memref<1xindex>) -> memref<1xi64>
 
 // -----
 
-func @shoud_not_fold_different_blocks() -> memref<3xi64> {
+func.func @shoud_not_fold_different_blocks() -> memref<3xi64> {
   %c0 = arith.constant 0 : i64
 
   %0 = memref.alloc() : memref<3xi64>
@@ -71,7 +71,7 @@ func @shoud_not_fold_different_blocks() -> memref<3xi64> {
 
 // -----
 
-func @should_not_fold_number_of_stores_mismatch() -> memref<3xi64> {
+func.func @should_not_fold_number_of_stores_mismatch() -> memref<3xi64> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
 
@@ -91,7 +91,7 @@ func @should_not_fold_number_of_stores_mismatch() -> memref<3xi64> {
 
 // -----
 
-func @should_not_fold_not_int_type() -> memref<1xf32> {
+func.func @should_not_fold_not_int_type() -> memref<1xf32> {
   %c0 = arith.constant 0 : index
   %c1_f32 = arith.constant 1. : f32
  

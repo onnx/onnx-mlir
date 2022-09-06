@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
 ##################### RunONNXModel.py #########################################
@@ -26,43 +27,43 @@ from collections import OrderedDict
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model")
 lib_group = parser.add_mutually_exclusive_group()
-parser.add_argument('--print_input',
+parser.add_argument('--print-input',
                     action='store_true',
                     help="Print out inputs")
-parser.add_argument('--print_output',
+parser.add_argument('--print-output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
-parser.add_argument('--save_onnx',
+parser.add_argument('--save-onnx',
                        metavar='PATH',
                        type=str,
                        help="File path to save the onnx model")
-lib_group.add_argument('--save_so',
+lib_group.add_argument('--save-so',
                        metavar='PATH',
                        type=str,
                        help="File path to save the generated shared library of"
                        " the model")
-lib_group.add_argument('--load_so',
+lib_group.add_argument('--load-so',
                        metavar='PATH',
                        type=str,
                        help="File path to load a generated shared library for "
                        "inference, and the ONNX model will not be re-compiled")
-parser.add_argument('--save_data',
+parser.add_argument('--save-data',
                     metavar='PATH',
                     type=str,
                     help="Path to a folder to save the inputs and outputs"
                     " in protobuf")
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
-    '--data_folder',
+    '--data-folder',
     type=str,
     help="Path to a folder containing inputs and outputs stored in protobuf."
     " If --verify=ref, inputs and outputs are reference data for verification")
 data_group.add_argument(
-    '--shape_info',
+    '--shape-info',
     type=str,
     help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --data_folder is not set")
-parser.add_argument('--compile_args',
+    "Used to generate random inputs for the model if --data-folder is not set")
+parser.add_argument('--compile-args',
                     type=str,
                     default="",
                     help="Arguments passed directly to onnx-mlir command."
@@ -71,14 +72,14 @@ parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
-parser.add_argument('--verify_all_ops',
+parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime.")
 parser.add_argument(
-    '--compile_using_input_shape',
+    '--compile-using-input-shape',
     action='store_true',
     help="Compile the model by using the shape info getting from"
-    " the inputs in data folder. Must set --data_folder")
+    " the inputs in data folder. Must set --data-folder")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -204,12 +205,12 @@ def generate_random_input(model, input_shapes):
                 else:
                     print("The {} dim".format(ordinal(d + 1)),
                           "of the {} input is unknown.".format(ordinal(i + 1)),
-                          "Use --shape_info to set.")
+                          "Use --shape-info to set.")
                     print(shape_proto)
                     exit(1)
             else:
                 print("The shape of the {} input".format(ordinal(i + 1)),
-                      "is unknown. Use --shape_info to set.")
+                      "is unknown. Use --shape-info to set.")
                 print(shape_proto)
                 exit(1)
         rinput = np.random.uniform(-1.0, 1.0,

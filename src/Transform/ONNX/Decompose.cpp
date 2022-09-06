@@ -25,6 +25,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 using namespace mlir;
 
@@ -127,10 +128,81 @@ Value createSequenceConstructOp(
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
+RankedTensorType createResultType(
+    Type outputType, int64_t axisValue, bool keepDims) {
+  RankedTensorType outputShapeType = outputType.dyn_cast<RankedTensorType>();
+  llvm::ArrayRef<int64_t> shapeVector = outputShapeType.getShape();
+  int64_t rank = outputShapeType.getRank();
+  if (axisValue < 0)
+    axisValue += rank;
+  SmallVector<int64_t, 4> reducedShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (i != axisValue)
+      reducedShape.push_back(shapeVector[i]);
+    else if (keepDims)
+      reducedShape.push_back(1);
+  }
+  Type elementType = outputShapeType.getElementType();
+  RankedTensorType resultType =
+      RankedTensorType::get(reducedShape, elementType);
+  return resultType;
+}
+
+struct SoftmaxPattern : public ConversionPattern {
+  SoftmaxPattern(MLIRContext *context)
+      : ConversionPattern(ONNXSoftmaxOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation *op0, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    // Variables for capturing values and attributes used while creating ops
+    IntegerAttr axis;
+
+    // Match
+    ONNXSoftmaxOp softmaxOp = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
+    Value input = softmaxOp.input();
+    Type inputType = input.getType();
+    axis = op0->getAttrOfType<IntegerAttr>("axis");
+    if (!axis)
+      axis = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), -1);
+    int64_t axisValue = axis.getSInt();
+
+    // Rewrite
+    Location odsLoc = rewriter.getFusedLoc({op0->getLoc()});
+    IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+    ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
+    RankedTensorType resultType =
+        createResultType(inputType, axisValue, /*keepDims=*/true);
+    Value maxInput = rewriter.create<ONNXReduceMaxOp>(
+        odsLoc, resultType, input, axisAttr, keepDimsAttr);
+    Value subValue =
+        rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
+    Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
+    Value axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
+        /*value=*/rewriter.getI64TensorAttr({axisValue}));
+    IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 0);
+    Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
+        /*input=*/expValue,
+        /*axis=*/axisOp, keepDimsAttr, noopWithEmptyAxes);
+    Value divValue =
+        rewriter.create<ONNXDivOp>(odsLoc, inputType, expValue, sumValue);
+    rewriter.replaceOp(op0, divValue);
+    return success();
+  }
+};
+
+void populateDecomposingONNXBeforeMhloPatterns(
+    RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.add<SoftmaxPattern>(ctx);
+}
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
+
+  DecomposeONNXToONNXPass() = default;
+  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass) {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -138,6 +210,9 @@ struct DecomposeONNXToONNXPass
     return "Decompose ONNX operations into composition of other ONNX "
            "operations.";
   }
+
+  Option<std::string> target{*this, "target",
+      llvm::cl::desc("Target Dialect to decompose into"), ::llvm::cl::init("")};
 
   void runOnOperation() final;
 };
@@ -155,6 +230,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXClipV11Op>();
   target.addIllegalOp<ONNXClipV12Op>();
+  target.addIllegalOp<ONNXEinsumOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV2Op>();
   target.addIllegalOp<ONNXPadV11Op>();
@@ -174,6 +250,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
+  patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
+
+  if (this->target == "mhlo") {
+    populateDecomposingONNXBeforeMhloPatterns(patterns, context);
+    target.addIllegalOp<ONNXSoftmaxOp>();
+  }
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

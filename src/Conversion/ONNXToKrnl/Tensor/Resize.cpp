@@ -129,12 +129,27 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
+    // One of inputs, scales() and size(), has to be None.
+    // For now, None input is picked out by KrnlCall builder,
+    // and different function will be called accordingly.
+    // Another issue is the attributes with default value.
+    // Currently, it is assumed that all the optional attributes have
+    // the default value and does appear in the Attribute dictionry.
+    // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
-      Value resizeCall =
-          rewriter.create<KrnlCallOp>(loc, alloc, op, operands, true);
-      rewriter.replaceOp(op, resizeCall);
+      assert(op->getAttrs().size() == 1 &&
+             "ResizeOp: runtime lib is not supported for this case");
+      if (!isFromNone(resizeOp.scales())) {
+        rewriter.create<KrnlCallOp>(
+            loc, "Resize_Scales", alloc, op, operands, true);
+      } else {
+        rewriter.create<KrnlCallOp>(
+            loc, "Resize_Size", alloc, op, operands, true);
+      }
+      rewriter.replaceOp(op, alloc);
       return success();
     }
+    // It is much more efficient to generate codes directly if possible
 
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);

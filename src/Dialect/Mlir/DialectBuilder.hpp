@@ -25,7 +25,7 @@ namespace onnx_mlir {
 
 struct DialectBuilder {
   DialectBuilder(mlir::OpBuilder &b, mlir::Location loc) : b(b), loc(loc) {}
-  DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
+  DialectBuilder(const DialectBuilder &db) : b(db.b), loc(db.loc) {}
   virtual ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
@@ -51,7 +51,7 @@ protected:
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
 // Modified here to add operations, add super class.
-// Liscense added here for this class for completness.
+// License added here for this class for completeness.
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -60,7 +60,7 @@ protected:
 struct MathBuilder final : DialectBuilder {
   MathBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
@@ -104,6 +104,15 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value cast(mlir::Type destType, mlir::Value val) const;
   mlir::Value castToIndex(mlir::Value val) const;
 
+  // Add indexOffsets to the least significant indices. So if indices are (i, j,
+  // k, l) and offsets are (K, L), the results will be (i, j, k+K, l+L).
+  void addOffsetToLeastSignificant(mlir::ValueRange indices,
+      mlir::ValueRange offsets,
+      llvm::SmallVectorImpl<mlir::Value> &computedIndices) const;
+  void addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
+      mlir::ValueRange offsets,
+      llvm::SmallVectorImpl<mlir::Value> &computedIndices) const;
+
 private:
   mlir::Value createArithCmp(
       mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpIPredicate pred) const;
@@ -120,7 +129,7 @@ private:
 struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  MemRefBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
   mlir::memref::AllocOp alloc(
@@ -159,7 +168,7 @@ static constexpr int64_t gDefaultAllocAlign = 16;
 
 struct SCFBuilder final : DialectBuilder {
   SCFBuilder(mlir::OpBuilder &b, mlir::Location loc) : DialectBuilder(b, loc) {}
-  SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  SCFBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   /// Create an if then with optional else. Construct does not generate a result
   /// (unlike some scf::if) and introduces the yields automatically.
@@ -177,7 +186,7 @@ struct SCFBuilder final : DialectBuilder {
 struct VectorBuilder final : DialectBuilder {
   VectorBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  VectorBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  VectorBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
@@ -187,8 +196,18 @@ struct VectorBuilder final : DialectBuilder {
 
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
+      mlir::ValueRange indices, mlir::ValueRange offsets) const;
+  mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
+      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
+  void storeIE(mlir::Value val, mlir::Value memref,
+      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
   mlir::Value broadcast(mlir::VectorType vecType, mlir::Value val) const;
   mlir::Value shuffle(mlir::Value lhs, mlir::Value rhs,
@@ -214,11 +233,22 @@ template <class LOAD_OP, class STORE_OP>
 struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  GenericAffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
+  mlir::Value loadIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
+      mlir::ValueRange offsets) const;
+
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
+  void storeIE(mlir::Value val, mlir::Value memref,
+      llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
   void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
@@ -260,6 +290,111 @@ using AffineBuilder =
     GenericAffineBuilder<mlir::AffineLoadOp, mlir::AffineStoreOp>;
 
 //===----------------------------------------------------------------------===//
+// LLVM Builder
+//===----------------------------------------------------------------------===//
+
+struct LLVMBuilder final : DialectBuilder {
+  using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
+  using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
+
+  LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+
+  // AddressOfOp
+  mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
+
+  // AllocaOp
+  mlir::Value _alloca(
+      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+
+  // BitcastOp
+  mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
+  mlir::Value bitcastI8Ptr(mlir::Value val) const;
+  mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
+
+  // BrOp
+  void br(
+      llvm::ArrayRef<mlir::Value> destOperands, mlir::Block *destBlock) const;
+
+  // CallOp
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+  mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::FlatSymbolRefAttr funcSymbol,
+      mlir::ArrayRef<mlir::Value> inputs) const;
+
+  // CondBrOp
+  void condBr(mlir::Value cond, mlir::Block *trueBlock,
+      llvm::ArrayRef<mlir::Value> trueOperands, mlir::Block *falseBlock,
+      llvm::ArrayRef<mlir::Value> falseOperands) const;
+
+  // ConstantOp
+  mlir::Value constant(mlir::Type type, int64_t val) const;
+  mlir::Value constant(mlir::Type type, double val) const;
+
+  // ExtractValueOp
+  mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
+      llvm::ArrayRef<int64_t> position) const;
+
+  // FuncOp
+  mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+
+  // GEPOp
+  mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
+      llvm::ArrayRef<mlir::Value> indices) const;
+
+  // GlobalOp
+  mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
+      mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
+      uint64_t alignment = 0) const;
+
+  // ICmpOp
+  mlir::Value icmp(
+      mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
+
+  // InsertValueOp
+  mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
+      mlir::Value val, llvm::ArrayRef<int64_t> position) const;
+
+  // LoadOp
+  mlir::Value load(mlir::Value addr) const;
+
+  // NullOp
+  mlir::Value null(mlir::Type type) const;
+  mlir::Value nullI8Ptr() const;
+
+  // ReturnOp
+  void _return(mlir::Value val) const;
+
+  // StoreOp
+  void store(mlir::Value val, mlir::Value addr) const;
+
+  //===--------------------------------------------------------------------===//
+  // Helper functions
+  //===--------------------------------------------------------------------===//
+
+  // Get or insert a function declaration at the beginning of the module.
+  mlir::FlatSymbolRefAttr getOrInsertSymbolRef(mlir::ModuleOp module,
+      llvm::StringRef symName, mlir::Type resultType,
+      llvm::ArrayRef<mlir::Type> operandTypes, bool isVarArg = false) const;
+
+  /// Generate code that looks like "if then with optional else" at LLVM.
+  /// The following prototype code will be generated:
+  /// ```
+  /// llvm.condBr cond, ^thenBlock, ^elseBlock
+  /// ^thenBlock:
+  ///   thenBody
+  /// ^elseBlock:
+  ///   elseBody
+  /// ^mainBlock
+  ///   ...
+  /// ```
+  void ifThenElse(valueFuncRef cond, voidFuncRef thenFn,
+      voidFuncRef elseFn = nullptr) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Multi Dialect Builder
 //===----------------------------------------------------------------------===//
 
@@ -298,7 +433,7 @@ using AffineBuilder =
 template <class... Ts>
 struct MultiDialectBuilder {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc) {}
-  MultiDialectBuilder(DialectBuilder &db) {}
+  MultiDialectBuilder(const DialectBuilder &db) {}
 };
 
 // Recursive class specialized for MathBuilder refereed to as math.
@@ -306,7 +441,7 @@ template <class... Ts>
 struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), math(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), math(db) {}
   MathBuilder math;
 };
@@ -316,7 +451,7 @@ template <class... Ts>
 struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), mem(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), mem(db) {}
   MemRefBuilder mem;
 };
@@ -326,7 +461,7 @@ template <class... Ts>
 struct MultiDialectBuilder<AffineBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), affine(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), affine(db) {}
   AffineBuilder affine;
 };
@@ -336,19 +471,29 @@ template <class... Ts>
 struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), scf(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), scf(db) {}
   SCFBuilder scf;
 };
 
-// Recursive class specialized for VectorBuilder refereed to as scf.
+// Recursive class specialized for VectorBuilder refereed to as vec.
 template <class... Ts>
 struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), vec(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), vec(db) {}
   VectorBuilder vec;
+};
+
+// Recursive class specialized for LLVMBuilder refereed to as llvm.
+template <class... Ts>
+struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), llvm(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), llvm(db) {}
+  LLVMBuilder llvm;
 };
 
 // Include template implementations.

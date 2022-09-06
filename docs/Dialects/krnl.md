@@ -147,15 +147,21 @@ call operation
 
 The call operation provides a generic way to call an external function
 at Krnl level.  The `funcName` determines which function to call.
-The `alloc` is the Value to store the function return. Since allocation
-of the return MemRef involves shape inference usually with IndexExpr.
-Thus most of time the allocation should stay in compiler, not in runtime library.
+The `result` is the Value to store the function return. Currently only
+one output is supported. `result` has to be resultated memref. 
+Since resultation of the output MemRef involves shape inference on ONNX Op,
+resultation should be done at lowering ONNX Op, not within krnl.Call.
+Another reason is that Krnl.call need to be defined with AllocationOp
+interface if `result` is allcated inside this Op.
 The parameters can be of any type: MemRef, NoneType or any llvm type.
 Different types of parameters will be converted, if needed, when KrnlCallOp
 is lowered. Attributes will be converted to parameters too (To be Added).
 The function signature will be determined with the types of parameters.
 An LLVM::CallOp to either a runtime library or a llvm intrinsic function
 will be generated.
+The krnl.call op will be lowered to llvm at krnl-to-llvm conversion.
+
+Interfaces: MemoryEffectOpInterface
 
 #### Attributes:
 
@@ -167,14 +173,8 @@ will be generated.
 
 | Operand | Description |
 | :-----: | ----------- |
-| `alloc` | any type
-| `parameters` | any type
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
 | `result` | any type
+| `parameters` | any type
 
 ### `krnl.copy_from_tile_buffer` (::mlir::KrnlCopyFromBufferOp)
 
@@ -478,8 +478,27 @@ May be used for gdb.
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `opName` | ::mlir::StringAttr | string attribute
 | `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+
+### `krnl.isnan` (::mlir::KrnlIsNaNOp)
+
+Krnl isnan scalar operation
+
+Krnl isnan scalar operation.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `in` | floating-point
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `out` | 1-bit signless integer
 
 ### `krnl.iterate` (::mlir::KrnlIterateOp)
 
@@ -920,6 +939,12 @@ Traits: MemRefsNormalizable
 Print a tensor.
 
 This operation can be used to generate a call to a runtime function which prints a tensor.
+At the begining of the msg string, user can add formatting instructions. The flags are:
+  %s: detailed signature (including shape, type, offsets),
+  %t: compact type (ala MLIR: 32x16xfloat),
+  %d: data values.
+When no formatting is provided, "%s%d" is used (detailed signature and data) by default.
+Print operation ends with a newline, except when only requesting a compact types (%t).
 
 Traits: MemRefsNormalizable
 
@@ -953,6 +978,23 @@ Traits: MemRefsNormalizable
 | `scale` | floating-point
 | `seed` | floating-point
 
+### `krnl.region` (::mlir::KrnlRegionOp)
+
+Affine boundary for krnl loops
+
+This Op has a region with AffineScope trait and is used to limit the 
+scope of `affine.for.'. The loop inside krnl.region can be affined if
+its boundary is defined at the level of krnl.region. krnl.region does 
+not guarantee or require the loops inside it to be affine.
+With krnl.oregion, a krnl loop may not be  affine if its boundary symbol
+is not defined inside a enclosing region without AffineScope trait.
+In MLIR, FuncOp has the AffineScope trait. 
+The `krnl.region` will be removed after affine.for is lowered.
+ToFix: current krnl.region does not have input and output. You cannot 
+create a new memref inside the region and use it outside of the region. 
+
+Traits: AffineScope, NoTerminator, SingleBlock
+
 ### `krnl.seqextract` (::mlir::KrnlSeqExtractOp)
 
 Krnl load from a seq
@@ -961,6 +1003,8 @@ sequence is represented with memref<memref<>>.
 This op loads a tensor for the sequence 'seq' at position 'index',
 and return the tensor, which will be freed by Bufferization::Deallocation.
 The element in the sequence will become null.
+
+Traits: MemRefsNormalizable
 
 Interfaces: AllocationOpInterface, MemoryEffectOpInterface
 

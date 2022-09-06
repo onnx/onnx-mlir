@@ -33,7 +33,16 @@ def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 def IsNotNoneType : Constraint<CPred<"(!($_self).getType().isa<NoneType>())">>;
 
 class HasRankOf<int rank> : Constraint<
-  CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>
+  CPred<"$0.getType().isa<ShapedType>() && "
+        "$0.getType().cast<ShapedType>().hasRank() && "
+        "$0.getType().cast<ShapedType>().getRank() == " # rank>
+>;
+
+def IsBiasNoneOr1D : Constraint<
+  CPred<"$_self.getType().isa<NoneType>() || "
+        " ($_self.getType().isa<ShapedType>() && "
+	"  $_self.getType().cast<ShapedType>().hasRank() && "
+	"  $_self.getType().cast<ShapedType>().getRank() == 1)">
 >;
 
 class VariadicSizeIs<int N> : Constraint<
@@ -61,6 +70,9 @@ def GetRank :
 
 def GetSInt :
         NativeCodeCall<"$0.cast<IntegerAttr>().getSInt()">;
+
+class GetStrAttr<string s> :
+        NativeCodeCall<"$_builder.getStringAttr(\"" # s # "\")">;
 
 def GetI64Attr :
 	NativeCodeCall<"$_builder.getIntegerAttr($_builder.getIntegerType(64, true), $0)">;
@@ -497,10 +509,6 @@ def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)"
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
-def GetZeroI64Attr: NativeCodeCall<
-  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))"
->;
-
 //===----------------------------------------------------------------------===//
 // NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
 // Since alpha and beta were legalized by the pass configuration, we check rank only. 
@@ -536,14 +544,15 @@ def normalizeONNXGemmTransBPattern : Pat<
   (addBenefit 1)
 >;
 
-def replaceONNXGemmBias1DPattern : Pat<
+
+def replaceONNXGemmBiasNoneOr1DPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $_, $_, $_, $_),
   (ZHighUnstickOp
      (ZHighMatMulOp
         (ZHighStickOp $a, (_2DLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr)),
         (ZHighStickOp $c, (_1DLayoutAttr)))),
-  [(HasRankOf<1> $c)],
+  [(IsBiasNoneOr1D:$c)],
   (addBenefit 0)
 >;
 
@@ -581,7 +590,7 @@ def GetLSTMGRUGetY :
         NativeCodeCall<"getLSTMGRUGetY($_loc, $_builder, $0, $1)">;
 
 def GetLSTMGRUGetYh :
-        NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3)">;
+        NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3, $4)">;
 
 def GetLSTMGRUGetYc :
         NativeCodeCall<"getLSTMGRUGetYc($_loc, $_builder, $0, $1)">;
@@ -605,7 +614,7 @@ def replaceONNXLSTMPattern1 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
-    $input_forget),
+    $input_forget, $layout),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -635,7 +644,7 @@ def replaceONNXLSTMPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
@@ -646,7 +655,7 @@ def replaceONNXLSTMPattern2 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
-     $input_forget),
+     $input_forget, $layout),
   [
    //
    // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
@@ -669,18 +678,18 @@ def replaceONNXLSTMPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
-// Pattern3 for the bias($b) and not-none Y($res__0) case
+// Pattern3 for the not-none bias($b) and none Y($res__0) case
 def replaceONNXLSTMPattern3 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
-    $input_forget),
+    $input_forget, $layout),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -710,7 +719,7 @@ def replaceONNXLSTMPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
@@ -721,7 +730,7 @@ def replaceONNXLSTMPattern4 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
-     $input_forget),
+     $input_forget, $layout),
   [
    //
    // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
@@ -744,7 +753,7 @@ def replaceONNXLSTMPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
@@ -761,7 +770,7 @@ def replaceONNXLSTMPattern4 : Pattern<
 def replaceONNXGRUPattern1 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -791,7 +800,7 @@ def replaceONNXGRUPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -800,7 +809,7 @@ def replaceONNXGRUPattern1 : Pattern<
 def replaceONNXGRUPattern2 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Main-process to lower ONNXGRUOp into ZHighGRUOp.
@@ -822,7 +831,7 @@ def replaceONNXGRUPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -831,7 +840,7 @@ def replaceONNXGRUPattern2 : Pattern<
 def replaceONNXGRUPattern3 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
@@ -861,7 +870,7 @@ def replaceONNXGRUPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
@@ -870,7 +879,7 @@ def replaceONNXGRUPattern3 : Pattern<
 def replaceONNXGRUPattern4 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $linear_before_reset),
+     $direction, $hidden_size, $layout, $linear_before_reset),
   [
    //
    // Main-process to lower ONNXGRUOp into ZHighGRUOp.
@@ -892,7 +901,7 @@ def replaceONNXGRUPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;

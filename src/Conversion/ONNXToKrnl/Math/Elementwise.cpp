@@ -142,6 +142,12 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
+struct ScalarOp<ONNXIsNaNOp> {
+  using FOp = KrnlIsNaNOp;
+  using IOp = KrnlIsNaNOp; // Not used.
+};
+
+template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
   using IOp = KrnlAcosOp; // Not used.
@@ -456,7 +462,7 @@ Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
   Value operand = scalarOperands[0];
 
-  auto abs = rewriter.create<math::AbsOp>(loc, operand);
+  auto abs = rewriter.create<math::AbsFOp>(loc, operand);
   MathBuilder createMath(rewriter, loc);
   Value one = createMath.constant(elementType, 1);
   Value add = createMath.add(abs, one);
@@ -577,7 +583,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
 
   if (elementType.isa<FloatType>()) {
-    return rewriter.create<math::AbsOp>(loc, operand);
+    return rewriter.create<math::AbsFOp>(loc, operand);
   } else if (elementType.isa<IntegerType>()) {
     MathBuilder createMath(rewriter, loc);
     Value zero = createMath.constant(elementType, 0);
@@ -1231,6 +1237,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXIsNaNOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,

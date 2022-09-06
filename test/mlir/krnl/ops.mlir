@@ -10,7 +10,7 @@
 // GENERIC-DAG: #{{.*}} = affine_map<(d0, d1) -> (d0 - d1)>
 // GENERIC-DAG: #{{.*}} = affine_map<(d0, d1) -> (d0 + d1)>
 
-func @simple_iterate(%N : index) {
+func.func @simple_iterate(%N : index) {
   %ii, %ij, %ik = krnl.define_loops 3
 
   // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ({
@@ -47,7 +47,7 @@ func @simple_iterate(%N : index) {
 
 // -----
 
-func @affine_map_bound(%N : index) {
+func.func @affine_map_bound(%N : index) {
   %ii, %ij, %ik = krnl.define_loops 3
 
   // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ({

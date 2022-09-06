@@ -29,14 +29,15 @@ from __future__ import unicode_literals
 import sys
 import onnx
 import unittest
-from onnx.backend.test import BackendTest
 
 import inspect
 from inference_backend import (
+    InferenceBackendTest,
     InferenceBackend,
     get_test_models,
 )
 from signature_backend import SignatureBackendTest, SignatureBackend
+from input_verification_backend import InputVerificationBackendTest, InputVerificationBackend
 import variables
 from variables import args
 
@@ -45,12 +46,14 @@ sys.argv[1:] = args.unittest_args
 
 if args.signature:
     backend_test = SignatureBackendTest(SignatureBackend, __name__)
+elif args.input_verification:
+    backend_test = InputVerificationBackendTest(InputVerificationBackend, __name__)
 else:
     # Models to test
     test_to_enable = get_test_models()
 
     # Backend Test
-    backend_test = BackendTest(InferenceBackend, __name__)
+    backend_test = InferenceBackendTest(InferenceBackend, __name__)
 
     # Extract name of all test cases.
     all_tests = []
@@ -65,7 +68,11 @@ else:
     all_test_names = list(map(lambda x: x[0], all_tests))
 
     # Ensure that test names specified in test_to_enable actually exist.
-    for test_name in test_to_enable:
+    for test_name_symbol in test_to_enable:
+        test_name_symbol_list = test_name_symbol.split(",")
+        test_name = test_name_symbol_list[0]
+        if args.instruction_check and len(test_name_symbol_list) == 2:
+            variables.test_to_enable_symbol_dict[test_name] = test_name_symbol_list[1]
         assert (
             test_name in all_test_names
         ), """test name {} not found, it is likely

@@ -9,6 +9,7 @@ add_onnx_mlir_library(ModelLib
   MatMulModel.cpp
   ModelLib.cpp
   RNNModel.cpp
+  ScanModel.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -16,4 +17,5 @@ add_onnx_mlir_library(ModelLib
   OnnxMlirCompiler
   CompilerUtils
   ExecutionSession
+  ${CMAKE_DL_LIBS}
   )

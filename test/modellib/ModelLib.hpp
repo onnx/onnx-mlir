@@ -30,6 +30,8 @@
 namespace onnx_mlir {
 namespace test {
 
+const static float omDefaultRangeBound = 1.0;
+
 /*
    Superclass that defines a template to create models, creating an ONNX
    function programatically, then compiling, loading, runing and testing the
@@ -86,6 +88,15 @@ public:
   // dynamic library. It can run second or third.
   bool compileAndLoad();
   bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  // Check whether a particular instruction extracted from environment variable
+  // specified in the argument is included in the dynamic library file name
+  // compiled here. If not found, return false.
+  bool checkInstructionFromEnv(const std::string envCheckInstruction);
+  // Check whether a particular instruction specified in the argument is
+  // included in the dynamic library file name compiled here.
+  // If not found, return false.
+  // TODO: set multiple instructions
+  bool checkInstruction(const std::string instructionName);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
@@ -95,8 +106,6 @@ public:
   virtual bool verifyOutputs() = 0;
 
   // Helper functions.
-  // Get the dynamic library file name compiled here.
-  static std::string getSharedLibName(const std::string &sharedLibBaseName);
   // Set the random number generator seed to the value passed by the environment
   // variable; if not found, use a random seed. Optional call to enable
   // reproducible random numbers.
@@ -201,6 +210,25 @@ private:
   const float alphaVal, betaVal;
   // Derived data that defines model.
   llvm::SmallVector<int64_t, 2> aShape, bShape, cShape;
+};
+
+class ScanLibBuilder : public ModelLibBuilder {
+public:
+  ScanLibBuilder(const std::string &modelName, const int /*seq=*/S,
+      const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int S, I, B;
+  const bool is_v8;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> initialShape, xShape;
+  // model definition in std::string
+  std::string moduleIR;
 };
 
 class MatMul2DLibBuilder : public ModelLibBuilder {

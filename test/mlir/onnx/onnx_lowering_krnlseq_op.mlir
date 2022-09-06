@@ -2,7 +2,7 @@
 
 // -----
 
-func @test_seqstore(%arg0: memref<?x3xf32>, %arg1: memref<?xmemref<?x?xf32>>, %arg2: index) -> memref<?x3xf32>  {
+func.func @test_seqstore(%arg0: memref<?x3xf32>, %arg1: memref<?xmemref<?x?xf32>>, %arg2: index) -> memref<?x3xf32>  {
     %0 = "onnx.Constant"(){value_int = 0 : si64 }: () -> tensor<i64>
     "krnl.seqstore"(%arg0, %arg1, %arg2) : (memref<?x3xf32>, memref<?xmemref<?x?xf32>>, index) -> ()
     return %arg0 : memref<?x3xf32>
@@ -19,7 +19,7 @@ func @test_seqstore(%arg0: memref<?x3xf32>, %arg1: memref<?xmemref<?x?xf32>>, %a
 
 // -----
 
-func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
+func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
     %0 = "krnl.seqextract"(%arg1, %arg2) : (memref<?xmemref<?x3xf32>>, index) -> (memref<?x3xf32>)
     return %0 : memref<?x3xf32>
 // CHECK-LABEL:  func @test_seqextract

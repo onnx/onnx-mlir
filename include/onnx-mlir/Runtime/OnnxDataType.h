@@ -43,6 +43,18 @@ extern const char *OM_DATA_TYPE_NAME[];
 #ifdef __cplusplus
 // Note by design const map has no [] operator since [] creates a default
 // key value mapping when the key is not found which changes the map
+#if defined(_WIN32)
+// clang-format off
+const std::map<std::string, OM_DATA_TYPE> OM_DATA_TYPE_CPP_TO_ONNX = {
+    {"bool", ONNX_TYPE_BOOL},     // bool  -> BOOL
+    {"char", ONNX_TYPE_INT8},     // char  -> INT8 (platform dependent, can be UINT8)
+    {"int", ONNX_TYPE_INT32},     // int32_t  -> INT32,  int            -> INT32
+    {"__int64", ONNX_TYPE_INT64}, // int64_t  -> INT64,  long           -> INT64
+    {"float", ONNX_TYPE_FLOAT},   // float    -> FLOAT
+    {"double", ONNX_TYPE_DOUBLE}, // double   -> DOUBLE
+};
+// clang-format on
+#else
 const std::map<std::string, OM_DATA_TYPE> OM_DATA_TYPE_CPP_TO_ONNX = {
     {"b", ONNX_TYPE_BOOL},   // bool  -> BOOL
     {"c", ONNX_TYPE_INT8},   // char  -> INT8 (platform dependent, can be UINT8)
@@ -60,6 +72,7 @@ const std::map<std::string, OM_DATA_TYPE> OM_DATA_TYPE_CPP_TO_ONNX = {
     {"Cf", ONNX_TYPE_COMPLEX64},  // _Complex float -> COMPLEX64
     {"Cd", ONNX_TYPE_COMPLEX128}, // _Complex double -> COMPLEX128
 };
+#endif
 #endif //__cplusplus
 
 #endif // ONNX_MLIR_ONNXDATATYPE_H

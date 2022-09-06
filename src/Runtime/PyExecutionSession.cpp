@@ -94,7 +94,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-
+  if (!wrappedOutput)
+    throw std::runtime_error(reportErrnoError());
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);

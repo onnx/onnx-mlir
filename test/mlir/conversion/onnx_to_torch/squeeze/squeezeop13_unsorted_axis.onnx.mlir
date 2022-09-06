@@ -1,6 +1,6 @@
 //RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 module attributes {}  {
-  func @main_graph(%arg0: tensor<4x1x4x3x1x4x1xf32>) -> tensor<4x4x3x4xf32> attributes {input_names = ["input"], output_names = ["output"]} {
+  func.func @main_graph(%arg0: tensor<4x1x4x3x1x4x1xf32>) -> tensor<4x4x3x4xf32> attributes {input_names = ["input"], output_names = ["output"]} {
     %0 = "onnx.Constant"() {value = dense<[6, 1, 4]> : tensor<3xi64>} : () -> tensor<3xi64>
 //CHECK-DAG: %[[CONST1:.*]] = torch.constant.int 1
 //CHECK-DAG: %[[CONST2:.*]] = torch.constant.int 3

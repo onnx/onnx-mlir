@@ -42,7 +42,9 @@ def get_args_from_env():
     TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
     TEST_CONSTANT = os.getenv("TEST_CONSTANT")
     TEST_SIGNATURE = os.getenv("TEST_SIGNATURE")
+    TEST_INPUT_VERIFICATION = os.getenv("TEST_INPUT_VERIFICATION")
     TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
+    TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
     # real model files into home directory.
@@ -73,6 +75,18 @@ def get_args_from_env():
         action="store_true",
         default=(strtobool(TEST_COMPILERLIB) if TEST_COMPILERLIB else False),
         help="enable compiler lib tests (default: false if TEST_COMPILERLIB env var not set)",
+    )
+    parser.add_argument(
+        "--input_verification",
+        action="store_true",
+        default=(strtobool(TEST_INPUT_VERIFICATION) if TEST_INPUT_VERIFICATION else False),
+        help="enable input verification tests (default: false if TEST_INPUT_VERIFICATION env var not set)",
+    )
+    parser.add_argument(
+        "--instruction_check",
+        action="store_true",
+        default=(strtobool(TEST_INSTRUCTION_CHECK) if TEST_INSTRUCTION_CHECK else False),
+        help="check if specific instruction is included in generated library (default: false if TEST_INSTRUCTION_CHECK env var not set)",
     )
     parser.add_argument(
         "-i",
@@ -121,6 +135,12 @@ def get_args_from_env():
         help="target a specific architecture, passed to the compiler",
     )
     parser.add_argument(
+        "--maccel",
+        type=str,
+        default=os.getenv("TEST_MACCEL", ""),
+        help="target a specific accelerator, passed to the compiler",
+    )
+    parser.add_argument(
         "-O",
         "--Optlevel",
         type=str,
@@ -157,6 +177,8 @@ def get_runtime_vars():
         print("  targeting arch:", args.march, file=sys.stderr)
     if args.mtriple:
         print("  targeting triple:", args.mtriple, file=sys.stderr)
+    if args.maccel:
+        print("  targeting maccel:", args.maccel, file=sys.stderr)
 
     if args.compilerlib:
         import test_config_compilerlib
@@ -225,6 +247,7 @@ except NameError:
 
 # test_to_enable_dict
 try:
-    _ = test_to_enable_dict
+    _ = test_to_enable_dict, test_to_enable_symbol_dict
 except NameError:
     test_to_enable_dict = {}
+    test_to_enable_symbol_dict = {}

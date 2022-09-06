@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 /// 1. Single-chain workflow with alignment.
-func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
+func.func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
   %cst = arith.constant 0.000000e+00 : f32
   %c0_i64 = arith.constant 0 : i64
   %c1600_i64 = arith.constant 1600 : i64
