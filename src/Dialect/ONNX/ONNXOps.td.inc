@@ -408,6 +408,8 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
   ""
   "```"
   ""
+  "The computation of ReduceMean and ReduceVar uses float to avoid overflow for float16 inputs."
+  ""
   "When training_mode=False:"
   "```"
   "Y = (X - input_mean) / sqrt(input_var + epsilon) * scale + B"
@@ -437,6 +439,34 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
     }
     static std::vector<int> getTypeMap() {
       return {20,23,23};
+    }
+  }];
+}
+
+def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Bernoulli operation";
+  let description = [{
+  "Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor"
+  "containing probabilities p (a value in the range [0,1]) to be used for drawing the binary random number,"
+  "where an output of 1 is produced with probability p and an output of 0 is produced with probability (1-p)."
+  ""
+  "This operator is non-deterministic and may not produce the same values in different"
+  "implementations (even if a seed is specified)."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
+    OptionalAttr<SI64Attr>:$dtype,
+    OptionalAttr<F32Attr>:$seed);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[I1]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
     }
   }];
 }
@@ -526,6 +556,30 @@ def ONNXCastOp:ONNX_Op<"Cast",
    build($_builder, $_state, resultType, input, to);
   }] >
   ];
+}
+
+def ONNXCastLikeOp:ONNX_Op<"CastLike",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX CastLike operation";
+  let description = [{
+  "The operator casts the elements of a given input tensor (the first input) to"
+  "the same data type as the elements of the second input tensor."
+  "See documentation of the Cast operator for further details."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$input,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$target_type);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {21};
+    }
+  }];
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",

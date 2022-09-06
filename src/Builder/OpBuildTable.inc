@@ -19,10 +19,12 @@ op_dialect_version_map_["Asinh"] = {9};
 op_dialect_version_map_["Atan"] = {7};
 op_dialect_version_map_["Atanh"] = {9};
 op_dialect_version_map_["AveragePool"] = {11};
-op_dialect_version_map_["BatchNormalization"] = {14};
+op_dialect_version_map_["BatchNormalization"] = {15};
+op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
 op_dialect_version_map_["Cast"] = {13};
+op_dialect_version_map_["CastLike"] = {15};
 op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
@@ -219,10 +221,14 @@ import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["Bernoulli"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
 import_handler_map_["Cast"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
+import_handler_map_["CastLike"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastLikeOp>;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Celu"] = 
@@ -609,9 +615,11 @@ op_dialect_top_version_map_["Asinh"] = 9;
 op_dialect_top_version_map_["Atan"] = 7;
 op_dialect_top_version_map_["Atanh"] = 9;
 op_dialect_top_version_map_["AveragePool"] = 11;
-op_dialect_top_version_map_["BatchNormalization"] = 14;
+op_dialect_top_version_map_["BatchNormalization"] = 15;
+op_dialect_top_version_map_["Bernoulli"] = 15;
 op_dialect_top_version_map_["BitShift"] = 11;
 op_dialect_top_version_map_["Cast"] = 13;
+op_dialect_top_version_map_["CastLike"] = 15;
 op_dialect_top_version_map_["Ceil"] = 13;
 op_dialect_top_version_map_["Celu"] = 12;
 op_dialect_top_version_map_["Clip"] = 6;
