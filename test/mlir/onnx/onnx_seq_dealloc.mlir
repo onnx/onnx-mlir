@@ -49,7 +49,9 @@ func.func @test_sequence_ops2(%arg0: tensor<?xf32>) -> tensor<1xi64>  {
 // CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_c0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_8_:%.+]] = "krnl.seqinsert"([[RES_1_]], [[RES_]], [[VAR_c0_5_]]) : (memref<?xf32>, memref<0xmemref<?xf32>>, index) -> memref<1xmemref<?xf32>>
+// This dealloc is the target to check
 // CHECK:           memref.dealloc [[RES_1_]] : memref<?xf32>
+// This dealloc is the target to check
 // CHECK:           memref.dealloc [[RES_]] : memref<0xmemref<?xf32>>
 // CHECK-DAG:       [[VAR_c0_6_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_c1_7_:%.+]] = arith.constant 1 : index
@@ -67,6 +69,7 @@ func.func @test_sequence_ops2(%arg0: tensor<?xf32>) -> tensor<1xi64>  {
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
 // CHECK-DAG:       [[VAR_c0_11_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_16_:%.+]] = memref.dim [[VAR_14_]], [[VAR_c0_11_]] : memref<?xf32>
+// This dealloc is the target to check
 // CHECK:           memref.dealloc [[VAR_14_]] : memref<?xf32>
 // CHECK-DAG:       [[VAR_17_:%.+]] = arith.index_cast [[VAR_16_]] : index to i64
 // CHECK-DAG:       [[VAR_c0_12_:%.+]] = arith.constant 0 : index
