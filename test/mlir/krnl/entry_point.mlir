@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
-// COM: Generate the default entry point "run_main_graph" since there is only
-// COM: one single point.
 module {
   func.func private @first_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
@@ -13,7 +11,7 @@ module {
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig]\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig]\00")
 
-// CHECK-LABEL:   llvm.func @run_main_graph
+// CHECK-LABEL:   llvm.func @run_first_entry
 // CHECK:             ([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
 // CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
 

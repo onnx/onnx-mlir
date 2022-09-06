@@ -89,8 +89,6 @@ public:
             .getLeafReference()
             .getValue();
 
-    // When there is only a single entry point function in a model, use
-    // DEFAULT_DYN_ENTRY_POINT.
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
 
     // Record entry point name, input and output signatures in order to emit
