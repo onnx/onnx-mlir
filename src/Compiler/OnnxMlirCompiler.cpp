@@ -53,6 +53,10 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
+#ifdef _WIN32
+#define strtok_r strtok_s
+#endif
+
 ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char *flags, const char **errorMessage) {
