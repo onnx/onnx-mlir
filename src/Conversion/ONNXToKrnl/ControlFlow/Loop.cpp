@@ -311,8 +311,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                 rewriter.setInsertionPointToStart(
                     &regionOp.bodyRegion().front());
                 Value origIV = loopInd[0];
-                auto src = rewriter.create<KrnlSeqExtractOp>(
-                    loc, seqElementType, output, origIV);
+                auto src = rewriter.create<KrnlSeqExtractOp>(loc,
+                    seqElementType, output, origIV,
+                    IntegerAttr::get(rewriter.getIntegerType(1, false), 0));
                 emitCopy(rewriter, loc, src, alloc, {origIV});
               });
           newOutputs.emplace_back(alloc);

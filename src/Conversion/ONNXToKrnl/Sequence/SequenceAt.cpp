@@ -45,7 +45,7 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
 
     Value outputVal = rewriter.create<KrnlSeqExtractOp>(loc, outputMemRefType,
         input_sequence, positionIE.getValue(),
-        IntegerAttr::get(rewriter.getIntegerType(64, true), 1));
+        IntegerAttr::get(rewriter.getIntegerType(1, false), 1));
 
     rewriter.replaceOp(op, outputVal);
     return success();

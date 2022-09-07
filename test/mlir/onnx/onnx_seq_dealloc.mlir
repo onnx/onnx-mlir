@@ -64,7 +64,7 @@ func.func @test_sequence_ops2(%arg0: tensor<?xf32>) -> tensor<1xi64>  {
 // CHECK-DAG:       [[VAR_11_:%.+]] = arith.cmpi slt, [[VAR_10_]], [[VAR_c0_9_]] : index
 // CHECK-DAG:       [[VAR_12_:%.+]] = affine.apply #map2(){{.}}[[VAR_10_]]{{.}}
 // CHECK:           [[VAR_13_:%.+]] = arith.select [[VAR_11_]], [[VAR_12_]], [[VAR_10_]] : index
-// CHECK-DAG:       [[VAR_14_:%.+]] = "krnl.seqextract"([[VAR_8_]], [[VAR_13_]]) {copy = 1 : si64} : (memref<1xmemref<?xf32>>, index) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "krnl.seqextract"([[VAR_8_]], [[VAR_13_]]) {copy = 1 : ui1} : (memref<1xmemref<?xf32>>, index) -> memref<?xf32>
 // CHECK-DAG:       [[VAR_c1_10_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
 // CHECK-DAG:       [[VAR_c0_11_:%.+]] = arith.constant 0 : index

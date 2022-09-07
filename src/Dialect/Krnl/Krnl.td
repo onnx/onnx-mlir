@@ -181,17 +181,25 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
   let summary = "Krnl load from a seq";
   let description = [{
     This op loads an element from the input sequence 'seq' at position 'index'.
-    The position value is guaranteed to be positive.
-    When the attribute 'copy' is 0: the extracted element is directly returned
-    When the attribute 'copy' is 1: the extracted element is copied and then return. 
-    The returned element is regarded as allocated by this Op because the 
-    element is created (copied) when inserted into the sequence.
+    The loaded element is copied and then return.
+    The position value is guaranteed to be positive. Negative position allowed
+    by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+    Attribute 'copy' provides an optimization for copying. 
+    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+    When the attribute 'copy' is 0: the extracted element is directly returned.
+    Even without copying, the
+    element is created (copied) when it is inserted into the sequence.
     Attribute 'copy' can be 0 when analysis or code generation guarantees 
-    that every element is extracted exactly once from the sequence.
+    that every element is extracted exactly once from the sequence and the
+    sequence is disposed without freeing its elements again.
+
+    The returned element is marked as allocated by this Op with the bufferation
+    interface so that deallocation can be generated correctly through the 
+    Bufferization::Deallocation pass.
   }];
   let arguments = (ins AnyMemRef:$seq,
                        Index:$index,
-                       DefaultValuedAttr<SI64Attr, "0">:$copy);
+                       DefaultValuedAttr<UI1Attr, "1">:$copy);
 
   let results = (outs AnyType:$output);
 }
@@ -223,9 +231,12 @@ def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
 def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
   let summary = "Krnl store into a seq";
   let description = [{
-    This op assumes that the input seq has the space for the new element and 
-    only need to copy the element to be stored, and cast the type if needed.
+    This op is similar to KrnSeqInsertOp but assumes that the input seq has
+    the space for the new element and 
+    only need to copy the element and store it into the sequence.
     There is no return of a new seq, different from KrnlSeqInsertOp.
+    This Op is introduced to accumulate a dynamic tensor in a LoopOp with
+    statically known iteration count.
   }];
   let arguments = (ins AnyType:$input,
                        AnyMemRef:$seq,

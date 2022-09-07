@@ -2491,7 +2491,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK:           krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = [[VAR_c0_]] to [[VAR_6_]]){
 // CHECK:             [[VAR_12_1_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
 // CHECK:             "krnl.region"() ({
-// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = "krnl.seqextract"([[RES_]], [[VAR_12_1_]]) {copy = 0 : si64} : (memref<?xmemref<?xf32>>, index) -> memref<?xf32>
+// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = "krnl.seqextract"([[RES_]], [[VAR_12_1_]]) {copy = 0 : ui1} : (memref<?xmemref<?xf32>>, index) -> memref<?xf32>
 // CHECK-DAG:           [[LOOP_3_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:           [[VAR_c0_3_1_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:           [[VAR_c0_4_1_:%.+]] = arith.constant 0 : index
@@ -2970,7 +2970,7 @@ func.func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
 // CHECK-DAG:       [[VAR_7_:%.+]] = arith.cmpi slt, [[VAR_6_]], [[VAR_c0_6_]] : index
 // CHECK-DAG:       [[VAR_8_:%.+]] = affine.apply #map(){{.}}[[VAR_6_]]{{.}}
 // CHECK:           [[VAR_9_:%.+]] = arith.select [[VAR_7_]], [[VAR_8_]], [[VAR_6_]] : index
-// CHECK-DAG:       [[VAR_10_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_9_]]) {copy = 1 : si64} : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "krnl.seqextract"([[VAR_4_]], [[VAR_9_]]) {copy = 1 : ui1} : (memref<2xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK-DAG:       [[VAR_c0_7_:%.+]] = arith.constant 0 : index
