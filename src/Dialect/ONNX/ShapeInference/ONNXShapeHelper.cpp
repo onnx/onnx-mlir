@@ -65,6 +65,48 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
   };
 }
 
+template <>
+Value ONNXOpShapeHelper<Operation>::getOutput(int n) {
+  return op->getResult(n);
+}
+
+template <class OP>
+DimsExpr &ONNXOpShapeHelper<OP>::dimsForOutput(int n) {
+  Value output = getOutput(n);
+  // Try to combine the inferred shape and the output's shape if possbile.
+  if (isRankedShapedType(output.getType())) {
+    llvm::ArrayRef<int64_t> existingDims = getShape(output.getType());
+    // Do not handle the case of scalar tensor whose type can be tensor<f32>
+    // or tensor<1xf32>. Just use the inferredShape in this case.
+    if (existingDims.size() >= 1 && outputsDims[n].size() >= 1) {
+      if (existingDims.size() != outputsDims[n].size())
+        llvm::outs() << "Inferred rank (" << outputsDims[n].size()
+                     << ") vs. existing rank (" << existingDims.size() << ")\n";
+      assert((existingDims.size() == outputsDims[n].size()) &&
+             "Inferred shape and existing shape are inconsistent in the number "
+             "of elements");
+      for (unsigned i = 0; i < existingDims.size(); ++i) {
+        // existingDim is static, inferedDim is unknown: update the
+        // inferredDim.
+        if ((existingDims[i] != -1) && outputsDims[n][i].isQuestionmark())
+          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
+        // inferedDim is different from existingDim. Believe in existingDim.
+        if ((existingDims[i] != -1) && outputsDims[n][i].isLiteral() &&
+            (existingDims[i] != outputsDims[n][i].getLiteral())) {
+          // Warning for users.
+          llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                       << outputsDims[n][i].getLiteral()
+                       << ") is different from the existing dim ("
+                       << existingDims[i]
+                       << "). Use the existing dim instead.\n";
+          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
+        }
+      }
+    }
+  }
+  return outputsDims[n];
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Broadcasting
 //===----------------------------------------------------------------------===//
@@ -421,6 +463,8 @@ void updateType(
   SmallVector<int64_t, 4> inferredShape(shape);
 
   // Try to combine the given shape and the output's shape if possbile.
+  // TODO: This part is a duplication of the code inside ShapeHelper. Remove
+  // this part once all ops use ShapeHelper for shape inference.
   if (hasShapeAndRank(val)) {
     ArrayRef<int64_t> existingShape = getShape(val.getType());
     // Do not handle the case of scalar tensor whose type can be tensor<f32> or
