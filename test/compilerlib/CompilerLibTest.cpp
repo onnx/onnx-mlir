@@ -6,12 +6,14 @@
 #include <assert.h>
 #include <fstream>
 #include <iostream>
+#include <stdlib.h>
 #include <string>
 
 using namespace onnx_mlir;
 
 std::string testFileName;
 std::string outputBaseName;
+std::string commandLineStr;
 bool compileFromFile = false;
 
 #define IGNORE_ARG(FLAG)                                                       \
@@ -57,21 +59,34 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
   }
 }
 
+// Read the arguments from command line and save them as a std::string which may
+// be processed by the ONNX-MLIR compiler.
+void readArgsFromCommandLine(int argc, char *argv[]) {
+  for (int i = 1; i < argc; i++) {
+    commandLineStr.append(std::string(argv[i]).append(" "));
+    readArg(std::string(argv[i]));
+  }
+  commandLineStr.append("\0");
+}
+
 int main(int argc, char *argv[]) {
-  // Read the compiler options from env and args.
-  readCommandLineAndKeepUnused(argc, argv);
-  omSetCompilerOptionsFromArgsAndEnv(argc, argv, nullptr);
+
+  int retVal = 0;
+  const char *errorMessage = NULL;
+  const char *compiledFilename;
+
+  readArgsFromCommandLine(argc, argv);
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
-  int retVal = 0;
-  const char *errorMessage = NULL;
-  const char *compiledFilename;
+  const char *flags = commandLineStr.c_str();
+
   if (compileFromFile) {
-    retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
+    retVal = onnx_mlir::omCompileFromFileViaCommand(testFileName.c_str(),
+        outputBaseName.c_str(), onnx_mlir::EmitLib, &compiledFilename, flags,
+        &errorMessage);
     if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
   } else {
