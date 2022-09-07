@@ -1339,7 +1339,7 @@ private:
    * @return A function corresponding to the imported computation graph.
    */
   func::FuncOp importGraph(const onnx::GraphProto &graph) {
-    const std::string &name = "main_graph";
+    const std::string &name = options_.graphName;
     auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
