@@ -34,7 +34,7 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
 // Modified here to add operations, add super class.
-// License added here for this class for completness.
+// License added here for this class for completeness.
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -461,7 +461,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
       // Unsigned to unsigned conversion. Has to convert to signless first,
-      // and recovert output to unsigned.
+      // and reconvert output to unsigned.
       assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       Value cast = castToSignless(src, srcWidth);
@@ -469,18 +469,18 @@ Value MathBuilder::cast(Type destType, Value src) const {
       if (bitExtend) {
         cast = b.create<arith::ExtUIOp>(loc, castType, cast);
       } else {
-        // TosaToLinalg use a cliping algo, not sure if needed.
+        // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b.create<arith::TruncIOp>(loc, castType, cast);
       }
       return castToUnsigned(cast, destWidth);
     } else {
-      // Handle signed ingeger
+      // Handle signed integer
       assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
       Value dest = src;
       if (bitExtend)
         dest = b.create<arith::ExtSIOp>(loc, destType, src);
       if (bitTrunc)
-        // TosaToLinalg use a cliping algo
+        // TosaToLinalg use a clipping algo
         dest = b.create<arith::TruncIOp>(loc, destType, src);
       if (destIsIndex)
         dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
