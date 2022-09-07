@@ -37,7 +37,7 @@ function(setup_model_download backend_test variation)
   # Make sure MODEL_DIR is the same as ONNX_MODELS in CMakeLists.txt
   set(MODEL_DIR ${FILE_GENERATE_DIR}/models)
   set(TEST_DATA_DIR
-    ${CMAKE_SOURCE_DIR}/third_party/onnx/onnx/backend/test/data/real/)
+    ${ONNX_MLIR_SRC_ROOT}/third_party/onnx/onnx/backend/test/data/real/)
 
   foreach(m_cpu ${BACKEND_MODELS})
     # For each model, remove "_cpu" suffix, find its data.json,
