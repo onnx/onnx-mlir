@@ -3772,6 +3772,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXPadV11Op:ONNX_Op<"PadV11",
