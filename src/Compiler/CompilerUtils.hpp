@@ -69,6 +69,9 @@ struct Command {
 
 void registerDialects(mlir::MLIRContext &context);
 
+// get Tool path
+std::string getToolPath(std::string tool);
+
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);

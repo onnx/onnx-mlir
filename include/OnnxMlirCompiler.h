@@ -111,29 +111,6 @@ ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
  */
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
 
-std::string getExecPath();
-
-/*
- *  onnx-mlir currently requires llvm tools llc and opt and they are assumed
- *  to be under llvm-project/build/bin. This doesn't work with the case where
- *  llvm-project has been installed system wide (typically under /usr/local/...)
- *  and its source has been removed.
- *
- *  To account for this scenario, we first search for the tools in the same
- *  directory where onnx-mlir is run. If they are found, it means both onnx-mlir
- *  and llvm-project have been installed system wide under the same directory,
- *  so we get them from that directory (typically /usr/local/bin). Otherwise,
- *  at least one of onnx-mlir and llvm-project has not been installed system
- *  wide. In this case, getToolPath returns an empty string and we will fallback
- *  to llvm-project/build/bin.
- *
- *  Note that this will not work if both onnx-mlir and llvm-project have been
- *  installed system wide but to different places and their sources have been
- *  removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
- *  llvm-project.
- */
-std::string getToolPath(std::string tool);
-
 /*!
  *  C interface to compile an onnx model from a file via onnx-mlir command.
  *

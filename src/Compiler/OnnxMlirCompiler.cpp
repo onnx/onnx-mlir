@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "OnnxMlirCompiler.h"
-#include "CompilerUtils.hpp"
-#include "ExternalUtil.hpp.in"
+#include "include/OnnxMlirCompiler.h"
+#include "ExternalUtil.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -53,32 +53,6 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
-std::string getExecPath() {
-  // argv0 is only used as a fallback for rare environments
-  // where /proc isn't mounted and mainExecAddr is only needed for
-  // unknown unix-like platforms
-  auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
-  if (execPath.empty()) {
-    llvm::errs()
-        << "Warning: Could not find path to current executable, falling "
-           "back to default install path: "
-        << kExecPath << "\n";
-    return kExecPath;
-  }
-  return execPath;
-}
-
-std::string getToolPath(std::string tool) {
-  std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
-  llvm::SmallString<8> toolPath(execDir);
-  llvm::sys::path::append(toolPath, tool);
-  std::string p = llvm::StringRef(toolPath).str();
-  if (llvm::sys::fs::can_execute(p))
-    return p;
-  else
-    return std::string();
-}
-
 ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char *flags, const char **errorMessage) {
@@ -99,23 +73,21 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
   std::string onnxmlirPath = getToolPath("onnx-mlir");
   struct Command onnxmlirCompile(
       /*exePath=*/!onnxmlirPath.empty() ? onnxmlirPath : kOnnxmlirPath);
-  bool findCustomEnvFlags = false;
-  for (std::size_t i = 0; i < flagsVector.size(); i++) {
+
+  for (std::size_t i = 0; i < flagsVector.size(); i++)
     onnxmlirCompile.appendStr(flagsVector[i]);
-    if (flagsVector[i].find("-customEnvFlags") != std::string::npos) {
-      findCustomEnvFlags = true;
-    }
-  }
-  // If no customEnvFlags is given, we will add a custom env flag to prevent the
-  // normal one to take effect
-  if (findCustomEnvFlags == false) {
-    onnxmlirCompile.appendStr(
-        "-customEnvFlags=" + std::string(inputFilename) + "Process");
-  }
+
+  // Indicate output name.
+  std::string outputBaseNameStr(outputBaseName);
+  onnxmlirCompile.appendStr("-o");
+  onnxmlirCompile.appendStr(outputBaseNameStr);
+  // Indicate input name.
+  onnxmlirCompile.appendStr(std::string(inputFilename));
+  // Run command.
   int rc = onnxmlirCompile.exec();
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
@@ -136,10 +108,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  rc = compileModule(module, context, outputBaseName, emissionTarget);
+
+  std::string outputBaseNameStr(outputBaseName);
+  rc = compileModule(module, context, outputBaseNameStr, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
   return rc;
@@ -161,10 +135,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  rc = compileModule(module, context, outputBaseName, emissionTarget);
+
+  std::string outputBaseNameStr(outputBaseName);
+  rc = compileModule(module, context, outputBaseNameStr, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
   return rc;
