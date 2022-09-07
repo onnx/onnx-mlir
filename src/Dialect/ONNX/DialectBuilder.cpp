@@ -127,11 +127,11 @@ Value OnnxBuilder::mul(Value A, Value B) const {
 }
 
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
-    bool keepdims, bool noop_with_empty_axes) const {
-  int64_t i_keepdims = keepdims; // 0 if false, 1 if true
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
   int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
   return b.create<ONNXReduceSumOp>(loc, toTensor(outputType), toTensor(data),
-      toTensor(axes), i_keepdims, i_noop_with_empty_axes);
+      toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
