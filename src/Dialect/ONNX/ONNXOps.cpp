@@ -2429,6 +2429,21 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 // Pad
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXPadOp::verify() {
+  ShapedType dataTy = data().getType().cast<ShapedType>();
+  Type constTy = constant_value().getType();
+
+  if (!constTy.isa<NoneType>()) {
+    // Check that the constant has the same element type as the input
+    ShapedType shapedConstTy = constTy.cast<ShapedType>();
+    if (dataTy.getElementType() != shapedConstTy.getElementType()) {
+      return emitOpError("Pad with constant_value that doesn't match the "
+                         "element type of the input.");
+    }
+  }
+  return success();
+}
+
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -2683,6 +2698,34 @@ LogicalResult ONNXCastOp::inferShapes(
       (*this)->getAttr("to").cast<::mlir::TypeAttr>().getValue();
   OpBuilder builder(getContext());
   getResult().setType(getOutputType(targetType));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// CastLike
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXCastLikeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
+  if (!inputType) {
+    return success();
+  }
+
+  TensorType targetType = target_type().getType().dyn_cast<TensorType>();
+  if (!inputType) {
+    return success();
+  }
+  auto targetElementType = targetType.getElementType();
+
+  auto getOutputType = [&inputType](Type elementType) -> Type {
+    if (inputType.hasRank()) {
+      return RankedTensorType::get(inputType.getShape(), elementType);
+    }
+    return UnrankedTensorType::get(elementType);
+  };
+
+  getResult().setType(getOutputType(targetElementType));
   return success();
 }
 
@@ -3818,6 +3861,24 @@ LogicalResult ONNXBitShiftOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXBitShiftOp, ONNXBitShiftOpAdaptor>(
       *this);
+}
+
+LogicalResult ONNXBernoulliOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  auto builder = mlir::OpBuilder(getContext());
+  if (!hasShapeAndRank(input())) {
+    return success();
+  }
+  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  Type elementType;
+  if (dtypeAttr()) {
+    elementType = convertONNXTypeToMLIRType(builder,
+        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
+  } else {
+    elementType = inputType.getElementType();
+  }
+  getResult().setType(RankedTensorType::get(inputType.getShape(), elementType));
+  return success();
 }
 
 LogicalResult ONNXCeilOp::inferShapes(

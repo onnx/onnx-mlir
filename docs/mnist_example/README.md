@@ -92,16 +92,16 @@ Run these commands directly in the docs/docs/mnist_example and everything should
 
 ## Compile Model
 
-To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `--EmitLib` option (it can be omitted since it's the default):
+To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `-EmitLib` option (it can be omitted since it's the default):
 ```bash
-onnx-mlir -O3 [--EmitLib] mnist.onnx
+onnx-mlir -O3 [-EmitLib] mnist.onnx
 ```
 
 A `mnist.so` should appear, which corresponds to the compiled model object file.
 
-To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `--EmitJNI` option:
+To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `-EmitJNI` option:
 ```bash
-onnx-mlir -O3 --EmitJNI mnist.onnx
+onnx-mlir -O3 -EmitJNI mnist.onnx
 ```
 
 A `mnist.jar` should appear, which corresponds to the compiled model object file along with Java API classes.
@@ -119,7 +119,7 @@ The signature of the model inference function for all models is:
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
 
-I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 ### Feeding Inputs and Retrieving Results
 
@@ -196,7 +196,7 @@ The full code is available [here](mnist.cpp).
 
 ## Write a Python Driver Code
 
-You will find most of the details of they Python driver interface described [here](https//onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
+You will find most of the details of the Python driver interface described [here](https://onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
 
 First, we include the necessary Python runtime library. The library path can be set by using the PYTHONPATH or simply creating a soft link in the current directory to the Python shared library (typically: `build/Debug/lib/PyRuntime.cpython-<target>.so`).
 
@@ -248,7 +248,7 @@ The digit is 0
 
 ## Write a Java Driver Code
 
-Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
+Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
 
 An example Java driver for the mnist model is given below.
 
