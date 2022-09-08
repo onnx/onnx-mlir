@@ -94,7 +94,7 @@ def GetStart: NativeCodeCall<
 >;
 
 def GetEnd: NativeCodeCall<
-  "$_builder.get($0.getType().cast<ShapedType>().getRank()"
+  "$_builder.getI64IntegerAttr($0.getType().cast<ShapedType>().getRank())"
 >;
 
 // Get a type for a tensor that stores the shape of another tensor.
@@ -122,7 +122,7 @@ def expandConstantOperandForAddOp2: Pat<
   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXAddOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x, 
-                                            (GetEnd), 
+                                            (GetEnd $x), 
                                             (GetStart), 
                                             (returnType (GetShapeTypeOf $x))),
                                (returnType $x))),
@@ -137,7 +137,7 @@ def expandConstantOperandForDivOp1: Pat<
   (ONNXDivOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXDivOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x,
-                                            (GetEnd),
+                                            (GetEnd $x),
                                             (GetStart),
                                             (returnType (GetShapeTypeOf $x))),
                                (returnType $x))),
@@ -148,7 +148,7 @@ def expandConstantOperandForDivOp2: Pat<
   (ONNXDivOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXDivOp (ONNXExpandOp $c,
                            (ONNXShapeOp $x,
-                                        (GetEnd),
+                                        (GetEnd $x),
                                         (GetStart),
                                         (returnType (GetShapeTypeOf $x))),
                            (returnType $x)),
@@ -170,7 +170,7 @@ def expandConstantOperandForMulOp2: Pat<
   (ONNXMulOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXMulOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x,
-                                            (GetEnd),
+                                            (GetEnd $x),
                                             (GetStart),
                                             (returnType (GetShapeTypeOf $x))),
                                (returnType $x))),
@@ -185,7 +185,7 @@ def expandConstantOperandForSubOp1: Pat<
   (ONNXSubOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXSubOp $x, (ONNXExpandOp $c,
                                (ONNXShapeOp $x,
-                                            (GetEnd),
+                                            (GetEnd $x),
                                             (GetStart),
                                             (returnType (GetShapeTypeOf $x))),
                                (returnType $x))),
@@ -196,7 +196,7 @@ def expandConstantOperandForSubOp2: Pat<
   (ONNXSubOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXSubOp (ONNXExpandOp $c,
                            (ONNXShapeOp $x,
-                                        (GetEnd),
+                                        (GetEnd $x),
                                         (GetStart),
                                         (returnType (GetShapeTypeOf $x))),
                            (returnType $x)),
