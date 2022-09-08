@@ -230,7 +230,7 @@ bool parseCustomEnvFlagsCommandLineOption(
   // Test and report error if we find this pattern.
   if (const char *envValCstr = std::getenv(customEnvFlags.c_str())) {
     std::string envVal(envValCstr);
-    if (envVal.find("-customEnvFlags")==0) {
+    if (envVal.find("-customEnvFlags") == 0) {
       if (errs)
         *errs << "Cannot have a \"---customEnvFlags\" in the env var that "
                  "defines the default options\n";
