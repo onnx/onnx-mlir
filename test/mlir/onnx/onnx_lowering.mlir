@@ -2941,7 +2941,7 @@ func.func @test_sequence_ops1(%arg0: tensor<?x4x5xf32>) -> tensor<3xi64>  {
   %3 = "onnx.SequenceInsert"(%1, %arg0, %2) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
   %6 = "onnx.SequenceInsert"(%3, %arg0, %2) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<?x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
   %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
-  %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
+  %5 = "onnx.Shape"(%4) {start = 0 : si64} : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
 // CHECK-LABEL:  func @test_sequence_ops1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>) -> memref<3xi64> {

@@ -90,11 +90,13 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 
 // Get a type for a tensor that stores the shape of another tensor.
 def GetStart: NativeCodeCall<
-  "$_builder.getI64IntegerAttr(0)"
+  //"IntegerType::get($_builder, 64, IntegerType::Signed)"
+  "$_builder.getIntegerAttr($_builder.getIntegerType(64, true), 0)"
 >;
 
 def GetEnd: NativeCodeCall<
-  "$_builder.getI64IntegerAttr($0.getType().cast<ShapedType>().getRank())"
+  //"IntegerAttr::get(IntegerType(64, true, APInt(64, $0.getType().cast<ShapedType>().getRank(), true)))"
+  "$_builder.getIntegerAttr($_builder.getIntegerType(64, true), $0.getType().cast<ShapedType>().getRank())"
 >;
 
 // Get a type for a tensor that stores the shape of another tensor.
@@ -121,7 +123,7 @@ def expandConstantOperandForAddOp1: Pat<
 def expandConstantOperandForAddOp2: Pat<
   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXAddOp $x, (ONNXExpandOp $c,
-                               (ONNXShapeOp $x, 
+                               (ONNXShapeOp $x,
                                             (GetEnd $x), 
                                             (GetStart), 
                                             (returnType (GetShapeTypeOf $x))),

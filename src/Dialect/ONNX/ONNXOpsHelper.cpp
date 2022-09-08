@@ -503,14 +503,14 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
   auto shape = inType.getShape();
   int64_t rank = inType.getRank();
 
-  int64_t start = startAttr.cast<IntegerAttr>().getInt();
+  int64_t start = 0;
   int64_t end = rank;
 
   if (startAttr) {
-    start = startAttr.cast<IntegerAttr>().getInt();
+    start = startAttr.cast<IntegerAttr>().getSInt();
   }
   if (endAttr) {
-    end = endAttr.cast<IntegerAttr>().getInt();
+    end = endAttr.cast<IntegerAttr>().getSInt();
   }
 
   // Normalize if start/end are not in (0, ..., rank)
