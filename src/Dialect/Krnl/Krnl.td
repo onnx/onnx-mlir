@@ -190,8 +190,13 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     Even without copying, the
     element is created (copied) when it is inserted into the sequence.
     Attribute 'copy' can be 0 when analysis or code generation guarantees 
-    that every element is extracted exactly once from the sequence and the
-    sequence is disposed without freeing its elements again.
+    that 1) elements are in only one live sequence, 
+    2) each element is extracted exactly once from the sequence and,
+    3) the sequence is disposed without freeing its elements again.
+    In one sentence, the pointers stored in the sequences behaves like the 
+    unique pointers in the data flow graph. We may add code to remember 
+    whether an element has been extracted or not, and detect error at runtime
+    and support more flexible deallocation of sequence elements.
 
     The returned element is marked as allocated by this Op with the bufferation
     interface so that deallocation can be generated correctly through the 
@@ -210,7 +215,8 @@ def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
     This op will create a new seq from the input seq by inserting the input
     element at the desired position. The input element will be copied before 
     inserted into the new seq, and the type will be casted to the type of seq 
-    element if needed.
+    element if needed. The elements after the insertion point will be shifted
+    one position in the new sequence without copying.
     The motivation to introduce this Op is to help bufferization::deallocation
     The sequence is implemented as memref of memref in onnx-mlir.
     When an element is stored into a sequence, its pointer is stored.
@@ -221,6 +227,8 @@ def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
     into the sequence. The allocation for the copy will be revealed to graph
     when the element is extracted from the sequence. Consequently, the 
     deallocation pass can handle the space correctly.
+    For future optimization, the one-shot bufferization interface may be used
+    to transfer the space of the input element to the element in the sequence.
   }];
   let arguments = (ins AnyType:$input_element,
                        AnyMemRef:$input_sequence,
