@@ -16,7 +16,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 // Compute a slice of the input tensor's shape. The slice starts from axis 0.
-// The axes upto the last one will be included. Negative axes indicate counting
+// The axes up to the last one will be included. Negative axes indicate counting
 // back from the last axis.
 static std::pair<int64_t, int64_t> getDataShapeBounds(
     ONNXShapeOpAdaptor &operandAdaptor) {
@@ -26,7 +26,7 @@ static std::pair<int64_t, int64_t> getDataShapeBounds(
 
   // Compute the normalized start/end. Negative value means counting
   // dimensions from the back.
-  int64_t normalizedStart = 0;
+  int64_t normalizedStart = operandAdaptor.start();
   int64_t normalizedEnd = dataRank;
 
   if (normalizedStart < 0)
@@ -51,6 +51,7 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 
   // Output is the actual number of values (1D)
   dimsForOutput().emplace_back(LiteralIndexExpr(bounds.second - bounds.first));
+
   return success();
 }
 

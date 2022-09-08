@@ -496,11 +496,33 @@ Value normalizeConstantOp(
 
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(
-    PatternRewriter &rewriter, Value value) {
+    PatternRewriter &rewriter, Value value, Attribute startAttr, Attribute endAttr) {
+  // Check that end is provided
+  
   auto inType = value.getType().cast<ShapedType>();
   auto shape = inType.getShape();
-  SmallVector<int64_t, 1> dims = {inType.getRank()};
-  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
+  int64_t rank = inType.getRank();
+
+  int64_t start = startAttr.cast<IntegerAttr>().getInt();
+  int64_t end = rank;
+
+  if (startAttr) {
+    start = startAttr.cast<IntegerAttr>().getInt();
+  }
+  if (endAttr) {
+    end = endAttr.cast<IntegerAttr>().getInt();
+  }
+
+  // Normalize if start/end are not in (0, ..., rank)
+  if (start < 0) {
+    start = start + rank;
+  }
+  if (end < 0) {
+    end = end + rank;
+  }
+
+  SmallVector<int64_t, 1> dims = {end - start};
+  SmallVector<int64_t, 4> values(shape.begin() + start, shape.begin() + end);
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
