@@ -9,7 +9,7 @@
 ################################################################################
 
 import argparse
-from onnx import onnx_ml_pb2
+import onnx
 from google.protobuf.json_format import MessageToJson
 
 parser = argparse.ArgumentParser()
@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 def main():
     f = open(args.model_path, "rb")
-    model = onnx_ml_pb2.ModelProto()
+    model = onnx.ModelProto()
     model.ParseFromString(f.read())
     json=MessageToJson(model)
     print(json)
