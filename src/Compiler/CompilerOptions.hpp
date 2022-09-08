@@ -38,6 +38,7 @@ extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;
 extern llvm::cl::opt<std::string> shapeInformation;
 extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;
+extern llvm::cl::opt<std::string> customEnvFlags;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
@@ -56,6 +57,10 @@ extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> enableParallel;
+
+void setTargetEnvVar(const std::string &envVarName);
+void clearTargetEnvVar();
+std::string getTargetEnvVarOption();
 
 void setTargetTriple(const std::string &triple);
 void clearTargetTriple();
