@@ -189,32 +189,31 @@ bool isDefinedByONNXConstantOp(Value v) {
   return isa<ONNXConstantOp>(v.getDefiningOp());
 }
 
-bool LegalExpandPowOpToMul(ONNXPowOp op) {
+bool CanExpandPowOpToMul(ONNXPowOp op) {
   Value exponent = op.Y();
   if (!isDefinedByONNXConstantOp(exponent))
-    return true;
+    return false;
 
-  if (auto constOp = dyn_cast<ONNXConstantOp>(exponent.getDefiningOp())) {
-    if (DenseElementsAttr dataAttr =
-            constOp.valueAttr().dyn_cast<DenseElementsAttr>()) {
-      if (dataAttr.getNumElements() == 1) {
-        Type elementType = dataAttr.getElementType();
-        if (elementType.isa<FloatType>()) {
-          auto valueIt = dataAttr.getValues<APFloat>().begin();
-          double val = (*valueIt).convertToDouble();
-          if (ceil(val) == val && val <= 64)
-            return false;
-        }
-        if (elementType.isa<IntegerType>()) {
-          auto valueIt = dataAttr.getValues<APInt>().begin();
-          int64_t val = (*valueIt).getSExtValue();
-          if (val <= 64)
-            return false;
-        }
+  auto constOp = dyn_cast<ONNXConstantOp>(exponent.getDefiningOp());
+  if (DenseElementsAttr dataAttr =
+          constOp.valueAttr().dyn_cast<DenseElementsAttr>()) {
+    if (dataAttr.getNumElements() == 1) {
+      Type elementType = dataAttr.getElementType();
+      if (elementType.isa<FloatType>()) {
+        auto valueIt = dataAttr.getValues<APFloat>().begin();
+        double val = (*valueIt).convertToDouble();
+        if (ceil(val) == val && val >= 0 && val <= 64)
+          return true;
+      }
+      if (elementType.isa<IntegerType>()) {
+        auto valueIt = dataAttr.getValues<APInt>().begin();
+        int64_t val = (*valueIt).getSExtValue();
+        if (val >= 0 && val <= 64)
+          return true;
       }
     }
   }
-  return true;
+  return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -232,7 +231,7 @@ struct ExpandPowToMulPattern : public ConversionPattern {
     auto powOp = llvm::dyn_cast<ONNXPowOp>(op);
     Location loc = powOp.getLoc();
     // Illegal conditions must be satisfied at this point.
-    assert(!LegalExpandPowOpToMul(powOp) && "Illegal conditions failed");
+    assert(CanExpandPowOpToMul(powOp) && "Illegal conditions failed");
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
@@ -361,7 +360,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // - exponent is <= 64.
   // This PowOp will be rewritten by using multiple MulOp.
   target.addDynamicallyLegalOp<ONNXPowOp>(
-      [](ONNXPowOp op) { return LegalExpandPowOpToMul(op); });
+      [](ONNXPowOp op) { return !CanExpandPowOpToMul(op); });
 
   // Illegalize SoftmaxOp if
   // - axis is the last dimension.
