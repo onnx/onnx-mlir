@@ -54,7 +54,7 @@ void IndexExprImpl::initAsQuestionmark() {
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
-         "litterals are either affine or predicate");
+         "literals are either affine or predicate");
   init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
       Value(nullptr));
 }
@@ -66,7 +66,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
       intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
     return true;
   }
-  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
+  // Since ConstantIndexOp is a subclass of ConstantOp, not sure if this one is
   // useful.
   if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
     if (constantOp.getType().isa<IndexType>())
@@ -244,7 +244,7 @@ int64_t IndexExprImpl::getLiteral() const {
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExprExpr transformative getters.
+// IndexExprExpr transformational getters.
 //===----------------------------------------------------------------------===//
 
 AffineExpr IndexExprImpl::getAffineExpr() {

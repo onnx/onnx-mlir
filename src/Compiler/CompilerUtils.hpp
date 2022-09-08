@@ -23,19 +23,54 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/ADT/SmallVector.h"
-
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
-
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Target/TargetMachine.h"
+
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Version/Version.hpp"
 
 namespace onnx_mlir {
+
+struct Command {
+
+  std::string _path;
+  std::vector<std::string> _args;
+
+  Command(std::string exePath)
+      : _path(std::move(exePath)),
+        _args({llvm::sys::path::filename(_path).str()}) {}
+
+  Command &appendStr(const std::string &arg);
+  Command &appendStrOpt(const llvm::Optional<std::string> &arg);
+  Command &appendList(const std::vector<std::string> &args);
+  Command &resetArgs();
+  int exec(std::string wdir = "") const;
+};
+
 void registerDialects(mlir::MLIRContext &context);
+
+// get Tool path
+std::string getToolPath(std::string tool);
 
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
