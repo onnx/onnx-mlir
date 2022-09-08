@@ -612,23 +612,31 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 // Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  std::string extension =
-      inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
+  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
+  // a model specified in MLIR. The extension of the file is the decider or, if
+  // the file is "-", then it's STDIN and we treat it as JSON.
+  bool inputIsONNX = false;
+  bool inputIsJSON = false;
+  bool inputIsMLIR = false;
+  if (inputFilename == "-") {
+    inputIsJSON = true;
+  } else {
+    inputIsONNX = inputFilename.endswith(".onnx");
+    inputIsJSON = inputFilename.endswith(".json");
+    inputIsMLIR = inputFilename.endswith(".mlir");
+  }
 
-  if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invalid input file '" + inputFilename +
-                    "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
+  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+    *errorMessage = "Invalid input file '" + inputFilename.str() +
+                    "': Either an ONNX model (.onnx or .json or '-'), or an "
+                    "MLIR file (.mlir) "
                     "needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX) {
+  if (inputIsONNX || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
@@ -636,7 +644,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    loadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename.str(), context, module);
   return CompilerSuccess;
 }
 
