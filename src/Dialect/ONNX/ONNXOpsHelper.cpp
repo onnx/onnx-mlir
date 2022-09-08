@@ -495,10 +495,10 @@ Value normalizeConstantOp(
 }
 
 // Create a DenseElementsAttr based on the shape of type.
-DenseElementsAttr createDenseElementsAttrFromShape(
-    PatternRewriter &rewriter, Value value, Attribute startAttr, Attribute endAttr) {
+DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
+    Value value, Attribute startAttr, Attribute endAttr) {
   // Check that end is provided
-  
+
   auto inType = value.getType().cast<ShapedType>();
   auto shape = inType.getShape();
   int64_t rank = inType.getRank();
