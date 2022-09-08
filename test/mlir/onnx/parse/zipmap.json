@@ -1,4 +1,4 @@
-// RUN: sed 's/^[ \t]*\/\/.*//' %s | (onnx-mlir --EmitONNXBasic --printIR 2>&1 || true) | FileCheck --check-prefix=FAILED %s
+// RUN: sed 's/^[ \t]*\/\/.*//' %s | onnx-mlir --EmitONNXBasic --printIR 2> zipmap.log; cat zipmap.log | FileCheck --check-prefix=FAILED %s
 
 // json is generated with:
 //
