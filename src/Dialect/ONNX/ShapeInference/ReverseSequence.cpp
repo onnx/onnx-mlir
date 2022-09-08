@@ -26,7 +26,7 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape(
   for (int64_t i = 0; i < inputRank; ++i)
     outputDims.emplace_back(inputBounds.getDim(i));
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

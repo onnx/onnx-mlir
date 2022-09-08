@@ -84,7 +84,10 @@ struct ONNXOpShapeHelper {
   // tensors.
 
   // Return output dims for the N-th output.
-  DimsExpr &dimsForOutput(int n = 0);
+  DimsExpr &dimsForOutput(int n = 0) { return outputsDims[n]; }
+
+  // Set output dims for the N-th output.
+  void setOutputDims(DimsExpr inferredDims, int n = 0);
 
   // Set the number of outputs.
   void setNumberOfOutputs(int n) { outputsDims.resize(n); }

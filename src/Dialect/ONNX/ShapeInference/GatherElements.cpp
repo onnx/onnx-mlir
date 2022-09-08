@@ -30,7 +30,7 @@ LogicalResult ONNXGatherElementsOpShapeHelper::computeShape(
   for (int i = 0; i < indicesRank; ++i)
     outputDims.emplace_back(indicesDims[i]);
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

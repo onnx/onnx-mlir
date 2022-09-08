@@ -70,28 +70,40 @@ Value ONNXOpShapeHelper<Operation>::getOutput(int n) {
   return op->getResult(n);
 }
 
+// Set output dims for the N-th output.
 template <class OP>
-DimsExpr &ONNXOpShapeHelper<OP>::dimsForOutput(int n) {
+void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
+  outputsDims[n] = inferredDims;
+  // Try to refine outputsDims[n] using the output's shape if possbile. For
+  // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
+  // output's shape.
   Value output = getOutput(n);
-  // Try to combine the inferred shape and the output's shape if possbile.
   if (isRankedShapedType(output.getType())) {
     llvm::ArrayRef<int64_t> existingDims = getShape(output.getType());
     // Do not handle the case of scalar tensor whose type can be tensor<f32>
     // or tensor<1xf32>. Just use the inferredShape in this case.
     if (existingDims.size() >= 1 && outputsDims[n].size() >= 1) {
-      if (existingDims.size() != outputsDims[n].size())
-        llvm::outs() << "Inferred rank (" << outputsDims[n].size()
-                     << ") vs. existing rank (" << existingDims.size() << ")\n";
       assert((existingDims.size() == outputsDims[n].size()) &&
              "Inferred shape and existing shape are inconsistent in the number "
              "of elements");
+      // Try to update inferedDim if existingDim is static.
       for (unsigned i = 0; i < existingDims.size(); ++i) {
-        // existingDim is static, inferedDim is unknown: update the
-        // inferredDim.
-        if ((existingDims[i] != -1) && outputsDims[n][i].isQuestionmark())
+        // existingDim is dynamic, nothing to do.
+        if (existingDims[i] == -1)
+          continue;
+
+        // inferredDim is unknown at shape inference: update it.
+        if (outputsDims[n][i].isQuestionmark()) {
           outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
+          continue;
+        }
+        // inferredDim is unknown at lowering: use exising dim for efficiency.
+        if (!outputsDims[n][i].isLiteral()) {
+          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
+          continue;
+        }
         // inferedDim is different from existingDim. Believe in existingDim.
-        if ((existingDims[i] != -1) && outputsDims[n][i].isLiteral() &&
+        if (outputsDims[n][i].isLiteral() &&
             (existingDims[i] != outputsDims[n][i].getLiteral())) {
           // Warning for users.
           llvm::outs() << "Warning: [Shape inference] the inferred dim ("
@@ -104,7 +116,6 @@ DimsExpr &ONNXOpShapeHelper<OP>::dimsForOutput(int n) {
       }
     }
   }
-  return outputsDims[n];
 }
 
 //===----------------------------------------------------------------------===//
@@ -234,7 +245,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     }
   }
   // Set the final output.
-  ONNXOpShapeHelper<OP>::dimsForOutput() = dimsExpr;
+  ONNXOpShapeHelper<OP>::setOutputDims(dimsExpr);
   return success();
 }
 
@@ -438,7 +449,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 #endif
 
   // Set type for the first output.
-  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput() = outputDims;
+  ONNXOpShapeHelper<OP_TYPE>::setOutputDims(outputDims);
   return success();
 }
 

@@ -48,7 +48,7 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
       outputDims.emplace_back(dataDims[i]);
   }
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

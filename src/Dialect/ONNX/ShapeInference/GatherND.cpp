@@ -65,7 +65,7 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape(
   assert((int64_t)outputDims.size() == outputRank &&
          "Incorrect shape computation");
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 
