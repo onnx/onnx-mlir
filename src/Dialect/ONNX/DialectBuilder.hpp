@@ -59,7 +59,7 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXReduceSumOp
   mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,
-      mlir::Value axes, bool keepdims = true,
+      mlir::Value axes, bool keepDims = true,
       bool noop_with_empty_axes = false) const;
 
   // ONNXReshapeOp

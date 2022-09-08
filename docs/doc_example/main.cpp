@@ -6,29 +6,26 @@
 
 #include "src/Runtime/ExecutionSession.hpp"
 
-int main() {
-  // Read compiler options from environment first, and ensure -O3 is used.
-  int rc;
-  std::cout << "Start compiling add.onnx" << std::endl;
-  rc = onnx_mlir::omSetCompilerOptionsFromEnv("TEST_DOC_EXAMPLE");
-  if (rc != onnx_mlir::CompilerSuccess) {
-    std::cerr << "Failed to process TEST_DOC_EXAMPLE compiler options with "
-                 "error code "
-              << rc << "." << std::endl;
-    return rc;
+// Read the arguments from the command line and return a std::string
+std::string readArgs(int argc, char *argv[]) {
+  std::string commandLineStr = "";
+  for (int i = 1; i < argc; i++) {
+    commandLineStr.append(std::string(argv[i]).append(" "));
   }
-  rc = onnx_mlir::omSetCompilerOption(
-      onnx_mlir::OptionKind::CompilerOptLevel, "3");
-  if (rc != onnx_mlir::CompilerSuccess) {
-    std::cerr << "Failed to process -O3 compiler option with error code " << rc
-              << "." << std::endl;
-    return rc;
-  }
-  // Compile the doc example into a model library.
+  commandLineStr.append("\0");
+  return commandLineStr;
+}
+
+int main(int argc, char *argv[]) {
+  // Read compiler options from command line and compile the doc example into a
+  // model library.
   const char *errorMessage = NULL;
   const char *compiledFilename;
-  rc = onnx_mlir::omCompileFromFile("add.onnx", "add-cppinterface",
-      onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
+  std::string commandLineString = readArgs(argc, argv);
+  const char *flags = commandLineString.c_str();
+  int rc =
+      onnx_mlir::omCompileFromFileViaCommand("add.onnx", "add-cppinterface",
+          onnx_mlir::EmitLib, &compiledFilename, flags, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to compile add.onnx with error code " << rc;
     if (errorMessage)
