@@ -77,9 +77,11 @@ void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("-O") != 0)
-      continue;
-    int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+    int num = -1;
+    if (currStr.find("--O") == 0)
+      num = atoi(&argv[i][3]); // Get the number starting 3 char down.
+    else if (currStr.find("-O") == 0)
+      num = atoi(&argv[i][2]); // Get the number starting 2 char down.
     // Silently ignore out of bound opt levels.
     if (num >= 0 && num <= 3) {
       OptimizationLevel = (onnx_mlir::OptLevel)num;
@@ -92,16 +94,25 @@ void scanAndSetMAccel(int argc, char **argv) {
   // Scan accelerators and add them to the maccel option.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("--maccel=") != 0)
-      continue;
-    std::string accelKind(&argv[i][9]); // Get the string starting 9 chars down.
-    setTargetAccel(accelKind);
+    if (currStr.find("--maccel=") != 0) {
+      std::string accelKind(
+          &argv[i][9]); // Get the string starting 9 chars down.
+      setTargetAccel(accelKind);
+      break;
+    }
+    if (currStr.find("-maccel=") != 0) {
+      std::string accelKind(
+          &argv[i][8]); // Get the string starting 8 chars down.
+      setTargetAccel(accelKind);
+      break;
+    }
   }
 }
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
-  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
+  // Scan Opt Level manually now as it is needed for initializing the OM
+  // Passes.
   scanAndSetOptLevel(argc, argv);
   // Scan maccel manually now as it is needed for initializing the OM Passes.
   scanAndSetMAccel(argc, argv);
@@ -154,8 +165,11 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
+
+  parseCustomEnvFlagsCommandLineOption(argc, argv);
   llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr, "ONNX_MLIR_OPT_FLAGS");
+      "ONNX-MLIR-OPT modular optimizer driver\n", nullptr,
+      customEnvFlags.c_str());
 
   // Set up the input file.
   std::string error_message;

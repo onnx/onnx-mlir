@@ -11,6 +11,7 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
 #include <iostream>
@@ -58,7 +59,7 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
+  parseCustomEnvFlagsCommandLineOption(argc, argv);
   llvm::cl::ParseCommandLineOptions(argc, argv,
       "ONNX-MLIR modular optimizer driver\n", nullptr, customEnvFlags.c_str());
 

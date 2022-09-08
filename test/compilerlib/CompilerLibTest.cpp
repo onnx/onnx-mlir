@@ -63,10 +63,11 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
 // be processed by the ONNX-MLIR compiler.
 void readArgsFromCommandLine(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
-    commandLineStr.append(std::string(argv[i]).append(" "));
+    if (i > 1)
+      commandLineStr.append(" ");
+    commandLineStr.append(std::string(argv[i]));
     readArg(std::string(argv[i]));
   }
-  commandLineStr.append("\0");
 }
 
 int main(int argc, char *argv[]) {
@@ -81,12 +82,13 @@ int main(int argc, char *argv[]) {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
-  const char *flags = commandLineStr.c_str();
-
   if (compileFromFile) {
+    // Add output file option to command line.
+    commandLineStr += " -o " + outputBaseName;
+    const char *flags = commandLineStr.c_str();
+    // Compile.
     retVal = onnx_mlir::omCompileFromFileViaCommand(testFileName.c_str(),
-        outputBaseName.c_str(), onnx_mlir::EmitLib, &compiledFilename, flags,
-        &errorMessage);
+        onnx_mlir::EmitLib, flags, &compiledFilename, &errorMessage);
     if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
   } else {

@@ -8,11 +8,12 @@
 
 // Read the arguments from the command line and return a std::string
 std::string readArgs(int argc, char *argv[]) {
-  std::string commandLineStr = "";
+  std::string commandLineStr;
   for (int i = 1; i < argc; i++) {
-    commandLineStr.append(std::string(argv[i]).append(" "));
+    if (i > 1)
+      commandLineStr.append(" ");
+    commandLineStr.append(std::string(argv[i]));
   }
-  commandLineStr.append("\0");
   return commandLineStr;
 }
 
@@ -21,11 +22,10 @@ int main(int argc, char *argv[]) {
   // model library.
   const char *errorMessage = NULL;
   const char *compiledFilename;
-  std::string commandLineString = readArgs(argc, argv);
-  const char *flags = commandLineString.c_str();
-  int rc =
-      onnx_mlir::omCompileFromFileViaCommand("add.onnx", "add-cppinterface",
-          onnx_mlir::EmitLib, &compiledFilename, flags, &errorMessage);
+  std::string flags = readArgs(argc, argv);
+  flags += " -o add-cppinterface";
+  int rc = onnx_mlir::omCompileFromFileViaCommand("add.onnx",
+      onnx_mlir::EmitLib, flags.c_str(), &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to compile add.onnx with error code " << rc;
     if (errorMessage)

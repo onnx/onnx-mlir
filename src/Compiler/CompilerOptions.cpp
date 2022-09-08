@@ -17,6 +17,7 @@
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include <iostream>
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -77,8 +78,10 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> customEnvFlags("customEnvFlags",
-    llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
-                   "ONNX_MLIR_FLAGS"),
+    llvm::cl::desc(
+        "Override the default ONNX_MLIR_FLAGS env var name that is used to "
+        "provide the default compiler options:"
+        "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::init("ONNX_MLIR_FLAGS"),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -203,6 +206,39 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
+
+bool parseCustomEnvFlagsCommandLineOption(
+    int argc, const char *const *argv, llvm::raw_ostream *errs) {
+  // The customEnvFlags variable defaults to ONNX_MLIR_FLAGS but it might be
+  // assigned a different value in the argv. So scan first for the
+  // customEnvFlags and set global env var if available.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    if (currStr.find("--customEnvFlags=") == 0) {
+      currStr.erase(0, 17);
+      customEnvFlags = currStr;
+      break;
+    }
+    if (currStr.find("-customEnvFlags=") == 0) {
+      currStr.erase(0, 16);
+      customEnvFlags = currStr;
+      break;
+    }
+  }
+  // Now we do not tolerate having another -customEnvFlags in the env var
+  // itself, as it would lead to recursive reseting of this variable.
+  // Test and report error if we find this pattern.
+  if (const char *envValCstr = std::getenv(customEnvFlags.c_str())) {
+    std::string envVal(envValCstr);
+    if (envVal.find("-customEnvFlags")==0) {
+      if (errs)
+        *errs << "Cannot have a \"---customEnvFlags\" in the env var that "
+                 "defines the default options\n";
+      return false;
+    }
+  }
+  return true;
+}
 
 // Support for customEnvFlags.
 void setTargetEnvVar(const std::string &envVarName) {

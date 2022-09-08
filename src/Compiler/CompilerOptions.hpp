@@ -58,6 +58,10 @@ extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> enableParallel;
 
+// The customEnvFlags must be scanned before the normal options.
+bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
+    llvm::raw_ostream *errs = (llvm::raw_ostream *)nullptr);
+
 void setTargetEnvVar(const std::string &envVarName);
 void clearTargetEnvVar();
 std::string getTargetEnvVarOption();

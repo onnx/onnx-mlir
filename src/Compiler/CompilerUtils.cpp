@@ -162,8 +162,8 @@ Command &Command::appendStr(const std::string &arg) {
 
 // Append a single optional string argument.
 Command &Command::appendStrOpt(const llvm::Optional<std::string> &arg) {
-  if (arg.hasValue())
-    _args.emplace_back(arg.getValue());
+  if (arg.has_value())
+    _args.emplace_back(arg.value());
   return *this;
 }
 

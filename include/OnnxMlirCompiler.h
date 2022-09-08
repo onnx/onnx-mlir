@@ -135,8 +135,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
-    const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char **outputFilename, const char *flags, const char **errorMessage);
+    EmissionTargetType emissionTarget, const char *flags,
+    const char **outputFilename, const char **errorMessage);
 
 /*!
  *  Compile an onnx model from a file containing MLIR or ONNX protobuf. When
