@@ -455,6 +455,20 @@ func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
 
 // -----
 
+func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = "onnx.Constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+
+// CHECK-LABEL:  func.func @expand_pow_into_constant
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<1.000000e+00> : tensor<3x4x5xf32>} : () -> tensor<3x4x5xf32>
+// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Rewrite N-D Softmax into 2-D softmax when axis is the last dim.
 
 func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256x256xf32>) {

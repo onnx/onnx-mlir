@@ -256,10 +256,22 @@ struct ExpandPowToMulPattern : public ConversionPattern {
     } else
       return failure();
 
-    Value result = input;
+    Value result;
     Type resultType = powOp.Z().getType();
-    for (unsigned i = 1; i < exponent; ++i)
-      result = create.onnx.mul(resultType, result, input);
+    if (exponent == 0) {
+      DenseElementsAttr valAttr;
+      if (elementType.isa<FloatType>())
+        valAttr = DenseElementsAttr::get(resultType, ArrayRef<float>({1.0}));
+      else if (elementType.isa<IntegerType>())
+        valAttr = DenseElementsAttr::get(resultType, ArrayRef<int64_t>({1}));
+      else
+        llvm_unreachable("Unsupported type");
+      result = create.onnx.constant(valAttr);
+    } else {
+      result = input;
+      for (unsigned i = 1; i < exponent; ++i)
+        result = create.onnx.mul(resultType, result, input);
+    }
 
     rewriter.replaceOp(op, {result});
     return success();
