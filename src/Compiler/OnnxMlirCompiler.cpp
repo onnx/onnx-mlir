@@ -53,7 +53,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   std::string onnxMlirPath;
   char *onnxMlirPathFromEnv;
   if ((onnxMlirPathFromEnv = std::getenv("ONNX_MLIR_BIN_PATH")))
-    onnxMlirPath = std::string(onnxMlirPathFromEnv)+"/onnx-mlir";
+    onnxMlirPath = std::string(onnxMlirPathFromEnv) + "/onnx-mlir";
   else
     onnxMlirPath = getToolPath("onnx-mlir", kOnnxmlirPath);
   struct Command onnxMlirCompile(

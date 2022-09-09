@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   const char *compiledFilename;
   std::string flags = readArgs(argc, argv);
   flags += " -o add-cpp-interface";
-  std::cout << "hi alex: flags ."<<flags<<".\n";
+  //std::cout << "hi alex: flags ."<<flags<<".\n";
   int rc = onnx_mlir::omCompileFromFile("add.onnx", onnx_mlir::EmitLib,
       flags.c_str(), &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
