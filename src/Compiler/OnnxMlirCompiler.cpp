@@ -2,6 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//===------- OnnxMlirCompiler.cpp - ONNX-MLIR Compiler API Declarations ---===//
+//
+// This file contains code for the onnx-mlir compiler functionality exported
+// from the OnnxMlirCompiler library
+//
+//===----------------------------------------------------------------------===//
+
 #include "include/OnnxMlirCompiler.h"
 #include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -12,6 +19,7 @@ using namespace onnx_mlir;
 extern "C" {
 namespace onnx_mlir {
 
+#if 0 // hi alex
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   // ParseCommandLineOptions needs at least one argument
   std::string nameStr =
@@ -52,6 +60,8 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   std::string val = getCompilerOption(kind);
   return strdup(val.c_str());
 }
+
+#endif
 
 static OnnxMlirCompilerErrorCodes pushErrorMessage(const char **errorMessage,
     const OnnxMlirCompilerErrorCodes error, const std::string &msg) {
@@ -142,7 +152,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   }
   return rc;
 }
-#endif 
+#endif
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,

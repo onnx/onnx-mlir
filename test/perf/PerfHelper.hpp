@@ -27,16 +27,14 @@
 // Define performance main, with default opt level of 3, and scan PERF_ARGS to
 // override default onnx-mlir compiler options.
 #define PERF_MAIN()                                                            \
-  const std::string envArgName("PERF_ARGS");                                   \
-  const std::string O3("3");                                                   \
-                                                                               \
   int main(int argc, char **argv) {                                            \
     ::benchmark::Initialize(&argc, argv);                                      \
-    onnx_mlir::omSetCompilerOption(                                            \
-        onnx_mlir::OptionKind::CompilerOptLevel, O3.c_str());                  \
-    const char *myArgv[] = "perf-algo";                                        \
-    if (!llvm::cl::ParseCommandLineOptions(                                    \
-            1, myArgv, "set options for perf-algo", envArgName.c_str()))       \
+    int onnxMlirArgc = 2;                                                      \
+    const char *onnxMlirArgv[onnxMlirArgc];                                    \
+    onnxMlirArgv[0] = argv[0];                                                 \
+    onnxMlirArgv[1] = "-O3";                                                   \
+    if (!llvm::cl::ParseCommandLineOptions(onnxMlirArgc, onnxMlirArgv,         \
+            "set options for perf-algo", nullptr, /*env var*/ "PERF_ARGS"))    \
       return 2;                                                                \
     if (::benchmark::ReportUnrecognizedArguments(argc, argv))                  \
       return 1;                                                                \

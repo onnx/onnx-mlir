@@ -62,9 +62,9 @@ extern llvm::cl::opt<bool> enableParallel;
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
     llvm::raw_ostream *errs = (llvm::raw_ostream *)nullptr);
 
-void setTargetEnvVar(const std::string &envVarName);
-void clearTargetEnvVar();
-std::string getTargetEnvVarOption();
+void setCustomEnvVar(const std::string &envVarName);
+void clearCustomEnvVar();
+std::string getCustomEnvVarOption();
 
 void setTargetTriple(const std::string &triple);
 void clearTargetTriple();

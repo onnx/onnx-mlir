@@ -41,6 +41,7 @@ extern "C" {
 namespace onnx_mlir {
 #endif
 
+#if 0 // hi alex
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
  *  the envVarName (default ONNX_MLIR_FLAGS) environment variable.
@@ -110,6 +111,7 @@ ONNX_MLIR_EXPORT void omClearCompilerOption(const OptionKind kind);
  *  freeing the returned pointer.
  */
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
+#endif
 
 /*!
  *  C interface to compile an onnx model from a file via onnx-mlir command.

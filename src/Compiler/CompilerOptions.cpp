@@ -234,22 +234,22 @@ bool parseCustomEnvFlagsCommandLineOption(
       }
     }
     // The envVar is verified, use it.
-    customEnvFlags = envVar;
+    setCustomEnvVar(envVar);
   }
   return true;
 }
 
 // Support for customEnvFlags.
-void setTargetEnvVar(const std::string &envVarName) {
+void setCustomEnvVar(const std::string &envVarName) {
   assert(envVarName != "" && "Expecting valid target envVarName description");
   LLVM_DEBUG(
       llvm::dbgs() << DEBUG_TYPE << "Set envVarName\"" << envVarName << "\"\n");
   customEnvFlags = envVarName;
 }
 
-void clearTargetEnvVar() { customEnvFlags.clear(); }
+void clearCustomEnvVar() { customEnvFlags.clear(); }
 
-std::string getTargetEnvVarOption() {
+std::string getCustomEnvVarOption() {
   return (customEnvFlags != "") ? "--customEnvFlags=" + customEnvFlags : "";
 }
 
