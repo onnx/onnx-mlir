@@ -77,8 +77,8 @@ public:
           if (isa<ONNXConstantOp>(op)) {
             // Constant has the type in the output, so use it.
             operands = op->getResults();
-            // Since we use the result of the constant operation, we must
-            // insert the print operation after the constant operation.
+            // Since we use the result of the constant operation, we must insert
+            // the print operation after the constant operation.
             builder.setInsertionPointAfter(op);
             builder.create<ONNXPrintSignatureOp>(loc, opNameAttr, operands);
           } else if (operands.size() > 0) {
