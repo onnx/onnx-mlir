@@ -166,22 +166,25 @@ int main(int argc, char **argv) {
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
 
-  parseCustomEnvFlagsCommandLineOption(argc, argv);
-  llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr,
-      customEnvFlags.c_str());
+  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(argc, argv,
+          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          customEnvFlags.c_str())) {
+    llvm::errs() << "Failed to parse options\n";
+    return 1;
+  }
 
   // Set up the input file.
   std::string error_message;
   auto file = mlir::openInputFile(input_filename, &error_message);
   if (!error_message.empty()) {
-    fprintf(stderr, "%s\n", error_message.c_str());
+    llvm::errs() << "Failure to open file; " << error_message << "\n";
     return failed(LogicalResult::failure());
   }
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
   if (!error_message.empty()) {
-    fprintf(stderr, "%s\n", error_message.c_str());
+    llvm::errs() << "Failure to compile file; " << error_message << "\n";
     return failed(LogicalResult::failure());
   }
 

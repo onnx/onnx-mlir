@@ -59,16 +59,20 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  parseCustomEnvFlagsCommandLineOption(argc, argv);
-  llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr, customEnvFlags.c_str());
+  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(argc, argv,
+          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          customEnvFlags.c_str())) {
+    llvm::errs() << "Failed to parse options\n";
+    return 1;
+  }
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   int rc = processInputFile(inputFilename, context, module, &errorMessage);
   if (rc != 0) {
     if (!errorMessage.empty())
-      std::cerr << errorMessage << std::endl;
+      llvm::errs() << errorMessage << "\n";
     return 1;
   }
 
@@ -81,8 +85,8 @@ int main(int argc, char *argv[]) {
            outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
            std::regex("[\\.]*$")))) {
     if (b)
-      std::cerr << "Invalid -o option value " << outputBaseName << " ignored."
-                << std::endl;
+      llvm::errs() << "Invalid -o option value " << outputBaseName
+                   << " ignored.\n";
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
   }
 

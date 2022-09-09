@@ -34,7 +34,9 @@
     ::benchmark::Initialize(&argc, argv);                                      \
     onnx_mlir::omSetCompilerOption(                                            \
         onnx_mlir::OptionKind::CompilerOptLevel, O3.c_str());                  \
-    if (onnx_mlir::omSetCompilerOptionsFromEnv(envArgName.c_str()) != 0)       \
+    const char *myArgv[] = "perf-algo";                                        \
+    if (!llvm::cl::ParseCommandLineOptions(                                    \
+            1, myArgv, "set options for perf-algo", envArgName.c_str()))       \
       return 2;                                                                \
     if (::benchmark::ReportUnrecognizedArguments(argc, argv))                  \
       return 1;                                                                \
