@@ -156,6 +156,8 @@ void addKrnlToLLVMPasses(
   }
 
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+  pm.addPass(mlir::createConvertSCFToOpenMPPass());
+  pm.addPass(mlir::createConvertOpenMPToLLVMPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
   pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
