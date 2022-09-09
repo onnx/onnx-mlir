@@ -16,7 +16,6 @@
 #include "src/Version/Version.hpp"
 #include <iostream>
 
-using namespace std;
 using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;

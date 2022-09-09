@@ -69,8 +69,9 @@ struct Command {
 
 void registerDialects(mlir::MLIRContext &context);
 
-// get Tool path
-std::string getToolPath(std::string tool);
+// Get Tool path, see comments in CompilerUtils.cpp for more details.
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath);
 
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
@@ -92,7 +93,7 @@ int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // libraries or jar files, the compiler will link in lightweight runtimes / jar
 // files. If these libraries / jar files are not in the system wide directory
 // (typically /usr/local/lib), the user can override the default location using
-// the ONNX_MLIR_RUNTIME_DIR environment variable.
+// the ONNX_MLIR_LIBRARY_PATH environment variable.
 // Returns 0 on success,OnnxMlirCompilerErrorCodes on failure.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,

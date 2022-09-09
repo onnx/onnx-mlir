@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     commandLineStr += " -o " + outputBaseName;
     const char *flags = commandLineStr.c_str();
     // Compile.
-    retVal = onnx_mlir::omCompileFromFileViaCommand(testFileName.c_str(),
+    retVal = onnx_mlir::omCompileFromFile(testFileName.c_str(),
         onnx_mlir::EmitLib, flags, &compiledFilename, &errorMessage);
     if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;

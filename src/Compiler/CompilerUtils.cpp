@@ -94,10 +94,10 @@ static std::string getExecPath() {
   return execPath;
 }
 
-// Runtime directory contains all the libraries, jars, etc. that are
-// necessary for running onnx-mlir. It's resolved in the following order:
+// Directory contains all the libraries, jars, etc. that are necessary for
+// running onnx-mlir. It's resolved in the following order:
 //
-//   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
+//   - if ONNX_MLIR_LIBRARY_PATH is set, use it, otherwise
 //   - get path from where onnx-mlir is run, if it's of the form
 //     /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
@@ -108,8 +108,8 @@ static std::string getExecPath() {
 //
 // We now explicitly set CMAKE_INSTALL_LIBDIR to lib so we don't have
 // to deal with lib64 anymore.
-static std::string getRuntimeDir() {
-  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
+static std::string getLibraryPath() {
+  const auto &envDir = getEnvVar("ONNX_MLIR_LIBRARY_PATH");
   if (envDir && llvm::sys::fs::exists(envDir.value()))
     return envDir.value();
 
@@ -142,7 +142,8 @@ static std::string getRuntimeDir() {
 // installed system wide but to different places and their sources have been
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
-std::string getToolPath(std::string tool) {
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -150,7 +151,7 @@ std::string getToolPath(std::string tool) {
   if (llvm::sys::fs::can_execute(p))
     return p;
   else
-    return std::string();
+    return systemToolPath;
 }
 
 // Append a single string argument.
@@ -410,8 +411,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
-  std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
+  std::string optPath = getToolPath("opt", kOptPath);
+  Command optBitcode(/*exePath=*/optPath);
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -429,8 +430,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 static int genModelObject(
     std::string bitcodeNameWithExt, std::string &modelObjNameWithExt) {
 
-  std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
+  std::string llcPath = getToolPath("llc", kLlcPath);
+  Command llvmToObj(/*exePath=*/llcPath);
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -499,9 +500,9 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 // Return 0 on success, error code on failure.
 static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
-  llvm::SmallString<8> runtimeDir(getRuntimeDir());
-  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
-  std::string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
+  llvm::SmallString<8> libraryPath(getLibraryPath());
+  llvm::sys::path::append(libraryPath, "javaruntime.jar");
+  std::string javaRuntimeJarPath = llvm::StringRef(libraryPath).str();
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
@@ -543,7 +544,7 @@ static int compileModuleToSharedLibrary(
       modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
 }
 
 // Return 0 on success, error code on failure
@@ -560,7 +561,7 @@ static int compileModuleToJniJar(
   if (outputDir.empty())
     outputDir = StringRef(".");
 
-  std::string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  std::string jniSharedLibPath = getLibraryPath() + "/libjniruntime.a";
 
   llvm::SmallString<8> jniObjDir(outputDir);
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
@@ -586,7 +587,7 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      {getRuntimeDir()});
+      {getLibraryPath()});
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
