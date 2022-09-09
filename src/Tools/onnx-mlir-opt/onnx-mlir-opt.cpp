@@ -94,13 +94,13 @@ void scanAndSetMAccel(int argc, char **argv) {
   // Scan accelerators and add them to the maccel option.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("--maccel=") != 0) {
+    if (currStr.find("--maccel=") == 0) {
       std::string accelKind(
           &argv[i][9]); // Get the string starting 9 chars down.
       setTargetAccel(accelKind);
       break;
     }
-    if (currStr.find("-maccel=") != 0) {
+    if (currStr.find("-maccel=") == 0) {
       std::string accelKind(
           &argv[i][8]); // Get the string starting 8 chars down.
       setTargetAccel(accelKind);
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 
   parseCustomEnvFlagsCommandLineOption(argc, argv);
   llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR-OPT modular optimizer driver\n", nullptr,
+      "ONNX-MLIR modular optimizer driver\n", nullptr,
       customEnvFlags.c_str());
 
   // Set up the input file.

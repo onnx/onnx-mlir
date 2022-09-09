@@ -116,6 +116,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
 }
 
+#if 0 // hi alex
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char **errorMessage) {
@@ -141,6 +142,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   }
   return rc;
 }
+#endif 
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,

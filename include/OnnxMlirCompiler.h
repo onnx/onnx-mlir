@@ -113,6 +113,10 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
 
 /*!
  *  C interface to compile an onnx model from a file via onnx-mlir command.
+ *  This interface is thread safe, and does not take any flags from the
+ *  current environment. All flags are passed by using the flags parameter,
+ *  including the "-o output-file-name" option. All options that are available
+ *  to onnx-mlir are also available here.
  *
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
@@ -134,6 +138,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
     EmissionTargetType emissionTarget, const char *flags,
     const char **outputFilename, const char **errorMessage);
 
+#if 0 // hi alex
 /*!
  *  Compile an onnx model from a file containing MLIR or ONNX protobuf. When
  *  generating libraries or jar files, the compiler will link in lightweight
@@ -156,6 +161,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char **errorMessage);
+#endif
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array. When
