@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- RunONNXLub.cpp  ------------------------===//
+//===----------------- RunONNXLib.cpp  ------------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
