@@ -126,6 +126,13 @@ Value OnnxBuilder::mul(Value A, Value B) const {
   return b.create<ONNXMulOp>(loc, toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
+  assert((A.getType().cast<ShapedType>().getElementType() ==
+             B.getType().cast<ShapedType>().getElementType()) &&
+         "A and B must have the same element type");
+  return b.create<ONNXMulOp>(loc, resultType, toTensor(A), toTensor(B));
+}
+
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
