@@ -21,18 +21,17 @@ This project contributes:
 * an `onnx-mlir` driver to perform these lowering,
 * and a python/C/C++/Java runtime environment.
 
-Current level of support for ONNX operations are listed here for
-[CPUs](docs/SupportedONNXOps-cpu.md) and
-[IBM's Telum NNPA accelerator](docs/SupportedONNXOps-NNPA.md).
+Current levels of support for the code generation of ONNX operations are listed here for
+[a generic CPU](docs/SupportedONNXOps-cpu.md) and
+[IBM's Telum integrated AI accelerator](docs/SupportedONNXOps-NNPA.md).
 
 ## Interacting with the community.
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
-A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+For ongoing discussions, we use an [`#onnx-mlir-discussion`](https://lfaifoundation.slack.com/archives/C01J4NAL4A2) slack channel established under the Linux Foundation AI and Data Workspace.
+We use GitHub Issues for request for comments, questions, or bug reports.
+Security-related issues are reported using the channels listed in the [SECURITY](SECURITY.md) page.
 
-You may also open GitHub Issues for any questions and/or suggestions you may have.
-
-For security-related issues please use exclusively the channels listed in the [SECURITY](SECURITY.md) page.
+We hold informal weekly meetings on Tuesdays, 8-9pm EST where we discuss  current issues and progress. Meeting uses [WebEx](https://ibm.webex.com/meet/alexe) and everyone is welcome to attend. Please email alexe@us.ibm.com to be added to the meeting invite or to request a 15-30 min time slot to discuss a specific topic of interest.
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
@@ -57,12 +56,12 @@ make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
 ```
 
-Help to update the prerequisites is found [here](docs/Prerequisite.md).
+Look [here](docs/Prerequisite.md) for help to set up the prerequisite software.
 
 At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
 Periodically the maintainers need to move to a more recent LLVM level. 
-Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
-When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
+Among other things, this requires to update the LLVM commit string in [clone-mlir.sh](utils/clone-mlir.sh).
+When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file. See instructions [here](docs/BuildONNX.md) when third-party ONNX also need to be updated.
 
 ### Build
 
