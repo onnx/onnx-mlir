@@ -13,7 +13,7 @@ using namespace onnx_mlir;
 
 std::string testFileName;
 std::string outputBaseName;
-std::string commandLineStr;
+std::string flags;
 bool compileFromFile = false;
 
 #define IGNORE_ARG(FLAG)                                                       \
@@ -63,9 +63,7 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
 // be processed by the ONNX-MLIR compiler.
 void readArgsFromCommandLine(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
-    if (i > 1)
-      commandLineStr.append(" ");
-    commandLineStr.append(std::string(argv[i]));
+    flags.append(std::string(argv[i]) + " ");
     readArg(std::string(argv[i]));
   }
 }
@@ -84,11 +82,10 @@ int main(int argc, char *argv[]) {
 
   if (compileFromFile) {
     // Add output file option to command line.
-    commandLineStr += " -o " + outputBaseName;
-    const char *flags = commandLineStr.c_str();
+    flags += "-o " + outputBaseName;
     // Compile.
-    retVal = onnx_mlir::omCompileFromFile(testFileName.c_str(),
-        onnx_mlir::EmitLib, flags, &compiledFilename, &errorMessage);
+    retVal = onnx_mlir::omCompileFromFile(
+        testFileName.c_str(), flags.c_str(), &compiledFilename, &errorMessage);
     if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
   } else {

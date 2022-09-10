@@ -19,36 +19,33 @@ using namespace onnx_mlir;
 extern "C" {
 namespace onnx_mlir {
 
-static OnnxMlirCompilerErrorCodes pushErrorMessage(const char **errorMessage,
-    const OnnxMlirCompilerErrorCodes error, const std::string &msg) {
-  if (errorMessage)
-    *errorMessage = strdup(msg.c_str());
-  return error;
-}
-
-#ifdef _WIN32
-#define strtok_r strtok_s
-#endif
-
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    EmissionTargetType emissionTarget, const char *flags,
-    const char **outputFilename, const char **errorMessage) {
+    const char *flags, const char **outputFilename, const char **errorMessage) {
   // Process the flags, saving each space-separated text in a separate
-  // entry in the string vector flagsVector.
-  std::vector<std::string> flagsVectorStr;
-  // Use the same standard as std::isspace to define white space characters with
-  // strtok_r instead of strtok to be thread safe.
-  const char delimiters[6] = {0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b};
-  int len = std::strlen(flags);
-  char *buffer = new char(len + 1);
-  char *rest = buffer;
-  char *token;
-  std::strcpy(buffer, flags);
-  while ((token = strtok_r(rest, delimiters, &rest)) != NULL) {
-    flagsVectorStr.push_back(std::string(token));
-  }
-  delete buffer;
-
+  // entry in the string vector flagVect.
+  std::vector<std::string> flagVect;
+  const char *str = flags;
+  do {
+    // Get rid of leading spaces.
+    while (*str && std::isspace(*str))
+      ++str;
+    // Save current location and advance while useful chars.
+    const char *begin = str;
+    while (*str && !std::isspace(*str))
+      ++str;
+    // If not empty, copy new entry into flagVec.
+    if (begin != str)
+      flagVect.push_back(std::string(begin, str));
+  } while (*str);
+  // Get input, output file names.
+  std::string inputFilenameStr(inputFilename);
+  std::string outputBasenameStr;
+  int num = flagVect.size();
+  for (int i = 0; i < num - 1; ++i) // Skip last as need 2 consecutive entries.
+    if (flagVect[i].find("-o") == 0) {
+      outputBasenameStr = flagVect[i + 1];
+      break;
+    }
   // Use 'onnx-mlir' command to compile the model.
   std::string onnxMlirPath;
   char *onnxMlirPathFromEnv;
@@ -56,26 +53,28 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     onnxMlirPath = std::string(onnxMlirPathFromEnv) + "/onnx-mlir";
   else
     onnxMlirPath = getToolPath("onnx-mlir", kOnnxmlirPath);
-  struct Command onnxMlirCompile(
-      /*exePath=*/onnxMlirPath);
-  // Add each of the flags to the command, locating output base name if avail.
-  std::string inputFilenameStr(inputFilename);
-  std::string outputBasenameStr;
-  std::size_t num = flagsVectorStr.size();
-  for (std::size_t i = 0; i < num; ++i) {
-    if (flagsVectorStr[i].find("-o") == 0) {
-      if (i + 1 >= num)
-        return pushErrorMessage(errorMessage, InvalidCompilerOption,
-            "missing file name after -o option");
-      outputBasenameStr = flagsVectorStr[i + 1];
-    }
-    onnxMlirCompile.appendStr(flagsVectorStr[i]);
-  }
-  // Push also the input file name.
+  struct Command onnxMlirCompile(onnxMlirPath);
+  // Add flags and input flag.
+  onnxMlirCompile.appendList(flagVect);
   onnxMlirCompile.appendStr(inputFilenameStr);
   // Run command.
   int rc = onnxMlirCompile.exec();
   if (rc == CompilerSuccess && outputFilename) {
+    // Get Emit target (approximate, enough to get output name).
+    EmissionTargetType emissionTarget = EmissionTargetType::EmitLib;
+    for (int i = 0; i < num; ++i) {
+      if (flagVect[i].find("-Emit") == 0 || flagVect[i].find("--Emit") == 0) {
+        if (flagVect[i].find("Lib") <= 6)
+          emissionTarget = EmissionTargetType::EmitLib;
+        else if (flagVect[i].find("JNI") <= 6)
+          emissionTarget = EmissionTargetType::EmitJNI;
+        else if (flagVect[i].find("Obj") <= 6)
+          emissionTarget = EmissionTargetType::EmitObj;
+        else // There are many other targets, all of the MLIR type.
+          emissionTarget = EmissionTargetType::EmitMLIR;
+        break;
+      }
+    }
     // Determine output file name value and copy into outputFilename.
     if (outputBasenameStr.empty())
       outputBasenameStr =
@@ -84,7 +83,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     *outputFilename = strdup(name.c_str());
   }
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
-}
+} // namespace onnx_mlir
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,

@@ -45,8 +45,8 @@ namespace onnx_mlir {
  *  C interface to compile an onnx model from a file via onnx-mlir command.
  *  This interface is thread safe, and does not take any flags from the
  *  current environment. All flags are passed by using the flags parameter,
- *  including the "-o output-file-name" option. All options that are available
- *  to onnx-mlir are also available here.
+ *  including the "-o output-file-name" option or the "-EmitXXX" options. All
+ *  options that are available to onnx-mlir are also available here.
  *
  *  This call rely on executing onnx-mlir compiler. The user can override its
  *  default location by using the ONNX_MLIR_BIN_PATH environment variable.
@@ -58,8 +58,6 @@ namespace onnx_mlir {
  *
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
- *
- *  @param emissionTarget Target format to compile to.
  *
  *  @param outputFilename Output file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
@@ -73,8 +71,7 @@ namespace onnx_mlir {
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    EmissionTargetType emissionTarget, const char *flags,
-    const char **outputFilename, const char **errorMessage);
+    const char *flags, const char **outputFilename, const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array. This method is not thread
