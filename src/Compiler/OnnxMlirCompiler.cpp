@@ -16,8 +16,47 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
-extern "C" {
 namespace onnx_mlir {
+
+static std::string deriveOutputFileName(
+    std::vector<std::string> &flagVect, std::string inputFilename) {
+  // Get output file name.
+  std::string outputBasename;
+  int num = flagVect.size();
+  for (int i = 0; i < num - 1;
+       ++i) { // Skip last as need 2 consecutive entries.
+    if (flagVect[i].find("-o") == 0) {
+      outputBasename = flagVect[i + 1];
+      break;
+    }
+  }
+  // If no output file name, derive it from input file name
+  if (outputBasename.empty())
+    outputBasename = inputFilename.substr(0, inputFilename.find_last_of("."));
+  // Get Emit target (approximate, enough to get output name). There are many
+  // more Emit target than in the base definition because Accelerators may
+  // have their own. That is why the Emit target has to be part of the flags
+  // and cannot be a direct enum, as there is none that encompass all the
+  // possible options.
+  EmissionTargetType emissionTarget = EmissionTargetType::EmitLib;
+  for (int i = 0; i < num; ++i) {
+    if (flagVect[i].find("-Emit") == 0 || flagVect[i].find("--Emit") == 0) {
+      if (flagVect[i].find("Lib") <= 6)
+        emissionTarget = EmissionTargetType::EmitLib;
+      else if (flagVect[i].find("JNI") <= 6)
+        emissionTarget = EmissionTargetType::EmitJNI;
+      else if (flagVect[i].find("Obj") <= 6)
+        emissionTarget = EmissionTargetType::EmitObj;
+      else // There are many other targets, all of the MLIR type.
+        emissionTarget = EmissionTargetType::EmitMLIR;
+      break;
+    }
+  }
+  // Derive output file name from base and emission target.
+  return getTargetFilename(outputBasename, emissionTarget);
+}
+
+extern "C" {
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *flags, const char **outputFilename, const char **errorMessage) {
@@ -37,15 +76,6 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     if (begin != str)
       flagVect.push_back(std::string(begin, str));
   } while (*str);
-  // Get input, output file names.
-  std::string inputFilenameStr(inputFilename);
-  std::string outputBasenameStr;
-  int num = flagVect.size();
-  for (int i = 0; i < num - 1; ++i) // Skip last as need 2 consecutive entries.
-    if (flagVect[i].find("-o") == 0) {
-      outputBasenameStr = flagVect[i + 1];
-      break;
-    }
   // Use 'onnx-mlir' command to compile the model.
   std::string onnxMlirPath;
   const auto &envDir = getEnvVar("ONNX_MLIR_BIN_PATH");
@@ -56,38 +86,16 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   Command onnxMlirCompile(onnxMlirPath);
   // Add flags and input flag.
   onnxMlirCompile.appendList(flagVect);
+  std::string inputFilenameStr(inputFilename);
   onnxMlirCompile.appendStr(inputFilenameStr);
   // Run command.
   int rc = onnxMlirCompile.exec();
   if (rc == CompilerSuccess && outputFilename) {
-    // Get Emit target (approximate, enough to get output name). There are many
-    // more Emit target than in the base definition because Accelerators may
-    // have their own. That is why the Emit target has to be part of the flags
-    // and cannot be a direct enum, as there is none that encompass all the
-    // possible options.
-    EmissionTargetType emissionTarget = EmissionTargetType::EmitLib;
-    for (int i = 0; i < num; ++i) {
-      if (flagVect[i].find("-Emit") == 0 || flagVect[i].find("--Emit") == 0) {
-        if (flagVect[i].find("Lib") <= 6)
-          emissionTarget = EmissionTargetType::EmitLib;
-        else if (flagVect[i].find("JNI") <= 6)
-          emissionTarget = EmissionTargetType::EmitJNI;
-        else if (flagVect[i].find("Obj") <= 6)
-          emissionTarget = EmissionTargetType::EmitObj;
-        else // There are many other targets, all of the MLIR type.
-          emissionTarget = EmissionTargetType::EmitMLIR;
-        break;
-      }
-    }
-    // Determine output file name value and copy into outputFilename.
-    if (outputBasenameStr.empty())
-      outputBasenameStr =
-          inputFilenameStr.substr(0, inputFilenameStr.find_last_of("."));
-    std::string name = getTargetFilename(outputBasenameStr, emissionTarget);
+    std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
     *outputFilename = strdup(name.c_str());
   }
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
-} // namespace onnx_mlir
+}
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
@@ -116,5 +124,5 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   return rc;
 }
 
-} // namespace onnx_mlir
+} // extern C
 } // namespace onnx_mlir
