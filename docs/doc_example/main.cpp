@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
 
-  // Prepare the execution session and get input signature.
+  // Prepare the execution session.
   onnx_mlir::ExecutionSession *session;
   try {
     session = new onnx_mlir::ExecutionSession("./" + libFilename);
@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
     return errno;
   }
 
+  // Get input signature and print it.
   std::string inputSignature;
   try {
     inputSignature = session->inputSignature();
@@ -84,19 +85,18 @@ int main(int argc, char *argv[]) {
 
   // Get the first omt as output.
   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
-  omTensorPrint("%tResult tensor: ", y);
+  omTensorPrint("Result tensor: ", y);
   std::cout << std::endl;
   float *outputPtr = (float *)omTensorGetDataPtr(y);
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++) {
-    std::cout << outputPtr[i] << " ";
     if (outputPtr[i] != 3.0) {
       std::cerr << "Iteration " << i << ": expected 3.0, got " << outputPtr[i]
                 << "." << std::endl;
       return 100;
     }
   }
-  std::cout << std::endl << "Model verified successfully" << std::endl;
+  std::cout << "Model verified successfully" << std::endl;
   delete session;
   return 0;
 }

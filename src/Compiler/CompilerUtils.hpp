@@ -51,6 +51,8 @@
 
 namespace onnx_mlir {
 
+llvm::Optional<std::string> getEnvVar(std::string name);
+
 struct Command {
 
   std::string _path;

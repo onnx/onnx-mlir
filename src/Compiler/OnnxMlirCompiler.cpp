@@ -48,19 +48,23 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     }
   // Use 'onnx-mlir' command to compile the model.
   std::string onnxMlirPath;
-  char *onnxMlirPathFromEnv;
-  if ((onnxMlirPathFromEnv = std::getenv("ONNX_MLIR_BIN_PATH")))
-    onnxMlirPath = std::string(onnxMlirPathFromEnv) + "/onnx-mlir";
+  const auto &envDir = getEnvVar("ONNX_MLIR_BIN_PATH");
+  if (envDir && llvm::sys::fs::exists(envDir.value()))
+    onnxMlirPath = envDir.value() + "/onnx-mlir";
   else
     onnxMlirPath = getToolPath("onnx-mlir", kOnnxmlirPath);
-  struct Command onnxMlirCompile(onnxMlirPath);
+  Command onnxMlirCompile(onnxMlirPath);
   // Add flags and input flag.
   onnxMlirCompile.appendList(flagVect);
   onnxMlirCompile.appendStr(inputFilenameStr);
   // Run command.
   int rc = onnxMlirCompile.exec();
   if (rc == CompilerSuccess && outputFilename) {
-    // Get Emit target (approximate, enough to get output name).
+    // Get Emit target (approximate, enough to get output name). There are many
+    // more Emit target than in the base definition because Accelerators may
+    // have their own. That is why the Emit target has to be part of the flags
+    // and cannot be a direct enum, as there is none that encompass all the
+    // possible options.
     EmissionTargetType emissionTarget = EmissionTargetType::EmitLib;
     for (int i = 0; i < num; ++i) {
       if (flagVect[i].find("-Emit") == 0 || flagVect[i].find("--Emit") == 0) {

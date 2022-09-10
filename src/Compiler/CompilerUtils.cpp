@@ -43,7 +43,7 @@ const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
 
-static llvm::Optional<std::string> getEnvVar(std::string name) {
+llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
