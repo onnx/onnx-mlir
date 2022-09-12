@@ -268,9 +268,18 @@ struct ExpandPowToMulPattern : public ConversionPattern {
         llvm_unreachable("Unsupported type");
       result = create.onnx.constant(valAttr);
     } else {
-      result = input;
-      for (unsigned i = 1; i < exponent; ++i)
-        result = create.onnx.mul(resultType, result, input);
+      // calculate pow(input,exponent) with "exponentiation by squaring" method
+      bool result_initialized = false;
+      while (exponent > 0) {
+        if (exponent & 1) {
+          result = result_initialized
+                       ? create.onnx.mul(resultType, result, input)
+                       : input;
+          result_initialized = true;
+        }
+        input = create.onnx.mul(resultType, input, input);
+        exponent >>= 1;
+      }
     }
 
     rewriter.replaceOp(op, {result});
