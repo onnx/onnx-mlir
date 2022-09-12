@@ -357,7 +357,6 @@ bool isSuitableForZDNN<ONNXMaxOp>(ONNXMaxOp op) {
 /// Check legality for ONNXSoftmax.
 /// zDNN softmax only supports axis = 1 (or -1 when rank = 2). If axis is not
 /// 1 (or -1 when rank = 2), keep ONNXSoftmax unchanged.
-/// TODO: support rank != 2.
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
   if (!isValidElementType(op.input()))
