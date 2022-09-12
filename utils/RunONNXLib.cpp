@@ -2,15 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- runmodel.cpp  ------------------------===//
+//===----------------- RunONNXLib.cpp  ------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 /*
   This file help run a onnx model as simply as possible for testing.
   Compile as follows in the onnx-mlir build subdirectory. The tool is built as
-  follows. For dinamically loaded models:
+  follows. For dynamically loaded models:
 
 cd onnx-mlir/build
 . ../utils/build-run-onnx-lib.sh
@@ -60,7 +60,7 @@ Usage: run-onnx-lib [options] model.so
 #include <string>
 #include <vector>
 
-// Json reader & LLVM suport.
+// Json reader & LLVM support.
 #include "llvm/Support/JSON.h"
 
 // Include ONNX-MLIR Runtime support.
@@ -224,7 +224,7 @@ void parseArgs(int argc, char **argv) {
       for (int i = 0; i < inputNum; ++i) {
         auto JSONDimValue = (*JSONArray)[i].getAsInteger();
         assert(JSONDimValue && "failed to get value");
-        int64_t dim = JSONDimValue.getValue();
+        int64_t dim = JSONDimValue.value();
         dimKnownAtRuntime.push_back(dim);
       }
       break;
@@ -303,7 +303,7 @@ void parseArgs(int argc, char **argv) {
  * determine if data is to be allocated or not, using the sizes determined by
  * the signature.
  * @param trace If true, provide a printout of the signatures (input and
- * putput).
+ * output).
  * @return pointer to the TensorList just created, or null on error.
  */
 OMTensorList *omTensorListCreateFromInputSignature(
@@ -336,7 +336,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
     auto JSONItem = (*JSONArray)[i].getAsObject();
     auto JSONItemType = JSONItem->getString("type");
     assert(JSONItemType && "failed to get type");
-    auto type = JSONItemType.getValue();
+    auto type = JSONItemType.value();
     auto JSONDimArray = JSONItem->getArray("dims");
     int rank = JSONDimArray->size();
     assert(rank > 0 && rank < 100 && "rank is out bound");
@@ -346,7 +346,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
     for (int d = 0; d < rank; ++d) {
       auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
       assert(JSONDimValue && "failed to get value");
-      int64_t dim = JSONDimValue.getValue();
+      int64_t dim = JSONDimValue.value();
       if (dim < 0) {
         // we have a runtime value
         if (dimKnownAtRuntimeIndex >= dimKnownAtRuntime.size()) {
