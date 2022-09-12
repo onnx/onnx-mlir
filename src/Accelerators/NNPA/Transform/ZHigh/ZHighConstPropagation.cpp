@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -106,13 +107,17 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           /*value=*/nullptr,
           /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
-  // Use an opaque attribute to store stickified data.
+  // Use an dense resource attribute to store stickified data.
   // Attribute type: tensor<sizeInBytes x i8>
   int64_t sizeInBytes = ztensor->buffer_size;
-  OpaqueElementsAttr valueAttr =
-      OpaqueElementsAttr::get(stickifiedConstant.getOperation()->getDialect(),
-          RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
-          StringRef((char *)ztensor->buffer, sizeInBytes));
+  DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
+      RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
+      stickifiedConstant.getOperation()
+          ->getDialect()
+          ->getNamespace(), // use the dialect as the blob "hint"
+      HeapAsmResourceBlob::allocateAndCopy(
+          llvm::makeArrayRef((char *)ztensor->buffer, sizeInBytes),
+          alignof(char)));
 
   stickifiedConstant.valueAttr(valueAttr);
 
@@ -142,6 +147,9 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   // pre-transformed desc.
   zdnn_data_layouts zDNNLayout =
       convertLayoutAttrToZDNNDataLayout(rank, layout);
+  // If zDNNLayout is NHWC, we stickify directly from NCHW.
+  if (zDNNLayout == ZDNN_NHWC)
+    zDNNLayout = ZDNN_NCHW;
   zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
   set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
   // transformed desc.

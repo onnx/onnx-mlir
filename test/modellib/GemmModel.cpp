@@ -79,31 +79,30 @@ bool GemmLibBuilder::build() {
   return true;
 }
 
-bool GemmLibBuilder::prepareInputs() {
-  constexpr int num = 3;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
-  if (!list)
-    return false;
-  list[0] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape));
-  list[1] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape));
-  list[2] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape));
-  inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs && list[0] && list[1] && list[2];
-}
-
-bool GemmLibBuilder::prepareInputs(float dataRange) {
+bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(aShape), -dataRange, dataRange);
+      llvm::makeArrayRef(aShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(bShape), -dataRange, dataRange);
+      llvm::makeArrayRef(bShape), dataRangeLB, dataRangeUB);
   list[2] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(cShape), -dataRange, dataRange);
+      llvm::makeArrayRef(cShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
+}
+
+bool GemmLibBuilder::prepareInputs() {
+  return GemmLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
+}
+
+bool GemmLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool GemmLibBuilder::verifyOutputs() {

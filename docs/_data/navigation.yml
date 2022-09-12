@@ -38,7 +38,7 @@ toc:
   - title: Development
     subfolderitems:
       - page: Add an Operation
-        url:  ImportONNXDefs.md#add-an-operation-.html
+        url:  ImportONNXDefs.html
       - page: Testing Guidelines
         url:  Testing.html
       - page: Error Handling

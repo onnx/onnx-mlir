@@ -13,6 +13,8 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
@@ -152,6 +154,16 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   if (auto encoding = getZTensorEncoding(type))
     return encoding.getDataLayout();
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
+}
+
+Value getMinusBcastConst(
+    mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
+  ShapedType xType = X.getType().cast<ShapedType>();
+  assert(xType.hasStaticShape() && "expected static shape");
+  float val = floatAttr.getValueAsDouble() * -1.0;
+  DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  return create.onnx.constant(denseAttr);
 }
 
 } // namespace zhigh

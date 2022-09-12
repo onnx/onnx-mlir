@@ -79,12 +79,11 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Now replace questionmark by actual computed size.
     Value sum = create.krnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
-    if (!axis.hasValue())
+    if (!axis.has_value()) {
       shapeHelper.dimsForOutput()[0] = dynDim;
-    else {
-      const int64_t axisValue = (axis.getValue() >= 0)
-                                    ? axis.getValue()
-                                    : axis.getValue() + inputRank;
+    } else {
+      const int64_t axisValue =
+          (axis.value() >= 0) ? axis.value() : axis.value() + inputRank;
       shapeHelper.dimsForOutput()[axisValue] = dynDim;
     }
 
@@ -110,7 +109,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     inputBounds.getSymbolList(inputUbs);
 
     // Consider the cases.
-    if (!axis.hasValue()) {
+    if (!axis.has_value()) {
       // We iterate over the original loops, and in the innerblock we test for
       // the condition. The output is 1D.
       //
@@ -181,10 +180,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
             });
           });
     } else {
-      assert(axis.hasValue() && "Expecting axis to have a value");
-      const int64_t axisValue = (axis.getValue() >= 0)
-                                    ? axis.getValue()
-                                    : axis.getValue() + inputRank;
+      assert(axis.has_value() && "Expecting axis to have a value");
+      const int64_t axisValue =
+          (axis.value() >= 0) ? axis.value() : axis.value() + inputRank;
 
       // Handle case where output is multi-dimensional.
       //

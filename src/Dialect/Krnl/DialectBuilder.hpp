@@ -88,13 +88,13 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ValueRange starts) const;
 
   void matmul(
-      // The a/b/cStart are the indices at the begining of the buffer/mem
+      // The a/b/cStart are the indices at the beginning of the buffer/mem
       // A/B/C.
       mlir::Value A, mlir::ValueRange aStart, mlir::Value B,
       mlir::ValueRange bStart, mlir::Value C, mlir::ValueRange cStart,
       // Loops are the krnl loop indices that this matmul replaces
       mlir::ValueRange loops,
-      // the computeStarts indicate the i/j/k indices pointing to the begining
+      // the computeStarts indicate the i/j/k indices pointing to the beginning
       // of the matmul computation.
       mlir::ValueRange computeStarts,
       // The globalUBs are the global bounds on the original I, J, K
@@ -114,12 +114,12 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ArrayRef<int64_t> aTileSize, mlir::ArrayRef<int64_t> bTileSize,
       mlir::ArrayRef<int64_t> cTileSize,
       // Optimizations for code gen.
-      bool simdize, bool unroll, bool overcompute) const;
+      bool simdize, bool unroll, bool overCompute) const;
   void matmul(mlir::Value A, mlir::ValueRange aStart, mlir::Value B,
       mlir::ValueRange bStart, mlir::Value C, mlir::ValueRange cStart,
       mlir::ValueRange loops, mlir::ValueRange computeStarts,
       mlir::ValueRange globalUBs, bool simdize, bool unroll,
-      bool overcompute) const;
+      bool overCompute) const;
 
   mlir::Value dim(mlir::Type type, mlir::Value alloc, mlir::Value index) const;
 
@@ -135,7 +135,7 @@ struct KrnlBuilder : public DialectBuilder {
 
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value size) const;
-  void memset(mlir::Value dest, mlir::Value val) const;
+  void memset(mlir::Value dest, mlir::Value val, bool delayed = false) const;
   mlir::Value strncmp(
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
@@ -165,8 +165,8 @@ struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 //====--- Support for Affine Builder with Krnl Mem Ops ------------------===//
 
 // We use here a Affine builder that generates Krnl Load and Store ops instead
-// of the affine memory ops directly. This is because we can still generrate
-// Krnl Ops while lowring the dialect, and the big advantage of the Krnl memory
+// of the affine memory ops directly. This is because we can still generate
+// Krnl Ops while lowering the dialect, and the big advantage of the Krnl memory
 // operations is that they distinguish themselves if they are affine or not.
 using AffineBuilderKrnlMem =
     GenericAffineBuilder<mlir::KrnlLoadOp, mlir::KrnlStoreOp>;

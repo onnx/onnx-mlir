@@ -3,10 +3,15 @@
 #include <string>
 
 namespace onnx_mlir {
-const std::string kExecPath = "@CMAKE_INSTALL_PREFIX@/bin/$<TARGET_FILE_NAME:onnx-mlir>"; /* fallback if not found by getExecPath */
+const std::string kExecPath =
+    "@CMAKE_INSTALL_PREFIX@/bin/$<TARGET_FILE_NAME:onnx-mlir>"; /* fallback if
+                                                                   not found by
+                                                                   getExecPath
+                                                                 */
 const std::string kInstPath = "@CMAKE_INSTALL_PREFIX@";
 const std::string kOptPath = "$<TARGET_FILE:opt>";
 const std::string kLlcPath = "$<TARGET_FILE:llc>";
+const std::string kOnnxmlirPath = "$<TARGET_FILE:onnx-mlir>";
 const std::string kCxxPath = "@CMAKE_CXX_COMPILER@";
 const std::string kLinkerPath = "@CMAKE_LINKER@";
 const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";

@@ -48,7 +48,7 @@ func.func @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 // CHECK-DAG:     [[VAR_0:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:     [[VAR_1:%.+]] = mhlo.reduce([[PARAM_0:%.+]] init: [[VAR_0]]) applies mhlo.add across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
 // CHECK-DAG:     [[VAR_2:%.+]] = mhlo.constant dense<[3, 1, 2]> : tensor<3xi64>
-// CHECK-DAG:     [[VAR_3:%.+]] = "mhlo.dynamic_reshape"([[VAR_1]], [[VAR_2]]) : (tensor<3x2xf32>, tensor<3xi64>) -> tensor<3x1x2xf32>
+// CHECK-DAG:     [[VAR_3:%.+]] = mhlo.dynamic_reshape [[VAR_1]], [[VAR_2]] : (tensor<3x2xf32>, tensor<3xi64>) -> tensor<3x1x2xf32>
 }
 
 // -----
@@ -60,7 +60,7 @@ func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 // CHECK-DAG:     [[VAR_0:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:     [[VAR_1:%.+]] = mhlo.reduce([[PARAM_0:%.+]] init: [[VAR_0]]) applies mhlo.add across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
 // CHECK-DAG:     [[VAR_2:%.+]] = mhlo.constant dense<[3, 1, 2]> : tensor<3xi64>
-// CHECK-DAG:     [[VAR_3:%.+]] = "mhlo.dynamic_reshape"([[VAR_1]], [[VAR_2]]) : (tensor<3x2xf32>, tensor<3xi64>) -> tensor<3x1x2xf32>
+// CHECK-DAG:     [[VAR_3:%.+]] = mhlo.dynamic_reshape [[VAR_1]], [[VAR_2]] : (tensor<3x2xf32>, tensor<3xi64>) -> tensor<3x1x2xf32>
 }
 
 func.func @test_reducemean(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {

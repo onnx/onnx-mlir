@@ -22,6 +22,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
@@ -33,7 +34,7 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
 // Modified here to add operations, add super class.
-// License added here for this class for completness.
+// License added here for this class for completeness.
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -44,6 +45,12 @@ namespace onnx_mlir {
 // for example. Indices are signless. Also, in ONNX, we currently treat all
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
+
+Value MathBuilder::abs(Value val) const {
+  if (val.getType().isa<IntegerType>() || val.getType().isa<IndexType>())
+    return b.create<math::AbsIOp>(loc, val);
+  return b.create<math::AbsFOp>(loc, val);
+}
 
 Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
@@ -61,12 +68,14 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
     return b.create<arith::AddIOp>(loc, lhs, rhs);
   return b.create<arith::AddFOp>(loc, lhs, rhs);
 }
+
 Value MathBuilder::sub(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::SubIOp>(loc, lhs, rhs);
   return b.create<arith::SubFOp>(loc, lhs, rhs);
 }
+
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
@@ -452,7 +461,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
       // Unsigned to unsigned conversion. Has to convert to signless first,
-      // and recovert output to unsigned.
+      // and reconvert output to unsigned.
       assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       Value cast = castToSignless(src, srcWidth);
@@ -460,18 +469,18 @@ Value MathBuilder::cast(Type destType, Value src) const {
       if (bitExtend) {
         cast = b.create<arith::ExtUIOp>(loc, castType, cast);
       } else {
-        // TosaToLinalg use a cliping algo, not sure if needed.
+        // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b.create<arith::TruncIOp>(loc, castType, cast);
       }
       return castToUnsigned(cast, destWidth);
     } else {
-      // Handle signed ingeger
+      // Handle signed integer
       assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
       Value dest = src;
       if (bitExtend)
         dest = b.create<arith::ExtSIOp>(loc, destType, src);
       if (bitTrunc)
-        // TosaToLinalg use a cliping algo
+        // TosaToLinalg use a clipping algo
         dest = b.create<arith::TruncIOp>(loc, destType, src);
       if (destIsIndex)
         dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
@@ -643,6 +652,19 @@ void SCFBuilder::ifThenElse(Value cond,
           yield();
         });
   }
+}
+
+void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
+    ValueRange steps,
+    function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
+  // SmallVectorImpl<Value> ivStorage;
+  b.create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps,
+      [&](OpBuilder &childBuilder, Location childLoc,
+          ValueRange inductionVars) {
+        KrnlBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVars);
+        yield();
+      });
 }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
@@ -877,7 +899,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
@@ -889,7 +911,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
-  return callOp.getResult(0);
+  return callOp.getResult();
 }
 
 void LLVMBuilder::condBr(Value cond, Block *trueBlock,
@@ -947,8 +969,7 @@ Value LLVMBuilder::constant(Type type, double val) const {
 
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
-  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, posAttr);
+  return b.create<LLVM::ExtractValueOp>(loc, resultType, container, position);
 }
 
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
@@ -973,9 +994,8 @@ Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
 
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
-  ArrayAttr posAttr = b.getI64ArrayAttr(position);
   return b.create<LLVM::InsertValueOp>(
-      loc, resultType, container, val, posAttr);
+      loc, resultType, container, val, position);
 }
 
 Value LLVMBuilder::load(Value addr) const {

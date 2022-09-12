@@ -2,8 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "OnnxMlirCompiler.h"
-#include "CompilerUtils.hpp"
+#include "include/OnnxMlirCompiler.h"
+#include "ExternalUtil.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
+
+using namespace mlir;
+using namespace onnx_mlir;
 
 extern "C" {
 namespace onnx_mlir {
@@ -49,6 +53,50 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
   return strdup(val.c_str());
 }
 
+#ifdef _WIN32
+#define strtok_r strtok_s
+#endif
+
+ONNX_MLIR_EXPORT int64_t omCompileFromFileViaCommand(const char *inputFilename,
+    const char *outputBaseName, EmissionTargetType emissionTarget,
+    const char **outputFilename, const char *flags, const char **errorMessage) {
+  // Manually process the flags
+  // Save the result string vector after processing
+  std::vector<std::string> flagsVector;
+  // Use the same standard as std::isspace to define white space characters
+  const char delimiters[6] = {0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b};
+  // Use strtok_r instead of strtok because strtok_r is thread safe
+  char *token;
+  char *buffer = new char[std::strlen(flags) + 1];
+  std::strcpy(buffer, flags);
+  char *rest = buffer;
+  while ((token = strtok_r(rest, delimiters, &rest)) != NULL) {
+    flagsVector.push_back(std::string(token));
+  }
+  // Use 'onnx-mlir' command to compile the model.
+  std::string onnxmlirPath = getToolPath("onnx-mlir");
+  struct Command onnxmlirCompile(
+      /*exePath=*/!onnxmlirPath.empty() ? onnxmlirPath : kOnnxmlirPath);
+
+  for (std::size_t i = 0; i < flagsVector.size(); i++)
+    onnxmlirCompile.appendStr(flagsVector[i]);
+
+  // Indicate output name.
+  std::string outputBaseNameStr(outputBaseName);
+  onnxmlirCompile.appendStr("-o");
+  onnxmlirCompile.appendStr(outputBaseNameStr);
+  // Indicate input name.
+  onnxmlirCompile.appendStr(std::string(inputFilename));
+  // Run command.
+  int rc = onnxmlirCompile.exec();
+  if (rc == CompilerSuccess && outputFilename) {
+    // Copy Filename
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
+    *outputFilename = strdup(name.c_str());
+  }
+  return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
+}
+
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **outputFilename, const char **errorMessage) {
@@ -64,10 +112,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  rc = compileModule(module, context, outputBaseName, emissionTarget);
+
+  std::string outputBaseNameStr(outputBaseName);
+  rc = compileModule(module, context, outputBaseNameStr, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
   return rc;
@@ -89,10 +139,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
       *errorMessage = strdup(internalErrorMessage.c_str());
     return rc;
   }
-  rc = compileModule(module, context, outputBaseName, emissionTarget);
+
+  std::string outputBaseNameStr(outputBaseName);
+  rc = compileModule(module, context, outputBaseNameStr, emissionTarget);
   if (rc == CompilerSuccess && outputFilename) {
     // Copy Filename
-    std::string name = getTargetFilename(outputBaseName, emissionTarget);
+    std::string name = getTargetFilename(outputBaseNameStr, emissionTarget);
     *outputFilename = strdup(name.c_str());
   }
   return rc;

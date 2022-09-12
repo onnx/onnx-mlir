@@ -13,6 +13,8 @@ set_target_properties(check-onnx-numerical PROPERTIES FOLDER "Tests")
 # Exclude the target from the default VS build
 set_target_properties(check-onnx-numerical PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
+add_dependencies(check-onnx-backend-numerical check-onnx-numerical)
+
 # add_numerical_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
@@ -37,12 +39,6 @@ function(add_numerical_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
 endfunction()
 
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
-
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
@@ -54,6 +50,11 @@ add_numerical_unittest(TestConv
 
 add_numerical_unittest(TestMatMul2D
   TestMatMul2D.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+  add_numerical_unittest(TestMatMulBroadcast
+  TestMatMulBroadcast.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 

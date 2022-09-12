@@ -116,6 +116,7 @@ set(NNPA_TEST_LIST
     test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
     test_averagepool_2d_strides_cpu,zdnn_avgpool2d
     # test_averagepool_3d_default_cpu
+
     # ==OP== BatchNormalization
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
     test_batchnorm_epsilon_cpu,zdnn_mul
@@ -154,6 +155,7 @@ set(NNPA_TEST_LIST
     test_gemm_default_zero_bias_cpu,zdnn_matmul_op
     test_gemm_transposeA_cpu,zdnn_matmul_op
     test_gemm_transposeB_cpu,zdnn_matmul_op
+
     # ==OP== GlobalAveragePool
     # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
@@ -161,6 +163,7 @@ set(NNPA_TEST_LIST
     # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
+
     # ==OP== GRU
     # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- If `B` and `initial_h` are given, they must have static dimensions.<br>- `sequence_lens` is not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.<br>- `layout` is not supported.
     # test_gru_defaults_cpu
@@ -179,6 +182,7 @@ set(NNPA_TEST_LIST
     # test_logsoftmax_default_axis_cpu
     test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
+
     # ==OP== LSTM
     # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be default value(0).<br>- `layout` is not supported.
     test_lstm_defaults_cpu,zdnn_lstm
@@ -186,10 +190,10 @@ set(NNPA_TEST_LIST
     # test_lstm_with_peepholes_cpu
 
     # ==OP== MatMul
-    # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (2, 2), (3, 3), and (3, 2).
+    # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2.
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
-    # test_matmul_4d_cpu,zdnn_matmul_op # 4d not supported
+    test_matmul_4d_cpu,zdnn_matmul_op
 
     # ==OP== Max
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
@@ -245,6 +249,11 @@ set(NNPA_TEST_LIST
     test_mul_cpu,zdnn_mul
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul
+
+    # ==OP== Pow
+    # ==LIM== - Exponent should be a scalar integer and less or equal to 64.
+    test_pow_bcast_scalar_cpu
+
     # ==OP== ReduceMean
     # ==LIM== - `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3].
     # test_reduce_mean_default_axes_keepdims_example_cpu
@@ -255,31 +264,38 @@ set(NNPA_TEST_LIST
     # test_reduce_mean_keepdims_random_cpu
     # test_reduce_mean_negative_axes_keepdims_example_cpu
     # test_reduce_mean_negative_axes_keepdims_random_cpu
+
     # ==OP== Relu
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
     test_relu_cpu,zdnn_relu
+
     # ==OP== Softmax
-    # ==LIM== - Rank of input tensor must be 2.<br>- `axis` must be 1 or -1.
+    # ==LIM== - `axis` must be the last dimension, i.e. `rank - 1` or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
     # test_softmax_default_axis_cpu
     test_softmax_example_cpu,zdnn_softmax
     # test_softmax_large_number_cpu #  accuracy error
+
     # ==OP== Sub
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_sub_cpu,zdnn_sub
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub
+
     # ==OP== Sum
     # ==LIM== - All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported.
     test_sum_example_cpu,zdnn_add
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add
+
     # ==OP== Tanh
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
+
     # ==OP== Sigmoid
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
+
     # Model
     # test_densenet121_cpu  #  accurary error
     test_inception_v1_cpu,zdnn_conv2d

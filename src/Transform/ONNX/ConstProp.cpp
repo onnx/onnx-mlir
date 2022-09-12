@@ -161,7 +161,7 @@ ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
 
 /// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
-bool isFromDenseONNXConstantOp(Value result) {
+bool isFromDenseONNXConstantOp(Value result, bool trueONNXConstant = false) {
   Operation *op = result.getDefiningOp();
 
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
@@ -171,9 +171,12 @@ bool isFromDenseONNXConstantOp(Value result) {
 
   // If the dense attribute is null, there must be buffer_id
   // attribute.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+  if (!(op->getAttrOfType<::mlir::Attribute>("value"))) {
+    if (trueONNXConstant)
+      return false;
     if (!(op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)))
       return false;
+  }
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
     return false;
@@ -559,7 +562,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   // Compute split offsets.
   SmallVector<int64_t, 4> splitOffsets;
   {
-    if (!splitAttr.hasValue())
+    if (!splitAttr.has_value())
       // If split attribute is not specified, split size is equally divided.
       assert(inputShape[splitAxis] % numOfResults == 0 &&
              "The dimension at the split axis is expected to be divisible by "
@@ -567,8 +570,8 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     int64_t offset = 0;
     for (unsigned int i = 0; i < numOfResults; ++i) {
       splitOffsets.emplace_back(offset);
-      if (splitAttr.hasValue())
-        offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
+      if (splitAttr.has_value())
+        offset += splitAttr.value()[i].cast<IntegerAttr>().getInt();
       else
         offset += inputShape[splitAxis] / numOfResults;
     }
