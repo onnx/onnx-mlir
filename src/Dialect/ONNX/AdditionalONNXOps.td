@@ -105,5 +105,5 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
   "Print type signature of the op's input operands."
   }];
 
-  let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor]>>:$input);
+  let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
 }
