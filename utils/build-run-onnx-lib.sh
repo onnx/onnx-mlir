@@ -25,7 +25,7 @@ echo $ONNX_MLIR_SRC
 
 if [ "$#" -eq 0 ] ; then
   echo "Compile run-onnx-lib for models passed at runtime"
-  g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
+  g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++17 \
   -D LOAD_MODEL_STATICALLY=0 -I $LLVM_PROJ_SRC/llvm/include \
   -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
   -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl &&
