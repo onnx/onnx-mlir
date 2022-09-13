@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include <utility>
+#include <tuple>
 
 using namespace mlir;
 
@@ -18,39 +19,53 @@ namespace onnx_mlir {
 // Compute a slice of the input tensor's shape. The slice starts from axis 0.
 // The axes up to the last one will be included. Negative axes indicate counting
 // back from the last axis.
-static std::pair<int64_t, int64_t> getDataShapeBounds(
+namespace {
+
+int64_t normalize(int64_t value, int64_t rank) {
+
+  if (value < 0)
+    value += rank;
+
+  if (value < 0)
+    value = 0;
+
+  if (value > rank)
+    value = rank;
+
+  return value;
+
+}
+
+std::pair<int64_t, int64_t> getDataShapeBounds(
     ONNXShapeOpAdaptor &operandAdaptor) {
   Value data = operandAdaptor.data();
   MemRefBoundsIndexCapture dataBounds(data);
-  int64_t dataRank = dataBounds.getRank();
+  int64_t rank = dataBounds.getRank();
 
   // Compute the normalized start/end. Negative value means counting
   // dimensions from the back.
-  int64_t normalizedStart = operandAdaptor.start();
-  int64_t normalizedEnd = dataRank;
+  int64_t start = operandAdaptor.start();
+  int64_t end = rank;
+  if (operandAdaptor.end().has_value()) {
+    end = operandAdaptor.end().value();
+  }
 
-  if (normalizedStart < 0)
-    normalizedStart += dataRank;
-  if (normalizedEnd < 0)
-    normalizedEnd += dataRank;
+  return std::make_pair(normalize(start, rank), normalize(end, rank));
+}
 
-  return std::make_pair(normalizedStart, normalizedEnd);
 }
 
 LogicalResult ONNXShapeOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor operandAdaptor) {
   Value data = operandAdaptor.data();
   MemRefBoundsIndexCapture dataBounds(data);
-  int64_t dataRank = dataBounds.getRank();
-  std::pair<int64_t, int64_t> bounds = getDataShapeBounds(operandAdaptor);
 
-  if (bounds.first < 0 || bounds.first > dataRank)
-    return op->emitError("start value is out of bound");
-  if (bounds.second < 0 || bounds.second > dataRank)
-    return op->emitError("end value is out of bound");
+  int64_t first;
+  int64_t second;
+  std::tie(first, second) = getDataShapeBounds(operandAdaptor);
 
   // Output is the actual number of values (1D)
-  dimsForOutput().emplace_back(LiteralIndexExpr(bounds.second - bounds.first));
+  dimsForOutput().emplace_back(LiteralIndexExpr(second - first));
 
   return success();
 }
