@@ -43,7 +43,7 @@ LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape(
   outputDims[3] = W.floorDiv(blocksize);
 
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 
