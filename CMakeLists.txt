@@ -17,7 +17,7 @@ set(CMAKE_CXX_STANDARD 17)
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
-# CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# CompilerUtils.cpp::getLibraryPath(). So we explicitly set CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
 set(CMAKE_INSTALL_LIBDIR lib)
 

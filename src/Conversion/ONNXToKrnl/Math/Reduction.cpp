@@ -397,11 +397,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     int64_t keepdims = reduceSumOp.keepdims();
     bool isKeepdims = (keepdims == 1);
 
-    ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get axes dims
+    IndexExprScope mainScope(&rewriter, loc);
+    MemRefBoundsIndexCapture axesBounds(axesVal);
+    DimsExpr axesDims;
+    axesBounds.getDimList(axesDims);
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
@@ -471,7 +471,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
         SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
-        createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+        createKrnl.iterateIE(loopDef, loopDef, lbs, axesDims,
             [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);

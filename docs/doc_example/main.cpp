@@ -8,11 +8,10 @@
 
 // Read the arguments from the command line and return a std::string
 std::string readArgs(int argc, char *argv[]) {
-  std::string commandLineStr = "";
+  std::string commandLineStr;
   for (int i = 1; i < argc; i++) {
-    commandLineStr.append(std::string(argv[i]).append(" "));
+    commandLineStr.append(std::string(argv[i]) + " ");
   }
-  commandLineStr.append("\0");
   return commandLineStr;
 }
 
@@ -21,11 +20,11 @@ int main(int argc, char *argv[]) {
   // model library.
   const char *errorMessage = NULL;
   const char *compiledFilename;
-  std::string commandLineString = readArgs(argc, argv);
-  const char *flags = commandLineString.c_str();
-  int rc =
-      onnx_mlir::omCompileFromFileViaCommand("add.onnx", "add-cppinterface",
-          onnx_mlir::EmitLib, &compiledFilename, flags, &errorMessage);
+  std::string flags = readArgs(argc, argv);
+  flags += "-o add-cpp-interface";
+  std::cout << "Compile with options \"" << flags << "\"\n";
+  int rc = onnx_mlir::omCompileFromFile(
+      "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
   if (rc != onnx_mlir::CompilerSuccess) {
     std::cerr << "Failed to compile add.onnx with error code " << rc;
     if (errorMessage)
@@ -37,7 +36,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
 
-  // Prepare the execution session and get input signature.
+  // Prepare the execution session.
   onnx_mlir::ExecutionSession *session;
   try {
     session = new onnx_mlir::ExecutionSession("./" + libFilename);
@@ -46,6 +45,8 @@ int main(int argc, char *argv[]) {
               << " and errno " << errno << std::endl;
     return errno;
   }
+
+  // Get input signature and print it.
   std::string inputSignature;
   try {
     inputSignature = session->inputSignature();
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]) {
   OMTensorList *input = omTensorListCreate(list, 2);
 
   // Call the compiled onnx model function.
+  std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
     outputList = session->run(input);
@@ -79,20 +81,22 @@ int main(int argc, char *argv[]) {
               << errno << std::endl;
     return errno;
   }
+  std::cout << "Finished running model " << std::endl;
 
   // Get the first omt as output.
   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
+  omTensorPrint("Result tensor: ", y);
+  std::cout << std::endl;
   float *outputPtr = (float *)omTensorGetDataPtr(y);
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++) {
-    std::cout << outputPtr[i];
     if (outputPtr[i] != 3.0) {
       std::cerr << "Iteration " << i << ": expected 3.0, got " << outputPtr[i]
                 << "." << std::endl;
       return 100;
     }
   }
+  std::cout << "Model verified successfully" << std::endl;
   delete session;
-  std::cout << std::endl;
   return 0;
 }

@@ -127,7 +127,8 @@ A `mnist.jar` should appear, which corresponds to the compiled model object file
 onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you would like to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
 
 ```bash
-onnx-mlir -O3 -customEnvFlags mnistwith03 [--EmitLib] mnist.onnx -o mnist03
+export MNIST_WITH_O3="-O3"
+onnx-mlir -O3 -customEnvFlags=MNIST_WITH_O3 [--EmitLib] mnist.onnx -o mnist03
 ```
 
 A multi-threaded experiment from command line written in Python is provided.

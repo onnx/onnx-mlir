@@ -39,14 +39,16 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
   // Output shape is constructed from 'input' by:
   //    replacing the dimension at 'axis' in 'input' by the shape of
   //    'indices'.
+  DimsExpr outputDims;
   for (int i = 0; i < dataRank; ++i) {
     if (i == axisIndex)
       for (IndexExpr d : indicesDims)
-        dimsForOutput().emplace_back(d);
+        outputDims.emplace_back(d);
     else
-      dimsForOutput().emplace_back(dataDims[i]);
+      outputDims.emplace_back(dataDims[i]);
   }
 
+  setOutputDims(outputDims);
   return success();
 }
 
