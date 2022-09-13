@@ -29,6 +29,53 @@ namespace onnx_mlir {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+/// Refine `inferredDims` using the output's shape if possbile. For example,
+/// replacing a dynamic dim in `inferredDims` by a static dim in the output's
+/// shape.
+static void refineDims(DimsExpr &inferredDims, Value output) {
+  // Nothing to do if the output is unranked.
+  if (!isRankedShapedType(output.getType()))
+    return;
+
+  llvm::ArrayRef<int64_t> existingDims = getShape(output.getType());
+  // Do not handle the case of scalar tensor whose type can be tensor<f32>
+  // or tensor<1xf32>. Just use the inferredShape in this case.
+  if (existingDims.size() < 1 || inferredDims.size() < 1)
+    return;
+
+  assert((existingDims.size() == inferredDims.size()) &&
+         "Inferred shape and existing shape are inconsistent in the number "
+         "of elements");
+
+  // Try to update inferredDim if existingDim is static.
+  for (unsigned i = 0; i < existingDims.size(); ++i) {
+    // existingDim is dynamic, nothing to do.
+    if (existingDims[i] == -1)
+      continue;
+
+    // inferredDim is unknown at shape inference: update it.
+    if (inferredDims[i].isQuestionmark()) {
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      continue;
+    }
+    // inferredDim is unknown at lowering: use exising dim for efficiency.
+    if (!inferredDims[i].isLiteral()) {
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      continue;
+    }
+    // inferedDim is different from existingDim. Believe in existingDim.
+    if (inferredDims[i].isLiteral() &&
+        (existingDims[i] != inferredDims[i].getLiteral())) {
+      // Warning for users.
+      llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                   << inferredDims[i].getLiteral()
+                   << ") is different from the existing dim ("
+                   << existingDims[i] << "). Use the existing dim instead.\n";
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+    }
+  }
+}
+
 // Reuse scope if given, otherwise create one now and free in destructor.
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
@@ -78,44 +125,7 @@ void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
   // output's shape.
   Value output = getOutput(n);
-  if (isRankedShapedType(output.getType())) {
-    llvm::ArrayRef<int64_t> existingDims = getShape(output.getType());
-    // Do not handle the case of scalar tensor whose type can be tensor<f32>
-    // or tensor<1xf32>. Just use the inferredShape in this case.
-    if (existingDims.size() >= 1 && outputsDims[n].size() >= 1) {
-      assert((existingDims.size() == outputsDims[n].size()) &&
-             "Inferred shape and existing shape are inconsistent in the number "
-             "of elements");
-      // Try to update inferedDim if existingDim is static.
-      for (unsigned i = 0; i < existingDims.size(); ++i) {
-        // existingDim is dynamic, nothing to do.
-        if (existingDims[i] == -1)
-          continue;
-
-        // inferredDim is unknown at shape inference: update it.
-        if (outputsDims[n][i].isQuestionmark()) {
-          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
-          continue;
-        }
-        // inferredDim is unknown at lowering: use exising dim for efficiency.
-        if (!outputsDims[n][i].isLiteral()) {
-          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
-          continue;
-        }
-        // inferedDim is different from existingDim. Believe in existingDim.
-        if (outputsDims[n][i].isLiteral() &&
-            (existingDims[i] != outputsDims[n][i].getLiteral())) {
-          // Warning for users.
-          llvm::outs() << "Warning: [Shape inference] the inferred dim ("
-                       << outputsDims[n][i].getLiteral()
-                       << ") is different from the existing dim ("
-                       << existingDims[i]
-                       << "). Use the existing dim instead.\n";
-          outputsDims[n][i] = LiteralIndexExpr(existingDims[i]);
-        }
-      }
-    }
-  }
+  refineDims(outputsDims[n], output);
 }
 
 //===----------------------------------------------------------------------===//
@@ -471,38 +481,18 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(
     Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
-  SmallVector<int64_t, 4> inferredShape(shape);
-
   // Try to combine the given shape and the output's shape if possbile.
-  // TODO: This part is a duplication of the code inside ShapeHelper. Remove
-  // this part once all ops use ShapeHelper for shape inference.
-  if (hasShapeAndRank(val)) {
-    ArrayRef<int64_t> existingShape = getShape(val.getType());
-    // Do not handle the case of scalar tensor whose type can be tensor<f32> or
-    // tensor<1xf32>. Just use the inferredShape in this case.
-    if (existingShape.size() >= 1 && inferredShape.size() >= 1) {
-      assert(
-          (inferredShape.size() == existingShape.size()) &&
-          "Inferred shape and existing shape are inconsistent in the number of "
-          "elements");
-      for (unsigned i = 0; i < inferredShape.size(); ++i) {
-        // existingDim is static, inferedDim is unknown: update the inferredDim.
-        if ((existingShape[i] != -1) && (inferredShape[i] == -1))
-          inferredShape[i] = existingShape[i];
-        // inferedDim is different from existingDim. Believe in existingDim.
-        if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
-            (existingShape[i] != inferredShape[i])) {
-          // Warning for users.
-          llvm::outs() << "Warning: [Shape inference] the inferred dim ("
-                       << inferredShape[i]
-                       << ") is different from the existing dim ("
-                       << existingShape[i]
-                       << "). Use the existing dim instead.\n";
-          inferredShape[i] = existingShape[i];
-        }
-      }
-    }
+  IndexExprScope scope(nullptr, val.getLoc());
+  DimsExpr inferredDims;
+  for (int64_t d : shape) {
+    if (d == -1)
+      inferredDims.emplace_back(QuestionmarkIndexExpr());
+    else
+      inferredDims.emplace_back(LiteralIndexExpr(d));
   }
+  refineDims(inferredDims, val);
+  SmallVector<int64_t, 4> inferredShape;
+  IndexExpr::getShape(inferredDims, inferredShape);
 
   // Get element type.
   if (!elementType)
