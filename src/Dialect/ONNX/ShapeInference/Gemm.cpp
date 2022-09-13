@@ -107,7 +107,7 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape(
     }
   }
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
 
   return success();
 }

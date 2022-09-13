@@ -28,8 +28,7 @@ LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
   DimsExpr outputDims(rank);
   for (int64_t i = 0; i < rank; ++i)
     outputDims[i] = bounds.getDim(i);
-  dimsForOutput() = outputDims;
-
+  setOutputDims(outputDims);
   return success();
 }
 
