@@ -349,8 +349,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
   // However, the SequenceErase will emit memref dealloc. 
   // The previous code is commented out (Chentong)
-  //if (!emitDealloc)
-    //target.addIllegalOp<mlir::memref::DeallocOp>();
+  // if (!emitDealloc)
+  //   target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
