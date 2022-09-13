@@ -30,13 +30,8 @@ public:
       : inputFileName(), inputBuffer(inputBuffer), inputBufferSize(bufferSize) {
   }
 
-  // Options
-  int64_t pySetOptionsFromEnv(std::string envVarName);
-  int64_t pySetOption(const OptionKind kind, std::string val);
-  void pyClearOption(const OptionKind kind);
-  std::string pyGetOption(const OptionKind kind);
-
-  int64_t pyCompile(
+  int64_t pyCompileFromFile(std::string flags);
+  int64_t pyCompileFromArray(
       std::string outputBaseName, EmissionTargetType emissionTarget);
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage();
@@ -55,16 +50,10 @@ PYBIND11_MODULE(PyOnnxMlirCompiler, m) {
       .def(py::init<std::string &>(), py::arg("file_name"))
       .def(py::init<void *, int64_t>(), py::arg("input_buffer"),
           py::arg("buffer_size"))
-      .def("set_option_from_env",
-          &onnx_mlir::PyOnnxMirCompiler::pySetOptionsFromEnv,
-          py::arg("env_var_ame"))
-      .def("set_option", &onnx_mlir::PyOnnxMirCompiler::pySetOption,
-          py::arg("kind"), py::arg("val"))
-      .def("clear_option", &onnx_mlir::PyOnnxMirCompiler::pyClearOption,
-          py::arg("kind"))
-      .def("get_option", &onnx_mlir::PyOnnxMirCompiler::pyGetOption,
-          py::arg("kind"))
-      .def("compile", &onnx_mlir::PyOnnxMirCompiler::pyCompile,
+      .def("compile_from_file",
+          &onnx_mlir::PyOnnxMirCompiler::pyCompileFromFile, py::arg("flags"))
+      .def("compile_from_array",
+          &onnx_mlir::PyOnnxMirCompiler::pyCompileFromArray,
           py::arg("output_base_name"), py::arg("target"))
       .def("get_output_file_name",
           &onnx_mlir::PyOnnxMirCompiler::pyGetCompiledFileName)
@@ -78,16 +67,5 @@ PYBIND11_MODULE(PyOnnxMlirCompiler, m) {
       .value("emit_obj", onnx_mlir::EmissionTargetType::EmitObj)
       .value("emit_lib", onnx_mlir::EmissionTargetType::EmitLib)
       .value("emit_jni", onnx_mlir::EmissionTargetType::EmitJNI)
-      .export_values();
-  py::enum_<onnx_mlir::OptionKind>(m, "OnnxMlirOption")
-      .value("target_triple", onnx_mlir::OptionKind::TargetTriple)
-      .value("target_arch", onnx_mlir::OptionKind::TargetArch)
-      .value("target_cpu", onnx_mlir::OptionKind::TargetCPU)
-      .value("target_accel", onnx_mlir::OptionKind::TargetAccel)
-      .value("opt_level", onnx_mlir::OptionKind::CompilerOptLevel)
-      .value("opt_flag", onnx_mlir::OptionKind::OPTFlag)
-      .value("llc_flag", onnx_mlir::OptionKind::LLCFlag)
-      .value("llvm_flag", onnx_mlir::OptionKind::LLVMFlag)
-      .value("verbose", onnx_mlir::OptionKind::Verbose)
       .export_values();
 }
