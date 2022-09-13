@@ -176,19 +176,19 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll,
-    bool overcompute) const {
+    bool overCompute) const {
   b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
-      cTileSize, simdize, unroll, overcompute);
+      cTileSize, simdize, unroll, overCompute);
 }
 
 void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
-    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) const {
+    ValueRange globalUBs, bool simdize, bool unroll, bool overCompute) const {
   b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
-      globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
+      globalUBs[1], globalUBs[2], simdize, unroll, overCompute);
 }
 
 Value KrnlBuilder::dim(Type type, Value alloc, Value index) const {
@@ -210,17 +210,16 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
   static int32_t constantID = 0;
   return b.create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
       b.getStringAttr(name + std::to_string(constantID++)),
-      value.hasValue() ? value.getValue() : nullptr,
-      offset.hasValue() ? offset.getValue() : nullptr,
-      alignment.hasValue() ? alignment.getValue() : nullptr);
+      value.value_or(nullptr), offset.value_or(nullptr),
+      alignment.value_or(nullptr));
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
   b.create<KrnlMemcpyOp>(loc, dest, src, size);
 }
 
-void KrnlBuilder::memset(Value dest, Value val) const {
-  b.create<KrnlMemsetOp>(loc, dest, val);
+void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
+  b.create<KrnlMemsetOp>(loc, dest, val, b.getBoolAttr(delayed));
 }
 
 Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {

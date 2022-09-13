@@ -114,6 +114,42 @@ void ModelLibBuilder::setRandomNumberGeneratorSeed(const std::string &envVar) {
   }
 }
 
+std::map<std::string, std::string> ModelLibBuilder::getTestConfigFromEnv(
+    const std::string &envVar) {
+  std::map<std::string, std::string> opts;
+  if (const char *envConfigString = std::getenv(envVar.c_str())) {
+    std::stringstream envString;
+    envString << envConfigString;
+    std::string optionString;
+    while (getline(envString, optionString, ' ')) {
+      size_t pos = optionString.find('=');
+      if (pos == std::string::npos)
+        continue;
+      std::string optionNameString = optionString.substr(0, pos);
+      std::string optionValString = optionString.substr(pos + 1);
+      opts[optionNameString] = optionValString;
+    }
+  }
+  return opts;
+}
+
+std::vector<float> ModelLibBuilder::getDataRangeFromEnv(
+    const std::string &envVar) {
+  std::vector<float> range;
+  if (const char *envRangeString = std::getenv(envVar.c_str())) {
+    std::string rangeString = std::string(envRangeString);
+    size_t pos = rangeString.find(',');
+    assert(pos != std::string::npos);
+    std::string rangeLBString = rangeString.substr(0, pos);
+    std::string rangeUBString = rangeString.substr(pos + 1);
+    std::cout << "Input data range from env: \"" << rangeLBString << " to "
+              << rangeUBString << "\"\n";
+    range.emplace_back(std::stof(rangeLBString));
+    range.emplace_back(std::stof(rangeUBString));
+  }
+  return range;
+}
+
 func::FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {
@@ -157,6 +193,91 @@ bool ModelLibBuilder::areCloseFloat(
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
+
+void ModelLibBuilder::printIndices(
+    const std::string message, const std::vector<int64_t> &indices) const {
+  if (!message.empty())
+    printf("%s, ", message.c_str());
+  int rank = indices.size();
+  printf("rank %d, sizes (", rank);
+  for (int i = 0; i < rank; ++i)
+    printf("%d%s", (int)indices[i], i != rank - 1 ? ", " : "");
+  printf(")\n");
+}
+
+// Recursive printing to deal with arbitrary tensor ranks.
+void ModelLibBuilder::printTensor(
+    const OMTensor *t, std::vector<int64_t> &indices, bool isLast) const {
+  int64_t rank = omTensorGetRank(t);
+  int64_t *shape = omTensorGetShape(t);
+  int64_t currSize = indices.size();
+  // Utility to print tabs.
+  auto printTab = [](int currSize) {
+    for (int i = 0; i < currSize; ++i)
+      printf("  ");
+  };
+  auto printNext = [](int currSize, bool isLast) {
+    printf("]");
+    if (!isLast)
+      printf(",\n");
+    else if (currSize != 0)
+      printf("\n");
+  };
+  if (currSize < rank - 1) {
+    indices.emplace_back(0);
+    printTab(currSize);
+    printf("[\n");
+    int size = shape[currSize];
+    for (int64_t i = 0; i < size; ++i) {
+      indices[currSize] = i;
+      printTensor(t, indices, /*is last */ i == size - 1);
+    }
+    indices.pop_back();
+    printTab(currSize);
+    printNext(currSize, isLast);
+    return;
+  }
+  // We need to print the last dim, do it as a one liner.
+  indices.emplace_back(0);
+  printTab(currSize);
+  printf("[");
+  int size = shape[currSize];
+  for (int i = 0; i < size; ++i) {
+    indices[currSize] = i;
+    printf(
+        "%f%s", omTensorGetElem<float>(t, indices), i < size - 1 ? ", " : "");
+  }
+  indices.pop_back();
+  printNext(currSize, isLast);
+}
+
+void ModelLibBuilder::printTensor(
+    const std::string varName, const OMTensor *t, bool asNumpy) const {
+  int64_t rank = omTensorGetRank(t);
+  int64_t *shape = omTensorGetShape(t);
+  std::vector<int64_t> shapeVect(shape, shape + rank);
+  // Print message as comment and add rank and shape.
+  printf("# ");
+  printIndices(varName, shapeVect);
+  // Print the actual tensor values.
+  if (asNumpy) {
+    if (!varName.empty())
+      printf("%s = ", varName.c_str());
+    printf("np.array(");
+  }
+  std::vector<int64_t> indices;
+  printTensor(t, indices, /*isLast*/ true);
+  if (asNumpy)
+    printf(")\n");
+}
+
+RNNModelLibBuilder::RNNModelLibBuilder(
+    const std::string &sharedLibBaseName, int64_t layout)
+    : ModelLibBuilder(sharedLibBaseName), layout(layout) {
+  assert(0 <= layout && layout <= 1 && "layout must be 0 or 1");
+}
+
+RNNModelLibBuilder::~RNNModelLibBuilder() {}
 
 } // namespace test
 } // namespace onnx_mlir

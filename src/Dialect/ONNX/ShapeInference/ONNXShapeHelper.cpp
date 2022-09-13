@@ -15,6 +15,7 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
 
@@ -276,12 +277,12 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   for (int i = 0; i < spatialRank; ++i) {
     // Strides, default 1.
     strides.emplace_back(
-        strideOpt.hasValue() ? ArrayAttrIntVal(strideOpt, i) : 1);
+        strideOpt.has_value() ? ArrayAttrIntVal(strideOpt, i) : 1);
     // Dilations, default 1.
     dilations.emplace_back(
-        dilationOpt.hasValue() ? ArrayAttrIntVal(dilationOpt, i) : 1);
+        dilationOpt.has_value() ? ArrayAttrIntVal(dilationOpt, i) : 1);
     // Kernel shape from attribute, default from Weight's spatial dims.
-    if (kernelShapeOpt.hasValue()) {
+    if (kernelShapeOpt.has_value()) {
       kernelShape.emplace_back(
           LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
     } else if (hasFilter) {
@@ -293,7 +294,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   }
   // Pads, at this stage a given compile-time literal or default 0.
   for (int i = 0; i < 2 * spatialRank; ++i) {
-    int64_t p = padOpt.hasValue() ? ArrayAttrIntVal(padOpt, i) : 0;
+    int64_t p = padOpt.has_value() ? ArrayAttrIntVal(padOpt, i) : 0;
     pads.emplace_back(LiteralIndexExpr(p));
   }
 
@@ -397,6 +398,74 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   // Set type for the first output.
   ONNXOpShapeHelper<OP_TYPE>::dimsForOutput() = outputDims;
   return success();
+}
+
+/// Handle shape inference for unary element-wise operators.
+LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
+  Value input = op->getOperand(0);
+  Value output = op->getResult(0);
+
+  if (!hasShapeAndRank(input))
+    return success();
+
+  // Inferred shape is getting from the input's shape.
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  updateType(output, inputType.getShape(), inputType.getElementType(),
+      inputType.getEncoding());
+  return success();
+}
+
+/// Update a tensor type by using the given shape, elementType and encoding.
+void updateType(
+    Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+  SmallVector<int64_t, 4> inferredShape(shape);
+
+  // Try to combine the given shape and the output's shape if possbile.
+  if (hasShapeAndRank(val)) {
+    ArrayRef<int64_t> existingShape = getShape(val.getType());
+    // Do not handle the case of scalar tensor whose type can be tensor<f32> or
+    // tensor<1xf32>. Just use the inferredShape in this case.
+    if (existingShape.size() >= 1 && inferredShape.size() >= 1) {
+      assert(
+          (inferredShape.size() == existingShape.size()) &&
+          "Inferred shape and existing shape are inconsistent in the number of "
+          "elements");
+      for (unsigned i = 0; i < inferredShape.size(); ++i) {
+        // existingDim is static, inferedDim is unknown: update the inferredDim.
+        if ((existingShape[i] != -1) && (inferredShape[i] == -1))
+          inferredShape[i] = existingShape[i];
+        // inferedDim is different from existingDim. Believe in existingDim.
+        if ((existingShape[i] != -1) && (inferredShape[i] != -1) &&
+            (existingShape[i] != inferredShape[i])) {
+          // Warning for users.
+          llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                       << inferredShape[i]
+                       << ") is different from the existing dim ("
+                       << existingShape[i]
+                       << "). Use the existing dim instead.\n";
+          inferredShape[i] = existingShape[i];
+        }
+      }
+    }
+  }
+
+  // Get element type.
+  if (!elementType)
+    elementType = getElementType(val.getType());
+
+  // Get encoding.
+  if (auto valType = val.getType().dyn_cast<RankedTensorType>())
+    if (!encoding)
+      encoding = valType.getEncoding();
+
+  // Build result type.
+  RankedTensorType resType;
+  if (encoding)
+    resType = RankedTensorType::get(inferredShape, elementType, encoding);
+  else
+    resType = RankedTensorType::get(inferredShape, elementType);
+
+  val.setType(resType);
 }
 
 //===----------------------------------------------------------------------===//

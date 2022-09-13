@@ -2,22 +2,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <random>
-#include <rapidcheck.h>
-#include <string>
-#include <vector>
+//====-- TestLoop.cpp - test Loop code -======================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test Loop code.
+//
+//===----------------------------------------------------------------------===//
 
-#include "mlir/IR/BuiltinOps.h"
-#include "llvm/Support/FileSystem.h"
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
-#include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 

@@ -75,7 +75,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
   activationReverse.f.name = "sigmoid";
   activationReverse.g.name = "tanh";
   if (activations) {
-    ArrayAttr activationArrAttr = activations.getValue();
+    ArrayAttr activationArrAttr = activations.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -104,7 +104,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayAttr activationArrAttr = activationAlpha.getValue();
+    ArrayAttr activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -131,7 +131,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayAttr activationArrAttr = activationBeta.getValue();
+    ArrayAttr activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {

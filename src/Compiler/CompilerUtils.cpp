@@ -27,6 +27,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -40,7 +41,7 @@ using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
-namespace {
+namespace onnx_mlir {
 
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
@@ -109,8 +110,8 @@ static std::string getExecPath() {
 // to deal with lib64 anymore.
 static std::string getRuntimeDir() {
   const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
-  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
-    return envDir.getValue();
+  if (envDir && llvm::sys::fs::exists(envDir.value()))
+    return envDir.value();
 
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
@@ -141,7 +142,7 @@ static std::string getRuntimeDir() {
 // installed system wide but to different places and their sources have been
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
-static std::string getToolPath(std::string tool) {
+std::string getToolPath(std::string tool) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -152,90 +153,82 @@ static std::string getToolPath(std::string tool) {
     return std::string();
 }
 
-// Helper struct to make command construction and execution easy & readable.
-struct Command {
-  std::string _path;
-  std::vector<std::string> _args;
+// Append a single string argument.
+Command &Command::appendStr(const std::string &arg) {
+  if (arg.size() > 0)
+    _args.emplace_back(arg);
+  return *this;
+}
 
-  Command(std::string exePath)
-      : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(_path).str()}) {}
+// Append a single optional string argument.
+Command &Command::appendStrOpt(const llvm::Optional<std::string> &arg) {
+  if (arg.hasValue())
+    _args.emplace_back(arg.getValue());
+  return *this;
+}
 
-  // Append a single string argument.
-  Command &appendStr(const std::string &arg) {
-    if (arg.size() > 0)
-      _args.emplace_back(arg);
-    return *this;
+// Append a list of string arguments.
+Command &Command::appendList(const std::vector<std::string> &args) {
+  _args.insert(_args.end(), args.begin(), args.end());
+  return *this;
+}
+
+// Reset arguments.
+Command &Command::resetArgs() {
+  auto exeFileName = _args.front();
+  _args.clear();
+  _args.emplace_back(exeFileName);
+  return *this;
+}
+
+// Execute command in current work directory.
+//
+// If the optional wdir is specified, the command will be executed
+// in the specified work directory. Current work directory is
+// restored after the command is executed.
+//
+// Return 0 on success, error value otherwise.
+int Command::exec(std::string wdir) const {
+  auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
+
+  // If a work directory is specified, save the current work directory
+  // and switch into it. Note that if wdir is empty, new_wdir will be
+  // cur_wdir.
+  llvm::SmallString<8> cur_wdir;
+  llvm::SmallString<8> new_wdir(wdir);
+  llvm::sys::fs::current_path(cur_wdir);
+  llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+  std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
+  if (ec.value()) {
+    llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()
+                 << "\n";
+    return ec.value();
   }
 
-  // Append a single optional string argument.
-  Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
-    if (arg.hasValue())
-      _args.emplace_back(arg.getValue());
-    return *this;
+  if (VerboseOutput)
+    llvm::errs() << "[" << llvm::StringRef(new_wdir).str() << "]" << _path
+                 << ": " << llvm::join(argsRef, " ") << "\n";
+
+  std::string errMsg;
+  int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+      /*Env=*/llvm::None, /*Redirects=*/llvm::None,
+      /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
+
+  if (rc != 0) {
+    llvm::errs() << llvm::join(argsRef, " ") << "\n"
+                 << "Error message: " << errMsg << "\n"
+                 << "Program path: " << _path << "\n"
+                 << "Command execution failed."
+                 << "\n";
+    return rc;
   }
 
-  // Append a list of string arguments.
-  Command &appendList(const std::vector<std::string> &args) {
-    _args.insert(_args.end(), args.begin(), args.end());
-    return *this;
-  }
+  // Restore saved work directory.
+  llvm::sys::fs::set_current_path(cur_wdir);
+  return 0;
+}
 
-  // Reset arguments.
-  Command &resetArgs() {
-    auto exeFileName = _args.front();
-    _args.clear();
-    _args.emplace_back(exeFileName);
-    return *this;
-  }
-
-  // Execute command in current work directory.
-  //
-  // If the optional wdir is specified, the command will be executed
-  // in the specified work directory. Current work directory is
-  // restored after the command is executed.
-  //
-  // Return 0 on success, error value otherwise.
-  int exec(std::string wdir = "") const {
-    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-
-    // If a work directory is specified, save the current work directory
-    // and switch into it. Note that if wdir is empty, new_wdir will be
-    // cur_wdir.
-    SmallString<8> cur_wdir;
-    SmallString<8> new_wdir(wdir);
-    llvm::sys::fs::current_path(cur_wdir);
-    llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
-    std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
-    if (ec.value()) {
-      llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
-      return ec.value();
-    }
-
-    if (VerboseOutput)
-      llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
-                   << llvm::join(argsRef, " ") << "\n";
-
-    std::string errMsg;
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-        /*Env=*/None, /*Redirects=*/None,
-        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
-
-    if (rc != 0) {
-      llvm::errs() << llvm::join(argsRef, " ") << "\n"
-                   << "Error message: " << errMsg << "\n"
-                   << "Program path: " << _path << "\n"
-                   << "Command execution failed."
-                   << "\n";
-      return rc;
-    }
-
-    // Restore saved work directory.
-    llvm::sys::fs::set_current_path(cur_wdir);
-    return 0;
-  }
-}; // namespace
-} // namespace
+} // namespace onnx_mlir
 
 namespace onnx_mlir {
 // =============================================================================

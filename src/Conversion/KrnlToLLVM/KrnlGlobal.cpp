@@ -13,10 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -57,13 +60,14 @@ public:
     }
 
     // Create the global at the entry of the module.
-    assert(krnlGlobalOp.value().hasValue() &&
+    assert(krnlGlobalOp.value().has_value() &&
            "Krnl Global must always have a value");
-    auto value = krnlGlobalOp.value().getValue();
+    auto value = krnlGlobalOp.value().value();
     LLVM::GlobalOp global;
     TypeSwitch<Attribute>(value)
-        .Case<OpaqueElementsAttr>([&](OpaqueElementsAttr attr) {
-          global = lowerOpaqueConstant(krnlGlobalOp, globalType, rewriter);
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          global =
+              lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
           global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
@@ -93,16 +97,12 @@ private:
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
   }
 
-  // LLVM::GlobalOp does not support OpaqueElementsAttr.
-  // Both StringAttr and OpaqueElementsAttr use StringRef for internal data
-  // array. Thus, it looks safe to use StringAtrr instead of
-  // OpaqueElementsAttr.
-  LLVM::GlobalOp lowerOpaqueConstant(KrnlGlobalOp &krnlGlobalOp,
+  LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
       Type globalType, ConversionPatternRewriter &rewriter) const {
-    assert(krnlGlobalOp.value().hasValue() &&
+    assert(krnlGlobalOp.value().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>() &&
-           "Expecting a global with an opaque elements attribute");
+    assert(krnlGlobalOp.value().value().isa<DenseResourceElementsAttr>() &&
+           "Expecting a global with an dense resource elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
@@ -112,12 +112,19 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    StringRef data =
-        krnlGlobalOp.value().getValue().cast<OpaqueElementsAttr>().getValue();
+    auto blob = krnlGlobalOp.value()
+                    .value()
+                    .cast<DenseResourceElementsAttr>()
+                    .getRawHandle()
+                    .getBlob();
+    assert(blob && "Expecting dense resource with a valid blob");
+    ArrayRef<char> rawData = blob->getData();
+
     // Check data size.
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
-    assert(((int64_t)data.size() == sizeInBytes) && "Data size mismatch.");
+    assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
+    StringRef data(rawData.data(), rawData.size());
     StringAttr llvmStringAttr = StringAttr::get(context, data);
     auto llvmArrayI8Ty =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
@@ -131,9 +138,9 @@ private:
 
   LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOp &krnlGlobalOp, Type globalType,
       ConversionPatternRewriter &rewriter) const {
-    assert(krnlGlobalOp.value().hasValue() &&
+    assert(krnlGlobalOp.value().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.value().getValue().isa<DenseElementsAttr>() &&
+    assert(krnlGlobalOp.value().value().isa<DenseElementsAttr>() &&
            "Expecting a global with an dense elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
@@ -145,7 +152,7 @@ private:
     rewriter.setInsertionPointToStart(module.getBody());
 
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
+        krnlGlobalOp.value().value().cast<DenseElementsAttr>();
 
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
@@ -166,7 +173,7 @@ private:
       else
         global = create.llvm.globalOp(globalType,
             /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
-            krnlGlobalOp.value().getValue());
+            krnlGlobalOp.value().value());
     }
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
@@ -207,7 +214,7 @@ private:
   // the address of the global strings into an array. Return the array address.
   LLVM::GlobalOp lowerStringLiteral(
       KrnlGlobalOp &krnlGlobalOp, Type globalType, OpBuilder &builder) const {
-    assert(krnlGlobalOp.value().getValue().isa<DenseElementsAttr>() &&
+    assert(krnlGlobalOp.value().value().isa<DenseElementsAttr>() &&
            "Expecting a dense value");
 
     Location loc = krnlGlobalOp.getLoc();
@@ -215,7 +222,7 @@ private:
 
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
+        krnlGlobalOp.value().value().cast<DenseElementsAttr>();
 
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);

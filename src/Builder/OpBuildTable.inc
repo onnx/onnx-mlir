@@ -19,10 +19,12 @@ op_dialect_version_map_["Asinh"] = {9};
 op_dialect_version_map_["Atan"] = {7};
 op_dialect_version_map_["Atanh"] = {9};
 op_dialect_version_map_["AveragePool"] = {11};
-op_dialect_version_map_["BatchNormalization"] = {14};
+op_dialect_version_map_["BatchNormalization"] = {15};
+op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
 op_dialect_version_map_["Cast"] = {13};
+op_dialect_version_map_["CastLike"] = {15};
 op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
@@ -110,6 +112,9 @@ op_dialect_version_map_["Normalizer"] = {1};
 op_dialect_version_map_["Not"] = {1};
 op_dialect_version_map_["OneHot"] = {11};
 op_dialect_version_map_["OneHotEncoder"] = {1};
+op_dialect_version_map_["Optional"] = {15};
+op_dialect_version_map_["OptionalGetElement"] = {15};
+op_dialect_version_map_["OptionalHasElement"] = {15};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {16};
 op_dialect_version_map_["Pad"] = {13, 11, 2};
@@ -216,10 +221,14 @@ import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["Bernoulli"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
 import_handler_map_["Cast"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
+import_handler_map_["CastLike"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastLikeOp>;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Celu"] = 
@@ -376,6 +385,12 @@ import_handler_map_["Not"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNotOp>;
 import_handler_map_["OneHot"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOneHotOp>;
+import_handler_map_["Optional"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalOp>;
+import_handler_map_["OptionalGetElement"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalGetElementOp>;
+import_handler_map_["OptionalHasElement"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalHasElementOp>;
 import_handler_map_["Or"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOrOp>;
 import_handler_map_["PRelu"] = 
@@ -600,9 +615,11 @@ op_dialect_top_version_map_["Asinh"] = 9;
 op_dialect_top_version_map_["Atan"] = 7;
 op_dialect_top_version_map_["Atanh"] = 9;
 op_dialect_top_version_map_["AveragePool"] = 11;
-op_dialect_top_version_map_["BatchNormalization"] = 14;
+op_dialect_top_version_map_["BatchNormalization"] = 15;
+op_dialect_top_version_map_["Bernoulli"] = 15;
 op_dialect_top_version_map_["BitShift"] = 11;
 op_dialect_top_version_map_["Cast"] = 13;
+op_dialect_top_version_map_["CastLike"] = 15;
 op_dialect_top_version_map_["Ceil"] = 13;
 op_dialect_top_version_map_["Celu"] = 12;
 op_dialect_top_version_map_["Clip"] = 6;
@@ -678,6 +695,9 @@ op_dialect_top_version_map_["NonMaxSuppression"] = 11;
 op_dialect_top_version_map_["NonZero"] = 13;
 op_dialect_top_version_map_["Not"] = 1;
 op_dialect_top_version_map_["OneHot"] = 11;
+op_dialect_top_version_map_["Optional"] = 15;
+op_dialect_top_version_map_["OptionalGetElement"] = 15;
+op_dialect_top_version_map_["OptionalHasElement"] = 15;
 op_dialect_top_version_map_["Or"] = 7;
 op_dialect_top_version_map_["PRelu"] = 16;
 op_dialect_top_version_map_["Pad"] = 2;
