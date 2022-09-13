@@ -7,6 +7,7 @@ project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
+option(ONNX_MLIR_ENABLE_MHLO "Enable MHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
@@ -16,7 +17,7 @@ set(CMAKE_CXX_STANDARD 17)
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
-# CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# CompilerUtils.cpp::getLibraryPath(). So we explicitly set CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
 set(CMAKE_INSTALL_LIBDIR lib)
 
@@ -146,7 +147,10 @@ set(pybind11_FIND_QUIETLY ON)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
-add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
+
+if (ONNX_MLIR_ENABLE_MHLO)
+  add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
+endif()
 
 if (NOT TARGET benchmark)
   set(BENCHMARK_USE_BUNDLED_GTEST OFF)
@@ -175,6 +179,10 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+endif()
+
+if (ONNX_MLIR_ENABLE_MHLO)
+  add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
 endif()
 
 add_subdirectory(utils)

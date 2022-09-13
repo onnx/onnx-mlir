@@ -192,10 +192,12 @@ struct SoftmaxPattern : public ConversionPattern {
   }
 };
 
+#ifdef ONNX_MLIR_ENABLE_MHLO
 void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<SoftmaxPattern>(ctx);
 }
+#endif
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
@@ -252,10 +254,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
 
+#ifdef ONNX_MLIR_ENABLE_MHLO
   if (this->target == "mhlo") {
     populateDecomposingONNXBeforeMhloPatterns(patterns, context);
     target.addIllegalOp<ONNXSoftmaxOp>();
   }
+#endif
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
