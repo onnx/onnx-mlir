@@ -175,6 +175,20 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
+// ONNX sequence type (!onnx.Seq) is implemented with memref of memref.
+// When an element(tensor/memref) is stored into a sequence, it becomes
+// invisible to the bufferization analysis. When onnx-mlir invokes
+// bufferization::Deallocation pass to insert memref::dealloc, the element
+// may be freed. Therefore, element need to be copied when inserted into
+// a sequence. 'copy' here means to allocate a new memref and copy the content 
+// of the memref. The copy is a costly op to maintain the SSA requirement.
+// To reduce the overhead of copy, elements are not copied when
+// a new sequence is created from an exist sequence. Hower, when an element
+// is extracted from a sequence (krnl.seqextract), the element will be 
+// copied and return. This copy can be further avoided if the extraction is
+// the last reference (by extract or erase from any sequence) of this element.
+// ToDo: use the one-shot interface for space manangement.
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
@@ -184,19 +198,11 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     The loaded element is copied and then return.
     The position value is guaranteed to be positive. Negative position allowed
     by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+
     Attribute 'copy' provides an optimization for copying. 
     When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
-    When the attribute 'copy' is 0: the extracted element is directly returned.
-    Even without copying, the
-    element is created (copied) when it is inserted into the sequence.
-    Attribute 'copy' can be 0 when analysis or code generation guarantees 
-    that 1) elements are in only one live sequence, 
-    2) each element is extracted exactly once from the sequence and,
-    3) the sequence is disposed without freeing its elements again.
-    In one sentence, the pointers stored in the sequences behaves like the 
-    unique pointers in the data flow graph. We may add code to remember 
-    whether an element has been extracted or not, and detect error at runtime
-    and support more flexible deallocation of sequence elements.
+    When the attribute 'copy' is 0: the extracted element is directly returned
+    without copy.
 
     The returned element is marked as allocated by this Op with the bufferation
     interface so that deallocation can be generated correctly through the 
@@ -219,12 +225,13 @@ def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
     one position in the new sequence without copying.
     The motivation to introduce this Op is to help bufferization::deallocation
     The sequence is implemented as memref of memref in onnx-mlir.
-    When an element is stored into a sequence, its pointer is stored.
-    MLIR assumes values for Op, not pointer. As a result, 
-    The memref for the element will be freed after this Op if it is the last
+    When an element is stored into a sequence, it becomes invisible.
+    The memref for the element will be freed after this Op after its last
     use of the element.
     To avoid dangling pointer, the element is copied before it is inserted 
-    into the sequence. The allocation for the copy will be revealed to graph
+    into the sequence. 
+    The allocation for the copy will be freed by SequenceErase,
+    or revealed to graph
     when the element is extracted from the sequence. Consequently, the 
     deallocation pass can handle the space correctly.
     For future optimization, the one-shot bufferization interface may be used
