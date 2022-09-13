@@ -46,7 +46,7 @@ endfunction()
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
-set(TEST_LINK_LIBS PerfLib ModelLib CompilerUtils benchmark)
+set(TEST_LINK_LIBS benchmark CompilerUtils ModelLib PerfLib)
 
 add_perf_unittest(PerfGemm
   PerfGemm.cpp
