@@ -90,7 +90,7 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 
 
 // Create an ONNX Shape Op with type
-def ONNXShape: NativeCodeCall<
+def CreateShapeOp: NativeCodeCall<
   "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
 >;
 
@@ -118,7 +118,7 @@ def expandConstantOperandForAddOp1: Pat<
 def expandConstantOperandForAddOp2: Pat<
   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXAddOp $x, (ONNXExpandOp $c,
-                               (ONNXShape (GetShapeTypeOf $x), $x),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -130,7 +130,7 @@ def expandConstantOperandForAddOp2: Pat<
 def expandConstantOperandForDivOp1: Pat<
   (ONNXDivOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXDivOp $x, (ONNXExpandOp $c,
-                               (ONNXShape (GetShapeTypeOf $x), $x),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -138,7 +138,7 @@ def expandConstantOperandForDivOp1: Pat<
 def expandConstantOperandForDivOp2: Pat<
   (ONNXDivOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXDivOp (ONNXExpandOp $c,
-                           (ONNXShape (GetShapeTypeOf $x), $x),
+                           (CreateShapeOp (GetShapeTypeOf $x), $x),
                            (returnType $x)),
              $x),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
@@ -157,7 +157,7 @@ def expandConstantOperandForMulOp1: Pat<
 def expandConstantOperandForMulOp2: Pat<
   (ONNXMulOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXMulOp $x, (ONNXExpandOp $c,
-                               (ONNXShape (GetShapeTypeOf $x), $x),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -169,7 +169,7 @@ def expandConstantOperandForMulOp2: Pat<
 def expandConstantOperandForSubOp1: Pat<
   (ONNXSubOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXSubOp $x, (ONNXExpandOp $c,
-                               (ONNXShape (GetShapeTypeOf $x), $x),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -177,7 +177,7 @@ def expandConstantOperandForSubOp1: Pat<
 def expandConstantOperandForSubOp2: Pat<
   (ONNXSubOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXSubOp (ONNXExpandOp $c,
-                           (ONNXShape (GetShapeTypeOf $x), $x),
+                           (CreateShapeOp (GetShapeTypeOf $x), $x),
                            (returnType $x)),
              $x),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
