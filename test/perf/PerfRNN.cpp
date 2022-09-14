@@ -72,7 +72,7 @@ static void BM_LSTM(benchmark::State &state) {
   // FLOPS for LSTM: ignore activations, assume static S and B.
   // Eight matrix-matrix multiplications are combined into two
   // matrix-matrix multiplications: [B,I]x[I,4*H] and [B,H]x[H,4*H].
-  PERF_RECORD_FLOPS(
+  perf_recordFlops(state,
       D * S * (4.0 * B * H * (2.0 * I - 1.0) + 4.0 * B * H * (2.0 * H - 1.0)));
 }
 BENCHMARK(BM_LSTM)->Apply(CommonArgs)->Unit(benchmark::kMillisecond);
@@ -94,7 +94,7 @@ static void BM_GRU_LINEAR_BEFORE_RESET(benchmark::State &state) {
   // FLOPS for GRU: ignore activations, assume static S and B.
   // Six matrix-matrix multiplications are combined into two
   // matrix-matrix multiplications: [B,I]x[I,3*H] and [B,H]x[H,3*H].
-  PERF_RECORD_FLOPS(
+  perf_recordFlops(state,
       D * S * (3.0 * B * H * (2.0 * I - 1.0) + 3.0 * B * H * (2.0 * H - 1.0)));
 }
 BENCHMARK(BM_GRU_LINEAR_BEFORE_RESET)
@@ -118,7 +118,7 @@ static void BM_GRU_LINEAR_AFTER_RESET(benchmark::State &state) {
   // FLOPS for GRU: ignore activations, assume static S and B.
   // Six matrix-matrix multiplications are combined into two
   // matrix-matrix multiplications: [B,I]x[I,3*H] and [B,H]x[H,3*H].
-  PERF_RECORD_FLOPS(
+  perf_recordFlops(state,
       D * S * (3.0 * B * H * (2.0 * I - 1.0) + 3.0 * B * H * (2.0 * H - 1.0)));
 }
 BENCHMARK(BM_GRU_LINEAR_AFTER_RESET)
@@ -141,8 +141,8 @@ static void BM_RNN(benchmark::State &state) {
     rnn.run();
   // FLOPS for RNN: ignore activations, assume static S and B.
   // Two matrix-matrix multiplications: [B,I]x[I,H] and [B,H]x[H,H].
-  PERF_RECORD_FLOPS(
-      D * S * (B * H * (2.0 * I - 1.0) + B * H * (2.0 * H - 1.0)));
+  perf_recordFlops(
+      state, D * S * (B * H * (2.0 * I - 1.0) + B * H * (2.0 * H - 1.0)));
 }
 BENCHMARK(BM_RNN)->Apply(CommonArgs)->Unit(benchmark::kMillisecond);
 
