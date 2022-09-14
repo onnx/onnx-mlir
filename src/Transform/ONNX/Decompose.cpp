@@ -204,7 +204,8 @@ struct DecomposeONNXToONNXPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   DecomposeONNXToONNXPass() = default;
-  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass) {}
+  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
+      : PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 

@@ -208,7 +208,8 @@ struct ConvOptONNXToONNXPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvOptONNXToONNXPass)
 
   ConvOptONNXToONNXPass() = default;
-  ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass) {}
+  ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass)
+      : PassWrapper<ConvOptONNXToONNXPass, OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "convopt-onnx"; }
 

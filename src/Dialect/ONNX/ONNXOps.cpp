@@ -5784,6 +5784,22 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 }
 
 //===----------------------------------------------------------------------===//
+// DimOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult ONNXDimOp::verify() {
+  // Input data must be ranked.
+  return success(hasShapeAndRank(this->data()));
+}
+
+LogicalResult ONNXDimOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  OpBuilder b(getContext());
+  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
