@@ -397,8 +397,8 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
-  // CHECK: [[LTZERO:%.+]] = arith.cmpf olt, [[LOAD]], [[ZERO]] : f32
-  // CHECK: [[RELU_RES:%.+]] = arith.select [[LTZERO]], [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[GEZERO:%.+]] = arith.cmpf oge, [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[RELU_RES:%.+]] = arith.select [[GEZERO]], [[LOAD]], [[ZERO]] : f32
   // CHECK: krnl.store [[RELU_RES]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
