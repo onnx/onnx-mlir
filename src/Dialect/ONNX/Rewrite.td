@@ -36,7 +36,10 @@ def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
 
 // Create a DenseElementsAttr from the shape of the type of a value.
 def createDenseElementsAttrFromShape : NativeCodeCall<
-  "onnx_mlir::createDenseElementsAttrFromShape($_builder, $0, $1, $2)">;
+  "onnx_mlir::createDenseElementsAttrFromShape($_builder, $0)">;
+
+def createDenseElementsAttrFromShapeResult : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrFromShapeOp($_builder, $0.getDefiningOp())">;
 
 // Create a DenseElementsAttr from the size of the type of a value.
 def createDenseElementsAttrFromSize : NativeCodeCall<
@@ -532,7 +535,7 @@ def SwapReshapeMatMulPattern: Pattern<
  (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_, $az), $B),
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
                  (ONNXConstantOpFromDenseAttr 
-                    (createDenseElementsAttrFromShape $res2, (GetNullAttr), (GetNullAttr))
+                    (createDenseElementsAttrFromShape $res2)
                  ), $az)],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
   (HaveSameLastDim $A, $res1), // The last dim of A is unchanged by reshape.
@@ -721,9 +724,9 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 
 // TODO: this rules may need to be updated once ShapeOp has start/end.
 def ShapeToConstantPattern: Pat<
-     (ONNXShapeOp $A, $end, $start),
+     (ONNXShapeOp:$res $A, $end, $start),
      (ONNXConstantOp
-        (GetNullAttr), (createDenseElementsAttrFromShape $A, $start, $end),
+        (GetNullAttr), (createDenseElementsAttrFromShapeResult $res),
         (GetNullFloatAttr), (GetNullArrayAttr), (GetNullIntegerAttr),
         (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
      ),
