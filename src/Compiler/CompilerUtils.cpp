@@ -615,18 +615,10 @@ void registerDialects(mlir::MLIRContext &context) {
 int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
-  // a model specified in MLIR. The extension of the file is the decider or, if
-  // the file is "-", then it's STDIN and we treat it as JSON.
-  bool inputIsONNX = false;
-  bool inputIsJSON = false;
-  bool inputIsMLIR = false;
-  if (inputFilename == "-") {
-    inputIsJSON = true;
-  } else {
-    inputIsONNX = inputFilename.endswith(".onnx");
-    inputIsJSON = inputFilename.endswith(".json");
-    inputIsMLIR = inputFilename.endswith(".mlir");
-  }
+  // a model specified in MLIR. The extension of the file is the decider.
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
 
   if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
     *errorMessage = "Invalid input file '" + inputFilename.str() +

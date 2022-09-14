@@ -1415,7 +1415,7 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
-  if (model_fname == "-" || model_fname.endswith(".json")) {
+  if (model_fname.endswith(".json")) {
     auto buf = openInputFile(model_fname, errorMessage);
     if (!buf) {
       return InvalidInputFileAccess;
