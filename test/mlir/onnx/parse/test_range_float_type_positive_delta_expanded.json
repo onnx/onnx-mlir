@@ -1,4 +1,4 @@
-// RUN: sed 's/^[ \t]*\/\/.*//' %s | onnx-mlir --EmitONNXBasic --useOnnxModelTypes --printIR | FileCheck %s
+// RUN: onnx-mlir --EmitONNXBasic --useOnnxModelTypes --printIR %s | FileCheck %s
 
 // --useOnnxModelTypes is needed, otherwise onnx-mlir hits
 // llvm_unreachable("unexpected type") in FrontendGenImpl::ImportType()

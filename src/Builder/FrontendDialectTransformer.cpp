@@ -28,6 +28,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 SUPPRESS_WARNINGS_PUSH
@@ -1419,8 +1420,14 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     if (!buf) {
       return InvalidInputFileAccess;
     }
-    google::protobuf::StringPiece json(
-        buf->getBufferStart(), buf->getBufferSize());
+    // Remove // comments, which are non-standard json but appear in lit tests
+    // in test/mlir/onnx/parse.
+    std::string json;
+    for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
+         ++line) {
+      if (!line->ltrim(" \t").startswith("//")) // filters out comment lines
+        json.append(*line);
+    }
     auto status = google::protobuf::util::JsonStringToMessage(json, &model);
     if (!status.ok()) {
       *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +

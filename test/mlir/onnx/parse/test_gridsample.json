@@ -1,4 +1,4 @@
-// RUN: sed 's/^[ \t]*\/\/.*//' %s | onnx-mlir --EmitONNXBasic --printIR 2> test_gridsample.log; cat test_gridsample.log | FileCheck --check-prefix=FAILED %s
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s 2> test_gridsample.log; cat test_gridsample.log | FileCheck --check-prefix=FAILED %s
 
 // json is generated with:
 // utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_gridsample/model.onnx

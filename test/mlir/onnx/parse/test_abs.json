@@ -1,4 +1,4 @@
-// RUN: sed 's/^[ \t]*\/\/.*//' %s | onnx-mlir --EmitONNXBasic --printIR | FileCheck %s
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
 
 // json is generated with:
 // utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_abs/model.onnx
