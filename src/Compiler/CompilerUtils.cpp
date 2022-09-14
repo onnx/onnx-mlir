@@ -298,7 +298,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       llvm::MDString::get(ctx, PRODUCT_ID));
 #endif
 
-  std::string moduleSuffix = moduleId.empty() ? "" : ("_" + moduleId); 
+  std::string moduleSuffix = moduleId.empty() ? "" : ("_" + moduleId);
 
 // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
@@ -836,8 +836,7 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getDataLayout(loc)));
 
   if (!moduleId.empty()) {
-    moduleOp.setAttr(
-        "onnx-mlir.moduleId", StringAttr::get(&context, moduleId));
+    moduleOp.setAttr("onnx-mlir.moduleId", StringAttr::get(&context, moduleId));
   }
 
   // Set the module target accelerators.

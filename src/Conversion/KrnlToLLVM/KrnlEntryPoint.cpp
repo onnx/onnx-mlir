@@ -531,7 +531,7 @@ private:
     std::string moduleSuffix;
     if (auto moduleIdAttr =
             module->getAttrOfType<StringAttr>("onnx-mlir.moduleId")) {
-        moduleSuffix = "_" + moduleIdAttr.str();
+      moduleSuffix = "_" + moduleIdAttr.str();
     }
 
     // A helper function to emit a global constant operation storing a string.

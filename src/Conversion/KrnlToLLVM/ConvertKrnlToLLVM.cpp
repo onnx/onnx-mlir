@@ -231,8 +231,8 @@ void genSignatureFunction(ModuleOp &module,
   b.setInsertionPointToEnd(module.getBody());
   auto arrayType = LLVM::LLVMArrayType::get(i8PtrTy, entryGlobalOps.size() + 1);
   LLVM::GlobalOp entryArrayOp = create.llvm.globalOp(arrayType,
-      /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays" + moduleSuffix,
-      Attribute());
+      /*isConstant=*/true, LLVM::Linkage::Internal,
+      "_entry_point_arrays" + moduleSuffix, Attribute());
   { // Fill the initializer with pointers to entry point constants.
     Region &region = entryArrayOp.getInitializerRegion();
     Block *block = b.createBlock(&region);
@@ -305,7 +305,8 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i] + moduleSuffix, llvmFnType);
+    LLVM::LLVMFuncOp funcOp =
+        create.llvm.func(funcNames[i] + moduleSuffix, llvmFnType);
 
     // 2. Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();

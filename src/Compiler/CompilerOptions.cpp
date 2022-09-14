@@ -83,7 +83,8 @@ llvm::cl::opt<std::string> customEnvFlags("customEnvFlags",
     llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> moduleId("moduleId",
-    llvm::cl::desc("Optional module ID that's added as a suffix to all emitted functions"),
+    llvm::cl::desc(
+        "Optional module ID that's added as a suffix to all emitted functions"),
     llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> mtriple("mtriple",
