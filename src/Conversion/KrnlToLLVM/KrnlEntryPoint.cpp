@@ -528,6 +528,12 @@ private:
     // Common information.
     Type i8Type = IntegerType::get(context, 8);
 
+    std::string moduleSuffix;
+    if (auto moduleIdAttr =
+            module->getAttrOfType<StringAttr>("onnx-mlir.moduleId")) {
+        moduleSuffix = "_" + moduleIdAttr.str();
+    }
+
     // A helper function to emit a global constant operation storing a string.
     auto emitGlobalOp = [&context, &i8Type, &create](
                             std::string name, std::string value) {
@@ -568,19 +574,19 @@ private:
     b.setInsertionPointToStart(module.getBody());
     // Global constants for entry point names.
     std::string entryVarName =
-        "_entry_point_" + std::to_string(KRNL_ENTRY_POINT_ID);
+        "_entry_point_" + std::to_string(KRNL_ENTRY_POINT_ID) + moduleSuffix;
     KRNL_ENTRY_POINT_ID++;
     LLVM::GlobalOp entryGlobalOp =
         emitGlobalOp(entryVarName, terminatedEntryPointName);
     entryGlobalOps.emplace_back(entryGlobalOp);
 
     // Global constants for input signatures.
-    std::string inSigVarName = entryVarName + "_in_sig";
+    std::string inSigVarName = entryVarName + "_in_sig" + moduleSuffix;
     LLVM::GlobalOp inSigGlobalOp = emitGlobalOp(inSigVarName, inSignature);
     inSigGlobalOps.emplace_back(inSigGlobalOp);
 
     // Global constants for output signatures.
-    std::string outSigVarName = entryVarName + "_out_sig";
+    std::string outSigVarName = entryVarName + "_out_sig" + moduleSuffix;
     LLVM::GlobalOp outSigGlobalOp = emitGlobalOp(outSigVarName, outSignature);
     outSigGlobalOps.emplace_back(outSigGlobalOp);
   }

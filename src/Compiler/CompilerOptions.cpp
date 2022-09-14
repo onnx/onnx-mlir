@@ -82,6 +82,10 @@ llvm::cl::opt<std::string> customEnvFlags("customEnvFlags",
     llvm::cl::value_desc("option env var"), llvm::cl::init("ONNX_MLIR_FLAGS"),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<std::string> moduleId("moduleId",
+    llvm::cl::desc("Optional module ID that's added as a suffix to all emitted functions"),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),

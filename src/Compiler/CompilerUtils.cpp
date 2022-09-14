@@ -15,6 +15,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -297,22 +298,24 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       llvm::MDString::get(ctx, PRODUCT_ID));
 #endif
 
-  // Annotate functions to be accessible from DLL on Windows.
+  std::string moduleSuffix = moduleId.empty() ? "" : ("_" + moduleId); 
+
+// Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
   // Signature functions.
-  exportedFuncs.emplace_back(StringRef("omInputSignature"));
-  exportedFuncs.emplace_back(StringRef("omOutputSignature"));
-  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omInputSignature" + moduleSuffix));
+  exportedFuncs.emplace_back(StringRef("omOutputSignature" + moduleSuffix));
+  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + moduleSuffix));
   // Entry point funtions.
-  if (llvm::GlobalVariable *GV =
-          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays"))) {
+  if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
+          StringRef("_entry_point_arrays" + moduleSuffix))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i)));
+            StringRef("_entry_point_" + std::to_string(i) + moduleSuffix));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
@@ -321,11 +324,12 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       }
     }
   }
-  for (StringRef funcName : exportedFuncs)
+  for (StringRef funcName : exportedFuncs) {
     if (llvm::GlobalValue *GV = llvmModule.getNamedValue(funcName)) {
       GV->setDSOLocal(true);
       GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
     }
+  }
 #endif
 }
 
@@ -633,6 +637,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.moduleId = moduleId;
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
@@ -648,6 +653,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
   options.shapeInformation = shapeInformation;
+  options.moduleId = moduleId;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
@@ -828,6 +834,11 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getTargetTriple()));
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
+
+  if (!moduleId.empty()) {
+    moduleOp.setAttr(
+        "onnx-mlir.moduleId", StringAttr::get(&context, moduleId));
+  }
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;

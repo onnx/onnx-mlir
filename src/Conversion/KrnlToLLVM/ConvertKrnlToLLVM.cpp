@@ -35,13 +35,16 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
+#include <string>
 
 #include "onnx/onnx_pb.h"
 
@@ -206,6 +209,12 @@ void genSignatureFunction(ModuleOp &module,
   OpBuilder b(context);
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
+  std::string moduleSuffix;
+  if (auto moduleIdAttr =
+          module->getAttrOfType<StringAttr>("onnx-mlir.moduleId")) {
+    moduleSuffix = "_" + moduleIdAttr.str();
+  }
+
   // Common information.
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
@@ -222,7 +231,7 @@ void genSignatureFunction(ModuleOp &module,
   b.setInsertionPointToEnd(module.getBody());
   auto arrayType = LLVM::LLVMArrayType::get(i8PtrTy, entryGlobalOps.size() + 1);
   LLVM::GlobalOp entryArrayOp = create.llvm.globalOp(arrayType,
-      /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays",
+      /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays" + moduleSuffix,
       Attribute());
   { // Fill the initializer with pointers to entry point constants.
     Region &region = entryArrayOp.getInitializerRegion();
@@ -259,7 +268,7 @@ void genSignatureFunction(ModuleOp &module,
     Type llvmFnType =
         LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
     LLVM::LLVMFuncOp funcOp =
-        create.llvm.func("omQueryEntryPoints", llvmFnType);
+        create.llvm.func("omQueryEntryPoints" + moduleSuffix, llvmFnType);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
@@ -296,7 +305,7 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i], llvmFnType);
+    LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i] + moduleSuffix, llvmFnType);
 
     // 2. Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();

@@ -1340,7 +1340,11 @@ private:
    */
   func::FuncOp importGraph(const onnx::GraphProto &graph) {
     const std::string &name = "main_graph";
-    auto mainFunc = func::FuncOp::create(UnknownLoc(), name,
+    const std::string &moduleId = options_.moduleId;
+
+    std::string moduleSuffix = moduleId.empty() ? "" : ("_" + moduleId);
+
+    auto mainFunc = func::FuncOp::create(UnknownLoc(), name + moduleSuffix,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
     // Create and set insertion point to entry block.
