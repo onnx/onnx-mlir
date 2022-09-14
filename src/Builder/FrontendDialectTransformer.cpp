@@ -1425,8 +1425,16 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     std::string json;
     for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
          ++line) {
-      if (!line->ltrim(" \t").startswith("//")) // filters out comment lines
-        json.append(*line);
+      if (line->ltrim(" \t").startswith("//"))
+        continue; // omit comment lines beginning with (whitespace and) //
+      if (line->contains("//")) {
+        // Not stripping end-of-line comments because there's no robust way to
+        // distinguish them from valid uses of // in the json itself.
+        llvm::errs() << "Warning: possible invalid end-of-line // comment in "
+                        "json input file "
+                     << model_fname.str() << ":" << line.line_number() << "\n";
+      }
+      json.append(*line);
     }
     auto status = google::protobuf::util::JsonStringToMessage(json, &model);
     if (!status.ok()) {
