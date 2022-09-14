@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-##################### RunONNXModel.py #########################################
+######################### onnx2json.py #########################################
 #
 # Converts a binary onnx model to json.
-# Useful for constructing test/mlir/onnx/parse lit tests.
+# Useful tool for constructing test/mlir/onnx/parse lit tests from onnx files
+# (see comments in the parse lit tests).
 #
 ################################################################################
 
