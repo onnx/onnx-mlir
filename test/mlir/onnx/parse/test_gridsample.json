@@ -1,5 +1,10 @@
 // RUN: onnx-mlir --EmitONNXBasic --printIR %s 2> test_gridsample.log; cat test_gridsample.log | FileCheck --check-prefix=FAILED %s
 
+// test_gridsample.json is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/gridsample.py
+//
+// Parsing fails because GridSample was added in ONNX v17 and not yet added to onnx-mlir
+
 // json is generated with:
 // utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_gridsample/model.onnx
 {
@@ -119,6 +124,4 @@
     }
   ]
 }
-// GridSample was added in ONNX v17 and not yet added to onnx-mlir
-
 // FAILED: GridSample this Op is not supported by onnx-mlir's onnx dialect

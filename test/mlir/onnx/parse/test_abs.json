@@ -1,5 +1,8 @@
 // RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
 
+// test_abs.json is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/abs.py
+
 // json is generated with:
 // utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_abs/model.onnx
 {

@@ -1,5 +1,11 @@
 // RUN: onnx-mlir --EmitONNXBasic --printIR %s 2> zipmap.log; cat zipmap.log | FileCheck --check-prefix=FAILED %s
 
+// zipmap.json is an onnx model with a single ZipMap node.
+//
+// Parsing fails because equences of non-tensors are not supported by
+// the ONNX parser in
+// FrontendGenImpl::ImportSequenceType in FrontendDialectTransformer.cpp
+
 // json is generated with:
 //
 // utils/onnx2json.py zipmap.onnx
@@ -100,7 +106,4 @@
     }
   ]
 }
-// Sequences of non-tensors are not supported by the ONNX parser in
-// FrontendGenImpl::ImportSequenceType in FrontendDialectTransformer.cpp
-
 // FAILED: "expect tensor inside sequence type"

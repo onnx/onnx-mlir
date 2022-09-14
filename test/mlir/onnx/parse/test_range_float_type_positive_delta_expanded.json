@@ -1,5 +1,9 @@
 // RUN: onnx-mlir --EmitONNXBasic --useOnnxModelTypes --printIR %s | FileCheck %s
 
+// test_range_float_type_positive_delta_expanded.json is an onnx model from
+// the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/rangeop.py
+//
 // --useOnnxModelTypes is needed, otherwise onnx-mlir hits
 // llvm_unreachable("unexpected type") in FrontendGenImpl::ImportType()
 // in FrontendDialectTransformer
