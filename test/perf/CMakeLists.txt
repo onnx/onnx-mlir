@@ -7,6 +7,9 @@ add_onnx_mlir_library(PerfLib
   INCLUDE_DIRS PRIVATE
   ${ONNX_MLIR_SRC_ROOT}/third_party/benchmark/include
   ${ONNX_MLIR_BIN_ROOT}/third_party/benchmark/include
+
+  LINK_LIBS PRIVATE
+  benchmark
   )
 
 add_custom_target(perf)
