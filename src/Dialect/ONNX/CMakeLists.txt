@@ -40,7 +40,6 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/ONNXShapeHelper.cpp  
   ShapeInference/OneHot.cpp
   ShapeInference/Pad.cpp
-  ShapeInference/Reduction.cpp
   ShapeInference/Reshape.cpp
   ShapeInference/ReverseSequence.cpp
   ShapeInference/RoiAlign.cpp

@@ -40,7 +40,7 @@ LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
       outputDims.emplace_back(dataBounds.getDim(i));
 
   // Save the final result.
-  shapeHelper->dimsForOutput() = outputDims;
+  shapeHelper->setOutputDims(outputDims);
 
   return success();
 }

@@ -34,7 +34,7 @@ LogicalResult ONNXTileOpShapeHelper::computeShape(
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

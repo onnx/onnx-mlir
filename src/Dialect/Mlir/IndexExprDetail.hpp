@@ -37,7 +37,7 @@ public:
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);
-  // Transformative initialization calls.
+  // Transformational initialization calls.
   void initAsKind(IndexExprImpl const *expr, IndexExprKind const kind);
 
   // Copy.

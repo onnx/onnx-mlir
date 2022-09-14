@@ -176,19 +176,19 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll,
-    bool overcompute) const {
+    bool overCompute) const {
   b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
-      cTileSize, simdize, unroll, overcompute);
+      cTileSize, simdize, unroll, overCompute);
 }
 
 void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
-    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) const {
+    ValueRange globalUBs, bool simdize, bool unroll, bool overCompute) const {
   b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
-      globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
+      globalUBs[1], globalUBs[2], simdize, unroll, overCompute);
 }
 
 Value KrnlBuilder::dim(Type type, Value alloc, Value index) const {

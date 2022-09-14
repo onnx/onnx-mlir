@@ -50,20 +50,22 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape(
     batchDims.emplace_back(indicesDims[i]);
 
   // output.shape = batchDims + list(indices.shape)[b:-1]
+  DimsExpr outputDims;
   for (int64_t i = 0; i < b; ++i)
-    dimsForOutput().emplace_back(batchDims[i]);
+    outputDims.emplace_back(batchDims[i]);
   for (int64_t i = b; i < indicesRank - 1; ++i)
-    dimsForOutput().emplace_back(indicesDims[i]);
+    outputDims.emplace_back(indicesDims[i]);
 
   // When indices.shape[-1] < data_rank - b,
   //   output_shape += list(data.shape)[batch_dims + indices.shape[-1]:]
   if (indicesLastDim < dataRank - b)
     for (int64_t i = b + indicesLastDim; i < dataRank; ++i)
-      dimsForOutput().emplace_back(dataDims[i]);
+      outputDims.emplace_back(dataDims[i]);
 
-  assert((int64_t)dimsForOutput().size() == outputRank &&
+  assert((int64_t)outputDims.size() == outputRank &&
          "Incorrect shape computation");
 
+  setOutputDims(outputDims);
   return success();
 }
 

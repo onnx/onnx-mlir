@@ -106,6 +106,54 @@ onnx-mlir -O3 -EmitJNI mnist.onnx
 
 A `mnist.jar` should appear, which corresponds to the compiled model object file along with Java API classes.
 
+## Multi-threading
+
+onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you would like to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
+
+```bash
+export MNIST_WITH_O3="-O3"
+onnx-mlir -O3 -customEnvFlags=MNIST_WITH_O3 [--EmitLib] mnist.onnx -o mnist03
+```
+
+A multi-threaded experiment from command line written in Python is provided.
+
+```python
+import datetime
+import os
+import threading
+ 
+def execCmd(cmd):
+    try:
+        print("command " + cmd + " starts at " + str(datetime.datetime.now()))
+        os.system(cmd)
+        print("command " + cmd + " is finished at " + str(datetime.datetime.now()))
+    except:
+        print("command " + cmd + " meets errors")
+ 
+if __name__ == '__main__':
+    
+    # define 2 different commands
+    cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
+
+    threads = []
+    
+    print("program starts at " + str(datetime.datetime.now()))
+
+    # run the commands
+    for cmd in cmds:
+        th = threading.Thread(target=execCmd, args=(cmd,))
+        th.start()
+        threads.append(th)
+
+    # wait for all the commands finish
+    for th in threads:
+        th.join()
+
+    print("program is finished at " + str(datetime.datetime.now()))
+```
+
+You can execute `python3 multi-threading-test.py` under the current directory to test.
+
 ## Write a C Driver Code
 
  Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
