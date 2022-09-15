@@ -328,16 +328,12 @@ template <>
 Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  // ONNXReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
-  //                           ConstantOp 0,
-  //                           %X)
   Value operand = scalarOperands[0];
 
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
-  auto lessThanZero = rewriter.create<arith::CmpFOp>(
-      loc, arith::CmpFPredicate::OLT, operand, zero);
-  return createMath.select(lessThanZero, zero, operand);
+  Value geZero = createMath.sge(operand, zero);
+  return createMath.select(geZero, operand, zero);
 }
 
 //===----------------------------------------------------------------------===//
