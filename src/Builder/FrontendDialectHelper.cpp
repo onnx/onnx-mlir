@@ -192,10 +192,15 @@ mlir::DenseElementsAttr createDenseElmAttr(onnx::TensorProto tp,
       return mlir::DenseElementsAttr::get(tensorType, arrayRef);
     }
   } else {
-    // Copy, no need to take care of endianness.
+    // Not raw, no need to take care of endianness.
     auto data = TransformValueToONNXData<T>::data(tp);
-    llvm::SmallVector<T> vector(data.begin(), data.end());
-    return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vector));
+    // Access data directly via ArrayRef if same size as T,
+    // or copy into correctly typed SmallVector otherwise
+    // because DenseElementsAttr needs argument type of the correct bitwidth.
+    typedef typename std::conditional<sizeof(T) == sizeof(data[0]),
+        llvm::ArrayRef<T>, llvm::SmallVector<T>>::type ArrayRefOrSmallVector;
+    ArrayRefOrSmallVector array(data.begin(), data.end());
+    return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(array));
   }
 }
 
