@@ -12,33 +12,15 @@
 // actions.
 //===----------------------------------------------------------------------===//
 
+#include <benchmark/benchmark.h>
+
 // Pass f as a (double) number of FLOP in the measurement and report it as the
 // actual number (FLOP) and as a rate per seconds (FLOPS).
-#define PERF_RECORD_FLOPS(_f)                                                  \
-  {                                                                            \
-    state.counters["FLOPS"] = benchmark::Counter((_f),                         \
-        benchmark::Counter::kIsRate |                                          \
-            benchmark::Counter::kIsIterationInvariant,                         \
-        benchmark::Counter::OneK::kIs1000);                                    \
-    state.counters["FLOP"] = benchmark::Counter((_f),                          \
-        benchmark::Counter::kDefaults, benchmark::Counter::OneK::kIs1000);     \
-  }
+void perf_recordFlops(benchmark::State &state, float f);
 
 // Define performance main, with default opt level of 3, and scan PERF_ARGS to
 // override default onnx-mlir compiler options.
+int perf_main(int argc, char **argv);
+
 #define PERF_MAIN()                                                            \
-  int main(int argc, char **argv) {                                            \
-    ::benchmark::Initialize(&argc, argv);                                      \
-    int onnxMlirArgc = 2;                                                      \
-    const char *onnxMlirArgv[onnxMlirArgc];                                    \
-    onnxMlirArgv[0] = argv[0];                                                 \
-    onnxMlirArgv[1] = "-O3";                                                   \
-    if (!llvm::cl::ParseCommandLineOptions(onnxMlirArgc, onnxMlirArgv,         \
-            "set options for perf-algo", nullptr, /*env var*/ "PERF_ARGS"))    \
-      return 2;                                                                \
-    if (::benchmark::ReportUnrecognizedArguments(argc, argv))                  \
-      return 1;                                                                \
-    ::benchmark::RunSpecifiedBenchmarks();                                     \
-    ::benchmark::Shutdown();                                                   \
-    return 0;                                                                  \
-  }
+  int main(int argc, char **argv) { return perf_main(argc, argv); }
