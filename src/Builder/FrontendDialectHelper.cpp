@@ -172,14 +172,13 @@ template <typename T>
 mlir::DenseElementsAttr createDenseElmAttr(onnx::TensorProto tp,
     llvm::Optional<llvm::StringRef> bytes, mlir::RankedTensorType tensorType) {
   if (bytes.has_value()) {
+    size_t size = bytes.value().size() / sizeof(T);
     llvm::ArrayRef<T> arrayRef(
-        reinterpret_cast<T const *>(bytes.value().data()),
-        bytes.value().size());
+        reinterpret_cast<T const *>(bytes.value().data()), size);
     // Perform byte swap if system endianness is BE.
     // ONNX tensor content raw data is always in LE.
     if (sizeof(T) > 1 && llvm::support::endian::system_endianness() !=
                              llvm::support::endianness::little) {
-      size_t size = arrayRef.size() / sizeof(T);
       llvm::SmallVector<T> vector;
       vector.reserve(size);
       for (T x : arrayRef) {
