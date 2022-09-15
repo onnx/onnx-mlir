@@ -612,7 +612,7 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 namespace {
-std::string dirName(const std::string &inputFilename) {
+std::string dirName(StringRef inputFilename) {
   llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
   llvm::sys::path::remove_filename(path);
   return std::string(path.data(), path.size());
