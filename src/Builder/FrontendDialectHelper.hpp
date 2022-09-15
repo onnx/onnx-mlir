@@ -32,6 +32,7 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "onnx/onnx_pb.h"
@@ -41,10 +42,23 @@
 
 namespace onnx_mlir {
 
-mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
+class ExternalDataReader {
+public:
+  ExternalDataReader(const std::string &externalDataDir);
+  ~ExternalDataReader();
+  llvm::StringRef read(
+      const std::string &fileName, size_t offset, size_t length);
 
-mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
+private:
+  const std::string externalDataDir;
+  std::unordered_map<std::string, std::unique_ptr<llvm::MemoryBuffer>> files;
+};
+
+mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
+    mlir::OpBuilder &builder, ExternalDataReader &dataReader,
+    const onnx::TensorProto &initializer);
+
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
+    ExternalDataReader &dataReader, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir

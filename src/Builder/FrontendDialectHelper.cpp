@@ -13,11 +13,46 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/ADT/SmallVector.h"
 #include <llvm/Support/Endian.h>
+#include <llvm/Support/Path.h>
 #include <llvm/Support/SwapByteOrder.h>
 
 #include "src/Builder/FrontendDialectHelper.hpp"
 
 namespace onnx_mlir {
+
+ExternalDataReader::ExternalDataReader(const std::string &externalDataDir)
+    : externalDataDir(externalDataDir) {}
+
+ExternalDataReader::~ExternalDataReader() {}
+
+llvm::StringRef ExternalDataReader::read(
+    const std::string &fileName, size_t offset, size_t length) {
+  if (externalDataDir.empty()) {
+    llvm::errs() << "external data read from " << fileName << " rejected\n";
+    llvm_unreachable("attempted to read external data without externalDataDir set");
+  }
+  llvm::StringRef buffer;
+  auto it = files.find(fileName);
+  if (it != files.end()) {
+    buffer = it->second->getBuffer();
+  } else {
+    llvm::SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
+    llvm::sys::path::append(path, fileName);
+    auto bufferOrError = llvm::MemoryBuffer::getFile(
+        path, /*IsText=*/false, /*RequiresNullTerminator=*/false);
+    if (std::error_code ec = bufferOrError.getError()) {
+      std::string pathStr(path.data(), path.size());
+      llvm::errs() << "Error " << ec.message() << " reading from file "
+                   << pathStr << "\n";
+      llvm_unreachable("getFile failed");
+    }
+    buffer = bufferOrError.get()->getBuffer();
+    files.emplace(fileName, std::move(bufferOrError.get()));
+  }
+  assert(offset + length <= buffer.size() &&
+         "read past end of external data file");
+  return buffer.substr(offset, length);
+}
 
 template <typename T>
 struct TransformValueToONNXData {
@@ -138,7 +173,8 @@ std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
 }
 
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer) {
+    mlir::OpBuilder &builder, ExternalDataReader &dataReader,
+    const onnx::TensorProto &initializer) {
   // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
@@ -150,14 +186,14 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
   // the constant value.
   // Create value attribute.
   mlir::DenseElementsAttr denseElmAttr =
-      onnxTensorProtoToDenseElmAttr(builder, initializer);
+      onnxTensorProtoToDenseElmAttr(builder, dataReader, initializer);
 
   // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
 }
 
-mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer) {
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
+    ExternalDataReader &dataReader, const onnx::TensorProto &initializer) {
   // Tensor dimensions.
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
