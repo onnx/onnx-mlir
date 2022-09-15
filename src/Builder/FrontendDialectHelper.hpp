@@ -46,8 +46,8 @@ class ExternalDataReader {
 public:
   ExternalDataReader(const std::string &externalDataDir);
   ~ExternalDataReader();
-  llvm::StringRef read(
-      const std::string &fileName, size_t offset, size_t length);
+  llvm::StringRef read(const std::string &fileName, size_t offset,
+      llvm::Optional<size_t> length);
 
 private:
   const std::string externalDataDir;

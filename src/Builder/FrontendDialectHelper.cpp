@@ -11,6 +11,7 @@
 // Helper methods for handling input ONNX models.
 //
 //===----------------------------------------------------------------------===//
+
 #include "llvm/ADT/SmallVector.h"
 #include <llvm/Support/Endian.h>
 #include <llvm/Support/Path.h>
@@ -26,17 +27,19 @@ ExternalDataReader::ExternalDataReader(const std::string &externalDataDir)
 ExternalDataReader::~ExternalDataReader() {}
 
 llvm::StringRef ExternalDataReader::read(
-    const std::string &fileName, size_t offset, size_t length) {
+    const std::string &fileName, size_t offset, llvm::Optional<size_t> length) {
   if (externalDataDir.empty()) {
     llvm::errs() << "external data read from " << fileName << " rejected\n";
-    llvm_unreachable("attempted to read external data without externalDataDir set");
+    llvm_unreachable(
+        "attempted to read external data without externalDataDir set");
   }
   llvm::StringRef buffer;
   auto it = files.find(fileName);
   if (it != files.end()) {
     buffer = it->second->getBuffer();
   } else {
-    llvm::SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
+    llvm::SmallVector<char> path(
+        externalDataDir.begin(), externalDataDir.end());
     llvm::sys::path::append(path, fileName);
     auto bufferOrError = llvm::MemoryBuffer::getFile(
         path, /*IsText=*/false, /*RequiresNullTerminator=*/false);
@@ -49,15 +52,54 @@ llvm::StringRef ExternalDataReader::read(
     buffer = bufferOrError.get()->getBuffer();
     files.emplace(fileName, std::move(bufferOrError.get()));
   }
-  assert(offset + length <= buffer.size() &&
-         "read past end of external data file");
-  return buffer.substr(offset, length);
+  assert(offset <= buffer.size() && "read past end of external data file");
+  if (length.has_value()) {
+    assert(offset + length.value() <= buffer.size() &&
+           "read past end of external data file");
+    return buffer.substr(offset, length.value());
+  } else {
+    return buffer.substr(offset);
+  }
+}
+
+size_t parseOffsetOrLength(const std::string &value) {
+  char *end = nullptr;
+  size_t offsetOrLength = strtoull(value.c_str(), &end, 0);
+  assert(end != value.c_str() && "failed to parse offset or length");
+  return offsetOrLength;
+}
+
+llvm::Optional<llvm::StringRef> dataBytes(
+    ExternalDataReader &dataReader, const onnx::TensorProto &tp) {
+  if (tp.has_data_location() &&
+      tp.data_location() == onnx::TensorProto::EXTERNAL) {
+    std::string location;
+    size_t offset = 0;
+    llvm::Optional<size_t> length;
+    for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
+      assert(entry.has_key() && "external_data entry must have key");
+      assert(entry.has_value() && "external_data entry must have value");
+      if (entry.key() == "location") {
+        location = entry.value();
+      } else if (entry.key() == "offset") {
+        offset = parseOffsetOrLength(entry.value());
+      } else if (entry.key() == "length") {
+        length = parseOffsetOrLength(entry.value());
+      }
+    }
+    assert(!location.empty() && "external data has no location");
+    return dataReader.read(location, offset, length);
+  }
+  if (tp.has_raw_data()) {
+    return llvm::StringRef(tp.raw_data());
+  }
+  return llvm::None;
 }
 
 template <typename T>
 struct TransformValueToONNXData {
   static const google::protobuf::RepeatedField<T> data(
-      onnx::TensorProto initializer) {
+      const onnx::TensorProto &tp) {
     return google::protobuf::RepeatedField<T>();
   }
 };
@@ -65,111 +107,96 @@ struct TransformValueToONNXData {
 template <>
 struct TransformValueToONNXData<double> {
   static const google::protobuf::RepeatedField<double> data(
-      onnx::TensorProto initializer) {
-    return initializer.double_data();
+      const onnx::TensorProto &tp) {
+    return tp.double_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<float> {
   static const google::protobuf::RepeatedField<float> data(
-      onnx::TensorProto initializer) {
-    return initializer.float_data();
+      const onnx::TensorProto &tp) {
+    return tp.float_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<int16_t> {
   static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
+      const onnx::TensorProto &tp) {
+    return tp.int32_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<int32_t> {
   static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
+      const onnx::TensorProto &tp) {
+    return tp.int32_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<int64_t> {
   static const google::protobuf::RepeatedField<int64_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int64_data();
+      const onnx::TensorProto &tp) {
+    return tp.int64_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<uint8_t> {
   static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
+      const onnx::TensorProto &tp) {
+    return tp.int32_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<int8_t> {
   static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
+      const onnx::TensorProto &tp) {
+    return tp.int32_data();
   }
 };
 
 template <>
 struct TransformValueToONNXData<bool> {
   static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
+      const onnx::TensorProto &tp) {
+    return tp.int32_data();
   }
 };
 
-// Helper method for constructing an array attribute from a model input.
 template <typename T>
-std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
-  // Return an emtpy array if the raw data is empty.
-  if (initializer.dims().size() == 1 && initializer.dims().data()[0] == 0)
-    return std::vector<T>();
-
-  size_t size;
-  if (initializer.raw_data().size()) {
-    // Copy & take care of endianness.
-    std::vector<char> byteInitializer;
-    std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
-        back_inserter(byteInitializer));
-    size = initializer.raw_data().size() / sizeof(T);
-    T *arrayPtr = reinterpret_cast<T *>(&byteInitializer[0]);
-    auto array = std::vector<T>(arrayPtr, arrayPtr + size);
+mlir::DenseElementsAttr createDenseElmAttr(onnx::TensorProto tp,
+    llvm::Optional<llvm::StringRef> bytes, mlir::RankedTensorType tensorType) {
+  if (bytes.has_value()) {
+    llvm::ArrayRef<T> arrayRef(
+        reinterpret_cast<T const *>(bytes.value().data()),
+        bytes.value().size());
     // Perform byte swap if system endianness is BE.
     // ONNX tensor content raw data is always in LE.
-    if (llvm::support::endian::system_endianness() !=
-        llvm::support::endianness::little)
-      for (size_t i = 0; i < array.size(); i++)
-        llvm::sys::swapByteOrder<T>(array[i]);
-
-    return array;
+    if (sizeof(T) > 1 && llvm::support::endian::system_endianness() !=
+                             llvm::support::endianness::little) {
+      size_t size = arrayRef.size() / sizeof(T);
+      llvm::SmallVector<T> vector;
+      vector.reserve(size);
+      for (T x : arrayRef) {
+        vector.push_back(llvm::sys::getSwappedBytes(x));
+      }
+      return mlir::DenseElementsAttr::get(
+          tensorType, llvm::makeArrayRef(vector));
+    } else {
+      // No need to take care of endianness.
+      return mlir::DenseElementsAttr::get(tensorType, arrayRef);
+    }
+  } else {
+    // Copy, no need to take care of endianness.
+    auto data = TransformValueToONNXData<T>::data(tp);
+    llvm::SmallVector<T> vector(&data[0], &data[0] + data.size());
+    return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vector));
   }
-
-  // Copy, no need to take care of endianness.
-  auto data = TransformValueToONNXData<T>::data(initializer);
-  size = data.size();
-  return std::vector<T>(&data[0], &data[0] + size);
-}
-
-template <>
-std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
-  // Copy, no need to take care of endianness.
-  if (initializer.raw_data().size()) {
-    std::vector<bool> bitInitializer;
-    std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
-        back_inserter(bitInitializer));
-    return bitInitializer;
-  }
-
-  auto data = TransformValueToONNXData<bool>::data(initializer);
-  return std::vector<bool>(&data[0], &data[0] + data.size());
 }
 
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
@@ -193,86 +220,33 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
-    ExternalDataReader &dataReader, const onnx::TensorProto &initializer) {
+    ExternalDataReader &dataReader, const onnx::TensorProto &tp) {
   // Tensor dimensions.
-  llvm::ArrayRef<int64_t> tensorDims(
-      initializer.dims().data(), initializer.dims().size());
-  mlir::DenseElementsAttr denseElmAttr;
-  switch (initializer.data_type()) {
-  case (onnx::TensorProto::FLOAT): {
-    const auto &arrayAttrInitializer = CreateArrayAttribute<float>(initializer);
-    auto elmType = builder.getF32Type();
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::DOUBLE): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<double>(initializer);
-    auto elmType = builder.getF64Type();
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::INT8): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int8_t>(initializer);
-    auto elmType = builder.getIntegerType(8);
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::UINT8): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<uint8_t>(initializer);
-    auto elmType = builder.getIntegerType(8, false);
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::INT16): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int16_t>(initializer);
-    auto elmType = builder.getIntegerType(16);
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::INT32): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int32_t>(initializer);
-    auto elmType = builder.getIntegerType(32);
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::INT64): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int64_t>(initializer);
-    auto elmType = builder.getIntegerType(64);
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::BOOL): {
-    const auto &data = CreateArrayAttribute<bool>(initializer);
-    auto elmType = builder.getI1Type();
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::SmallVector<bool, 64>(data.begin(), data.end()));
-    break;
-  }
+  llvm::ArrayRef<int64_t> tensorDims(tp.dims().data(), tp.dims().size());
+  mlir::Type elmType = convertONNXTypeToMLIRType(
+      builder, (onnx::TensorProto_DataType)tp.data_type());
+  auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+  auto bytes = dataBytes(dataReader, tp);
+  switch (tp.data_type()) {
+  case (onnx::TensorProto::FLOAT):
+    return createDenseElmAttr<float>(tp, bytes, tensorType);
+  case (onnx::TensorProto::DOUBLE):
+    return createDenseElmAttr<double>(tp, bytes, tensorType);
+  case (onnx::TensorProto::INT8):
+    return createDenseElmAttr<int8_t>(tp, bytes, tensorType);
+  case (onnx::TensorProto::UINT8):
+    return createDenseElmAttr<uint8_t>(tp, bytes, tensorType);
+  case (onnx::TensorProto::INT16):
+    return createDenseElmAttr<int16_t>(tp, bytes, tensorType);
+  case (onnx::TensorProto::INT32):
+    return createDenseElmAttr<int32_t>(tp, bytes, tensorType);
+  case (onnx::TensorProto::INT64):
+    return createDenseElmAttr<int64_t>(tp, bytes, tensorType);
+  case (onnx::TensorProto::BOOL):
+    return createDenseElmAttr<bool>(tp, bytes, tensorType);
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
   }
-  return denseElmAttr;
 }
 } // namespace onnx_mlir
