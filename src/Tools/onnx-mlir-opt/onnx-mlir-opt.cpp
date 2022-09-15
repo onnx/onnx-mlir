@@ -17,6 +17,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
@@ -147,6 +148,7 @@ int main(int argc, char **argv) {
   registerLinalgPasses();
   memref::registerMemRefPasses();
   registerSCFPasses();
+  bufferization::registerBufferizationPasses();
 
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();
