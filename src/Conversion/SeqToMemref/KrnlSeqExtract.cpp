@@ -60,7 +60,7 @@ public:
     } else {
       if (!output.getType().isa<MemRefType>())
         llvm_unreachable(
-            "Not supported: type of onnx seq element is not tensor");
+            "Not implemented: type of onnx seq element is not tensor");
       auto outputType = output.getType().cast<MemRefType>();
       SmallVector<mlir::Value, 4> allocParams;
       for (size_t i = 0; i < outputType.getShape().size(); i++) {

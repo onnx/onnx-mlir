@@ -183,10 +183,11 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
 // a sequence. 'copy' here means to allocate a new memref and copy the content 
 // of the memref. The copy is a costly op to maintain the SSA requirement.
 // To reduce the overhead of copy, elements are not copied when
-// a new sequence is created from an exist sequence. Hower, when an element
+// a new sequence is created from an exist sequence. However, when an element
 // is extracted from a sequence (krnl.seqextract), the element will be 
 // copied and return. This copy can be further avoided if the extraction is
 // the last reference (by extract or erase from any sequence) of this element.
+// ToDo: handle an element in multiple sequences with copy
 // ToDo: use the one-shot interface for space manangement.
 
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
