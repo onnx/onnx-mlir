@@ -24,6 +24,9 @@ namespace krnl {
 void populateLoweringKrnlSeqExtractOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
+void populateLoweringKrnlSeqInsertOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+
 void populateLoweringKrnlSeqStoreOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
