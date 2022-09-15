@@ -194,7 +194,7 @@ mlir::DenseElementsAttr createDenseElmAttr(onnx::TensorProto tp,
   } else {
     // Copy, no need to take care of endianness.
     auto data = TransformValueToONNXData<T>::data(tp);
-    llvm::SmallVector<T> vector(&data[0], &data[0] + data.size());
+    llvm::SmallVector<T> vector(data.begin(), data.end());
     return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vector));
   }
 }
