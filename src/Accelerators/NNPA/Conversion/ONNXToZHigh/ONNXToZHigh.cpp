@@ -233,6 +233,88 @@ SmallVector<int64_t, 2> getArrayStrides(OP op) {
   return shapeHelper.strides;
 }
 
+// Pad a ArrayAttr with zeros.
+//
+// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
+//
+// becomes:
+//
+// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
+//         |_____|                  |_____|
+//                 nZeros                    nZeros
+//
+// This function is used for padding attribute in Conv.
+DenseElementsAttr insertZerosForNonPaddedDims(
+    PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
+  int nDims = (int)origAttrs.getValue().size() / 2;
+  int nElements = (nDims + extensionLength) * 2;
+  SmallVector<int64_t, 4> pads(nElements, 0);
+  for (int i = 0; i < nDims; ++i) {
+    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    int64_t endPad =
+        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
+    pads[i + extensionLength] = beginPad;
+    pads[nDims + extensionLength + i + extensionLength] = endPad;
+  }
+
+  mlir::Type elementType = rewriter.getIntegerType(64);
+  llvm::ArrayRef<int64_t> tensorDims(pads.data(), pads.size());
+  mlir::ShapedType tensorType =
+      mlir::RankedTensorType::get(tensorDims, elementType);
+  return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
+}
+
+DenseElementsAttr createDenseFloatAttrOfValue(
+    PatternRewriter &rewriter, Value origValue, float constantValue) {
+  Type elementType = origValue.getType().cast<TensorType>().getElementType();
+  SmallVector<float, 1> wrapper(1, 0);
+  wrapper[0] = constantValue;
+  return DenseElementsAttr::get(
+      RankedTensorType::get(wrapper.size(), elementType),
+      llvm::makeArrayRef(wrapper));
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+ArrayAttr createArrayAttrOfZeros(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+  int nElements = origAttrs.getValue().size();
+  SmallVector<int64_t, 4> vals(nElements, 0);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
+// Create Type for Padded input
+Type CreatePaddedXType(Value x, ArrayAttr pads) {
+  RankedTensorType inputType = x.getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+  SmallVector<int64_t, 4> paddingShape = {0, 0, 0, 0};
+  if (pads) {
+    for (int i = 0; i < 4; i++) {
+      paddingShape[i] = pads.getValue()[i].cast<IntegerAttr>().getInt();
+    }
+  }
+  SmallVector<int64_t, 4> paddedShape = {inputShape[0], inputShape[1],
+      inputShape[2] + paddingShape[0] + paddingShape[2],
+      inputShape[3] + paddingShape[1] + paddingShape[3]};
+  Type paddedType = RankedTensorType::get(paddedShape, elementType);
+  return paddedType;
+}
+
+// Check whether an ArrayAttr contains non-zero values or not.
+bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
+  bool allZeros = true;
+  if (attrs) {
+    for (auto attr : attrs.getValue()) {
+      if (attr.cast<IntegerAttr>().getInt() > 0) {
+        allZeros = false;
+        break;
+      }
+    }
+  }
+  return !allZeros;
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX to ZHigh Lowering Pass
 //===----------------------------------------------------------------------===//
