@@ -159,9 +159,9 @@ void addKrnlToLLVMPasses(
   }
 
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+  pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
-  pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
