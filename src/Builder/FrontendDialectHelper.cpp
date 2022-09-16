@@ -82,9 +82,10 @@ std::unique_ptr<llvm::MemoryBuffer> dataBytes(
 
 template <typename T>
 struct TransformValueToONNXData {
-  static const google::protobuf::RepeatedField<T> data(
+  static const google::protobuf::RepeatedField<int32_t> data(
       const onnx::TensorProto &tp) {
-    return google::protobuf::RepeatedField<T>();
+    // int32_data is used for int32, uint8, int8, uint16, int16, bool
+    return tp.int32_data();
   }
 };
 
@@ -105,22 +106,6 @@ struct TransformValueToONNXData<float> {
 };
 
 template <>
-struct TransformValueToONNXData<int16_t> {
-  static const google::protobuf::RepeatedField<int32_t> data(
-      const onnx::TensorProto &tp) {
-    return tp.int32_data();
-  }
-};
-
-template <>
-struct TransformValueToONNXData<int32_t> {
-  static const google::protobuf::RepeatedField<int32_t> data(
-      const onnx::TensorProto &tp) {
-    return tp.int32_data();
-  }
-};
-
-template <>
 struct TransformValueToONNXData<int64_t> {
   static const google::protobuf::RepeatedField<int64_t> data(
       const onnx::TensorProto &tp) {
@@ -129,26 +114,18 @@ struct TransformValueToONNXData<int64_t> {
 };
 
 template <>
-struct TransformValueToONNXData<uint8_t> {
-  static const google::protobuf::RepeatedField<int32_t> data(
+struct TransformValueToONNXData<uint32_t> {
+  static const google::protobuf::RepeatedField<uint64_t> data(
       const onnx::TensorProto &tp) {
-    return tp.int32_data();
+    return tp.uint64_data();
   }
 };
 
 template <>
-struct TransformValueToONNXData<int8_t> {
-  static const google::protobuf::RepeatedField<int32_t> data(
+struct TransformValueToONNXData<uint64_t> {
+  static const google::protobuf::RepeatedField<uint64_t> data(
       const onnx::TensorProto &tp) {
-    return tp.int32_data();
-  }
-};
-
-template <>
-struct TransformValueToONNXData<bool> {
-  static const google::protobuf::RepeatedField<int32_t> data(
-      const onnx::TensorProto &tp) {
-    return tp.int32_data();
+    return tp.uint64_data();
   }
 };
 
@@ -227,10 +204,16 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     return createDenseElmAttr<uint8_t>(tp, bytes.get(), tensorType);
   case (onnx::TensorProto::INT16):
     return createDenseElmAttr<int16_t>(tp, bytes.get(), tensorType);
+  case (onnx::TensorProto::UINT16):
+    return createDenseElmAttr<uint16_t>(tp, bytes.get(), tensorType);
   case (onnx::TensorProto::INT32):
     return createDenseElmAttr<int32_t>(tp, bytes.get(), tensorType);
+  case (onnx::TensorProto::UINT32):
+    return createDenseElmAttr<uint32_t>(tp, bytes.get(), tensorType);
   case (onnx::TensorProto::INT64):
     return createDenseElmAttr<int64_t>(tp, bytes.get(), tensorType);
+  case (onnx::TensorProto::UINT64):
+    return createDenseElmAttr<uint64_t>(tp, bytes.get(), tensorType);
   case (onnx::TensorProto::BOOL):
     return createDenseElmAttr<bool>(tp, bytes.get(), tensorType);
   default:
