@@ -5789,7 +5789,11 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 
 LogicalResult ONNXDimOp::verify() {
   // Input data must be ranked.
-  return success(hasShapeAndRank(this->data()));
+  if (!hasShapeAndRank(this->data()))
+    return failure();
+  // Axis must be in [0, rank -1].
+  int64_t axis = this->axis();
+  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
 }
 
 LogicalResult ONNXDimOp::inferShapes(

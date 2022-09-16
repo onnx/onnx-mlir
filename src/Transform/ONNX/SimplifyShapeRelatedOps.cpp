@@ -74,7 +74,7 @@ bool definedBy(Value v) {
   return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
 }
 
-/// Check if a value is to store dimensions, meaning it is defined
+/// Check if a value is to store dimensions, meaning it is defined by
 /// Dim/Constant/Cast/Concat.
 bool areDims(Value val) {
   // Value must be a 1D tensor.
