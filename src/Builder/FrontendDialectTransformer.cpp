@@ -62,9 +62,8 @@ using InitializedTensorMapping = SymbolMapping<onnx::TensorProto>;
 
 class FrontendGenImpl {
 public:
-  explicit FrontendGenImpl(MLIRContext &context, ImportOptions options)
-      : options_(options), context_(context), builder_(&context),
-        dataReader_(options.externalDataDir),
+  explicit FrontendGenImpl(MLIRContext &context)
+      : context_(context), builder_(&context),
         force_dim_dynamic_enabled_(false) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
@@ -95,7 +94,9 @@ public:
     }
   }
 
-  ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
+  ModuleOp ImportONNXModel(
+      const onnx::ModelProto &model, ImportOptions options) {
+    options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
     SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
@@ -107,7 +108,6 @@ private:
   MLIRContext &context_;
   ModuleOp module_;
   OpBuilder builder_;
-  ExternalDataReader dataReader_;
 
   // onnxop: list of versions for dialect
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
@@ -232,7 +232,7 @@ private:
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
     return EmitInitializerForInputTensor(
-        UnknownLoc(), builder_, dataReader_, tensor);
+        UnknownLoc(), builder_, options_.externalDataDir, tensor);
   }
 
   /*!
@@ -359,7 +359,8 @@ private:
           llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, dataReader_, attr.t());
+      mlirAttr = onnxTensorProtoToDenseElmAttr(
+          builder_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
@@ -1463,8 +1464,8 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
 
-  detail::FrontendGenImpl myONNXGen(context, options);
-  module = myONNXGen.ImportONNXModel(model);
+  detail::FrontendGenImpl myONNXGen(context);
+  module = myONNXGen.ImportONNXModel(model, options);
 }
 
 } // namespace onnx_mlir
