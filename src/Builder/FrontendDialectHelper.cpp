@@ -13,38 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallVector.h"
-#include <llvm/Support/Endian.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/Path.h>
-#include <llvm/Support/SwapByteOrder.h>
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
 
 namespace onnx_mlir {
 
-std::unique_ptr<llvm::MemoryBuffer> readExternalData(
-    const std::string &externalDataDir, const std::string &location,
-    size_t offset, llvm::Optional<size_t> length) {
-  if (externalDataDir.empty()) {
-    llvm::errs() << "external data read from " << location << " rejected\n";
-    llvm_unreachable(
-        "attempted to read external data without externalDataDir set");
-  }
-  llvm::SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
-  llvm::sys::path::append(path, location);
-  // MemoryBuffer implementation uses -1 to mean uint64_t infinity
-  uint64_t mapSize = length.has_value() ? length.value() : -1;
-  auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
-      path, mapSize, offset, /*IsVolatile=*/false);
-  if (std::error_code ec = bufferOrError.getError()) {
-    std::string pathStr(path.data(), path.size());
-    llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
-                 << " from " << offset << " to " << mapSize << "\n";
-    llvm_unreachable("getFile failed");
-  }
-  return std::move(bufferOrError.get());
-}
-
+// Parses unsigned number.
 size_t parseOffsetOrLength(const std::string &value) {
   char *end = nullptr;
   size_t offsetOrLength = strtoull(value.c_str(), &end, 0);
@@ -52,32 +30,36 @@ size_t parseOffsetOrLength(const std::string &value) {
   return offsetOrLength;
 }
 
-std::unique_ptr<llvm::MemoryBuffer> dataBytes(
+// Reads external data from file location specified in tensor proto.
+// See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
+std::unique_ptr<llvm::MemoryBuffer> readExternalData(
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
-  if (tp.has_data_location() &&
-      tp.data_location() == onnx::TensorProto::EXTERNAL) {
-    std::string location;
-    size_t offset = 0;
-    llvm::Optional<size_t> length;
-    for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
-      assert(entry.has_key() && "external_data entry must have key");
-      assert(entry.has_value() && "external_data entry must have value");
-      if (entry.key() == "location") {
-        location = entry.value();
-      } else if (entry.key() == "offset") {
-        offset = parseOffsetOrLength(entry.value());
-      } else if (entry.key() == "length") {
-        length = parseOffsetOrLength(entry.value());
-      }
+  std::string location;
+  uint64_t offset = 0;
+  uint64_t length = -1; // MemoryBuffer uses -1 to mean infinity
+  for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
+    assert(entry.has_key() && "external_data entry must have key");
+    assert(entry.has_value() && "external_data entry must have value");
+    if (entry.key() == "location") {
+      location = entry.value();
+    } else if (entry.key() == "offset") {
+      offset = parseOffsetOrLength(entry.value());
+    } else if (entry.key() == "length") {
+      length = parseOffsetOrLength(entry.value());
     }
-    assert(!location.empty() && "external data has no location");
-    return readExternalData(externalDataDir, location, offset, length);
-  } else if (tp.has_raw_data()) {
-    return llvm::MemoryBuffer::getMemBuffer(
-        tp.raw_data(), /*BufferName=*/"", /*RequiresNullTerminator=*/false);
-  } else {
-    return nullptr;
   }
+  assert(!location.empty() && "missing external data location");
+  llvm::SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
+  llvm::sys::path::append(path, location);
+  auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
+      path, length, offset, /*IsVolatile=*/false);
+  if (std::error_code ec = bufferOrError.getError()) {
+    std::string pathStr(path.data(), path.size());
+    llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
+                 << ", offset=" << offset << ", length=" << length << "\n";
+    llvm_unreachable("llvm::MemoryBuffer::getFileSlice failed");
+  }
+  return std::move(bufferOrError.get());
 }
 
 template <typename T>
@@ -129,11 +111,18 @@ struct TransformValueToONNXData<uint64_t> {
   }
 };
 
+// Returns DenseElementsAttr with tp's data.
 template <typename T>
-mlir::DenseElementsAttr createDenseElmAttr(onnx::TensorProto tp,
-    llvm::MemoryBuffer *bytes, mlir::RankedTensorType tensorType) {
-  if (bytes) {
-    llvm::StringRef buffer = bytes->getBuffer();
+mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
+    onnx::TensorProto tp, mlir::RankedTensorType tensorType) {
+  std::unique_ptr<llvm::MemoryBuffer> externalData =
+      (tp.has_data_location() &&
+          tp.data_location() == onnx::TensorProto::EXTERNAL)
+          ? readExternalData(externalDataDir, tp)
+          : nullptr;
+  if (externalData || tp.has_raw_data()) {
+    llvm::StringRef buffer = externalData ? externalData->getBuffer()
+                                          : llvm::StringRef(tp.raw_data());
     size_t size = buffer.size() / sizeof(T);
     llvm::ArrayRef<T> arrayRef(
         reinterpret_cast<T const *>(buffer.data()), size);
@@ -175,13 +164,8 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
     return builder.create<mlir::ONNXNoneOp>(
         loc, builder.getNoneType(), builder.getUnitAttr());
 
-  // Emit ConstantOp and record the mapping between the input and
-  // the constant value.
-  // Create value attribute.
   mlir::DenseElementsAttr denseElmAttr =
       onnxTensorProtoToDenseElmAttr(builder, externalDataDir, initializer);
-
-  // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
 }
 
@@ -192,30 +176,29 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
   mlir::Type elmType = convertONNXTypeToMLIRType(
       builder, (onnx::TensorProto_DataType)tp.data_type());
   auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-  std::unique_ptr<llvm::MemoryBuffer> bytes = dataBytes(externalDataDir, tp);
   switch (tp.data_type()) {
   case (onnx::TensorProto::FLOAT):
-    return createDenseElmAttr<float>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<float>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::DOUBLE):
-    return createDenseElmAttr<double>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<double>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::INT8):
-    return createDenseElmAttr<int8_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<int8_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::UINT8):
-    return createDenseElmAttr<uint8_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<uint8_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::INT16):
-    return createDenseElmAttr<int16_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<int16_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::UINT16):
-    return createDenseElmAttr<uint16_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<uint16_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::INT32):
-    return createDenseElmAttr<int32_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<int32_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::UINT32):
-    return createDenseElmAttr<uint32_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<uint32_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::INT64):
-    return createDenseElmAttr<int64_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<int64_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::UINT64):
-    return createDenseElmAttr<uint64_t>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<uint64_t>(externalDataDir, tp, tensorType);
   case (onnx::TensorProto::BOOL):
-    return createDenseElmAttr<bool>(tp, bytes.get(), tensorType);
+    return createDenseElmAttr<bool>(externalDataDir, tp, tensorType);
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
