@@ -23,9 +23,6 @@ parser.add_argument('data_format', choices=['raw', 'external', 'nonraw'], help="
 parser.add_argument('--save_dot_onnx', action='store_true', help="Save model as .onnx")
 args = parser.parse_args()
 
-def little_endian_bytes(nparray):
-    return nparray.newbyteorder('<').tobytes()
-
 nptypes = [
     np.dtype('float32'),
     np.dtype('uint8'),
@@ -42,10 +39,21 @@ nptypes = [
 ]
 assert all(ty == onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[ty]] for ty in nptypes)
 
+# formats nptensor for make_tensor vals arg: bytes if raw else np.ndarray
+def tensor_vals(nptensor, ty, raw):
+    nptensor = nptensor.astype(ty)
+    if raw:
+        # onnx proto spec for raw_data requires "fixed-width, little-endian order"
+        return nptensor.astype(ty.newbyteorder('<')).tobytes()
+    else:
+        # NOTE: onnx proto spec requires "float16 values must be bit-wise
+        # converted to an uint16_t" but we shouldn't do that here because
+        # make_tensor takes care of that
+        return nptensor
+
 def main():
-    nonraw = args.data_format == 'nonraw'
-    # array of values that make sense for every data type, including bool, ints, floats
-    nptensor = np.array([1, 0, 1])
+    raw = args.data_format != 'nonraw' # True if data format is 'raw' or 'external'
+    nptensor = np.array([1, 0, 1]) # 0, 1 make sense for all bool/int/float data types
     shape = nptensor.shape
     nodes = [
         helper.make_node(
@@ -56,8 +64,8 @@ def main():
                 f"tensor{i}",
                 data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[ty],
                 dims=shape,
-                vals=nptensor.astype(ty) if nonraw else little_endian_bytes(nptensor.astype(ty)),
-                raw=not nonraw,
+                vals=tensor_vals(nptensor, ty, raw),
+                raw=raw,
             ),
         )
         for i, ty in enumerate(nptypes)
