@@ -34,6 +34,25 @@ func.func @test_pass_dims_through_cast(%arg0: tensor<?x256xi64>) -> (tensor<2xf3
 
 // -----
 
+func.func @test_pass_dims_through_concat(%arg0: tensor<?x256xi64>) -> (tensor<4xi64>) {
+  %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+  %1 = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = "onnx.Concat"(%2, %0) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %4 = "onnx.Concat"(%3, %0) {axis = 0 : si64} : (tensor<3xi64>, tensor<1xi64>) -> tensor<4xi64>
+  return %4 : tensor<4xi64>
+
+// CHECK-LABEL:  func.func @test_pass_dims_through_concat
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>) -> tensor<4xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_0_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           return [[VAR_2_]] : tensor<4xi64>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_pass_dims_through_slice(%arg0: tensor<?x256xi64>) -> (tensor<1xi64>) {
   %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
   %1 = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
