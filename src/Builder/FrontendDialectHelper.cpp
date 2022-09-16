@@ -64,7 +64,7 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData(
 
 template <typename T>
 struct TransformValueToONNXData {
-  static const google::protobuf::RepeatedField<int32_t> data(
+  static const google::protobuf::RepeatedField<int32_t> &data(
       const onnx::TensorProto &tp) {
     // int32_data is used for int32, uint8, int8, uint16, int16, bool
     return tp.int32_data();
@@ -73,7 +73,7 @@ struct TransformValueToONNXData {
 
 template <>
 struct TransformValueToONNXData<double> {
-  static const google::protobuf::RepeatedField<double> data(
+  static const google::protobuf::RepeatedField<double> &data(
       const onnx::TensorProto &tp) {
     return tp.double_data();
   }
@@ -81,7 +81,7 @@ struct TransformValueToONNXData<double> {
 
 template <>
 struct TransformValueToONNXData<float> {
-  static const google::protobuf::RepeatedField<float> data(
+  static const google::protobuf::RepeatedField<float> &data(
       const onnx::TensorProto &tp) {
     return tp.float_data();
   }
@@ -89,7 +89,7 @@ struct TransformValueToONNXData<float> {
 
 template <>
 struct TransformValueToONNXData<int64_t> {
-  static const google::protobuf::RepeatedField<int64_t> data(
+  static const google::protobuf::RepeatedField<int64_t> &data(
       const onnx::TensorProto &tp) {
     return tp.int64_data();
   }
@@ -97,7 +97,7 @@ struct TransformValueToONNXData<int64_t> {
 
 template <>
 struct TransformValueToONNXData<uint32_t> {
-  static const google::protobuf::RepeatedField<uint64_t> data(
+  static const google::protobuf::RepeatedField<uint64_t> &data(
       const onnx::TensorProto &tp) {
     return tp.uint64_data();
   }
@@ -105,7 +105,7 @@ struct TransformValueToONNXData<uint32_t> {
 
 template <>
 struct TransformValueToONNXData<uint64_t> {
-  static const google::protobuf::RepeatedField<uint64_t> data(
+  static const google::protobuf::RepeatedField<uint64_t> &data(
       const onnx::TensorProto &tp) {
     return tp.uint64_data();
   }
@@ -143,7 +143,7 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
     }
   } else {
     // Not raw, no need to take care of endianness.
-    auto data = TransformValueToONNXData<T>::data(tp);
+    const auto &data = TransformValueToONNXData<T>::data(tp);
     // Access data directly via ArrayRef if same size as T,
     // or copy into correctly typed SmallVector otherwise
     // because DenseElementsAttr needs argument type of the correct bitwidth.
