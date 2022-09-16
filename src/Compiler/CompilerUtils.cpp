@@ -27,6 +27,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -40,9 +41,9 @@ using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
-namespace {
+namespace onnx_mlir {
 
-static llvm::Optional<std::string> getEnvVar(std::string name) {
+llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
@@ -93,10 +94,10 @@ static std::string getExecPath() {
   return execPath;
 }
 
-// Runtime directory contains all the libraries, jars, etc. that are
-// necessary for running onnx-mlir. It's resolved in the following order:
+// Directory contains all the libraries, jars, etc. that are necessary for
+// running onnx-mlir. It's resolved in the following order:
 //
-//   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
+//   - if ONNX_MLIR_LIBRARY_PATH is set, use it, otherwise
 //   - get path from where onnx-mlir is run, if it's of the form
 //     /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
@@ -107,8 +108,8 @@ static std::string getExecPath() {
 //
 // We now explicitly set CMAKE_INSTALL_LIBDIR to lib so we don't have
 // to deal with lib64 anymore.
-static std::string getRuntimeDir() {
-  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
+static std::string getLibraryPath() {
+  const auto &envDir = getEnvVar("ONNX_MLIR_LIBRARY_PATH");
   if (envDir && llvm::sys::fs::exists(envDir.value()))
     return envDir.value();
 
@@ -141,7 +142,8 @@ static std::string getRuntimeDir() {
 // installed system wide but to different places and their sources have been
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
-static std::string getToolPath(std::string tool) {
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -149,93 +151,85 @@ static std::string getToolPath(std::string tool) {
   if (llvm::sys::fs::can_execute(p))
     return p;
   else
-    return std::string();
+    return systemToolPath;
 }
 
-// Helper struct to make command construction and execution easy & readable.
-struct Command {
-  std::string _path;
-  std::vector<std::string> _args;
+// Append a single string argument.
+Command &Command::appendStr(const std::string &arg) {
+  if (arg.size() > 0)
+    _args.emplace_back(arg);
+  return *this;
+}
 
-  Command(std::string exePath)
-      : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(_path).str()}) {}
+// Append a single optional string argument.
+Command &Command::appendStrOpt(const llvm::Optional<std::string> &arg) {
+  if (arg.has_value())
+    _args.emplace_back(arg.value());
+  return *this;
+}
 
-  // Append a single string argument.
-  Command &appendStr(const std::string &arg) {
-    if (arg.size() > 0)
-      _args.emplace_back(arg);
-    return *this;
+// Append a list of string arguments.
+Command &Command::appendList(const std::vector<std::string> &args) {
+  _args.insert(_args.end(), args.begin(), args.end());
+  return *this;
+}
+
+// Reset arguments.
+Command &Command::resetArgs() {
+  auto exeFileName = _args.front();
+  _args.clear();
+  _args.emplace_back(exeFileName);
+  return *this;
+}
+
+// Execute command in current work directory.
+//
+// If the optional wdir is specified, the command will be executed
+// in the specified work directory. Current work directory is
+// restored after the command is executed.
+//
+// Return 0 on success, error value otherwise.
+int Command::exec(std::string wdir) const {
+  auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
+
+  // If a work directory is specified, save the current work directory
+  // and switch into it. Note that if wdir is empty, new_wdir will be
+  // cur_wdir.
+  llvm::SmallString<8> cur_wdir;
+  llvm::SmallString<8> new_wdir(wdir);
+  llvm::sys::fs::current_path(cur_wdir);
+  llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+  std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
+  if (ec.value()) {
+    llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()
+                 << "\n";
+    return ec.value();
   }
 
-  // Append a single optional string argument.
-  Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
-    if (arg.has_value())
-      _args.emplace_back(arg.value());
-    return *this;
+  if (VerboseOutput)
+    llvm::errs() << "[" << llvm::StringRef(new_wdir).str() << "]" << _path
+                 << ": " << llvm::join(argsRef, " ") << "\n";
+
+  std::string errMsg;
+  int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+      /*Env=*/llvm::None, /*Redirects=*/llvm::None,
+      /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
+
+  if (rc != 0) {
+    llvm::errs() << llvm::join(argsRef, " ") << "\n"
+                 << "Error message: " << errMsg << "\n"
+                 << "Program path: " << _path << "\n"
+                 << "Command execution failed."
+                 << "\n";
+    return rc;
   }
 
-  // Append a list of string arguments.
-  Command &appendList(const std::vector<std::string> &args) {
-    _args.insert(_args.end(), args.begin(), args.end());
-    return *this;
-  }
+  // Restore saved work directory.
+  llvm::sys::fs::set_current_path(cur_wdir);
+  return 0;
+}
 
-  // Reset arguments.
-  Command &resetArgs() {
-    auto exeFileName = _args.front();
-    _args.clear();
-    _args.emplace_back(exeFileName);
-    return *this;
-  }
-
-  // Execute command in current work directory.
-  //
-  // If the optional wdir is specified, the command will be executed
-  // in the specified work directory. Current work directory is
-  // restored after the command is executed.
-  //
-  // Return 0 on success, error value otherwise.
-  int exec(std::string wdir = "") const {
-    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-
-    // If a work directory is specified, save the current work directory
-    // and switch into it. Note that if wdir is empty, new_wdir will be
-    // cur_wdir.
-    SmallString<8> cur_wdir;
-    SmallString<8> new_wdir(wdir);
-    llvm::sys::fs::current_path(cur_wdir);
-    llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
-    std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
-    if (ec.value()) {
-      llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
-      return ec.value();
-    }
-
-    if (VerboseOutput)
-      llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
-                   << llvm::join(argsRef, " ") << "\n";
-
-    std::string errMsg;
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-        /*Env=*/None, /*Redirects=*/None,
-        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
-
-    if (rc != 0) {
-      llvm::errs() << llvm::join(argsRef, " ") << "\n"
-                   << "Error message: " << errMsg << "\n"
-                   << "Program path: " << _path << "\n"
-                   << "Command execution failed."
-                   << "\n";
-      return rc;
-    }
-
-    // Restore saved work directory.
-    llvm::sys::fs::set_current_path(cur_wdir);
-    return 0;
-  }
-}; // namespace
-} // namespace
+} // namespace onnx_mlir
 
 namespace onnx_mlir {
 // =============================================================================
@@ -417,8 +411,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
-  std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
+  std::string optPath = getToolPath("opt", kOptPath);
+  Command optBitcode(/*exePath=*/optPath);
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -436,8 +430,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 static int genModelObject(
     std::string bitcodeNameWithExt, std::string &modelObjNameWithExt) {
 
-  std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
+  std::string llcPath = getToolPath("llc", kLlcPath);
+  Command llvmToObj(/*exePath=*/llcPath);
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -506,9 +500,9 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 // Return 0 on success, error code on failure.
 static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
-  llvm::SmallString<8> runtimeDir(getRuntimeDir());
-  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
-  std::string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
+  llvm::SmallString<8> libraryPath(getLibraryPath());
+  llvm::sys::path::append(libraryPath, "javaruntime.jar");
+  std::string javaRuntimeJarPath = llvm::StringRef(libraryPath).str();
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
@@ -550,7 +544,7 @@ static int compileModuleToSharedLibrary(
       modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
 }
 
 // Return 0 on success, error code on failure
@@ -567,7 +561,7 @@ static int compileModuleToJniJar(
   if (outputDir.empty())
     outputDir = StringRef(".");
 
-  std::string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  std::string jniSharedLibPath = getLibraryPath() + "/libjniruntime.a";
 
   llvm::SmallString<8> jniObjDir(outputDir);
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
@@ -593,7 +587,7 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      {getRuntimeDir()});
+      {getLibraryPath()});
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
@@ -618,23 +612,23 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 // Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  std::string extension =
-      inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
+  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
+  // a model specified in MLIR. The extension of the file is the decider.
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
 
-  if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invalid input file '" + inputFilename +
-                    "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
+  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+    *errorMessage = "Invalid input file '" + inputFilename.str() +
+                    "': Either an ONNX model (.onnx or .json or '-'), or an "
+                    "MLIR file (.mlir) "
                     "needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX) {
+  if (inputIsONNX || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
@@ -642,7 +636,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    loadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename.str(), context, module);
   return CompilerSuccess;
 }
 

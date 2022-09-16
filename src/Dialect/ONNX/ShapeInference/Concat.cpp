@@ -51,7 +51,7 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
     outputDims[i] =
         (i == axisIndex) ? cumulativeAxisSize : firstInputBounds.getDim(i);
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

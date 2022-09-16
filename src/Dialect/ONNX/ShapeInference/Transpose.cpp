@@ -45,7 +45,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape(
   }
 
   // Set type for the first output.
-  dimsForOutput() = transposedDims;
+  setOutputDims(transposedDims);
   return success();
 }
 

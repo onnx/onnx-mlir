@@ -28,7 +28,7 @@ LogicalResult ONNXLRNOpShapeHelper::computeShape(
   }
 
   // Set type for the first output.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

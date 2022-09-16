@@ -175,31 +175,84 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
+// ONNX sequence type (!onnx.Seq) is implemented with memref of memref.
+// When an element(tensor/memref) is stored into a sequence, it becomes
+// invisible to the bufferization analysis. When onnx-mlir invokes
+// bufferization::Deallocation pass to insert memref::dealloc, the element
+// may be freed. Therefore, element need to be copied when inserted into
+// a sequence. 'copy' here means to allocate a new memref and copy the content 
+// of the memref. The copy is a costly op to maintain the SSA requirement.
+// To reduce the overhead of copy, elements are not copied when
+// a new sequence is created from an exist sequence. However, when an element
+// is extracted from a sequence (krnl.seqextract), the element will be 
+// copied and return. This copy can be further avoided if the extraction is
+// the last reference (by extract or erase from any sequence) of this element.
+// ToDo: handle an element in multiple sequences with copy
+// ToDo: use the one-shot interface for space manangement.
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
   let summary = "Krnl load from a seq";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op loads a tensor for the sequence 'seq' at position 'index',
-    and return the tensor, which will be freed by Bufferization::Deallocation.
-    The element in the sequence will become null.
+    This op loads an element from the input sequence 'seq' at position 'index'.
+    The loaded element is copied and then return.
+    The position value is guaranteed to be positive. Negative position allowed
+    by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+
+    Attribute 'copy' provides an optimization for copying. 
+    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+    When the attribute 'copy' is 0: the extracted element is directly returned
+    without copy.
+
+    The returned element is marked as allocated by this Op with the bufferation
+    interface so that deallocation can be generated correctly through the 
+    Bufferization::Deallocation pass.
   }];
   let arguments = (ins AnyMemRef:$seq,
-                       Index:$index);
+                       Index:$index,
+                       DefaultValuedAttr<UI1Attr, "1">:$copy);
 
+  let results = (outs AnyType:$output);
+}
+
+def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
+  let summary = "Insert an element into a seq";
+  let description = [{
+    This op will create a new seq from the input seq by inserting the input
+    element at the desired position. The input element will be copied before 
+    inserted into the new seq, and the type will be casted to the type of seq 
+    element if needed. The elements after the insertion point will be shifted
+    one position in the new sequence without copying.
+    The motivation to introduce this Op is to help bufferization::deallocation
+    The sequence is implemented as memref of memref in onnx-mlir.
+    When an element is stored into a sequence, it becomes invisible.
+    The memref for the element will be freed after this Op after its last
+    use of the element.
+    To avoid dangling pointer, the element is copied before it is inserted 
+    into the sequence. 
+    The allocation for the copy will be freed by SequenceErase,
+    or revealed to graph
+    when the element is extracted from the sequence. Consequently, the 
+    deallocation pass can handle the space correctly.
+    For future optimization, the one-shot bufferization interface may be used
+    to transfer the space of the input element to the element in the sequence.
+  }];
+  let arguments = (ins AnyType:$input_element,
+                       AnyMemRef:$input_sequence,
+                       Index:$index);
   let results = (outs AnyType:$output);
 }
 
 def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
   let summary = "Krnl store into a seq";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op will copy the tensor to be stored, and cast the type if needed.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The experiment showed that memref will be freed after the memref is stored.
-    However, the store of memref only write out the pointer for the memref,
-    and its memory cannot be freed.
+    This op is similar to KrnSeqInsertOp but assumes that the input seq has
+    the space for the new element and 
+    only need to copy the element and store it into the sequence.
+    There is no return of a new seq, different from KrnlSeqInsertOp.
+    This Op is introduced to accumulate a dynamic tensor in a LoopOp with
+    statically known iteration count.
   }];
   let arguments = (ins AnyType:$input,
                        AnyMemRef:$seq,

@@ -88,8 +88,14 @@ struct ONNXOpShapeHelper {
   // Return output dims for the N-th output.
   DimsExpr &dimsForOutput(int n = 0) { return outputsDims[n]; }
 
+  // Set output dims for the N-th output.
+  void setOutputDims(DimsExpr inferredDims, int n = 0);
+
   // Set the number of outputs.
   void setNumberOfOutputs(int n) { outputsDims.resize(n); }
+
+  // Obtain the n-th output value.
+  mlir::Value getOutput(int n) { return op->getOperation()->getResult(n); }
 
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor, and outputsDims is computed by the
@@ -234,7 +240,6 @@ DECLARE_SHAPE_HELPER(ONNXGatherOp)
 DECLARE_SHAPE_HELPER(ONNXGatherElementsOp)
 DECLARE_SHAPE_HELPER(ONNXGatherNDOp)
 DECLARE_SHAPE_HELPER(ONNXLRNOp)
-DECLARE_SHAPE_HELPER(ONNXReduceSumOp)
 DECLARE_SHAPE_HELPER(ONNXReshapeOp)
 DECLARE_SHAPE_HELPER(ONNXReverseSequenceOp)
 DECLARE_SHAPE_HELPER(ONNXShapeOp)

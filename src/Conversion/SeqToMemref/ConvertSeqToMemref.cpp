@@ -59,10 +59,11 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   ConversionTarget target(getContext());
 
   target.addIllegalOp<KrnlSeqExtractOp>();
+  target.addIllegalOp<KrnlSeqInsertOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
-      mlir::vector::VectorDialect>();
+      mlir::vector::VectorDialect, mlir::scf::SCFDialect>();
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
@@ -71,6 +72,7 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   // Define patterns.
   KrnlTypeConverter typeConverter;
   populateLoweringKrnlSeqExtractOpPattern(typeConverter, patterns, ctx);
+  populateLoweringKrnlSeqInsertOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqStoreOpPattern(typeConverter, patterns, ctx);
 
   if (failed(applyPartialConversion(
