@@ -5,6 +5,8 @@
 #
 # Generates zipmap model in test/mlir/onnx/parse/zipmap.json
 #
+# The model has a single ZipMap node.
+#
 ################################################################################
 
 import argparse

@@ -5,6 +5,11 @@
 #
 # Generates raw/external/nonraw_data models in test/mlir/onnx/parse/
 #
+# The model outputs 11 constant tensors with different data types.
+# The data_format command line argument controls whether the tensor data
+# is represented "nonraw" (normally), "raw" (as raw_data byte arrays), or
+# "external" (as external data in a separate file).
+#
 ################################################################################
 
 import argparse
