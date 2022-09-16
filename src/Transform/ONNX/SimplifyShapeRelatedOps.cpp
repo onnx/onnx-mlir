@@ -83,21 +83,23 @@ bool areDims(Value val) {
     return false;
 
   // Base case.
-  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val)) {
+  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
+      definedBy<ONNXCastOp>(val)) {
     // Value must be a 1D tensor of one element.
-    Type vType = val.getType();
-    return (isRankedShapedType(vType) && (getRank(vType) == 1) &&
-            (getShape(vType)[0] == 1));
+    return (getShape(vType)[0] == 1);
   }
 
-  // recursion case.
-  if (definedBy<ONNXCastOp>(val) || definedBy<ONNXConcatOp>(val)) {
+  // Recursion case.
+  if (definedBy<ONNXConcatOp>(val)) {
     // Recursively check.
     for (Value v : val.getDefiningOp()->getOperands())
       if (!areDims(v))
         return false;
     return true;
   }
+
+  // Not Dim/Constant/Cast/Concat.
+  return false;
 }
 
 /// Check if a value is defined by Concat to store dimensions.
@@ -107,7 +109,7 @@ bool areDimsFromConcat(Value val) {
 
 /// Get all dimensions that are stored by the value.
 void getDims(Value val, SmallVectorImpl<Value> &dims) {
-  assert(areDims(val) && "Not defined by ONNXConcatOp");
+  assert(areDims(val) && "Value does not store dimensions");
   if (definedBy<ONNXConcatOp>(val)) {
     for (Value v : val.getDefiningOp()->getOperands()) {
       SmallVector<Value, 4> inputs;
@@ -124,8 +126,7 @@ void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   SmallVector<Value, 4> dims;
   getDims(val, dims);
   for (Value v : dims) {
-    if (definedBy<ONNXConstantOp>(v)) {
-      auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
+    if (auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp())) {
       auto valueAttr = constOp.valueAttr().cast<DenseElementsAttr>();
       int64_t dim = valueAttr.getSplatValue<int64_t>();
       result.emplace_back(dim);
