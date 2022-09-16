@@ -114,7 +114,7 @@ struct TransformValueToONNXData<uint64_t> {
 // Returns DenseElementsAttr with tp's data.
 template <typename T>
 mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
-    onnx::TensorProto tp, mlir::RankedTensorType tensorType) {
+    const onnx::TensorProto &tp, mlir::RankedTensorType tensorType) {
   std::unique_ptr<llvm::MemoryBuffer> externalData =
       (tp.has_data_location() &&
           tp.data_location() == onnx::TensorProto::EXTERNAL)
