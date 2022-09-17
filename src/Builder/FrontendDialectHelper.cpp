@@ -111,10 +111,14 @@ struct TransformValueToONNXData<uint64_t> {
   }
 };
 
+template <typename T>
+using DenseElementsAttrBuilder =
+    llvm::function_ref<mlir::DenseElementsAttr(llvm::ArrayRef<T>)>;
+
 // Returns DenseElementsAttr with tp's data.
 template <typename T>
 mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
-    const onnx::TensorProto &tp, mlir::RankedTensorType tensorType) {
+    const onnx::TensorProto &tp, DenseElementsAttrBuilder<T> denseBuilder) {
   std::unique_ptr<llvm::MemoryBuffer> externalData =
       (tp.has_data_location() &&
           tp.data_location() == onnx::TensorProto::EXTERNAL)
@@ -135,11 +139,10 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
       for (T x : arrayRef) {
         vector.push_back(llvm::sys::getSwappedBytes(x));
       }
-      return mlir::DenseElementsAttr::get(
-          tensorType, llvm::makeArrayRef(vector));
+      return denseBuilder(llvm::makeArrayRef(vector));
     } else {
       // No need to take care of endianness.
-      return mlir::DenseElementsAttr::get(tensorType, arrayRef);
+      return denseBuilder(arrayRef);
     }
   } else {
     // Not raw, no need to take care of endianness.
@@ -150,7 +153,7 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
     typedef typename std::conditional<sizeof(T) == sizeof(data[0]),
         llvm::ArrayRef<T>, llvm::SmallVector<T>>::type ArrayRefOrSmallVector;
     ArrayRefOrSmallVector array(data.begin(), data.end());
-    return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(array));
+    return denseBuilder(llvm::makeArrayRef(array));
   }
 }
 
@@ -176,29 +179,32 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
   mlir::Type elmType = convertONNXTypeToMLIRType(
       builder, (onnx::TensorProto_DataType)tp.data_type());
   auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+  auto denseBuilder = [tensorType](auto arrayRef) {
+    return mlir::DenseElementsAttr::get(tensorType, arrayRef);
+  };
   switch (tp.data_type()) {
   case (onnx::TensorProto::FLOAT):
-    return createDenseElmAttr<float>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<float>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::DOUBLE):
-    return createDenseElmAttr<double>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<double>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::INT8):
-    return createDenseElmAttr<int8_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<int8_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::UINT8):
-    return createDenseElmAttr<uint8_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<uint8_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::INT16):
-    return createDenseElmAttr<int16_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<int16_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::UINT16):
-    return createDenseElmAttr<uint16_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<uint16_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::INT32):
-    return createDenseElmAttr<int32_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<int32_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::UINT32):
-    return createDenseElmAttr<uint32_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<uint32_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::INT64):
-    return createDenseElmAttr<int64_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<int64_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::UINT64):
-    return createDenseElmAttr<uint64_t>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<uint64_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::BOOL):
-    return createDenseElmAttr<bool>(externalDataDir, tp, tensorType);
+    return createDenseElmAttr<bool>(externalDataDir, tp, denseBuilder);
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
