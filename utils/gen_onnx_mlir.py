@@ -472,6 +472,18 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
     'StringType'
 )
 
+# Enable traditional ONNX op to have additional types for their 
+# input/output operands.
+onnx_ops_custom_types = {
+    # op   : [input_map, output_map], 
+    #         where the input_map/output_map maps are used to add for a 
+    #         given input/output operand its list of additional custom types.
+    #         Its format is: {indexNum: [custom_type]}
+    #          
+    'Conv': [{0 : ['ONNXTensor_NCHW4C'], 1 : ['ONNXTensor_KCMN4C4K']},
+             {0 : ['ONNXTensor_NCHW4C']}]
+}
+
 MAX_NUM_TYPES=20
 
 # attribute names are ordered alphabetically except for the
@@ -638,7 +650,7 @@ def dec_indent(indent):
 def join_args(args):
     return ", ".join(args)
 
-def get_operands_or_results(schema, type_str_dict,  is_input):
+def get_operands_or_results(schema, type_str_dict, op_name, is_input):
     value_list = schema.inputs if is_input else schema.outputs
     if not value_list:
         return OrderedDict()
@@ -650,12 +662,24 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         else:
             return "AnyTypeOf<[{}]>".format(", ".join(types))
 
+    operand_custom_types = {}
+    if op_name in onnx_ops_custom_types:
+        # Extract the maps and select the right one.
+        (input_map, output_map) = onnx_ops_custom_types[op_name]
+        operand_custom_types = input_map if is_input else output_map
+
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
         str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
-        # In case the type string is used more than once
+        # In case the type string is used more than once.
         types = str_types.copy()
+
+        # Handle custom types associated with this op, if any.
+        if i in operand_custom_types:
+            custom_types = operand_custom_types[i]
+            types.extend(custom_types)
+            print(">  add custom types:", op_name, i, custom_types)
 
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
@@ -747,9 +771,9 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
-def get_numberof_list(mylist):
-    expected_num = len(mylist)
-    for element in mylist :
+def get_numberof_list(my_list):
+    expected_num = len(my_list)
+    for element in my_list :
         if OpSchema.FormalParameterOption.Variadic == element.option:
             expected_num = -1
     return expected_num
@@ -850,9 +874,9 @@ def parse_type_str(allowedType):
         'map' : 'TupleOf',
         'bool': 'I1',
         #'uint8' : 'AnyI8',
-        #uint16' : 'AnyI16',
-        #uint32' : 'AnyI32',
-        #uint64' : 'AnyI64',
+        #'uint16' : 'AnyI16',
+        #'uint32' : 'AnyI32',
+        #'uint64' : 'AnyI64',
         'uint8' : 'UI8',
         'uint16' : 'UI16',
         'uint32' : 'UI32',
@@ -891,7 +915,7 @@ def parse_a_type_constraint(constraint):
         mlirTypes.append(mlirType)
 
     # Remove redundant and sort.
-    # However onnx keeps a consitently meaningful order
+    # However onnx keeps a consistently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
 
@@ -916,6 +940,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
+# Generate entry for a given operation given by opName (from schema).
 def gen_op_def(schema, with_version = False):
     indent = inc_indent()
     if with_version :
@@ -969,7 +994,7 @@ def gen_op_def(schema, with_version = False):
     type_str_dict =  parse_type_constraints(schema)
 
     # Generate ins (consisting of operands and attributes).
-    ins = get_operands_or_results(schema, type_str_dict, is_input=True)
+    ins = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
     ins.update(get_attrs(schema))
 
     ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
@@ -977,7 +1002,7 @@ def gen_op_def(schema, with_version = False):
         (',\n' + inc_indent(indent)).join(ins_strs))
 
     # Generate outs (operation results).
-    outs = get_operands_or_results(schema, type_str_dict, is_input=False)
+    outs = get_operands_or_results(schema, type_str_dict, opName, is_input=False)
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
@@ -1025,7 +1050,7 @@ def gen_op_def(schema, with_version = False):
         # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
         indent = inc_indent(indent)
         s += indent + 'OpBuilder<(ins '
-        operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+        operands_dict = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
         attrs_dict = get_attrs(schema)
         s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
                                     name) for name, ty in operands_dict.items())
@@ -1174,24 +1199,24 @@ def build_operator_schemas():
     # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
     operator_schemas = list(
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-    exsting_ops = set()  # type: Set[Text]
-    for domain, _supportmap in sorted(index.items()):
+    existing_ops = set()  # type: Set[Text]
+    for domain, _support_map in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-        processed_supportmap = list()
-        for _support, _namemap in sorted(_supportmap.items()):
-            processed_namemap = list()
-            for n, unsorted_versions in sorted(_namemap.items()):
+        processed_support_map = list()
+        for _support, _name_map in sorted(_support_map.items()):
+            processed_name_map = list()
+            for n, unsorted_versions in sorted(_name_map.items()):
                 versions = sorted(unsorted_versions,
                                   key=lambda s: s.since_version)
                 schema = versions[-1]
-                if schema.name in exsting_ops:
+                if schema.name in existing_ops:
                     continue
 
                 if check_operation_version:
                     # Generate operation of the latest version of your onnx.
-                    exsting_ops.add(schema.name)
-                    processed_namemap.append((n, schema, versions))
+                    existing_ops.add(schema.name)
+                    processed_name_map.append((n, schema, versions))
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
@@ -1207,24 +1232,24 @@ def build_operator_schemas():
                     if schema.name not in version_dict :
                         continue
                     found = False
-                    vcounter = 0
+                    v_counter = 0
                     for schema in reversed(versions):
                         # Check the version number against the version_dict
-                        specified_version = version_dict[schema.name][vcounter]
+                        specified_version = version_dict[schema.name][v_counter]
                         if schema.since_version == specified_version:
-                            exsting_ops.add(schema.name)
-                            processed_namemap.append((n, schema, versions))
+                            existing_ops.add(schema.name)
+                            processed_name_map.append((n, schema, versions))
                             found = True
-                            vcounter += 1
-                            if len(version_dict[schema.name]) == vcounter :
+                            v_counter += 1
+                            if len(version_dict[schema.name]) == v_counter :
                                 break
                     if not found:
                         print("Your onnx installation may be too old. "
                            "The desired version for operation {} is not found.".format(
                             schema.name))
                         sys.exit()
-            processed_supportmap.append((_support, processed_namemap))
-        operator_schemas.append((domain, processed_supportmap))
+            processed_support_map.append((_support, processed_name_map))
+        operator_schemas.append((domain, processed_support_map))
     return operator_schemas
 
 
@@ -1251,11 +1276,11 @@ def main(args):  # type: (Type[Args]) -> None
     gen_op_versions(op_importer)
 
     new_version_dict = dict()
-    for domain, supportmap in build_operator_schemas():
-        for _, namemap in supportmap:
+    for domain, support_map in build_operator_schemas():
+        for _, name_map in support_map:
             # Generate Op with version number if not the latest version
             previous_name = ""
-            for op_type, schema, versions in namemap:
+            for op_type, schema, versions in name_map:
                 new_version_dict[schema.name] = [schema.since_version]
                 if not check_operation_version :
                     with_version = previous_name == schema.name

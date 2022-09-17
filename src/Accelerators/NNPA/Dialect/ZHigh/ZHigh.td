@@ -33,6 +33,7 @@ def ZHigh_Dialect : Dialect {
 // ZHigh Attribute 
 //===----------------------------------------------------------------------===//
 
+// hi alex: attribute for tensor layout
 // All of the Tensor attributes will extend this class.
 class ZHigh_Attr<string name, list<Trait> traits = []>
 	: AttrDef<ZHigh_Dialect, name, traits>;
@@ -57,7 +58,6 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
     #ZAIU_NHWC= #zhigh.encoding<{
       dataLayout = "nhwc"
     }>
-
 
     ... tensor<8x8xf64, #ZAIU_NHWC> ...
     ```
