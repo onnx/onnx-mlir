@@ -25,7 +25,7 @@ namespace {
 // of negative axis). Thus, specifying any end value > r is equivalent to
 // specifying an end value of r, and specifying any start value < -r is
 // equivalent to specifying a start value of 0."
-int64_t normalize(int64_t axis, int64_t rank) {
+int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
   if (axis < 0)
     axis += rank;
 
@@ -57,7 +57,8 @@ std::pair<int64_t, int64_t> getDataShapeBounds(
     end = operandAdaptor.end().value();
   }
 
-  return std::make_pair(normalize(start, rank), normalize(end, rank));
+  return std::make_pair(
+      normalizeClampedPerSpec(start, rank), normalizeClampedPerSpec(end, rank));
 }
 
 LogicalResult ONNXShapeOpShapeHelper::computeShape(

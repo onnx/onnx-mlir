@@ -252,7 +252,7 @@ def rewriteSoftmaxNDto2D: Pat<
                     (ReshapeTo2DKeepLast:$r $input),
                     (SoftmaxAxisOne),
                     (returnType $r)),
-                 (ONNXShapeOp $input, (returnType (GetShapeResultType $input))),
+                 (CreateShapeOp (GetShapeResultType $input), $input),
                  (GetZeroI64Attr)),
   [(HasRankGT<2> $input)]
 >;
