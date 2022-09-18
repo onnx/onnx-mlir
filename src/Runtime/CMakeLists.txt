@@ -114,3 +114,23 @@ llvm_update_compile_flags(PyRuntime)
 install(TARGETS PyRuntime
   DESTINATION lib
   )
+
+pybind11_add_module(PyCompileAndRuntime PyCompileExecutionSession.cpp)
+add_dependencies(PyCompileAndRuntime onnx_proto)
+target_compile_definitions(PyCompileAndRuntime
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(PyCompileAndRuntime
+  PRIVATE
+  ${ONNX_MLIR_SRC_ROOT}/include
+  )
+target_link_libraries(PyCompileAndRuntime
+  PRIVATE
+  ExecutionSession
+  )
+llvm_update_compile_flags(PyCompileAndRuntime)
+
+install(TARGETS PyCompileAndRuntime
+  DESTINATION lib
+  )

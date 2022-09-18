@@ -1,27 +1,23 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyRuntime import ExecutionSession
-from PyOnnxMlirCompiler import OnnxMlirCompiler
+from PyCompileAndRuntime import PyCompileExecutionSession
 
-# Load onnx model and create Onnx Mlir Compiler object.
+# Load onnx model and create CompileExecutionSession object.
 file = './mnist.onnx'
-compiler = OnnxMlirCompiler(file)
+session = PyCompileExecutionSession(file)
 # Generate the library file. Success when rc == 0 while set the opt as "-O3"
-rc = compiler.compile_from_file("-O3")
-# Get the output file name
-model = compiler.get_output_file_name()
+rc = session.compile_from_file("-O3")
 if rc:
     print("Failed to compile with error code", rc)
     exit(1)
-print("Compiled onnx file", file, "to", model, "with rc", rc)
+print("Successfully Compiled onnx file", file)
 
-# Load the model compiled with onnx-mlir.
-session = ExecutionSession(model)
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
-print("input signature in json", session.input_signature())
-print("output signature in json",session.output_signature())
+session.print_input_signature()
+session.print_output_signature()
+
 # Create an input arbitrarily filled of 1.0 values.
 input = np.array([-0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923, -0.4242129623889923,
@@ -285,9 +281,9 @@ input = np.array([-0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923, -0.4242129623889923,
     -0.4242129623889923, -0.4242129623889923], np.dtype(np.float32)).reshape(1,1,28,28)
-# Run the model. It is best to always use the [] around the inputs as the inputs
-# are an vector of numpy arrays.
-outputs = session.run([input])
+
+# Run the model.
+outputs = session.run(input)
 # Analyze the output (first array in the list, of signature 1x10xf32).
 prediction = outputs[0]
 digit = -1

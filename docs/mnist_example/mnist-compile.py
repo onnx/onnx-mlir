@@ -3,7 +3,7 @@
 import numpy as np
 from PyOnnxMlirCompiler import OnnxMlirCompiler
 
-# Load onnx model and create Onnx Mlir Compiler object.
+# Load onnx model and create OnnxMlirCompiler object.
 file = './mnist.onnx'
 compiler = OnnxMlirCompiler(file)
 # Generate the library file. Success when rc == 0 while set the opt as "-O3"
