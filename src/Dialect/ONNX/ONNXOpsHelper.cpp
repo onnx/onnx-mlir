@@ -494,17 +494,6 @@ Value normalizeConstantOp(
       ArrayAttr(), StringAttr(), ArrayAttr());
 }
 
-// Create a DenseElementsAttr based on the shape of type.
-DenseElementsAttr createDenseElementsAttrFromShape(
-    PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().cast<ShapedType>();
-  auto shape = inType.getShape();
-  SmallVector<int64_t, 1> dims = {inType.getRank()};
-  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
-  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
-}
-
 // Create a DenseElementsAttr based on the size of type.
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
