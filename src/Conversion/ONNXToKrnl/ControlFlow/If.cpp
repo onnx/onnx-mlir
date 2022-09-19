@@ -44,11 +44,7 @@ struct ONNXIfOpLowering : public ConversionPattern {
         rewriter, loc, ifOp.then_branch(), scfIfOp.getThenRegion());
     graphToScfBranch(
         rewriter, loc, ifOp.else_branch(), scfIfOp.getElseRegion());
-    UnrealizedConversionCastOp castOp =
-        rewriter.create<UnrealizedConversionCastOp>(
-            loc, resultTypes, scfIfOp.getResults());
-
-    rewriter.replaceOp(op, castOp.getResults());
+    rewriter.replaceOp(op, scfIfOp.getResults());
     return success();
   }
 
