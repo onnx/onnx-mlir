@@ -1044,7 +1044,27 @@ ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
+// Several lines in the generated file produce warning C4927 when compiled with
+// the MSVC compiler. For example: ONNXConstProp.inc(766):
+//
+//    auto nativeVar_0 = ConstPropElementwiseBinary<mlir::ONNXAddOp>(rewriter,
+//    (*addOp.getODSResults(0).begin()), (*lhs.getODSResults(0).begin()),
+//    (*rhs.getODSResults(0).begin())); (void)nativeVar_0;
+//
+//    for (auto v: ::llvm::SmallVector<::mlir::Value, 4>{ {nativeVar_0} }) {
+//      tblgen_repl_values.push_back(v);
+//    }
+//
+// This is due to the definition of ConstPropElementwiseBinary (and others) and
+// needs to be addressed with a comprehensive change to ConstProp.td
+
+#if defined(_MSC_VER)
+#pragma warning(disable : 4927)
+#endif
 #include "src/Transform/ONNX/ONNXConstProp.inc"
+#if defined(_MSC_VER)
+#pragma warning(default : 4927)
+#endif
 
 //===----------------------------------------------------------------------===//
 // Code to manage the pass.
