@@ -190,10 +190,33 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
 // ToDo: handle an element in multiple sequences with copy
 // ToDo: use the one-shot interface for space manangement.
 
+def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl create a sequence";
+  let description = [{
+    This op allocates a memref for a new sequence according to the input Type and length.
+    The output is tagged with Allocate side effect, and a deallocation is defined for
+    sequence. This deallocation will free all the elements in the sequence as well as 
+    the sequence itself.
+  }];
+  let arguments = (ins Variadic<Index>:$length);
+  let results = (outs AnyMemRef:$output);
+}
+
+def KrnlSeqDeallocOp : Op<Krnl_Dialect, "seqdealloc", [MemRefsNormalizable]> {
+  let summary = "Krnl dealloc a sequence";
+  let description = [{
+    This op deallocate the elements in the sequence and the sequence itself
+    with memref::dealloc. This Op is a deep dealloc for sequence type.
+  }];
+  let arguments = (ins AnyMemRef:$seq);
+}
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
-  let summary = "Krnl load from a seq";
+  let summary = "Krnl load from a sequence";
   let description = [{
     This op loads an element from the input sequence 'seq' at position 'index'.
     The loaded element is copied and then return.

@@ -47,8 +47,9 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     auto outputBound = boundIE - 1;
     SmallVector<IndexExpr, 1> ubsIE;
     ubsIE.emplace_back(outputBound);
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
+    Value alloc = rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBound.getValue());
+    //Value alloc =
+    //    insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
 
     // Fill the output sequence
 
@@ -77,7 +78,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          createKrnl.store(element, alloc, indicesLoopInd[0]);
+          createKrnl.seqstore(element, alloc, positionIE);
+          //createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
 
     // Free the element to be erased
@@ -97,7 +99,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
           auto oneIndex = create.math.constantIndex(1);
           auto outputIndex = create.math.sub(indicesLoopInd[0], oneIndex);
-          createKrnl.store(element, alloc, outputIndex);
+          //createKrnl.store(element, alloc, outputIndex);
+          createKrnl.seqstore(element, alloc, outputIndex);
         });
 
     rewriter.replaceOp(op, alloc);
