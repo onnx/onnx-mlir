@@ -26,10 +26,13 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+
+  // This Op creates a new sequence from the input sequence
+  // with the element at the specified position erased.
     Location loc = op->getLoc();
     ONNXSequenceEraseOpAdaptor operandAdaptor(operands);
     ONNXSequenceEraseOp thisOp = dyn_cast<ONNXSequenceEraseOp>(op);
-    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
@@ -39,6 +42,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
         input_sequence.getType().cast<MemRefType>().getElementType();
 
     SmallVector<int64_t, 1> dims;
+
     // Number of element in seq may be statically known from shape inference
     dims.emplace_back(thisOp.getResult().getType().cast<SeqType>().getLength());
     llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
@@ -48,8 +52,6 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 1> ubsIE;
     ubsIE.emplace_back(outputBound);
     Value alloc = rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBound.getValue());
-    //Value alloc =
-    //    insertAllocAndDeallocSimple(rewriter, op, outputMemRefType, loc, ubsIE);
 
     // Fill the output sequence
 
@@ -61,7 +63,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
       // memref::copy requires that source and destination have the same shape
       positionIE = boundIE - 1;
     } else {
-      positionIE = SymbolIndexExpr(operandAdaptor.position());
+      positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
       // Handle the negative position
       auto correctionIE = positionIE + boundIE;
       positionIE = IndexExpr::select(positionIE < 0, correctionIE, positionIE);
@@ -82,11 +84,6 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
           //createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
 
-    // Free the element to be erased
-    Value element =
-        createKrnl.load(operandAdaptor.input_sequence(), positionIE.getValue());
-    create.mem.dealloc(element);
-
     // Copy the elements after the position
     SmallVector<IndexExpr, 1> lbs1;
     lbs1.emplace_back(positionIE + 1);
@@ -99,7 +96,6 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
           auto oneIndex = create.math.constantIndex(1);
           auto outputIndex = create.math.sub(indicesLoopInd[0], oneIndex);
-          //createKrnl.store(element, alloc, outputIndex);
           createKrnl.seqstore(element, alloc, outputIndex);
         });
 
