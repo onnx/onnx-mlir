@@ -71,6 +71,8 @@ void ConvertSeqToMemrefPass::runOnOperation() {
 
   // Define patterns.
   KrnlTypeConverter typeConverter;
+  populateLoweringKrnlSeqAllocOpPattern(typeConverter, patterns, ctx);
+  populateLoweringKrnlSeqDeallocOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqExtractOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqInsertOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqStoreOpPattern(typeConverter, patterns, ctx);

@@ -44,6 +44,8 @@ public:
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     // Allocate a new tensor and copy input tensor into it
+    operandAdaptor.input().dump();
+    operandAdaptor.input().getType().dump();
     auto inputType = operandAdaptor.input().getType().cast<MemRefType>();
     SmallVector<mlir::Value, 4> allocParams;
     for (size_t i = 0; i < inputType.getShape().size(); i++) {

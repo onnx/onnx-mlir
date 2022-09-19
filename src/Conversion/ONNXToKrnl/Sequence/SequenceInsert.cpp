@@ -54,6 +54,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       // Could be optimized as: Copy the input sequence and attach input tensor
       // at the end But the size for KrnlMemcpy is integer, not Value
       // memref::copy requires that source and destination have the same shape
+      // ToDo (chentong): backward shape inference may help
       positionIE = boundIE;
     } else {
       positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
@@ -65,6 +66,15 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
 
     // Copy the elements before the position
     KrnlBuilder createKrnl(rewriter, loc);
+
+    if (outputMemRefType.getShape()[0] == 1) {
+      // This means the input sequence is empty.
+      // No need to copy.
+      // This test is essential because the empty sequence usually has
+      // unranked tensor as element. The following loop body will have
+      // compilation problem due to the unranked tensor even though
+      // the loop will not be reached at runtime.
+    } else {
     SmallVector<IndexExpr, 1> lbs;
     lbs.emplace_back(LiteralIndexExpr(0));
     SmallVector<IndexExpr, 1> ubs;
@@ -77,9 +87,6 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
           createKrnl.seqstore(element, alloc, positionIE);
           //createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
-
-    // Insert the element at the position
-    createKrnl.seqstore(operandAdaptor.tensor(), alloc, positionIE);
 
     // Copy the elements after the position
     SmallVector<IndexExpr, 1> lbs1;
@@ -95,6 +102,10 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
           auto outputIndex = create.math.add(indicesLoopInd[0], oneIndex);
           createKrnl.seqstore(element, alloc, outputIndex);
         });
+    }
+
+    // Insert the element at the position
+    createKrnl.seqstore(operandAdaptor.tensor(), alloc, positionIE);
 
     rewriter.replaceOp(op, alloc);
     return success();
