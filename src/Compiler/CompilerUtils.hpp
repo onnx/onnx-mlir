@@ -35,6 +35,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -76,7 +77,7 @@ std::string getToolPath(
     const std::string &tool, const std::string &systemToolPath);
 
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+int processInputFile(llvm::StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
 int processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,

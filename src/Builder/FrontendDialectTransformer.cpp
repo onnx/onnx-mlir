@@ -25,8 +25,11 @@
 #include "src/Support/SuppressWarnings.h"
 
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/LineIterator.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -34,6 +37,8 @@ SUPPRESS_WARNINGS_PUSH
 #include "onnx/shape_inference/implementation.h"
 #include "onnx/version_converter/convert.h"
 SUPPRESS_WARNINGS_POP
+
+#include <google/protobuf/util/json_util.h>
 
 #include <fstream>
 #include <iostream>
@@ -1406,21 +1411,50 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 // Return 0 on success, error otherwise.
-int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
-  std::fstream input(model_fname, std::ios::in | std::ios::binary);
-  // check if the input file is opened
-  if (!input.is_open()) {
-    *errorMessage = "Unable to open or access " + model_fname;
-    return InvalidInputFileAccess;
-  }
+  if (model_fname.endswith(".json")) {
+    auto buf = openInputFile(model_fname, errorMessage);
+    if (!buf) {
+      return InvalidInputFileAccess;
+    }
+    // Remove // comments, which are non-standard json but appear in lit tests
+    // in test/mlir/onnx/parse.
+    std::string json;
+    for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
+         ++line) {
+      if (line->ltrim(" \t").startswith("//"))
+        continue; // omit comment lines beginning with (whitespace and) //
+      if (line->contains("//")) {
+        // Not stripping end-of-line comments because there's no robust way to
+        // distinguish them from valid uses of // in the json itself.
+        llvm::errs() << "Warning: possible invalid end-of-line // comment in "
+                        "json input file "
+                     << model_fname.str() << ":" << line.line_number() << "\n";
+      }
+      json.append(*line);
+    }
+    auto status = google::protobuf::util::JsonStringToMessage(json, &model);
+    if (!status.ok()) {
+      *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +
+                      " with error '" + status.ToString() + "'";
+      return InvalidOnnxFormat;
+    }
+  } else {
+    std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
+    // check if the input file is opened
+    if (!input.is_open()) {
+      *errorMessage = "Unable to open or access " + model_fname.str();
+      return InvalidInputFileAccess;
+    }
 
-  auto parse_success = model.ParseFromIstream(&input);
-  if (!parse_success) {
-    *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
-    return InvalidOnnxFormat;
+    auto parse_success = model.ParseFromIstream(&input);
+    if (!parse_success) {
+      *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
+      return InvalidOnnxFormat;
+    }
   }
   ImportFrontendModelInternal(model, context, module, options);
   return CompilerSuccess;
