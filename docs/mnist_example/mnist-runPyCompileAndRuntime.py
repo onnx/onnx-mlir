@@ -4,14 +4,11 @@ import numpy as np
 from PyCompileAndRuntime import PyCompileExecutionSession
 
 # Load onnx model and create CompileExecutionSession object.
-file = './mnist.onnx'
-session = PyCompileExecutionSession(file)
-# Generate the library file. Success when rc == 0 while set the opt as "-O3"
-rc = session.compile_from_file("-O3")
-if rc:
-    print("Failed to compile with error code", rc)
-    exit(1)
-print("Successfully Compiled onnx file", file)
+inputFileName = './mnist.onnx'
+# Set the full name of compiled model
+sharedLibPath = './mnist.so'
+# Set the compile option as "-O3"
+session = PyCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
 
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.

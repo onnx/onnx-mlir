@@ -127,6 +127,7 @@ target_include_directories(PyCompileAndRuntime
   )
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
+  OnnxMlirCompiler
   ExecutionSession
   )
 llvm_update_compile_flags(PyCompileAndRuntime)

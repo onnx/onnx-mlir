@@ -23,36 +23,35 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
-PyCompileExecutionSession::PyCompileExecutionSession(
-    std::string fileName, bool defaultEntryPoint)
-    : onnx_mlir::PyExecutionSession(fileName, defaultEntryPoint) {
-  inputFileName = fileName;
-}
-
-int64_t PyCompileExecutionSession::pyCompileFromFile(std::string flags) {
+PyCompileExecutionSession::PyCompileExecutionSession(std::string inputFileName,
+    std::string sharedLibPath, std::string flags, bool defaultEntryPoint)
+    : onnx_mlir::PyExecutionSession(sharedLibPath, defaultEntryPoint) {
+  this->inputFileName = inputFileName;
   const char *outputName, *errorMsg;
   int64_t rc;
   rc = omCompileFromFile(
       inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
   if (rc == 0) {
     // Compilation success: save output file name.
-    sharedLibPath = std::string(outputName);
+    this->sharedLibPath = std::string(outputName);
     // Empty error.
     errorMessage = std::string();
   } else {
     // Compilation failure: save error message.
     errorMessage = std::string(errorMsg);
     // Empty output file name.
-    sharedLibPath = std::string();
+    this->sharedLibPath = std::string();
   }
-  return rc;
 }
 
+int64_t PyCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
+
 std::string PyCompileExecutionSession::pyGetCompiledFileName() {
-  return sharedLibPath;
+  return this->sharedLibPath;
 }
+
 std::string PyCompileExecutionSession::pyGetErrorMessage() {
-  return errorMessage;
+  return this->errorMessage;
 }
 
 } // namespace onnx_mlir
