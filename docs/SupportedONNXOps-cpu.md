@@ -26,10 +26,12 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Atan** |7 | | |
 | **Atanh** |9 | | |
 | **AveragePool** |11 | | |
-| **BatchNormalization** |14 |Training not supported. | |
+| **BatchNormalization** |15 |Training not supported. | |
+| **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
+| **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
 | **Ceil** |13 | | |
@@ -78,7 +80,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **HardSwish** | |unsupported | |
 | **Hardmax** |13 | | |
 | **Identity** |16 |Sequence identity not supported. | |
-| **If** | |unsupported | |
+| **If** |16 |Sequence and Optional outputs are not supported. | |
 | **Imputer** | |unsupported | |
 | **InstanceNormalization** |6 | | |
 | **IsInf** | |unsupported | |
@@ -164,7 +166,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **SequenceErase** | |unsupported | |
 | **SequenceInsert** |11 |Does not support unranked sequence element. | |
 | **SequenceLength** | |unsupported | |
-| **Shape** |13 | | |
+| **Shape** |15 |Does not support start and end attributes. | |
 | **Shrink** | |unsupported | |
 | **Sigmoid** |13 | | |
 | **Sign** |13 | | |

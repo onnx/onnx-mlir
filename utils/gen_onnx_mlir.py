@@ -223,7 +223,7 @@ version_dict = {
  'SequenceErase': [11],
  'SequenceInsert': [11],
  'SequenceLength': [11],
- 'Shape': [13], # When going to 15, rewrite rules must also be changed for start/end
+ 'Shape': [15],
  'Shrink': [9],
  'Sigmoid': [13],
  'Sign': [13],
@@ -349,6 +349,7 @@ OpsWithVerifier = [
     'ScatterND',
     'SequenceEmpty',
     'SequenceInsert',
+    'Shape',
     'SpaceToDepth',
     'Split',
     'SplitToSequence',
