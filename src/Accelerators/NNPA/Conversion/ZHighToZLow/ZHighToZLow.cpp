@@ -490,7 +490,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
       MemRefType outType = MemRefType::get(shape, b.getF16Type());
       resZMemRefType.value =
           MemRefType::Builder(outType).setLayout(AffineMapAttr::get(smap));
-      resZMemRefType.layout = convertDataLayoutToStringAttr(b, layout);
+      resZMemRefType.layout = convertZTensorDataLayoutToStringAttr(b, layout);
     } else {
       resZMemRefType.value = MemRefType::get(shape, elementType);
     }

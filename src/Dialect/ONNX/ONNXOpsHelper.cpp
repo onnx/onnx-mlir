@@ -16,6 +16,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -25,9 +26,72 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// ONNX Tensor support.
+
+/// Get a ONNX Tensor data layout by StringRef.
+bool convertStringToONNXTensorDataLayout(StringRef layoutStr,
+    ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
+    int64_t &yFactor) {
+  if (layoutStr.equals_insensitive(LAYOUT_NCHW4C)) {
+    xFactor = 4;
+    yFactor = 0;
+    layout = ONNXTensorEncodingAttr::DataLayout::NCHWxC;
+    return true;
+  } else if (layoutStr.equals_insensitive(LAYOUT_KCMN4C4K)) {
+    xFactor = yFactor = 4;
+    layout = ONNXTensorEncodingAttr::DataLayout::KCNMxCyK;
+    return true;
+  }
+  return false;
+}
+
+/// Convert a data layout to StringRef.
+StringRef convertONNXTensorDataLayoutToString(
+    ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
+    int64_t yFactor) {
+  switch (layout) {
+  case ONNXTensorEncodingAttr::DataLayout::NCHWxC:
+    if (xFactor == 4 && yFactor == 0)
+      return StringRef(LAYOUT_NCHW4C);
+    llvm_unreachable("NCHWxC with unsupported x or y factors");
+    break;
+  case ONNXTensorEncodingAttr::DataLayout::KCNMxCyK:
+    if (xFactor == 4 && yFactor == 4)
+      return StringRef(LAYOUT_KCMN4C4K);
+    llvm_unreachable("KCNMxCyK with unsupported x or y factors");
+    break;
+  default:
+    break;
+  }
+  llvm_unreachable("unsupported ONNX Layout");
+}
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
+
+bool isONNXTensor(Type type) {
+  if (auto ttp = type.dyn_cast<RankedTensorType>())
+    if (ttp.getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>())
+      return true;
+  return false;
+}
+
+ONNXTensorEncodingAttr getONNXTensorEncoding(Type type) {
+  if (auto ttp = type.dyn_cast<RankedTensorType>())
+    return ttp.getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>();
+  return nullptr;
+}
+
+ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(Type type) {
+  if (ONNXTensorEncodingAttr encoding = getONNXTensorEncoding(type))
+    return encoding.getDataLayout();
+  return ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Pool Conv Support.
 
 // Pool/conv affine
 // dim =
@@ -57,8 +121,8 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 /// IndexExprs to compute the start and end indices of the convolution/pooling
 /// window.
 ///
-/// The conv/pooling window can be smaller than the kernel when slicing it over
-/// the border edges. Thus, we will compute the start and end indices for
+/// The conv/pooling window can be smaller than the kernel when slicing it
+/// over the border edges. Thus, we will compute the start and end indices for
 /// each window dimension as follows.
 ///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
 ///   startH = max(firstValidH, ho * sH - ptH)
@@ -71,8 +135,8 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///   kernelOffset = min(0, ho * sH - ptH)
 ///
 /// How to derive 'firstValidH':
-///   When dilation is non-unit, the first valid pixel to apply conv/pooling on
-///   will not be the 0-th pixel, but rather the smallest integer n to make
+///   When dilation is non-unit, the first valid pixel to apply conv/pooling
+///   on will not be the 0-th pixel, but rather the smallest integer n to make
 ///   '-pH + n * dH' greater than or equal to 0, where pH and dH are pad
 ///   and dilation along axis H. We derive what is this smallest n:
 ///   -pH + n * dH >= 0
@@ -114,9 +178,9 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(
       windowStartExpr, windowEndExpr, kernelOffsetExpr};
 }
 
-/// The conv/pooling window can be smaller than the kernel when slicing it over
-/// the border edges. This function returns an AffineMap to compute the size of
-/// one edge of the window.
+/// The conv/pooling window can be smaller than the kernel when slicing it
+/// over the border edges. This function returns an AffineMap to compute the
+/// size of one edge of the window.
 AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
   AffineMap windowDimMap;
   // Compute start and end indices.
@@ -135,7 +199,7 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
   // Compute the window's size.
   SmallVector<AffineExpr, 4> dimExpr;
-  // Upperbound for an affine.for is `min AffineMap`, where `min` is
+  // Upper bound for an affine.for is `min AffineMap`, where `min` is
   // automatically inserted when an affine.for is constructed from
   // an AffineMap, thus we rewrite `endH - startH` as follows:
   //   endH - startH
@@ -614,7 +678,7 @@ mlir::Type convertONNXTypeToMLIRType(
   llvm_unreachable("Unsupported data type encountered.");
 }
 
-// Convert an MLIR type to the correspoding ONNX type.
+// Convert an MLIR type to the corresponding ONNX type.
 int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
 

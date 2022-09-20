@@ -48,7 +48,7 @@ def NotSameLayout: Constraint<
 def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 
 def GetLayout : NativeCodeCall<
-  "convertDataLayoutToStringAttr($_builder, "
+  "convertZTensorDataLayoutToStringAttr($_builder, "
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 

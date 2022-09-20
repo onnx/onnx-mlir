@@ -27,6 +27,7 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -55,15 +56,91 @@ using namespace onnx_mlir;
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 void ONNXDialect::initialize() {
-  addOperations<
-#define GET_OP_LIST
-#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-      >();
-
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
       >();
+
+  addAttributes<
+#define GET_ATTRDEF_LIST
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
+      >();
+
+  addOperations<
+#define GET_OP_LIST
+#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+      >();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Attribute
+//===----------------------------------------------------------------------===//
+
+/*
+  For the moment, the x and y factor are explicitly encoded in the
+  ONNXLayoutHelper.hpp LAYOUT strings. These strings are used to recognize which
+  layout is used. But once the pattern is recognized, we use the encoding's
+  layout to represent the high level type of encoding, and the encoding's x and
+  y factor integer to represent the unroll factors. That way, the code that use
+  these encoding does not need to be specialized for a specific value of x or y
+  factor, it just looks at the embedding x and y factor integers to perform the
+  proper unrolling.
+
+  In other words, the string to encoding is manually encoded by fixed string
+  that needs to be customized for each x and y factor that are accepted. But
+  once that is done, the code is fully parametric in terms of the encoding
+  attribute xFactor and yFactor.
+*/
+
+Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
+  if (failed(parser.parseLess()))
+    return {};
+  // Parse the data as a dictionary.
+  DictionaryAttr dict;
+  if (failed(parser.parseAttribute(dict)))
+    return {};
+  if (failed(parser.parseGreater()))
+    return {};
+
+  ONNXTensorEncodingAttr::DataLayout dataLayout =
+      ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+  int64_t xFactor = 0;
+  int64_t yFactor = 0;
+
+  // Process the data from the parsed dictionary value into struct-like data.
+  for (const NamedAttribute &attr : dict) {
+    if (attr.getName() == "dataLayout") {
+      StringAttr layoutAttr = attr.getValue().dyn_cast<StringAttr>();
+      if (!layoutAttr) {
+        parser.emitError(
+            parser.getNameLoc(), "expected a string value for data layout");
+        return {};
+      }
+      StringRef strVal = layoutAttr.getValue();
+      if (!convertStringToONNXTensorDataLayout(
+              strVal, dataLayout, xFactor, yFactor))
+        parser.emitError(
+            parser.getNameLoc(), "unexpected dimension level type: ")
+            << strVal;
+      return {};
+    } else {
+      parser.emitError(parser.getNameLoc(), "unexpected key: ")
+          << attr.getName().str();
+      return {};
+    }
+  }
+  // Construct struct-like storage for attribute.
+  return parser.getChecked<ONNXTensorEncodingAttr>(
+      parser.getContext(), dataLayout, xFactor, yFactor);
+}
+
+void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
+  // Print the struct-like storage in dictionary fashion.
+  printer << "<{dataLayout = ";
+  StringRef layoutStr = convertONNXTensorDataLayoutToString(
+      getDataLayout(), getXFactor(), getYFactor());
+  printer << "\"" << layoutStr.str() << "\"";
+  printer << "}>";
 }
 
 //===----------------------------------------------------------------------===//
@@ -5789,3 +5866,6 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+#define GET_ATTRDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"

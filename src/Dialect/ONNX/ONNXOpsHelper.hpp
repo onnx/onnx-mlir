@@ -26,16 +26,39 @@
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// ONNX Tensor support.
+
+/// Get a ONNX Tensor data layout by StringRef.
+bool convertStringToONNXTensorDataLayout(llvm::StringRef layoutStr,
+    mlir::ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
+    int64_t &yFactor);
+
+/// Convert a data layout to StringRef, assert on error.
+llvm::StringRef convertONNXTensorDataLayoutToString(
+    mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
+    int64_t yFactor);
+
+/// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
+bool isONNXTensor(mlir::Type type);
+
+/// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
+/// any type without an encoding.
+mlir::ONNXTensorEncodingAttr getONNXTensorEncoding(mlir::Type type);
+
+/// Get the layout of a ONNX tensor.
+mlir::ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(mlir::Type type);
+
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
 mlir::AffineMap getIdentityDimMap(mlir::Builder &builder);
 
 // Pool/conv affine map:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]
-//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) floordiv s2 + 1>
+//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) floorDiv s2 + 1>
 // In the case of `ceilMode = true`:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]
-//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) ceildiv s2 + 1>
+//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) ceilDiv s2 + 1>
 // where:
 // - d0: input dim
 // - s0: kernel
