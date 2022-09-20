@@ -68,6 +68,8 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 
   std::tie(start, end) = getDataShapeBounds(operandAdaptor);
 
+  assert(start <= end && "Start must not be greater than end");
+
   // Output is the actual number of values (1D)
   dimsForOutput().emplace_back(LiteralIndexExpr(end - start));
 
