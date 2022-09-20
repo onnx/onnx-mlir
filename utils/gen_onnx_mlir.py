@@ -349,6 +349,7 @@ OpsWithVerifier = [
     'ScatterND',
     'SequenceEmpty',
     'SequenceInsert',
+    'Shape',
     'SpaceToDepth',
     'Split',
     'SplitToSequence',

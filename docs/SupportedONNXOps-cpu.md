@@ -166,7 +166,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **SequenceErase** | |unsupported | |
 | **SequenceInsert** |11 |Does not support unranked sequence element. | |
 | **SequenceLength** | |unsupported | |
-| **Shape** |13 | | |
+| **Shape** |15 |Does not support start and end attributes. | |
 | **Shrink** | |unsupported | |
 | **Sigmoid** |13 | | |
 | **Sign** |13 | | |
