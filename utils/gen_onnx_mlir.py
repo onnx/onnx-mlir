@@ -465,7 +465,7 @@ custom_definition_misc = dict([ ('Constant',
  )])
 
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unknown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
@@ -621,7 +621,7 @@ def get_allowed_elem_types(schema, input):
                 if t == None :
                     return allowed_structure, None
                 if  not t in allowed_type_list :
-                    allowed_tyoe_list = allowed_type_list.append(t)
+                    allowed_type_list.append(t)
 
             return allowed_structure,allowed_type_list
 
@@ -748,9 +748,9 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
-def get_numberof_list(mylist):
-    expected_num = len(mylist)
-    for element in mylist :
+def get_numberof_list(my_list):
+    expected_num = len(my_list)
+    for element in my_list :
         if OpSchema.FormalParameterOption.Variadic == element.option:
             expected_num = -1
     return expected_num
@@ -866,7 +866,7 @@ def parse_type_str(allowedType):
         'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
-        'unkown' : 'BF16',
+        'unknown' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
@@ -892,7 +892,7 @@ def parse_a_type_constraint(constraint):
         mlirTypes.append(mlirType)
 
     # Remove redundant and sort.
-    # However onnx keeps a consitently meaningful order
+    # However onnx keeps a consistently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
 
@@ -1178,24 +1178,24 @@ def build_operator_schemas():
     # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
     operator_schemas = list(
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-    exsting_ops = set()  # type: Set[Text]
-    for domain, _supportmap in sorted(index.items()):
+    existing_ops = set()  # type: Set[Text]
+    for domain, _support_map in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-        processed_supportmap = list()
-        for _support, _namemap in sorted(_supportmap.items()):
-            processed_namemap = list()
-            for n, unsorted_versions in sorted(_namemap.items()):
+        processed_support_map = list()
+        for _support, _name_map in sorted(_support_map.items()):
+            processed_name_map = list()
+            for n, unsorted_versions in sorted(_name_map.items()):
                 versions = sorted(unsorted_versions,
                                   key=lambda s: s.since_version)
                 schema = versions[-1]
-                if schema.name in exsting_ops:
+                if schema.name in existing_ops:
                     continue
 
                 if check_operation_version:
                     # Generate operation of the latest version of your onnx.
-                    exsting_ops.add(schema.name)
-                    processed_namemap.append((n, schema, versions))
+                    existing_ops.add(schema.name)
+                    processed_name_map.append((n, schema, versions))
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
@@ -1211,24 +1211,24 @@ def build_operator_schemas():
                     if schema.name not in version_dict :
                         continue
                     found = False
-                    vcounter = 0
+                    v_counter = 0
                     for schema in reversed(versions):
                         # Check the version number against the version_dict
-                        specified_version = version_dict[schema.name][vcounter]
+                        specified_version = version_dict[schema.name][v_counter]
                         if schema.since_version == specified_version:
-                            exsting_ops.add(schema.name)
-                            processed_namemap.append((n, schema, versions))
+                            existing_ops.add(schema.name)
+                            processed_name_map.append((n, schema, versions))
                             found = True
-                            vcounter += 1
-                            if len(version_dict[schema.name]) == vcounter :
+                            v_counter += 1
+                            if len(version_dict[schema.name]) == v_counter :
                                 break
                     if not found:
                         print("Your onnx installation may be too old. "
                            "The desired version for operation {} is not found.".format(
                             schema.name))
                         sys.exit()
-            processed_supportmap.append((_support, processed_namemap))
-        operator_schemas.append((domain, processed_supportmap))
+            processed_support_map.append((_support, processed_name_map))
+        operator_schemas.append((domain, processed_support_map))
     return operator_schemas
 
 
@@ -1255,11 +1255,11 @@ def main(args):  # type: (Type[Args]) -> None
     gen_op_versions(op_importer)
 
     new_version_dict = dict()
-    for domain, supportmap in build_operator_schemas():
-        for _, namemap in supportmap:
+    for domain, support_map in build_operator_schemas():
+        for _, name_map in support_map:
             # Generate Op with version number if not the latest version
             previous_name = ""
-            for op_type, schema, versions in namemap:
+            for op_type, schema, versions in name_map:
                 new_version_dict[schema.name] = [schema.since_version]
                 if not check_operation_version :
                     with_version = previous_name == schema.name
