@@ -15,14 +15,12 @@ from google.protobuf.json_format import MessageToJson
 
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model")
+parser.add_argument('--load_external_data', action='store_true', help="Load external data under the same directory of the model")
 args = parser.parse_args()
 
 def main():
-    f = open(args.model_path, "rb")
-    model = onnx.ModelProto()
-    model.ParseFromString(f.read())
-    json=MessageToJson(model)
-    print(json)
+    model = onnx.load_model(args.model_path, load_external_data=args.load_external_data)
+    print(MessageToJson(model))
 
 if __name__ == '__main__':
     main()
