@@ -134,6 +134,7 @@ can be used to avoid one copy. This is a simple optimization for sequence loweri
 ## Example
 
 Original .mlir code:
+
 ```
 func.func @test_sequence_insert(%arg0: !onnx.Seq<tensor<?x4x5xf32>>, %arg1:tensor<3x4x5xf32>) -> tensor<3xi64>  {
   %0 = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<i64>
@@ -144,9 +145,9 @@ func.func @test_sequence_insert(%arg0: !onnx.Seq<tensor<?x4x5xf32>>, %arg1:tenso
   %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
 }
-'''
+```
 
-After --convert-onnx-to-krnl
+After --convert-onnx-to-krnl pass
 
 ```
   func.func @test_sequence_insert(%arg0: memref<?xmemref<?x4x5xf32>>, %arg1: memref<3x4x5xf32>) -> memref<3xi64> {
@@ -198,7 +199,8 @@ After --convert-onnx-to-krnl
     return %17 : memref<3xi64>
   }
 ```
-After --buffer-deallocation
+
+After --buffer-deallocation pass
 ```
   func.func @test_sequence_insert(%arg0: memref<?xmemref<?x4x5xf32>>, %arg1: memref<3x4x5xf32>) -> memref<3xi64> {
 
@@ -249,6 +251,29 @@ After --buffer-deallocation
 }
 ```
 
+After --convert-seq-to-memref pass:
+```
+    // KrnlSeqStore
+    %10 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+    memref.copy %1, %10 : memref<3x4x5xf32> to memref<3x4x5xf32>
+    %11 = memref.cast %10 : memref<3x4x5xf32> to memref<?x4x5xf32>
+    memref.store %11, %6[%4] : memref<?xmemref<?x4x5xf32>>
+
+    // KrnlSeqExtract
+    %18 = memref.load %6[%17] : memref<?xmemref<?x4x5xf32>>
+    %c0_12 = arith.constant 0 : index
+    %19 = memref.dim %18, %c0_12 : memref<?x4x5xf32>
+    %20 = memref.alloc(%19) {alignment = 16 : i64} : memref<?x4x5xf32>
+    memref.copy %18, %20 : memref<?x4x5xf32> to memref<?x4x5xf32>
+ ...
+    // KrnlSeqDealloc
+    scf.for %arg2 = %c0_14 to %5 step %c1_15 {
+      %26 = memref.load %6[%arg2] : memref<?xmemref<?x4x5xf32>>
+      memref.dealloc %26 : memref<?x4x5xf32>
+    }
+    memref.dealloc %6 : memref<?xmemref<?x4x5xf32>>
+}
+```
 
 ## Discussion
 ### Correctness
