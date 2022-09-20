@@ -465,7 +465,7 @@ custom_definition_misc = dict([ ('Constant',
  )])
 
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unknown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
@@ -866,7 +866,7 @@ def parse_type_str(allowedType):
         'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
-        'unkown' : 'BF16',
+        'unknown' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
