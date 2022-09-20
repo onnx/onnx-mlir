@@ -66,8 +66,6 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
   Value data = operandAdaptor.data();
   MemRefBoundsIndexCapture dataBounds(data);
 
-  int64_t start;
-  int64_t end;
   std::tie(start, end) = getDataShapeBounds(operandAdaptor);
 
   // Output is the actual number of values (1D)

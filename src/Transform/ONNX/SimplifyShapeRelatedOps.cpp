@@ -196,14 +196,32 @@ public:
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
-    int64_t rank = onnx_mlir::getRank(data.getType());
+
+    // Get start and end values.
+    ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
+    ONNXShapeOpAdaptor operandAdaptor(shapeOp);
+    if (failed(shapeHelper.computeShape(operandAdaptor))) {
+      shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
+                        " parameters successfully");
+      return failure();
+    }
+    int64_t start = shapeHelper.start;
+    int64_t end = shapeHelper.end;
 
     SmallVector<Value, 4> dimValues;
-    for (unsigned i = 0; i < rank; ++i) {
-      if (dims[i] != -1)
-        dimValues.emplace_back(create.onnx.constantInt64({dims[i]}));
-      else
-        dimValues.emplace_back(create.onnx.dim(data, i));
+    if (start <= end) {
+      for (unsigned i = start; i < end; ++i) {
+        Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
+                                       : create.onnx.dim(data, i);
+        dimValues.emplace_back(dimVal);
+      }
+    } else {
+      // Counting back from the last axis.
+      for (unsigned i = start; i > end; --i) {
+        Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
+                                       : create.onnx.dim(data, i);
+        dimValues.emplace_back(dimVal);
+      }
     }
     Value replacedValue = emitConcatOpForDims(create, dimValues);
 
