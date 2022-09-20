@@ -4,118 +4,166 @@
 
 ## ONNX Sequence Type
 ONNX sequence type is a type for aggregation of values. It can be sequence of 
-tensor, or sequence of Map. Currently only sequence of tensor is supported.
-In ONNX dialect defined in onnx-mlir, the sequence type is defined as SeqType,
-and shown as !onnx.Seq<T> in .mlir files. There are two members for sequence type:
-- Type elementType: the type of the elements in the sequence. When the elements are 
+Tensor type, or sequence of Map type in ONNX. Currently onnx-mlir supports only sequence of tensor.
+In ONNX dialect defined in onnx-mlir, the sequence type is defined as `SeqType`,
+and shown as `!onnx.Seq<T>` in .mlir files. There are two access function defined for sequence type:
+- Type elementType(). The type of the elements in the sequence. When the elements are 
   tensors with different shape, the type of elements has to be a super type of
-  the each elements. Shape inference will take care the type merging and refining. 
-- int64_t length: the number of elements in the sequence. -1 for statically unknown.
+  each elements. Shape inference will take care the type merging and refining. 
+- int64_t length(). The number of elements in the sequence. -1 for statically unknown.
 
-## Lower ONNX Sequence Type to memref
-Sequence type is an indexed container type to/from which element can be stored
-or loaded at specified position, similar to std::vector<T>.
-Due to the SSA semantics of ONNX operations, the container
-for sequence type have a fixed size. In onnx-mlir, memref<?xmemref<*xT>>
-is chosen to implement ONNX sequence type without introducing other special data
-structure.[reference other work]. memref of memref is directly supported by 
-MLIR. Sequence of tensor is lowered to memref of memref along with tensor is lowered memref.
-The outer memref in memref<?xmemref<*xT>> is a one dimension memref for the 
-sequence. The dim size of this memref matches the length of the sequence.
-The inner
-memref type is for the element type. It should the super type of all possible
-element types, as discussed in the previous session.
- A store of a memref (for element), into a memref (for sequence),  will put the descriptor of 
-the element memref into the sequence memref at the specified position. 
-The descriptor contains the dynamic shape informantion and data pointer.
- Please note the content of the element memref is not stored. Since the type of
-sequence element is a super type for all possible element, memref.cast may be
-needed before the store. Here is a code example:
-```
-// %seq : memref<?xmemref<?x2xF32>>
-// %element : memref<3x2xF32>
-// %pos : Index
- %converted = 'memref.cast'(%element, memref<?x2xF32>)
- memref.store(%seq, %element, %pos)
-```
-need to verify the example
-add code after lowered to llvm to understand the store.
-
-When an element loaded from sequence, the descriptor with the dynamic info is 
-loaded from the memref of memref, while its static type is the element type
-of the sequence.
-If an element is loaded from the sequence of unranked tensor, the resulted
-tensor will be an unranked tensor, which can not be handled by onnx-mlir.
-We have to avoid using sequence of unranked tensor.
-
-## Naive way to lower sequence ops
-There are 4 sequence-related operations in ONNX:
+There are 4 basic sequence-related operations in ONNX:
 - SequenceEmpty: create an empty sequence, namely memref<0xmemref<T>>
 - SequenceInsert: add an element into the input sequence at specified position and return the result as a new sequence
 - SequenceConstruct: construct a new sequence from the input elements.
 - SequenceErase: remove an element at a specified position from the input sequence and return the result as a new sequence
 
-These ONNX operations can be easily lowered using memref allocation, load or store.
-However, there is an issue with buffer deallocation.
+## Lower ONNX Sequence Type to memref
+Sequence type is an indexed container type to/from which element can be stored
+or loaded at specified position, similar to std::vector<T>, or MemRefType in MLIR..
+Due to the SSA semantics of ONNX operations, the container for sequence type has a fixed size. A sequence is created once and is not further modified.
+In onnx-mlir, tensor is lowered to memref. We choose to lower ONNX SeqTye of tensor to
+memref<?xmemref<*xT>>.
+The outer memref in memref<?xmemref<*xT>> is a 1D memref for the 
+sequence. The dim size of this memref is the length of the sequence.
+The inner memref type is for the element type. It should the super type of all possible
+element types, as discussed in the previous session.
+
+The advantange is that we can make use of the memref dialect without introducing external
+data structure. [reference other work]. The same optimization over MemRefType can be used
+on tensor operations and sequence operations.
+The store/load operation of a memref (for element) to/from a memref of memref (for the sequence) is directly supported by MLIR. The index for the sequence position will be the index
+for the memref for sequence.
+The following code is llvm code for memref
+```
+    %0 = llvm.mlir.undef : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)>
+    %1 = llvm.insertvalue %arg0, %0[0] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %2 = llvm.insertvalue %arg1, %1[1] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %3 = llvm.insertvalue %arg2, %2[2] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %4 = llvm.insertvalue %arg3, %3[3, 0] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %5 = llvm.insertvalue %arg4, %4[4, 0] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %6 = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
+    %7 = llvm.insertvalue %arg5, %6[0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> 
+    %8 = llvm.insertvalue %arg6, %7[1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> 
+    %9 = llvm.insertvalue %arg7, %8[2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> 
+    %10 = llvm.insertvalue %arg8, %9[3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> 
+    %11 = llvm.insertvalue %arg9, %10[4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> 
+    %12 = llvm.mlir.constant(0 : index) : i64
+    %13 = llvm.extractvalue %5[1] : !llvm.struct<(ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<1 x i64>, array<1 x i64>)> 
+    %14 = llvm.getelementptr %13[%12] : (!llvm.ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>, i64) -> !llvm.ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>
+    llvm.store %11, %14 : !llvm.ptr<struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>>
+```
+In the store, the descriptor for the element memref containing the dynamic shape
+informantion and data pointer of the memref, is stored into the memref of memref.
+Please note the content of the element memref is not stored.  
+Correspondingly, the load will construct a memref from the memref of memref.
+When an element loaded from sequence, the descriptor with the dynamic info is 
+loaded from the memref of memref, while its static type is the element type
+of the sequence.
+
+The basic operations seem to work.  The sequence related operations in ONNX can be easily lowered using memref allocation, load or store.  However, there is an issue with buffer deallocation.
 
 ## Issues with deallocation
 onnx-mlir relies on MLIR [Bufferization::Deallocation pass](https://mlir.llvm.org/docs/BufferDeallocationInternals/) to insert deallocation for memrefs. 
-When a memref is stored into a sequence, only its description is stored and 
-it becomes invisible in the operation graph. The deallocation pass
-will add a deallocation for this memref after its last visible use. 
-Consequently, when the element is loaded from the sequence, the memref will 
+When a memref for the element is stored into a sequence, its data pointer along with shape
+information is store and the stored memref is invisible in the operation graph.
+This operation breaks the assumption of value based SSA assume for MLIR.
+As a result, the deallocation pass
+will add a deallocation for the element memref after its last visible use. 
+Consequently, when this element is loaded from the sequence, the memref will 
 have a dangling pointer to its data.
-The source of this issue is that the data pointer for element is saved for 
+The source of this issue is that the data pointer for element is saved in the 
 sequence. This operation breaks the basic assume of operations on "values".
+Another issue is with the deallocation of memref<memref> for sequence. 
+If the memref for the element were not freed by deallocation pass, there would be issue
+on deallocation of the memref for sequence: deep deallocation for the elements in the
+sequence is needed.
 
-## Solution from deallocation pass
-We can extend the deallocation pass to handle the load/store of memref<memref<T>>.
+## Solution
+We could extend the deallocation pass to handle the load/store of memref<memref<T>>.
 When a source memref is stored into a destination memref, the source memref 
-should be marked as `escaped` and no deallocation should be added to it.
+could be marked as `escaped` and then no deallocation would be added by the 
+deallocation pass. Such change will involve how to add clone op with the present of 
+control flow. Our current solution is based the existing deallocation pass.
 
-For deallocation, we can use the buildDealloc interface. We introduce a 
-krnlSeqAlloc for sequence allocation. The op is marked as allocation and has
-deallocation defined. The deallocation will deallocate all the elements in 
-the sequence and then deallocate the sequence itself.
-
-The deep deallocation of sequence requires that the elements in the sequence is
-not live in the program. Therefore, when a element is extracted from the 
-sequence with krnlSeqExtract, the element is copied and the bufferization 
-interface is added so that the tensor generated by extraction will be deallocated
-by bufferization.
-
-## Hacking solution
-To avoid the deallocation problem without changing the pass, the value,
-not just pointer, of the memref should be 
-saved into the sequence, according to the basic semantics of ONNX ops.
-The easy way to save the value is to allocate a memref and then use memref.copy
+### Store an element into a sequence
+To avoid the deallocation of the element, we can save a copy of the element into the
+sequence. To get a copy, we need to allocate a memref and then use memref.copy
 to copy the value. However, deallocation pass will again add deallocation to
-the newly allocated memref. To avoid this issue, we can wrap the allocation, 
-copy and store into a krnlSeqStore Op, which will be lowered after the
-deallocation pass.
-For deallocation the elements in the sequence, KrnlSeqFree is introduced and
-inserted just before the deallocation of the sequence.
+the newly allocated memref. To avoid this issue, we should wrap all the operations of
+memref the allocation, copy and store into one krnl Op, krnlSeqStoreOp, which will be
+lowered AFTER the deallocation pass.
+
+Since the type of sequence element is a super type for all possible element, memref.cast may be
+needed before the store. Here is a code example for KrnlSeqStoreOp:
+```
+// %seq : memref<?xmemref<?x2xf32>>
+// %element : memref<3x2xf32>
+// %pos : Index
+      %33 = memref.alloc(%32) {alignment = 16 : i64} : memref<3x2xf32>
+      memref.copy %element, %33 : memref<3x2xf32> to memref<3x2xf32>
+      %34 = memref.cast %33 : memref<3x2xf32> to memref<?x2xf32>
+      memref.store %34, %seq[%pos] : memref<?xmemref<?x2xf32>>
+```
+
+### Allocate a sequence
+Though the basic operation of sequence allocation is just memref.alloc, we introduced
+KrnlSeqAllocOp so that we can define a customized deallocation function for sequence.
+We use interface in MLIR Bufferization to specify that KrnlSeqAllocOp has allocation 
+traits and a customized free function, which will perform a deep deallocation for the
+elements as well as the sequence itself. Currently, the KrnlSeqDeallocOp is used for the
+deallocation and it will be lowered to scf and memref after deallocation pass.
+
+### Load an element from a sequence
+A memref.load could be used to load an element from a sequence. But the loaded tensor may
+have a life span longer than the sequence itself, and will have dangling data pointer if
+the sequence is freed.
+
+To overcome this issue, KrnlSeqExtractOp is introduced. This Op will use memref.load to
+load the element, then use allocate a new memref and copy the data, and finally return
+the copied memref. 
+This Op is marked with allocation interface and the deallocation pass will insert 
+deallocation for the returned memref automatically. 
+
+### Construct a new sequence from an old sequence
+The sequence ops, SequenceInsert and SequenceErase, involve construct a new sequence
+with the elements from an old sequence. It is fine to use KrnlSeqExtractOp to get an
+element from the old sequence and use KrnlSeqStoreOp to store it into the new sequence.
+But there are two copy operations for the element. Since it is known that the loaded
+element is only used here while the old sequence is still live, a regular memref.load 
+can be used to avoid one copy. This is a simple optimization for sequence lowering.
+
+### Correctness
+There is no chance of dangling pointer for pointers used for sequence implementation. 
+Memref is copied both when its pointer is saved into the sequence and when its pointer is
+read out from the sequence. That means the pointer saved in the sequence is kind of 
+"unique_pointer". These pointers will be freed only by the deallocation of the sequence.
+
+There is no memory leak, either. The elements are freed by normal memref.dealloc and the
+sequence is freed by deep deallocation for the sequence.
+
 ### Optimization
-If the tensor is always copied and then inserted into a sequence, the program 
-will be correct but costly. There are two cases that an element is inserted
-into a sequence:
-- case#1: The element is a result of some operation.
-- case#2: The element copied from another sequence when a new sequence is constructed in an ONNX sequence operation, such as SequenceInsert, or SequenceErase.
-In case#2, it seems that the descriptor from another sequence can be directly
-stored into the newly created sequence without copying the content. This is true
-for most of applications. But we may have problem in deallocation: the elements
-may be deallocated multple times. Pointers are stored in sequences. We either
-guarantee that every pointer is a unique pointer or we need to use smart pointer
-to maintain the reference count for deallocation.
+Since the tensor/memref for element is read only, there is no need to copy it in logic.
+the copy is added due to two reasons:
+-1. No interface to communicate with existing deallocation pass.
+-2. For pointers possibly in multiple sequence.
 
-If a program read out
-all the elements in the sequence before deallocating the sequence, we can
-use KrnlSeqExtract with toCopy=0. This op is marked with `allocate` interface,
-and the deallocation pass will create dealloc operation for the extracted memref. This is  the current solution and will be obsolete.
+If some analysis can guarantee the element is only in one live sequence (which is usually
+the case in program), we can rewrite the ONNX sequence Ops in a different way:
+- No deep deallocation for some sequence
+- No copy when an element is moved from a sequence to another sequence
 
+Another direction of optimization is to use std::shared_ptr for memref or ohe-shot 
+interface to optimize.
 
-## Questions
-- Impact of SSA like requirement by deallocation pass on optimization. The deallocation pass requires that `all buffer writes needs to dominate all buffer reads`. Will loop fusion across ONNX Ops break this requirement?
-- Just wrap the allocate op?
+## ToFix
+- Shape inference with control flow. The result for test case with LoopOp(test_loop13_seq.onnx) is not correct.
+- Refine the output of SequenceEmpty. The ONNX op to create an empty sequence,
+  SequenceEmpty, is specified to generate a sequence of unranked tensor, which is not 
+  supported in onnx-mlir.
+- Handle program argument or return with SeqType.
+
+## Side question
+- Impact of SSA like requirement by deallocation pass on optimization. The deallocation pass requires that `all buffer writes need to dominate all buffer reads`. Will loop fusion across ONNX Ops break this requirement?
 
 
