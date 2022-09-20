@@ -23,31 +23,9 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
-// Definition for rewrite rules for onnx dialect
-// Can be used in other table gen files (.td) for onnx dialect
-
-def StringType : Type<CPred<"$_self.isa<ONNXStringType>()">, "string type">;
-
-def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
-
-class SeqOf<list<Type> allowedTypes> : 
-  ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
-                "$_self.cast<SeqType>().getElementType()", "SeqType">;
-
-def IsOptTypePred : CPred<"$_self.isa<OptType>()">;
-
-class OptOf<Type type> :
-  ContainerType<type, IsOptTypePred,
-                "$_self.cast<OptType>().getElementType()", "OptType">;
-
-def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
-
-def createNoneIntegerConstant : NativeCodeCall<
-  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
-def createNoneFloatConstant : NativeCodeCall<
-  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+//===----------------------------------------------------------------------===//
+// Definition of the dialect.
+//===----------------------------------------------------------------------===//
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -56,39 +34,9 @@ def ONNX_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
 }
 
-// Base class for ONNX dialect operations. This operation inherits from the base
-// `Op` class in OpBase.td, and provides:
-//   * The parent dialect of the operation.
-//   * The mnemonic for the operation, or the name without the dialect prefix.
-//   * A list of traits for the operation.
-class ONNX_Op<string mnemonic, list<Trait> traits = []> :
-  Op<ONNX_Dialect, mnemonic, traits> ;
-
 //===----------------------------------------------------------------------===//
-// ONNX Operations
+// Definition of types
 //===----------------------------------------------------------------------===//
-
-//the tablegen code onnxop.in is generated with gen_doc.py
-//clone and install onnx
-//   git clone --recursive https://github.com/onnx/onnx.git
-// set up env for anaconda3 and for ONNX-MLIR (BOOSTROOT, cmake, gcc ...)
-//   cd onnx
-//install onnx
-//  CC=gcc CXX=g++ pip install -e .
-//run the script
-//  python onnx/defs/gen_doc.py
-//result is in docs/onnx_ops.td.inc
-//current limitations:
-// 1. Attributes are not processed
-// 2. output type inference not implemented except Add
-// 3. Type Attribute: 'optional' and 'Variadic hetergeneous' are ignored
-// 4. type of string, complex64 and complex128 for input/output are ignored 
-// 5. unsigned int are treated as signed one
-
-include "mlir/Interfaces/SideEffectInterfaces.td"
-include "src/Dialect/ONNX/ONNXOps.td.inc"
-include "src/Dialect/ONNX/AdditionalONNXOps.td"
-
 
 class ONNX_Type<string name, string typeMnemonic,
                 string baseCppClass = "::mlir::Type">
@@ -135,4 +83,67 @@ def ONNX_OptType : ONNX_Type<"Opt", "Opt"> {
     }]>
   ];
 }
+
+//===----------------------------------------------------------------------===//
+// Definition for rewrite rules for onnx dialect
+// Can be used in other table gen files (.td) for onnx dialect
+//===----------------------------------------------------------------------===//
+
+def StringType : Type<CPred<"$_self.isa<ONNXStringType>()">, "string type">;
+
+def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
+
+class SeqOf<list<Type> allowedTypes> : 
+  ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
+                "$_self.cast<SeqType>().getElementType()", "SeqType">;
+
+def IsOptTypePred : CPred<"$_self.isa<OptType>()">;
+
+class OptOf<Type type> :
+  ContainerType<type, IsOptTypePred,
+                "$_self.cast<OptType>().getElementType()", "OptType">;
+
+def ONNXConstantOpFromDenseAttr: NativeCodeCall<
+  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
+
+def createNoneIntegerConstant : NativeCodeCall<
+  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
+def createNoneFloatConstant : NativeCodeCall<
+  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
+
+//===----------------------------------------------------------------------===//
+// ONNX Operations
+//===----------------------------------------------------------------------===//
+
+// Base class for ONNX dialect operations. This operation inherits from the base
+// `Op` class in OpBase.td, and provides:
+//   * The parent dialect of the operation.
+//   * The mnemonic for the operation, or the name without the dialect prefix.
+//   * A list of traits for the operation.
+class ONNX_Op<string mnemonic, list<Trait> traits = []> :
+  Op<ONNX_Dialect, mnemonic, traits> ;
+
+// The tablegen code onnxop.in is generated with gen_doc.py
+// clone and install onnx
+//    git clone --recursive https://github.com/onnx/onnx.git
+//  set up env for anaconda3 and for ONNX-MLIR (BOOSTROOT, cmake, gcc ...)
+//    cd onnx
+// install onnx
+//   CC=gcc CXX=g++ pip install -e .
+// run the script
+//   python onnx/defs/gen_doc.py
+// result is in docs/onnx_ops.td.inc
+// current limitations:
+//  1. Attributes are not processed
+//  2. output type inference not implemented except Add
+//  3. Type Attribute: 'optional' and 'Variadic hetergeneous' are ignored
+//  4. type of string, complex64 and complex128 for input/output are ignored 
+//  5. unsigned int are treated as signed one
+
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Dialect/ONNX/ONNXOps.td.inc"
+include "src/Dialect/ONNX/AdditionalONNXOps.td"
+
 #endif // ONNX_OPS

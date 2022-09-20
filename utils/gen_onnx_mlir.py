@@ -937,9 +937,9 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
     # OpsWithShapeInference:
-    # Now the ShapeInference traits are added to all operation
-    # Dummy implementations are added to ONNXOps.cpp
-    # Error will be report if these operations are encountered at runtime
+    # Now the ShapeInference traits are added to all operation.
+    # Dummy implementations are added to ONNXOps.cpp.
+    # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
@@ -962,11 +962,13 @@ def gen_op_def(schema, with_version = False):
         for line in lines:
             escaped_line = line.replace('"', '\\"')\
                                .replace('}]', '\\}\\]')
+            # Description does not really need to have "" for each line.
             s += indent + '"{}"\n'.format(escaped_line)
+            s += indent + '{}\n'.format(escaped_line)
     s += indent + '}];\n'
 
-    # handle the type constraint for input and output
-    # parse type constraint into onnx-mlir type string list
+    # Handle the type constraint for input and output.
+    # Parse type constraint into onnx-mlir type string list.
     type_str_dict =  parse_type_constraints(schema)
 
     # Generate ins (consisting of operands and attributes).
@@ -991,8 +993,9 @@ def gen_op_def(schema, with_version = False):
 
     # custom_builder_broadcast_ops_list
 
-    # add custom builders
-    # use element type of the first operand to construct an UnrankedTensorType for the output.
+    # Add custom builders.
+    # Use element type of the first operand to construct an UnrankedTensorType
+    # for the output.
     if opName in custom_builder_ops_list:
         if len(ins) == 0:
             raise RuntimeWarning(
