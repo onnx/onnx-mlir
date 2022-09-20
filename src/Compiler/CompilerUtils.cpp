@@ -26,6 +26,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
+#include <string>
 
 #include "ExternalUtil.hpp"
 
@@ -302,20 +303,20 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
 
 // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
-  SmallVector<StringRef, 4> exportedFuncs;
+  SmallVector<std::string, 4> exportedFuncs;
   // Signature functions.
-  exportedFuncs.emplace_back(StringRef("omInputSignature" + moduleSuffix));
-  exportedFuncs.emplace_back(StringRef("omOutputSignature" + moduleSuffix));
-  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + moduleSuffix));
+  exportedFuncs.emplace_back("omInputSignature" + moduleSuffix);
+  exportedFuncs.emplace_back("omOutputSignature" + moduleSuffix);
+  exportedFuncs.emplace_back("omQueryEntryPoints" + moduleSuffix);
   // Entry point funtions.
   if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
-          StringRef("_entry_point_arrays" + moduleSuffix))) {
+          "_entry_point_arrays" + moduleSuffix)) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i) + moduleSuffix));
+            "_entry_point_" + std::to_string(i) + moduleSuffix);
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
