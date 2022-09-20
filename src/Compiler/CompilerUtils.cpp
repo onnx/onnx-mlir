@@ -309,8 +309,8 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   exportedFuncs.emplace_back("omOutputSignature" + moduleSuffix);
   exportedFuncs.emplace_back("omQueryEntryPoints" + moduleSuffix);
   // Entry point funtions.
-  if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
-          "_entry_point_arrays" + moduleSuffix)) {
+  if (llvm::GlobalVariable *GV =
+          llvmModule.getNamedGlobal("_entry_point_arrays" + moduleSuffix)) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
