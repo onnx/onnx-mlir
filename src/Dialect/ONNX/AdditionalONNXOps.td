@@ -13,8 +13,9 @@
 //
 // * First are ops that are used to assist the processing of ONNX dialect.
 //   Example are CallOp, ReturnOp,...
+//
 // * Second are ops that are used to handle optional arguments/special cases
-//   of original ONNX ops.
+//   of original ONNX ops. These ops may possibly be removed in the future.
 //   Example are ONNXBatchNormalizationInferenceModeOp, ...
 //
 //===----------------------------------------------------------------------===//
