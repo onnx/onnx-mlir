@@ -91,11 +91,13 @@ void KrnlBuilder::storeIE(
   b.create<KrnlStoreOp>(loc, val, memref, indexValues);
 }
 
-void KrnlBuilder::seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const {
+void KrnlBuilder::seqstore(
+    mlir::Value element, mlir::Value seq, mlir::Value index) const {
   b.create<KrnlSeqStoreOp>(loc, element, seq, index);
 }
 
-void KrnlBuilder::seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const {
+void KrnlBuilder::seqstore(
+    mlir::Value element, mlir::Value seq, IndexExpr index) const {
   b.create<KrnlSeqStoreOp>(loc, element, seq, index.getValue());
 }
 

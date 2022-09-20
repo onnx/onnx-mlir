@@ -34,7 +34,8 @@ struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
-    Value alloc = rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, ValueRange());
+    Value alloc =
+        rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, ValueRange());
 
     rewriter.replaceOp(op, alloc);
     return success();

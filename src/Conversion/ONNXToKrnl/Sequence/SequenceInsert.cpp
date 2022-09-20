@@ -45,7 +45,8 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     SymbolIndexExpr boundIE(dimSize);
     auto outputBound = boundIE + 1;
 
-    Value alloc = rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBound.getValue());
+    Value alloc = rewriter.create<KrnlSeqAllocOp>(
+        loc, outputMemRefType, outputBound.getValue());
 
     // Handle Optional and negative position
     IndexExpr positionIE;
@@ -75,33 +76,33 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       // compilation problem due to the unranked tensor even though
       // the loop will not be reached at runtime.
     } else {
-    SmallVector<IndexExpr, 1> lbs;
-    lbs.emplace_back(LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 1> ubs;
-    ubs.emplace_back(positionIE);
-    ValueRange firstLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          createKrnl.seqstore(element, alloc, positionIE);
-          //createKrnl.store(element, alloc, indicesLoopInd[0]);
-        });
+      SmallVector<IndexExpr, 1> lbs;
+      lbs.emplace_back(LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 1> ubs;
+      ubs.emplace_back(positionIE);
+      ValueRange firstLoopDef = createKrnl.defineLoops(1);
+      createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
+          [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+            auto element = createKrnl.load(
+                operandAdaptor.input_sequence(), indicesLoopInd[0]);
+            createKrnl.seqstore(element, alloc, positionIE);
+            // createKrnl.store(element, alloc, indicesLoopInd[0]);
+          });
 
-    // Copy the elements after the position
-    SmallVector<IndexExpr, 1> lbs1;
-    lbs1.emplace_back(positionIE + 1);
-    SmallVector<IndexExpr, 1> ubs1;
-    ubs1.emplace_back(boundIE);
-    ValueRange secondLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-          auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto oneIndex = create.math.constantIndex(1);
-          auto outputIndex = create.math.add(indicesLoopInd[0], oneIndex);
-          createKrnl.seqstore(element, alloc, outputIndex);
-        });
+      // Copy the elements after the position
+      SmallVector<IndexExpr, 1> lbs1;
+      lbs1.emplace_back(positionIE + 1);
+      SmallVector<IndexExpr, 1> ubs1;
+      ubs1.emplace_back(boundIE);
+      ValueRange secondLoopDef = createKrnl.defineLoops(1);
+      createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
+          [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+            auto element = createKrnl.load(
+                operandAdaptor.input_sequence(), indicesLoopInd[0]);
+            auto oneIndex = create.math.constantIndex(1);
+            auto outputIndex = create.math.add(indicesLoopInd[0], oneIndex);
+            createKrnl.seqstore(element, alloc, outputIndex);
+          });
     }
 
     // Insert the element at the position

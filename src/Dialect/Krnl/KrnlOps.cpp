@@ -892,8 +892,8 @@ Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
 void KrnlSeqAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for(auto v : length()) {
-  effects.emplace_back(
+  for (auto v : length()) {
+    effects.emplace_back(
         MemoryEffects::Read::get(), v, SideEffects::DefaultResource::get());
   }
   effects.emplace_back(MemoryEffects::Write::get(), output(),
@@ -905,8 +905,8 @@ void KrnlSeqAllocOp::getEffects(
 Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   auto loc = alloc.getLoc();
-  //MultiDialectBuilder<KrnlBuilder> create(builder, loc);
-  return builder.create<KrnlSeqDeallocOp>(loc,alloc).getOperation();
+  // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
+  return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
 Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {

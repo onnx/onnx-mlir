@@ -27,12 +27,13 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
-  // This Op creates a new sequence from the input sequence
-  // with the element at the specified position erased.
+    // This Op creates a new sequence from the input sequence
+    // with the element at the specified position erased.
     Location loc = op->getLoc();
     ONNXSequenceEraseOpAdaptor operandAdaptor(operands);
     ONNXSequenceEraseOp thisOp = dyn_cast<ONNXSequenceEraseOp>(op);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
@@ -51,7 +52,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     auto outputBound = boundIE - 1;
     SmallVector<IndexExpr, 1> ubsIE;
     ubsIE.emplace_back(outputBound);
-    Value alloc = rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBound.getValue());
+    Value alloc = rewriter.create<KrnlSeqAllocOp>(
+        loc, outputMemRefType, outputBound.getValue());
 
     // Fill the output sequence
 
@@ -81,7 +83,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
           createKrnl.seqstore(element, alloc, positionIE);
-          //createKrnl.store(element, alloc, indicesLoopInd[0]);
+          // createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
 
     // Copy the elements after the position
