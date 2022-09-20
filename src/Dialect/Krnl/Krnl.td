@@ -210,7 +210,7 @@ def KrnlSeqDeallocOp : Op<Krnl_Dialect, "seqdealloc", [MemRefsNormalizable]> {
     This op deallocate the elements in the sequence and the sequence itself
     with memref::dealloc. This Op is a deep dealloc for sequence type.
   }];
-  let arguments = (ins AnyMemRef:$seq);
+  let arguments = (ins AnyMemRef:$input_sequence);
 }
 
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
@@ -236,34 +236,6 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
                        Index:$index,
                        DefaultValuedAttr<UI1Attr, "1">:$copy);
 
-  let results = (outs AnyType:$output);
-}
-
-def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
-  let summary = "Insert an element into a seq";
-  let description = [{
-    This op will create a new seq from the input seq by inserting the input
-    element at the desired position. The input element will be copied before 
-    inserted into the new seq, and the type will be casted to the type of seq 
-    element if needed. The elements after the insertion point will be shifted
-    one position in the new sequence without copying.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The sequence is implemented as memref of memref in onnx-mlir.
-    When an element is stored into a sequence, it becomes invisible.
-    The memref for the element will be freed after this Op after its last
-    use of the element.
-    To avoid dangling pointer, the element is copied before it is inserted 
-    into the sequence. 
-    The allocation for the copy will be freed by SequenceErase,
-    or revealed to graph
-    when the element is extracted from the sequence. Consequently, the 
-    deallocation pass can handle the space correctly.
-    For future optimization, the one-shot bufferization interface may be used
-    to transfer the space of the input element to the element in the sequence.
-  }];
-  let arguments = (ins AnyType:$input_element,
-                       AnyMemRef:$input_sequence,
-                       Index:$index);
   let results = (outs AnyType:$output);
 }
 

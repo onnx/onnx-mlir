@@ -58,8 +58,9 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   // final target for this lowering.
   ConversionTarget target(getContext());
 
+  target.addIllegalOp<KrnlSeqAllocOp>();
+  target.addIllegalOp<KrnlSeqDeallocOp>();
   target.addIllegalOp<KrnlSeqExtractOp>();
-  target.addIllegalOp<KrnlSeqInsertOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
@@ -74,7 +75,6 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   populateLoweringKrnlSeqAllocOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqDeallocOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqExtractOpPattern(typeConverter, patterns, ctx);
-  populateLoweringKrnlSeqInsertOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqStoreOpPattern(typeConverter, patterns, ctx);
 
   if (failed(applyPartialConversion(
