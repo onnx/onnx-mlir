@@ -209,19 +209,10 @@ public:
     int64_t end = shapeHelper.end;
 
     SmallVector<Value, 4> dimValues;
-    if (start <= end) {
-      for (unsigned i = start; i < end; ++i) {
-        Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
-                                       : create.onnx.dim(data, i);
-        dimValues.emplace_back(dimVal);
-      }
-    } else {
-      // Counting back from the last axis.
-      for (unsigned i = start; i > end; --i) {
-        Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
-                                       : create.onnx.dim(data, i);
-        dimValues.emplace_back(dimVal);
-      }
+    for (unsigned i = start; i < end; ++i) {
+      Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
+                                     : create.onnx.dim(data, i);
+      dimValues.emplace_back(dimVal);
     }
     Value replacedValue = emitConcatOpForDims(create, dimValues);
 

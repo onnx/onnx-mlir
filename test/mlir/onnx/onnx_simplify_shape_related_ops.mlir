@@ -31,13 +31,13 @@ func.func @test_shape_to_dim_positive_axis(%arg0: tensor<?x256x?xi64>) -> (tenso
 // -----
 
 func.func @test_shape_to_dim_negative_axis(%arg0: tensor<?x256x?xi64>) -> (tensor<2xi64>) {
-  %0 = "onnx.Shape"(%arg0) {start = -1 : si64, end = 0 : si64} : (tensor<?x256x?xi64>) -> tensor<2xi64>
+  %0 = "onnx.Shape"(%arg0) {start = -2 : si64, end = 3 : si64} : (tensor<?x256x?xi64>) -> tensor<2xi64>
   return %0 : tensor<2xi64>
 
 // CHECK-LABEL:  func.func @test_shape_to_dim_negative_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256x?xi64>) -> tensor<2xi64> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 2 : si64} : (tensor<?x256x?xi64>) -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 2 : si64} : (tensor<?x256x?xi64>) -> tensor<1xi64>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           return [[VAR_2_]] : tensor<2xi64>
 // CHECK:         }
