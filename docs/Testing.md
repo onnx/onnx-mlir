@@ -157,7 +157,7 @@ To avoid library path issues on Mac, run the compiled tool in the directory wher
 # Compile tool with model.
 cd onnx-mlir/build
 sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
-# Run the tool to run the model.
+# Run the tool to run the model (substitute `Release` for `Debug` for the release version).
 Debug/bin/run-onnx-lib
 # or, on Mac, run the tool in the directory where the model was built
 (cd test/backend; ../../Debug/bin/run-onnx-lib)
