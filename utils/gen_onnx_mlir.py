@@ -621,7 +621,7 @@ def get_allowed_elem_types(schema, input):
                 if t == None :
                     return allowed_structure, None
                 if  not t in allowed_type_list :
-                    allowed_type_list = allowed_type_list.append(t)
+                    allowed_type_list.append(t)
 
             return allowed_structure,allowed_type_list
 
