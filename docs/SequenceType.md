@@ -1,6 +1,6 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-#Handle ONNX Sequence Type
+# Handle ONNX Sequence Type
 
 ## ONNX Sequence Type
 ONNX sequence type is a type for aggregation of values. It can be sequence of 
@@ -115,24 +115,142 @@ elements as well as the sequence itself. Currently, the KrnlSeqDeallocOp is used
 deallocation and it will be lowered to scf and memref after deallocation pass.
 
 ### Load an element from a sequence
-A memref.load could be used to load an element from a sequence. But the loaded tensor may
-have a life span longer than the sequence itself, and will have dangling data pointer if
-the sequence is freed.
+A memref.load could be used to load an element from a sequence. But the loaded memref may
+have a life span longer than the sequence itself, and will have dangling data pointer after
+the sequence has been freed.
 
 To overcome this issue, KrnlSeqExtractOp is introduced. This Op will use memref.load to
 load the element, then use allocate a new memref and copy the data, and finally return
-the copied memref. 
-This Op is marked with allocation interface and the deallocation pass will insert 
-deallocation for the returned memref automatically. 
+the copied memref.  This Op is marked with allocation interface and the deallocation pass will insert deallocation for the returned memref automatically. 
 
 ### Construct a new sequence from an old sequence
-The sequence ops, SequenceInsert and SequenceErase, involve construct a new sequence
+The sequence ops, SequenceInsert and SequenceErase, construct a new sequence
 with the elements from an old sequence. It is fine to use KrnlSeqExtractOp to get an
 element from the old sequence and use KrnlSeqStoreOp to store it into the new sequence.
 But there are two copy operations for the element. Since it is known that the loaded
 element is only used here while the old sequence is still live, a regular memref.load 
 can be used to avoid one copy. This is a simple optimization for sequence lowering.
 
+## Example
+
+Original .mlir code:
+```
+func.func @test_sequence_insert(%arg0: !onnx.Seq<tensor<?x4x5xf32>>, %arg1:tensor<3x4x5xf32>) -> tensor<3xi64>  {
+  %0 = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<i64>
+  %1 = "onnx.Add"(%arg1, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %6 = "onnx.SequenceInsert"(%arg0, %arg1, %2) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<3x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
+  %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
+  %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
+  return %5 : tensor<3xi64>
+}
+'''
+
+After --convert-onnx-to-krnl
+
+```
+  func.func @test_sequence_insert(%arg0: memref<?xmemref<?x4x5xf32>>, %arg1: memref<3x4x5xf32>) -> memref<3xi64> {
+
+    // onnx.Add
+    %1 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+    %2:3 = krnl.define_loops 3
+    krnl.iterate(%2#0, %2#1, %2#2) with (%2#0 -> %arg2 = 0 to 3, %2#1 -> %arg3 = 0 to 4, %2#2 -> %arg4 = 0 to 5){
+      %22:3 = krnl.get_induction_var_value(%2#0, %2#1, %2#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+      ...
+      %23 = krnl.load %arg1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+      %24 = krnl.load %arg1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+      %25 = arith.addf %23, %24 : f32
+      krnl.store %25, %1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+    }
+
+    // Sequence Insert
+    %6 = "krnl.seqalloc"(%5) : (index) -> memref<?xmemref<?x4x5xf32>>
+    %c0_8 = arith.constant 0 : index
+    %7 = krnl.define_loops 1
+    krnl.iterate(%7) with (%7 -> %arg2 = 0 to %4){
+      %22 = krnl.get_induction_var_value(%7) : (!krnl.loop) -> index
+      %23 = krnl.load %arg0[%22] : memref<?xmemref<?x4x5xf32>>
+      "krnl.seqstore"(%23, %6, %4) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+    }
+    %c1_9 = arith.constant 1 : index
+    %8 = affine.apply #map0()[%4]
+    %9 = krnl.define_loops 1
+    krnl.iterate(%9) with (%9 -> %arg2 = #map0()[%4] to %4){
+      %22 = krnl.get_induction_var_value(%9) : (!krnl.loop) -> index
+      %23 = krnl.load %arg0[%22] : memref<?xmemref<?x4x5xf32>>
+      %c1_18 = arith.constant 1 : index
+      %24 = arith.addi %22, %c1_18 : index
+      "krnl.seqstore"(%23, %6, %24) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+    }
+    "krnl.seqstore"(%1, %6, %4) : (memref<3x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+
+    // SequenceAt
+    ...
+    %16 = "krnl.seqextract"(%6, %15) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
+
+    // onnx.Shape
+    %17 = memref.alloc() {alignment = 16 : i64} : memref<3xi64>
+    ...
+    krnl.store %19, %17[%c0_16] : memref<3xi64>
+    krnl.store %20, %17[%c1_17] : memref<3xi64>
+    krnl.store %21, %17[%c2] : memref<3xi64>
+
+    return %17 : memref<3xi64>
+  }
+```
+After --buffer-deallocation
+```
+  func.func @test_sequence_insert(%arg0: memref<?xmemref<?x4x5xf32>>, %arg1: memref<3x4x5xf32>) -> memref<3xi64> {
+
+    // onnx.Add
+    %1 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+    %2:3 = krnl.define_loops 3
+    krnl.iterate(%2#0, %2#1, %2#2) with (%2#0 -> %arg2 = 0 to 3, %2#1 -> %arg3 = 0 to 4, %2#2 -> %arg4 = 0 to 5){
+      %22:3 = krnl.get_induction_var_value(%2#0, %2#1, %2#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+      ...
+      %23 = krnl.load %arg1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+      %24 = krnl.load %arg1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+      %25 = arith.addf %23, %24 : f32
+      krnl.store %25, %1[%22#0, %22#1, %22#2] : memref<3x4x5xf32>
+    }
+
+    // Sequence Insert
+    %6 = "krnl.seqalloc"(%5) : (index) -> memref<?xmemref<?x4x5xf32>>
+    %c0_8 = arith.constant 0 : index
+    %7 = krnl.define_loops 1
+    krnl.iterate(%7) with (%7 -> %arg2 = 0 to %4){
+      %22 = krnl.get_induction_var_value(%7) : (!krnl.loop) -> index
+      %23 = krnl.load %arg0[%22] : memref<?xmemref<?x4x5xf32>>
+      "krnl.seqstore"(%23, %6, %4) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+    }
+    %c1_9 = arith.constant 1 : index
+    %8 = affine.apply #map0()[%4]
+    %9 = krnl.define_loops 1
+    krnl.iterate(%9) with (%9 -> %arg2 = #map0()[%4] to %4){
+      %22 = krnl.get_induction_var_value(%9) : (!krnl.loop) -> index
+      %23 = krnl.load %arg0[%22] : memref<?xmemref<?x4x5xf32>>
+      %c1_18 = arith.constant 1 : index
+      %24 = arith.addi %22, %c1_18 : index
+      "krnl.seqstore"(%23, %6, %24) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+    }
+    "krnl.seqstore"(%1, %6, %4) : (memref<3x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+
+    // Dealloc
+    memref.dealloc %1 : memref<3x4x5xf32>
+
+    // SequenceAt
+    ...
+    %16 = "krnl.seqextract"(%6, %15) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
+    "krnl.seqdealloc"(%6) : (memref<?xmemref<?x4x5xf32>>) -> ()
+
+    // onnx.Shape
+      ...
+    memref.dealloc %16 : memref<?x4x5xf32>
+}
+```
+
+
+## Discussion
 ### Correctness
 There is no chance of dangling pointer for pointers used for sequence implementation. 
 Memref is copied both when its pointer is saved into the sequence and when its pointer is
@@ -150,8 +268,10 @@ the copy is added due to two reasons:
 
 If some analysis can guarantee the element is only in one live sequence (which is usually
 the case in program), we can rewrite the ONNX sequence Ops in a different way:
-- No deep deallocation for some sequence
-- No copy when an element is moved from a sequence to another sequence
+- No deep deallocation for some sequences
+- No copy at all when an element is moved from a sequence to another sequence
+Regular memref ops, instead of KrnlSeqAllocOp or KrnlSeqStoreOp, will be used to rewrite
+ONNX Sequence Ops.
 
 Another direction of optimization is to use std::shared_ptr for memref or ohe-shot 
 interface to optimize.
