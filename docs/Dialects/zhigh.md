@@ -616,6 +616,7 @@ Effects: MemoryEffects::Effect{}
 ZHigh Stick operation
 
 "ZHigh operation to perform a Stick."
+"If layout=NHWC, input must be in NCHW and output will be in NHWC."
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 

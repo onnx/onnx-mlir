@@ -91,6 +91,7 @@ include "src/Dialect/ONNX/AdditionalONNXOps.td"
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let summary = "Indicate ONNX entry point";
   let description = [{
+    This operation is defined by onnx-mlir and not in the ONNX specification.
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
@@ -109,6 +110,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
                                 ReturnLike, Terminator]> {
   let summary = "ONNX return operation";
   let description = [{
+    This operation is defined by onnx-mlir and not in the ONNX specification.
     The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
     The operation takes variable number of operands and produces no results.
 
@@ -140,6 +142,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
+    "This operation is defined by onnx-mlir and not in the ONNX specification."
     "ONNX MaxPool operation with a single output."
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
@@ -167,6 +170,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let description = [{
+    "This operation is defined by onnx-mlir and not in the ONNX specification."
     "Carries out batch normalization as described in the paper"
     "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
     "there are multiple cases for the number of outputs, which we list below:"
@@ -200,6 +204,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
 def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
   let summary = "An operation representing the absence of a value.";
   let description = [{
+    This operation is defined by onnx-mlir and not in the ONNX specification.
     This operation can be used to represent the absence of a value. It is typically 
     used as an argument to operators that have optional parameters.
     Example:
@@ -220,7 +225,8 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
 def ONNXDimOp : ONNX_Op<"Dim", [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX dimensions operation.";
   let description = [{
-    Obtain the dimension of a Tensor;
+    This operation is defined by onnx-mlir and not in the ONNX specification.
+    This operation is to obtain the dimension of a Tensor;
 
     ```
     "onnx.Dim"(%tensor) {axis = 0 : si64} : (tensor<?x3x5xf32>) -> tensor<1xi64>

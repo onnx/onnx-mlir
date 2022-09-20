@@ -544,6 +544,7 @@ Effects: MemoryEffects::Effect{}
 
 ONNX BatchNormalization operation in test mode
 
+"This operation is defined by onnx-mlir and not in the ONNX specification."
 "Carries out batch normalization as described in the paper"
 "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
 "there are multiple cases for the number of outputs, which we list below:"
@@ -617,6 +618,8 @@ ONNX BatchNormalization operation
 ""
 "```"
 ""
+"The computation of ReduceMean and ReduceVar uses float to avoid overflow for float16 inputs."
+""
 "When training_mode=False:"
 "```"
 "Y = (X - input_mean) / sqrt(input_var + epsilon) * scale + B"
@@ -655,6 +658,40 @@ Effects: MemoryEffects::Effect{}
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 | `running_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type
 | `running_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type
+
+### `onnx.Bernoulli` (::mlir::ONNXBernoulliOp)
+
+ONNX Bernoulli operation
+
+"Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor"
+"containing probabilities p (a value in the range [0,1]) to be used for drawing the binary random number,"
+"where an output of 1 is produced with probability p and an output of 0 is produced with probability (1-p)."
+""
+"This operator is non-deterministic and may not produce the same values in different"
+"implementations (even if a seed is specified)."
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `seed` | ::mlir::FloatAttr | 32-bit float attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 1-bit signless integer values
 
 ### `onnx.Binarizer` (::mlir::ONNXBinarizerOp)
 
@@ -767,6 +804,31 @@ Interfaces: CallOpInterface, SymbolUserOpInterface
 | Result | Description |
 | :----: | ----------- |
 &laquo;unnamed&raquo; | tensor of any type values
+
+### `onnx.CastLike` (::mlir::ONNXCastLikeOp)
+
+ONNX CastLike operation
+
+"The operator casts the elements of a given input tensor (the first input) to"
+"the same data type as the elements of the second input tensor."
+"See documentation of the Cast operator for further details."
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
 
 ### `onnx.CastMap` (::mlir::ONNXCastMapOp)
 
@@ -1603,6 +1665,41 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values
 
+### `onnx.Dim` (::mlir::ONNXDimOp)
+
+ONNX dimensions operation.
+
+This operation is defined by onnx-mlir and not in the ONNX specification.
+This operation is to obtain the dimension of a Tensor;
+
+```
+"onnx.Dim"(%tensor) {axis = 0 : si64} : (tensor<?x3x5xf32>) -> tensor<1xi64>
+```
+
+The axis identifies the dimension within the shape which is going to be obtained.
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `dim` | tensor of 64-bit signless integer values
+
 ### `onnx.Div` (::mlir::ONNXDivOp)
 
 ONNX Div operation
@@ -1802,6 +1899,7 @@ Effects: MemoryEffects::Effect{}
 
 Indicate ONNX entry point
 
+This operation is defined by onnx-mlir and not in the ONNX specification.
 The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 
 #### Attributes:
@@ -3798,6 +3896,7 @@ Effects: MemoryEffects::Effect{}
 
 ONNX MaxPool operation with a single output.
 
+"This operation is defined by onnx-mlir and not in the ONNX specification."
 "ONNX MaxPool operation with a single output."
 "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
 
@@ -4385,6 +4484,7 @@ Effects: MemoryEffects::Effect{}
 
 An operation representing the absence of a value.
 
+This operation is defined by onnx-mlir and not in the ONNX specification.
 This operation can be used to represent the absence of a value. It is typically 
 used as an argument to operators that have optional parameters.
 Example:
@@ -4977,7 +5077,7 @@ ONNX Op to print type signature of its input operands
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of any type values
+| `input` | tensor of any type values or none type
 
 ### `onnx.QLinearConv` (::mlir::ONNXQLinearConvOp)
 
@@ -5962,6 +6062,7 @@ Syntax:
 operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
 ```
 
+This operation is defined by onnx-mlir and not in the ONNX specification.
 The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
 The operation takes variable number of operands and produces no results.
 
@@ -6821,10 +6922,45 @@ Effects: MemoryEffects::Effect{}
 ONNX Shape operation
 
 "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
+"Optional attributes start and end can be used to compute a slice of the input tensor's shape."
+"If start axis is omitted, the slice starts from axis 0."
+"The end axis, if specified, is exclusive (and the returned value will not include the size of that axis)."
+"If the end axis is omitted, the axes upto the last one will be included."
+"Negative axes indicate counting back from the last axis."
+"Note that axes will be clipped to the range [0, r-1], where r is the"
+"rank of the input tensor if they are out-of-range (after adding r in the case of"
+"negative axis). Thus, specifying any end value > r is equivalent to specifying an end"
+"value of r, and specifying any start value < -r is equivalent to specifying a start"
+"value of 0."
+""
+"For example:"
+"Input tensor with shape: [2, 3, 4] "
+"No attributes specified."
+"Output: [2, 3, 4] "
+""
+"Input tensor with shape: [2, 3, 4] "
+"start: -1"
+"Output: [4] "
+""
+"Input tensor with shape: [2, 3, 4] "
+"end: -1"
+"Output: [2, 3]"
+""
+"Input tensor with shape: [2, 3, 4] "
+"start: 1"
+"end: 2"
+"Output: [3] "
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `end` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `start` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
