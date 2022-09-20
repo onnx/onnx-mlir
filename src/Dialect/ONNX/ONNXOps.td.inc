@@ -5609,6 +5609,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
       return {4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
