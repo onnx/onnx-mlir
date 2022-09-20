@@ -152,6 +152,31 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 }
 
 //===----------------------------------------------------------------------===//
+// LayoutTransform.
+def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "An operation that transforms data between different layout formats";
+  let description = [{
+    An operation that transforms data between different ONNX layout format.
+    Currently, it supports transformation from standard format to a NCHWxC/KCNMxCyK
+    layout, or back. At this time, only F32 is supported.
+
+    Opertions that transforms data from the same ONNX layout format are considered
+    as a no operation and will be removed.
+
+    This operation is not part of the standard and was added to assit onnx-mlir.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
+      ONNXTensor_KCMN4C4K]>:$In);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
+      ONNXTensor_KCMN4C4K]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
+  ];
+  let hasCanonicalizer = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // NoValueOp.
 def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
   let summary = "An operation representing the absence of a value.";
