@@ -21,6 +21,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -100,6 +101,36 @@ bool areProducedByTransposeOp(ValueRange values) {
       return false;
     return isa<ONNXTransposeOp>(v.getDefiningOp());
   });
+}
+
+// Create a DenseElementsAttr based on the shape of type.
+DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
+    Value value, int64_t start = 0, llvm::Optional<int64_t> end = llvm::None) {
+
+  auto inType = value.getType().cast<ShapedType>();
+  assert(inType.hasRank() && "inType must be ranked");
+  auto shape = inType.getShape();
+  int64_t rank = inType.getRank();
+
+  int64_t endValue = end.has_value() ? end.value() : rank;
+
+  SmallVector<int64_t, 1> dims = {endValue - start};
+  SmallVector<int64_t, 4> values(
+      shape.begin() + start, shape.begin() + endValue);
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr from Shape Op
+DenseElementsAttr createDenseElementsAttrFromShapeOp(
+    PatternRewriter &rewriter, Operation *op) {
+  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
+
+  int64_t start, end;
+  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+
+  return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 
 } // namespace onnx_mlir

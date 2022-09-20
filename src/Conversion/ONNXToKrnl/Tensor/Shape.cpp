@@ -28,7 +28,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
-    ONNXShapeOpAdaptor operandAdaptor(operands);
+    ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
     ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,

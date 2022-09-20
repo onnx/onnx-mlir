@@ -178,6 +178,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 
   // Frontend operation lowering.
   // ControlFlow
+  populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
