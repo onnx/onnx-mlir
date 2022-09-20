@@ -172,10 +172,6 @@ mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
 
-// Create a DenseElementsAttr based on the shape of type.
-mlir::DenseElementsAttr createDenseElementsAttrFromShape(
-    mlir::PatternRewriter &rewriter, mlir::Value value);
-
 // Create a DenseElementsAttr based on the size of type.
 mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
