@@ -2342,6 +2342,96 @@ func.func @test_prelu_broadcast2(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1x5xf32
 
 // -----
 
+// COM: Check simple if lowering.
+func.func @test_if_simple(%arg0: tensor<i1>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<i64> {
+  %0 = "onnx.If"(%arg0) ({
+    onnx.Return %arg1 : tensor<i64>
+  }, {
+    onnx.Return %arg2 : tensor<i64>
+  }) : (tensor<i1>) -> tensor<i64>
+  return %0 : tensor<i64>
+// CHECK-LABEL:  @test_if_simple
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i1>, [[PARAM_1_:%.+]]: memref<i64>, [[PARAM_2_:%.+]]: memref<i64>) -> memref<i64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_2_]] : memref<i64> to tensor<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i64> to tensor<i64>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<i1>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = scf.if [[LOAD_PARAM_0_MEM_]] -> (memref<i64>) {
+// CHECK-DAG:         [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[VAR_1_]] : tensor<i64> to memref<i64>
+// CHECK:             scf.yield [[VAR_4_]] : memref<i64>
+// CHECK:           } else {
+// CHECK:             [[VAR_4_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_0_]] : tensor<i64> to memref<i64>
+// CHECK:             scf.yield [[VAR_4_1_]] : memref<i64>
+// CHECK:           }
+// CHECK:           return [[VAR_3_]] : memref<i64>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Check nested if lowering (function computes scalar Sign).
+func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
+  %0 = "onnx.Constant"() {value = dense<0.0> : tensor<1xf32>} : () -> tensor<f32>
+  %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
+  %2 = "onnx.If"(%1) ({
+    %3 = "onnx.Constant"() {value = dense<-1> : tensor<1xi32>} : () -> tensor<i32>
+    onnx.Return %3 : tensor<i32>
+  }, {
+    %4 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
+    %5 = "onnx.If"(%4) ({
+      %6 = "onnx.Constant"() {value = dense<1> : tensor<1xi32>} : () -> tensor<i32>
+      onnx.Return %6 : tensor<i32>
+    }, {
+      %7 = "onnx.Constant"() {value = dense<0> : tensor<1xi32>} : () -> tensor<i32>
+      onnx.Return %7 : tensor<i32>
+    }) : (tensor<i1>) -> tensor<i32>
+    onnx.Return %5 : tensor<i32>
+  }) : (tensor<i1>) -> tensor<i32>
+  return %2 : tensor<i32>
+// CHECK-LABEL:  @test_if_sign
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>) -> memref<i32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_18", shape = [], value = dense<0.000000e+00> : tensor<1xf32>} : () -> memref<f32>
+// CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK:           [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<f32>
+// CHECK:           [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_PARAM_0_MEM_]], [[LOAD_VAR_0_MEM_]] : f32
+// CHECK:           krnl.store [[VAR_4_]], [[RES_]][] : memref<i1>
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<i1>
+// CHECK-DAG:       [[VAR_6_:%.+]] = scf.if [[LOAD_RES_MEM_]] -> (memref<i32>) {
+// CHECK-DAG:         [[VAR_7_:%.+]] = "krnl.global"() {name = "constant_19", shape = [], value = dense<-1> : tensor<1xi32>} : () -> memref<i32>
+// CHECK:             [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_]] : memref<i32> to tensor<i32>
+// CHECK:             [[VAR_9_:%.+]] = builtin.unrealized_conversion_cast [[VAR_8_]] : tensor<i32> to memref<i32>
+// CHECK:             scf.yield [[VAR_9_]] : memref<i32>
+// CHECK:           } else {
+// CHECK-DAG:         [[VAR_c1_0_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK-DAG:         [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<f32>
+// CHECK:             [[VAR_10_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_0_MEM_1_]] : f32
+// CHECK:             krnl.store [[VAR_10_]], [[RES_1_]][] : memref<i1>
+// CHECK:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<i1>
+// CHECK-DAG:         [[VAR_12_:%.+]] = scf.if [[LOAD_RES_1_MEM_]] -> (memref<i32>) {
+// CHECK-DAG:           [[VAR_15_:%.+]] = "krnl.global"() {name = "constant_20", shape = [], value = dense<1> : tensor<1xi32>} : () -> memref<i32>
+// CHECK:               [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_15_]] : memref<i32> to tensor<i32>
+// CHECK:               [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_16_]] : tensor<i32> to memref<i32>
+// CHECK:               scf.yield [[VAR_17_]] : memref<i32>
+// CHECK:             } else {
+// CHECK:               [[VAR_15_1_:%.+]] = "krnl.global"() {name = "constant_21", shape = [], value = dense<0> : tensor<1xi32>} : () -> memref<i32>
+// CHECK:               [[VAR_16_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_15_1_]] : memref<i32> to tensor<i32>
+// CHECK:               [[VAR_17_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_16_1_]] : tensor<i32> to memref<i32>
+// CHECK:               scf.yield [[VAR_17_1_]] : memref<i32>
+// CHECK:             }
+// CHECK:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_12_]] : memref<i32> to tensor<i32>
+// CHECK:             [[VAR_14_:%.+]] = builtin.unrealized_conversion_cast [[VAR_13_]] : tensor<i32> to memref<i32>
+// CHECK:             scf.yield [[VAR_14_]] : memref<i32>
+// CHECK:           }
+// CHECK:           return [[VAR_6_]] : memref<i32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Check simple loop lowering.
 func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> {
   %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
@@ -2941,7 +3031,7 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
   %3 = "onnx.SequenceInsert"(%1, %arg0, %0) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4x5xf32>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
   %6 = "onnx.SequenceInsert"(%3, %arg1, %2) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<3x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
   %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
-  %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
+  %5 = "onnx.Shape"(%4) {start = 0 : si64} : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
 // CHECK-DAG: #map0 = affine_map<()[s0] -> (s0)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 2)>

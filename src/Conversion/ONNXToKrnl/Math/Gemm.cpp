@@ -367,7 +367,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                      << betaLit << (betaLit == 1.0 ? " (skip)" : "") << ", c, "
                      << cDim0 << ", " << cDim1 << "\n";
       } else {
-        llvm::dbgs() << "OP-STATS: gemm of unkown sizes "
+        llvm::dbgs() << "OP-STATS: gemm of unknown sizes "
                      << (aTrans ? ", a trans" : "")
                      << (bTrans ? ", b trans" : "") << ", alpha " << alphaLit
                      << ", beta " << betaLit << "\n";
