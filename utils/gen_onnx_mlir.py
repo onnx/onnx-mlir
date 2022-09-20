@@ -679,7 +679,7 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         if i in operand_custom_types:
             custom_types = operand_custom_types[i]
             types.extend(custom_types)
-            print(">  add custom types:", op_name, i, custom_types)
+            # print(">  add custom types:", op_name, i, custom_types)
 
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
