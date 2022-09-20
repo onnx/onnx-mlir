@@ -37,7 +37,7 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
-// hi alex: mapping to remember what the original tensor was.
+// Mapping to remember what the original tensor was.
 
 /// A list of layouts associated with newly allocated MemRefs.
 /// When lowering an operation, its output Tensor (e.g.
@@ -251,7 +251,6 @@ Value insertShapeMemRefI64(
   return shapeMemRef;
 }
 
-// hi alex: conversion to memref
 /// Get the corresponding MemRefType and layout of a given ZTensorType.
 ZMemRefType convertZTensorToMemRefType(Type type) {
   ZMemRefType resZMemRefType;

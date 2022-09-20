@@ -33,7 +33,6 @@ def ZHigh_Dialect : Dialect {
 // ZHigh Attribute 
 //===----------------------------------------------------------------------===//
 
-// hi alex: attribute for tensor layout
 // All of the Tensor attributes will extend this class.
 class ZHigh_Attr<string name, list<Trait> traits = []>
 	: AttrDef<ZHigh_Dialect, name, traits>;

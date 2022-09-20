@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ONNXLayoutHelper.hpp - ONNX Layout Helper ---------------------===//
+//===---------- ONNXLayoutHelper.hpp - ONNX Layout Helper -----------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
