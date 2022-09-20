@@ -3513,6 +3513,18 @@ LogicalResult ONNXShapeOp::inferShapes(
       ONNXShapeOpAdaptor>(*this, elementType);
 }
 
+LogicalResult ONNXShapeOp::verify() {
+  if (!data().getType().isa<RankedTensorType>())
+    return success();
+  ONNXShapeOpAdaptor operandAdaptor(*this);
+  int64_t start;
+  int64_t end;
+  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+  if (start > end)
+    return emitOpError() << "Start: " << start << " is after End: " << end;
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Size
 //===----------------------------------------------------------------------===//
