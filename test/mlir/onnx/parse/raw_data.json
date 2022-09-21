@@ -180,9 +180,9 @@
               "dims": [
                 "3"
               ],
-              "dataType": 11,
+              "dataType": 10,
               "name": "tensor8",
-              "rawData": "AAAAAAAA8D8AAAAAAAAAAAAAAAAAAPA/"
+              "rawData": "ADwAAAA8"
             },
             "type": "TENSOR"
           }
@@ -200,9 +200,9 @@
               "dims": [
                 "3"
               ],
-              "dataType": 12,
+              "dataType": 11,
               "name": "tensor9",
-              "rawData": "AQAAAAAAAAABAAAA"
+              "rawData": "AAAAAAAA8D8AAAAAAAAAAAAAAAAAAPA/"
             },
             "type": "TENSOR"
           }
@@ -220,8 +220,28 @@
               "dims": [
                 "3"
               ],
-              "dataType": 13,
+              "dataType": 12,
               "name": "tensor10",
+              "rawData": "AQAAAAAAAAABAAAA"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output11"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 13,
+              "name": "tensor11",
               "rawData": "AQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA"
             },
             "type": "TENSOR"
@@ -355,7 +375,7 @@
         "name": "output8",
         "type": {
           "tensorType": {
-            "elemType": 11,
+            "elemType": 10,
             "shape": {
               "dim": [
                 {
@@ -370,7 +390,7 @@
         "name": "output9",
         "type": {
           "tensorType": {
-            "elemType": 12,
+            "elemType": 11,
             "shape": {
               "dim": [
                 {
@@ -383,6 +403,21 @@
       },
       {
         "name": "output10",
+        "type": {
+          "tensorType": {
+            "elemType": 12,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output11",
         "type": {
           "tensorType": {
             "elemType": 13,
@@ -405,7 +440,7 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {input_names = [], output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10"]} {
+// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {input_names = [], output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10", "output11"]} {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf32>} : () -> tensor<3xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui8>} : () -> tensor<3xui8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi8>} : () -> tensor<3xi8>
@@ -414,9 +449,9 @@
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi32>} : () -> tensor<3xi32>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi64>} : () -> tensor<3xi64>
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Constant"() {value = dense<[true, false, true]> : tensor<3xi1>} : () -> tensor<3xi1>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf64>} : () -> tensor<3xf64>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui32>} : () -> tensor<3xui32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui64>} : () -> tensor<3xui64>
-// CHECK:           return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0 : tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf16>} : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf64>} : () -> tensor<3xf64>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui32>} : () -> tensor<3xui32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui64>} : () -> tensor<3xui64>
+// CHECK:           return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0, [[VAR_1_]]1 : tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
