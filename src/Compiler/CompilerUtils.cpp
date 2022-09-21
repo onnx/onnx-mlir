@@ -611,6 +611,14 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlDialect>();
 }
 
+namespace {
+std::string dirName(StringRef inputFilename) {
+  llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
+  llvm::sys::path::remove_filename(path);
+  return std::string(path.data(), path.size());
+}
+} // namespace
+
 // Return 0 on success, error number on failure.
 int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
@@ -633,6 +641,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
