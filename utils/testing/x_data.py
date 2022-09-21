@@ -32,7 +32,7 @@ nptypes = [
     np.dtype('int32'),
     np.dtype('int64'),
     np.dtype('bool'),
-    # np.dtype('float16'),
+    np.dtype('float16'),
     np.dtype('float64'),
     np.dtype('uint32'),
     np.dtype('uint64'),
