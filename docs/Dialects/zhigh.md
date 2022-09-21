@@ -3,8 +3,8 @@
 
 ZHigh Add operation
 
-"ZHigh operation to perform an Add."
-"This operation does not support broadcasting."
+ZHigh operation to perform an Add.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -29,7 +29,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D average pooling operation
 
-"ZHigh operation to perform 2D average pooling."
+ZHigh operation to perform 2D average pooling.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -59,7 +59,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh batchnorm operation
 
-"ZHigh operation to perform batchnorm."
+ZHigh operation to perform batchnorm.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -83,10 +83,10 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Concat operation to concatenate stickified tensors
 
-"Concatenate a list of tensors into a single tensor. All input tensors must"
-"have the same shape, except for the dimension size of the axis"
-"to concatenate on. Users must ensure that it is safe to concatenate"
-"stickified tensors for the given axis."
+Concatenate a list of tensors into a single tensor. All input tensors must
+have the same shape, except for the dimension size of the axis
+to concatenate on. Users must ensure that it is safe to concatenate
+stickified tensors for the given axis.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -114,15 +114,15 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D convolution operation
 
-"ZHigh operation to perform 2D convolution. "
-"input: [num_batches, height_in, width_in, channels_in] "
-"input_kernel: [kernel_height, kernel_width, channels_in, channels_out] "
-"input_bias: [channels_out] "
-"kernel_shape: 1D array of kernel height and width "
-"strides: 1D array of stride height and width "
-"padding_type: SAME_PADDING or VALID_PADDING "
-"act_func: ACT_NONE or ACT_RELU "
-"output: [num_batches, height_out, width_out, channels_out]"
+ZHigh operation to perform 2D convolution. 
+* input: `[num_batches, height_in, width_in, channels_in]`
+* input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]` 
+* input_bias: `[channels_out] `
+* kernel_shape: 1D array of kernel height and width 
+* strides: 1D array of stride height and width 
+* padding_type: SAME_PADDING or VALID_PADDING 
+* act_func: ACT_NONE or ACT_RELU 
+* output: `[num_batches, height_out, width_out, channels_out]`
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -155,8 +155,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Div operation
 
-"ZHigh operation to perform a Div."
-"This operation does not support broadcasting."
+ZHigh operation to perform a Div.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -181,7 +181,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Exp operation
 
-"ZHigh operation to perform a Exp."
+ZHigh operation to perform a Exp.
 
 Traits: SameOperandsAndResultLayout
 
@@ -205,18 +205,18 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh GRU operation
 
-"zHigh operation to perform a GRU."
-"Shape for input is [S, B, I]. Shape for h0 is [D, B, H]."
-"Shape for input_weights is  [D, I, 3*H]."
-"Shape for hidden_weights is  [D, H, 3*H]."
-"Shape for input_bias and hidden_bias is [D, 3*H]."
-"Shape for hn_output is [S, D, B, H] if return all timesteps "
-"and [1, D, B, H] if return the final step only."
-"S is timesteps, D is the number of directions (1 for unidirectional and "
-"2 for bidirectional), B is batch size, I is input size, and "
- H is hidden size."
-"direction accepts "forward", "reverse", or "bidirectional"
-"return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+* zHigh operation to perform a GRU.
+* Shape for input is `[S, B, I]`. Shape for h0 is `[D, B, H]`.
+* Shape for input_weights is `[D, I, 3*H]`.
+* Shape for hidden_weights is `[D, H, 3*H]`.
+* Shape for input_bias and hidden_bias is `[D, 3*H]`.
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+  and `[1, D, B, H]` if return the final step only.
+* S is timesteps, D is the number of directions (1 for unidirectional and 
+* 2 for bidirectional), B is batch size, I is input size, and 
+* H is hidden size.
+* direction accepts "forward", "reverse", or "bidirectional
+* return_all_steps: -1 returns all timesteps, 0: returns only the last timestep."
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -251,19 +251,19 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh LSTM operation
 
-"zHigh operation to perform a LSTM."
-"Shape for input is [S, B, I]. Shape for h0 and c0 is [D, B, H]."
-"Shape for input_weights is  [D, I, 4*H]."
-"Shape for hidden_weights is  [D, H, 4*H]."
-"Shape for input_bias and hidden_bias is [D, 4*H]."
-"Shape for hn_output is [S, D, B, H] if return all timesteps "
-"and [1, D, B, H] if return the final step only."
-"Shape for cf_output is [1, D, B, H]."
-"S is timesteps, D is the number of directions (1 for unidirectional and "
-"2 for bidirectional), B is batch size, I is input size, and "
- H is hidden size."
-"direction accepts "forward", "reverse", or "bidirectional"
-"return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+zHigh operation to perform a LSTM.
+* Shape for input is `[S, B, I]`. Shape for `h0` and `c0` is `[D, B, H]`.
+* Shape for input_weights is  `[D, I, 4*H]`.
+* Shape for hidden_weights is  `[D, H, 4*H]`.
+* Shape for input_bias and hidden_bias is `[D, 4*H]`.
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+  and `[1, D, B, H]` if return the final step only.
+* Shape for cf_output is `[1, D, B, H]`.
+* S is timesteps, D is the number of directions (1 for unidirectional and 
+* 2 for bidirectional), B is batch size, I is input size, and 
+* H is hidden size.
+* direction accepts "forward", "reverse", or "bidirectional
+* return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -300,7 +300,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Log operation
 
-"ZHigh operation to perform a Log."
+ZHigh operation to perform a Log.
 
 Traits: SameOperandsAndResultLayout
 
@@ -324,7 +324,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh MatMul operation
 
-"ZHigh operation to perform a MatMul."
+ZHigh operation to perform a MatMul.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -348,8 +348,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Max operation
 
-"ZHigh operation to perform a Max."
-"This operation does not support broadcasting."
+ZHigh operation to perform a Max.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -374,7 +374,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D max pooling operation
 
-"ZHigh operation to perform 2D max pooling."
+ZHigh operation to perform 2D max pooling.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -404,10 +404,10 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D mean reduce operation
 
-"ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, "
-"returns a downsampled tensor reducing the middle 2nd and 3rd dimensions "
-"to a size of 1 based on the mean of the original values."
-" Input and Output tensors should be in the 3D layout."
+ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, 
+returns a downsampled tensor reducing the middle 2nd and 3rd dimensions 
+to a size of 1 based on the mean of the original values.
+ Input and Output tensors should be in the 3D layout.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -429,8 +429,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Min operation
 
-"ZHigh operation to perform a Min."
-"This operation does not support broadcasting."
+ZHigh operation to perform a Min.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -455,8 +455,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Mul operation
 
-"ZHigh operation to perform a Mul."
-"This operation does not support broadcasting."
+ZHigh operation to perform a Mul.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -505,7 +505,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Sigmoid operation
 
-"ZHigh operation to perform a Sigmoid."
+ZHigh operation to perform a Sigmoid.
 
 Traits: SameOperandsAndResultLayout
 
@@ -529,8 +529,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Softmax operation
 
-"ZHigh operation to perform a Softmax."
-"act_func: ACT_NONE or ACT_LOG."
+ZHigh operation to perform a Softmax.
+act_func: ACT_NONE or ACT_LOG.
 
 Traits: SameOperandsAndResultLayout
 
@@ -560,10 +560,10 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh stick operation for GRU
 
-"ZHigh operation to perform a stick for GRU."
-"Variadic: list of pointers for input data to be transformed: "
-"  - GRU concatenated: 3 data pointers, one for each input gate in " 
-"(Z)update, Reset, Hidden, (ZRH) gate order"
+ZHigh operation to perform a stick for GRU.
+Variadic: list of pointers for input data to be transformed: 
+  - GRU concatenated: 3 data pointers, one for each input gate in
+(Z)update, Reset, Hidden, (ZRH) gate order
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -587,10 +587,10 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh stick operation for LSTM
 
-"ZHigh operation to perform a stick for LSTM."
-"Variadic: list of pointers for input data to be transformed: "
-"  - LSTM concatenated: 4 data pointers, one for each input gate in "
-"Forget, Input, Cell, Output (FICO) order, "
+ZHigh operation to perform a stick for LSTM.
+Variadic: list of pointers for input data to be transformed: 
+  - LSTM concatenated: 4 data pointers, one for each input gate in 
+Forget, Input, Cell, Output (FICO) order, 
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -615,7 +615,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Stick operation
 
-"ZHigh operation to perform a Stick."
+ZHigh operation to perform a Stick."
+If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -643,10 +644,10 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Stickified Constant operation
 
-"This operator produces a constant tensor to store stickified data." 
-"Stickified data is opaque and must be 4K-aligned. One who produces"
-"the stickified data must make sure its size in bytes consistent with"
-"the output tensor's size."
+This operator produces a constant tensor to store stickified data."
+Stickified data is opaque and must be 4K-aligned. One who produces
+the stickified data must make sure its size in bytes consistent with
+the output tensor's size.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface)
 
@@ -669,8 +670,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Sub operation
 
-"ZHigh operation to perform a Sub."
-"This operation does not support broadcasting."
+ZHigh operation to perform a Sub.
+This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
@@ -695,7 +696,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Tanh operation
 
-"ZHigh operation to perform a Tanh."
+ZHigh operation to perform a Tanh.
 
 Traits: SameOperandsAndResultLayout
 
@@ -719,7 +720,7 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh Unstick operation
 
-"ZHigh operation to perform a Unstick."
+ZHigh operation to perform a Unstick.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
