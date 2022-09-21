@@ -343,6 +343,14 @@ func.func @test_scatterelements_verifier_2(%arg0: tensor<2x2xf32>, %arg1: tensor
 
 // -----
 
+func.func @test_shape_to_dim_positive_axis_verifier(%arg0: tensor<?x256x?xi64>) -> tensor<2xi64> {
+  // expected-error @+1 {{'onnx.Shape' op Start: 2 is after End: 0}}
+  %0 = "onnx.Shape"(%arg0) {end = 0 : si64, start = -1 : si64} : (tensor<?x256x?xi64>) -> tensor<2xi64>
+  return %0 : tensor<2xi64>
+}
+
+// -----
+
 func.func @test_logsoftmax_verifier_1(%arg0: tensor<2x2xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.LogSoftmax: 'axis' value is 3, accepted range is [-2, 1]}}
   %1 = "onnx.LogSoftmax"(%arg0) {axis = 3 : si64} : (tensor<2x2xf32>) -> tensor<*xf32>

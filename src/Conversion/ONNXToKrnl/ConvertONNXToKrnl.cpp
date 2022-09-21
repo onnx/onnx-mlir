@@ -178,6 +178,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 
   // Frontend operation lowering.
   // ControlFlow
+  populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
@@ -347,8 +348,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!emitDealloc)
-    target.addIllegalOp<mlir::memref::DeallocOp>();
+  // However, since the SequenceErase needs to emit memref dealloc, the previous
+  // the following statement is commented out (Chentong)
+  // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail

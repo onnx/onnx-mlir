@@ -42,9 +42,10 @@
 namespace onnx_mlir {
 
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
+    mlir::OpBuilder &builder, const std::string &externalDataDir,
+    const onnx::TensorProto &initializer);
 
-mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
-    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
+    const std::string &externalDataDir, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir

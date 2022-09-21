@@ -611,32 +611,41 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlDialect>();
 }
 
-// Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  std::string extension =
-      inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
+namespace {
+std::string dirName(StringRef inputFilename) {
+  llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
+  llvm::sys::path::remove_filename(path);
+  return std::string(path.data(), path.size());
+}
+} // namespace
 
-  if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invalid input file '" + inputFilename +
-                    "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
+// Return 0 on success, error number on failure.
+int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
+    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
+  // a model specified in MLIR. The extension of the file is the decider.
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
+
+  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+    *errorMessage = "Invalid input file '" + inputFilename.str() +
+                    "': Either an ONNX model (.onnx or .json or '-'), or an "
+                    "MLIR file (.mlir) "
                     "needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX) {
+  if (inputIsONNX || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    loadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename.str(), context, module);
   return CompilerSuccess;
 }
 
