@@ -101,7 +101,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
       // TODO: we should write the output of this pass in a file but I was not
       // able to use raw_fd_ostream of a file without it crashing.
       pm.addNestedPass<func::FuncOp>(
-          mlir::createPrintOpStatsPass(llvm::errs(), printAsJSON));
+          mlir::createPrintOpStatsPass(llvm::outs(), printAsJSON));
     } else {
       llvm::errs() << "Skip onnx-ops-stats: expected JSON or TXT format, got \""
                    << ONNXOpsStatFormat << "\"\n";
