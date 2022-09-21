@@ -94,17 +94,6 @@ def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
 }
 
 // Whether a ONNX Tensor type has the specified layout.
-// hi alex: uncomment or remove
-
-//class ONNXCustomDataLayoutOfPred<string layout> :
-// And<[
-//  CPred<"($_self.cast<::mlir::RankedTensorType>()) &&"
-//        "($_self.cast<::mlir::RankedTensorType>()."
-//        "getEncoding().dyn_cast_or_null<mlir::ONNXTensorEncodingAttr>()) &&"
-//        "($_self.cast<::mlir::RankedTensorType>()."
-//        "getEncoding().cast<ONNXTensorEncodingAttr>().getDataLayout()"
-//        " == ONNXTensorEncodingAttr::DataLayout::" # layout # ")"> 
-//]>;
 
 class ONNXCustomDataLayoutAndFactorsOfPred<
   string layout, int xFactor, int yFactor> :
