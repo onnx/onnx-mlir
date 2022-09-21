@@ -27,6 +27,7 @@ def ZHigh_Dialect : Dialect {
   let cppNamespace = "::onnx_mlir::zhigh";
 
   let useDefaultAttributePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
 }
 
 //===----------------------------------------------------------------------===//
