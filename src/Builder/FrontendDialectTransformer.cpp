@@ -230,6 +230,11 @@ private:
     return *valuePtr;
   }
 
+  Value ImportTensor(const onnx::TensorProto &tensor) {
+    return EmitInitializerForInputTensor(
+        UnknownLoc(), builder_, options_.externalDataDir, tensor);
+  }
+
   /*!
    * Import an onnx tensor type by determining and returning its type
    * @param type_proto onnx tensor TypeProto.
@@ -354,7 +359,8 @@ private:
           llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
+      mlirAttr = onnxTensorProtoToDenseElmAttr(
+          builder_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
@@ -710,8 +716,7 @@ private:
       } else {
         if (const onnx::TensorProto *tensorPtr =
                 initializedTensors.GetByOnnxName(item)) {
-          inputs.push_back(EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, *tensorPtr));
+          inputs.push_back(ImportTensor(*tensorPtr));
         } else if (const Value *valuePtr =
                        frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -785,8 +790,7 @@ private:
       } else {
         if (const onnx::TensorProto *tensorPtr =
                 initializedTensors.GetByOnnxName(item)) {
-          inputs.push_back(EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, *tensorPtr));
+          inputs.push_back(ImportTensor(*tensorPtr));
         } else if (const Value *valuePtr =
                        frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -841,8 +845,7 @@ private:
     for (const auto &item : node.input()) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item)) {
-        inputs.push_back(
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr));
+        inputs.push_back(ImportTensor(*tensorPtr));
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -933,8 +936,7 @@ private:
     for (const auto &item : llvm::enumerate(node.input())) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item.value())) {
-        inVals[item.index()] =
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr);
+        inVals[item.index()] = ImportTensor(*tensorPtr);
       } else {
         if (const Value *valuePtr =
                 frontend_symbols_.GetByOnnxName(item.value())) {
@@ -997,8 +999,7 @@ private:
     for (const auto &item : node.input()) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item)) {
-        inputs.push_back(
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr));
+        inputs.push_back(ImportTensor(*tensorPtr));
       } else if (const Value *valuePtr =
                      frontend_symbols_.GetByOnnxName(item)) {
         inputs.push_back(*valuePtr);
