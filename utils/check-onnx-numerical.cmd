@@ -1,2 +1,2 @@
 cd onnx-mlir\build
-call cmake --build . --config Release --target check-onnx-numerical
+call cmake --build . --config %BUILD_TYPE% --target check-onnx-numerical

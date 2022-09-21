@@ -24,15 +24,15 @@ md protobuf_build
 cd protobuf_build
 call cmake %root_dir%\protobuf\cmake -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf_install" ^
-   -DCMAKE_BUILD_TYPE=Release ^
+   -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
    -Dprotobuf_BUILD_EXAMPLES=OFF ^
    -Dprotobuf_BUILD_SHARED_LIBS=OFF ^
    -Dprotobuf_BUILD_TESTS=OFF ^
    -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ^
    -Dprotobuf_WITH_ZLIB=OFF
 
-call cmake --build . --config Release
-call cmake --build . --config Release --target install
+call cmake --build . --config %BUILD_TYPE%
+call cmake --build . --config %BUILD_TYPE% --target install
 ```
 
 Before running CMake for onnx-mlir, ensure that the bin directory to this protobuf is before any others in your PATH:
@@ -58,21 +58,22 @@ cd llvm-project && git checkout 59548fe873d8d98e359fb21fbb2a0852fed17ff5 && cd .
 [same-as-file]: <> (utils/build-mlir.cmd)
 ```shell
 set root_dir=%cd%
+
 md llvm-project\build
 cd llvm-project\build
 call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
-   -DCMAKE_BUILD_TYPE=Release ^
+   -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^
    -DLLVM_ENABLE_RTTI=ON ^
    -DLLVM_ENABLE_ZLIB=OFF ^
    -DLLVM_INSTALL_UTILS=ON
 
-call cmake --build . --config Release
-call cmake --build . --config Release --target install
-call cmake --build . --config Release --target check-mlir
+call cmake --build . --config %BUILD_TYPE%
+call cmake --build . --config %BUILD_TYPE% --target install
+call cmake --build . --config %BUILD_TYPE% --target check-mlir
 ```
 
 ## ONNX-MLIR (this project)
@@ -94,14 +95,14 @@ set root_dir=%cd%
 md onnx-mlir\build
 cd onnx-mlir\build
 call cmake %root_dir%\onnx-mlir -G "Ninja" ^
-   -DCMAKE_BUILD_TYPE=Release ^
+   -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
    -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
    -DLLVM_EXTERNAL_LIT=%lit_path% ^
    -DLLVM_LIT_ARGS=-v ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir ^
    -DONNX_MLIR_BUILD_TESTS=ON
 
-call cmake --build . --config Release --target onnx-mlir
+call cmake --build . --config %BUILD_TYPE% --target onnx-mlir
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
 

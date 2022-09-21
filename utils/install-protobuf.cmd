@@ -7,12 +7,12 @@ md protobuf_build
 cd protobuf_build
 call cmake %root_dir%\protobuf\cmake -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf_install" ^
-   -DCMAKE_BUILD_TYPE=Release ^
+   -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
    -Dprotobuf_BUILD_EXAMPLES=OFF ^
    -Dprotobuf_BUILD_SHARED_LIBS=OFF ^
    -Dprotobuf_BUILD_TESTS=OFF ^
    -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ^
    -Dprotobuf_WITH_ZLIB=OFF
 
-call cmake --build . --config Release
-call cmake --build . --config Release --target install
+call cmake --build . --config %BUILD_TYPE%
+call cmake --build . --config %BUILD_TYPE% --target install

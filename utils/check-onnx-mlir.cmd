@@ -1,2 +1,2 @@
 cd onnx-mlir\build
-call cmake --build . --config Release --target check-onnx-lit
+call cmake --build . --config %BUILD_TYPE% --target check-onnx-lit

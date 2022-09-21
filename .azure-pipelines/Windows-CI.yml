@@ -11,6 +11,13 @@ parameters:
 
 jobs:
 - job: Build_onnx_mlir_Windows
+  strategy:
+    matrix:
+      Debug:
+        BUILD_TYPE: Debug
+      Release:
+        BUILD_TYPE: Release
+
   timeoutInMinutes: 240
   pool:
     vmImage: 'windows-2019'
@@ -63,7 +70,7 @@ jobs:
 
   - powershell: |
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
-      $mlir_tag = "MLIR_Windows_$($mlir_match.Matches.Groups[1].Value)"
+      $mlir_tag = "MLIR_Windows_$($mlir_match.Matches.Groups[1].Value)_$(BUILD_TYPE)"
 
       # TODO Use this version to select artifact by tag, once permissions are enabled this will be significantly faster
       #$build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --tags $mlir_tag --status completed --result succeeded | ConvertFrom-Json
