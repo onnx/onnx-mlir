@@ -157,6 +157,15 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
   }
 }
 
+llvm::SmallVector<llvm::APFloat> U16ToF16Array(
+    llvm::ArrayRef<uint16_t> u16arrayRef) {
+  llvm::SmallVector<llvm::APFloat> f16Array;
+  f16Array.reserve(u16arrayRef.size());
+  for (uint16_t u : u16arrayRef)
+    f16Array.emplace_back(llvm::APFloat::IEEEhalf(), llvm::APInt(16, u));
+  return f16Array;
+}
+
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
     mlir::OpBuilder &builder, const std::string &externalDataDir,
     const onnx::TensorProto &initializer) {
@@ -183,6 +192,13 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     return mlir::DenseElementsAttr::get(tensorType, arrayRef);
   };
   switch (tp.data_type()) {
+  case (onnx::TensorProto::FLOAT16): {
+    auto denseBuilderU16ToF16 = [denseBuilder](auto arrayRef) {
+      return denseBuilder(llvm::makeArrayRef(U16ToF16Array(arrayRef)));
+    };
+    return createDenseElmAttr<uint16_t>(
+        externalDataDir, tp, denseBuilderU16ToF16);
+  }
   case (onnx::TensorProto::FLOAT):
     return createDenseElmAttr<float>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::DOUBLE):
