@@ -140,7 +140,7 @@ func.func @test_sequence_insert(%arg0: !onnx.Seq<tensor<?x4x5xf32>>, %arg1:tenso
   %0 = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<i64>
   %1 = "onnx.Add"(%arg1, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
   %2 = "onnx.NoValue"() {value} : () -> none
-  %6 = "onnx.SequenceInsert"(%arg0, %arg1, %2) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<3x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
+  %6 = "onnx.SequenceInsert"(%arg0, %1, %2) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<3x4x5xf32>, none) -> !onnx.Seq<tensor<?x4x5xf32>>
   %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
   %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
@@ -276,30 +276,34 @@ After --convert-seq-to-memref pass:
 ```
 
 ## Discussion
-### Correctness
-There is no chance of dangling pointer for pointers used for sequence implementation. 
+### No dangling pointer
+Data pointer for memref is stored for sequence and may be read out.
 Memref is copied both when its pointer is saved into the sequence and when its pointer is
-read out from the sequence. That means the pointer saved in the sequence is kind of 
-"unique_pointer". These pointers will be freed only by the deallocation of the sequence.
+read out from the sequence. Such operations maintains the kind of "std::unique_ptr" 
+property for the  pointers of the elements saved in the sequence. And
+these pointers will be freed only by the deallocation of the sequence.
 
-There is no memory leak, either. The elements are freed by normal memref.dealloc and the
-sequence is freed by deep deallocation for the sequence.
+### No memory leak
+- The memref to be added to sequence (input of SequenceInsert)  will be freed as a regular tensor.
+- The memref copied and saved in a sequence will be freed when the sequence is freed.
+- The memref copied and returned from a sequence (SequenceAt) are freed by normal memref.dealloc because the SequenceExtract is marked as allocation for bufferization.
 
 ### Optimization
-Since the tensor/memref for element is read only, there is no need to copy it in logic.
-the copy is added due to two reasons:
+Since the tensor/memref for element is read only, there is no real need to copy it.
+The copy is added due to two reasons:
 -1. No interface to communicate with existing deallocation pass.
 -2. For pointers possibly in multiple sequence.
 
-If some analysis can guarantee the element is only in one live sequence (which is usually
-the case in program), we can rewrite the ONNX sequence Ops in a different way:
-- No deep deallocation for some sequences
-- No copy at all when an element is moved from a sequence to another sequence
-Regular memref ops, instead of KrnlSeqAllocOp or KrnlSeqStoreOp, will be used to rewrite
-ONNX Sequence Ops.
+If compiler analysis can guarantee the element is only in one live sequence (which is usually
+the case in program), we can lower the ONNX sequence Ops in a different way:
+- Use normal memref.alloc, instead of the KrnlSeqAllocOp, for the new sequences
+- Use memref.store, instead of KrnlSeqStore, to store the elements from the old sequence
+to the new sequence.
+With such optimization, an element in the final sequence are copied at most twice for 
+in most of applications. 
 
-Another direction of optimization is to use std::shared_ptr for memref or ohe-shot 
-interface to optimize.
+Another direction of optimization is to use std::shared_ptr for memref to manage the 
+pointers dynamically. The interface provided by one-shot bufferization may also help.
 
 ## ToFix
 - Shape inference with control flow. The result for test case with LoopOp(test_loop13_seq.onnx) is not correct.
