@@ -39,36 +39,29 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     auto input_sequence = operandAdaptor.input_sequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
-    auto seqElementType =
-        input_sequence.getType().cast<MemRefType>().getElementType();
 
-    SmallVector<int64_t, 1> dims;
-
-    // Number of element in seq may be statically known from shape inference
-    dims.emplace_back(thisOp.getResult().getType().cast<SeqType>().getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType outputMemRefType = MemRefType::get(shape, seqElementType);
+    MemRefType outputMemRefType =
+        typeConverter->convertType(thisOp.getResult().getType())
+            .cast<MemRefType>();
+    ;
 
     auto outputBound = boundIE - 1;
-    SmallVector<IndexExpr, 1> ubsIE;
-    ubsIE.emplace_back(outputBound);
-    Value alloc = rewriter.create<KrnlSeqAllocOp>(
-        loc, outputMemRefType, outputBound.getValue());
+    Value outputBoundVal = outputBound.getValue();
+    Value alloc =
+        rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, outputBoundVal);
 
     // Fill the output sequence
 
     IndexExpr positionIE;
     if (isFromNone(operandAdaptor.position())) {
-      // Insert at the end of the sequence
-      // Could be optimized as: Copy the input sequence and attach input tensor
-      // at the end But the size for KrnlMemcpy is integer, not Value
-      // memref::copy requires that source and destination have the same shape
+      // Erase the end of the sequence
       positionIE = boundIE - 1;
     } else {
       positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
       // Handle the negative position
       auto correctionIE = positionIE + boundIE;
-      positionIE = IndexExpr::select(positionIE < 0, correctionIE, positionIE);
+      auto conditionIE = positionIE < 0;
+      positionIE = IndexExpr::select(conditionIE, correctionIE, positionIE);
     }
 
     // Copy the elements before the position

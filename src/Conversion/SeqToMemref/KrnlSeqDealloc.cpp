@@ -42,7 +42,6 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqDeallocOpAdaptor operandAdaptor(operands);
-    KrnlSeqDeallocOp thisOp = dyn_cast<KrnlSeqDeallocOp>(op);
     auto loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
