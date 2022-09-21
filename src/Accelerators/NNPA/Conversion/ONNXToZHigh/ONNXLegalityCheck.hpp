@@ -30,7 +30,7 @@ bool isSuitableForZDNN(OP_TYPE op);
 /// Get padding type using shape helper. This returns
 /// `SAME_PADDING`, `VALID_PADDING`, or empty.
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
-mlir::StringRef getStrPaddingType(OP op, int paddingFlag = 0);
+mlir::StringRef getStrPaddingType(OP op);
 
 /// Check if input, output, kernel, strides, and paddingYype for each axis meet
 /// parameter restrictions for maxpool and avgpool.

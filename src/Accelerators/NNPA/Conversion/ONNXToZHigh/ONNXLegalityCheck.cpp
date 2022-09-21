@@ -129,7 +129,7 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
 /// Get padding type using shape helper. This returns
 /// `SAME_PADDING`, `VALID_PADDING`, or empty.
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
-StringRef getStrPaddingType(OP op, int paddingFlag) {
+StringRef getStrPaddingType(OP op) {
   OPAdaptor operandAdaptor = OPAdaptor(op);
   OPShapeHelper shapeHelper(&op);
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
@@ -149,10 +149,6 @@ StringRef getStrPaddingType(OP op, int paddingFlag) {
             shapeHelper.pads, [](IndexExpr val) { return !val.isLiteral(); }))
       return StringRef();
 
-    // onnx.Conv with "NOTSET" padding is converted into VALID_PADDING.
-    // with replacing the input with padded input
-    if (paddingFlag)
-      return "VALID_PADDING";
     // VALID_PADDING.
     if (llvm::all_of(shapeHelper.pads,
             [&](IndexExpr val) { return (val.getLiteral() == 0); }))
@@ -767,6 +763,9 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
       // inputDim must be >= kernelDim.
       if (inputDim < kernelDim)
         return false;
+      // height_out restriction.
+      if (outputDim != ceil((float)(inputDim - kernelDim + 1) / stride))
+        return false;
     }
   } else
     return false;
@@ -817,7 +816,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
   // `zdnn_conv2d` only support padding for `SAME_PADDING` and `VALID_PADDING`.
   StringRef paddingType =
       getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
-          op, 1);
+          op);
 
   if (paddingType.empty())
     return false;

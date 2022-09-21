@@ -486,3 +486,47 @@ func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256
 // CONSTPROP:           return [[VAR_4_]] : tensor<4x12x256x256xf32>
 // CONSTPROP:         }
 }
+
+// -----
+
+func.func @test_onnx_conv2d_notset_with_pads(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<?x3x2x2xf32>) -> tensor<*xf32> {
+  %bias = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "NOTSET", pads = [0, 0, 2, 2], kernel_shape = [2, 2]} : (tensor<5x3x32x32xf32>, tensor<?x3x2x2xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: test_onnx_conv2d_notset_with_pads
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<?x3x2x2xf32>) -> tensor<5x?x33x33xf32> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[0, 0, 0, 0, 0, 0, 2, 2]> : tensor<8xi64>} : () -> tensor<8xi64>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<5x3x34x34xf32>
+  // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_3_]]) {layout = "NHWC"} : (tensor<5x3x34x34xf32>) -> tensor<5x34x34x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+  // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 1, 0]} : (tensor<?x3x2x2xf32>) -> tensor<2x2x3x?xf32>
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.Stick"([[VAR_5_]]) {layout = "HWCK"} : (tensor<2x2x3x?xf32>) -> tensor<2x2x3x?xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
+  // CHECK-DAG:       [[VAR_7_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "1D"} : (none) -> none
+  // CHECK:           [[VAR_8_:%.+]] = "zhigh.Conv2D"([[VAR_4_]], [[VAR_6_]], [[VAR_7_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x34x34x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<2x2x3x?xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, none) -> tensor<*xf32>
+  // CHECK:           [[VAR_9_:%.+]] = "zhigh.Unstick"([[VAR_8_]]) : (tensor<*xf32>) -> tensor<5x?x33x33xf32>
+  // CHECK:           return [[VAR_9_]] : tensor<5x?x33x33xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x224xf32>, %arg1 : tensor<64x3x7x7xf32>, %arg2 : tensor<64xf32>) -> tensor<*xf32> {
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {kernel_shape = [7, 7], onnx_node_name = "", pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+  // CHECK-LABEL: test_onnx_conv2d_with_bias_and_different_pads
+  // CHECK-SAME:   ([[PARAM_0_]]: tensor<1x3x224x224xf32>, [[PARAM_1_]]: tensor<64x3x7x7xf32>, [[PARAM_2_]]: tensor<64xf32>) -> tensor<1x64x112x112xf32> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[0, 0, 3, 3, 0, 0, 3, 3]> : tensor<8xi64>} : () -> tensor<8xi64>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {mode = "constant"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<1x3x230x230xf32>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "NHWC"} : (tensor<1x3x230x230xf32>) -> tensor<1x230x230x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 1, 0]} : (tensor<64x3x7x7xf32>) -> tensor<7x7x3x64xf32>
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_5_:%.+]] = "zhigh.Stick"([[VAR_4_]]) {layout = "HWCK"} : (tensor<7x7x3x64xf32>) -> tensor<7x7x3x64xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>
+  // CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "1D"} : (tensor<64xf32>) -> tensor<64xf32, #zhigh.encoding<{dataLayout = "1D"}>>
+  // CHECK:           [[VAR_7_:%.+]] = "zhigh.Conv2D"([[VAR_3_]], [[VAR_5_]], [[VAR_6_]]) {act_func = "ACT_NONE", kernel_shape = [7, 7], padding_type = "VALID_PADDING", strides = [2, 2]} : (tensor<1x230x230x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<7x7x3x64xf32, #zhigh.encoding<{dataLayout = "HWCK"}>>, tensor<64xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32>
+  // CHECK:           [[VAR_8_:%.+]] = "zhigh.Unstick"([[VAR_7_]]) : (tensor<*xf32>) -> tensor<1x64x112x112xf32>
+  // CHECK:           return [[VAR_8_]] : tensor<1x64x112x112xf32>
+  // CHECK:         }
+}

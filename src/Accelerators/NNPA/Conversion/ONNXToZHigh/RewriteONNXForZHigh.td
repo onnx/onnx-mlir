@@ -257,4 +257,55 @@ def rewriteSoftmaxNDto2D: Pat<
   [(HasRankGT<2> $input)]
 >;
 
+//===----------------------------------------------------------------------===//
+// Rules to conver ONNXConvOp with pads to ONNXConvOp with no pads
+//===----------------------------------------------------------------------===//
+
+// This function is used for padding attribute in Conv.
+class insertZerosForNonPaddedDims<int extensionLength>:
+  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
+                                              # extensionLength # ")">;
+
+// Create a StringAttr from a string.
+class StringAttrOfValue<string val>:
+  NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+def createArrayAttrOfZerosFrom:
+  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
+
+// Create a DenseElementsAttr from an interger value.
+// It seems Table-gen does not support `float` type, so we can not pass a float value.
+class FloatAttrOfValue<int val>:
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
+
+// Check whether an ArrayAttr contains non-zero values or not.
+def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
+                                       "has non-zero elements">;
+
+// Check that a StrAttr does not contain a specific value.
+class IsNotStringAttrOfValue<string val>:
+  Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
+
+def ConvOpPaddingPattern: Pat<
+  (ONNXConvOp:$res
+     $x,
+     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
+     $pads,
+     $strides),
+  (ONNXConvOp
+
+    (ONNXPadOp $x,
+       (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $pads)),
+       (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
+       (StringAttrOfValue<"constant">),
+       (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $pads))),
+
+     $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
+     (createArrayAttrOfZerosFrom $pads),
+     $strides),
+  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+>;
+
 #endif // REWRITE_ONNX_FOR_ZHIGH

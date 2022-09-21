@@ -929,16 +929,8 @@ def GetI64ArrayAttrStridesConv: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayStrides<ONNXConvOp, ONNXConvOpAdaptor,"
   "ONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
 
-// Check whether an ArrayAttr contains non-zero values or not.
-def NotHasNonZeroInArrayAttr: Constraint<CPred<"!hasNonZeroInArrayAttr($_self)">,
-                                       "has non-zero elements">;
-
-// Check that a StrAttr does not contain a specific value.
-class IsStringAttrOfValue<string val>:
-  Constraint<CPred<"$0.cast<StringAttr>().getValue() == \"" # val # "\"">>;
-
 def replaceONNXConv2DPattern : Pattern<
-  (ONNXConvOp:$res $x, $w, $b, $_, $_, $_, $_, $pads, $_),
+  (ONNXConvOp:$res $x, $w, $b, $_, $_, $_, $_, $_, $_),
   [
    // Get attributes using shape helper
    (GetStrAttrPaddingtypeConv:$padtype $res),
@@ -954,55 +946,7 @@ def replaceONNXConv2DPattern : Pattern<
        $strides,
        $padtype,
        (ACT_NONEAttr)))
-  ],
-  [(NotHasNonZeroInArrayAttr:$pads)]
->;
-
-// This function is used for padding attribute in Conv.
-class insertZerosForNonPaddedDims<int extensionLength>:
-  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
-                                              # extensionLength # ")">;
-
-// Create a DenseElementsAttr from an interger value.
-// It seems Table-gen does not support `float` type, so we can not pass a float value.
-class FloatAttrOfValue<int val>:
-  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
-
-// Create a StringAttr from a string.
-class StringAttrOfValue<string val>:
-  NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
-
-// Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in Conv.
-def createArrayAttrOfZerosFrom:
-  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
-
-// Check whether an ArrayAttr contains non-zero values or not.
-def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
-                                       "has non-zero elements">;
-
-// Check that a StrAttr does not contain a specific value.
-class IsNotStringAttrOfValue<string val>:
-  Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
-
-def ConvOpPaddingPattern: Pat<
-  (ONNXConvOp:$res
-     $x,
-     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
-     $pads,
-     $strides),
-  (ONNXConvOp
-
-    (ONNXPadOp $x,
-       (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $pads)),
-       (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
-       (StringAttrOfValue<"constant">),
-       (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $pads))),
-
-     $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
-     (createArrayAttrOfZerosFrom $pads),
-     $strides),
-  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+  ]
 >;
 
 //===----------------------------------------------------------------------===//
