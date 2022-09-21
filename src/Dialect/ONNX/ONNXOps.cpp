@@ -4548,6 +4548,20 @@ LogicalResult ONNXIsInfOp::inferShapes(
 // IsNaNOp
 //===------------------------------------------------------------------------===//
 
+LogicalResult ONNXLayoutTransformOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  ONNXLayoutTransformOp operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.In()))
+    return success();
+
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===------------------------------------------------------------------------===//
+// LayoutTransform
+//===------------------------------------------------------------------------===//
+
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXIsNaNOpAdaptor operandAdaptor(*this);
@@ -5715,6 +5729,7 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
 //===----------------------------------------------------------------------===//
 // Loop
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXLoopOp.
 LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -5802,6 +5817,7 @@ mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
 //===----------------------------------------------------------------------===//
 // CustomOp
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXCustomOp. This method is required by
 /// the shape inference interface.
 LogicalResult ONNXCustomOp::inferShapes(
@@ -5809,6 +5825,10 @@ LogicalResult ONNXCustomOp::inferShapes(
   // getResult().setType(getOperand().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// CallOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   // Check that the callee attribute was specified.

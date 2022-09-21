@@ -158,7 +158,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
   let summary = "An operation that transforms data between different layout formats";
   let description = [{
     An operation that transforms data between different ONNX layout format.
-    Currently, it supports transformation from standard format to a NCHWxC/KCNMxCyK
+    Currently, it supports transformations from standard format to a NCHWxC/KCNMxCyK
     layout, or back. At this time, only F32 is supported.
 
     Opertions that transforms data from the same ONNX layout format are considered

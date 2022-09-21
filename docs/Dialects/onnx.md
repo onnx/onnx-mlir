@@ -3297,6 +3297,35 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values
 
+### `onnx.LayoutTransform` (::mlir::ONNXLayoutTransformOp)
+
+An operation that transforms data between different layout formats
+
+An operation that transforms data between different ONNX layout format.
+Currently, it supports transformation from standard format to a NCHWxC/KCNMxCyK
+layout, or back. At this time, only F32 is supported.
+
+Opertions that transforms data from the same ONNX layout format are considered
+as a no operation and will be removed.
+
+This operation is not part of the standard and was added to assit onnx-mlir.
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `In` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxCand factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyKand factors 4, 4
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Out` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxCand factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyKand factors 4, 4
+
 ### `onnx.LeakyRelu` (::mlir::ONNXLeakyReluOp)
 
 ONNX LeakyRelu operation
