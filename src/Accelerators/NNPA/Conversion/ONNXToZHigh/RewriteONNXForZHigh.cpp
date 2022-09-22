@@ -239,11 +239,6 @@ DenseElementsAttr insertZerosForNonPaddedDims(
     pads[i + extensionLength] = beginPad;
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
-
-  mlir::Type elementType = rewriter.getIntegerType(64);
-  llvm::ArrayRef<int64_t> tensorDims(pads.data(), pads.size());
-  mlir::ShapedType tensorType =
-      mlir::RankedTensorType::get(tensorDims, elementType);
   return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
 }
 
@@ -253,8 +248,7 @@ DenseElementsAttr createDenseFloatAttrOfValue(
   SmallVector<float, 1> wrapper(1, 0);
   wrapper[0] = constantValue;
   return DenseElementsAttr::get(
-      RankedTensorType::get(wrapper.size(), elementType),
-      llvm::makeArrayRef(wrapper));
+      RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
