@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "FrontendDialectTransformer.hpp"
+#include "ImportONNXUtils.hpp"
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
@@ -1368,7 +1369,7 @@ private:
 } // namespace onnx_mlir
 namespace onnx_mlir {
 
-void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
+bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
@@ -1381,7 +1382,14 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     }
   }
 
-  // Didnot do downward convert because support for BatchNorm is missing
+  if (options.allowSorting && !TopologicallySorted(model.graph())) {
+    if (!SortGraph(model.mutable_graph())) {
+      llvm::outs() << "The graph is not topologically sortable.\n";
+      return false;
+    }
+  }
+
+  // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
@@ -1394,6 +1402,7 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
       onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
+  return true;
 }
 
 // Return 0 on success, error otherwise.
@@ -1457,7 +1466,12 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       return InvalidOnnxFormat;
     }
   }
-  ImportFrontendModelInternal(model, context, module, options);
+
+  if (!ImportFrontendModelInternal(model, context, module, options)) {
+    *errorMessage = "Onnx Model Import Failed on " + model_fname.str();
+    return CompilerFailure;
+  }
+
   return CompilerSuccess;
 }
 
