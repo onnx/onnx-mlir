@@ -2,7 +2,7 @@
 
 # Installing `third_party ONNX` for Backend Tests or Rebuilding ONNX Operations
 
-Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarly, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `make OMONNXOpsIncTranslation`.
+Backend tests are triggered by `ninja check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarly, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `ninja OMONNXOpsIncTranslation`.
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` variable in your top cmake file.
 
@@ -12,7 +12,7 @@ You will also need `pybind11` which may need to be installed (mac: `brew install
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
 
-While running `make check-onnx-backend` on a Mac you might encounter the following error:
+While running `ninja check-onnx-backend` on a Mac you might encounter the following error:
 
 ```shell
 Fatal Python error: Aborted
