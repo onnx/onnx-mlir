@@ -1716,7 +1716,7 @@ func.func @test_shape(%arg0: tensor<?x3x2xf32>) -> tensor<*xi64> {
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: test_shape
-  // CHECK: [[RES:%.+]] = "onnx.Shape"(%arg0) : (tensor<?x3x2xf32>) -> tensor<3xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<?x3x2xf32>) -> tensor<3xi64>
   // CHECK: return [[RES]] : tensor<3xi64>
 }
 
@@ -1951,7 +1951,7 @@ func.func @test_expand_with_shape(%arg0 : tensor<2x1x6x1xf32>, %arg1: tensor<6x2
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_expand_with_shape
-  // CHECK: [[SHAPE:%.+]] = "onnx.Shape"(%arg1) : (tensor<6x2xf32>) -> tensor<2xi64>
+  // CHECK: [[SHAPE:%.+]] = "onnx.Shape"(%arg1) {start = 0 : si64} : (tensor<6x2xf32>) -> tensor<2xi64>
   // CHECK: [[RES:%.+]] = "onnx.Expand"(%arg0, [[SHAPE]]) : (tensor<2x1x6x1xf32>, tensor<2xi64>) -> tensor<2x1x6x2xf32>
   // CHECK: return [[RES]] : tensor<2x1x6x2xf32>
 }
