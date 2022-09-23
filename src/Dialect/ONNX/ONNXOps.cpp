@@ -4545,7 +4545,7 @@ LogicalResult ONNXIsInfOp::inferShapes(
 }
 
 //===------------------------------------------------------------------------===//
-// IsNaNOp
+// LayoutTransform
 //===------------------------------------------------------------------------===//
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
@@ -4559,7 +4559,7 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 }
 
 //===------------------------------------------------------------------------===//
-// LayoutTransform
+// IsNaNOp
 //===------------------------------------------------------------------------===//
 
 LogicalResult ONNXIsNaNOp::inferShapes(
