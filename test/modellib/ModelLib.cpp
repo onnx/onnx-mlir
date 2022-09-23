@@ -39,13 +39,15 @@ ModelLibBuilder::~ModelLibBuilder() {
     delete exec;
 }
 
+static int modelNumber = 0;
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
+  std::string sharedLibName = sharedLibBaseName + std::to_string(modelNumber++);
+  if (compileModule(moduleRef, ctx, sharedLibName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
   std::string libFilename =
-      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
+      getTargetFilename(sharedLibName, onnx_mlir::EmitLib);
   exec = new ExecutionSession(libFilename);
   return exec != nullptr;
 }
