@@ -11,6 +11,11 @@ Releases are extensively tested, including the following steps.
 
 # Current releases
 
+## Prerelease 0.3.1
+
+This prerelease was cut on September 14th, 2022.
+There are no security issues that we know of.
+
 ## Prerelease 0.3.0
 
 This prerelease was cut on May 20th, 2022.
