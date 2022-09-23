@@ -91,6 +91,7 @@ module {
 // Returns whether onnx-mlir compiled loop operation is producing the same
 // results as a naive implementation of loop operation for a specific set of
 // convolution parameters/configuration.
+static int modelNumber = 0;
 bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
     const int64_t tripCount, const int64_t yInit,
     const int64_t earlyTerminationTripCount =
@@ -99,10 +100,11 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   MLIRContext ctx;
   registerDialects(ctx);
 
+  std::string sharedLibName = SHARED_LIB_BASE.str() + std::to_string(modelNumber++);
   auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
   if (compileModule(
-          moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib) != 0)
+          moduleRef, ctx, sharedLibName, onnx_mlir::EmitLib) != 0)
     return false;
 
   std::vector<OMTensorUniquePtr> inputs;
@@ -126,7 +128,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   inputs.emplace_back(move(yInitTensor));
 
   onnx_mlir::ExecutionSession sess(
-      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
+      onnx_mlir::getTargetFilename(sharedLibName, onnx_mlir::EmitLib));
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
     outputs = sess.run(move(inputs));
