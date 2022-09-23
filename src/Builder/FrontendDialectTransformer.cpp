@@ -18,18 +18,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "FrontendDialectTransformer.hpp"
-#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
-#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
-#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
-#include "src/Support/SuppressWarnings.h"
-
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/SymbolTable.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -40,10 +43,14 @@ SUPPRESS_WARNINGS_POP
 
 #include <google/protobuf/util/json_util.h>
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
