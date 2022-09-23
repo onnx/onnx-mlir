@@ -379,14 +379,19 @@ public:
     transpose(output1, subscripts1transposed);
     transpose(output2, subscripts2transposed);
 
+    // copy shapes, the ShapeRefs below will point into these copies,
+    // they cannot point into output1.shape and output2.shape because
+    // they are reshaped before we're done with the ShapeRefs
+    Shape shape1 = output1.shape;
+    Shape shape2 = output2.shape;
     // read off the shapes corresponding to the transposed subscripts
     ShapeRef sharedKeep1Shape, unshared1Shape, reducibleShape;
     std::tie(sharedKeep1Shape, unshared1Shape, reducibleShape) =
-        split3(makeArrayRef(output1.shape), sharedKeepSubscripts.size(),
+        split3(makeArrayRef(shape1), sharedKeepSubscripts.size(),
             subscripts1unshared.size(), reducibleSubscripts.size());
     ShapeRef sharedKeep2Shape, reducible2Shape, unshared2Shape;
     std::tie(sharedKeep2Shape, reducible2Shape, unshared2Shape) =
-        split3(makeArrayRef(output2.shape), sharedKeepSubscripts.size(),
+        split3(makeArrayRef(shape2), sharedKeepSubscripts.size(),
             reducibleSubscripts.size(), subscripts2unshared.size());
     // broadcast not needed because non-result 1-dim axes were squeezed at
     // outset
