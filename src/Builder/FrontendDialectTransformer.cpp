@@ -27,6 +27,7 @@
 
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
@@ -43,13 +44,10 @@ SUPPRESS_WARNINGS_POP
 
 #include <google/protobuf/util/json_util.h>
 
-#include <cstdlib>
+#include <array>
 #include <fstream>
-#include <iostream>
 #include <map>
-#include <sstream>
-#include <type_traits>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
@@ -70,42 +68,16 @@ using InitializedTensorMapping = SymbolMapping<onnx::TensorProto>;
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(MLIRContext &context)
-      : context_(context), builder_(&context),
-        force_dim_dynamic_enabled_(false) {
+      : context_(context), builder_(&context) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
-    if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
-      force_dim_dynamic_enabled_ = true;
-      std::stringstream envString;
-      envString << envInputString;
-      std::string dynamicInput;
-      while (getline(envString, dynamicInput, '|')) {
-        size_t pos = dynamicInput.find(':');
-        std::string inputString = dynamicInput.substr(0, pos);
-        std::string dimString = dynamicInput.substr(pos + 1);
-
-        std::stringstream dimIndices(dimString);
-        std::string dimIndex;
-        std::vector<int> dims;
-        while (getline(dimIndices, dimIndex, ',')) {
-          dims.emplace_back(stoi(dimIndex));
-        }
-        // Default to the all dimensions if dims are not specified.
-        if (dims.empty())
-          dims.emplace_back(-1);
-        forced_inputs_dims.insert(std::make_pair(stoi(inputString), dims));
-      }
-      // Default to the all inputs and dimensions.
-      if (forced_inputs_dims.empty())
-        forced_inputs_dims.insert(std::make_pair(-1, std::vector<int>(1, -1)));
-    }
   }
 
   ModuleOp ImportONNXModel(
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
+    modelInputShaper_.setShapeInformation(options_.shapeInformation);
     SetOpSetImport(model); // Determines which opsets to use.
-    SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
     return module_;
   }
@@ -129,75 +101,7 @@ private:
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
 
-  // Flag to change the inputs of function to unknown dimension.
-  // Temporarily added to use the test cases with static shape to test.
-  // The values are set by enviroment variable IMPORTER_FORCE_DYNAMIC
-  // The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
-  //
-  // <ImportForceDymanicExpr> :== `'` <expr> `'`
-  //                   <expr> ::= <inputString> | <inputString> `|` <expr>
-  //             <inputString ::= <inputIndex> `:` <dimString>
-  //              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
-  //             <inputIndex> ::= <index>
-  //               <dimIndex> ::= <index>
-  //                  <index> ::= -1 | <number>
-  //                 <number> ::= <digit> | <digit><number>
-  //                  <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-  //
-  // Value `-1` semantically represents all inputs or all dimensions, and it
-  // has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the
-  // first input will be changed. Input and dimension indices start from 0.
-  //
-  // Examples:
-  // 1. IMPORTER_FORCE_DYNAMIC='-1:-1'
-  //    - change all dimensions in all inputs to unknown dimensions.
-  // 2. IMPORTER_FORCE_DYNAMIC='-1:0'
-  //    - change the first dimension in all inputs to unknown dimensions.
-  // 3. IMPORTER_FORCE_DYNAMIC='1:-1'
-  //    - change all dimensions in the second input to unknown dimensions.
-  // 4. IMPORTER_FORCE_DYNAMIC='1:0,1'
-  //    - change the first and second dimensions in the second input to unknown
-  //    dimensions.
-  // 5. IMPORTER_FORCE_DYNAMIC='0:1|1:0,1'
-  //    - change the second dimension in the first input to unknown dimensions,
-  //    and
-  //    - change the first and second dimensions in the second input to unknown
-  //    dimensions,
-
-  bool force_dim_dynamic_enabled_;
-  // A map from an input index to a list of dim indices those are changed to
-  // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
-  std::map<int, std::vector<int>> forced_inputs_dims;
-
-  // Custom shape information for the graph inputs.
-  std::map<int64_t, std::vector<int64_t>> inputs_shape_information;
-  void SetCustomShapeInfo() {
-    // Use the custom shape for the inputs if avaiable.
-    if (options_.shapeInformation.empty()) {
-      return;
-    }
-
-    std::stringstream shapeInfoString(options_.shapeInformation);
-    std::string shapeString;
-    while (getline(shapeInfoString, shapeString, ',')) {
-      size_t pos = shapeString.find(':');
-      std::string inputString = shapeString.substr(0, pos);
-      std::string dimString = shapeString.substr(pos + 1);
-
-      int64_t inputID = std::stoi(inputString);
-      assert(inputID >= 0 && "input_id must be >= 0");
-
-      std::stringstream dimSizes(dimString);
-      std::string dimStr;
-      std::vector<int64_t> dims;
-      while (getline(dimSizes, dimStr, 'x')) {
-        int64_t dimSize = std::stoi(dimStr);
-        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
-        dims.emplace_back(dimSize);
-      }
-      inputs_shape_information.insert(std::make_pair(inputID, dims));
-    }
-  }
+  ModelInputShaper modelInputShaper_;
 
   using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &);
@@ -444,47 +348,19 @@ private:
     llvm::SmallVector<llvm::StringRef, 4> outputNames;
 
     // Import the input tensor types that are not constant and not initialized.
-    int numInputs = 0;
+    int inputIndex = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
       if (!initializedTensors.ContainsKey(input.name())) {
         inputNames.push_back(input.name());
-        auto argTy = ImportType(input.type());
-        auto shapedTy = argTy.dyn_cast<RankedTensorType>();
-        // Change the first dimension to unknown (-1) for test purpose only
-        if (shapedTy && force_dim_dynamic_enabled_ &&
-            ((forced_inputs_dims.find(-1) != forced_inputs_dims.end()) ||
-                (forced_inputs_dims.find(numInputs) !=
-                    forced_inputs_dims.end()))) {
-          std::vector<int> forced_dims;
-          if (forced_inputs_dims.find(-1) != forced_inputs_dims.end())
-            forced_dims = forced_inputs_dims.at(-1);
-          else
-            forced_dims = forced_inputs_dims.at(numInputs);
-          auto argShape = shapedTy.getShape();
-          llvm::SmallVector<int64_t, 4> newDims;
-          for (unsigned int i = 0; i < argShape.size(); i++) {
-            if (llvm::is_contained(forced_dims, -1) ||
-                llvm::is_contained(forced_dims, i)) {
-              newDims.push_back(-1);
-            } else {
-              newDims.push_back(argShape[i]);
-            }
-          }
-          argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
-        } else if (shapedTy && !inputs_shape_information.empty() &&
-                   (inputs_shape_information.find(numInputs) !=
-                       inputs_shape_information.end())) {
-          // Change to the custom shape if users provide.
-          std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
-          argTy = RankedTensorType::get(shape, shapedTy.getElementType());
-        }
+        Type argTy = ImportType(input.type());
+        argTy = modelInputShaper_.reshape(inputIndex, argTy);
 
         argTypes.emplace_back(argTy);
 
         // numInputs is the number of graph inputs not contained within the
         // initializer
-        ++numInputs;
+        ++inputIndex;
       }
     }
 

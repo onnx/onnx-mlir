@@ -7,6 +7,7 @@
 add_onnx_mlir_library(OMBuilder
   FrontendDialectHelper.cpp
   FrontendDialectTransformer.cpp
+  ModelInputShaper.cpp
 
   LINK_LIBS PUBLIC
   OMHasOnnxSubgraphOpInterface
