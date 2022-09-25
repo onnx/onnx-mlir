@@ -42,12 +42,12 @@ def main():
     # Make sure docker client is installed
     if not shutil.which('docker'):
         print('docker client not found')
-        return
+        sys.exit(1)
 
     # Make sure docker daemon is running
     if not stat.S_ISSOCK(os.stat(DOCKER_SOCKET).st_mode):
         print('docker daemon not running')
-        return
+        sys.exit(1)
 
     # Pull the latest onnxmlirczar/onnx-mlir image, if image
     # is already up-to-date, pull will do nothing.
@@ -61,9 +61,9 @@ def main():
         print(line if re.match('^([0-9a-f]{12})|Error', line) else '',
               end='', flush=True)
     proc.wait()
-    if (proc.returncode != 0):
+    if proc.returncode:
         print("docker pull failed")
-        return
+        sys.exit(proc.returncode)
 
     # Prepare the arguments for docker run
     args = [ 'docker', 'run', '--rm', '-ti' ]
