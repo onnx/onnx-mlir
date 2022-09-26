@@ -475,7 +475,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
     return !op.pads() || !hasNonZeroInArrayAttr(op.pads().value()) ||
-        isSuitableForZDNN<ONNXConvOp>(op);
+           isSuitableForZDNN<ONNXConvOp>(op);
   });
 
   // Single ONNX to ZHigh operation lowering.
