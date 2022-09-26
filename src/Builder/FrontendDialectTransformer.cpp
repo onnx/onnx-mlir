@@ -1118,8 +1118,6 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-    // types: Used for temporary copies of Types, freed at end of function.
-    std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
@@ -1141,10 +1139,7 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        std::unique_ptr<onnx::TypeProto> p =
-            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
-        typeMap[n.output(i)] = p.get();
-        types.push_back(std::move(p));
+        typeMap[n.output(i)] = std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i)).get();
       }
     }
 
