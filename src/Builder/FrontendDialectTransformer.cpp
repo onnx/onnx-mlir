@@ -597,6 +597,8 @@ private:
       typeTuple.push_back(builder_.getF64Type());
       return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
     }
+    case 11:
+      return mlir::ONNXStringType::get(builder_.getContext());
     default:
       assert(false && "Unsupported type index encountered.");
       return nullptr;
