@@ -518,3 +518,12 @@ func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x2
   // CHECK:           return [[VAR_3_]] : tensor<1x64x112x112xf32>
   // CHECK:         }
 }
+
+// -----
+
+func.func @test_onnx_conv2d_not_insert_onnxpad_when_not_necessary(%arg0: tensor<1x3x223x223xf32>, %arg1 : tensor<64x3x7x7xf32>, %arg2 : tensor<64xf32>) -> tensor<1x64x112x112xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x223x223xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+  return %0 : tensor<1x64x112x112xf32>
+  // CHECK-LABEL: test_onnx_conv2d_not_insert_onnxpad_when_not_necessary
+  // CHECK-NOT: "onnx.Pad"
+}

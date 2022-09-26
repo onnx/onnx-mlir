@@ -288,6 +288,11 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
 
+// Check the a convolution operation is NOT suitable for zDNN
+def IsConvolutionOpNotSuitableForZDNN:
+//  Constraint<CPred<"!isConvolutionOpSuitableForZDNN($_self)">>;
+  Constraint<CPred<"!isSuitableForZDNN<ONNXConvOp>(dyn_cast<ONNXConvOp>($_self.getDefiningOp()))">>;
+
 def ConvOpPaddingPattern: Pat<
   (ONNXConvOp:$res
      $x,
@@ -305,7 +310,8 @@ def ConvOpPaddingPattern: Pat<
      $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $strides),
-  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+  //[(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+  [(HasNonZeroInArrayAttr:$pads), (IsConvolutionOpNotSuitableForZDNN:$res)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

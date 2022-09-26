@@ -161,10 +161,10 @@ int main(int argc, char *argv[]) {
              1, 512, 1000, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
          "failed test from test_squeezenet_cpu");
   assert(isOMConvTheSameAsNaiveImplFor(
-             3, 64, 64, 55, 55, 1, 1, 1, 1, 1, 1, ConvAutoPad::NOTSET) &&
+             3, 64, 64, 55, 55, 3, 3, 1, 1, 0, 0, ConvAutoPad::NOTSET) &&
          "failed test from test_cpuconvpadding1");
   assert(isOMConvTheSameAsNaiveImplFor(
-             3, 64, 64, 55, 55, 1, 1, 1, 1, 2, 2, ConvAutoPad::NOTSET) &&
+             3, 64, 64, 55, 55, 3, 3, 1, 1, 2, 2, ConvAutoPad::NOTSET) &&
          "failed test from test_cpuconvpadding2");
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
