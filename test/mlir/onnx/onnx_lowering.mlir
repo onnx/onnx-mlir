@@ -3155,7 +3155,7 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_15_:%.+]] = arith.cmpi slt, [[VAR_14_]], [[VAR_c0_4_]] : index
-// CHECK-DAG:       [[VAR_16_:%.+]] = affine.apply [[MAP3:#map.*]](){{.}}[[VAR_14_]], [[VAR_12_]]{{.}}
+// CHECK-DAG:       [[VAR_16_:%.+]] = affine.apply [[MAP3:#map.*]](){{.}}{{%.*}}, {{%.*}}{{.}}
 // CHECK:           [[VAR_17_:%.+]] = arith.select [[VAR_15_]], [[VAR_16_]], [[VAR_14_]] : index
 // CHECK-DAG:       [[VAR_18_:%.+]] = "krnl.seqextract"([[VAR_3_]], [[VAR_17_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
