@@ -20,6 +20,8 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
+#include <regex>
+
 #undef PRINT_TENSORS
 
 using namespace mlir;
