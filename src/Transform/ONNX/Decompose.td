@@ -49,8 +49,6 @@ def GetNullIntegerAttr : NativeCodeCall<"IntegerAttr()">;
 
 def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 
-def GetNoneStringAttr : NativeCodeCall<"$_builder.getStringAttr(\"none\")">;
-
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
     : NativeCodeCall<"::onnx_mlir::createUnitConstant($_builder, $_loc)">;
@@ -347,7 +345,7 @@ def ClipV12Pattern : Pat<
 // Express Scatter (deprecated) using ScatterElements.
 def ScatterPattern : Pat<
   (ONNXScatterOp $data, $indices, $updates, $axis),
-  (ONNXScatterElementsOp $data, $indices, $updates, $axis, (GetNoneStringAttr))
+  (ONNXScatterElementsOp $data, $indices, $updates, $axis, (GetNullStringAttr))
 >;
 
 #endif // ONNX_DECOMPOSE
