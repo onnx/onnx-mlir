@@ -12,16 +12,11 @@
 
 #pragma once
 
-#include <fstream>
-#include <functional>
-#include <map>
-#include <memory>
-#include <sstream>
 #include <string>
-#include <vector>
 
 #include "onnx/onnx_pb.h"
 
+#include "mlir/IR/OwningOpRef.h"
 #include "llvm/ADT/StringRef.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
