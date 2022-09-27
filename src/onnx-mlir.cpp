@@ -15,6 +15,7 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
 #include <iostream>
+#include <regex>
 
 using namespace onnx_mlir;
 
