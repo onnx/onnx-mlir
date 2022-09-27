@@ -45,8 +45,7 @@ def replaceONNXConv2DPattern : Pattern<
        $kernel_shape,
        $strides,
        $padtype,
-       (ACT_NONEAttr)),
-       )
+       (ACT_NONEAttr)))
   ]
 >;
 
