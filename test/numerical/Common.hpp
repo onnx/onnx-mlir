@@ -16,8 +16,8 @@
 #include <rapidcheck.h>
 
 #if defined(_MSC_VER)
-#ifdef _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS &&                              \
-    !defined _SILENCE_WAS_PREDEFINED
+#if defined(_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS) &&                        \
+    !defined(_SILENCE_WAS_PREDEFINED)
 #undef _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #endif
 #else
