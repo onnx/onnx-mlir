@@ -19,8 +19,9 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
-namespace onnx_mlir {
+namespace {
 
 // Parses unsigned number.
 size_t parseOffsetOrLength(const std::string &value) {
@@ -166,6 +167,10 @@ llvm::SmallVector<llvm::APFloat> U16ToF16Array(
   return f16Array;
 }
 
+} // namespace
+
+namespace onnx_mlir {
+
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
     mlir::OpBuilder &builder, const std::string &externalDataDir,
     const onnx::TensorProto &initializer) {
@@ -228,4 +233,5 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
         "Failed to import ONNX TensorProto due to unsupported data types.");
   }
 }
+
 } // namespace onnx_mlir
