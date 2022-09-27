@@ -53,33 +53,16 @@ private:
       Region &graph, Region &scfBranch) const {
     OpBuilder::InsertionGuard insertGuard(rewriter);
 
-    Block &block = graph.back();
-    Operation *returnOp = block.getTerminator();
-    auto returnOperands = returnOp->getOperands();
-    llvm::SmallVector<Value> outputs(
-        returnOperands.begin(), returnOperands.end());
-
-    // Split off and erase returnOp. Below we create a yield op instead.
-    auto returnBlock = block.splitBlock(returnOp);
-    rewriter.eraseBlock(returnBlock);
-
+    rewriter.eraseBlock(&scfBranch.back());
     scfBranch.takeBody(graph);
     rewriter.setInsertionPointToEnd(&scfBranch.back());
 
-    // Cast outputs to memref types if they have not already been lowered.
-    // Eventually, 'UnrealizedConversionCastOp' becomes a cast from memref type
-    // to a memref type when everything is lowered and thus becomes redundant.
-    for (Value &output : outputs) {
-      if (!output.getType().isa<MemRefType>()) {
-        Type outputTy = typeConverter->convertType(output.getType());
-        assert(outputTy && "failed to convert branch output type");
-        output =
-            rewriter.create<UnrealizedConversionCastOp>(loc, outputTy, output)
-                .getResult(0);
-      }
+    Operation *returnOp = scfBranch.back().getTerminator();
+    llvm::SmallVector<Value> outputs;
+    if (failed(rewriter.getRemappedValues(returnOp->getOperands(), outputs))) {
+      llvm_unreachable("failed to convert branch return values");
     }
-
-    rewriter.create<scf::YieldOp>(loc, outputs);
+    rewriter.replaceOpWithNewOp<scf::YieldOp>(returnOp, outputs);
   }
 };
 

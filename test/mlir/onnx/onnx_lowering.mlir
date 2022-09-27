@@ -2352,18 +2352,13 @@ func.func @test_if_simple(%arg0: tensor<i1>, %arg1: tensor<i64>, %arg2: tensor<i
   return %0 : tensor<i64>
 // CHECK-LABEL:  @test_if_simple
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i1>, [[PARAM_1_:%.+]]: memref<i64>, [[PARAM_2_:%.+]]: memref<i64>) -> memref<i64> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_2_]] : memref<i64> to tensor<i64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i64> to tensor<i64>
-// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<i1>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_3_:%.+]] = scf.if [[LOAD_PARAM_0_MEM_]] -> (memref<i64>) {
-// CHECK-DAG:         [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[VAR_1_]] : tensor<i64> to memref<i64>
-// CHECK:             scf.yield [[VAR_4_]] : memref<i64>
+// CHECK:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<i1>
+// CHECK:           [[VAR_1_:%.+]] = scf.if [[LOAD_PARAM_0_MEM_]] -> (memref<i64>) {
+// CHECK:             scf.yield [[PARAM_1_]] : memref<i64>
 // CHECK:           } else {
-// CHECK:             [[VAR_4_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_0_]] : tensor<i64> to memref<i64>
-// CHECK:             scf.yield [[VAR_4_1_]] : memref<i64>
+// CHECK:             scf.yield [[PARAM_2_]] : memref<i64>
 // CHECK:           }
-// CHECK:           return [[VAR_3_]] : memref<i64>
+// CHECK:           return [[VAR_1_]] : memref<i64>
 // CHECK:         }
 }
 
@@ -2401,8 +2396,7 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
 // CHECK-DAG:       [[VAR_6_:%.+]] = scf.if [[LOAD_RES_MEM_]] -> (memref<i32>) {
 // CHECK-DAG:         [[VAR_7_:%.+]] = "krnl.global"() {name = "constant_19", shape = [], value = dense<-1> : tensor<1xi32>} : () -> memref<i32>
 // CHECK:             [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_]] : memref<i32> to tensor<i32>
-// CHECK:             [[VAR_9_:%.+]] = builtin.unrealized_conversion_cast [[VAR_8_]] : tensor<i32> to memref<i32>
-// CHECK:             scf.yield [[VAR_9_]] : memref<i32>
+// CHECK:             scf.yield [[VAR_7_]] : memref<i32>
 // CHECK:           } else {
 // CHECK-DAG:         [[VAR_c1_0_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:         [[RES_1_:%.+]] = memref.alloc() : memref<i1>
@@ -2412,19 +2406,16 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
 // CHECK:             krnl.store [[VAR_10_]], [[RES_1_]][] : memref<i1>
 // CHECK:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<i1>
 // CHECK-DAG:         [[VAR_12_:%.+]] = scf.if [[LOAD_RES_1_MEM_]] -> (memref<i32>) {
-// CHECK-DAG:           [[VAR_15_:%.+]] = "krnl.global"() {name = "constant_20", shape = [], value = dense<1> : tensor<1xi32>} : () -> memref<i32>
-// CHECK:               [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_15_]] : memref<i32> to tensor<i32>
-// CHECK:               [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_16_]] : tensor<i32> to memref<i32>
-// CHECK:               scf.yield [[VAR_17_]] : memref<i32>
+// CHECK-DAG:           [[VAR_14_:%.+]] = "krnl.global"() {name = "constant_20", shape = [], value = dense<1> : tensor<1xi32>} : () -> memref<i32>
+// CHECK:               [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_14_]] : memref<i32> to tensor<i32>
+// CHECK:               scf.yield [[VAR_14_]] : memref<i32>
 // CHECK:             } else {
-// CHECK:               [[VAR_15_1_:%.+]] = "krnl.global"() {name = "constant_21", shape = [], value = dense<0> : tensor<1xi32>} : () -> memref<i32>
-// CHECK:               [[VAR_16_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_15_1_]] : memref<i32> to tensor<i32>
-// CHECK:               [[VAR_17_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_16_1_]] : tensor<i32> to memref<i32>
-// CHECK:               scf.yield [[VAR_17_1_]] : memref<i32>
+// CHECK:               [[VAR_14_1_:%.+]] = "krnl.global"() {name = "constant_21", shape = [], value = dense<0> : tensor<1xi32>} : () -> memref<i32>
+// CHECK:               [[VAR_15_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_14_1_]] : memref<i32> to tensor<i32>
+// CHECK:               scf.yield [[VAR_14_1_]] : memref<i32>
 // CHECK:             }
 // CHECK:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_12_]] : memref<i32> to tensor<i32>
-// CHECK:             [[VAR_14_:%.+]] = builtin.unrealized_conversion_cast [[VAR_13_]] : tensor<i32> to memref<i32>
-// CHECK:             scf.yield [[VAR_14_]] : memref<i32>
+// CHECK:             scf.yield [[VAR_12_]] : memref<i32>
 // CHECK:           }
 // CHECK:           return [[VAR_6_]] : memref<i32>
 // CHECK:         }
