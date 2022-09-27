@@ -12,16 +12,11 @@
 
 #pragma once
 
-#include <fstream>
-#include <functional>
-#include <map>
-#include <memory>
-#include <sstream>
 #include <string>
-#include <vector>
 
 #include "onnx/onnx_pb.h"
 
+#include "mlir/IR/OwningOpRef.h"
 #include "llvm/ADT/StringRef.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
@@ -57,6 +52,9 @@ struct ImportOptions {
   //   - (arg0: tensor<3x4x5xf32>, arg1: tensor<10x5xf32>)
   //
   std::string shapeInformation = "";
+  // Directory to look for external data if any tensor has external
+  // data location. If empty then external data is disabled.
+  std::string externalDataDir = "";
 };
 
 /*!

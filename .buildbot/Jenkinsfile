@@ -25,6 +25,7 @@ def call() {
     options {
       skipDefaultCheckout()
       buildDiscarder(logRotator(numToKeepStr:'1000'))
+      ansiColor('xterm')
     }
 
     agent {

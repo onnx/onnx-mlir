@@ -241,6 +241,8 @@ void populateONNXToKrnlConversionPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 
 // `ControlFlow` directory methods:
+void populateLoweringONNXIfOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLoopOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXScanOpPattern(

@@ -18,18 +18,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "FrontendDialectTransformer.hpp"
-#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
-#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
-#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
-#include "src/Support/SuppressWarnings.h"
-
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/FileUtilities.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/SymbolTable.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -40,10 +43,14 @@ SUPPRESS_WARNINGS_POP
 
 #include <google/protobuf/util/json_util.h>
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
@@ -230,6 +237,11 @@ private:
     return *valuePtr;
   }
 
+  Value ImportTensor(const onnx::TensorProto &tensor) {
+    return EmitInitializerForInputTensor(
+        UnknownLoc(), builder_, options_.externalDataDir, tensor);
+  }
+
   /*!
    * Import an onnx tensor type by determining and returning its type
    * @param type_proto onnx tensor TypeProto.
@@ -354,7 +366,8 @@ private:
           llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
+      mlirAttr = onnxTensorProtoToDenseElmAttr(
+          builder_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
@@ -591,6 +604,8 @@ private:
       typeTuple.push_back(builder_.getF64Type());
       return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
     }
+    case 11:
+      return mlir::ONNXStringType::get(builder_.getContext());
     default:
       assert(false && "Unsupported type index encountered.");
       return nullptr;
@@ -710,8 +725,7 @@ private:
       } else {
         if (const onnx::TensorProto *tensorPtr =
                 initializedTensors.GetByOnnxName(item)) {
-          inputs.push_back(EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, *tensorPtr));
+          inputs.push_back(ImportTensor(*tensorPtr));
         } else if (const Value *valuePtr =
                        frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -785,8 +799,7 @@ private:
       } else {
         if (const onnx::TensorProto *tensorPtr =
                 initializedTensors.GetByOnnxName(item)) {
-          inputs.push_back(EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, *tensorPtr));
+          inputs.push_back(ImportTensor(*tensorPtr));
         } else if (const Value *valuePtr =
                        frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -841,8 +854,7 @@ private:
     for (const auto &item : node.input()) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item)) {
-        inputs.push_back(
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr));
+        inputs.push_back(ImportTensor(*tensorPtr));
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -933,8 +945,7 @@ private:
     for (const auto &item : llvm::enumerate(node.input())) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item.value())) {
-        inVals[item.index()] =
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr);
+        inVals[item.index()] = ImportTensor(*tensorPtr);
       } else {
         if (const Value *valuePtr =
                 frontend_symbols_.GetByOnnxName(item.value())) {
@@ -997,8 +1008,7 @@ private:
     for (const auto &item : node.input()) {
       if (const onnx::TensorProto *tensorPtr =
               initializedTensors.GetByOnnxName(item)) {
-        inputs.push_back(
-            EmitInitializerForInputTensor(UnknownLoc(), builder_, *tensorPtr));
+        inputs.push_back(ImportTensor(*tensorPtr));
       } else if (const Value *valuePtr =
                      frontend_symbols_.GetByOnnxName(item)) {
         inputs.push_back(*valuePtr);
