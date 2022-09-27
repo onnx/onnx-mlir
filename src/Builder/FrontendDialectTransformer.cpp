@@ -1146,7 +1146,7 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        typeMap[n.output(i)] = std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i)).get();
+        typeMap[n.output(i)] = node_ctx.getOutputType(i);
       }
     }
 
