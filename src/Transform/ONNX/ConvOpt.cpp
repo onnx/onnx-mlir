@@ -209,7 +209,8 @@ struct ConvOptONNXToONNXPass
 
   ConvOptONNXToONNXPass() = default;
   ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass)
-      : PassWrapper<ConvOptONNXToONNXPass, OperationPass<func::FuncOp>>() {}
+      : mlir::PassWrapper<ConvOptONNXToONNXPass,
+            OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "convopt-onnx"; }
 

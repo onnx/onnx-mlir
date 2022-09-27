@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
@@ -13,6 +14,7 @@
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/SuppressWarnings.h"

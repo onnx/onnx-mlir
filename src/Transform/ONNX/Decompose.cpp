@@ -205,7 +205,8 @@ struct DecomposeONNXToONNXPass
 
   DecomposeONNXToONNXPass() = default;
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
-      : PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>() {}
+      : mlir::PassWrapper<DecomposeONNXToONNXPass,
+            OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
