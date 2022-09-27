@@ -99,9 +99,9 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DLLVM_EXTERNAL_LIT=%lit_path% ^
    -DLLVM_LIT_ARGS=-v ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir ^
-   -DONNX_MLIR_BUILD_TESTS=ON
+   -DONNX_MLIR_ENABLE_WERROR=ON
 
-call cmake --build . --config Release --target onnx-mlir
+call cmake --build . --config Release
 ```
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
 
