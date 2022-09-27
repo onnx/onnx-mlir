@@ -23,7 +23,7 @@ endif()
 list(APPEND vcs_generate_commands
   COMMAND ${CMAKE_COMMAND} [[-DNAMES="LLVM\;ONNX_MLIR"]]
                            "-DPACKAGE_VENDOR=${package_vendor}"
-                           "-DONNX_MLIR_PRODUCT_VERSION=${onnx_mlir_product_version}
+                           "-DONNX_MLIR_PRODUCT_VERSION=${onnx_mlir_product_version}"
                            "-DLLVM_SOURCE_DIR=${llvm_source_dir}"
                            "-DONNX_MLIR_SOURCE_DIR=${onnx_mlir_source_dir}"
                            "-DHEADER_FILE=${version_inc}.tmp"
