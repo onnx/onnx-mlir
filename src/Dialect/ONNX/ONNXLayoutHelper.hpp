@@ -20,5 +20,6 @@ namespace onnx_mlir {
 /// Note: Keep these strings in sync with the one in Dialect/ONNX/ONNX.td.
 const std::string LAYOUT_NCHW4C = "NCHW4C";
 const std::string LAYOUT_KCMN4C4K = "KCMN4C4K";
+const std::string LAYOUT_UNDEFINED = "UNDEFINED";
 
 } // namespace onnx_mlir

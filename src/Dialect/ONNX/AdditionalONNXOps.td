@@ -171,7 +171,9 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
       ONNXTensor_KCMN4C4K]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>, // Defined layouts.
+    OpBuilder<(ins "::mlir::Value":$In)> // Undefined layout.
+
   ];
   let hasCanonicalizer = 1;
 }

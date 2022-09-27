@@ -29,15 +29,23 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
-/// Get a ONNX Tensor data layout by StringRef.
+/// Get a ONNX Tensor data layout by StringRef. If layout string is undefined or
+/// any other unrecognized string, just return false.
 bool convertStringToONNXTensorDataLayout(llvm::StringRef layoutStr,
     mlir::ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
     int64_t &yFactor);
 
-/// Convert a data layout to StringRef, assert on error.
+/// Convert a data layout to StringRef, assert on error. Default yFactor value
+/// is undef, namely 0.
 llvm::StringRef convertONNXTensorDataLayoutToString(
     mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
-    int64_t yFactor);
+    int64_t yFactor = 0);
+
+/// Convert a data layout to StringAttr, assert on error. Default yFactor value
+/// is undef, namely 0.
+mlir::StringAttr convertONNXTensorDataLayoutToStringAttr(
+    mlir::OpBuilder &builder, mlir::ONNXTensorEncodingAttr::DataLayout layout,
+    int64_t xFactor, int64_t yFactor = 0);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(mlir::Type type);
@@ -49,9 +57,24 @@ mlir::ONNXTensorEncodingAttr getONNXTensorEncoding(mlir::Type type);
 /// Get the layout of a ONNX tensor.
 mlir::ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(mlir::Type type);
 
+// Return true if both types have the same ONNX Tensor Data Layout (does not
+// check for dimensions, elementary types...).
+bool identicalONNXTensorDataLayout(
+    const mlir::Type type1, const mlir::Type type2);
+
+// Return true if the type has a layout associated with convolution
+// optimizations.
+bool hasConvONNXTensorDataLayout(const mlir::Type type);
+
+//===----------------------------------------------------------------------===//
+// Identity map
+
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
 mlir::AffineMap getIdentityDimMap(mlir::Builder &builder);
+
+//===----------------------------------------------------------------------===//
+// Support for pool/convolutions
 
 // Pool/conv affine map:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]

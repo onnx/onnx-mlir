@@ -4548,6 +4548,44 @@ LogicalResult ONNXIsInfOp::inferShapes(
 // LayoutTransform
 //===------------------------------------------------------------------------===//
 
+void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
+    Value input, StringAttr layoutAttr) {
+  Type resType = builder.getNoneType();
+  if (!input.getType().isa<NoneType>()) {
+    ShapedType inputType = input.getType().cast<ShapedType>();
+    if (inputType.hasRank()) {
+      assert(layoutAttr && "ONNXLayoutTransformOp builder expect a layout");
+      ONNXTensorEncodingAttr::DataLayout dataLayout;
+      int64_t xFactor, yFactor;
+      bool success = convertStringToONNXTensorDataLayout(
+          layoutAttr, dataLayout, xFactor, yFactor);
+      // Compute shape.
+      ArrayRef<int64_t> inputShape = inputType.getShape();
+      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+      if (success) {
+        // Embed encoding attribute into type.
+        auto encodingAttr = ONNXTensorEncodingAttr::get(
+            builder.getContext(), dataLayout, xFactor, yFactor);
+        // Generate type.
+        resType = RankedTensorType::get(
+            resShape, inputType.getElementType(), encodingAttr);
+      } else {
+        // Do not embed encoding attribute into type.
+        resType = RankedTensorType::get(resShape, inputType.getElementType());
+      }
+    } else {
+      resType = UnrankedTensorType::get(inputType.getElementType());
+    }
+  }
+  build(builder, state, resType, input);
+}
+
+void ONNXLayoutTransformOp::build(
+    OpBuilder &builder, OperationState &state, Value input) {
+  StringAttr undefAttr = builder.getStringAttr(LAYOUT_UNDEFINED);
+  build(builder, state, input, undefAttr);
+}
+
 LogicalResult ONNXLayoutTransformOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXLayoutTransformOp operandAdaptor(*this);

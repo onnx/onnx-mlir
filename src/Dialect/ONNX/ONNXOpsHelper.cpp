@@ -29,7 +29,8 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
-/// Get a ONNX Tensor data layout by StringRef.
+/// Get a ONNX Tensor data layout by StringRef. If layout string is undefined or
+/// any other unrecognized string, just return false.
 bool convertStringToONNXTensorDataLayout(StringRef layoutStr,
     ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
     int64_t &yFactor) {
@@ -67,6 +68,14 @@ StringRef convertONNXTensorDataLayoutToString(
   llvm_unreachable("unsupported ONNX Layout");
 }
 
+// Same as above, return a String Attribute.
+StringAttr convertONNXTensorDataLayoutToStringAttr(OpBuilder &builder,
+    mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
+    int64_t yFactor) {
+  StringRef str = convertONNXTensorDataLayoutToString(layout, xFactor, yFactor);
+  return builder.getStringAttr(str);
+}
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
@@ -88,6 +97,34 @@ ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(Type type) {
   if (ONNXTensorEncodingAttr encoding = getONNXTensorEncoding(type))
     return encoding.getDataLayout();
   return ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+}
+
+// Return true if both types have the same ONNX Tensor Data Layout (does not
+// check for dimensions, elementary types...).
+bool identicalONNXTensorDataLayout(
+    const mlir::Type type1, const mlir::Type type2) {
+
+  ONNXTensorEncodingAttr encoding1 = getONNXTensorEncoding(type1);
+  ONNXTensorEncodingAttr encoding2 = getONNXTensorEncoding(type2);
+  // Test if neither have encodings, then it is considered identical.
+  if (!encoding1 && !encoding2)
+    return true;
+  // Have encoding, test that they have the same parameters
+  ONNXTensorEncodingAttr::DataLayout layout1 = encoding1.getDataLayout();
+  ONNXTensorEncodingAttr::DataLayout layout2 = encoding2.getDataLayout();
+  assert(layout1 != ONNXTensorEncodingAttr::DataLayout::UNDEFINED &&
+         "expected a defined layout");
+  assert(layout2 != ONNXTensorEncodingAttr::DataLayout::UNDEFINED &&
+         "expected a defined layout");
+  return layout1 == layout2 &&
+         encoding1.getXFactor() == encoding2.getXFactor() &&
+         encoding1.getYFactor() == encoding2.getYFactor();
+}
+
+bool hasConvONNXTensorDataLayout(const mlir::Type type) {
+  ONNXTensorEncodingAttr::DataLayout layout = getONNXTensorLayout(type);
+  return (layout == ONNXTensorEncodingAttr::DataLayout::NCHWxC ||
+          layout == ONNXTensorEncodingAttr::DataLayout::KCNMxCyK);
 }
 
 //===----------------------------------------------------------------------===//
