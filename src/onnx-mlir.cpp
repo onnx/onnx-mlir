@@ -68,8 +68,9 @@ int main(int argc, char *argv[]) {
   }
   // Test option requirements.
   if (!ONNXOpStats.empty() && emissionTarget <= EmitONNXIR)
-    llvm::errs() << "Warning: --onnx-op-stats requires a target that goes "
-                    "further along than --EmitONNXIR\n";
+    llvm::errs()
+        << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
+           "--EmitLLVMIR, or binary-generating emit commands.\n";
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

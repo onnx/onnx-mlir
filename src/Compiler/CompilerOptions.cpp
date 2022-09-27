@@ -162,7 +162,8 @@ llvm::cl::opt<std::string> ONNXOpStats("onnx-op-stats",
         "Report the occurrence frequency of ONNX ops in JSON or TXT format:\n"
         "\"TXT\" for report as text,\n"
         "\"JSON\" for report as JSON.\n"
-        "Requires emit target going further along than -EmitONNXIR"),
+        "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
+        "commands."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
