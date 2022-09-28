@@ -47,6 +47,9 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
 
+  // ONNXDimOp
+  mlir::Value dim(mlir::Value input, int axis) const;
+
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
