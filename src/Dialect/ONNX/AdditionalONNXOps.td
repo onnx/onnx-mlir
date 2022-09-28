@@ -131,6 +131,30 @@ def ONNXCustomOp:ONNX_Op<"Custom",
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX DimOp
+def ONNXDimOp : ONNX_Op<"Dim",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX dimensions operation.";
+  let description = [{
+    This operation is to obtain the dimension of a Tensor;
+
+    ```
+    "onnx.Dim"(%tensor) {axis = 0 : si64} : (tensor<?x3x5xf32>) -> tensor<1xi64>
+    ```
+
+    The axis identifies the dimension within the shape which is going to be obtained.
+
+    This operation is not part of the standard and was added to assit onnx-mlir.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+                       DefaultValuedAttr<SI64Attr, "0">:$axis);
+  let results = (outs TensorOf<[I64]>:$dim);
+  let hasCanonicalizer = 1;
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX EntryPoint: Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let summary = "Indicate ONNX entry point";

@@ -1674,6 +1674,42 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values
 
+### `onnx.Dim` (::mlir::ONNXDimOp)
+
+ONNX dimensions operation.
+
+This operation is to obtain the dimension of a Tensor;
+
+```
+"onnx.Dim"(%tensor) {axis = 0 : si64} : (tensor<?x3x5xf32>) -> tensor<1xi64>
+```
+
+The axis identifies the dimension within the shape which is going to be obtained.
+
+This operation is not part of the standard and was added to assit onnx-mlir.
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `dim` | tensor of 64-bit signless integer values
+
 ### `onnx.Div` (::mlir::ONNXDivOp)
 
 ONNX Div operation
