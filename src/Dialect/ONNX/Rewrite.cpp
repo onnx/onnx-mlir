@@ -561,6 +561,12 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
 }
 
+/// on the ONNXDimOp.
+void ONNXDimOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<DimOpToConstantPattern>(context);
+}
+
 /// on the ONNXMulOp.
 void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -578,6 +584,7 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
+  result.insert<FuseCastCastPattern>(context);
 }
 
 /// on the ONNXTransposeOp.
@@ -639,22 +646,26 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 void ONNXSqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeUnsqueezePattern>(context);
+  result.insert<RemoveSqueezeCastUnsqueezePattern>(context);
 }
 
 void ONNXSqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
+  result.insert<RemoveSqueezeV11CastUnsqueezeV11Pattern>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
 void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
+  result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
+  result.insert<RemoveUnsqueezeV11CastSqueezeV11Pattern>(context);
 }
 
 /// on the ONNXBatchNormalizationInferenceModeOp.
