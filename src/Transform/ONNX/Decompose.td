@@ -366,16 +366,9 @@ def SqueezeV11Pattern : Pat<
   [], (addBenefit 0)
 >;
 
-def UnsqueezeV11PatternNoAttr : Pat<
-  (ONNXUnsqueezeV11Op $x, $axes),
-  (ONNXUnsqueezeOp $x, (CreateUnitConstant)),
-  [(AttributeIsNull:$axes)], (addBenefit 1)
->;
-
 def UnsqueezeV11Pattern : Pat<
   (ONNXUnsqueezeV11Op $x, $axes),
-  (ONNXUnsqueezeOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes))),
-  [], (addBenefit 0)
+  (ONNXUnsqueezeOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)))
 >;
 
 // Express Scatter (deprecated) using ScatterElements.
