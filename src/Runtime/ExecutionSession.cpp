@@ -25,8 +25,7 @@
 #include "llvm/Support/Path.h"
 
 #include "ExecutionSession.hpp"
-
-void omTensorListDestroyWithoutDestroyingTensors(OMTensorList *list);
+#include "OMTensorListHelper.hpp"
 
 namespace onnx_mlir {
 const std::string ExecutionSession::_queryEntryPointsName =
@@ -92,7 +91,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // own the tensor in the list, as they are coming as OMTensorUniquePtr. So we
   // need to simply deallocate the list structure without touching the
   // OMTensors.
-  omTensorListDestroyWithoutDestroyingTensors(wrappedInput);
+  omTensorListDestroyShallow(wrappedInput);
 
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
@@ -107,7 +106,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // really own the tensor in the list, as they are returned in a vector of
   // OMTensorUniquePtr. So we need to simply deallocate the list structure
   // without touching the OMTensors.
-  omTensorListDestroyWithoutDestroyingTensors(wrappedOutput);
+  omTensorListDestroyShallow(wrappedOutput);
   errno = 0; // No errors.
   return outs;
 }

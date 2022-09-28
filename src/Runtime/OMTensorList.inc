@@ -113,7 +113,7 @@ void omTensorListDestroy(OMTensorList *list) {
  * unpublished call that is mainly used to handle the unique tensor scheme used
  * in Execution Session.
  */
-void omTensorListDestroyWithoutDestroyingTensors(OMTensorList *list) {
+void omTensorListDestroyShallow(OMTensorList *list) {
   if (!list)
     return;
   // Omit destruction of the OMTensors.
