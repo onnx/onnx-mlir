@@ -101,3 +101,18 @@ func.func @test_einsum_trace(%arg0: tensor<3x3xf32>) -> tensor<f32> {
 // CHECK:           [[VAR_6_:%.+]] = "onnx.ReduceSum"([[VAR_4_]], [[VAR_5_]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3xf32>, tensor<1xi64>) -> tensor<f32>
 // CHECK:           return [[VAR_6_]] : tensor<f32>
 }
+
+func.func @test_einsum_ibh_hnd(%arg0: tensor<128x1x1024xf16>, %arg1: tensor<1024x16x64xf16>) -> tensor<128x1x16x64xf16> {
+  %0 = "onnx.Einsum"(%arg0, %arg1) {equation = "ibh,hnd->ibnd"} : (tensor<128x1x1024xf16>, tensor<1024x16x64xf16>) -> tensor<128x1x16x64xf16>
+  return %0 : tensor<128x1x16x64xf16>
+// CHECK-LABEL:  func.func @test_einsum_ibh_hnd
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x1x1024xf16>, [[PARAM_1_:%.+]]: tensor<1024x16x64xf16>) -> tensor<128x1x16x64xf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[128, 1024]> : tensor<2xi64>} : () -> tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<128x1x1024xf16>, tensor<2xi64>) -> tensor<128x1024xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<1024> : tensor<2xi64>} : () -> tensor<2xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<1024x16x64xf16>, tensor<2xi64>) -> tensor<1024x1024xf16>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.MatMul"([[VAR_1_]], [[VAR_3_]]) : (tensor<128x1024xf16>, tensor<1024x1024xf16>) -> tensor<128x1024xf16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<[128, 1, 16, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Reshape"([[VAR_4_]], [[VAR_5_]]) {allowzero = 0 : si64} : (tensor<128x1024xf16>, tensor<4xi64>) -> tensor<128x1x16x64xf16>
+// CHECK:           return [[VAR_6_]] : tensor<128x1x16x64xf16>
+}

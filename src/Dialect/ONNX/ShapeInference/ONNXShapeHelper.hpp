@@ -242,7 +242,6 @@ DECLARE_SHAPE_HELPER(ONNXGatherNDOp)
 DECLARE_SHAPE_HELPER(ONNXLRNOp)
 DECLARE_SHAPE_HELPER(ONNXReshapeOp)
 DECLARE_SHAPE_HELPER(ONNXReverseSequenceOp)
-DECLARE_SHAPE_HELPER(ONNXShapeOp)
 DECLARE_SHAPE_HELPER(ONNXSpaceToDepthOp)
 DECLARE_SHAPE_HELPER(ONNXSplitOp)
 DECLARE_SHAPE_HELPER(ONNXSplitV11Op)
@@ -263,6 +262,24 @@ std::pair<int64_t, int64_t> getDataShapeBounds(
 
 // Compute the data selected by the Shape operator.
 DimsExpr computeSelectedData(mlir::ONNXShapeOpAdaptor &operandAdaptor);
+
+// Shape for ShapeOp.
+struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
+  ONNXShapeOpShapeHelper(
+      mlir::ONNXShapeOp *newOp, IndexExprScope *inScope = nullptr)
+      : ONNXOpShapeHelper<mlir::ONNXShapeOp>(
+            newOp, newOp->getOperation()->getNumResults(), inScope) {}
+  ONNXShapeOpShapeHelper(mlir::ONNXShapeOp *newOp, mlir::OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr)
+      : ONNXOpShapeHelper<mlir::ONNXShapeOp>(newOp,
+            newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+            fLoadVal, inScope) {}
+  mlir::LogicalResult computeShape(mlir::ONNXShapeOpAdaptor operandAdaptor);
+  // Additional data for ShapeOp.
+  int64_t start, end;
+};
 
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {

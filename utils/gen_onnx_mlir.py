@@ -28,7 +28,7 @@ from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 import pprint
 import onnx
 
-# change this variable only when upgrading the ONNX support within ONNX-MLIR
+# Change this variable only when upgrading the ONNX support within ONNX-MLIR.
 current_onnx_version = "1.9.0"
 
 parser = argparse.ArgumentParser()
@@ -55,7 +55,7 @@ args = parser.parse_args()
 check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 current_onnx_version = "1.11.0"
-# check the version of onnx package being used
+# Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
           "while onnx package being used is {}".format(onnx.__version__))
@@ -369,8 +369,8 @@ OpsWithHelpers = {
     mlir::Operation::result_range scan_outputs();
   """
 }
-# Interface for special handling of type inference
-# The common code are put into get_type_inference_func
+# Interface for special handling of type inference.
+# The common code are put into get_type_inference_func.
 OpsWithResultTypeInference = {
   "Constant":
   '''if (auto attr = valueAttr()) {
@@ -437,10 +437,10 @@ custom_builder_broadcast_to_bool_ops_list = [
 ]
 custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_list + \
     custom_builder_broadcast_to_bool_ops_list
-# union of both
+# Union of both.
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
-#a dictionary to add any special definition for an operation
+# A dictionary to add any special definition for an operation.
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
   OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
@@ -465,7 +465,7 @@ custom_definition_misc = dict([ ('Constant',
  )])
 
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unknown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
@@ -475,17 +475,17 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
 
 MAX_NUM_TYPES=20
 
-# attribute names are ordered alphabetically except for the
-# manually specified special orderings in special_attr_order
+# Attribute names are ordered alphabetically except for the
+# manually specified special orderings in special_attr_order.
 def order_attr_names(attrNames):
     attrNames = sorted(attrNames)
     for namesOrder in special_attr_order:
-        # if attrNames includes all the namesOrder names, then reorder
-        # those names in attrNames to their order in namesOrder
+        # If attrNames includes all the namesOrder names, then reorder
+        # those names in attrNames to their order in namesOrder,
         if (set(namesOrder).issubset(attrNames)):
-            # namesIndexes are where the namesOrder names appear in attrNames
+            # The namesIndexes are where the namesOrder names appear in attrNames.
             namesIndexes = (attrNames.index(name) for name in namesOrder)
-            # write the namesOrder names into those indexes in the correct order
+            # Write the namesOrder names into those indexes in the correct order.
             for name, index in zip(namesOrder, sorted(namesIndexes)):
                 attrNames[index] = name
     return attrNames
@@ -533,7 +533,7 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
-    #TODO: tensor and sparse tensor
+    #TODO: tensor and sparse tensor.
     return mlir_attr_type
 
 
@@ -576,7 +576,7 @@ def np_type_to_tblgen_attr_type(tstr):
 def get_tblgen_type_index(type_str):
     return tblgen_types.index(type_str)
 
-#the possible data structures are tensor, map and seq(tensor())
+# The possible data structures are tensor, map and seq(tensor()).
 def get_data_structure_element(allowed_type_str):
     structure_list = ['tensor', 'seq', 'map']
     for structure in structure_list:
@@ -587,13 +587,13 @@ def get_data_structure_element(allowed_type_str):
     return (None, None)
 
 def get_allowed_elem_types(schema, input):
-    #allowed_types_str = None
+    # allowed_types_str = None
     # return allowed_types_str
     # TODO: enable type constraints.
     if input.typeStr :
         tstr = input.typeStr
         structure, element = get_data_structure_element(tstr);
-        # In case the type is directly specified
+        # In case the type is directly specified.
         if structure and element :
             t = np_type_to_tblgen_attr_type(element)
             if t == None :
@@ -621,7 +621,7 @@ def get_allowed_elem_types(schema, input):
                 if t == None :
                     return allowed_structure, None
                 if  not t in allowed_type_list :
-                    allowed_tyoe_list = allowed_type_list.append(t)
+                    allowed_type_list.append(t)
 
             return allowed_structure,allowed_type_list
 
@@ -655,7 +655,7 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
     for i, value in enumerate(value_list):
         str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
-        # In case the type string is used more than once
+        # In case the type string is used more than once.
         types = str_types.copy()
 
         # No need to add AnyMemRef type. Keep the code in case.
@@ -709,7 +709,7 @@ def get_attrs(schema):
         if qualified_attr_name in special_attr_types:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
                 special_attr_types[qualified_attr_name])
-        # option holds either required or default value
+        # Option holds either required or default value.
         elif attr.required:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
                 attr.type)
@@ -718,7 +718,7 @@ def get_attrs(schema):
             def format_value(value):  # type: (Any) -> Text
                 if isinstance(value, float):
                     formatted = str(np.round(value, 5))
-                    # use default formatting, unless too long.
+                    # Use default formatting, unless too long.
                     if (len(formatted) > 10):
                         formatted = str("({:e})".format(value))
                     return formatted
@@ -748,9 +748,9 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
-def get_numberof_list(mylist):
-    expected_num = len(mylist)
-    for element in mylist :
+def get_numberof_list(my_list):
+    expected_num = len(my_list)
+    for element in my_list :
         if OpSchema.FormalParameterOption.Variadic == element.option:
             expected_num = -1
     return expected_num
@@ -758,13 +758,13 @@ def get_numberof_list(mylist):
 def get_output_type_mapping(schema):
     mapping=[]
     for output in schema.outputs :
-        #if only one type is allowed, just set that
+        # If only one type is allowed, just set that.
         structure, allowed_elem_types = get_allowed_elem_types(schema, output)
         if allowed_elem_types != None and len(allowed_elem_types) == 1 :
             mapping.append(str(get_tblgen_type_index(allowed_elem_types[0])))
             continue
 
-        #map the type string
+        # Map the type string.
         if output.typeStr :
             tstr = output.typeStr
             found = False
@@ -776,7 +776,7 @@ def get_output_type_mapping(schema):
             if found:
                 continue
 
-        #unknown output type
+        # Unknown output type.
         mapping.append(str(-1))
 
     return mapping
@@ -842,8 +842,8 @@ def get_type_inference_func(s, indent, type_inference_code):
     return s
 
 def parse_type_str(allowedType):
-    # AnyI may be used for uint because the onnx_mlir is not generating uint output
-    # This will be fixed later and UI will be replace AnyI
+    # AnyI may be used for uint because the onnx_mlir is not generating uint output.
+    # This will be fixed later and UI will be replace AnyI.
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
@@ -866,18 +866,18 @@ def parse_type_str(allowedType):
         'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
-        'unkown' : 'BF16',
+        'unknown' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    # optional(...) always appears outermost
+    # Optional(...) always appears outermost.
     if allowedType.find("optional") == 0 :
       allowedType = allowedType.replace("optional(", "OptOf<", 1);
       allowedType = allowedType[:-1] + '>'
 
-    # Apply substitutions in decreasing order of key-length, so that float16 is replaced
-    # before float, and uint16 is replaced before int16, etc.
+    # Apply substitutions in decreasing order of key-length, so that float16
+    # is replaced before float, and uint16 is replaced before int16, etc.
     mapping = list(onnx_to_mlir_type_dict.items())
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
@@ -892,7 +892,7 @@ def parse_a_type_constraint(constraint):
         mlirTypes.append(mlirType)
 
     # Remove redundant and sort.
-    # However onnx keeps a consitently meaningful order
+    # However onnx keeps a consistently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
 
@@ -907,8 +907,8 @@ def parse_type_constraints(schema):
 def get_onnx_mlir_types(schema, type_str_dict, input):
     if input.typeStr :
          if not input.typeStr in type_str_dict :
-             # some arguments use type description directly
-             # instead of constraint
+             # Some arguments use type description directly
+             # instead of constraint.
              type_str = parse_type_str(input.typeStr)
              return [type_str]
          else :
@@ -937,9 +937,9 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
     # OpsWithShapeInference:
-    # Now the ShapeInference traits are added to all operation
-    # Dummy implementations are added to ONNXOps.cpp
-    # Error will be report if these operations are encountered at runtime
+    # Now the ShapeInference traits are added to all operation.
+    # Dummy implementations are added to ONNXOps.cpp.
+    # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
@@ -962,11 +962,13 @@ def gen_op_def(schema, with_version = False):
         for line in lines:
             escaped_line = line.replace('"', '\\"')\
                                .replace('}]', '\\}\\]')
-            s += indent + '"{}"\n'.format(escaped_line)
+            # Description does not really need to have "" for each line.
+            # s += indent + '"{}"\n'.format(escaped_line)
+            s += indent + '{}\n'.format(escaped_line)
     s += indent + '}];\n'
 
-    # handle the type constraint for input and output
-    # parse type constraint into onnx-mlir type string list
+    # Handle the type constraint for input and output.
+    # Parse type constraint into onnx-mlir type string list.
     type_str_dict =  parse_type_constraints(schema)
 
     # Generate ins (consisting of operands and attributes).
@@ -991,8 +993,9 @@ def gen_op_def(schema, with_version = False):
 
     # custom_builder_broadcast_ops_list
 
-    # add custom builders
-    # use element type of the first operand to construct an UnrankedTensorType for the output.
+    # Add custom builders.
+    # Use element type of the first operand to construct an UnrankedTensorType
+    # for the output.
     if opName in custom_builder_ops_list:
         if len(ins) == 0:
             raise RuntimeWarning(
@@ -1104,8 +1107,7 @@ def gen_op_versions(file) :
         s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
     file.write(s)
 
-# create the top opset value of each op for current onnx
-
+# Create the top opset value of each op for current onnx.
 def gen_op_new_version(file, new_version_dict) :
     indent = inc_indent()
     s = ""
@@ -1171,30 +1173,30 @@ def build_operator_schemas():
         index[schema.domain][int(
             schema.support_level)][schema.name].append(schema)
 
-    # Preprocess the Operator Schemas
+    # Preprocess the Operator Schemas:
     # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
     operator_schemas = list(
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-    exsting_ops = set()  # type: Set[Text]
-    for domain, _supportmap in sorted(index.items()):
+    existing_ops = set()  # type: Set[Text]
+    for domain, _support_map in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-        processed_supportmap = list()
-        for _support, _namemap in sorted(_supportmap.items()):
-            processed_namemap = list()
-            for n, unsorted_versions in sorted(_namemap.items()):
+        processed_support_map = list()
+        for _support, _name_map in sorted(_support_map.items()):
+            processed_name_map = list()
+            for n, unsorted_versions in sorted(_name_map.items()):
                 versions = sorted(unsorted_versions,
                                   key=lambda s: s.since_version)
                 schema = versions[-1]
-                if schema.name in exsting_ops:
+                if schema.name in existing_ops:
                     continue
 
                 if check_operation_version:
                     # Generate operation of the latest version of your onnx.
-                    exsting_ops.add(schema.name)
-                    processed_namemap.append((n, schema, versions))
+                    existing_ops.add(schema.name)
+                    processed_name_map.append((n, schema, versions))
 
-                    # Add checks against version_dict
+                    # Add checks against version_dict.
                     if schema.name not in version_dict :
                         print("Check-operation-version: Operation {} is new  with version {}"
                             .format(schema.name, schema.since_version))
@@ -1208,24 +1210,24 @@ def build_operator_schemas():
                     if schema.name not in version_dict :
                         continue
                     found = False
-                    vcounter = 0
+                    v_counter = 0
                     for schema in reversed(versions):
-                        # Check the version number against the version_dict
-                        specified_version = version_dict[schema.name][vcounter]
+                        # Check the version number against the version_dict.
+                        specified_version = version_dict[schema.name][v_counter]
                         if schema.since_version == specified_version:
-                            exsting_ops.add(schema.name)
-                            processed_namemap.append((n, schema, versions))
+                            existing_ops.add(schema.name)
+                            processed_name_map.append((n, schema, versions))
                             found = True
-                            vcounter += 1
-                            if len(version_dict[schema.name]) == vcounter :
+                            v_counter += 1
+                            if len(version_dict[schema.name]) == v_counter :
                                 break
                     if not found:
                         print("Your onnx installation may be too old. "
                            "The desired version for operation {} is not found.".format(
                             schema.name))
                         sys.exit()
-            processed_supportmap.append((_support, processed_namemap))
-        operator_schemas.append((domain, processed_supportmap))
+            processed_support_map.append((_support, processed_name_map))
+        operator_schemas.append((domain, processed_support_map))
     return operator_schemas
 
 
@@ -1252,11 +1254,11 @@ def main(args):  # type: (Type[Args]) -> None
     gen_op_versions(op_importer)
 
     new_version_dict = dict()
-    for domain, supportmap in build_operator_schemas():
-        for _, namemap in supportmap:
-            # Generate Op with version number if not the latest version
+    for domain, support_map in build_operator_schemas():
+        for _, name_map in support_map:
+            # Generate Op with version number if not the latest version.
             previous_name = ""
-            for op_type, schema, versions in namemap:
+            for op_type, schema, versions in name_map:
                 new_version_dict[schema.name] = [schema.since_version]
                 if not check_operation_version :
                     with_version = previous_name == schema.name
@@ -1270,8 +1272,8 @@ def main(args):  # type: (Type[Args]) -> None
         for key in version_dict :
             if not key in new_version_dict :
                 print("op {} is not in the version".format(key))
-            # Assume the top version will be upgraded to the latest version
-            # The existing extra version (from index 1) will be kept
+            # Assume the top version will be upgraded to the latest version.
+            # The existing extra version (from index 1) will be kept.
             for x in version_dict[key][1:] :
                 new_version_dict[key].append(x)
         pprint.pprint(new_version_dict)
@@ -1282,9 +1284,10 @@ if __name__ == '__main__':
     class Args(object):
         dry_run = args.dry_run_onnx_ops or args.dry_run_op_build_table
 
-        # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat both of them
-        # as true. Otherwise, one of them runs as a dry-run and one of them runs as a real run
-        # creating unnecessary artifacts in the wrong locations in the build tree.
+        # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat
+        # both of them as true. Otherwise, one of them runs as a dry-run and one
+        # of them runs as a real run creating unnecessary artifacts in the wrong
+        # locations in the build tree.
         if dry_run:
             op_def = StringIO()
             op_importer = StringIO()
@@ -1296,8 +1299,9 @@ if __name__ == '__main__':
     main(Args)
 
     # This is based on diff.py from llvm-project (llvm\utils\lit\lit\builtin_commands\diff.py).
-    # On Windows, by default, stdout uses \r\n for newlines, however, all the files we compare against
-    # use \n. This piece of code forces the windows stdout to use \n for newlines.
+    # On Windows, by default, stdout uses \r\n for newlines, however, all the
+    # files we compare against use \n. This piece of code forces the windows stdout
+    # to use \n for newlines.
     if sys.platform == "win32":
         if hasattr(sys.stdout, 'buffer'):
             # python 3
