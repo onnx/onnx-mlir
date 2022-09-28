@@ -76,6 +76,14 @@ Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
       ArrayAttr());
 }
 
+Value OnnxBuilder::dim(Value input, int axis) const {
+  Type resultType = RankedTensorType::get({1}, b.getI64Type());
+  IntegerAttr axisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
+  return b.create<ONNXDimOp>(loc, resultType, input, axisAttr);
+}
+
 Value OnnxBuilder::div(Value A, Value B) const {
   assert((A.getType().cast<ShapedType>().getElementType() ==
              B.getType().cast<ShapedType>().getElementType()) &&
