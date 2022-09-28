@@ -1125,12 +1125,14 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
+    std::unordered_map<std::string, onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
         std::min(func->input_size(), static_cast<int>(inputTypes.size()));
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
-      onnx_type_map.AddMapping(input_name, &inputTypes[i]);
+      onnx_type_map.AddMapping(input_name, inputTypes[i]);
+      typeMap[input_name] = onnx_type_map.GetByOnnxName(input_name);
     }
 
     for (const onnx::NodeProto &n : func->node()) {
@@ -1145,7 +1147,9 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        onnx_type_map.AddMapping(n.output(i), *node_ctx.getOutputType(i));
+        const std::string &output_name = n.output(i);
+        onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
+        typeMap[output_name] = onnx_type_map.GetByOnnxName(output_name);
       }
     }
   }
