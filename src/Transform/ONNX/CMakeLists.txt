@@ -76,3 +76,15 @@ add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   MLIRPass
   OMSupport
   )
+
+add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
+  SimplifyShapeRelatedOps.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
+  )
