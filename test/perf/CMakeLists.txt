@@ -4,13 +4,9 @@ add_onnx_mlir_library(PerfLib
   PerfHelper.cpp
   EXCLUDE_FROM_OM_LIBS
 
-  INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/third_party/benchmark/include
-  ${ONNX_MLIR_BIN_ROOT}/third_party/benchmark/include
-
   LINK_LIBS PUBLIC
   benchmark 
-  CompilerUtils
+  LLVMSupport
   )
 
 add_custom_target(perf)
@@ -48,8 +44,6 @@ function(add_perf_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS perf)
 endfunction()
 
-# The CompilerUtils ExecutionSession are also included in ModelLib,
-# but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS ModelLib PerfLib)
 
 add_perf_unittest(PerfGemm

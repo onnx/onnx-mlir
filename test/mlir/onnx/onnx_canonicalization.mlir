@@ -441,6 +441,25 @@ func.func @test_remove_unsqueezev11_squeezev11(%arg0 : tensor<10x10xf32>) -> ten
 
 // -----
 
+// COM: Test removing squeeze/cast/unsqueeze pairs when they use the same axes.
+
+func.func @test_remove_unsqueeze_cast_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xi64> {
+  %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Constant"() {value = dense<[0, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<1x10x1x10xf32>
+  %3 = "onnx.Cast"(%2) {to = i64}: (tensor<1x10x1x10xf32>) -> tensor<1x10x1x10xi64>
+  %4 = "onnx.Squeeze"(%3, %1) : (tensor<1x10x1x10xi64>, tensor<2xi64>) -> tensor<10x10xi64>
+  return %4: tensor<10x10xi64>
+
+  // CHECK-LABEL: test_remove_unsqueeze_cast_squeeze
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
+  // CHECK: return [[RES]] 
+}
+
+// -----
+
 func.func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
   %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -477,6 +496,22 @@ func.func @test_remove_squeeze_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<
   // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
   // CHECK: return {{.*}}
+}
+
+// -----
+
+func.func @test_remove_squeeze_cast_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xi64> {
+  %0 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Squeeze"(%arg0, %0) : (tensor<10x1x10xf32>, tensor<1xi64>) -> tensor<10x10xf32>
+  %3 = "onnx.Cast"(%2) { to = i64 } : (tensor<10x10xf32>) -> tensor<10x10xi64>
+  %4 = "onnx.Unsqueeze"(%3, %1) : (tensor<10x10xi64>, tensor<1xi64>) -> tensor<10x1x10xi64>
+  return %4: tensor<10x1x10xi64>
+  // CHECK-LABEL: test_remove_squeeze_cast_unsqueeze
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
+  // CHECK: return [[RES]] 
 }
 
 // -----
@@ -869,4 +904,16 @@ func.func @test_lstm_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x12x2xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_c) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
 // CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
 // CHECK:         }
+}
+
+// -----
+
+func.func @test_dim_to_constant(%arg0: tensor<?x256xi64>) -> (tensor<1xi64>) {
+  %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+  return %0 : tensor<1xi64>
+
+// CHECK-LABEL: test_dim_to_constant
+// CHECK-NOT: "onnx.Dim"
+// CHECK:     [[RES:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:     return [[RES]] : tensor<1xi64>
 }

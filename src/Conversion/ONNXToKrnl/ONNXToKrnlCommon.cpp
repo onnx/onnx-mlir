@@ -176,7 +176,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   if (hasAllConstantDimensions(type))
     return insertAllocAndDealloc(
         type, loc, rewriter, insertDealloc, nullptr, alignment);
-  // Otherwise, take the unkown operands from the output dim IndexExpressions
+  // Otherwise, take the unknown operands from the output dim IndexExpressions
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();

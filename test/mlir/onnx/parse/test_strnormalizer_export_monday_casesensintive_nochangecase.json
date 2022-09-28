@@ -1,0 +1,87 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// test_strnormalizer_export_monday_casesensintive_nochangecase.json is an
+// onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/{model,node}/stringnormalizer.py
+//
+// it illustrates how the ONNX parser uses the string type from
+// ONNXStringNormalizerOp::getTypeMap()
+
+// json is generated with:
+// utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_strnormalizer_export_monday_casesensintive_nochangecase/model.onnx
+{
+  "irVersion": "4",
+  "producerName": "backend-test",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "x"
+        ],
+        "output": [
+          "y"
+        ],
+        "opType": "StringNormalizer",
+        "attribute": [
+          {
+            "name": "is_case_sensitive",
+            "i": "1",
+            "type": "INT"
+          },
+          {
+            "name": "stopwords",
+            "strings": [
+              "bW9uZGF5"
+            ],
+            "type": "STRINGS"
+          }
+        ]
+      }
+    ],
+    "name": "test_strnormalizer_export_monday_casesensintive_nochangecase",
+    "input": [
+      {
+        "name": "x",
+        "type": {
+          "tensorType": {
+            "elemType": 8,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "4"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "y",
+        "type": {
+          "tensorType": {
+            "elemType": 8,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "10"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x!onnx.String>) -> tensor<3x!onnx.String> attributes {input_names = ["x"], output_names = ["y"]} {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.StringNormalizer"([[PARAM_0_]]) {is_case_sensitive = 1 : si64, stopwords = ["monday"]} : (tensor<4x!onnx.String>) -> tensor<3x!onnx.String>
+// CHECK:           return [[VAR_0_]] : tensor<3x!onnx.String>
+// CHECK:         }

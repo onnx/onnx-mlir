@@ -295,7 +295,7 @@ bool IndexExpr::canBeUsedInScope() const {
     // out of current scope.
     return false;
   }
-  llvm_unreachable("unkown kind");
+  llvm_unreachable("unknown kind");
 }
 
 //===----------------------------------------------------------------------===//
