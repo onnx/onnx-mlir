@@ -20,11 +20,6 @@ namespace onnx_mlir {
 
 // Sets shapes of ONNX model inputs.
 //
-// Reads from the shapeInformation flag (passed as constructor argument)
-// custom shapes for the inputs of the ONNX model, e.g. setting static
-// shapes for dynamic inputs. See the documentation of the shapeInformation
-// flag in CompilerOptions.cpp.
-//
 // Reads environment variable IMPORTER_FORCE_DYNAMIC to change input
 // shapes to unknown dimension.
 // Temporarily added to use the test cases with static shape to test.
@@ -63,8 +58,15 @@ class ModelInputShaper {
 public:
   ModelInputShaper();
 
+  // shapeInformation specifies custom shapes for the inputs of the ONNX model,
+  // e.g. setting static shapes for dynamic inputs.
+  // See the documentation of the shapeInformation flag in CompilerOptions.cpp.
   void setShapeInformation(const std::string &shapeInformation);
 
+  // Takes the input type at the given input index and
+  // returns the input type with any changes to the shape specified by
+  // the environment variable IMPORTER_FORCE_DYNAMIC
+  // or any shapeInformation set in setShapeInformation.
   mlir::Type reshape(int inputIndex, mlir::Type inputType) const;
 
 private:
