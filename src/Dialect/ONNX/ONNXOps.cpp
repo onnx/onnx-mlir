@@ -3436,6 +3436,18 @@ LogicalResult ONNXShapeOp::inferShapes(
       ONNXShapeOpAdaptor>(*this, elementType);
 }
 
+LogicalResult ONNXShapeOp::verify() {
+  if (!data().getType().isa<RankedTensorType>())
+    return success();
+  ONNXShapeOpAdaptor operandAdaptor(*this);
+  int64_t start;
+  int64_t end;
+  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+  if (start > end)
+    return emitOpError() << "Start: " << start << " is after End: " << end;
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Size
 //===----------------------------------------------------------------------===//
@@ -5781,6 +5793,26 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
   // Previous implementation did not print/parse the length field
   // May add the field in future
   printer << "<" << getElementType() << ">";
+}
+
+//===----------------------------------------------------------------------===//
+// DimOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult ONNXDimOp::verify() {
+  // Input data must be ranked.
+  if (!hasShapeAndRank(this->data()))
+    return failure();
+  // Axis must be in [0, rank -1].
+  int64_t axis = this->axis();
+  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
+}
+
+LogicalResult ONNXDimOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  OpBuilder b(getContext());
+  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

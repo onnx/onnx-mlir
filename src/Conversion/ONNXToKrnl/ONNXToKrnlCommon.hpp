@@ -241,6 +241,8 @@ void populateONNXToKrnlConversionPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 
 // `ControlFlow` directory methods:
+void populateLoweringONNXIfOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLoopOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXScanOpPattern(
@@ -310,6 +312,8 @@ void populateLoweringONNXSequenceLengthOpPattern(
 
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXDimOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXUnsqueezeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
