@@ -21,11 +21,10 @@ namespace py = pybind11;
 
 #include "ExecutionSession.hpp"
 #include "OnnxMlirCompiler.h"
-#include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
 
-class PyCompileExecutionSession : public onnx_mlir::PyExecutionSession {
+class PyCompileExecutionSession : public onnx_mlir::ExecutionSession {
 public:
   PyCompileExecutionSession(std::string inputFileName,
       std::string sharedLibPath, std::string flags,
@@ -33,6 +32,11 @@ public:
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage();
   int64_t pyGetCompiledResult();
+  std::vector<std::string> pyQueryEntryPoints();
+  void pySetEntryPoint(std::string entryPointName);
+  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
+  std::string pyInputSignature();
+  std::string pyOutputSignature();
 
 private:
   std::string inputFileName;
@@ -58,5 +62,16 @@ PYBIND11_MODULE(PyCompileAndRuntime, m) {
       .def("get_compiled_file_name",
           &onnx_mlir::PyCompileExecutionSession::pyGetCompiledFileName)
       .def("get_error_message",
-          &onnx_mlir::PyCompileExecutionSession::pyGetErrorMessage);
+          &onnx_mlir::PyCompileExecutionSession::pyGetErrorMessage)
+      .def("entry_points",
+          &onnx_mlir::PyCompileExecutionSession::pyQueryEntryPoints)
+      .def("set_entry_point",
+          &onnx_mlir::PyCompileExecutionSession::pySetEntryPoint,
+          py::arg("name"))
+      .def(
+          "run", &onnx_mlir::PyCompileExecutionSession::pyRun, py::arg("input"))
+      .def("input_signature",
+          &onnx_mlir::PyCompileExecutionSession::pyInputSignature)
+      .def("output_signature",
+          &onnx_mlir::PyCompileExecutionSession::pyOutputSignature);
 }

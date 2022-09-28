@@ -124,6 +124,7 @@ target_compile_definitions(PyCompileAndRuntime
 target_include_directories(PyCompileAndRuntime
   PRIVATE
   ${ONNX_MLIR_SRC_ROOT}/include
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
