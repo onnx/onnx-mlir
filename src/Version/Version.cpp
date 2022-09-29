@@ -92,7 +92,7 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
     os << " " << repo  << '\n';
   }
 #ifdef ONNX_MLIR_PRODUCT_VERSION
-  os << "  ONNX-MLIR product version " ONNX_MLIR_PRODUCT_VERSION;
+  os << "  ONNX-MLIR product version " PRODUCT_VERSION_MAJOR "." PRODUCT_VERSION_MINOR "." PRODUCT_VERSION_PATCH-PRODUCT_ID;
 #endif
 
   return buf;
@@ -123,7 +123,7 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
 void getVersionPrinter(llvm::raw_ostream &os) {
   os << getOnnxMlirFullVersion(false) << "\n";
   os << "  LLVM version " LLVM_PACKAGE_VERSION;
-  os << " " << getLLVMFullRepositoryVersion() << '\n';
+  os << "  " getLLVMFullRepositoryVersion() << '\n';
 #if ONNX_MLIR_IS_DEBUG_BUILD
   os << "  DEBUG build";
 #else

@@ -9,8 +9,7 @@
 set(version_inc "${ONNX_MLIR_BIN_ROOT}/VCSVersion.inc")
 set(generate_vcs_version_script "${LLVM_CMAKE_DIR}/GenerateVersionFromVCS.cmake")
 set(vcs_depends "${generate_vcs_version_script}")
-set(package_vendor "IBM Z Deep Learning Compiler")
-set(product_version "4.0.0-zdlc")
+set(product_version "${PRODUCT_VERSION_MAJOR}.${PRODUCT_VERSION_MINOR}.${PRODUCT_VERSION_PATCH}-${PRODUCT_ID}")
 
 find_first_existing_vc_file("${ONNX_MLIR_SRC_ROOT}" onnx_mlir_vc)
 list(APPEND vcs_depends "${onnx_mlir_vc}")
@@ -22,7 +21,6 @@ endif()
 
 list(APPEND vcs_generate_commands
   COMMAND ${CMAKE_COMMAND} [[-DNAMES="LLVM\;ONNX_MLIR"]]
-                           "-DONNX_MLIR_VENDOR=${package_vendor}"
                            "-DONNX_MLIR_PRODUCT_VERSION=${product_version}"
                            "-DLLVM_SOURCE_DIR=${llvm_source_dir}"
                            "-DONNX_MLIR_SOURCE_DIR=${onnx_mlir_source_dir}"
