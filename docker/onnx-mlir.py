@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 
+# SPDX-License-Identifier: Apache-2.0
+
+########################## onnx-mlir.py ########################################
+#
+# Copyright 2022 The IBM Research Authors.
+#
+################################################################################
+#
+# This file scans for certain patterns (listed below) and generate an md table,
+# which list the operations supported, and optionally the unsupported operations.
+# Among the options, we can also list the TODOs in the table.
+# Invoke with the `-h` argument to list options.
+#
+# Limitation: currently handle at most one OP/LIMIT/TODO line per operation.
+# Script currently invoked by the `onnx_mlir_supported_ops` make target.
+#
+################################################################################
+
 # When running onnx-mlir inside a docker container, the directory
 # containing the input ONNX model file must be mounted into the
 # container for onnx-mlir to read the input and generate the output.
