@@ -39,13 +39,13 @@ inline Value getCondition<ONNXArgMaxOp>(
 }
 
 template <typename ArgOp>
-inline llvm::SmallVector<IndexExpr, 4> getOutputDims(ArgOp *op,
+inline DimsExpr getOutputDims(ArgOp *op,
     typename ArgOp::Adaptor operandAdaptor, mlir::OpBuilder *rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal);
 
 template <>
-inline llvm::SmallVector<IndexExpr, 4> getOutputDims<ONNXArgMinOp>(
+inline DimsExpr getOutputDims<ONNXArgMinOp>(
     ONNXArgMinOp *op, typename ONNXArgMinOp::Adaptor operandAdaptor,
     mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal) {
@@ -57,7 +57,7 @@ inline llvm::SmallVector<IndexExpr, 4> getOutputDims<ONNXArgMinOp>(
 }
 
 template <>
-inline llvm::SmallVector<IndexExpr, 4> getOutputDims<ONNXArgMaxOp>(
+inline DimsExpr getOutputDims<ONNXArgMaxOp>(
     ONNXArgMaxOp *op, typename ONNXArgMaxOp::Adaptor operandAdaptor,
     mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal) {
@@ -81,7 +81,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     ArgOp argOp = llvm::cast<ArgOp>(op);
 
     typename ArgOp::Adaptor operandAdaptor(operands);
-    auto OutputDims = getOutputDims<ArgOp>(&argOp, operandAdaptor, &rewriter,
+    DimsExpr OutputDims = getOutputDims<ArgOp>(&argOp, operandAdaptor, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex);
 
@@ -126,7 +126,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     // 1. Krnl loops to initialize the result.
     ValueRange initLoopDef = createKrnl.defineLoops(reducedRank);
     SmallVector<IndexExpr, 4> initLbs(reducedRank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(initLoopDef, initLoopDef, initLbs, OutputDims[0],
+    createKrnl.iterateIE(initLoopDef, initLoopDef, initLbs, OutputDims,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           createKrnl.store(minusOne, alloc, loopInd);
         });
