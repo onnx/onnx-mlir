@@ -47,7 +47,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
     RankedTensorType permAxisType =
         RankedTensorType::get({rank}, rewriter.getI64Type());
     SmallVector<int64_t, 4> permAxisList;
-    if (permAttr.hasValue()) {
+    if (permAttr.has_value()) {
       for (int64_t i = 0; i < rank; ++i)
         permAxisList.push_back(ArrayAttrIntVal(permAttr, i));
       permAxis = DenseIntElementsAttr::get(permAxisType, permAxisList);

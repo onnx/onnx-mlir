@@ -89,7 +89,7 @@ struct ONNXConvOpLoweringToMhlo : public ConversionPattern {
     } else {
       if (!IndexExpr::isLiteral(kernelShape) || !IndexExpr::isLiteral(pads) ||
           !IndexExpr::isLiteral(outputDims))
-        return failure;
+        return failure();
       if (!inputType.hasStaticShape())
         return failure();
     }

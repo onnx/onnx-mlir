@@ -5,7 +5,7 @@ func.func @test_flatten(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL: func @test_flatten
-// CHECK: %0 = "mhlo.reshape"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
+// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
 }
 
 // -----
@@ -15,7 +15,7 @@ func.func @test_flatten_negative_axis(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*x
   %0 = "onnx.Flatten"(%arg0) {axis = -2 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL: func @test_flatten_negative_axis
-// CHECK: %0 = "mhlo.reshape"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
+// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
 }
 
 // -----
@@ -25,7 +25,7 @@ func.func @test_flatten_with_default_axis(%arg0 : tensor<5x5x1x32xf32>) -> tenso
   %0 = "onnx.Flatten"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL: func @test_flatten_with_default_axis
-// CHECK: %0 = "mhlo.reshape"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<5x160xf32>
+// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<5x160xf32>
 }
 
 // -----
@@ -47,7 +47,5 @@ func.func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 // CHECK-NEXT:    %6 = shape.mul %5, [[C1]] : index, index -> index
 // CHECK-NEXT:    %7 = shape.from_extents %4, %6 : index, index
 // CHECK-NEXT:    %8 = shape.to_extent_tensor %7 : !shape.shape -> tensor<2xindex>
-// CHECK-NEXT:    %9 = "mhlo.dynamic_reshape"(%arg0, %8) : (tensor<2x?x4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
+// CHECK-NEXT:    %9 = mhlo.dynamic_reshape %arg0, %8 : (tensor<2x?x4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
 }
-
-// -----

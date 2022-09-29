@@ -67,10 +67,10 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
     llvm::SmallVector<int64_t, 4> aShape;
     llvm::SmallVector<int64_t, 4> bShape;
 
-    aShape.insert(
-        aShape.begin(), outputShapeList.begin(), outputShapeList.end() - 2);
-    bShape.insert(
-        bShape.begin(), outputShapeList.begin(), outputShapeList.end() - 2);
+    for (int64_t i = 0; i < paddedRank - 2; i++) {
+      aShape.push_back(getLiteralValue(outputDims[i]));
+      bShape.push_back(getLiteralValue(outputDims[i]));
+    }
     if (!aPadDims[paddedRank - 2])
       aShape.push_back(aShapeList[paddedRank - 2]);
     aShape.push_back(aShapeList[paddedRank - 1]);
