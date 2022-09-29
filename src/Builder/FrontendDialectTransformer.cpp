@@ -1125,7 +1125,7 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-    std::unordered_map<std::string, onnx::TypeProto *> typeMap;
+    std::unordered_map<std::string, const onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
         std::min(func->input_size(), static_cast<int>(inputTypes.size()));
