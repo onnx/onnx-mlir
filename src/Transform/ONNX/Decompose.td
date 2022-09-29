@@ -96,7 +96,7 @@ def ONNXDataType : NativeCodeCall<
 def ReduceL1OpPattern1
     : Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims),
           (ONNXReduceSumOp(ONNXAbsOp $oprd),
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)), 
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceL1OpPattern2
@@ -119,7 +119,7 @@ def ReduceL2OpPattern
 def ReduceLogSumOpPattern1
     : Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
           (ONNXLogOp(ONNXReduceSumOp $oprd,
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes))), 
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes))),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceLogSumOpPattern2
@@ -160,7 +160,7 @@ def ReduceLogSumExpOpPattern2
 def ReduceSumSquareOpPattern1
     : Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
           (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd),
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)), 
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceSumSquareOpPattern2
@@ -342,10 +342,39 @@ def ClipV12Pattern : Pat<
   (ONNXClipOp $x, $min, $max)
 >;
 
+def SplitV11PatternNoAttr : Pat<
+  (ONNXSplitV11Op $x, $axis, $split),
+  (ONNXSplitOp $x, (CreateUnitConstant), $axis),
+  [(AttributeIsNull:$split)], (addBenefit 1)
+>;
+
+def SplitV11Pattern : Pat<
+  (ONNXSplitV11Op $x, $axis, $split),
+  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
+  [], (addBenefit 0)
+>;
+
+def SqueezeV11PatternNoAttr : Pat<
+  (ONNXSqueezeV11Op $x, $axes),
+  (ONNXSqueezeOp $x, (CreateUnitConstant)),
+  [(AttributeIsNull:$axes)], (addBenefit 1)
+>;
+
+def SqueezeV11Pattern : Pat<
+  (ONNXSqueezeV11Op $x, $axes),
+  (ONNXSqueezeOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes))),
+  [], (addBenefit 0)
+>;
+
+def UnsqueezeV11Pattern : Pat<
+  (ONNXUnsqueezeV11Op $x, $axes),
+  (ONNXUnsqueezeOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)))
+>;
+
 // Express Scatter (deprecated) using ScatterElements.
 def ScatterPattern : Pat<
   (ONNXScatterOp $data, $indices, $updates, $axis),
-  (ONNXScatterElementsOp $data, $indices, $updates, $axis)
+  (ONNXScatterElementsOp $data, $indices, $updates, $axis, (GetNullStringAttr))
 >;
 
 #endif // ONNX_DECOMPOSE

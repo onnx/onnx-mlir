@@ -5613,6 +5613,11 @@ LogicalResult ONNXZipMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+LogicalResult ONNXGridSampleOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
 #define NOT_IMPLEMENTED_INFERSHAPE(T)                                          \
   LogicalResult T::inferShapes(                                                \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
@@ -5793,6 +5798,26 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
   // Previous implementation did not print/parse the length field
   // May add the field in future
   printer << "<" << getElementType() << ">";
+}
+
+//===----------------------------------------------------------------------===//
+// DimOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult ONNXDimOp::verify() {
+  // Input data must be ranked.
+  if (!hasShapeAndRank(this->data()))
+    return failure();
+  // Axis must be in [0, rank -1].
+  int64_t axis = this->axis();
+  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
+}
+
+LogicalResult ONNXDimOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  OpBuilder b(getContext());
+  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
