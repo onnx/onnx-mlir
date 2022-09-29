@@ -374,7 +374,7 @@ def UnsqueezeV11Pattern : Pat<
 // Express Scatter (deprecated) using ScatterElements.
 def ScatterPattern : Pat<
   (ONNXScatterOp $data, $indices, $updates, $axis),
-  (ONNXScatterElementsOp $data, $indices, $updates, $axis)
+  (ONNXScatterElementsOp $data, $indices, $updates, $axis, (GetNullStringAttr))
 >;
 
 #endif // ONNX_DECOMPOSE
