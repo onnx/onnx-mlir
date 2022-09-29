@@ -39,15 +39,14 @@ inline Value getCondition<ONNXArgMaxOp>(
 }
 
 template <typename ArgOp>
-inline DimsExpr getOutputDims(ArgOp *op,
-    typename ArgOp::Adaptor operandAdaptor, mlir::OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+inline DimsExpr getOutputDims(ArgOp *op, typename ArgOp::Adaptor operandAdaptor,
+    mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal);
 
 template <>
-inline DimsExpr getOutputDims<ONNXArgMinOp>(
-    ONNXArgMinOp *op, typename ONNXArgMinOp::Adaptor operandAdaptor,
-    mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+inline DimsExpr getOutputDims<ONNXArgMinOp>(ONNXArgMinOp *op,
+    typename ONNXArgMinOp::Adaptor operandAdaptor, mlir::OpBuilder *rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal) {
   ONNXArgMinOpShapeHelper shapeHelper(op, rewriter, fGetDenseVal, fLoadVal);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
@@ -57,9 +56,9 @@ inline DimsExpr getOutputDims<ONNXArgMinOp>(
 }
 
 template <>
-inline DimsExpr getOutputDims<ONNXArgMaxOp>(
-    ONNXArgMaxOp *op, typename ONNXArgMaxOp::Adaptor operandAdaptor,
-    mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+inline DimsExpr getOutputDims<ONNXArgMaxOp>(ONNXArgMaxOp *op,
+    typename ONNXArgMaxOp::Adaptor operandAdaptor, mlir::OpBuilder *rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal) {
   ONNXArgMaxOpShapeHelper shapeHelper(op, rewriter, fGetDenseVal, fLoadVal);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
@@ -81,8 +80,8 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     ArgOp argOp = llvm::cast<ArgOp>(op);
 
     typename ArgOp::Adaptor operandAdaptor(operands);
-    DimsExpr OutputDims = getOutputDims<ArgOp>(&argOp, operandAdaptor, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
+    DimsExpr OutputDims = getOutputDims<ArgOp>(&argOp, operandAdaptor,
+        &rewriter, krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex);
 
     // Convert the reduced output type to MemRefType.
