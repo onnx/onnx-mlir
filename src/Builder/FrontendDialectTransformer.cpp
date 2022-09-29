@@ -1132,7 +1132,7 @@ private:
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
       onnx_type_map.AddMapping(input_name, inputTypes[i]);
-      onnx::TypeProto *tmpInput = onnx_type_map.GetByOnnxName(input_name);
+      onnx::TypeProto *tmpInput = reinterpret_cast<onnx::TypeProto *>(onnx_type_map.GetByOnnxName(input_name));
       typeMap[input_name] = tmpInput;
     }
 
