@@ -2152,6 +2152,38 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
   }];
 }
 
+def ONNXGridSampleOp:ONNX_Op<"GridSample",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX GridSample operation";
+  let description = [{
+  Given an `input` and a flow-field `grid`, computes the `output` using `input` values and pixel locations from `grid`.
+  Currently, only spatial (4-D) inputs are supported. For `input` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
+  the `output` will have shape (N, C, H_out, W_out).
+  For each output location `output[N, C, H_out, W_out]`, the size-2 vector `grid[N, H_out, W_out]` specifies `input` pixel locations `x` and `y`,
+  which are used to interpolate the output value `output[N, C, H_out, W_out]`.
+  
+  The GridSample operator is often used in doing grid generator and sampler in the [Spatial Transformer Networks](https://arxiv.org/abs/1506.02025).
+  See also in [torch.nn.functional.grid_sample](https://pytorch.org/docs/master/generated/torch.nn.functional.grid_sample.html#torch-nn-functional-grid-sample).
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$grid,
+    DefaultValuedAttr<SI64Attr, "0">:$align_corners,
+    DefaultValuedStrAttr<StrAttr, "bilinear">:$mode,
+    DefaultValuedStrAttr<StrAttr, "zeros">:$padding_mode);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+}
+
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
@@ -4933,6 +4965,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$rois,
     TensorOf<[I64]>:$batch_indices,
+    DefaultValuedStrAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
     DefaultValuedStrAttr<StrAttr, "avg">:$mode,
     DefaultValuedAttr<SI64Attr, "1">:$output_height,
     DefaultValuedAttr<SI64Attr, "1">:$output_width,
@@ -5235,11 +5268,24 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
   entry in `indices` and the index-value for dimension != axis is obtained from the
   index of the entry itself.
   
-  For instance, in a 2-D tensor case, the update corresponding to the [i][j] entry
-  is performed as below:
+  `reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
+  tensor into `output` at the specified `indices`.
+  In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2, 
+  then indices[idx1] != indices[idx2]. For instance, in a 2-D tensor case, the update 
+  corresponding to the [i][j] entry is performed as below:
   ```
     output[indices[i][j]][j] = updates[i][j] if axis = 0,
     output[i][indices[i][j]] = updates[i][j] if axis = 1,
+  ```
+  When `reduction` is set to \"add\", the update corresponding to the [i][j] entry is performed as below:
+  ```
+    output[indices[i][j]][j] += updates[i][j] if axis = 0,
+    output[i][indices[i][j]] += updates[i][j] if axis = 1,
+  ```
+  When `reduction` is set to \"mul\", the update corresponding to the [i][j] entry is performed as below:
+  ```
+    output[indices[i][j]][j] *= updates[i][j] if axis = 0,
+    output[i][indices[i][j]] *= updates[i][j] if axis = 1,
   ```
   
   This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
@@ -5277,7 +5323,8 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$indices,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$updates,
-    DefaultValuedAttr<SI64Attr, "0">:$axis);
+    DefaultValuedAttr<SI64Attr, "0">:$axis,
+    DefaultValuedStrAttr<StrAttr, "none">:$reduction);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
