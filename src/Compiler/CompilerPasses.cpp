@@ -79,6 +79,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
     }
   }
 
+  // Simplify shape-related ops.
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }

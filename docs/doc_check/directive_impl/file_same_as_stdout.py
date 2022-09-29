@@ -50,4 +50,4 @@ def handle(config, ctx):
         raise ValueError("Check file-same-as-stdout failed")
 
 
-ext_to_patterns = {'.dc': 'file-same-as-stdout\\(([^)]*)\\)'}
+ext_to_patterns = {'.dc': 'file-same-as-stdout\\((.*)\\)'}
