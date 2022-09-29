@@ -1132,8 +1132,8 @@ private:
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
       onnx_type_map.AddMapping(input_name, inputTypes[i]);
-      onnx::TypeProto tmpInput = onnx_type_map.GetByOnnxName(input_name);
-      typeMap[input_name] = reinterpret_cast<onnx::TypeProto *>(&tmpInput);
+      onnx::TypeProto *tmpInput = onnx_type_map.GetByOnnxName(input_name);
+      typeMap[input_name] = tmpInput;
     }
 
     for (const onnx::NodeProto &n : func->node()) {
@@ -1150,7 +1150,7 @@ private:
       for (int i = 0; i < n.output_size(); ++i) {
         const std::string &output_name = n.output(i);
         onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
-        typeMap[output_name] = &(onnx_type_map.GetByOnnxName(output_name));
+        typeMap[output_name] = onnx_type_map.GetByOnnxName(output_name);
       }
     }
   }
