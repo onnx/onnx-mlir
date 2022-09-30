@@ -142,10 +142,9 @@ def set_entry_point(self, name: str):
 
 ## Running the PyCompile interface
 
-An ONNX model can be compiled directly using the `onnx-mlir -O3 --EmitLib` command.
-The resulting library can then be executed using Python as shown in the previous
-sections. At times, it might be convenient to also compile a model directly in Python.
-This section explores the Python methods to do so.
+An ONNX model can be compiled directly from the command line. The resulting library can then be executed using Python as shown in the previous sections. At times, it might be convenient to also compile a model directly in Python. This section explores the Python methods to do so.
+
+The PyOMCompileSession object will take a file name while constructing. For the compilation, `compile()` will take a `flags` string as an input which will override any default options set from the env var.
 
 ```python
 import numpy as np
