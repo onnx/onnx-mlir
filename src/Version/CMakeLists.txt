@@ -9,7 +9,6 @@
 set(version_inc "${ONNX_MLIR_BIN_ROOT}/VCSVersion.inc")
 set(generate_vcs_version_script "${LLVM_CMAKE_DIR}/GenerateVersionFromVCS.cmake")
 set(vcs_depends "${generate_vcs_version_script}")
-set(product_version "${PRODUCT_VERSION_MAJOR}.${PRODUCT_VERSION_MINOR}.${PRODUCT_VERSION_PATCH}-${PRODUCT_ID}")
 
 find_first_existing_vc_file("${ONNX_MLIR_SRC_ROOT}" onnx_mlir_vc)
 list(APPEND vcs_depends "${onnx_mlir_vc}")
@@ -21,7 +20,6 @@ endif()
 
 list(APPEND vcs_generate_commands
   COMMAND ${CMAKE_COMMAND} [[-DNAMES="LLVM\;ONNX_MLIR"]]
-                           "-DONNX_MLIR_PRODUCT_VERSION=${product_version}"
                            "-DLLVM_SOURCE_DIR=${llvm_source_dir}"
                            "-DONNX_MLIR_SOURCE_DIR=${onnx_mlir_source_dir}"
                            "-DHEADER_FILE=${version_inc}.tmp"
@@ -77,8 +75,52 @@ endif()
 if (ONNX_MLIR_VENDOR)
   list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR }\"")
 endif()
-if (ONNX_MLIR_PRODUCT_VERSION)
-  list(APPEND DEFINITIONS "ONNX_MLIR_PRODUCT_VERSION=\"${ONNX_MLIR_PRODUCT_VERSION}\"")
-endif()
 list(APPEND DEFINITIONS "LLVM_PACKAGE_VERSION=\"${LLVM_PACKAGE_VERSION}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
+
+# ONNX_MLIR_PRODUCT_VERSION is specified/cached.
+if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
+  string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"
+	  VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
+
+  # For a version string 1.2.3-foo,
+  CMAKE_MATCH_1 = 4
+  CMAKE_MATCH_3 = 0
+  CMAKE_MATCH_5 = 0
+  CMAKE_MATCH_7 = zdlc
+  set(PRODUCT_VERSION_MAJOR ${CMAKE_MATCH_1})
+  set(PRODUCT_VERSION_MINOR ${CMAKE_MATCH_3})
+  set(PRODUCT_VERSION_PATCH ${CMAKE_MATCH_5})
+  set(PRODUCT_ID ${CMAKE_MATCH_7})
+
+  message(DEBUG "PRODUCT_VERSION_MAJOR = ${PRODUCT_VERSION_MAJOR}")
+  message(DEBUG "PRODUCT_VERSION_MINOR = ${PRODUCT_VERSION_MINOR}")
+  message(DEBUG "PRODUCT_VERSION_PATCH = ${PRODUCT_VERSION_PATCH}")
+  message(DEBUG "PRODUCT_ID = ${PRODUCT_ID}")
+
+  # Major and product ID are mandatory, minor and patch are optional.
+  if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "") OR ("${PRODUCT_ID}" STREQUAL ""))
+    message(STATUS "Product version          : Invalid version ${ONNX_MLIR_PRODUCT_VERSION} ignored")
+    unset(ONNX_MLIR_PRODUCT_VERSION CACHE)
+  endif()
+endif()
+
+# When not specified or ignored, major, minor and patch are 0 and id is "NOT_SPECIFIED".
+if (NOT DEFINED ONNX_MLIR_PRODUCT_VERSION OR "${PRODUCT_VERSION_MAJOR}" STREQUAL "")
+  set(PRODUCT_VERSION_MAJOR 0)
+endif()
+if (NOT DEFINED ONNX_MLIR_PRODUCT_VERSION OR "${PRODUCT_VERSION_MINOR}" STREQUAL "")
+  set(PRODUCT_VERSION_MINOR 0)
+endif()
+if (NOT DEFINED ONNX_MLIR_PRODUCT_VERSION OR "${PRODUCT_VERSION_PATCH}" STREQUAL "")
+  set(PRODUCT_VERSION_PATCH 0)
+endif()
+if (NOT DEFINED ONNX_MLIR_PRODUCT_VERSION OR "${PRODUCT_ID}" STREQUAL "")
+  set(PRODUCT_ID "NOT_SPECIFIED")
+endif()
+message(STATUS "Product version          : ${PRODUCT_VERSION_MAJOR}.${PRODUCT_VERSION_MINOR}.${PRODUCT_VERSION_PATCH}-${PRODUCT_ID}")
+
+list(APPEND DEFINITIONS "PRODUCT_VERSION_MAJOR=${PRODUCT_VERSION_MAJOR}")
+list(APPEND DEFINITIONS "PRODUCT_VERSION_MINOR=${PRODUCT_VERSION_MINOR}")
+list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
+list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
