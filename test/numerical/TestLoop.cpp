@@ -118,7 +118,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<bool>(condTensor.get(), {}) = true;
   inputs.emplace_back(move(condTensor));
 
-  auto *yInitShape = new int64_t[1]{1};
+  int64_t yInitShape[1] = {1};
   auto yInitTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
@@ -135,7 +135,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
     return false;
   }
 
-  auto *yRefInitShape = new int64_t[1]{1};
+  int64_t yRefInitShape[1] = {1};
   auto vFinalRef = OMTensorUniquePtr(
       omTensorCreateEmpty(&yRefInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
