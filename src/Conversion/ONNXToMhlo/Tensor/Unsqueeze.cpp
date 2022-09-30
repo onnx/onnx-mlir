@@ -4,7 +4,7 @@
 
 //===--------------- Unsqueeze.cpp - Lowering Unsqueeze Op ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
