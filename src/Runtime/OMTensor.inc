@@ -284,8 +284,9 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
-  if (tensor->_owning)
+  if (tensor->_owning) {
     free(tensor->_allocatedPtr);
+  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
