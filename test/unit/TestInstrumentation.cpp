@@ -18,12 +18,11 @@ int main(int argc, char *argv[]) {
   const char nodeOp4[8] = "Node4";
   const char nodeOpfinal[8] = "NodeFin";
   OMInstrumentInit();
-  OMInstrumentPoint(*(const int64_t *)opstart, 13, *(const int64_t *)nodeStart);
-  OMInstrumentPoint(*(const int64_t *)op2, 1, *(const int64_t *)nodeOp2);
-  OMInstrumentPoint(*(const int64_t *)op3, 4, *(const int64_t *)nodeOp3);
-  OMInstrumentPoint(*(const int64_t *)op4, 9, *(const int64_t *)nodeOp4);
+  OMInstrumentPoint(*(const int64_t *)opstart, 13, nodeStart);
+  OMInstrumentPoint(*(const int64_t *)op2, 1, nodeOp2);
+  OMInstrumentPoint(*(const int64_t *)op3, 4, nodeOp3);
+  OMInstrumentPoint(*(const int64_t *)op4, 9, nodeOp4);
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  OMInstrumentPoint(
-      *(const int64_t *)opfinal, 12, *(const int64_t *)nodeOpfinal);
+  OMInstrumentPoint(*(const int64_t *)opfinal, 12, nodeOpfinal);
   return 0;
 }

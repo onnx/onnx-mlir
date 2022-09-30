@@ -176,14 +176,14 @@ void OMInstrumentInit() {
   }
 }
 
-void OMInstrumentPoint(int64_t id, int64_t tag, int64_t nodeName) {
+void OMInstrumentPoint(int64_t id, int64_t tag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
   bool printProf = tag & (1 << (int)InstrumentAfterOp);
   if (printProf) {
     // Print header
-    printf("#%3d) op=%8s (%8s)", instrumentCounter, (char *)&id, (char *)&nodeName);
+    printf("#%3d) op=%8s ", instrumentCounter, (char *)&id);
     instrumentCounter++;
 
     bool localReportTime =
@@ -198,6 +198,7 @@ void OMInstrumentPoint(int64_t id, int64_t tag, int64_t nodeName) {
     if (localReportMemory) {
       ReportMemory();
     }
+    printf(" NodeName:%s", nodeName);
     printf("\n");
   }
 }
