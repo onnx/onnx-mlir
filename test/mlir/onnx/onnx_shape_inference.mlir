@@ -60,6 +60,22 @@ func.func @test_default_argmax(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the default behavior of argmin when no information for the
+/// permutation of the axes is provided and when a permutation is provided.
+//===----------------------------------------------------------------------===//
+
+func.func @test_default_argmin(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
+  %0 = "onnx.ArgMin"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi64>
+  "func.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_default_argmin
+  // CHECK: [[RES:%.+]] = "onnx.ArgMin"(%arg0) : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
+  // CHECK: return [[RES]] : tensor<1x3x4xi64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the default behavior of transpose when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
 //===----------------------------------------------------------------------===//

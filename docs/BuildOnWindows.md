@@ -4,8 +4,8 @@
 
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
 
-Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/) with ninja. 
-It is recommended that you have the **Desktop development with C++** and **Linux development with C++** workloads installed. 
+Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/) with ninja.
+It is recommended that you have the **Desktop development with C++** and **Linux development with C++** workloads installed.
 This ensures you have all toolchains and libraries needed to compile this project and its dependencies on Windows.
 
 Run all the commands from a shell started from **"Developer Command Prompt for VS 2019"**.
@@ -15,8 +15,8 @@ Build protobuf as a static library.
 
 [same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-REM Check out a specific tag v3.16.0 which is the recommended version of onnx 1.11.0
-set protobuf_version=3.16.0
+REM Check out protobuf v3.18.3
+set protobuf_version=3.18.3
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
@@ -42,7 +42,7 @@ set PATH=%root_dir%\protobuf_install\bin;%PATH%
 
 If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matchin version of protobuf through pip:
 ```shell
-python3 -m pip install protobuf==3.16
+python3 -m pip install protobuf==3.18.3
 ```
 
 #### MLIR
