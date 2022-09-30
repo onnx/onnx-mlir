@@ -173,21 +173,21 @@ if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
 
-pybind11_add_module(PyOnnxMlirCompiler PyOnnxMlirCompiler.cpp)
-add_dependencies(PyOnnxMlirCompiler onnx_proto)
-target_compile_definitions(PyOnnxMlirCompiler
+pybind11_add_module(PyCompile PyOMCompileSession.cpp)
+add_dependencies(PyCompile onnx_proto)
+target_compile_definitions(PyCompile
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
   )
-target_include_directories(PyOnnxMlirCompiler
+target_include_directories(PyCompile
   PRIVATE
   ${ONNX_MLIR_SRC_ROOT}/include
   )
-target_link_libraries(PyOnnxMlirCompiler
+target_link_libraries(PyCompile
   PRIVATE
   OnnxMlirCompiler
   )
 
-install(TARGETS PyOnnxMlirCompiler
+install(TARGETS PyCompile
   DESTINATION lib
   )

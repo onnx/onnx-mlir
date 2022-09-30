@@ -15,13 +15,13 @@ For onnx-mlir, there are three such libraries, one to compile onnx-mlir models,
 one to run the models and the other one is to compile and run the models.
 
 1. The library to compile onnx-mlir models is generated
-by `PyOnnxMlirCompiler` (src/Compiler/PyOnnxMlirCompiler.hpp) and build as a shared
-library to `build/Debug/lib/PyOnnxMlirCompiler.cpython-<target>.so`.
+by `PyOMCompileSession` (src/Compiler/PyOMCompileSession.hpp) and build as a shared
+library to `build/Debug/lib/PyCompile.cpython-<target>.so`.
 2. The library to run onnx-mlir models is generated
 by by `PyExecutionSession` (src/Runtime/PyExecutionSession.hpp) and built
 as a shared library to `build/Debug/lib/PyRuntime.cpython-<target>.so`.
 3. The library to compile and run onnx-mlir models is generated
-by by `PyCompileExecutionSession` (src/Runtime/PyCompileExecutionSession.hpp) and built
+by by `PyOMCompileExecutionSession` (src/Runtime/PyOMCompileExecutionSession.hpp) and built
 as a shared library to `build/Debug/lib/PyCompileAndRuntime.cpython-<target>.so`. 
 This lobrary takes an .onnx file and the options as inputs, it will load it and then compile and run it.
 
@@ -31,7 +31,7 @@ PYTHONPATH. Another alternative is to create a symbolic link to it in your worki
 ```shell
 cd <working directory>
 ln -s <path to PyRuntime>
-ln -s <path to PyOnnxMlirCompiler>
+ln -s <path to PyCompile>
 ln -s <path to PyCompileAndRuntime>
 python3
 ```
@@ -138,9 +138,9 @@ def set_entry_point(self, name: str):
     """
 ```
 
-# Python interface to compile models: PyOnnxMlirCompiler
+# Python interface to compile models: PyCompile
 
-## Running the PyOnnxMlirCompiler interface
+## Running the PyCompile interface
 
 An ONNX model can be compiled directly using the `onnx-mlir -O3 --EmitLib` command.
 The resulting library can then be executed using Python as shown in the previous
@@ -149,33 +149,33 @@ This section explores the Python methods to do so.
 
 ```python
 import numpy as np
-from PyOnnxMlirCompiler import OnnxMlirCompiler
+from PyCompile import PyOMCompileSession
 
-# Load onnx model and create Onnx Mlir Compiler object.
+# Load onnx model and create PyOMCompileSession object.
 file = './mnist.onnx'
-compiler = OnnxMlirCompiler(file)
+compiler = PyOMCompileSession(file)
 # Generate the library file. Success when rc == 0 while set the opt as "-O3"
-rc = compiler.compile_from_file("-O3")
+rc = compiler.compile("-O3")
 # Get the output file name
-model = compiler.get_output_file_name()
+model = compiler.get_compiled_file_name()
 if rc:
     print("Failed to compile with error code", rc)
     exit(1)
 print("Compiled onnx file", file, "to", model, "with rc", rc)
 ```
 
-The `PyOnnxMlirCompiler` module exports the `OnnxMlirCompiler` class to drive the
+The `PyCompile` module exports the `PyOMCompileSession` class to drive the
 compilation of a ONNX model into an executable model.
 Typically, a compiler object is created for a given model by giving it the file name of the ONNX model.
 Then, all the compiler options can be set as a whole `std::string` to generate the desired executable.
-Finally, the compilation itself is performed by calling the `compile_from_file()` command where the user passes the options string as the input of this function.
+Finally, the compilation itself is performed by calling the `compile()` command where the user passes the options string as the input of this function.
 
-The `compile_from_file()` commands returns a return code reflecting the status of the compilation.
+The `compile()` commands returns a return code reflecting the status of the compilation.
 A zero value indicates success, and nonzero values reflect the error code.
 Because different Operating Systems may have different suffixes for libraries,
-the output file name can be retrieved using the `get_output_file_name()` method.
+the output file name can be retrieved using the `get_compiled_file_name()` method.
 
-## PyOnnxMlirCompiler model API
+## PyCompile model API
 
 The complete interface to OnnxMlirCompiler can be seen in the sources mentioned previously.
 However, using the constructor and the methods below are enough to compile models.
@@ -194,7 +194,7 @@ def __init__(self, input_buffer: void *, buffer_size: int):
         input_buffer: buffer containing the protobuf representation of the model.
         buffer_size: byte size of the input buffer.
     """
-def compile_from_file(self, flags: str):
+def compile(self, flags: str):
     """
     Method to compile a model from a file.
     Args:
@@ -213,9 +213,9 @@ def compile_from_array(self, output_base_name: str, target: OnnxMlirTarget):
     Returns:
         Zero on success, error code on failure.
     """
-def get_output_file_name(self):
+def get_compiled_file_name(self):
     """
-    Method to provide the full (absolute or relative) output file name, including
+    Method to provide the full (absolute or relative) output compiled file name, including
     its suffix.
     Returns:
         String containing the fle name after successful compilation; empty string on failure.
@@ -234,14 +234,14 @@ def get_error_message(self):
 
 ```python
 import numpy as np
-from PyCompileAndRuntime import PyCompileExecutionSession
+from PyCompileAndRuntime import PyOMCompileExecutionSession
 
 # Load onnx model and create CompileExecutionSession object.
 inputFileName = './mnist.onnx'
 # Set the full name of compiled model
 sharedLibPath = './mnist.so'
 # Set the compile option as "-O3"
-session = PyCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
+session = PyOMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
 
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
@@ -258,7 +258,7 @@ for output in outputs:
 
 ## PyCompileAndRuntime model API
 
-The PyCompileAndRuntime is a subclass of PyRuntime, it has a new constructor that takes the `.onnx` input file and compile the model with the options given by the user and then run the model with an input. Here, we will only list the model APIs which is different from the PyRuntime.
+The PyCompileAndRuntime is a subclass of `onnx_mlir::ExecutionSession`. Its constructor takes the `.onnx` input file and compile the model with the options given by the user and then run the model with an input.
 
 ```python
 def __init__(self, input_model_path: str, compiled_file_path: str, flags: str, use_default_entry_point: bool):
@@ -288,5 +288,34 @@ def get_error_message(self):
     Method to provide the compilation error message.
     Returns:
         String containing the error message; empty string on success.
+    """
+def entry_points(self) -> List[str]:
+    """
+    Returns:
+        A list of entry point names.
+    """
+def set_entry_point(self, name: str):
+    """
+    Args:
+        name: an entry point name.
+    """
+def run(self, input: List[ndarray]) -> List[ndarray]:
+    """
+    Args:
+        input: A list of NumPy arrays, the inputs of your model.
+
+    Returns:
+        A list of NumPy arrays, the outputs of your model.
+    """
+def input_signature(self) -> str:
+    """
+    Returns:
+        A string containing a JSON representation of the model's input signature.
+    """
+
+def output_signature(self) -> str:
+    """
+    Returns:
+        A string containing a JSON representation of the model's output signature.
     """
 ```

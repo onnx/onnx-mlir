@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ PyOnnxMlirCompiler.hpp - PyOnnxMlirCompiler Declaration -------===//
+//===------ PyOMCompileSession.hpp - PyOMCompileSession Declaration -------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of PyOnnxMlirCompiler class, which helps
+// This file contains declaration of PyOMCompileSession class, which helps
 // python programs compile onnx programs into executable binaries.
 //
 //===----------------------------------------------------------------------===//
@@ -23,10 +23,10 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
-class PyOnnxMlirCompiler {
+class PyOMCompileSession {
 public:
-  PyOnnxMlirCompiler(std::string fileName) : inputFileName(fileName) {}
-  PyOnnxMlirCompiler(void *inputBuffer, int64_t bufferSize)
+  PyOMCompileSession(std::string fileName) : inputFileName(fileName) {}
+  PyOMCompileSession(void *inputBuffer, int64_t bufferSize)
       : inputFileName(), inputBuffer(inputBuffer), inputBufferSize(bufferSize) {
   }
 
@@ -45,20 +45,20 @@ private:
 };
 } // namespace onnx_mlir
 
-PYBIND11_MODULE(PyOnnxMlirCompiler, m) {
-  py::class_<onnx_mlir::PyOnnxMlirCompiler>(m, "OnnxMlirCompiler")
+PYBIND11_MODULE(PyCompile, m) {
+  py::class_<onnx_mlir::PyOMCompileSession>(m, "PyOMCompileSession")
       .def(py::init<std::string &>(), py::arg("file_name"))
       .def(py::init<void *, int64_t>(), py::arg("input_buffer"),
           py::arg("buffer_size"))
-      .def("compile_from_file",
-          &onnx_mlir::PyOnnxMlirCompiler::pyCompileFromFile, py::arg("flags"))
+      .def("compile", &onnx_mlir::PyOMCompileSession::pyCompileFromFile,
+          py::arg("flags"))
       .def("compile_from_array",
-          &onnx_mlir::PyOnnxMlirCompiler::pyCompileFromArray,
+          &onnx_mlir::PyOMCompileSession::pyCompileFromArray,
           py::arg("output_base_name"), py::arg("target"))
-      .def("get_output_file_name",
-          &onnx_mlir::PyOnnxMlirCompiler::pyGetCompiledFileName)
+      .def("get_compiled_file_name",
+          &onnx_mlir::PyOMCompileSession::pyGetCompiledFileName)
       .def("get_error_message",
-          &onnx_mlir::PyOnnxMlirCompiler::pyGetErrorMessage);
+          &onnx_mlir::PyOMCompileSession::pyGetErrorMessage);
   py::enum_<onnx_mlir::EmissionTargetType>(m, "OnnxMlirTarget")
       .value("emit_onnx_basic", onnx_mlir::EmissionTargetType::EmitONNXBasic)
       .value("emit_onnxir", onnx_mlir::EmissionTargetType::EmitONNXIR)

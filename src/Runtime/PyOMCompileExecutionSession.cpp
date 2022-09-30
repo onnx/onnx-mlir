@@ -2,14 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyCompileExecutionSession.cpp - PyCompileExecutionSession
+//===----- PyOMCompileExecutionSession.cpp - PyOMCompileExecutionSession
 // Implementation -----===//
 //
 //
 // =============================================================================
 //
-// This file contains implementations of PyCompileExecutionSession class, which
-// helps python programs to compile and run binary model libraries.
+// This file contains implementations of PyOMCompileExecutionSession class,
+// which helps python programs to compile and run binary model libraries.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,12 +25,13 @@ SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
 SUPPRESS_WARNINGS_POP
 
-#include "PyCompileExecutionSession.hpp"
+#include "PyOMCompileExecutionSession.hpp"
 
 namespace onnx_mlir {
 
-PyCompileExecutionSession::PyCompileExecutionSession(std::string inputFileName,
-    std::string sharedLibPath, std::string flags, bool defaultEntryPoint)
+PyOMCompileExecutionSession::PyOMCompileExecutionSession(
+    std::string inputFileName, std::string sharedLibPath, std::string flags,
+    bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {
   this->inputFileName = inputFileName;
   const char *outputName, *errorMsg;
@@ -50,17 +51,17 @@ PyCompileExecutionSession::PyCompileExecutionSession(std::string inputFileName,
   }
 }
 
-int64_t PyCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
+int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
 
-std::string PyCompileExecutionSession::pyGetCompiledFileName() {
+std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
   return this->sharedLibPath;
 }
 
-std::string PyCompileExecutionSession::pyGetErrorMessage() {
+std::string PyOMCompileExecutionSession::pyGetErrorMessage() {
   return this->errorMessage;
 }
 
-std::vector<py::array> PyCompileExecutionSession::pyRun(
+std::vector<py::array> PyOMCompileExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
 
@@ -200,11 +201,11 @@ std::vector<py::array> PyCompileExecutionSession::pyRun(
   return outputPyArrays;
 }
 
-void PyCompileExecutionSession::pySetEntryPoint(std::string entryPointName) {
+void PyOMCompileExecutionSession::pySetEntryPoint(std::string entryPointName) {
   setEntryPoint(entryPointName);
 }
 
-std::vector<std::string> PyCompileExecutionSession::pyQueryEntryPoints() {
+std::vector<std::string> PyOMCompileExecutionSession::pyQueryEntryPoints() {
   assert(_queryEntryPointsFunc && "Query entry point not loaded.");
   const char **entryPointArr = _queryEntryPointsFunc(NULL);
 
@@ -217,12 +218,12 @@ std::vector<std::string> PyCompileExecutionSession::pyQueryEntryPoints() {
   return outputPyArrays;
 }
 
-std::string PyCompileExecutionSession::pyInputSignature() {
+std::string PyOMCompileExecutionSession::pyInputSignature() {
   assert(_inputSignatureFunc && "Input signature entry point not loaded.");
   return inputSignature();
 }
 
-std::string PyCompileExecutionSession::pyOutputSignature() {
+std::string PyOMCompileExecutionSession::pyOutputSignature() {
   assert(_outputSignatureFunc && "Output signature entry point not loaded.");
   return outputSignature();
 }

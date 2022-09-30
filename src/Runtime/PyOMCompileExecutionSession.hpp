@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ PyCompileExecutionSession.hpp - PyCompileExecutionSession
+//===------ PyOMCompileExecutionSession.hpp - PyOMCompileExecutionSession
 // Declaration -------===//
 //
 //
 // =============================================================================
 //
-// This file contains declaration of PyCompileExecutionSession class, which
+// This file contains declaration of PyOMCompileExecutionSession class, which
 // helps python programs to compile and run binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -24,9 +24,9 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
-class PyCompileExecutionSession : public onnx_mlir::ExecutionSession {
+class PyOMCompileExecutionSession : public onnx_mlir::ExecutionSession {
 public:
-  PyCompileExecutionSession(std::string inputFileName,
+  PyOMCompileExecutionSession(std::string inputFileName,
       std::string sharedLibPath, std::string flags,
       bool defaultEntryPoint = true);
   std::string pyGetCompiledFileName();
@@ -47,8 +47,8 @@ private:
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyCompileAndRuntime, m) {
-  py::class_<onnx_mlir::PyCompileExecutionSession>(
-      m, "PyCompileExecutionSession")
+  py::class_<onnx_mlir::PyOMCompileExecutionSession>(
+      m, "PyOMCompileExecutionSession")
       .def(py::init<const std::string &, const std::string &,
                const std::string &>(),
           py::arg("input_model_path"), py::arg("compiled_file_path"),
@@ -58,20 +58,20 @@ PYBIND11_MODULE(PyCompileAndRuntime, m) {
           py::arg("input_model_path"), py::arg("compiled_file_path"),
           py::arg("flags"), py::arg("use_default_entry_point"))
       .def("get_compiled_result",
-          &onnx_mlir::PyCompileExecutionSession::pyGetCompiledResult)
+          &onnx_mlir::PyOMCompileExecutionSession::pyGetCompiledResult)
       .def("get_compiled_file_name",
-          &onnx_mlir::PyCompileExecutionSession::pyGetCompiledFileName)
+          &onnx_mlir::PyOMCompileExecutionSession::pyGetCompiledFileName)
       .def("get_error_message",
-          &onnx_mlir::PyCompileExecutionSession::pyGetErrorMessage)
+          &onnx_mlir::PyOMCompileExecutionSession::pyGetErrorMessage)
       .def("entry_points",
-          &onnx_mlir::PyCompileExecutionSession::pyQueryEntryPoints)
+          &onnx_mlir::PyOMCompileExecutionSession::pyQueryEntryPoints)
       .def("set_entry_point",
-          &onnx_mlir::PyCompileExecutionSession::pySetEntryPoint,
+          &onnx_mlir::PyOMCompileExecutionSession::pySetEntryPoint,
           py::arg("name"))
-      .def(
-          "run", &onnx_mlir::PyCompileExecutionSession::pyRun, py::arg("input"))
+      .def("run", &onnx_mlir::PyOMCompileExecutionSession::pyRun,
+          py::arg("input"))
       .def("input_signature",
-          &onnx_mlir::PyCompileExecutionSession::pyInputSignature)
+          &onnx_mlir::PyOMCompileExecutionSession::pyInputSignature)
       .def("output_signature",
-          &onnx_mlir::PyCompileExecutionSession::pyOutputSignature);
+          &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature);
 }

@@ -115,7 +115,7 @@ install(TARGETS PyRuntime
   DESTINATION lib
   )
 
-pybind11_add_module(PyCompileAndRuntime PyCompileExecutionSession.cpp)
+pybind11_add_module(PyCompileAndRuntime PyOMCompileExecutionSession.cpp)
 add_dependencies(PyCompileAndRuntime onnx_proto)
 target_compile_definitions(PyCompileAndRuntime
   PRIVATE

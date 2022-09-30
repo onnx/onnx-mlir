@@ -2,14 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyOnnxMlirCompiler.hpp - PyOnnxMlirCompiler Implementation
+//===----- PyOMCompileSession.hpp - PyOMCompileSession Implementation
 //-----===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains implementations of PyOnnxMlirCompiler class, which helps
+// This file contains implementations of PyOMCompileSession class, which helps
 // python programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -20,11 +20,11 @@
 
 namespace py = pybind11;
 
-#include "PyOnnxMlirCompiler.hpp"
+#include "PyOMCompileSession.hpp"
 
 namespace onnx_mlir {
 
-int64_t PyOnnxMlirCompiler::pyCompileFromFile(std::string flags) {
+int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
   const char *outputName, *errorMsg;
   int64_t rc;
   rc = omCompileFromFile(
@@ -43,7 +43,7 @@ int64_t PyOnnxMlirCompiler::pyCompileFromFile(std::string flags) {
   return rc;
 }
 
-int64_t PyOnnxMlirCompiler::pyCompileFromArray(
+int64_t PyOMCompileSession::pyCompileFromArray(
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   const char *outputName, *errorMsg;
   int64_t rc;
@@ -63,9 +63,9 @@ int64_t PyOnnxMlirCompiler::pyCompileFromArray(
   return rc;
 }
 
-std::string PyOnnxMlirCompiler::pyGetCompiledFileName() {
+std::string PyOMCompileSession::pyGetCompiledFileName() {
   return outputFileName;
 }
-std::string PyOnnxMlirCompiler::pyGetErrorMessage() { return errorMessage; }
+std::string PyOMCompileSession::pyGetErrorMessage() { return errorMessage; }
 
 } // namespace onnx_mlir
