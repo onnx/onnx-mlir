@@ -50,7 +50,7 @@ Detailed instructions are provided below.
 ```
 python >= 3.8
 gcc >= 6.4
-protobuf >= 3.16.0
+protobuf >= 3.18.3
 cmake >= 3.13.4
 make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
@@ -58,8 +58,8 @@ java >= 1.11 (optional)
 
 Look [here](docs/Prerequisite.md) for help to set up the prerequisite software.
 
-At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
-Periodically the maintainers need to move to a more recent LLVM level. 
+At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project.
+Periodically the maintainers need to move to a more recent LLVM level.
 Among other things, this requires to update the LLVM commit string in [clone-mlir.sh](utils/clone-mlir.sh).
 When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file. See instructions [here](docs/BuildONNX.md) when third-party ONNX also need to be updated.
 
@@ -99,7 +99,7 @@ These are frontend options.
       --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
       --EmitMLIR      - Lower the input to MLIR built-in transformation dialect.
       --EmitLLVMIR    - Lower the input to LLVM IR (LLVM MLIR dialect).
-      --EmitObj       - Compile the input to an object file.      
+      --EmitObj       - Compile the input to an object file.
       --EmitLib       - Compile and link the input into a shared library (default).
       --EmitJNI       - Compile the input to a jar file.
 
@@ -110,9 +110,9 @@ These are frontend options.
       --O3           - Optimization level 3.
 ```
 
-The full list of options is given by the `-help` option. 
+The full list of options is given by the `-help` option.
 The `-` and the `--` prefix for flags can be used interchangeably.
-Note that just as most compilers, the default optimization level is `-O0`. 
+Note that just as most compilers, the default optimization level is `-O0`.
 We recommend using `-O3` for most applications.
 
 Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For example, `ONNX_MLIR_FLAGS="-O3"` will ensure `-O3` for all compilations.
