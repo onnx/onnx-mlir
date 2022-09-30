@@ -19,7 +19,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Add** |14 |No support for short integers. | |
 | **And** |7 | | |
 | **ArgMax** |13 | | |
-| **ArgMin** | |unsupported | |
+| **ArgMin** |13 | | |
 | **ArrayFeatureExtractor** | |unsupported | |
 | **Asin** |7 | | |
 | **Asinh** |9 | | |

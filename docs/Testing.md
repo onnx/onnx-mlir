@@ -151,15 +151,20 @@ We first need to compile the tool, which can be done in one of two modes.
 In the first mode, the tool is compiled with a statically linked model.
 This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
 Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script.
-To avoid library path issues, just run the tool in the home directory of the model.
+To avoid library path issues on Mac, run the compiled tool in the directory where the model was built.
 
 ``` sh
 # Compile tool with model.
 cd onnx-mlir/build
-. ../utils/build-run-onnx-lib.sh test/backend/test_add.so
-# Run tool in the directory of the model.
-(cd test/backend; run-onnx-lib)
+sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+# Run the tool to run the model (substitute `Release` for `Debug` for the release version).
+Debug/bin/run-onnx-lib
+# or, on Mac, run the tool in the directory where the model was built
+(cd test/backend; ../../Debug/bin/run-onnx-lib)
+# if test_add.so was built in `test/backend`:
+cd test/backend; ../../Debug/bin/onnx-mlir --EmitLib test_add/test_add.onnx
 ```
+(You can see the path of the library with `otool -L test_add.so` on Mac.)
 
 In the second mode, the tool is compiled without models, which will be passed at runtime.
 To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
@@ -169,9 +174,9 @@ any directories as long as you pass the `.so` model file at runtime to the tool.
 ``` sh
 # Compile tool without a model.
 cd onnx-mlir/build
-. ../utils/build-run-onnx-lib.sh
+sh ../utils/build-run-onnx-lib.sh
 # Run the tool with an argument pointing to the model.
-run-onnx-lib test/backend/test_add.so
+Debug/bin/run-onnx-lib test/backend/test_add/test_add.so
 ```
 
 ## LLVM FileCheck Tests

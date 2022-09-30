@@ -311,7 +311,9 @@ void populateLoweringONNXSequenceLengthOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Tensor` directory methods:
-void populateLoweringONNXArgMaxOpPattern(
+void populateLoweringONNXArgMinMaxOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXDimOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXUnsqueezeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
