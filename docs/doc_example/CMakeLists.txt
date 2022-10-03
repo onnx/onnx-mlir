@@ -82,7 +82,6 @@ add_onnx_mlir_executable(OMRuntimeTest
   LINK_LIBS PRIVATE
   OnnxMlirCompiler
   ExecutionSession
-  cruntime
   )
 
 
