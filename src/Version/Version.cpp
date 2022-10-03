@@ -130,7 +130,7 @@ void getVersionPrinter(llvm::raw_ostream &os) {
 #if ONNX_MLIR_IS_DEBUG_BUILD
   os << "DEBUG build";
 #else
-  os << "  Optimized build";
+  os << "Optimized build";
 #endif
 #ifndef NDEBUG
   os << " with assertions";
