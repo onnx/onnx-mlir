@@ -24,6 +24,8 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+int64_t IndexExpr_gQuestionMarkCounter = -2;
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -48,8 +50,8 @@ void IndexExprImpl::initAsUndefined() {
 }
 
 void IndexExprImpl::initAsQuestionmark() {
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, 0,
-      AffineExpr(nullptr), Value(nullptr));
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
+      IndexExpr_gQuestionMarkCounter++, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
@@ -240,6 +242,11 @@ IndexExprKind IndexExprImpl::getKind() const { return kind; }
 
 int64_t IndexExprImpl::getLiteral() const {
   assert(isLiteral() && "expected a literal index expression");
+  return intLit;
+}
+
+int64_t IndexExprImpl::getQuestionmark() const {
+  assert(isQuestionmark() && "expected a question mark index expression");
   return intLit;
 }
 
