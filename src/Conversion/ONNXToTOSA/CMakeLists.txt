@@ -2,6 +2,9 @@
 
 add_onnx_mlir_library(OMONNXToTOSA
   ConvertONNXToTOSA.cpp
+
+  Math/Elementwise.cpp
+
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRTosaDialect
