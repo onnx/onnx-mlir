@@ -76,11 +76,7 @@ StringAttr convertONNXTensorDataLayoutToStringAttr(OpBuilder &builder,
   return builder.getStringAttr(str);
 }
 
-AffineMap getIdentityDimMap(Builder &builder) {
-  return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
-}
-
-bool isONNXTensor(Type type) {
+bool isONNXTensor(const Type type) {
   if (auto ttp = type.dyn_cast<RankedTensorType>())
     if (ttp.getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>())
       return true;
@@ -121,12 +117,22 @@ bool identicalONNXTensorDataLayout(
          encoding1.getYFactor() == encoding2.getYFactor();
 }
 
-bool hasConvONNXTensorDataLayout(const mlir::Type type) {
+bool hasConvONNXTensorDataLayout(const Type type) {
   ONNXTensorEncodingAttr::DataLayout layout = getONNXTensorLayout(type);
   return (layout == ONNXTensorEncodingAttr::DataLayout::NCHWxC ||
           layout == ONNXTensorEncodingAttr::DataLayout::KCNMxCyK);
 }
 
+bool hasCustomONNXTensorDataLayout(const Type type) {
+  return getONNXTensorLayout(type) !=
+         ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+}
+
+//===----------------------------------------------------------------------===//
+
+AffineMap getIdentityDimMap(Builder &builder) {
+  return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
+}
 //===----------------------------------------------------------------------===//
 // ONNX Pool Conv Support.
 

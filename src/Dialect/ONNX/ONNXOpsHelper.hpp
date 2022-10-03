@@ -48,7 +48,7 @@ mlir::StringAttr convertONNXTensorDataLayoutToStringAttr(
     int64_t xFactor, int64_t yFactor = 0);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
-bool isONNXTensor(mlir::Type type);
+bool isONNXTensor(const mlir::Type type);
 
 /// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
 /// any type without an encoding.
@@ -65,6 +65,9 @@ bool identicalONNXTensorDataLayout(
 // Return true if the type has a layout associated with convolution
 // optimizations.
 bool hasConvONNXTensorDataLayout(const mlir::Type type);
+
+// Return true if the type has a layout, and that layout is not UNDEFINED.
+bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 
 //===----------------------------------------------------------------------===//
 // Identity map

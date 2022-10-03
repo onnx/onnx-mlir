@@ -4559,9 +4559,17 @@ void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
       int64_t xFactor, yFactor;
       bool success = convertStringToONNXTensorDataLayout(
           layoutAttr, dataLayout, xFactor, yFactor);
-      // Compute shape.
+      // Compute shape: this op does not change the shape, just the layout.
       ArrayRef<int64_t> inputShape = inputType.getShape();
       SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+#if 1 // hi alex
+      Attribute encodingAttr = {};
+      if (success)
+        encodingAttr = ONNXTensorEncodingAttr::get(
+            builder.getContext(), dataLayout, xFactor, yFactor);
+      resType = RankedTensorType::get(
+          resShape, inputType.getElementType(), encodingAttr);
+#else
       if (success) {
         // Embed encoding attribute into type.
         auto encodingAttr = ONNXTensorEncodingAttr::get(
@@ -4573,6 +4581,7 @@ void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
         // Do not embed encoding attribute into type.
         resType = RankedTensorType::get(resShape, inputType.getElementType());
       }
+#endif
     } else {
       resType = UnrankedTensorType::get(inputType.getElementType());
     }
@@ -4580,11 +4589,13 @@ void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
   build(builder, state, resType, input);
 }
 
+#if 0 // hi alex
 void ONNXLayoutTransformOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
   StringAttr undefAttr = builder.getStringAttr(LAYOUT_UNDEFINED);
   build(builder, state, input, undefAttr);
 }
+#endif
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {

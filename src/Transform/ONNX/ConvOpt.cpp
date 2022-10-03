@@ -20,6 +20,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -99,6 +100,9 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
 } // namespace onnx_mlir
 
 namespace {
+
+/// Include the patterns defined in the Declarative Rewrite framework.
+#include "src/Transform/ONNX/ONNXConvOpt.inc"
 
 /*
    Pattern: when we have a convolution with filter of 1x1, stride 1, dilation of
@@ -242,11 +246,15 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   });
 
   RewritePatternSet patterns(context);
+  // Add patterns from Declarative Rewrite framework.
+  // TODO hi alex: make it conditional
+  populateWithGenerated(patterns);
   patterns.insert<Conv1x1ToMatmulPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
+
 
 } // namespace
 

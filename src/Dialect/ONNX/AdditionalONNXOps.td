@@ -182,21 +182,24 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
   let summary = "An operation that transforms data between different layout formats";
   let description = [{
     An operation that transforms data between different ONNX layout format.
-    Currently, it supports transformations from standard format to a NCHWxC/KCNMxCyK
-    layout, or back. At this time, only F32 is supported.
+    Currently, it supports transformations from standard format to a
+    NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
 
-    Opertions that transforms data from the same ONNX layout format are considered
-    as a no operation and will be removed.
+    Opertions that transforms data from the same ONNX layout format are
+    considered as a no operation and will be removed.
 
     This operation is not part of the standard and was added to assit onnx-mlir.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
-      ONNXTensor_KCMN4C4K]>:$In);
+      ONNXTensor_KCMN4C4K]>:$In, 
+      DefaultValuedStrAttr<StrAttr, "UNDEFINED">:$layout
+      );
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
       ONNXTensor_KCMN4C4K]>:$Out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>, // Defined layouts.
-    OpBuilder<(ins "::mlir::Value":$In)> // Undefined layout.
+    // hi alex
+    // OpBuilder<(ins "::mlir::Value":$In)> // Undefined layout.
 
   ];
   let hasCanonicalizer = 1;
