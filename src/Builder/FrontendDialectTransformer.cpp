@@ -960,15 +960,15 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-    // types: Used for temporary copies of Types, freed at end of function.
-    std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
         std::min(func->input_size(), static_cast<int>(inputTypes.size()));
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
-      typeMap[input_name] = &inputTypes[i];
+      onnx_type_map.AddMapping(input_name, inputTypes[i]);
+      typeMap[input_name] = const_cast<onnx::TypeProto *>(
+          onnx_type_map.GetByOnnxName(input_name));
     }
 
     for (const onnx::NodeProto &n : func->node()) {
@@ -983,15 +983,11 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        std::unique_ptr<onnx::TypeProto> p =
-            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
-        typeMap[n.output(i)] = p.get();
-        types.push_back(std::move(p));
+        const std::string &output_name = n.output(i);
+        onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
+        typeMap[output_name] = const_cast<onnx::TypeProto *>(
+            onnx_type_map.GetByOnnxName(output_name));
       }
-    }
-
-    for (auto pair : typeMap) {
-      onnx_type_map.AddMapping(pair.first, *pair.second);
     }
   }
 
