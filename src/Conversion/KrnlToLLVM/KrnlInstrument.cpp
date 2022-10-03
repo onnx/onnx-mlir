@@ -54,9 +54,14 @@ public:
         IntegerType::get(context, 64), (int64_t)instrumentOp.opID());
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
-    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
-        instrumentOp.nodeName().data(), loc, rewriter, parentModule,
-        static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    StringRef nodeName;
+    if (instrumentOp.nodeName().has_value())
+      nodeName = instrumentOp.nodeName().value();
+    else
+      nodeName = StringRef("NOTSET");
+    LLVM::GlobalOp globalStr =
+        krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
+            static_cast<LLVMTypeConverter *>(getTypeConverter()));
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
     create.llvm.call({}, instrumentRef, {opName, tag, nodeNamePtr});
 

@@ -513,16 +513,13 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   IntegerAttr attr = builder.getI64IntegerAttr(opID);
   StringAttr nodeNameAttr =
       op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
-  if (!nodeNameAttr) {
-    std::string str("none");
-    nodeNameAttr = builder.getStringAttr(str);
-  }
-  auto tagAttr = builder.getI64IntegerAttr(tag);
+  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
   StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
   state.addAttribute("opName", opNameAttr);
   state.addAttribute("opID", attr);
   state.addAttribute("tag", tagAttr);
-  state.addAttribute("nodeName", nodeNameAttr);
+  if (nodeNameAttr)
+    state.addAttribute("nodeName", nodeNameAttr);
 }
 
 //===----------------------------------------------------------------------===//

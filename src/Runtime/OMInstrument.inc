@@ -198,7 +198,8 @@ void OMInstrumentPoint(int64_t id, int64_t tag, const char *nodeName) {
     if (localReportMemory) {
       ReportMemory();
     }
-    printf(" NodeName:%s", nodeName);
+    if (strncmp(nodeName, "NOTSET", 6) != 0)
+      printf(" (%s)", nodeName);
     printf("\n");
   }
 }
