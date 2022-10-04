@@ -24,8 +24,8 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 
 def ZHigh_Dialect : Dialect {
   let name = "zhigh";
+  let summary = "A high-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zhigh";
-
   let useDefaultAttributePrinterParser = 1;
 }
 

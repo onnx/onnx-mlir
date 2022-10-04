@@ -903,8 +903,8 @@ def ONNXConvOp:ONNX_Op<"Conv",
   The convolution operator consumes an input tensor and a filter, and
   computes the output.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, ONNXTensor_NCHW4C]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, ONNXTensor_KCMN4C4K]>:$W,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
@@ -912,7 +912,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, ONNXTensor_NCHW4C]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;

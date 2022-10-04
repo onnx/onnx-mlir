@@ -215,17 +215,21 @@ struct ConvOptONNXToONNXPass
   ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass)
       : mlir::PassWrapper<ConvOptONNXToONNXPass,
             OperationPass<func::FuncOp>>() {}
+  ConvOptONNXToONNXPass(bool enableSimdOpt) {
+    this->enableSimdLayoutOpt = enableSimdOpt;
+  };
 
-  StringRef getArgument() const override { return "convopt-onnx"; }
+  StringRef getArgument() const override { return "conv-opt-onnx"; }
 
   StringRef getDescription() const override {
     return "Perform ONNX to ONNX optimizations for optimized CPU execution of "
            "convolutions.";
   }
 
-  // Option<std::string> target{*this, "target",
-  //    llvm::cl::desc("Target Dialect to decompose into"),
-  //    ::llvm::cl::init("")};
+  // Usage: onnx-mlir-opt --conv-opt-onnx='enable-simd-layout-opt'
+  Option<bool> enableSimdLayoutOpt{*this, "enable-simd-layout-opt",
+      llvm::cl::desc("Enable SIMD layout optimizations"),
+      ::llvm::cl::init(false)};
 
   void runOnOperation() final;
 };
@@ -243,21 +247,22 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   target.addDynamicallyLegalOp<ONNXConvOp>([&](ONNXConvOp op) {
     // Conv op can be converted to a matmul
     bool canBeAMatmul = onnx_mlir::ExpressONNXConvOpAsMatmul(op);
-    // TODO: hi alex optionally enable this.
     // Conv op has optimized layout
     bool hasOptLayout =
         onnx_mlir::hasConvONNXTensorDataLayout(op.X().getType());
     if (hasOptLayout)
       assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
              "custom layout for both X and W");
-    bool canBeOptimized = canBeAMatmul || !hasOptLayout;
+    bool canBeOptimized =
+        canBeAMatmul || (enableSimdLayoutOpt && !hasOptLayout);
     // Conv op is legal if it cannot be further optimized.
     return !canBeOptimized;
   });
 
   RewritePatternSet patterns(context);
-  // Add patterns from Declarative Rewrite framework.
-  // TODO hi alex: make it conditional
+  // Add patterns from Declarative Rewrite framework. They are added
+  // unconditionally but the condition under which the operation is legal or not
+  // is conditional. So we are all good here.
   populateWithGenerated(patterns);
   patterns.insert<Conv1x1ToMatmulPattern>(context);
 
@@ -272,8 +277,9 @@ namespace onnx_mlir {
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass() {
-  return std::make_unique<ConvOptONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
+    bool enableSimdLayoutOpt) {
+  return std::make_unique<ConvOptONNXToONNXPass>(enableSimdLayoutOpt);
 }
 
 } // namespace onnx_mlir

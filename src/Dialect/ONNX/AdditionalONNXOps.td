@@ -198,9 +198,6 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
       ONNXTensor_KCMN4C4K]>:$Out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>, // Defined layouts.
-    // hi alex
-    // OpBuilder<(ins "::mlir::Value":$In)> // Undefined layout.
-
   ];
   let hasCanonicalizer = 1;
 }

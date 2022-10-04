@@ -474,18 +474,6 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
     'StringType'
 )
 
-# Enable traditional ONNX op to have additional types for their 
-# input/output operands.
-onnx_ops_custom_types = {
-    # op   : [input_map, output_map], 
-    #         where the input_map/output_map maps are used to add for a 
-    #         given input/output operand its list of additional custom types.
-    #         Its format is: {indexNum: [custom_type]}
-    #          
-    'Conv': [{0 : ['ONNXTensor_NCHW4C'], 1 : ['ONNXTensor_KCMN4C4K']},
-             {0 : ['ONNXTensor_NCHW4C']}]
-}
-
 MAX_NUM_TYPES=20
 
 # Attribute names are ordered alphabetically except for the
@@ -664,24 +652,12 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         else:
             return "AnyTypeOf<[{}]>".format(", ".join(types))
 
-    operand_custom_types = {}
-    if op_name in onnx_ops_custom_types:
-        # Extract the maps and select the right one.
-        (input_map, output_map) = onnx_ops_custom_types[op_name]
-        operand_custom_types = input_map if is_input else output_map
-
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
         str_types = get_onnx_mlir_types(schema, type_str_dict,  value)
 
         # In case the type string is used more than once.
         types = str_types.copy()
-
-        # Handle custom types associated with this op, if any.
-        if i in operand_custom_types:
-            custom_types = operand_custom_types[i]
-            types.extend(custom_types)
-            # print(">  add custom types:", op_name, i, custom_types)
 
         # No need to add AnyMemRef type. Keep the code in case.
         # types.append("AnyMemRef")
