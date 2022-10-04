@@ -24,11 +24,16 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <mutex>
+
 int64_t IndexExpr_gQuestionMarkCounter = -2;
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+// A lock to protect access to IndexExpr_gQuestionMarkCounter.
+std::mutex indexExprQuestionMarkMutex;
 
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
@@ -50,6 +55,7 @@ void IndexExprImpl::initAsUndefined() {
 }
 
 void IndexExprImpl::initAsQuestionmark() {
+  const std::lock_guard<std::mutex> lock(indexExprQuestionMarkMutex);
   init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
       IndexExpr_gQuestionMarkCounter++, AffineExpr(nullptr), Value(nullptr));
 }
