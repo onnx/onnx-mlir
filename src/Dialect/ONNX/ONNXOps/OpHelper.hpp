@@ -158,11 +158,10 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
-    mlir::Value value);
+mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createONNXConstantOpWithDenseAttr(
+mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 mlir::Value createNoneIntegerConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
@@ -232,7 +231,7 @@ bool isDenseONNXConstant(mlir::Value result);
 
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);

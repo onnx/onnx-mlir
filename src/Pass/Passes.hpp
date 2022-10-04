@@ -18,9 +18,15 @@
 
 namespace mlir {
 class Pass;
-}
+} // namespace mlir
 
 namespace onnx_mlir {
+
+class DisposablePool;
+
+/// Pass for removing DisposableElementsAttr attributes.
+std::unique_ptr<mlir::Pass> createScrubDisposablePass(
+    DisposablePool *disposablePool = nullptr, bool closeAfter = true);
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
@@ -37,7 +43,7 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
-std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
@@ -49,7 +55,8 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
+    bool report = false);
 
 /// Pass for analysing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();

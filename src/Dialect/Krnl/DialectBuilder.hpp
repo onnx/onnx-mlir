@@ -179,7 +179,7 @@ struct IndexExprBuilderForKrnl : IndexExprBuilder {
   virtual ~IndexExprBuilderForKrnl() {}
 
 protected:
-  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::ElementsAttr getConst(mlir::Value value) final;
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };

@@ -52,7 +52,7 @@ struct ONNXSplitOpLoweringToMhlo : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> splitSizes;
-    if (auto splitAttr = getDenseElementAttributeFromONNXValue(split)) {
+    if (auto splitAttr = getElementAttributeFromONNXValue(split)) {
       for (IntegerAttr value : splitAttr.getValues<IntegerAttr>()) {
         int64_t splitSize = value.cast<IntegerAttr>().getInt();
         splitSizes.push_back(splitSize);

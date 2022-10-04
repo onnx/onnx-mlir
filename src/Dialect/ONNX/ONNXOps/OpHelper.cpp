@@ -289,10 +289,10 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
+ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
-    return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    return constantOp.valueAttr().dyn_cast<ElementsAttr>();
   return nullptr;
 }
 
@@ -301,7 +301,7 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
-Value createONNXConstantOpWithDenseAttr(
+ONNXConstantOp createONNXConstantOpWithDenseAttr(
     OpBuilder &builder, Location loc, Attribute dense) {
   return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
@@ -328,18 +328,17 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
 
 // Returns true if the Value is defined by a unit constant.
 bool isFromNone(Value v) {
-  if (v.getDefiningOp() && dyn_cast_or_null<ONNXNoneOp>(v.getDefiningOp()))
-    return true;
+  if (auto op = v.getDefiningOp()) {
+    if (isa<ONNXNoneOp>(op))
+      return true;
 
-  if (v.getDefiningOp() &&
-      dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
-    auto c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
-    if (c.value().has_value() && c.valueAttr().isa<DenseElementsAttr>()) {
-      auto d = c.valueAttr().cast<DenseElementsAttr>();
-      auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
-      if (shape.size() == 1 && shape[0] == 0)
-        return true;
-    }
+    if (auto c = dyn_cast<ONNXConstantOp>(op))
+      if (c.value().has_value())
+        if (auto e = c.valueAttr().dyn_cast<ElementsAttr>()) {
+          auto shape = e.getType().getShape();
+          if (shape.size() == 1 && shape[0] == 0)
+            return true;
+        }
   }
 
   return false;
@@ -384,7 +383,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
     return false;
 
   ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
-  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  ElementsAttr shapeAttr = getElementAttributeFromONNXValue(shape);
   if (shapeAttr == nullptr)
     return false;
 
@@ -473,10 +472,10 @@ bool operandsOfOpHaveShapesAndRanks(Operation *op) {
 
 // Create an ArrayAttr from a dense ConstantOp
 ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
-  auto denseAttr = getDenseElementAttributeFromONNXValue(constOp);
-  assert(denseAttr && "ConstantOp is not a DenseElementsAttr");
+  auto elementsAttr = getElementAttributeFromONNXValue(constOp);
+  assert(elementsAttr && "ConstantOp is not an ElementsAttr");
   SmallVector<int64_t, 4> intVals;
-  for (auto val : denseAttr.getValues<IntegerAttr>()) {
+  for (auto val : elementsAttr.getValues<IntegerAttr>()) {
     intVals.emplace_back(val.getInt());
   }
   return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
@@ -623,9 +622,9 @@ bool isDenseONNXConstant(Value result) {
   if (!constOp)
     return false;
 
-  // If the dense attribute is null, there must be buffer_id
-  // attribute.
-  if (!(op->getAttrOfType<Attribute>("value")))
+  // The value attribute must be an ElementsAttr
+  // (which is either DenseElementsAttr or DenseResourceElementsAttr).
+  if (!(op->getAttrOfType<ElementsAttr>("value")))
     return false;
   // The other attributes must be null.
   if (op->getAttrOfType<Attribute>("sparse_value"))
@@ -648,7 +647,7 @@ bool isDenseONNXConstant(Value result) {
 
 /// Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(DenseElementsAttr &denseAttr, Type type) {
+RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   Type elementaryType = getElementTypeOrSelf(type);
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
@@ -667,9 +666,9 @@ RESULT_TYPE getScalarValue(DenseElementsAttr &denseAttr, Type type) {
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
-  DenseElementsAttr attr = constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  ElementsAttr attr = constantOp.valueAttr().dyn_cast<ElementsAttr>();
   if (!attr)
-    constantOp.emitError("DenseElementsAttr expected");
+    constantOp.emitError("ElementsAttr expected");
   return getScalarValue<RESULT_TYPE>(attr, type);
 }
 

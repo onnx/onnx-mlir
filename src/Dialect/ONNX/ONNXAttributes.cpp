@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
+
+#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -102,8 +105,32 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 // See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
 void ONNXDialect::registerAttributes() {
+  addAttributes<DisposableElementsAttr>();
   addAttributes<
 #define GET_ATTRDEF_LIST
 #include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
       >();
+}
+
+/// Parse an attribute registered to this dialect.
+Attribute ONNXDialect::parseAttribute(
+    DialectAsmParser &parser, Type type) const {
+  // generatedAttributeParser is generated in ONNXAttributes.cpp.inc
+  StringRef attrTag;
+  if (Attribute attr;
+      generatedAttributeParser(parser, &attrTag, type, attr).has_value())
+    return attr;
+  parser.emitError(parser.getCurrentLocation())
+      << "unknown attribute `" << attrTag << "` in dialect `ONNX`";
+  return {};
+}
+
+/// Print an attribute registered to this dialect.
+void ONNXDialect::printAttribute(
+    Attribute attr, DialectAsmPrinter &printer) const {
+  // generatedAttributePrinter is generated in ONNXAttributes.cpp.inc
+  if (succeeded(generatedAttributePrinter(attr, printer)))
+    return;
+  if (auto elements = attr.dyn_cast<DisposableElementsAttr>())
+    elements.printWithoutType(printer);
 }
