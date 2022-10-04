@@ -57,7 +57,7 @@ void IndexExprImpl::initAsUndefined() {
 void IndexExprImpl::initAsQuestionmark() {
   const std::lock_guard<std::mutex> lock(indexExprQuestionMarkMutex);
   init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
-      IndexExpr_gQuestionMarkCounter++, AffineExpr(nullptr), Value(nullptr));
+      IndexExpr_gQuestionMarkCounter--, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
