@@ -108,6 +108,10 @@ public:
     Value padsList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{translatepadsList.padding});
+    Value outputPadsList = rewriter.create<PrimListConstructOp>(loc,
+        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{});
+    Value transposeVal = rewriter.create<Torch::ConstantBoolOp>(loc, false);
 
     // Create a tensor types using onnx operands.
     Torch::ValueTensorType xTensorType =
@@ -142,10 +146,10 @@ public:
               loc, bType, b);
     }
 
-    // Emit the Conv2d operation in Torch side using "AtenConv2dOp".
-    Value result = rewriter.create<AtenConv2dOp>(loc, resultType, xTorchTensor,
+    // Emit the Conv2d operation in Torch side using "AtenConvolutionOp".
+    Value result = rewriter.create<AtenConvolutionOp>(loc, resultType, xTorchTensor,
         wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
-        groupTorchInt);
+        transposeVal, outputPadsList, groupTorchInt);
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op.getResult().getType(), result);

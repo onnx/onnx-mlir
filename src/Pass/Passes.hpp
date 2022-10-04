@@ -36,7 +36,7 @@ std::unique_ptr<mlir::Pass> createONNXToAtenLeakyReluOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenMaxPool2dOpTransformPass();
 
 /// Pass for ONNX to Aten conv2d operation
-std::unique_ptr<mlir::Pass> createONNXToAtenConv2DOpTransformPass();
+std::unique_ptr<mlir::Pass> createONNXToAtenConvolutionOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXToAtenConstantPadNdOpTransformPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
