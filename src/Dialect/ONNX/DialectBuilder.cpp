@@ -53,8 +53,9 @@ Value OnnxBuilder::ceil(Value input) const {
 
 Value OnnxBuilder::concat(
     Type outputType, ValueRange inputs, int64_t axis) const {
-  IntegerAttr concatAxisAttr = IntegerAttr::get(
-      b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));
+  IntegerAttr concatAxisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
   return b.create<ONNXConcatOp>(
       loc, toTensor(outputType), inputs, concatAxisAttr);
 }

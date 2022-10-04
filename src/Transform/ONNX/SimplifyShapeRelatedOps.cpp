@@ -60,6 +60,7 @@ Now, it's straighforward to update the output shape of Reshape from
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -251,6 +252,61 @@ public:
     Value replacedValue = emitConcatOpForDims(create, castedDims);
 
     rewriter.replaceOp(castOp, replacedValue);
+    return success();
+  }
+};
+
+/// Simplify ONNXGatherOp into ONNXConcatOp.
+class PassThroughGatherPattern : public OpRewritePattern<ONNXGatherOp> {
+public:
+  using OpRewritePattern<ONNXGatherOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
+    // Get basic op info.
+    Location loc = gatherOp.getLoc();
+    Value input = gatherOp.data();
+    Value indices = gatherOp.indices();
+    int64_t axis = gatherOp.axis();
+
+    // Match
+    // Gather on axis 0.
+    if (axis != 0)
+      return failure();
+    // Input is defined by Concat of dims, so it has rank of 1.
+    if (!areDimsFromConcat(input))
+      return failure();
+
+    // Indices are constants.
+    if (!definedBy<ONNXConstantOp>(indices))
+      return failure();
+    DenseElementsAttr indicesAttr =
+        getDenseElementAttributeFromONNXValue(indices);
+    if (!indicesAttr)
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    int64_t inputRank = getRank(input.getType());
+
+    // Compute integer indices.
+    SmallVector<int64_t, 4> indicesI64;
+    for (auto element : indicesAttr.getValues<IntegerAttr>()) {
+      int64_t axis = element.getInt();
+      axis = (axis < 0) ? (axis + inputRank) : axis;
+      indicesI64.emplace_back(axis);
+    }
+
+    // Replace GatherOp by ConcatOp of specific dimensions.
+    SmallVector<Value, 4> dims;
+    getDims(input, dims);
+    SmallVector<Value> castedDims;
+    SmallVector<Value> gatherDims;
+    for (int64_t i : indicesI64)
+      gatherDims.emplace_back(dims[i]);
+
+    Value replacedValue = emitConcatOpForDims(create, gatherDims);
+
+    rewriter.replaceOp(gatherOp, replacedValue);
     return success();
   }
 };
@@ -472,6 +528,7 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
   // Pass the dimensions through operations of interest.
   patterns.insert<onnx_mlir::PassThroughCastPattern>(context);
   patterns.insert<onnx_mlir::PassThroughConcatPattern>(context);
+  patterns.insert<onnx_mlir::PassThroughGatherPattern>(context);
   patterns.insert<onnx_mlir::PassThroughSlicePattern>(context);
 
   // Update Reshape's output shape using inferred dimensions.
