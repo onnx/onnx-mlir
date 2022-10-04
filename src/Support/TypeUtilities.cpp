@@ -76,4 +76,9 @@ int64_t getSizeInBytes(Type ty) {
   return ShapedType::getNumElements(shape) * getEltSizeInBytes(ty);
 }
 
+/// Get the byte width of an int or float type.
+unsigned getIntOrFloatByteWidth(Type ty) {
+  return llvm::divideCeil(ty.getIntOrFloatBitWidth(), 8);
+}
+
 } // namespace onnx_mlir

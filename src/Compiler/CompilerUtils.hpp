@@ -88,6 +88,8 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
+void translateLegacyOnnxConstant(llvm::StringRef line, llvm::raw_ostream &os);
+
 // Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
 int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string filenameWithExt, int64_t largeElementLimit = -1);

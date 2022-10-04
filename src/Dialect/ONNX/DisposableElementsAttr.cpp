@@ -1,0 +1,385 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===---------------------- DisposableElementsAttr.cpp --------------------===//
+//
+// DisposableElementsAttr, garbage collectible alternative to DenseElementsAttr.
+//
+//===----------------------------------------------------------------------===//
+
+#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
+
+#include "src/Dialect/ONNX/AttributesHelper.hpp"
+#include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXAttributes.hpp"
+
+using namespace onnx_mlir;
+
+MLIR_DEFINE_EXPLICIT_TYPE_ID(::mlir::DisposableElementsAttr)
+
+namespace mlir {
+
+namespace {
+
+// TODO: share implementation with widenArray
+template <DType DTYPE>
+void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
+  using W = WideDType<DTYPE>;
+  auto src = asArrayRef<typename W::narrowtype>(s);
+  std::transform(src.begin(), src.end(), dst.begin(), W::widen);
+}
+
+DisposableElementsAttr::Reader getIdentityReader(DType dtype) {
+  return dispatchByDType(
+      dtype, [](auto staticDType) { return identityReader<staticDType>; });
+}
+
+} // namespace
+
+/*static*/
+DisposableElementsAttr DisposableElementsAttr::get(
+    ShapedType type, const Buffer &buffer, Optional<Strides> optionalStrides) {
+  DType dtype = dtypeOfMlirType(type.getElementType());
+  return get(type, buffer, optionalStrides, dtype);
+}
+
+/*static*/
+DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
+    const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
+    Reader reader) {
+  DType dtype = dtypeOfMlirType(type.getElementType());
+  assert(wideDTypeOfDType(dtype) == wideDTypeOfDType(bufferDType) ||
+         reader != nullptr);
+  Properties properties = {.dtype = dtype,
+      .bufferDType = bufferDType,
+      // .isContiguous is set below
+      .isTransformed = reader != nullptr};
+  SmallVector<int64_t, 4> strides;
+  if (optionalStrides.has_value()) {
+    strides.assign(optionalStrides->begin(), optionalStrides->end());
+    properties.isContiguous = areStridesContiguous(type.getShape(), strides);
+  } else {
+    strides = getDefaultStrides(type.getShape());
+    properties.isContiguous = true;
+  }
+  return create(type, buffer, strides, properties, std::move(reader));
+}
+
+/*static*/
+DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
+    const Buffer &buffer, Strides strides, Properties properties,
+    Reader reader) {
+  assert((strides.empty() || strides.front() != 0) &&
+         "non-padded strides shouldn't have leading zeros");
+  unsigned bufBytewidth = bytewidthOfDType(properties.bufferDType);
+  assert(buffer->getBufferSize() % bufBytewidth == 0);
+  int64_t numBufferElements = buffer->getBufferSize() / bufBytewidth;
+  auto shape = type.getShape();
+  // We don't require strides.empty() == (numBufferElements == 1)
+  // because strides can be empty when numBufferElements == 0, i.e.
+  // when type.getNumElements() == 0.
+  assert(!strides.empty() || numBufferElements == 1);
+  assert(numBufferElements == getStridesNumElements(shape, strides));
+  // TODO: figure out if isContiguous should always be exactly the same as
+  //       areStridesContiguous(shape, strides))
+  assert(!properties.isContiguous || areStridesContiguous(shape, strides));
+  assert(reader || !properties.isTransformed);
+  assert(properties.isTransformed || wideDTypeOfDType(properties.bufferDType) ==
+                                         wideDTypeOfDType(properties.dtype));
+  // TODO: add more checks
+  return create(type, buffer, strides, properties, std::move(reader));
+}
+
+/*static*/
+DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
+    const Buffer &buffer, Strides strides, Properties properties,
+    Reader reader) {
+  DisposableElementsAttr a =
+      Base::get(type.getContext(), type, strides, properties);
+  Storage &s = *a.getImpl();
+  s.buffer = buffer;
+  if (reader) {
+    s.reader = std::move(reader);
+  } else {
+    assert(wideDTypeOfDType(properties.bufferDType) ==
+               wideDTypeOfDType(properties.dtype) &&
+           "buffer wide type mismatch requires transforming reader");
+    s.reader = getIdentityReader(properties.bufferDType);
+  }
+  return a;
+}
+
+auto DisposableElementsAttr::getStrides() const -> Strides {
+  return getImpl()->strides;
+}
+
+auto DisposableElementsAttr::getProperties() const -> const Properties & {
+  return getImpl()->properties;
+}
+
+auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
+  assert(!isDisposed());
+  return getImpl()->buffer;
+}
+
+auto DisposableElementsAttr::getReader() const -> const Reader & {
+  assert(!isDisposed());
+  return getImpl()->reader;
+}
+
+auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
+  if (getProperties().isTransformed)
+    return getReader();
+  else
+    return nullptr;
+}
+
+bool DisposableElementsAttr::isDisposed() const {
+  //  TODO: Decide if a splat value can be represented with a constant
+  //        reader with no buffer; in that case isDisposed should
+  //        only return true if both buffer and reader are null.
+  return !getImpl()->buffer;
+}
+
+bool DisposableElementsAttr::isContiguous() const {
+  return getProperties().isContiguous;
+}
+
+DType DisposableElementsAttr::getBufferDType() const {
+  return getProperties().bufferDType;
+}
+
+unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
+  return bytewidthOfDType(getProperties().bufferDType);
+}
+
+int64_t DisposableElementsAttr::getNumBufferElements() const {
+  return getBuffer()->getBufferSize() / getBufferElementBytewidth();
+}
+
+StringRef DisposableElementsAttr::getBufferString() const {
+  return getBuffer()->getBuffer();
+}
+
+ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
+  return asArrayRef(getBufferString());
+}
+
+bool DisposableElementsAttr::isSplat() const {
+  return getStrides().empty() && getBuffer()->getBufferSize() != 0;
+}
+
+DType DisposableElementsAttr::getDType() const { return getProperties().dtype; }
+
+ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
+
+WideNum DisposableElementsAttr::readBufferPos(size_t pos) const {
+  StringRef s = getBufferString();
+  unsigned bufBytewidth = getBufferElementBytewidth();
+  StringRef bytes = s.substr(pos * bufBytewidth, bufBytewidth);
+  WideNum n;
+  getReader()(bytes, llvm::makeMutableArrayRef(n));
+  return n;
+}
+
+WideNum DisposableElementsAttr::readFlatIndex(size_t flatIndex) const {
+  return readBufferPos(flatIndexToBufferPos(flatIndex));
+}
+
+size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
+  if (isContiguous())
+    return flatIndex;
+  if (isSplat())
+    return 0;
+  SmallVector<int64_t, 4> indices;
+  return getStridesPosition(
+      unflattenIndex(getShape(), flatIndex), getStrides());
+}
+
+ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
+  const Properties &properties = getProperties();
+  if (!properties.isTransformed &&
+      getBufferElementBytewidth() == sizeof(WideNum)) {
+    return asArrayRef<WideNum>(getBufferString());
+  }
+  ArrayBuffer<WideNum>::Vector wideBufferData;
+  wideBufferData.resize_for_overwrite(getNumBufferElements());
+  getReader()(getBufferString(), wideBufferData);
+  return std::move(wideBufferData);
+}
+
+void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
+  if (isContiguous()) {
+    getReader()(getBuffer()->getBuffer(), dst);
+    return;
+  }
+  SmallVector<WideNum, 1> wideBufferData;
+  wideBufferData.resize_for_overwrite(getNumBufferElements());
+  getReader()(getBufferString(), wideBufferData);
+  ArrayRef<WideNum> src(wideBufferData);
+  restrideArray(sizeof(WideNum), getShape(),
+      {getStrides(), castArrayRef<char>(src)}, castMutableArrayRef<char>(dst));
+}
+
+ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
+  const Properties &properties = getProperties();
+  if (!properties.isTransformed && properties.isContiguous &&
+      getBufferElementBytewidth() == sizeof(WideNum)) {
+    return asArrayRef<WideNum>(getBufferString());
+  }
+  ArrayBuffer<WideNum>::Vector wideData;
+  wideData.resize_for_overwrite(getNumElements());
+  readElements(wideData);
+  return std::move(wideData);
+}
+
+ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
+  const Properties &properties = getProperties();
+  bool requiresNoElementwiseTransformOrCast =
+      !properties.isTransformed && properties.dtype == properties.bufferDType;
+  if (requiresNoElementwiseTransformOrCast && properties.isContiguous)
+    return getBufferBytes();
+  unsigned attrBytewidth = bytewidthOfDType(properties.dtype);
+  ArrayBuffer<char>::Vector vec;
+  vec.resize_for_overwrite(getNumElements() * attrBytewidth);
+  MutableArrayRef<char> bytes(vec);
+  if (requiresNoElementwiseTransformOrCast) {
+    auto src = getBufferBytes();
+    restrideArray(attrBytewidth, getShape(), {getStrides(), src}, bytes);
+  } else if (attrBytewidth == sizeof(WideNum)) {
+    readElements(castMutableArrayRef<WideNum>(bytes));
+  } else {
+    SmallVector<WideNum, 1> wideData;
+    wideData.resize_for_overwrite(getNumElements());
+    readElements(wideData);
+    narrowArray(getElementType(), wideData, bytes);
+  }
+  return std::move(vec);
+}
+
+void DisposableElementsAttr::printWithoutType(raw_ostream &os) const {
+  printIntOrFPElementsAttrAsDenseWithoutType(*this, os);
+}
+
+// TODO: move all the following to ElementsAttrBuilder
+
+namespace {
+DisposableElementsAttr::Reader composeReadTransform(
+    const DisposableElementsAttr::Reader &reader,
+    ElementsAttrBuilder::Transformer transformer) {
+  return [read = reader, transform = std::move(transformer)](
+             StringRef s, MutableArrayRef<WideNum> dst) {
+    read(s, dst);
+    transform(dst);
+  };
+}
+
+template <DType SRC_TAG, DType DST_TAG>
+void wideCaster(MutableArrayRef<WideNum> nums) {
+  using S = WideDType<SRC_TAG>;
+  using D = WideDType<DST_TAG>;
+  for (WideNum &n : nums)
+    n = D::pack(static_cast<typename D::type>(S::unpack(n)));
+}
+
+ElementsAttrBuilder::Transformer wideCaster(DType src, DType dst) {
+  constexpr DType DBL = DType::DOUBLE, I64 = DType::INT64, U64 = DType::UINT64;
+  // clang-format off
+  if (src == DBL && dst == I64) return wideCaster<DBL, I64>;
+  if (src == DBL && dst == U64) return wideCaster<DBL, U64>;
+  if (src == I64 && dst == DBL) return wideCaster<I64, DBL>;
+  if (src == I64 && dst == U64) return wideCaster<I64, U64>;
+  if (src == U64 && dst == DBL) return wideCaster<U64, DBL>;
+  if (src == U64 && dst == I64) return wideCaster<U64, I64>;
+  // clang-format on
+  llvm_unreachable("wideCaster must be called with 2 different wide types");
+}
+} // namespace
+
+DisposableElementsAttr DisposableElementsAttr::transform(
+    ElementsAttrBuilder &elmsBuilder, Type transformedElementType,
+    Transformer transformer) const {
+  ShapedType transformedType = getType().clone(transformedElementType);
+  return elmsBuilder.create(transformedType, getBuffer(), getStrides(),
+      dtypeOfMlirType(transformedElementType),
+      composeReadTransform(getReader(), std::move(transformer)));
+}
+
+DisposableElementsAttr DisposableElementsAttr::castElementType(
+    ElementsAttrBuilder &elmsBuilder, Type newElementType) const {
+  if (newElementType == getElementType())
+    return *this;
+
+  ShapedType newType = getType().clone(newElementType);
+  DType newDType = dtypeOfMlirType(newElementType);
+  DType newWideType = wideDTypeOfDType(newDType);
+  DType oldWideType = wideDTypeOfDType(getDType());
+
+  if (oldWideType == newWideType)
+    return elmsBuilder.create(newType, getBuffer(), getStrides(),
+        getBufferDType(), getReaderOrNull());
+
+  Transformer transformer = wideCaster(oldWideType, newWideType);
+  Reader reader = composeReadTransform(getReader(), std::move(transformer));
+  return elmsBuilder.create(
+      newType, getBuffer(), getStrides(), getBufferDType(), std::move(reader));
+}
+
+DisposableElementsAttr DisposableElementsAttr::transpose(
+    ElementsAttrBuilder &elmsBuilder, ArrayRef<uint64_t> perm) const {
+  // TODO: Check if perm is identity and then just return *this.
+
+  ShapedType type = getType();
+  auto shape = type.getShape();
+  auto transposedShape = transposeDims(shape, perm);
+  ShapedType transposedType = type.clone(transposedShape);
+  auto strides = getStrides();
+  if (auto transposedStrides = transposeStrides(shape, strides, perm)) {
+    return elmsBuilder.create(transposedType, getBuffer(),
+        makeArrayRef(*transposedStrides), getBufferDType(), getReaderOrNull());
+  }
+
+  // TODO: Consider transposing without transforming (just carry over the
+  //       reader) when getNumBufferElements() == getNumElements(), i.e.
+  //       strides have no zeros.
+
+  ArrayBuffer<WideNum> wideSrc = getBufferAsWideNums();
+  ArrayRef<char> src(castArrayRef<char>(wideSrc.get()));
+  std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+      llvm::WritableMemoryBuffer::getNewUninitMemBuffer(
+          getNumElements() * sizeof(WideNum));
+  auto reverseStrides =
+      untransposeDims(paddedStridesOfShape(transposedShape), perm);
+  restrideArray(sizeof(WideNum), shape, {strides, src},
+      {reverseStrides, writeBuffer->getBuffer()});
+  DType dtype = getDType();
+  Buffer transposedBuffer = std::move(writeBuffer);
+  auto newStrides = getDefaultStrides(transposedShape);
+  return elmsBuilder.create(transposedType, transposedBuffer,
+      makeArrayRef(newStrides), wideDTypeOfDType(dtype));
+}
+
+DisposableElementsAttr DisposableElementsAttr::reshape(
+    ElementsAttrBuilder &elmsBuilder, ArrayRef<int64_t> reshapedShape) const {
+  // TODO: if getStrides() don't conflict with reshapedShape clone *this
+  //       with strides that incorporate reshape, otherwise create a new
+  //       MemoryBuffer and restrideArray buffer into it and, if needed,
+  //       do a post processing phase to reorder elements
+  llvm_unreachable("TODO: implement DisposableElementsAttr::reshape");
+}
+
+DisposableElementsAttr DisposableElementsAttr::expand(
+    ElementsAttrBuilder &elmsBuilder, ArrayRef<int64_t> expandedShape) const {
+  ShapedType type = getType();
+  if (expandedShape == type.getShape())
+    return *this;
+
+  ShapedType expandedType = type.clone(expandedShape);
+  return elmsBuilder.create(expandedType, getBuffer(), getStrides(),
+      getBufferDType(), getReaderOrNull());
+}
+
+} // namespace mlir

@@ -18,9 +18,15 @@
 
 namespace mlir {
 class Pass;
-}
+} // namespace mlir
 
 namespace onnx_mlir {
+
+class DisposablePool;
+
+/// Pass for removing DisposableElementsAttr attributes.
+std::unique_ptr<mlir::Pass> createScrubDisposablePass(
+    DisposablePool *disposablePool = nullptr);
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();

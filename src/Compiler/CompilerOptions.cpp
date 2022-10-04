@@ -41,6 +41,10 @@ llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> printVerboseONNXConstants("printVerboseONNXConstants",
+    llvm::cl::desc("print \"onnx.Constant\" verbosely:"), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
     llvm::cl::desc(
         "dont delete the bitcode files (optimized and unoptimized):"),

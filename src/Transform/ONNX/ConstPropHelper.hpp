@@ -50,12 +50,12 @@ mlir::RankedTensorType constructRankedTensorType(mlir::ShapedType type);
 char *allocateBufferFor(mlir::Type type, bool useMaxSize = false);
 
 /// Get a data array from a given ONNXConstantOp.
-char *createArrayFromDenseElementsAttr(mlir::DenseElementsAttr dataAttr);
+char *createArrayFromDenseElementsAttr(mlir::ElementsAttr dataAttr);
 
 /// Copy and cast an array of a type to another array of another type.
 /// It simply uses C++ type casting. Users must take care about precision loss.
 template <typename SRC_TYPE, typename DEST_TYPE>
-void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size);
+void copyAndCastArr(const char *srcRawArr, char *destRawArr, int64_t size);
 
 /// Convert an array whose element type is double or int_64 to an array whose
 /// element type is the one of 'outType' (smaller precision). It does not

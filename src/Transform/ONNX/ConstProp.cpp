@@ -23,12 +23,17 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/AttributesHelper.hpp"
+#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
+#include "src/Support/DType.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
@@ -82,34 +87,54 @@ const StringRef BUFFER_ID_ATTR = "buffer_id";
 /// Buffer pool to store buffer pointers.
 SmallVector<char *, 4> bufferPtrs;
 
-/// A helper function to get a value of a given type from an attribute.
+template <typename U>
+using EnableFloat = std::enable_if_t<CppTypeTrait<U>::isFloat>;
+
+template <typename U>
+using EnableNotBool = std::enable_if_t<!std::is_same_v<U, bool>>;
+
+template <typename S>
+void castAndCopy(Type dstElemType, ArrayRef<S> src, MutableArrayRef<char> dst) {
+  dispatchByMlirType(dstElemType, [&](auto dstDType) {
+    using D = CppType<dstDType>;
+    fillOrTransform(src, castMutableArrayRef<D>(dst),
+        [](S v) { return static_cast<D>(v); });
+  });
+}
+
 template <typename T>
-T getAttrValue(Attribute attr) {
-  llvm_unreachable("unknown operation");
+SmallVector<T, 4> createIntVectorFromArrayAttr(ArrayAttr a) {
+  SmallVector<T, 4> vec;
+  for (auto val : a.getValue())
+    vec.push_back(val.cast<IntegerAttr>().getInt());
+  return vec;
 }
 
-template <>
-ATTRIBUTE(unused)
-double getAttrValue(Attribute attr) {
-  return attr.cast<FloatAttr>().getValueAsDouble();
+DisposableElementsAttr getConstValueAsDisposableElements(
+    ElementsAttrBuilder &elementsBuilder, Value constValue) {
+  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  Attribute bufferIDAttr =
+      constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
+  if (bufferIDAttr) {
+    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
+    ShapedType type = constValue.getType().cast<ShapedType>();
+    int64_t maxSize = getMaxSizeInBytes(type);
+    DType dtype = dtypeOfMlirType(type.getElementType());
+    DType bufferDType = wideDTypeOfDType(dtype);
+    ArrayRef<char> buffer(bufferPtrs[bufferId], maxSize);
+    return elementsBuilder.fromRawBytes(
+        type, bufferDType, buffer, /*mustCopy=*/true);
+  }
+  return elementsBuilder.fromElementsAttr(
+      constOp.valueAttr().cast<ElementsAttr>());
 }
 
-template <>
-ATTRIBUTE(unused)
-float getAttrValue(Attribute attr) {
-  return (float)attr.cast<FloatAttr>().getValueAsDouble();
-}
-
-template <>
-ATTRIBUTE(unused)
-int64_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
-}
-
-template <>
-ATTRIBUTE(unused)
-int32_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
+// Creates ONNXConstantOp with the location and result type from replacingValue.
+ONNXConstantOp createReplacingConstantOp(
+    PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
+  return rewriter.create<ONNXConstantOp>(replacingValue.getLoc(),
+      replacingValue.getType(), Attribute(), elements, FloatAttr(), ArrayAttr(),
+      IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 }
 
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
@@ -119,14 +144,12 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
   assert(constOp && "Not a constant operation");
   char *res = nullptr;
 
-  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
+  Attribute bufferIDAttr = op->getAttr(BUFFER_ID_ATTR);
   if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     res = bufferPtrs[bufferId];
   } else {
-    DenseElementsAttr dataAttr =
-        op->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    ElementsAttr dataAttr = constOp.valueAttr().cast<mlir::ElementsAttr>();
     res = createArrayFromDenseElementsAttr(dataAttr);
     bufferPtrs.emplace_back(res);
     unsigned bufferId = bufferPtrs.size() - 1;
@@ -229,6 +252,9 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
     bufferId = bufferPtrs.size() - 1;
   }
   // Store the buffer id.
+  // llvm::errs() << "BUFFER_ID_ATTR: " << replacingValue.getType() << "\n";
+  // replacingValue.dump();
+  // llvm::errs() << "\n";
   constOp.getOperation()->setAttr(BUFFER_ID_ATTR,
       IntegerAttr::get(
           rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false), bufferId));
@@ -244,194 +270,102 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
 // type as well as the two element attributes for the operation, and return the
 // result of the operation.
 
-template <typename OP, typename T>
+template <typename OP, typename U, class Enable = void>
 struct ElementWiseBinaryOpImpl {
-  static T impl(T lhs, T rhs) { llvm_unreachable("unknown operation"); }
+  static U impl(U lhs, U rhs) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs + rhs); }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXAddOp, U, EnableNotBool<U>> {
+  static U impl(U lhs, U rhs) { return lhs + rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs - rhs); }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXSubOp, U, EnableNotBool<U>> {
+  static U impl(U lhs, U rhs) { return lhs - rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs * rhs); }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXMulOp, U, EnableNotBool<U>> {
+  static U impl(U lhs, U rhs) { return lhs * rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs / rhs); }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXDivOp, U, EnableNotBool<U>> {
+  static U impl(U lhs, U rhs) { return lhs / rhs; }
 };
 
-template <typename OP, typename T>
-T ComputeConstPropElementwiseBinary(T lhs, T rhs) {
-  return ElementWiseBinaryOpImpl<OP, T>::impl(lhs, rhs);
-}
-
-template <typename ElementwiseBinaryOp, typename T>
-void IterateConstPropElementwiseBinary(char *lhs, char *rhs,
-    ArrayRef<int64_t> lhsShape, ArrayRef<int64_t> rhsShape, char *res,
-    ArrayRef<int64_t> outputShape) {
-  // Rank info.
-  int lhsRank = lhsShape.size();
-  int rhsRank = rhsShape.size();
-  int outputRank = outputShape.size();
-  // Strides info.
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
-  std::vector<int64_t> lhsStrides = getStrides(lhsShape);
-  std::vector<int64_t> rhsStrides = getStrides(rhsShape);
-  // Data pointers.
-  T *lhsArray = reinterpret_cast<T *>(lhs);
-  T *rhsArray = reinterpret_cast<T *>(rhs);
-  T *resArray = reinterpret_cast<T *>(res);
-
-  // Check broadcasting.
-  bool broadcasting = false;
-  if (lhsRank != rhsRank)
-    broadcasting = true;
-  else
-    for (int i = 0; i < outputRank; ++i)
-      if (lhsShape[i] != rhsShape[i]) {
-        broadcasting = true;
-        break;
-      }
-
-  // Do computation.
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
-    // Compute indices to access the output.
-    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
-
-    // Compute indices to access inputs.
-    SmallVector<int64_t, 4> lhsIndices(lhsRank, 0);
-    SmallVector<int64_t, 4> rhsIndices(rhsRank, 0);
-    if (!broadcasting) {
-      for (int k = 0; k < outputRank; ++k) {
-        lhsIndices[k] = outputIndices[k];
-        rhsIndices[k] = outputIndices[k];
-      }
-    } else {
-      for (int k = 0; k < outputRank; ++k) {
-        // in the lhs index range.
-        if (k >= outputRank - lhsRank) {
-          int lhsIndex = k - outputRank + lhsRank;
-          if (lhsShape[lhsIndex] == 1)
-            // broadcast
-            lhsIndices[lhsIndex] = 0;
-          else
-            lhsIndices[lhsIndex] = outputIndices[k];
-        }
-        // in the rhs index range.
-        if (k >= outputRank - rhsRank) {
-          int rhsIndex = k - outputRank + rhsRank;
-          if (rhsShape[rhsIndex] == 1)
-            // broadcast
-            rhsIndices[rhsIndex] = 0;
-          else
-            rhsIndices[rhsIndex] = outputIndices[k];
-        }
-      }
-    }
-
-    // Calculate element-wise binary result.
-    int64_t lhsOffset = getLinearAccessIndex(lhsIndices, lhsStrides);
-    int64_t rhsOffset = getLinearAccessIndex(rhsIndices, rhsStrides);
-
-    T lhsValue = *(lhsArray + lhsOffset);
-    T rhsValue = *(rhsArray + rhsOffset);
-    *(resArray + i) = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
-        lhsValue, rhsValue);
-  }
+template <typename ElementwiseBinaryOp>
+/*std::function<WideNum(WideNum, WideNum)>*/
+auto combinerOfElementwiseBinaryOp(DType operandsDType) {
+  using ElementwiseBinaryOpCombiner = std::function<WideNum(WideNum, WideNum)>;
+  return dispatchByDType(
+      operandsDType, [](auto dtype) -> ElementwiseBinaryOpCombiner {
+        using W = WideDType<dtype>;
+        using OpImpl =
+            ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
+        return [](WideNum lhs, WideNum rhs) -> WideNum {
+          return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
+        };
+      });
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseBinaryOp>
-Value ConstPropElementwiseBinary(
-    PatternRewriter &rewriter, Value replacingValue, Value lhs, Value rhs) {
-  Type elementType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
-  ArrayRef<int64_t> lhsShape = lhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> rhsShape = rhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> outputShape =
-      replacingValue.getType().cast<ShapedType>().getShape();
+Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
+    Value replacingValue, Value lhsValue, Value rhsValue) {
+  Type replacingType = replacingValue.getType().cast<ShapedType>();
 
-  // Get lhs and rhs values.
-  char *lhsArray = getArrayFromAttributeOrBuffer(rewriter, lhs.getDefiningOp());
-  char *rhsArray = getArrayFromAttributeOrBuffer(rewriter, rhs.getDefiningOp());
-
-  // Do calculation.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else
-    llvm_unreachable("Unknown data type");
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr lhs =
+      getConstValueAsDisposableElements(elementsBuilder, lhsValue);
+  DisposableElementsAttr rhs =
+      getConstValueAsDisposableElements(elementsBuilder, rhsValue);
+  DType operandsDType = lhs.getDType();
+  assert(operandsDType == rhs.getDType());
+  DisposableElementsAttr resultElements =
+      elementsBuilder.combine(lhs, rhs, replacingType,
+          combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsDType));
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
 //// Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
 
-template <typename OP, typename T>
+template <typename OP, typename U, class Enable = void>
 struct ElementWiseUnaryOpImpl {
-  static T impl(T val) { llvm_unreachable("unknown operation"); }
+  static U impl(U val) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, T> {
-  static T impl(T val) { return (-val); }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, U, EnableFloat<U>> {
+  static U impl(U val) { return sqrt(val); }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T> {
-  static T impl(T val) { return sqrt(val); }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXNegOp, U, EnableNotBool<U>> {
+  static U impl(U val) { return -val; }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
-  static T impl(T val) {
-    if (val < 0)
-      return 0;
-    return val;
-  }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXReluOp, U, EnableNotBool<U>> {
+  static U impl(U val) { return val < 0 ? 0 : val; }
 };
 
-template <typename OP, typename T>
-T ComputeConstPropElementwiseUnary(T val) {
-  return ElementWiseUnaryOpImpl<OP, T>::impl(val);
-}
-
-template <typename ElementwiseUnaryOp, typename T>
-void IterateConstPropElementwiseUnary(
-    char *input, char *res, ArrayRef<int64_t> outputShape) {
-  // Data pointers.
-  T *inputArray = reinterpret_cast<T *>(input);
-  T *resArray = reinterpret_cast<T *>(res);
-
-  // Calculate element-wise unary result.
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
-    *(resArray + i) = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(
-        *(inputArray + i));
-  }
+template <typename OP>
+ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
+  return dispatchByMlirType(
+      elemType, [](auto dtype) -> ElementsAttrBuilder::Transformer {
+        using W = WideDType<dtype>;
+        using OpImpl = ElementWiseUnaryOpImpl<OP, typename W::type>;
+        return ElementsAttrBuilder::functionTransformer(
+            [](WideNum n) -> WideNum {
+              return W::pack(OpImpl::impl(W::unpack(n)));
+            });
+      });
 }
 
 /// Do element-wise unary calculation of 'input' value and create an
@@ -439,34 +373,19 @@ void IterateConstPropElementwiseUnary(
 template <typename ElementwiseUnaryOp>
 Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
-  ArrayRef<int64_t> replacingShape = replacingType.getShape();
-  Type elementType = replacingType.getElementType();
+  Type replacingElemType =
+      replacingValue.getType().cast<ShapedType>().getElementType();
 
-  // Get the const value.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
-
-  // Do calculation.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
-        constArray, resArray, replacingShape);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
-        constArray, resArray, replacingShape);
-  } else
-    llvm_unreachable("Unknown data type");
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  assert(replacingElemType == constElements.getElementType() &&
+         "all element wise unary ops preserve element type");
+  DisposableElementsAttr transposedElements =
+      elementsBuilder.transform(constElements, replacingElemType,
+          transformElementWiseUnaryOp<ElementwiseUnaryOp>(replacingElemType));
+  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -475,37 +394,19 @@ Value ConstPropElementwiseUnary(
 
 Value ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ArrayRef<int64_t> replacingShape =
-      replacingValue.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> constShape =
-      constValue.getType().cast<ShapedType>().getShape();
-  Type elementType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
+  // TODO: figure out if default may be omitted and what to do in that case
+  ArrayAttr permAttr =
+      replacingValue.getDefiningOp()->getAttr("perm").cast<ArrayAttr>();
+  SmallVector<uint64_t, 4> perm =
+      createIntVectorFromArrayAttr<uint64_t>(permAttr);
 
-  // Get perm attribute.
-  SmallVector<uint64_t, 4> perm;
-  Attribute permAttr =
-      replacingValue.getDefiningOp()->getAttrOfType<::mlir::Attribute>("perm");
-  assert(permAttr && "permute attribute expected to be defined here");
-  for (auto permVal : permAttr.cast<ArrayAttr>().getValue())
-    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-
-  // Get the const value.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
-
-  // Do calculation.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-  ConstPropTransposeImpl(
-      elementType, constArray, constShape, perm, replacingShape, resArray);
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  DisposableElementsAttr transposedElements =
+      elementsBuilder.transpose(constElements, perm);
+  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -764,40 +665,16 @@ public:
 
 Value ConstPropCast(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  // Get the const value using the maximum precision e.g. double, int64_t.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+  Type replacingElemType =
+      replacingValue.getType().cast<ShapedType>().getElementType();
 
-  // Create the result buffer.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-
-  ShapedType srcType = constValue.getType().cast<ShapedType>();
-  ShapedType destType = replacingValue.getType().cast<ShapedType>();
-  Type srcElemType = srcType.getElementType();
-  Type destElemType = destType.getElementType();
-
-  // Convert to the maximum destination type. Values will be converted to the
-  // correct type automatically when constructing the output ONNXConstantOp.
-  int64_t numElements = ShapedType::getNumElements(srcType.getShape());
-  if (destElemType.isa<FloatType>()) {
-    if (srcElemType.isa<FloatType>())
-      copyAndCastArr<double, double>(constArray, resArray, numElements);
-    else
-      copyAndCastArr<int64_t, double>(constArray, resArray, numElements);
-  } else if (destElemType.isa<IntegerType>()) {
-    if (srcElemType.isa<FloatType>())
-      copyAndCastArr<double, int64_t>(constArray, resArray, numElements);
-    else
-      copyAndCastArr<int64_t, int64_t>(constArray, resArray, numElements);
-  } else
-    llvm_unreachable("Unsupport data type");
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  DisposableElementsAttr castElements =
+      elementsBuilder.castElementType(constElements, replacingElemType);
+  return createReplacingConstantOp(rewriter, replacingValue, castElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1084,9 +961,6 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   auto function = getOperation();
   MLIRContext *context = &getContext();
 
-  ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect>();
-
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
@@ -1107,6 +981,9 @@ void ConstPropONNXToONNXPass::runOnOperation() {
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);
       free(arr);
+    } else if (auto elements =
+                   constOp.valueAttr().dyn_cast<DisposableElementsAttr>()) {
+      constOp.valueAttr(toDenseElementsAttr(elements));
     }
   });
 
@@ -1115,6 +992,9 @@ void ConstPropONNXToONNXPass::runOnOperation() {
     free(ptr);
   }
   bufferPtrs.clear();
+
+  // TODO: determine if we should call DisposablePool::garbageCollectUnreachable
+  //       (what's the relationship between function and the ModuleOp?)
 
 } // end anonymous namespace
 

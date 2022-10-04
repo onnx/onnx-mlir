@@ -127,3 +127,49 @@ Type getBroadcastedRankedType(
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+using namespace mlir;
+
+ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
+  Attribute attr;
+  Type type;
+  if (!parser.parseOptionalAttrDict(result.attributes)) {
+    if (parser.parseColon())
+      return failure();
+    Type type;
+    if (parser.parseType(type))
+      return failure();
+    result.addTypes({type});
+  } else {
+    if (parser.parseAttribute(attr, type))
+      return failure();
+    result.addAttribute("value", attr);
+    result.addTypes({attr.cast<DenseElementsAttr>().getType()});
+  }
+  return success();
+}
+
+void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
+  Type type = getResult().getType();
+  if (auto attr = value()) {
+    auto elements = attr->cast<ElementsAttr>();
+    assert(!elements.isa<SparseElementsAttr>());
+    if (elements.getType() == type) {
+      // NOTE: we print every elements attribute as a DenseElementsAttr.
+      odsPrinter << ' ';
+      onnx_mlir::printIntOrFPElementsAttrAsDense(
+          elements, odsPrinter.getStream());
+      return;
+    }
+  }
+  if (auto attr = sparse_value()) {
+    auto elements = attr->cast<SparseElementsAttr>();
+    if (elements.getType() == type) {
+      odsPrinter << ' ';
+      odsPrinter.printAttribute(elements);
+      return;
+    }
+  }
+  odsPrinter.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{});
+  odsPrinter << " : " << type;
+}

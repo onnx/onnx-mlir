@@ -24,6 +24,7 @@ add_onnx_mlir_library(OMONNXRewrite
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
+  ScrubDisposablePass.cpp
 
   DEPENDS
   OMONNXOps

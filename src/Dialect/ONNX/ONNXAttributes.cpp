@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
+#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -102,8 +104,149 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 // See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
 void ONNXDialect::registerAttributes() {
+  addAttributes<DisposableElementsAttr>();
   addAttributes<
 #define GET_ATTRDEF_LIST
 #include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
       >();
 }
+
+/// Parse an attribute registered to this dialect.
+Attribute ONNXDialect::parseAttribute(
+    DialectAsmParser &parser, Type type) const {
+  // generatedAttributeParser is generated in ONNXAttributes.cpp.inc
+  StringRef attrTag;
+  if (Attribute attr;
+      generatedAttributeParser(parser, &attrTag, type, attr).has_value())
+    return attr;
+  parser.emitError(parser.getCurrentLocation())
+      << "unknown attribute `" << attrTag << "` in dialect `ONNX`";
+  return {};
+}
+
+/// Print an attribute registered to this dialect.
+void ONNXDialect::printAttribute(
+    Attribute attr, DialectAsmPrinter &printer) const {
+  // generatedAttributePrinter is generated in ONNXAttributes.cpp.inc
+  if (succeeded(generatedAttributePrinter(attr, printer)))
+    return;
+  if (auto elements = attr.dyn_cast<DisposableElementsAttr>()) {
+    elements.printWithoutType(printer.getStream());
+  }
+}
+
+namespace onnx_mlir {
+
+namespace {
+void printDenseFloatElement(const APFloat &value, raw_ostream &os, Type type) {
+  FloatAttr::get(type, value).print(os, /*elideType=*/true);
+}
+
+// Copied from mlir/lib/IR/AsmPrinter.cpp:
+void printDenseIntElement(const APInt &value, raw_ostream &os, Type type) {
+  if (type.isInteger(1))
+    os << (value.getBoolValue() ? "true" : "false");
+  else
+    value.print(os, !type.isUnsignedInteger());
+}
+
+// Copied from mlir/lib/IR/AsmPrinter.cpp:
+void printDenseElementsAttrImpl(bool isSplat, ShapedType type, raw_ostream &os,
+    function_ref<void(unsigned)> printEltFn) {
+  // Special case for 0-d and splat tensors.
+  if (isSplat)
+    return printEltFn(0);
+
+  // Special case for degenerate tensors.
+  auto numElements = type.getNumElements();
+  if (numElements == 0)
+    return;
+
+  // We use a mixed-radix counter to iterate through the shape. When we bump a
+  // non-least-significant digit, we emit a close bracket. When we next emit an
+  // element we re-open all closed brackets.
+
+  // The mixed-radix counter, with radices in 'shape'.
+  int64_t rank = type.getRank();
+  SmallVector<unsigned, 4> counter(rank, 0);
+  // The number of brackets that have been opened and not closed.
+  unsigned openBrackets = 0;
+
+  auto shape = type.getShape();
+  auto bumpCounter = [&] {
+    // Bump the least significant digit.
+    ++counter[rank - 1];
+    // Iterate backwards bubbling back the increment.
+    for (unsigned i = rank - 1; i > 0; --i)
+      if (counter[i] >= shape[i]) {
+        // Index 'i' is rolled over. Bump (i-1) and close a bracket.
+        counter[i] = 0;
+        ++counter[i - 1];
+        --openBrackets;
+        os << ']';
+      }
+  };
+
+  for (unsigned idx = 0, e = numElements; idx != e; ++idx) {
+    if (idx != 0)
+      os << ", ";
+    while (openBrackets++ < rank)
+      os << '[';
+    openBrackets = rank;
+    printEltFn(idx);
+    bumpCounter();
+  }
+  while (openBrackets-- > 0)
+    os << ']';
+}
+
+template <typename Iterator>
+bool checkIfSplat(ElementsAttr attr, Iterator valueIt) {
+  if (attr.isSplat())
+    return true;
+  if (attr.isa<DenseElementsAttr>()) {
+    // DenseElementsAttr always reports accurate isSplat() so no need to check
+    // contents when isSplat() returned false.
+    return false;
+  }
+  int64_t numElements = attr.getNumElements();
+  if (numElements == 0)
+    return false;
+  auto first = *valueIt;
+  for (int64_t i = 1; i < numElements; ++i) {
+    if (first != *++valueIt)
+      return false;
+  }
+  return true;
+}
+} // namespace
+
+// adapted from AsmPrinter::Impl::printDenseIntOrFPElementsAttr:
+void printIntOrFPElementsAttrAsDenseWithoutType(
+    ElementsAttr attr, raw_ostream &os) {
+  auto type = attr.getType();
+  auto elementType = type.getElementType();
+  os << "dense<";
+  if (elementType.isIntOrIndex()) {
+    auto valueIt = attr.value_begin<APInt>();
+    bool isSplat = checkIfSplat(attr, valueIt);
+    printDenseElementsAttrImpl(isSplat, type, os, [&](unsigned index) {
+      printDenseIntElement(*(valueIt + index), os, elementType);
+    });
+  } else {
+    assert(elementType.isa<FloatType>() && "unexpected element type");
+    auto valueIt = attr.value_begin<APFloat>();
+    bool isSplat = checkIfSplat(attr, valueIt);
+    printDenseElementsAttrImpl(isSplat, type, os, [&](unsigned index) {
+      printDenseFloatElement(*(valueIt + index), os, elementType);
+    });
+  }
+  os << '>';
+}
+
+void printIntOrFPElementsAttrAsDense(ElementsAttr attr, raw_ostream &os) {
+  printIntOrFPElementsAttrAsDenseWithoutType(attr, os);
+  os << " : " << attr.getType();
+}
+
+} // namespace onnx_mlir

@@ -33,7 +33,10 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/DisposableGarbageCollector.hpp"
+#include "src/Compiler/LineForwardingRawOstream.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
@@ -188,9 +191,23 @@ int main(int argc, char **argv) {
     return failed(LogicalResult::failure());
   }
 
+  auto passManagerSetupFn = [&](PassManager &pm) {
+#ifndef DISABLE_DISPOSABLE_POOL
+    DisposablePool &disposablePool = DisposablePool::create(pm.getContext());
+    pm.addInstrumentation(
+        std::make_unique<DisposableGarbageCollector>(disposablePool));
+#endif
+    auto errorHandler = [&](const Twine &msg) {
+      emitError(UnknownLoc::get(pm.getContext())) << msg;
+      return failure();
+    };
+    return passPipeline.addToPipeline(pm, errorHandler);
+  };
+  LineForwardingRawOstream fwd(output->os(),
+      printVerboseONNXConstants ? translateLegacyOnnxConstant : nullptr);
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
+  return failed(mlir::MlirOptMain(fwd.os(), std::move(file), passManagerSetupFn,
       registry, split_input_file, verify_diagnostics, verify_passes,
-      allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-      /*emitBytecode*/ false, /*implicitModule*/ true));
+      allowUnregisteredDialects, /*preloadDialectsInContext=*/true,
+      /*emitBytecode=*/false, /*implicitModule=*/true));
 }
