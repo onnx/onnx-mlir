@@ -488,9 +488,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
     return true;
   });
 
-  target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
-    return isSuitableForZDNN<ONNXConvOp>(op);
-  });
+  target.addDynamicallyLegalOp<ONNXConvOp>(
+      [](ONNXConvOp op) { return isSuitableForZDNN<ONNXConvOp>(op); });
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
