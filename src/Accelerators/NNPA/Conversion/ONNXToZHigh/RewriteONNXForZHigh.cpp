@@ -217,6 +217,18 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
   return false;
 }
 
+//
+// Check if pads can be inferenced for ONNXConv op
+//
+bool canInferencePadsForNNPAConv(ONNXConvOp op) {
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
+  ONNXConvOpShapeHelper shapeHelper(&op);
+  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  return (shapeHelper.pads.size() == 4) &&
+         (llvm::all_of(
+             shapeHelper.pads, [](IndexExpr val) { return val.isLiteral(); }));
+}
+
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
@@ -474,8 +486,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
     return true;
   });
 
-  target.addDynamicallyLegalOp<ONNXConvOp>(
-      [](ONNXConvOp op) { return isSuitableForZDNN<ONNXConvOp>(op); });
+  target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
+    return isSuitableForZDNN<ONNXConvOp>(op) ||
+           !canInferencePadsForNNPAConv(op);
+  });
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());

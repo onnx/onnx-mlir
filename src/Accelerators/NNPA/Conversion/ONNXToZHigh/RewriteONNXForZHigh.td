@@ -295,6 +295,13 @@ def IsConvNotLegalForZDNN: Constraint<
   "Conv is not legal for zDNN"
 >;
 
+// Check if pads can be inferenced for ONNX Conv op
+def CanInferencePadsForNNPAConv: Constraint<
+  CPred<"canInferencePadsForNNPAConv(" #
+        "dyn_cast<ONNXConvOp>($_self.getDefiningOp()))">,
+  "pads can be estimated for ONNX Conv op"
+>;
+
 def ConvOpPaddingPattern: Pattern<
   (ONNXConvOp:$res
      $x,
@@ -316,7 +323,7 @@ def ConvOpPaddingPattern: Pattern<
      (createArrayAttrOfZerosFrom $nnpapads),
      $strides)
   ],
-  [(IsConvNotLegalForZDNN:$res)]
+  [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH
