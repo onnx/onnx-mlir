@@ -293,20 +293,6 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
   return paddedType;
 }
 
-// Check whether an ArrayAttr contains non-zero values or not.
-bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
-  bool allZeros = true;
-  if (attrs) {
-    for (auto attr : attrs.getValue()) {
-      if (attr.cast<IntegerAttr>().getInt() > 0) {
-        allZeros = false;
-        break;
-      }
-    }
-  }
-  return !allZeros;
-}
-
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//

@@ -284,10 +284,6 @@ def createArrayAttrOfZerosFrom:
 class FloatAttrOfValue<int val>:
   NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
 
-// Check whether an ArrayAttr contains non-zero values or not.
-def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
-                                       "has non-zero elements">;
-
 // Check that a StrAttr does not contain a specific value.
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
