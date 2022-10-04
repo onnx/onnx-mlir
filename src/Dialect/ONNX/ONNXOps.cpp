@@ -1399,19 +1399,16 @@ LogicalResult ONNXMatMulOp::inferShapes(
       ONNXMatMulOpAdaptor>(*this, elementType);
 }
 
-//===----------------------------------------------------------------------===//
-// QLinearMatMulOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXQLinearMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!a().getType().isa<RankedTensorType>() ||
-      !b().getType().isa<RankedTensorType>())
+namespace {
+// Helper function used for QLinearMatMul and MatMulInteger shape inference
+LogicalResult inferMatMulResultShape(
+    mlir::Operation *op, Value a, Value b, Value result) {
+  if (!a.getType().isa<RankedTensorType>() ||
+      !b.getType().isa<RankedTensorType>())
     return success();
 
-  auto lhsTy = a().getType().cast<RankedTensorType>();
-  auto rhsTy = b().getType().cast<RankedTensorType>();
+  auto lhsTy = a.getType().cast<RankedTensorType>();
+  auto rhsTy = b.getType().cast<RankedTensorType>();
 
   SmallVector<int64_t, 2> dims;
   auto lhsShape = lhsTy.getShape();
@@ -1419,14 +1416,14 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 
   if (lhsShape.size() < 1 && rhsShape.size() < 1) {
     // Multiplication by scalars is not allowed.
-    return emitError("Multiplication by scalar arguments not allowed");
+    return op->emitError("Multiplication by scalar arguments not allowed");
   } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
     // Special case when both arrays are 1-dimensional and according to
     // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
     // need to be removed after the multiplication but cannot be removed if
     // all sizes are 1.
     if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     dims.emplace_back(1);
   } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
     // If the first argument is 1-D, it is promoted to a matrix by prepending
@@ -1441,7 +1438,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
         lhsShape[0] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
@@ -1458,7 +1455,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     unsigned lhsRank = lhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
         lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(lhsShape[lhsRank - 2]);
@@ -1471,7 +1468,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     unsigned lhsRank = lhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
         lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(rhsShape[1]);
@@ -1484,7 +1481,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
         lhsShape[1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(lhsShape[0]);
@@ -1499,7 +1496,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
         lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     // Check and perform broadcasting for the shapes.
     SmallVector<int64_t, 2> lhsBcastShape;
     for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
@@ -1508,7 +1505,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       rhsBcastShape.emplace_back(rhsShape[i]);
     if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
-      return emitError("Broadcasted dimensions are incompatible");
+      return op->emitError("Broadcasted dimensions are incompatible");
     dims.emplace_back(lhsShape[lhsRank - 2]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
   } else {
@@ -1522,13 +1519,33 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 
     // Check legality of matrix multiplication.
     if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
-      return emitError("Attempt to multiply incompatible matrices");
+      return op->emitError("Attempt to multiply incompatible matrices");
     if (rhsShape.size() > 1)
       dims.emplace_back(rhsShape[1]);
   }
 
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  Type elementType = result.getType().cast<ShapedType>().getElementType();
+  result.setType(RankedTensorType::get(dims, elementType));
   return success();
+}
+} // namespace
+
+//===----------------------------------------------------------------------===//
+// QLinearMatMulOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXQLinearMatMulOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferMatMulResultShape(getOperation(), a(), b(), getResult());
+}
+
+//===----------------------------------------------------------------------===//
+// MatMulIntegerOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXMatMulIntegerOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferMatMulResultShape(getOperation(), A(), B(), getResult());
 }
 
 // GemmOp
@@ -4525,11 +4542,6 @@ LogicalResult ONNXLpNormalizationOp::inferShapes(
 }
 
 LogicalResult ONNXLpPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
