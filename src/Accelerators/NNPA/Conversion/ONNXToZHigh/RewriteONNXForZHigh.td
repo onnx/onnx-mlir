@@ -261,6 +261,10 @@ def rewriteSoftmaxNDto2D: Pat<
 // Rules to conver ONNXConvOp with pads to ONNXConvOp with no pads
 //===----------------------------------------------------------------------===//
 
+// Get pads for padding to enable conv op on NNPA
+def GetPadsForNNPAConv:
+  NativeCodeCall<"getPadsForNNPAConv($_builder, $0)">;
+
 // This function is used for padding attribute in Conv.
 class insertZerosForNonPaddedDims<int extensionLength>:
   NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
@@ -288,30 +292,35 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
 
-// Check the a convolution operation is NOT suitable for zDNN
-def IsConvolutionOpNotSuitableForZDNN:
-//  Constraint<CPred<"!isConvolutionOpSuitableForZDNN($_self)">>;
-  Constraint<CPred<"!isSuitableForZDNN<ONNXConvOp>(dyn_cast<ONNXConvOp>($_self.getDefiningOp()))">>;
+// Check the a convolution operation is NOT leagal for zDNN
+def IsConvNotLegalForZDNN: Constraint<
+  CPred<"!isSuitableForZDNN<ONNXConvOp>(" #
+        "dyn_cast_or_null<ONNXConvOp>($_self.getDefiningOp()))">,
+  "Conv is not legal for zDNN"
+>;
 
-def ConvOpPaddingPattern: Pat<
+def ConvOpPaddingPattern: Pattern<
   (ONNXConvOp:$res
      $x,
      $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
      $pads,
      $strides),
-  (ONNXConvOp
+  [
+   (GetPadsForNNPAConv:$nnpapads $res),
 
-    (ONNXPadOp $x,
-       (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $pads)),
-       (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
-       (StringAttrOfValue<"constant">),
-       (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $pads))),
+   (ONNXConvOp
+
+     (ONNXPadOp $x,
+        (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $nnpapads)),
+        (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
+        (StringAttrOfValue<"constant">),
+        (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $nnpapads))),
 
      $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
-     (createArrayAttrOfZerosFrom $pads),
-     $strides),
-  //[(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
-  [(HasNonZeroInArrayAttr:$pads), (IsConvolutionOpNotSuitableForZDNN:$res)]
+     (createArrayAttrOfZerosFrom $nnpapads),
+     $strides)
+  ],
+  [(IsConvNotLegalForZDNN:$res)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

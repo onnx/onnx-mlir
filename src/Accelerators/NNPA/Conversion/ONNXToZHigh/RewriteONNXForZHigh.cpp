@@ -28,6 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -214,6 +215,20 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
     }
   }
   return false;
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
+  ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
+  ONNXConvOpShapeHelper shapeHelper(&op);
+  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  SmallVector<int64_t, 4> vals = {0, 0, 0, 0};
+  for (size_t i = 0; i < shapeHelper.pads.size(); i++) {
+    vals[i] = shapeHelper.pads[i].getLiteral();
+  }
+  return rewriter.getI64ArrayAttr(vals);
 }
 
 // Pad a ArrayAttr with zeros.
@@ -474,8 +489,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   });
 
   target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
-    return !op.pads() || !hasNonZeroInArrayAttr(op.pads().value()) ||
-           isSuitableForZDNN<ONNXConvOp>(op);
+    return isSuitableForZDNN<ONNXConvOp>(op);
   });
 
   // Single ONNX to ZHigh operation lowering.

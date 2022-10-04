@@ -489,26 +489,26 @@ func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256
 
 // -----
 
-func.func @test_onnx_conv2d_notset_with_pads(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<?x3x2x2xf32>) -> tensor<*xf32> {
-  %bias = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "NOTSET", pads = [0, 0, 2, 2], kernel_shape = [2, 2]} : (tensor<5x3x32x32xf32>, tensor<?x3x2x2xf32>, none) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+func.func @test_onnx_conv2d_notset_with_pads(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<1024x3x2x2xf32>) -> tensor<5x1024x33x33xf32> {
+    %bias = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "NOTSET", kernel_shape = [2, 2], pads = [0, 0, 2, 2]} : (tensor<5x3x32x32xf32>, tensor<1024x3x2x2xf32>, none) -> tensor<5x1024x33x33xf32>
+    return %1 : tensor<5x1024x33x33xf32>
   // CHECK-LABEL: test_onnx_conv2d_notset_with_pads
-  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<?x3x2x2xf32>) -> tensor<5x?x33x33xf32> {
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<1024x3x2x2xf32>) -> tensor<5x1024x33x33xf32> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[0, 0, 0, 0, 0, 0, 2, 2]> : tensor<8xi64>} : () -> tensor<8xi64>
   // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
   // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<5x3x34x34xf32>
-  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Conv"([[VAR_3_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0]} : (tensor<5x3x34x34xf32>, tensor<?x3x2x2xf32>, none) -> tensor<5x?x33x33xf32>
-  // CHECK:           return [[VAR_4_]] : tensor<5x?x33x33xf32>
+  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Conv"([[VAR_3_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0]} : (tensor<5x3x34x34xf32>, tensor<1024x3x2x2xf32>, none) -> tensor<5x1024x33x33xf32>
+  // CHECK:           return [[VAR_4_]] : tensor<5x1024x33x33xf32>
   // CHECK:         }
 }
 
 // -----
 
-func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x224xf32>, %arg1 : tensor<64x3x7x7xf32>, %arg2 : tensor<64xf32>) -> tensor<*xf32> {
-    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {kernel_shape = [7, 7], onnx_node_name = "", pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<*xf32>
-    return %0 : tensor<*xf32>
+func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x224xf32>, %arg1 : tensor<64x3x7x7xf32>, %arg2 : tensor<64xf32>) -> tensor<1x64x112x112xf32> {
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {kernel_shape = [7, 7], onnx_node_name = "", pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    return %0 : tensor<1x64x112x112xf32>
   // CHECK-LABEL: test_onnx_conv2d_with_bias_and_different_pads
   // CHECK-SAME:   ([[PARAM_0_]]: tensor<1x3x224x224xf32>, [[PARAM_1_]]: tensor<64x3x7x7xf32>, [[PARAM_2_]]: tensor<64xf32>) -> tensor<1x64x112x112xf32> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[0, 0, 3, 3, 0, 0, 3, 3]> : tensor<8xi64>} : () -> tensor<8xi64>
@@ -522,8 +522,8 @@ func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x2
 // -----
 
 func.func @test_onnx_conv2d_not_insert_onnxpad_when_not_necessary(%arg0: tensor<1x3x223x223xf32>, %arg1 : tensor<64x3x7x7xf32>, %arg2 : tensor<64xf32>) -> tensor<1x64x112x112xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x223x223xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
-  return %0 : tensor<1x64x112x112xf32>
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x223x223xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    return %0 : tensor<1x64x112x112xf32>
   // CHECK-LABEL: test_onnx_conv2d_not_insert_onnxpad_when_not_necessary
   // CHECK-NOT: "onnx.Pad"
 }
