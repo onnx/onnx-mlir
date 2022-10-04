@@ -16,12 +16,7 @@ COPY . onnx-mlir
 # Setup onnx
 # Install into lib instead of lib64 since everything else is in lib
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && INSTALL_LIB=$(python3 -c "import re; import site; \
-         print(list(filter(lambda site: not re.search('lib64', site), \
-                           site.getsitepackages()))[0])") \
-    && cd ${ONNX_ROOT} \
-    && python3 setup.py -q install --install-lib=${INSTALL_LIB} \
-    && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
+    && cd ${ONNX_ROOT} && python3 -m pip install .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
