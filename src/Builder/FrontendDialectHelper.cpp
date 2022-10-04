@@ -122,7 +122,7 @@ template <typename T, typename U>
 std::enable_if_t<std::is_same_v<T, U>, mlir::DenseElementsAttr>
 createDenseElmAttrFromProtoData(const google::protobuf::RepeatedField<U> &data,
     DenseElementsAttrBuilder<T> denseBuilder) {
-  return denseBuilder(llvm::makeArrayRef(data.begin(), data.end()));
+  return denseBuilder(llvm::makeArrayRef(data.data(), data.size()));
 }
 
 // When the protobuf repeated field has a type larger than T,
