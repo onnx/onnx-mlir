@@ -26,6 +26,7 @@ include "src/Dialect/ONNX/ONNX.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+// Layouts that are used in this optimization phase.
 def NHWC4LayoutAttr: NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_NCHW4C)">;
 def KCMN4C4KLayoutAttr: NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_KCMN4C4K)">;
 def UndefinedLayoutAttr: NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_UNDEFINED)">;
