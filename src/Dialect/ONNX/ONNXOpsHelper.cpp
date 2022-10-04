@@ -658,9 +658,9 @@ bool isDenseONNXConstant(Value result) {
   if (!constOp)
     return false;
 
-  // If the dense attribute is null, there must be buffer_id
-  // attribute.
-  if (!(op->getAttrOfType<Attribute>("value")))
+  // The value attribute must be an ElementsAttr
+  // (which is either DenseElementsAttr or DenseResourceElementsAttr).
+  if (!(op->getAttrOfType<ElementsAttr>("value")))
     return false;
   // The other attributes must be null.
   if (op->getAttrOfType<Attribute>("sparse_value"))
