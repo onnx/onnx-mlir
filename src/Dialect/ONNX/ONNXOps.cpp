@@ -3650,25 +3650,24 @@ LogicalResult ONNXGatherNDOp::verify() {
         "<= " + std::to_string(dataRank - b));
 
   // All values in 'indices' are expected to satisfy the inequality:
-  //   -data.shape[i] <= indices[...,i] <= (data.shape[i]-1)].
-  for (int64_t i = 0; i < indicesRank; ++i) {
-    int64_t dataDimAtAxis = dataShape[i];
-    if (dataDimAtAxis < 0)
-      continue;
-
-    if (DenseElementsAttr valueAttribute =
-            getDenseElementAttributeFromONNXValue(indices))
-      for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
-        static int n = 0;
-        int64_t index = value.getInt();
-        if (index < -dataDimAtAxis || index > dataDimAtAxis - 1)
+  //   -data.shape[b + i] <= indices[...,i] <= (data.shape[b + i]-1)].
+  if (DenseElementsAttr valueAttribute =
+          getDenseElementAttributeFromONNXValue(indices)) {
+    int flatIndex = 0;
+    for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
+      int64_t indexValue = value.getInt();
+      int64_t gatherAxis = b + (flatIndex % indicesLastDim);
+      int64_t dataDimAtAxis = dataShape[gatherAxis];
+      if (dataDimAtAxis >= 0) {
+        if (indexValue < -dataDimAtAxis || indexValue > dataDimAtAxis - 1)
           return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-              *this->getOperation(), "indices[" + std::to_string(n) + "]",
-              index,
+              *this->getOperation(),
+              "indices[" + std::to_string(flatIndex) + "]", indexValue,
               onnx_mlir::Diagnostic::Range<int64_t>(
                   -dataDimAtAxis, dataDimAtAxis - 1));
-        n++;
       }
+      flatIndex++;
+    }
   }
 
   return success();
