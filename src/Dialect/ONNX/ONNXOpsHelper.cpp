@@ -124,6 +124,7 @@ bool hasConvONNXTensorDataLayout(const Type type) {
 }
 
 bool hasCustomONNXTensorDataLayout(const Type type) {
+  printf("hi alex: in hasCustomONXTensorDataLayout\n");
   return getONNXTensorLayout(type) !=
          ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
 }

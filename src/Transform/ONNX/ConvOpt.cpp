@@ -19,8 +19,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -134,8 +134,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     ONNXConvOp convOp = ::llvm::dyn_cast<ONNXConvOp>(op);
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
-    assert(onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG) &&
-           "should I expect to pass test");
+    if (!onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG))
+      return failure();
     if (DEBUG)
       printf("ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
     // All conditions satisfied, get info.
@@ -241,8 +241,18 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
   target.addDynamicallyLegalOp<ONNXConvOp>([&](ONNXConvOp op) {
-    // Conv op is legal if it cannot be transformed to an equivalent matmul.
-    return !onnx_mlir::ExpressONNXConvOpAsMatmul(op);
+    // Conv op can be converted to a matmul
+    bool canBeAMatmul = onnx_mlir::ExpressONNXConvOpAsMatmul(op);
+    // TODO: hi alex optionally enable this.
+    // Conv op has optimized layout
+    bool hasOptLayout =
+        onnx_mlir::hasConvONNXTensorDataLayout(op.X().getType());
+    if (hasOptLayout)
+      assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
+             "custom layout for both X and W");
+    bool canBeOptimized = canBeAMatmul || !hasOptLayout;
+    // Conv op is legal if it cannot be further optimized.
+    return !canBeOptimized;
   });
 
   RewritePatternSet patterns(context);
@@ -254,7 +264,6 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
-
 
 } // namespace
 

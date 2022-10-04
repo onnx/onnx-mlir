@@ -32,6 +32,7 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let useDefaultAttributePrinterParser = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -46,7 +47,6 @@ class ONNX_Attr<string name, list<Trait> traits = []>
 def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
   let mnemonic = "encoding";
   let hasCustomAssemblyFormat = 1;
-
   let description = [{
     An attribute to encode information on properties of ONNX tensors. A tensor with
     this encoding attribute indicates that it is a tensor whose type is

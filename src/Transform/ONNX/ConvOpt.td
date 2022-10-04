@@ -50,8 +50,8 @@ def replaceONNXConvPatternWithLayout : Pat<
        // Remaining arguments unchanged.
        $b, $auto_pad, $dilations, $group, $kernel_shape, $pad, $strides, (returnType $res)),
     (UndefinedLayoutAttr)),
-  [(HasNoCustomDataLayout:$x), (HasNoCustomDataLayout:$w)], 
-  (addBenefit 1)
+  [(HasNoCustomDataLayout:$x), (HasNoCustomDataLayout:$w)]
+  //(addBenefit 1)
 >;
 
 //def replaceONNXConvPatternWithLayout : Pat<
