@@ -59,9 +59,21 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
+  // Determine the program name from the argv program path.
+  char *p, *s = argv[0];
+  p = s;
+  while(*p && ((*s != '\\') && (*p != '/'))) p++; // Find the first occurence of '\\' or '/'.
+  // If found repeat the process (if not then s already has the string).
+  while(*p) {
+    s = ++p;
+    while (*p && ((*p != '\\') && (*p != '/'))) p++; // Find the first occurence of '\\' or '/'.
+  }
+  // Assign the program name.
+  std::string programName = s;
+
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
-          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          programName + " modular optimizer driver\n", &llvm::errs(),
           customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
