@@ -138,11 +138,20 @@ void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
 }
 
 /// Create a ConcatOp to concat the list of tensors.
-Value emitConcatOpForDims(
-    MultiDialectBuilder<OnnxBuilder> create, ValueRange inputs) {
+Value emitConcatOpForDims(MultiDialectBuilder<OnnxBuilder> create,
+    ValueRange inputs, Type outputType) {
   int64_t rank = inputs.size();
-  if (rank == 1)
+  if (rank == 1) {
+    // Input is tensor<1xf32>, squeeze it if the output type is scalar i.e.
+    // tensor<f32>
+    if (auto tensorType = outputType.dyn_cast<RankedTensorType>()) {
+      if (tensorType.getRank() == 0) {
+        Value zero = create.onnx.constantInt64({0});
+        return create.onnx.squeeze(outputType, inputs[0], zero);
+      }
+    }
     return inputs[0];
+  }
   Type elementType = getElementType(inputs[0].getType());
   Type resultType = RankedTensorType::get({rank}, elementType);
   Value concatOutput = create.onnx.concat(resultType, inputs, /*axis=*/0);
@@ -189,6 +198,7 @@ public:
     // Get basic op info.
     Location loc = shapeOp.getLoc();
     Value data = shapeOp.data();
+    Type outputType = shapeOp.shape().getType();
 
     // Match: Input is ranked.
     if (!onnx_mlir::isRankedShapedType(data.getType()))
@@ -215,7 +225,7 @@ public:
                                      : create.onnx.dim(data, i);
       dimValues.emplace_back(dimVal);
     }
-    Value replacedValue = emitConcatOpForDims(create, dimValues);
+    Value replacedValue = emitConcatOpForDims(create, dimValues, outputType);
 
     rewriter.replaceOp(shapeOp, replacedValue);
     return success();
@@ -236,6 +246,7 @@ public:
     Location loc = castOp.getLoc();
     Value input = castOp.input();
     TypeAttr toType = castOp.toAttr();
+    Type outputType = castOp.output().getType();
 
     // Match
     if (!areDimsFromConcat(input))
@@ -249,7 +260,7 @@ public:
     for (Value d : dims)
       castedDims.emplace_back(create.onnx.cast(d, toType));
 
-    Value replacedValue = emitConcatOpForDims(create, castedDims);
+    Value replacedValue = emitConcatOpForDims(create, castedDims, outputType);
 
     rewriter.replaceOp(castOp, replacedValue);
     return success();
@@ -267,6 +278,7 @@ public:
     Value input = gatherOp.data();
     Value indices = gatherOp.indices();
     int64_t axis = gatherOp.axis();
+    Type outputType = gatherOp.output().getType();
 
     // Match
     // Gather on axis 0.
@@ -304,7 +316,7 @@ public:
     for (int64_t i : indicesI64)
       gatherDims.emplace_back(dims[i]);
 
-    Value replacedValue = emitConcatOpForDims(create, gatherDims);
+    Value replacedValue = emitConcatOpForDims(create, gatherDims, outputType);
 
     rewriter.replaceOp(gatherOp, replacedValue);
     return success();
@@ -323,6 +335,7 @@ public:
     Value starts = sliceOp.starts();
     Value ends = sliceOp.ends();
     Value steps = sliceOp.steps();
+    Type outputType = sliceOp.output().getType();
 
     // Match
     // Input is defined by Concat of dims, so it has rank of 1.
@@ -368,7 +381,7 @@ public:
     for (int64_t i : indices)
       slicedDims.emplace_back(dims[i]);
 
-    Value replacedValue = emitConcatOpForDims(create, slicedDims);
+    Value replacedValue = emitConcatOpForDims(create, slicedDims, outputType);
 
     rewriter.replaceOp(sliceOp, replacedValue);
     return success();
@@ -400,6 +413,7 @@ public:
     // Get basic op info.
     Location loc = concatOp.getLoc();
     ValueRange inputs = concatOp.inputs();
+    Type outputType = concatOp.concat_result().getType();
 
     // Match: inputs are dimensions but not all of them are of rank 1.
     if (!llvm::all_of(inputs, [](Value v) { return areDims(v); }))
@@ -420,7 +434,7 @@ public:
       for (Value dim : dimsV)
         dims.emplace_back(dim);
     }
-    Value replacedValue = emitConcatOpForDims(create, dims);
+    Value replacedValue = emitConcatOpForDims(create, dims, outputType);
     rewriter.replaceOp(concatOp, replacedValue);
     return success();
   }
