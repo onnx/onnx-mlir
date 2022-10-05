@@ -304,6 +304,10 @@ bool IndexExpr::canBeUsedInScope() const {
 
 int64_t IndexExpr::getLiteral() const { return getObj().getLiteral(); }
 
+int64_t IndexExpr::getQuestionmark() const {
+  return getObj().getQuestionmark();
+}
+
 AffineExpr IndexExpr::getAffineExpr() const { return getObj().getAffineExpr(); }
 
 Value IndexExpr::getValue() const { return getObj().getValue(); }
@@ -399,15 +403,19 @@ void IndexExpr::debugPrint(
 //===----------------------------------------------------------------------===//
 
 /*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-    SmallVectorImpl<int64_t> &intDimList) {
+    SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
   for (IndexExpr &expr : indexExprList) {
     if (expr.isLiteral()) {
       int64_t val = expr.getLiteral();
       assert(val >= 0 && "expected positive values only");
       intDimList.emplace_back(val);
-    } else
-      intDimList.emplace_back(-1);
+    } else {
+      if (uniqueQuestionMark)
+        intDimList.emplace_back(expr.getQuestionmark());
+      else
+        intDimList.emplace_back(-1);
+    }
   }
 }
 
