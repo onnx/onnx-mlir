@@ -36,8 +36,8 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
     const int H, const int W, const int kH, const int kW, int pHBegin,
     int pHEnd, int pWBegin, int pWEnd, const ConvAutoPad autoPad) {
   static int testNum = 0;
-  printf("attempt %d with N %d, Cin %d, Cout %d, input [%d, %d], "
-         "kernel [%d, %d], pads [%d, %d, %d, %d], autopad %s, isDynamic "
+  printf("attempt %d with N %d, Cin %d, Cout %d, H %d, W %d, kH %d, kW %d, "
+         "pHBegin %d, pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic "
          "%d, stride %d, dilation %d\n",
       ++testNum, N, CIn, COut, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
       Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,

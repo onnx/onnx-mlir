@@ -236,10 +236,8 @@ ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   ONNXConvOpShapeHelper shapeHelper(&op);
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
-  SmallVector<int64_t, 4> vals = {0, 0, 0, 0};
-  for (size_t i = 0; i < shapeHelper.pads.size(); i++) {
-    vals[i] = shapeHelper.pads[i].getLiteral();
-  }
+  SmallVector<int64_t, 4> vals;
+  IndexExpr::getShape(shapeHelper.pads, vals);
   return rewriter.getI64ArrayAttr(vals);
 }
 
@@ -292,7 +290,7 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
   RankedTensorType inputType = x.getType().cast<RankedTensorType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   Type elementType = inputType.getElementType();
-  SmallVector<int64_t, 4> paddingShape = {0, 0, 0, 0};
+  SmallVector<int64_t, 4> paddingShape(4, 0);
   if (pads) {
     for (int i = 0; i < 4; i++) {
       paddingShape[i] = pads.getValue()[i].cast<IntegerAttr>().getInt();
