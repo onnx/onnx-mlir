@@ -66,6 +66,11 @@ int main(int argc, char *argv[]) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }
+  // Test option requirements.
+  if (!ONNXOpStats.empty() && emissionTarget <= EmitONNXIR)
+    llvm::errs()
+        << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
+           "--EmitLLVMIR, or binary-generating emit commands.\n";
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

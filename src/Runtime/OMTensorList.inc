@@ -103,8 +103,23 @@ void omTensorListDestroy(OMTensorList *list) {
     return;
   for (int64_t i = 0; i < list->_size; i++)
     omTensorDestroy(list->_omts[i]);
-  if (list->_owning)
+  if (list->_owning) {
     free(list->_omts);
+  }
+  free(list);
+}
+
+/* OMTensorList destroyer which does not destroy the tensors. Currently an
+ * unpublished call that is mainly used to handle the unique tensor scheme used
+ * in Execution Session.
+ */
+void omTensorListDestroyShallow(OMTensorList *list) {
+  if (!list)
+    return;
+  // Omit destruction of the OMTensors.
+  if (list->_owning) {
+    free(list->_omts);
+  }
   free(list);
 }
 
