@@ -70,14 +70,13 @@ add_onnx_mlir_library(CompilerPasses
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
 if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
   string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"
-    VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
+          VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
 
   # For a version string 1.2.3-foo,
   # CMAKE_MATCH_1 = 1
   # CMAKE_MATCH_3 = 2
   # CMAKE_MATCH_5 = 3
   # CMAKE_MATCH_7 = foo
-
   set(PRODUCT_VERSION_MAJOR ${CMAKE_MATCH_1})
   set(PRODUCT_VERSION_MINOR ${CMAKE_MATCH_3})
   set(PRODUCT_VERSION_PATCH ${CMAKE_MATCH_5})
