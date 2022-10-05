@@ -62,12 +62,12 @@ int main(int argc, char *argv[]) {
   // Determine the program name from the argv program path.
   char *p, *s = argv[0];
   p = s;
-  while (*p && ((*s != '\\') && (*p != '/'))) 
+  while (*p && ((*s != '\\') && (*p != '/')))
     p++; // Find the first occurence of '\\' or '/'.
   // If found repeat the process (if not then s already has the string).
   while (*p) {
     s = ++p;
-    while (*p && ((*p != '\\') && (*p != '/'))) 
+    while (*p && ((*p != '\\') && (*p != '/')))
       p++; // Find the first occurence of '\\' or '/'.
   }
   // Assign the program name.
