@@ -93,6 +93,11 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
   }
 #ifdef ONNX_MLIR_PRODUCT_VERSION
   os << "onnx-mlir product version " ONNX_MLIR_PRODUCT_VERSION;
+#else
+  os << "onnx-mlir product version ";
+  os << PRODUCT_VERSION_MAJOR << '.';
+  os << PRODUCT_VERSION_MINOR << '.';
+  os << PRODUCT_VERSION_PATCH << '-' << PRODUCT_ID;
 #endif
 
   return buf;
