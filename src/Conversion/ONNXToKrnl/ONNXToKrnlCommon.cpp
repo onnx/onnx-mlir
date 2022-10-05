@@ -20,6 +20,8 @@
 
 bool ONNXToKrnl_gEmitDealloc = false;
 
+using namespace mlir;
+
 namespace onnx_mlir {
 
 Value OnnxToKrnlBuilder::reshape(
