@@ -82,6 +82,15 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
   llvm::raw_string_ostream os(buf);
 #ifdef ONNX_MLIR_VENDOR
   os << ONNX_MLIR_VENDOR;
+#else
+  os << "onnx-mlir product version";
+#endif
+#ifdef ONNX_MLIR_PRODUCT_VERSION
+  os << " " << ONNX_MLIR_PRODUCT_VERSION << '\n';
+#else
+  os << " " << PRODUCT_VERSION_MAJOR << '.';
+  os << PRODUCT_VERSION_MINOR << '.';
+  os << PRODUCT_VERSION_PATCH << '-' << PRODUCT_ID << '\n';
 #endif
   os << "onnx-mlir version " ONNX_MLIR_VERSION;
 #ifdef ONNX_VERSION
@@ -91,14 +100,6 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
   if (!repo.empty()) {
     os << " " << repo << '\n';
   }
-#ifdef ONNX_MLIR_PRODUCT_VERSION
-  os << "onnx-mlir product version " ONNX_MLIR_PRODUCT_VERSION;
-#else
-  os << "onnx-mlir product version ";
-  os << PRODUCT_VERSION_MAJOR << '.';
-  os << PRODUCT_VERSION_MINOR << '.';
-  os << PRODUCT_VERSION_PATCH << '-' << PRODUCT_ID;
-#endif
 
   return buf;
 }
@@ -127,12 +128,12 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
 
 void getVersionPrinter(llvm::raw_ostream &os) {
   os << getOnnxMlirFullVersion(false) << "\n";
-  os << "  LLVM version " << LLVM_PACKAGE_VERSION << ' '
+  os << "LLVM version " << LLVM_PACKAGE_VERSION << ' '
      << getLLVMFullRepositoryVersion() << '\n';
 #if ONNX_MLIR_IS_DEBUG_BUILD
-  os << "  DEBUG build";
+  os << "DEBUG build";
 #else
-  os << "  Optimized build";
+  os << "Optimized build";
 #endif
 #ifndef NDEBUG
   os << " with assertions";
@@ -141,8 +142,8 @@ void getVersionPrinter(llvm::raw_ostream &os) {
   if (CPU == "generic")
     CPU = "(unknown)";
   os << ".\n";
-  os << "  Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
-     << "  Host CPU: " << CPU << '\n';
+  os << "Default target: " << llvm::sys::getDefaultTargetTriple() << '\n'
+     << "Host CPU: " << CPU << '\n';
 }
 
 } // namespace onnx_mlir
