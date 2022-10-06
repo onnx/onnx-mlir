@@ -15,6 +15,8 @@
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 
+using namespace mlir;
+
 namespace onnx_mlir {
 
 Value getShapedZero(Location loc, ConversionPatternRewriter &rewriter,

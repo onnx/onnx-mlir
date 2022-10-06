@@ -413,6 +413,7 @@ mlir::LogicalResult inferShapeForUnaryElementwiseOps(mlir::Operation *op);
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr);
+    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
+    bool refineShape = true);
 
 } // namespace onnx_mlir

@@ -5146,7 +5146,8 @@ LogicalResult ONNXScanOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     updateType(std::get<1>(vScanOutputValToTy), squeezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   // Now we have modified loop body function input signatures according to
@@ -5259,6 +5260,9 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axis,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+
+  if (axis < 0)
+    axis += dataRank;
 
   // All index values in 'indices' are expected to be within bounds [-s, s-1]
   // along axis of size s.
@@ -5782,7 +5786,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();

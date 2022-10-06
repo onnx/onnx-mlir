@@ -448,6 +448,7 @@ public:
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
@@ -457,7 +458,8 @@ public:
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
-      llvm::SmallVectorImpl<int64_t> &intDimList);
+      llvm::SmallVectorImpl<int64_t> &intDimList,
+      bool uniqueQuestionMark = false);
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(
