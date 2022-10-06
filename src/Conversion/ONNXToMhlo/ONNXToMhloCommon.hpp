@@ -58,16 +58,16 @@ using MhloOp = typename MhloDialectOp<ONNXOp>::Op;
 
 // Get shaped constant zero for the given input Type. If the input type
 // doesn't have static shape, then add dynamic broadcast.
-Value getShapedZero(Location loc, ConversionPatternRewriter &rewriter,
-    const ShapedType &inpType, Value &inp, const Type &resultType);
+Value getShapedZero(
+    Location loc, ConversionPatternRewriter &rewriter, Value &inp);
 
 // Get shaped constant for the given input Type and float value. If the
 // input type doesn't have static shape, then add dynamic broadcast.
 template <typename T>
 Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
-    const ShapedType &inpType, const T &value, Value &inp,
-    const Type &resultType) {
+    const T &value, Value &inp) {
   Value broadcastedValue;
+  ShapedType inpType = inp.getType().cast<ShapedType>();
   if (inpType.hasStaticShape())
     broadcastedValue = rewriter.create<mhlo::ConstantOp>(
         loc, DenseElementsAttr::get(inpType,
@@ -78,7 +78,7 @@ Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
         loc, rewriter.getFloatAttr(elemType, value));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, resultType, floatValue, shape, rewriter.getI64TensorAttr({}));
+        loc, inpType, floatValue, shape, rewriter.getI64TensorAttr({}));
   }
   return broadcastedValue;
 }

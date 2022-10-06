@@ -39,7 +39,6 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
     // Convert the output type to MemRefType.
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
 
     Value input = tileOp.input();
     Value multiples = tileOp.repeats();
