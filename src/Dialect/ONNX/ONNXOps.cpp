@@ -5069,7 +5069,8 @@ LogicalResult ONNXScanOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     updateType(std::get<1>(vScanOutputValToTy), squeezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*useInferredShape=*/true);
   }
 
   // Now we have modified loop body function input signatures according to
