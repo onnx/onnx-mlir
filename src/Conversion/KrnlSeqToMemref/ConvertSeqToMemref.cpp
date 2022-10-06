@@ -27,7 +27,7 @@
 #include "mlir/Pass/Pass.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Conversion/SeqToMemref/ConvertSeqToMemref.hpp"
+#include "src/Conversion/KrnlSeqToMemref/ConvertSeqToMemref.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
