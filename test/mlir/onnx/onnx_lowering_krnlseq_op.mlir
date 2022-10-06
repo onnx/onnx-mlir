@@ -19,11 +19,26 @@ func.func @test_seqstore(%arg0: memref<?x3xf32>, %arg1: memref<?xmemref<?x?xf32>
 
 // -----
 
-func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
-    %0 = "krnl.seqextract"(%arg1, %arg2) : (memref<?xmemref<?x3xf32>>, index) -> (memref<?x3xf32>)
+func.func @test_seqextract_nocopy(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
+    %0 = "krnl.seqextract"(%arg1, %arg2) {copy = 0 : ui1} : (memref<?xmemref<?x3xf32>>, index) -> (memref<?x3xf32>)
     return %0 : memref<?x3xf32>
 // CHECK-LABEL:  func @test_seqextract
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xmemref<?x3xf32>>, [[PARAM_1_:%.+]]: index) -> memref<?x3xf32> {
 // CHECK:           [[LOAD_PARAM_0_MEM_:%.+]] = memref.load [[PARAM_0_]]{{.}}[[PARAM_1_]]{{.}} : memref<?xmemref<?x3xf32>>
 // CHECK:           return [[LOAD_PARAM_0_MEM_]] : memref<?x3xf32>
+}
+
+// -----
+func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
+    %0 = "krnl.seqextract"(%arg1, %arg2) {copy = 1 : ui1} : (memref<?xmemref<?x3xf32>>, index) -> (memref<?x3xf32>)
+    return %0 : memref<?x3xf32>
+// CHECK-LABEL:  func.func @test_seqextract
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xmemref<?x3xf32>>, [[PARAM_1_:%.+]]: index) -> memref<?x3xf32> {
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = memref.load [[PARAM_0_]]{{.}}[[PARAM_1_]]{{.}} : memref<?xmemref<?x3xf32>>
+// CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_1_:%.+]] = memref.dim [[LOAD_PARAM_0_MEM_]], [[VAR_c0_]] : memref<?x3xf32>
+// CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?x3xf32>
+// CHECK:           memref.copy [[LOAD_PARAM_0_MEM_]], [[RES_]] : memref<?x3xf32> to memref<?x3xf32>
+// CHECK:           return [[RES_]] : memref<?x3xf32>
+// CHECK:         }
 }

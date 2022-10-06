@@ -18,12 +18,19 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from distutils.util import strtobool
 import os
 import sys
 import argparse
 import tempfile
 
+# Reimplement strtobool per PEP 632 and python 3.12 deprecation
+def strtobool(s: str) -> bool:
+    if s.lower() in ["y", "yes", "t", "true", "on", "1"]:
+        return True
+    elif s.lower() in ["n", "no", "f", "false", "off", "0"]:
+        return False
+    else:
+        raise ValueError(f"{s} cannot be converted to bool")
 
 def get_args_from_env():
     # Casting with "bool" does not work well. When you specify TEST_VERBOSE=xxx,
@@ -33,6 +40,7 @@ def get_args_from_env():
     # to do the conversion. But note that strtobool can't take an emtpy string.
 
     TEST_VERBOSE = os.getenv("TEST_VERBOSE")
+    TEST_CASE_CHECK = os.getenv("TEST_CASE_CHECK")
     TEST_INVOKECONVERTER = os.getenv("TEST_INVOKECONVERTER")
     TEST_IMPORTER_FORCE_DYNAMIC = os.getenv("TEST_IMPORTER_FORCE_DYNAMIC")
     # Force input tensors to constants. Set this to a list of input indices.
@@ -117,6 +125,14 @@ def get_args_from_env():
         help="emit lib or jni for testing (default: lib)",
     )
     parser.add_argument(
+        "-l",
+        "--list",
+        type=str,
+        choices=["node", "model"],
+        default=os.getenv("TEST_LIST", ""),
+        help="list node or model tests backend runs",
+    )
+    parser.add_argument(
         "--mtriple",
         type=str,
         default=os.getenv("TEST_MTRIPLE", ""),
@@ -155,6 +171,13 @@ def get_args_from_env():
         default=(strtobool(TEST_VERBOSE) if TEST_VERBOSE else False),
         help="verbose output (default: false if TEST_VERBOSE env var not set)",
     )
+    parser.add_argument(
+        "--case-check",
+        action="store_true",
+        default=(strtobool(TEST_CASE_CHECK) if TEST_CASE_CHECK else False),
+        help="report the change of test cases (default: false if TEST_CASE_CHECK env var not set)",
+    )
+        
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     return args
@@ -168,8 +191,9 @@ def get_runtime_vars():
         # tempdir = tempfile.TemporaryDirectory()
         result_dir = tempdir.name + "/"
 
-    print("Test info:", file=sys.stderr)
-    print("  temporary results are in dir:" + result_dir, file=sys.stderr)
+    if args.verbose:
+        print("Test info:", file=sys.stderr)
+        print("  temporary results are in dir:" + result_dir, file=sys.stderr)
 
     if args.mcpu:
         print("  targeting cpu:", args.mcpu, file=sys.stderr)
@@ -180,6 +204,8 @@ def get_runtime_vars():
     if args.maccel:
         print("  targeting maccel:", args.maccel, file=sys.stderr)
 
+    RUNTIME_DIR = ''
+    TEST_DRIVER = ''
     if args.compilerlib:
         import test_config_compilerlib
 
@@ -187,7 +213,8 @@ def get_runtime_vars():
         LLC = test_config_compilerlib.LLC_PATH
         RUNTIME_DIR = test_config_compilerlib.TEST_DRIVER_RUNTIME_PATH
         TEST_DRIVER = test_config_compilerlib.TEST_DRIVER_PATH
-    else:
+    # No need to depend on test_config if we are simply listing nodes/models
+    elif not args.list:
         import test_config
 
         CXX = test_config.CXX_PATH
@@ -198,7 +225,10 @@ def get_runtime_vars():
     # Make lib folder under build directory visible in PYTHONPATH
     doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(RUNTIME_DIR)
-    from PyRuntime import ExecutionSession
+
+    # No need to depend on PyRuntime if we are simply listing nodes/models
+    if not args.list:
+        from PyRuntime import ExecutionSession
 
     return result_dir, RUNTIME_DIR, TEST_DRIVER
 

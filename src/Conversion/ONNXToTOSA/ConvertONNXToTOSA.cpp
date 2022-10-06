@@ -12,54 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Pass/Passes.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-// This defines a template to construct ops whose legalizations are
-// specialized.
-template <typename OnnxOpT>
-class ConvertOnnxOp : public OpConversionPattern<OnnxOpT> {
-public:
-  using OpConversionPattern<OnnxOpT>::OpConversionPattern;
-  using OpAdaptor = typename OnnxOpT::Adaptor;
-  LogicalResult matchAndRewrite(OnnxOpT op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override;
-};
-
-template <>
-LogicalResult ConvertOnnxOp<ONNXReluOp>::matchAndRewrite(ONNXReluOp op,
-    OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const {
-  Value input = adaptor.X();
-  auto inputTy = input.getType().dyn_cast<TensorType>();
-
-  if (!inputTy)
-    return op.emitError("Only Tensor types supported in TOSA");
-
-  if (!inputTy.getElementType().isa<FloatType>()) {
-    return op.emitError(
-        "Only floating-point datatype legalization currently supported");
-  }
-
-  // Rescale the clampIn for quantized types. TBD
-  // Maps to tosa.clamp which has both int and fp limits.
-  Value clampIn = input;
-
-  rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), clampIn,
-      rewriter.getI64IntegerAttr(0),
-      rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
-      rewriter.getF32FloatAttr(0.0f),
-      rewriter.getF32FloatAttr(std::numeric_limits<float>::max()));
-  return success();
+void populateONNXToTOSAConversionPattern(ConversionTarget &target,
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
+  // Math
+  populateLoweringONNXElementwiseOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -79,24 +43,36 @@ struct FrontendToTosaLoweringPass
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
+  ModuleOp module = getOperation();
+  // Define final conversion target
   MLIRContext *context = &getContext();
   RewritePatternSet patterns(context);
   ConversionTarget target(*context);
 
+  // We use the type converter to legalize types before any conversion patterns
+  // are executed. This ensures that we do not need to trigger separate
+  // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
-  typeConverter.addConversion([](Type type) { return type; });
+  typeConverter.addConversion([](Type type) -> Optional<Type> {
+    if (isTOSASignedInt(type) || isTOSAFloat(type))
+      return type;
+    return llvm::None;
+  });
+  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
+    if (typeConverter.isLegal(type.getElementType()))
+      return type;
+    return llvm::None;
+  });
 
+  // Define legal dialects and operations
   target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
 
-#define INSERT_ONNXOP_PATTERN(OnnxOp)                                          \
-  target.addIllegalOp<OnnxOp>();                                               \
-  patterns.add<ConvertOnnxOp<OnnxOp>>(typeConverter, context);
-  INSERT_ONNXOP_PATTERN(ONNXReluOp);
-#undef INSERT_ONNXOP_PATTERN
+  // Define patterns
+  populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);
 
-  if (failed(
-          applyPartialConversion(getOperation(), target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
+  }
 }
 
 std::unique_ptr<Pass> createConvertONNXToTOSAPass() {

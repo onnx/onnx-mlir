@@ -43,7 +43,7 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
   outputDims[3] = W * blocksize;
 
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

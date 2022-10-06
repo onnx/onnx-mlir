@@ -21,10 +21,17 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
+
+// =============================================================================
+// Helper functions for Rewrite.td and Rewrite.cpp files.
+// =============================================================================
 
 // If 'A' is NoneType, return -B. Otherwise return A-B.
 Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
@@ -33,7 +40,7 @@ Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+// Create an ArrayAttr of IntegerAttr(s) of values in [1, N].
 ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   SmallVector<int64_t, 4> vals;
   for (int i = 1; i <= N; ++i)
@@ -41,7 +48,7 @@ ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [N, M].
+// Create an ArrayAttr of IntegerAttr(s) of values in [N, M].
 ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   SmallVector<int64_t, 4> vals;
   for (int i = N; i <= M; ++i)
@@ -96,10 +103,47 @@ bool areProducedByTransposeOp(ValueRange values) {
   });
 }
 
+// Create a DenseElementsAttr based on the shape of type.
+DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
+    Value value, int64_t start = 0, llvm::Optional<int64_t> end = llvm::None) {
+
+  auto inType = value.getType().cast<ShapedType>();
+  assert(inType.hasRank() && "inType must be ranked");
+  auto shape = inType.getShape();
+  int64_t rank = inType.getRank();
+
+  int64_t endValue = end.has_value() ? end.value() : rank;
+
+  SmallVector<int64_t, 1> dims = {endValue - start};
+  SmallVector<int64_t, 4> values(
+      shape.begin() + start, shape.begin() + endValue);
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr from Shape Op
+DenseElementsAttr createDenseElementsAttrFromShapeOp(
+    PatternRewriter &rewriter, Operation *op) {
+  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
+
+  int64_t start, end;
+  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+
+  return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
+}
+
 } // namespace onnx_mlir
 
+// =============================================================================
 /// Include the patterns defined in the Declarative Rewrite framework.
+// =============================================================================
+
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
+
+// =============================================================================
+// Rewrite pattern for loop (not handled in Rewrite.td).
+// =============================================================================
 
 // In some ONNX models, the maximum trip count for LoopOp is set to a big value,
 // e.g. LONG_MAX and termination depends on the break condition inside the loop.
@@ -122,10 +166,10 @@ bool areProducedByTransposeOp(ValueRange values) {
 //
 // i = 0
 // k = LB
-// keepgoing = true
-// while (i < max_trip_count && keepgoing == true) {
+// keepGoing = true
+// while (i < max_trip_count && keepGoing == true) {
 //    k = k + STEP
-//    keepgoing = (k < UB)
+//    keepGoing = (k < UB)
 // }
 // ```
 //
@@ -138,8 +182,8 @@ bool areProducedByTransposeOp(ValueRange values) {
 //
 // i = 0
 // k = LB
-// keepgoing = true
-// while (i < max_trip_count && keepgoing == true) {
+// keepGoing = true
+// while (i < max_trip_count && keepGoing == true) {
 //    k = k + STEP
 // }
 // ```
@@ -223,13 +267,13 @@ private:
                    ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
   }
 
-  // A helper function to get the value that is fed to an operattion's argument.
+  // A helper function to get the value that is fed to an operation's argument.
   Value getFedValue(Value arg, Operation *op) const {
     return op->getOperands()[arg.cast<BlockArgument>().getArgNumber()];
   }
 
   // A helper function to get an integer constant from a value.
-  int64_t getOneIntergerConstant(Value v) const {
+  int64_t getOneIntegerConstant(Value v) const {
     Operation *definingOp = v.getDefiningOp();
     DenseElementsAttr valueAttr =
         cast<ONNXConstantOp>(definingOp).valueAttr().cast<DenseElementsAttr>();
@@ -253,7 +297,7 @@ private:
   // ```
   std::pair<bool, Value> matchOp(
       PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
-    onnx_mlir::OnnxBuilder onnx(rewriter, loc);
+    OnnxBuilder onnx(rewriter, loc);
     Operation *loopOp = onnxLoopOp.getOperation();
     Value maxTripCountValue = loopOp->getOperands()[0];
 
@@ -290,7 +334,7 @@ private:
       return std::make_pair(false, maxTripCountValue);
     Value newCounterValue = breakCondOp->getOperands()[0];
     Value ubValue = breakCondOp->getOperands()[1];
-    // Input type of Less must be interger.
+    // Input type of Less must be integer.
     if (!newCounterValue.getType()
              .cast<ShapedType>()
              .getElementType()
@@ -349,14 +393,14 @@ private:
     if (isDefinedByIntegerConstantOp(lbValue) &&
         isDefinedByIntegerConstantOp(ubValue) &&
         isDefinedByIntegerConstantOp(stepValue)) {
-      int64_t lowerBound = getOneIntergerConstant(lbValue);
-      int64_t upperBound = getOneIntergerConstant(ubValue);
-      int64_t step = getOneIntergerConstant(stepValue);
+      int64_t lowerBound = getOneIntegerConstant(lbValue);
+      int64_t upperBound = getOneIntegerConstant(ubValue);
+      int64_t step = getOneIntegerConstant(stepValue);
       if ((step <= 0) || (upperBound <= lowerBound))
         return std::make_pair(false, maxTripCountValue);
       int64_t derivedTripCount =
           ceil((1.0 * (upperBound - lowerBound)) / (1.0 * step));
-      int64_t maxTripCount = getOneIntergerConstant(maxTripCountValue);
+      int64_t maxTripCount = getOneIntegerConstant(maxTripCountValue);
 
       // Check that the new trip count is smaller than the original trip count.
       if (maxTripCount <= derivedTripCount)
@@ -398,7 +442,115 @@ private:
   }
 };
 
-/// Register optimization patterns as "canonicalization" patterns
+namespace {
+// RNNOpRewriteLayoutPattern helper functions and classes.
+
+template <typename ONNXOp>
+void inferShapes(ONNXOp op) {
+  if (failed(op.inferShapes([](Region &region) {})))
+    llvm_unreachable("unexpected inferShapes failure");
+}
+
+// To transpose between [batch_size, seq_length/num_directions, size]
+//                  and [seq_length/num_directions, batch_size, size].
+ArrayAttr perm3RNN(Builder &b) { return b.getI64ArrayAttr({1, 0, 2}); }
+
+// To transpose from [seq_length, num_directions, batch_size, hidden_size]
+//                to [batch_size, seq_length, num_directions, hidden_size].
+ArrayAttr perm4RNN(Builder &b) { return b.getI64ArrayAttr({2, 0, 1, 3}); }
+
+class InputOutputTransposer {
+public:
+  InputOutputTransposer(mlir::OpBuilder &b, mlir::Location loc)
+      : create(b, loc) {}
+
+  void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
+    assert(operand.size() == 1 && "should be called with singleton range");
+    Value input = operand[0];
+    if (!input.getType().isa<NoneType>()) {
+      Value transposed = transpose(input, perm);
+      operand.assign(transposed);
+    }
+  }
+
+  void transposeOutput(Value output, ArrayAttr perm) {
+    if (!output.getType().isa<NoneType>()) {
+      Value transposed = transpose(output, perm);
+      output.replaceAllUsesExcept(transposed, transposed.getDefiningOp());
+    }
+  }
+
+private:
+  // Helper to create an ONNX transposition, using
+  // ONNXTransposeOp::inferShapes() to infer the output shape.
+  Value transpose(Value input, ArrayAttr perm) {
+    Type elType = onnx_mlir::getElementType(input.getType());
+    Type unrankedType = UnrankedTensorType::get({elType}); // placeholder
+    Value transposed = create.transpose(unrankedType, input, perm);
+    auto transposeOp = llvm::cast<ONNXTransposeOp>(transposed.getDefiningOp());
+    inferShapes(transposeOp); // sets transposed's shape
+    return transposed;
+  }
+
+  onnx_mlir::OnnxBuilder create;
+};
+} // namespace
+
+// Rewrites layout=1 to layout=0 by transposing inputs and outputs.
+template <typename ONNXOp>
+class RNNOpRewriteLayoutPattern : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp onnxOp, PatternRewriter &rewriter) const override {
+    if (onnxOp.layout() == 0) {
+      return success();
+    }
+
+    InputOutputTransposer transposer(rewriter, onnxOp.getLoc());
+    ArrayAttr perm3 = perm3RNN(rewriter);
+
+    // LSTM requires extra work for initial_c input and Y_c output.
+    auto onnxLSTMOp = llvm::dyn_cast<ONNXLSTMOp>(*onnxOp);
+
+    // Rewrite in-place because there are so many attributes, inputs, outputs.
+    // Constructing a new op would be lengthy and hard to maintain.
+    rewriter.updateRootInPlace(onnxOp, [&]() {
+      // Transpose the X and initial_h inputs by inserting an ONNXTransposeOp
+      // before each and replacing the each input with the transpose output.
+      rewriter.setInsertionPoint(onnxOp); // insert before (redundant)
+      transposer.transposeInput(onnxOp.XMutable(), perm3);
+      transposer.transposeInput(onnxOp.initial_hMutable(), perm3);
+      if (onnxLSTMOp)
+        transposer.transposeInput(onnxLSTMOp.initial_cMutable(), perm3);
+      // Set layout to zero.
+      onnxOp->setAttr(onnxOp.layoutAttrName(),
+          rewriter.getIntegerAttr(
+              rewriter.getIntegerType(64, /*isSigned=*/true), 0));
+      // Update the output shape.
+      inferShapes(onnxOp);
+    });
+    // Transpose the Y and Y_h outputs by inserting an ONNXTransposeOp
+    // after each and replace all uses of each with the transpose output.
+    ValueRange results = onnxOp.getResults();
+    if (results.size() > 0) {
+      rewriter.setInsertionPointAfter(onnxOp);
+      transposer.transposeOutput(onnxOp.Y(), perm4RNN(rewriter));
+      transposer.transposeOutput(onnxOp.Y_h(), perm3);
+      if (onnxLSTMOp)
+        transposer.transposeOutput(onnxLSTMOp.Y_c(), perm3);
+    }
+
+    return success();
+  }
+};
+
+// =============================================================================
+/// Register optimization patterns as "canonicalization" patterns.
+/// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
+// =============================================================================
+
 /// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -407,6 +559,12 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+/// on the ONNXDimOp.
+void ONNXDimOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<DimOpToConstantPattern>(context);
 }
 
 /// on the ONNXMulOp.
@@ -426,12 +584,46 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
+  result.insert<FuseCastCastPattern>(context);
 }
 
 /// on the ONNXTransposeOp.
 void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
+  result.insert<FuseTransposeAndAtanPattern>(context);
+  result.insert<FuseTransposeAndCastPattern>(context);
+  result.insert<FuseTransposeAndCeilPattern>(context);
+  result.insert<FuseTransposeAndCosPattern>(context);
+  result.insert<FuseTransposeAndCoshPattern>(context);
+  result.insert<FuseTransposeAndEluPattern>(context);
+  result.insert<FuseTransposeAndErfPattern>(context);
+  result.insert<FuseTransposeAndAcosPattern>(context);
+  result.insert<FuseTransposeAndAcoshPattern>(context);
+  result.insert<FuseTransposeAndAsinPattern>(context);
+  result.insert<FuseTransposeAndAsinhPattern>(context);
+  result.insert<FuseTransposeAndAtanhPattern>(context);
+  result.insert<FuseTransposeAndExpPattern>(context);
+  result.insert<FuseTransposeAndFloorPattern>(context);
+  result.insert<FuseTransposeAndHardSigmoidPattern>(context);
+  result.insert<FuseTransposeAndIsNaNPattern>(context);
+  result.insert<FuseTransposeAndLeakyReluPattern>(context);
+  result.insert<FuseTransposeAndLogPattern>(context);
+  result.insert<FuseTransposeAndNegPattern>(context);
+  result.insert<FuseTransposeAndNotPattern>(context);
+  result.insert<FuseTransposeAndReciprocalPattern>(context);
+  result.insert<FuseTransposeAndReluPattern>(context);
+  result.insert<FuseTransposeAndRoundPattern>(context);
+  result.insert<FuseTransposeAndSeluPattern>(context);
+  result.insert<FuseTransposeAndSigmoidPattern>(context);
+  result.insert<FuseTransposeAndSignPattern>(context);
+  result.insert<FuseTransposeAndSinPattern>(context);
+  result.insert<FuseTransposeAndSinhPattern>(context);
+  result.insert<FuseTransposeAndSoftplusPattern>(context);
+  result.insert<FuseTransposeAndSoftsignPattern>(context);
+  result.insert<FuseTransposeAndSqrtPattern>(context);
+  result.insert<FuseTransposeAndTanPattern>(context);
+  result.insert<FuseTransposeAndTanhPattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
   result.insert<SwapTransposeConcatPattern>(context);
 }
@@ -454,22 +646,26 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 void ONNXSqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeUnsqueezePattern>(context);
+  result.insert<RemoveSqueezeCastUnsqueezePattern>(context);
 }
 
 void ONNXSqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
+  result.insert<RemoveSqueezeV11CastUnsqueezeV11Pattern>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
 void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
+  result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
+  result.insert<RemoveUnsqueezeV11CastSqueezeV11Pattern>(context);
 }
 
 /// on the ONNXBatchNormalizationInferenceModeOp.
@@ -537,4 +733,22 @@ void ONNXLessOp::getCanonicalizationPatterns(
 void ONNXLoopOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LoopOpRewriteMaxTripCountPattern>(context);
+}
+
+/// on the ONNXGRUOp.
+void ONNXGRUOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
+}
+
+/// on the ONNXLSTMOp.
+void ONNXLSTMOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+}
+
+/// on the ONNXRNNOp.
+void ONNXRNNOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
 }

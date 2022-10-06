@@ -19,10 +19,12 @@ op_dialect_version_map_["Asinh"] = {9};
 op_dialect_version_map_["Atan"] = {7};
 op_dialect_version_map_["Atanh"] = {9};
 op_dialect_version_map_["AveragePool"] = {11};
-op_dialect_version_map_["BatchNormalization"] = {14};
+op_dialect_version_map_["BatchNormalization"] = {15};
+op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
 op_dialect_version_map_["Cast"] = {13};
+op_dialect_version_map_["CastLike"] = {15};
 op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
@@ -67,6 +69,7 @@ op_dialect_version_map_["GlobalMaxPool"] = {1};
 op_dialect_version_map_["Gradient"] = {1};
 op_dialect_version_map_["Greater"] = {13};
 op_dialect_version_map_["GreaterOrEqual"] = {16};
+op_dialect_version_map_["GridSample"] = {16};
 op_dialect_version_map_["HardSigmoid"] = {6};
 op_dialect_version_map_["Hardmax"] = {13};
 op_dialect_version_map_["HardSwish"] = {14};
@@ -141,14 +144,14 @@ op_dialect_version_map_["Relu"] = {14};
 op_dialect_version_map_["Reshape"] = {14};
 op_dialect_version_map_["Resize"] = {13, 11, 10};
 op_dialect_version_map_["ReverseSequence"] = {10};
-op_dialect_version_map_["RoiAlign"] = {10};
+op_dialect_version_map_["RoiAlign"] = {16};
 op_dialect_version_map_["Round"] = {11};
 op_dialect_version_map_["SVMClassifier"] = {1};
 op_dialect_version_map_["SVMRegressor"] = {1};
 op_dialect_version_map_["Scaler"] = {1};
 op_dialect_version_map_["Scan"] = {16};
 op_dialect_version_map_["Scatter"] = {11};
-op_dialect_version_map_["ScatterElements"] = {13};
+op_dialect_version_map_["ScatterElements"] = {16};
 op_dialect_version_map_["ScatterND"] = {16};
 op_dialect_version_map_["Selu"] = {6};
 op_dialect_version_map_["SequenceAt"] = {11};
@@ -157,7 +160,7 @@ op_dialect_version_map_["SequenceEmpty"] = {11};
 op_dialect_version_map_["SequenceErase"] = {11};
 op_dialect_version_map_["SequenceInsert"] = {11};
 op_dialect_version_map_["SequenceLength"] = {11};
-op_dialect_version_map_["Shape"] = {13};
+op_dialect_version_map_["Shape"] = {15};
 op_dialect_version_map_["Shrink"] = {9};
 op_dialect_version_map_["Sigmoid"] = {13};
 op_dialect_version_map_["Sign"] = {13};
@@ -219,10 +222,14 @@ import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["Bernoulli"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
 import_handler_map_["Cast"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
+import_handler_map_["CastLike"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastLikeOp>;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Celu"] = 
@@ -307,6 +314,8 @@ import_handler_map_["Greater"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOp>;
 import_handler_map_["GreaterOrEqual"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
+import_handler_map_["GridSample"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
 import_handler_map_["HardSigmoid"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSigmoidOp>;
 import_handler_map_["HardSwish"] = 
@@ -609,9 +618,11 @@ op_dialect_top_version_map_["Asinh"] = 9;
 op_dialect_top_version_map_["Atan"] = 7;
 op_dialect_top_version_map_["Atanh"] = 9;
 op_dialect_top_version_map_["AveragePool"] = 11;
-op_dialect_top_version_map_["BatchNormalization"] = 14;
+op_dialect_top_version_map_["BatchNormalization"] = 15;
+op_dialect_top_version_map_["Bernoulli"] = 15;
 op_dialect_top_version_map_["BitShift"] = 11;
 op_dialect_top_version_map_["Cast"] = 13;
+op_dialect_top_version_map_["CastLike"] = 15;
 op_dialect_top_version_map_["Ceil"] = 13;
 op_dialect_top_version_map_["Celu"] = 12;
 op_dialect_top_version_map_["Clip"] = 6;
@@ -651,6 +662,7 @@ op_dialect_top_version_map_["GlobalLpPool"] = 2;
 op_dialect_top_version_map_["GlobalMaxPool"] = 1;
 op_dialect_top_version_map_["Greater"] = 13;
 op_dialect_top_version_map_["GreaterOrEqual"] = 16;
+op_dialect_top_version_map_["GridSample"] = 16;
 op_dialect_top_version_map_["HardSigmoid"] = 6;
 op_dialect_top_version_map_["HardSwish"] = 14;
 op_dialect_top_version_map_["Hardmax"] = 13;
@@ -718,11 +730,11 @@ op_dialect_top_version_map_["Relu"] = 14;
 op_dialect_top_version_map_["Reshape"] = 14;
 op_dialect_top_version_map_["Resize"] = 10;
 op_dialect_top_version_map_["ReverseSequence"] = 10;
-op_dialect_top_version_map_["RoiAlign"] = 10;
+op_dialect_top_version_map_["RoiAlign"] = 16;
 op_dialect_top_version_map_["Round"] = 11;
 op_dialect_top_version_map_["Scan"] = 16;
 op_dialect_top_version_map_["Scatter"] = 11;
-op_dialect_top_version_map_["ScatterElements"] = 13;
+op_dialect_top_version_map_["ScatterElements"] = 16;
 op_dialect_top_version_map_["ScatterND"] = 16;
 op_dialect_top_version_map_["Selu"] = 6;
 op_dialect_top_version_map_["SequenceAt"] = 11;
@@ -731,7 +743,7 @@ op_dialect_top_version_map_["SequenceEmpty"] = 11;
 op_dialect_top_version_map_["SequenceErase"] = 11;
 op_dialect_top_version_map_["SequenceInsert"] = 11;
 op_dialect_top_version_map_["SequenceLength"] = 11;
-op_dialect_top_version_map_["Shape"] = 13;
+op_dialect_top_version_map_["Shape"] = 15;
 op_dialect_top_version_map_["Shrink"] = 9;
 op_dialect_top_version_map_["Sigmoid"] = 13;
 op_dialect_top_version_map_["Sign"] = 13;

@@ -43,10 +43,7 @@ public:
 
   // Adaptation of 32-bit FNV for int64_t values.
   static inline uint32_t hash(uint32_t hval, int64_t val) {
-    char str[20];
-    sprintf(str, "%lld", (long long)val);
-
-    return hash(hval, std::string(str));
+    return hash(hval, std::to_string(val));
   }
 
   // Extracts the keys of the given map.

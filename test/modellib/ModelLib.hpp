@@ -34,7 +34,7 @@ const static float omDefaultRangeBound = 1.0;
 
 /*
    Superclass that defines a template to create models, creating an ONNX
-   function programatically, then compiling, loading, runing and testing the
+   function programmatically, then compiling, loading, running and testing the
    validity of the results.
    The general flow of using a model is as follow:
 
@@ -111,6 +111,11 @@ public:
   // reproducible random numbers.
   static void setRandomNumberGeneratorSeed(const std::string &envVar);
 
+  static std::map<std::string, std::string> getTestConfigFromEnv(
+      const std::string &envVar);
+
+  static std::vector<float> getDataRangeFromEnv(const std::string &envVar);
+
 protected:
   // Create a function with an empty body.
   // This function will contain the model to be tested.
@@ -124,6 +129,12 @@ protected:
       const OMTensor *omt, const mlir::RankedTensorType resultType);
   // Compare results as float.
   bool areCloseFloat(const OMTensor *res, const OMTensor *ref) const;
+  // Print indices rank and values, for debugging.
+  void printIndices(
+      const std::string message, const std::vector<int64_t> &indices) const;
+  // Print tensor, as a python numpy array if requested, for debugging.
+  void printTensor(
+      const std::string varName, const OMTensor *t, bool asNumpy = true) const;
 
   // Data for building and compiling the model.
   const std::string sharedLibBaseName; // Name for the library.
@@ -132,14 +143,19 @@ protected:
   mlir::OpBuilder builder; // Builder (used during building)
   mlir::ModuleOp module;   // Code for the model (used until compilation)
 
-  // Data for runing the model (freed in destructor).
+  // Data for running the model (freed in destructor).
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
+
+private:
+  // Helper recursive function to print tensors.
+  void printTensor(const OMTensor *t, std::vector<int64_t> &indices,
+      bool isLast = false) const;
 };
 
 template <typename T1, typename T2>
 class CategoryMapperLibBuilder : public ModelLibBuilder {
-  // Ensure template is instatiated with expected types.
+  // Ensure template is instantiated with expected types.
   static_assert((std::is_same<T1, int64_t>::value ||
                     std::is_same<T1, const char *>::value),
       "T1 must be int64_t or const char *");
@@ -201,7 +217,8 @@ public:
       const float alphaVal, const float betaVal);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -218,7 +235,8 @@ public:
       const int /*inner-dim=*/I, const int /*batch=*/B, const bool is_v8);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -231,18 +249,74 @@ private:
   std::string moduleIR;
 };
 
+class LeakyReluLibBuilder : public ModelLibBuilder {
+public:
+  LeakyReluLibBuilder(
+      const std::string &modelName, const int N, const float alpha);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int N;
+  const float alphaVal;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> xShape, yShape;
+  // model definition in std::string
+  std::string moduleIR;
+};
+
+// 2x2 matmul with no broadcast
 class MatMul2DLibBuilder : public ModelLibBuilder {
 public:
   MatMul2DLibBuilder(
       const std::string &modelName, const int I, const int J, const int K);
   bool build() final;
   bool prepareInputs() final;
-  bool prepareInputs(float dataRange);
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
   // Data that defines model.
   const int I, J, K;
+};
+
+// Matmul where there is broadcasting in either A or B, but not both.
+// If broadcasting A, then A has a higher rank; if broadcasting B, then B has a
+// higher rank.
+class MatMulSingleBroadcastLibBuilder : public ModelLibBuilder {
+public:
+  // When broadcastingB is true, then the rank of B > rank of A=2. When
+  // broadcastingB is false, then the rank of A > rank of B=2.
+  // But when sameStaticBroadcast, then both A & B's rank >2, and they must have
+  // the same static broadcasting ranks. The broadcasted dimensions are given by
+  // broadcastDims, and the traditional 2D matrix multiplication dims are given
+  // by I, J, and K.
+  MatMulSingleBroadcastLibBuilder(const std::string &modelName,
+      bool broadcastingB, bool sameStaticBroadcast,
+      std::vector<int64_t> broadcastDims, const int I, const int J,
+      const int K);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Compute one matmul for a given broadcast
+  void computeOneMatMul(OMTensor *a, OMTensor *b, OMTensor *c,
+      std::vector<int64_t> &aIndexValues, std::vector<int64_t> &bIndexValues,
+      std::vector<int64_t> &yIndexValues);
+  // Data that defines model.
+  bool broadcastingB;
+  bool sameStaticBroadcast;
+  std::vector<int64_t> broadcastDims;
+  const int I, J, K;
+  // Computed data from inputs.
+  std::vector<int64_t> aShape, bShape, yShape;
 };
 
 // Padding schemes for Convolutions.
@@ -256,13 +330,15 @@ enum ConvAutoPad {
 
 class Conv2DLibBuilder : public ModelLibBuilder {
 public:
-  Conv2DLibBuilder(const std::string &modelName, const int N, const int C,
-      const int H, const int W, const int kH, const int kW,
+  Conv2DLibBuilder(const std::string &modelName, const int N, const int Cin,
+      const int Cout, const int H, const int W, const int kH, const int kW,
       const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
       const int pWBegin, const int pWEnd, const int stride, const int dilation,
       const int isDynamic);
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
   static const std::string getAutoPadName(const ConvAutoPad autoPad);
@@ -271,23 +347,56 @@ private:
   bool verifyShapeAndComputeBeginEnd();
 
   // Data that defines model, where const define model, non-const are derived
-  // paramters.
-  const int N, C, H, W, kH, kW;
+  // parameters.
+  const int N, CIn, COut, H, W, kH, kW;
   const ConvAutoPad autoPad;
   int pHBegin, pHEnd, pWBegin, pWEnd;
   const int stride, dilation, isDynamic;
-  int NOut, COut, HOut, WOut;
+  int modelNOut, modelCOut, modelHOut, modelWOut;
 };
 
-class LSTMLibBuilder : public ModelLibBuilder {
+class RNNModelLibBuilder : public ModelLibBuilder {
+public:
+  RNNModelLibBuilder(const std::string &sharedLibBaseName, int64_t layout);
+  virtual ~RNNModelLibBuilder();
+
+protected:
+  // To transpose between [batch_size, seq_length/num_directions, size]
+  //                  and [seq_length/num_directions, batch_size, size]
+  // when layout == 1.
+  llvm::SmallVector<int64_t, 3> perm3(int64_t a, int64_t b, int64_t c) const {
+    if (layout == 0)
+      return {a, b, c};
+    else
+      return {b, a, c};
+  }
+
+  // To transpose from [seq_length, num_directions, batch_size, hidden_size]
+  //                to [batch_size, seq_length, num_directions, hidden_size]
+  // when layout == 1.
+  llvm::SmallVector<int64_t, 4> perm4(
+      int64_t s, int64_t d, int64_t b, int64_t h) const {
+    if (layout == 0)
+      return {s, d, b, h};
+    else
+      return {b, s, d, h};
+  }
+
+  const int64_t layout;
+};
+
+class LSTMLibBuilder : public RNNModelLibBuilder {
 public:
   LSTMLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
       const bool isDynamicB, const bool isNoneH = false,
-      const bool isNoneC = false, const bool isNoneP = false);
+      const bool isNoneC = false, const bool isNoneP = false,
+      const int layout = 0);
   ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -300,14 +409,16 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt, *pOmt;
 };
 
-class GRULibBuilder : public ModelLibBuilder {
+class GRULibBuilder : public RNNModelLibBuilder {
 public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const int linearBeforeReset,
-      const bool isDynamicS, const bool isDynamicB);
+      const bool isDynamicS, const bool isDynamicB, const int layout = 0);
   ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:
@@ -319,14 +430,16 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
-class RNNLibBuilder : public ModelLibBuilder {
+class RNNLibBuilder : public RNNModelLibBuilder {
 public:
   RNNLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
-      const bool isDynamicB);
+      const bool isDynamicB, const int layout = 0);
   ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
   bool verifyOutputs() final;
 
 private:

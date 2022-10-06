@@ -172,9 +172,10 @@ mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
 
-// Create a DenseElementsAttr based on the shape of type.
-mlir::DenseElementsAttr createDenseElementsAttrFromShape(
-    mlir::PatternRewriter &rewriter, mlir::Value value);
+// Create a DenseElementsAttr based on the shape of type at the given index.
+mlir::DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
+    mlir::PatternRewriter &rewriter, mlir::Value value,
+    mlir::IntegerAttr indexAttr);
 
 // Create a DenseElementsAttr based on the size of type.
 mlir::DenseElementsAttr createDenseElementsAttrFromSize(
@@ -196,5 +197,8 @@ RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+
+/// Get the ONNX type corresponding to an MLIR type.
+int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 } // namespace onnx_mlir

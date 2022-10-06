@@ -6,12 +6,10 @@ func.func @maxpool_should_lower_to_zhigh_padtype_valid(%arg0: tensor<1x3x32x32xf
 
 // CHECK-LABEL:  func @maxpool_should_lower_to_zhigh_padtype_valid
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>) -> tensor<1x3x31x31xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x32x32x3xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MaxPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x3x31x31xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x3x31x31xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x3x31x31xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x3x31x31xf32>
 // CHECK:         }
 }
 
@@ -23,12 +21,10 @@ func.func @maxpool_should_lower_to_zhigh_padtype_same(%arg0: tensor<1x1x5x5xf32>
 
 // CHECK-LABEL:  func @maxpool_should_lower_to_zhigh_padtype_same
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x5x5xf32>) -> tensor<1x1x3x3xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x1x5x5xf32>) -> tensor<1x5x5x1xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x5x5x1xf32>) -> tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x1x5x5xf32>) -> tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MaxPool2D"([[VAR_1_]]) {kernel_shape = [3, 3], padding_type = "SAME_PADDING", strides = [2, 2]} : (tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x1x3x3xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x3x3xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x1x3x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x1x3x3xf32>
 // CHECK:         }
 }
 
@@ -40,12 +36,10 @@ func.func @maxpool_should_lower_to_zhigh_same_upper(%arg0: tensor<1x3x32x32xf32>
 
 // CHECK-LABEL:  func @maxpool_should_lower_to_zhigh_same_upper
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>) -> tensor<1x3x32x32xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x32x32x3xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MaxPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x3x32x32xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x3x32x32xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x3x32x32xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x3x32x32xf32>
 // CHECK:         }
 }
 
@@ -57,12 +51,10 @@ func.func @averagepool_should_lower_to_zhigh_padtype_valid(%arg0: tensor<1x3x32x
 
 // CHECK-LABEL:  func @averagepool_should_lower_to_zhigh_padtype_valid
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>) -> tensor<1x3x31x31xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x32x32x3xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.AvgPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x3x31x31xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x3x31x31xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x3x31x31xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x3x31x31xf32>
 // CHECK:         }
 }
 
@@ -74,12 +66,10 @@ func.func @averagepool_should_lower_to_zhigh_padtype_same(%arg0: tensor<1x1x5x5x
 
 // CHECK-LABEL:  func @averagepool_should_lower_to_zhigh_padtype_same
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x5x5xf32>) -> tensor<1x1x3x3xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x1x5x5xf32>) -> tensor<1x5x5x1xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x5x5x1xf32>) -> tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x1x5x5xf32>) -> tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.AvgPool2D"([[VAR_1_]]) {kernel_shape = [3, 3], padding_type = "SAME_PADDING", strides = [2, 2]} : (tensor<1x5x5x1xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x1x3x3xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x1x3x3xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x1x3x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x1x3x3xf32>
 // CHECK:         }
 }
 
@@ -91,12 +81,10 @@ func.func @averagepool_should_lower_to_zhigh_same_upper(%arg0: tensor<1x3x32x32x
 
 // CHECK-LABEL:  func @averagepool_should_lower_to_zhigh_same_upper
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>) -> tensor<1x3x32x32xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<1x32x32x3xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<1x3x32x32xf32>) -> tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.AvgPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<1x32x32x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<1x3x32x32xf32>
-// CHECK:           return [[VAR_4_]] : tensor<1x3x32x32xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<1x3x32x32xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x3x32x32xf32>
 // CHECK:         }
 }
 
@@ -199,12 +187,10 @@ func.func @test_onnx_maxpool2d_computed_valid_dyn(%arg0: tensor<?x?x?x?xf32>) ->
 
 // CHECK-LABEL:  func @test_onnx_maxpool2d_computed_valid_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MaxPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           return [[VAR_4_]] : tensor<?x?x?x?xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_3_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
 
@@ -216,12 +202,10 @@ func.func @test_maxpool_2d_same_upper_dyn(%arg0: tensor<?x?x?x?xf32>) -> tensor<
 
 // CHECK-LABEL:  func @test_maxpool_2d_same_upper_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MaxPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           return [[VAR_4_]] : tensor<?x?x?x?xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_3_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
 
@@ -246,12 +230,10 @@ func.func @test_averagepool_2d_computed_valid_dyn(%arg0: tensor<?x?x?x?xf32>) ->
   return %0 : tensor<?x?x?x?xf32>
 // CHECK-LABEL:  func @test_averagepool_2d_computed_valid_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.AvgPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           return [[VAR_4_]] : tensor<?x?x?x?xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_3_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
 
@@ -263,12 +245,10 @@ func.func @test_averagepool_2d_same_upper_dyn(%arg0: tensor<?x?x?x?xf32>) -> ten
 
 // CHECK-LABEL:  func @test_averagepool_2d_same_upper_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.AvgPool2D"([[VAR_1_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (tensor<?x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:           return [[VAR_4_]] : tensor<?x?x?x?xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_3_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
 

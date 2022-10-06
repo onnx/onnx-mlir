@@ -24,9 +24,16 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <mutex>
+
+int64_t IndexExpr_gQuestionMarkCounter = -2;
+
 using namespace mlir;
 
 namespace onnx_mlir {
+
+// A lock to protect access to IndexExpr_gQuestionMarkCounter.
+std::mutex indexExprQuestionMarkMutex;
 
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
@@ -48,13 +55,14 @@ void IndexExprImpl::initAsUndefined() {
 }
 
 void IndexExprImpl::initAsQuestionmark() {
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, 0,
-      AffineExpr(nullptr), Value(nullptr));
+  const std::lock_guard<std::mutex> lock(indexExprQuestionMarkMutex);
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
+      IndexExpr_gQuestionMarkCounter--, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
-         "litterals are either affine or predicate");
+         "literals are either affine or predicate");
   init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
       Value(nullptr));
 }
@@ -66,7 +74,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
       intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
     return true;
   }
-  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
+  // Since ConstantIndexOp is a subclass of ConstantOp, not sure if this one is
   // useful.
   if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
     if (constantOp.getType().isa<IndexType>())
@@ -243,8 +251,13 @@ int64_t IndexExprImpl::getLiteral() const {
   return intLit;
 }
 
+int64_t IndexExprImpl::getQuestionmark() const {
+  assert(isQuestionmark() && "expected a question mark index expression");
+  return intLit;
+}
+
 //===----------------------------------------------------------------------===//
-// IndexExprExpr transformative getters.
+// IndexExprExpr transformational getters.
 //===----------------------------------------------------------------------===//
 
 AffineExpr IndexExprImpl::getAffineExpr() {

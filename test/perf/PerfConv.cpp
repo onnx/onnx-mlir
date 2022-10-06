@@ -26,6 +26,28 @@ const std::string modelName("./perfconv");
 const onnx_mlir::CompilerOptionList opts{
     {onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
 
+static void BM_Conv2D_C16_K1(benchmark::State &state) {
+  int N = state.range(0);
+  int C = 16;
+  int H = state.range(1);
+  int W = state.range(1);
+  int K = 1;
+  int P = 0;
+  int S = 1;
+  int D = 1;
+  onnx_mlir::test::Conv2DLibBuilder model(modelName, N, C, C, H, W, K, K,
+      onnx_mlir::test::ConvAutoPad::VALID, P, P, P, P, S, D, false);
+  assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
+         "failed conv");
+  for (auto _ : state)
+    model.run();
+  // FLOPS assume D=1, S=1.
+  perf_recordFlops(state, 2.0 * N * C * C * H * W * K * K);
+}
+BENCHMARK(BM_Conv2D_C16_K1)
+    ->ArgsProduct({{1, 16, 64}, {16, 64, 256}})
+    ->Unit(benchmark::kMillisecond);
+
 static void BM_Conv2D_C16_K3(benchmark::State &state) {
   int N = state.range(0);
   int C = 16;
@@ -35,14 +57,14 @@ static void BM_Conv2D_C16_K3(benchmark::State &state) {
   int P = 0;
   int S = 1;
   int D = 1;
-  onnx_mlir::test::Conv2DLibBuilder model(modelName, N, C, H, W, K, K,
+  onnx_mlir::test::Conv2DLibBuilder model(modelName, N, C, C, H, W, K, K,
       onnx_mlir::test::ConvAutoPad::VALID, P, P, P, P, S, D, false);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed conv");
   for (auto _ : state)
     model.run();
   // FLOPS assume D=1, S=1.
-  PERF_RECORD_FLOPS(2.0 * N * C * C * H * W * K * K);
+  perf_recordFlops(state, 2.0 * N * C * C * H * W * K * K);
 }
 BENCHMARK(BM_Conv2D_C16_K3)
     ->ArgsProduct({{1, 16, 64}, {16, 64, 256}})
