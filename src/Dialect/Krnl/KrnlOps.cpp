@@ -510,12 +510,12 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   // getName() result is "onnx.opName"
   // Put only the opName part in the opID within its size
   strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
-  IntegerAttr attr = builder.getI64IntegerAttr(opID);
-  auto tagAttr = builder.getI64IntegerAttr(tag);
-  StringAttr nameAttr = builder.getStringAttr(StringRef(opName));
-  state.addAttribute("opName", nameAttr);
-  state.addAttribute("opID", attr);
-  state.addAttribute("tag", tagAttr);
+  StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
+  IntegerAttr opIDAttr = builder.getI64IntegerAttr(opID);
+  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
+  StringAttr nodeNameAttr =
+      op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
+  build(builder, state, opNameAttr, opIDAttr, tagAttr, nodeNameAttr);
 }
 
 //===----------------------------------------------------------------------===//
