@@ -5069,7 +5069,8 @@ LogicalResult ONNXScanOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     updateType(std::get<1>(vScanOutputValToTy), squeezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   // Now we have modified loop body function input signatures according to
@@ -5708,7 +5709,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();

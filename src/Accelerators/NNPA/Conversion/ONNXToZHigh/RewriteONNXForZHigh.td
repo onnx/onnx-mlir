@@ -257,4 +257,73 @@ def rewriteSoftmaxNDto2D: Pat<
   [(HasRankGT<2> $input)]
 >;
 
+//===----------------------------------------------------------------------===//
+// Rules to conver ONNXConvOp with pads to ONNXConvOp with no pads
+//===----------------------------------------------------------------------===//
+
+// Get pads for padding to enable conv op on NNPA
+def GetPadsForNNPAConv:
+  NativeCodeCall<"getPadsForNNPAConv($_builder, $0)">;
+
+// This function is used for padding attribute in Conv.
+class insertZerosForNonPaddedDims<int extensionLength>:
+  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
+                                              # extensionLength # ")">;
+
+// Create a StringAttr from a string.
+class StringAttrOfValue<string val>:
+  NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+def createArrayAttrOfZerosFrom:
+  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
+
+// Create a DenseElementsAttr from an interger value.
+// It seems Table-gen does not support `float` type, so we can not pass a float value.
+class FloatAttrOfValue<int val>:
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
+
+// Check that a StrAttr does not contain a specific value.
+class IsNotStringAttrOfValue<string val>:
+  Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
+
+// Check the a convolution operation is NOT leagal for zDNN
+def IsConvNotLegalForZDNN: Constraint<
+  CPred<"!isSuitableForZDNN<ONNXConvOp>(" #
+        "dyn_cast_or_null<ONNXConvOp>($_self.getDefiningOp()))">,
+  "Conv is not legal for zDNN"
+>;
+
+// Check if pads can be inferenced for ONNX Conv op
+def CanInferencePadsForNNPAConv: Constraint<
+  CPred<"canInferencePadsForNNPAConv(" #
+        "dyn_cast<ONNXConvOp>($_self.getDefiningOp()))">,
+  "pads can be estimated for ONNX Conv op"
+>;
+
+def ConvOpPaddingPattern: Pattern<
+  (ONNXConvOp:$res
+     $x,
+     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
+     $pads,
+     $strides),
+  [
+   (GetPadsForNNPAConv:$nnpapads $res),
+
+   (ONNXConvOp
+
+     (ONNXPadOp $x,
+        (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $nnpapads)),
+        (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
+        (StringAttrOfValue<"constant">),
+        (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $nnpapads))),
+
+     $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
+     (createArrayAttrOfZerosFrom $nnpapads),
+     $strides)
+  ],
+  [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)]
+>;
+
 #endif // REWRITE_ONNX_FOR_ZHIGH
