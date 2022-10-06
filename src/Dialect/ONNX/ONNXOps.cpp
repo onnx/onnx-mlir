@@ -2041,6 +2041,19 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
+  auto xTy = X().getType().cast<ShapedType>();
+  auto outputShape = output_shape();
+
+  // Shape inference is trivial if output_shape is provided.
+  if (outputShape.has_value()) {
+    SmallVector<int64_t, 4> dims;
+    for (auto val : outputShape.value()) {
+      dims.push_back(val.cast<IntegerAttr>().getInt());
+    }
+    getResult().setType(RankedTensorType::get(dims, xTy.getElementType()));
+    return success();
+  }
+
   bool hasBias = !B().getType().isa<NoneType>();
 
   // Cannot infer shape if no shape exists.
@@ -2050,7 +2063,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     return success();
   }
 
-  auto xTy = X().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
@@ -2137,10 +2149,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
   auto outputPads = output_padding();
-  auto outputShape = output_shape();
-  // TODO: handle the spatial dimension computation if output shape is
-  // specified
-  assert(!outputShape.has_value() && "unhandled option in ConvTranspose");
 
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
