@@ -129,7 +129,7 @@ void ReportMemory() {
   char memOutput[200];
   FILE *memPipe;
   mypid = getpid();
-  sprintf(memCommand, "ps -o vsz='' -p %d", mypid);
+  snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
     if (psErrorCount > 20)

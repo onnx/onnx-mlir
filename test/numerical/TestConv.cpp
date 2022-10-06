@@ -86,6 +86,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Padding type: \"valid and upper\"" << std::endl;
     paddingType = "valid_upper";
   }
+  if (opts["-padding"] == "notset") {
+    std::cout << "Padding type: \"not set\"" << std::endl;
+    paddingType = "notset";
+  }
 
   printf("\nTest cases seen in backend benchmarks.\n");
   // Set global settings.
@@ -156,6 +160,12 @@ int main(int argc, char *argv[]) {
   assert(isOMConvTheSameAsNaiveImplFor(
              1, 512, 1000, 13, 13, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
          "failed test from test_squeezenet_cpu");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             3, 64, 64, 55, 55, 3, 3, 1, 1, 0, 0, ConvAutoPad::NOTSET) &&
+         "failed test from test_cpuconvpadding1");
+  assert(isOMConvTheSameAsNaiveImplFor(
+             3, 64, 64, 55, 55, 3, 3, 1, 1, 2, 2, ConvAutoPad::NOTSET) &&
+         "failed test from test_cpuconvpadding2");
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
@@ -172,6 +182,8 @@ int main(int argc, char *argv[]) {
       if (paddingType == "valid_upper")
         autoPad = (ConvAutoPad)*rc::gen::element(
             (int)ConvAutoPad::VALID, (int)ConvAutoPad::UPPER);
+      else if (paddingType == "notset")
+        autoPad = ConvAutoPad::NOTSET;
       else
         autoPad = (ConvAutoPad)*rc::gen::inRange(
             (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
