@@ -20,6 +20,8 @@ namespace mlir {
 class Pass;
 }
 
+#define ONNX_HYBRID_INFER_SHAPES #comment out this line to turn off hybrid
+
 namespace onnx_mlir {
 
 /// Pass for ONNX graph level optimization
@@ -51,6 +53,12 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+
+/// Pass that combines multiple ONNX dialect transformations,
+/// including shape inference.
+std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
+/// Shape inference only variant of ONNXHybridTransform.
+std::unique_ptr<mlir::Pass> createONNXShapeInferenceTransformPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();

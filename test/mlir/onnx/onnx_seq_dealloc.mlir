@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation  %s -split-input-file | FileCheck %s
 
 func.func @test_sequence_ops2(%arg0: tensor<?xf32>) -> tensor<1xi64>  {
-  %0 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<i64>
+  %0 = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<?xf32>>
   %2 = "onnx.NoValue"() {value} : () -> none
   %3 = "onnx.Add"(%arg0, %arg0) : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
@@ -14,7 +14,7 @@ func.func @test_sequence_ops2(%arg0: tensor<?xf32>) -> tensor<1xi64>  {
 // CHECK-DAG: #map2 = affine_map<()[s0] -> (s0 + 1)>
 // CHECK-LABEL:  func.func @test_sequence_ops2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xf32>) -> memref<1xi64> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<1xi64>} : () -> memref<i64>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<i64>} : () -> memref<i64>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<0xmemref<?xf32>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index

@@ -53,9 +53,13 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   // this function.
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+#ifdef ONNX_HYBRID_INFER_SHAPES
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+#else
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
+#endif
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass());

@@ -2041,6 +2041,19 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
+  auto xTy = X().getType().cast<ShapedType>();
+  auto outputShape = output_shape();
+
+  // Shape inference is trivial if output_shape is provided.
+  if (outputShape.has_value()) {
+    SmallVector<int64_t, 4> dims;
+    for (auto val : outputShape.value()) {
+      dims.push_back(val.cast<IntegerAttr>().getInt());
+    }
+    getResult().setType(RankedTensorType::get(dims, xTy.getElementType()));
+    return success();
+  }
+
   bool hasBias = !B().getType().isa<NoneType>();
 
   // Cannot infer shape if no shape exists.
@@ -2050,7 +2063,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     return success();
   }
 
-  auto xTy = X().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
@@ -2137,10 +2149,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
   auto outputPads = output_padding();
-  auto outputShape = output_shape();
-  // TODO: handle the spatial dimension computation if output shape is
-  // specified
-  assert(!outputShape.has_value() && "unhandled option in ConvTranspose");
 
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
@@ -5099,20 +5107,24 @@ LogicalResult ONNXScanOp::inferShapes(
   // values of the loop body function corresponding to scan outputs, but
   // with an extra leading dimension.
   for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
-    auto rankedScanTy =
-        std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
-    auto shape = rankedScanTy.getShape();
-    SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
-    // Note that we may know the extent of the scan output leading
-    // dimension, which is very likely just the trip count specified as an
-    // input to Loop operation, but we need to eliminate the possibility of
-    // early termination to be sure.
-    auto scanExtent =
-        scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
-    unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
-    updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType(), /*encoding=*/nullptr,
-        /*refineShape=*/false);
+    // Skip any unranked bodyResVFinalTys, which often happens during the
+    // first run of shape inference (before a second run after shape inference
+    // has run on loopBody).
+    if (auto rankedScanTy =
+            std::get<1>(vScanOutputValToTy).dyn_cast<RankedTensorType>()) {
+      auto shape = rankedScanTy.getShape();
+      SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+      // Note that we may know the extent of the scan output leading
+      // dimension, which is very likely just the trip count specified as an
+      // input to Loop operation, but we need to eliminate the possibility of
+      // early termination to be sure.
+      auto scanExtent =
+          scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
+      unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
+      updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
+          rankedScanTy.getElementType(), /*encoding=*/nullptr,
+          /*refineShape=*/false);
+    }
   }
 
   return success();
@@ -5700,18 +5712,22 @@ LogicalResult ONNXLoopOp::inferShapes(
   // values of the loop body function corresponding to scan outputs, but
   // with an extra leading dimension.
   for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
-    auto rankedScanTy =
-        std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
-    auto shape = rankedScanTy.getShape();
-    SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
-    // Note that we may know the extent of the scan output leading
-    // dimension, which is very likely just the trip count specified as an
-    // input to Loop operation, but we need to eliminate the possibility of
-    // early termination to be sure.
-    unsqueezedShape.insert(unsqueezedShape.begin(), -1);
-    updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType(), /*encoding=*/nullptr,
-        /*refineShape=*/false);
+    // Skip any unranked bodyResVFinalTys, which often happens during the
+    // first run of shape inference (before a second run after shape inference
+    // has run on loopBody).
+    if (auto rankedScanTy =
+            std::get<1>(vScanOutputValToTy).dyn_cast<RankedTensorType>()) {
+      auto shape = rankedScanTy.getShape();
+      SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+      // Note that we may know the extent of the scan output leading
+      // dimension, which is very likely just the trip count specified as an
+      // input to Loop operation, but we need to eliminate the possibility of
+      // early termination to be sure.
+      unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+      updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
+          rankedScanTy.getElementType(), /*encoding=*/nullptr,
+          /*refineShape=*/false);
+    }
   }
 
   return success();
