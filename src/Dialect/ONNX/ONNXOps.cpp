@@ -5708,7 +5708,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*useInferredShape=*/true);
   }
 
   return success();
