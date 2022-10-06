@@ -480,7 +480,7 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
-    Attribute encoding, bool useInferredShape) {
+    Attribute encoding, bool refineShape) {
   // Try to combine the given shape and the output's shape if possbile.
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
@@ -490,7 +490,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     else
       inferredDims.emplace_back(LiteralIndexExpr(d));
   }
-  if (!useInferredShape)
+  if (refineShape)
     refineDims(inferredDims, val);
   SmallVector<int64_t, 4> inferredShape;
   IndexExpr::getShape(inferredDims, inferredShape);
