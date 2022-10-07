@@ -48,6 +48,7 @@ extern llvm::cl::list<std::string> Xopt;
 extern llvm::cl::list<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
+extern llvm::cl::opt<bool> allowSorting;
 
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
