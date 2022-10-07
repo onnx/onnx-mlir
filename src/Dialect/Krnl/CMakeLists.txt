@@ -22,4 +22,12 @@ add_onnx_mlir_library(OMKrnlOps
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRLLVMCommonConversion
+  MLIRAffineDialect
+  MLIRArithmeticDialect
+  MLIRFuncDialect
+  MLIRLinalgDialect
+  MLIRMathDialect
+  MLIRMemRefDialect
+  MLIRSCFDialect
+  MLIRShapeDialect
   )
