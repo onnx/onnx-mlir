@@ -40,6 +40,7 @@ bool IsTopologicallySorted(const onnx::GraphProto &graph) {
 }
 
 // Sort graph into lexicographically smallest topological ordering.
+// Returns true if sorted succesfully and false otherwise.
 bool SortGraph(onnx::GraphProto *graph) {
   int nNodes = graph->node().size();
   // Map of edges / node-outputs to their parent ops
@@ -65,7 +66,7 @@ bool SortGraph(onnx::GraphProto *graph) {
   // Empty input names should be ignored.
   graphInputsAndInitializers.insert("");
 
-  // Users tracks which ops consumes an ops outputs.
+  // Users tracks idx of the ops which consumes a given ops outputs.
   std::vector<std::vector<int>> users(nNodes);
   index = 0;
   for (const auto &node : graph->node()) {
@@ -73,9 +74,9 @@ bool SortGraph(onnx::GraphProto *graph) {
       // Input edges to node are graph inputs or initializers.
       if (graphInputsAndInitializers.count(input))
         continue;
-      // Check if input edges to node aren't graph inputs or initializers and don't have a
-      // parent op, in which case its not possible to topologically sort the
-      // graph.
+      // Check if input edges to node aren't graph inputs or initializers and
+      // don't have a parent op, in which case its not possible to topologically
+      // sort the graph.
       if (!origIndex.count(input)) {
         return false;
       }
@@ -85,6 +86,8 @@ bool SortGraph(onnx::GraphProto *graph) {
     index++;
   }
 
+  // inDegrees stores the number of inputs to a given node not counting inputs
+  // which are graph inputs or initializers.
   std::vector<int> inDegrees(nNodes, 0);
   index = 0;
   for (const auto &node : graph->node()) {
