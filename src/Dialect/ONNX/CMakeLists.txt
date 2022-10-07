@@ -67,6 +67,7 @@ add_onnx_mlir_library(OMONNXOps
   OMMlirDialects
   OMMlirUtilities
   onnx
+  MLIRFuncDialect
   )
 
 configure_file(ONNXOps.td.inc.dc.in

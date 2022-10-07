@@ -30,6 +30,16 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let dependentDialects = [
+    "AffineDialect",
+    "arith::ArithmeticDialect",
+    "func::FuncDialect",
+    "linalg::LinalgDialect",
+    "math::MathDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "shape::ShapeDialect",
+  ];
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;

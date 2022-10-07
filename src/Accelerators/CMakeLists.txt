@@ -43,6 +43,7 @@ add_onnx_mlir_library(InitAccelerators
 
   DEPENDS 
     AcceleratorsInc
+    MLIRIR
 
   LINK_LIBS PUBLIC
     ${ACCEL_TARGET_LIST}
