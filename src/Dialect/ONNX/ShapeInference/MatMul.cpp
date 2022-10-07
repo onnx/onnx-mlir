@@ -8,19 +8,34 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <utility>
+#include <tuple>
+
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
+template <class OpShapeHelper, typename OpAdaptor>
+
+
+
+template<typeName OpShapeHelper, typename OpAdaptor>
+static std::pair<Value, Value> matMulInputs(OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
+  auto *op = shapeHelper.op;
+  Value A = operandAdaptor.a(); 
+  Value B = operandAdaptor.a(); 
+  return std::pair(A, B);
+}
+
+ONNXGenericMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
     ONNXMatMulOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXMatMulOp>(
           newOp, newOp->getOperation()->getNumResults(), inScope),
       aDims(), bDims(), aPadDims(), bPadDims() {}
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
+ONNXGenericMatMulOpShapeHelper::ONNXGenericMatMulOpShapeHelper(ONNXMatMulOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXMatMulOp>(newOp,
@@ -28,15 +43,26 @@ ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
           fLoadVal, inScope),
       aDims(), bDims(), aPadDims(), bPadDims() {}
 
-LogicalResult ONNXMatMulOpShapeHelper::computeShape(
-    ONNXMatMulOpAdaptor operandAdaptor) {
+template<typeName OpShapeHelper, typename OpAdaptor>
+static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
+  static_assert(
+    (std::is_same<OpShapeHelper, ONNXMatMulOpShapeHelper>::value && 
+    std::is_same<OpAdaptor, ONNXMatMulOpAdaptor>::value) || 
+    (std::is_same<OpShapeHelper, ONNXMatMulIntegerOpShapeHelper>::value && 
+    std::is_same<OpAdaptor, ONNXMatMulIntegerOpAdaptor>::value) || 
+    (std::is_same<OpShapeHelper, ONNXQLinearMatMulOpShapeHelper>::value && 
+    std::is_same<OpAdaptor, ONNXQLinearMatMulOpAdaptor>::value), "Unexpected template types");
+
+
+
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get info.
-  Value A = operandAdaptor.A();
-  Value B = operandAdaptor.B();
+  Value A;
+  Value B;
+  std::tie(A, B) = matMulInputs(shapeHelper, operandAdaptor);
   MemRefBoundsIndexCapture ABounds(A);
   MemRefBoundsIndexCapture BBounds(B);
 
@@ -141,4 +167,20 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
   return success();
 }
 
+LogicalResult ONNXMatMulOpShapeHelper::computeShape(
+  ONNXMatMulOpAdaptor operandAdaptor) {
+    return onnx_mlir::computeShape(*this, operandAdaptor);
+  }
+}
+
+LogicalResult ONNXQLinearMatMulOpShapeHelper::computeShape(
+  ONNXQLinearMatMulOpAdaptor operandAdaptor) {
+    return onnx_mlir::computeShape(*this, operandAdaptor);
+  }
+}
+
+LogicalResult ONNXMatMulIntegerOpShapeHelper::computeShape(
+  ONNXMatMulIntegerOpAdaptor operandAdaptor) {
+    return onnx_mlir::computeShape(*this, operandAdaptor);
+  }
 } // namespace onnx_mlir
