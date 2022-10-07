@@ -332,11 +332,8 @@ pointers dynamically. The interface provided by one-shot bufferization may also 
   supported in onnx-mlir.
 - Handle program argument or return with SeqType.
 
-## Side question
-- Impact of SSA like requirement by deallocation pass on optimization. The deallocation pass requires that `all buffer writes need to dominate all buffer reads`. Will loop fusion across ONNX Ops break this requirement?
-
 ## Runtime test case
-ToDo: add into test case
+ToDo: add it into test case
 
 Source file for test case, seq_insert.mlir
 ```
