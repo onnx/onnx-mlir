@@ -1222,7 +1222,7 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     }
   }
 
-  if (options.allowSorting && !TopologicallySorted(model.graph())) {
+  if (options.allowSorting && !IsTopologicallySorted(model.graph())) {
     if (!SortGraph(model.mutable_graph())) {
       llvm::outs() << "The graph is not topologically sortable.\n";
       return false;
