@@ -99,6 +99,10 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createSimplifyShapeRelatedOpsPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertONNXToTOSAPass();
   });
 

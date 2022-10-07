@@ -53,8 +53,9 @@ Value OnnxBuilder::ceil(Value input) const {
 
 Value OnnxBuilder::concat(
     Type outputType, ValueRange inputs, int64_t axis) const {
-  IntegerAttr concatAxisAttr = IntegerAttr::get(
-      b.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true));
+  IntegerAttr concatAxisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
   return b.create<ONNXConcatOp>(
       loc, toTensor(outputType), inputs, concatAxisAttr);
 }
@@ -74,6 +75,14 @@ Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
   return b.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());
+}
+
+Value OnnxBuilder::dim(Value input, int axis) const {
+  Type resultType = RankedTensorType::get({1}, b.getI64Type());
+  IntegerAttr axisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
+  return b.create<ONNXDimOp>(loc, resultType, input, axisAttr);
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {

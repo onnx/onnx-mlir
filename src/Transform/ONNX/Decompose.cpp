@@ -204,7 +204,9 @@ struct DecomposeONNXToONNXPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   DecomposeONNXToONNXPass() = default;
-  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass) {}
+  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
+      : mlir::PassWrapper<DecomposeONNXToONNXPass,
+            OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -246,9 +248,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXScatterOp>();
   target.addIllegalOp<ONNXSequenceConstructOp>();
+  target.addIllegalOp<ONNXSplitV11Op>();
+  target.addIllegalOp<ONNXSqueezeV11Op>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
+  target.addIllegalOp<ONNXUnsqueezeV11Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

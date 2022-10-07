@@ -19,8 +19,9 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
-namespace onnx_mlir {
+namespace {
 
 // Parses unsigned number.
 size_t parseOffsetOrLength(const std::string &value) {
@@ -115,6 +116,26 @@ template <typename T>
 using DenseElementsAttrBuilder =
     llvm::function_ref<mlir::DenseElementsAttr(llvm::ArrayRef<T>)>;
 
+// When the protobuf repeated field has a type of the same size as T,
+// access the data directly via ArrayRef.
+template <typename T, typename U>
+std::enable_if_t<std::is_same_v<T, U>, mlir::DenseElementsAttr>
+createDenseElmAttrFromProtoData(const google::protobuf::RepeatedField<U> &data,
+    DenseElementsAttrBuilder<T> denseBuilder) {
+  return denseBuilder(llvm::makeArrayRef(data.data(), data.size()));
+}
+
+// When the protobuf repeated field has a type larger than T,
+// copy the data into correctly typed SmallVector because
+// DenseElementsAttr needs argument type of the correct bitwidth.
+template <typename T, typename U>
+std::enable_if_t<!std::is_same_v<T, U>, mlir::DenseElementsAttr>
+createDenseElmAttrFromProtoData(const google::protobuf::RepeatedField<U> &data,
+    DenseElementsAttrBuilder<T> denseBuilder) {
+  llvm::SmallVector<T> copy(data.begin(), data.end());
+  return denseBuilder(llvm::makeArrayRef(copy));
+}
+
 // Returns DenseElementsAttr with tp's data.
 template <typename T>
 mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
@@ -147,13 +168,7 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
   } else {
     // Not raw, no need to take care of endianness.
     const auto &data = TransformValueToONNXData<T>::data(tp);
-    // Access data directly via ArrayRef if same size as T,
-    // or copy into correctly typed SmallVector otherwise
-    // because DenseElementsAttr needs argument type of the correct bitwidth.
-    typedef typename std::conditional<sizeof(T) == sizeof(data[0]),
-        llvm::ArrayRef<T>, llvm::SmallVector<T>>::type ArrayRefOrSmallVector;
-    ArrayRefOrSmallVector array(data.begin(), data.end());
-    return denseBuilder(llvm::makeArrayRef(array));
+    return createDenseElmAttrFromProtoData(data, denseBuilder);
   }
 }
 
@@ -165,6 +180,10 @@ llvm::SmallVector<llvm::APFloat> U16ToF16Array(
     f16Array.emplace_back(llvm::APFloat::IEEEhalf(), llvm::APInt(16, u));
   return f16Array;
 }
+
+} // namespace
+
+namespace onnx_mlir {
 
 mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
     mlir::OpBuilder &builder, const std::string &externalDataDir,
@@ -228,4 +247,5 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
         "Failed to import ONNX TensorProto due to unsupported data types.");
   }
 }
+
 } // namespace onnx_mlir

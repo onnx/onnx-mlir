@@ -3650,25 +3650,24 @@ LogicalResult ONNXGatherNDOp::verify() {
         "<= " + std::to_string(dataRank - b));
 
   // All values in 'indices' are expected to satisfy the inequality:
-  //   -data.shape[i] <= indices[...,i] <= (data.shape[i]-1)].
-  for (int64_t i = 0; i < indicesRank; ++i) {
-    int64_t dataDimAtAxis = dataShape[i];
-    if (dataDimAtAxis < 0)
-      continue;
-
-    if (DenseElementsAttr valueAttribute =
-            getDenseElementAttributeFromONNXValue(indices))
-      for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
-        static int n = 0;
-        int64_t index = value.getInt();
-        if (index < -dataDimAtAxis || index > dataDimAtAxis - 1)
+  //   -data.shape[b + i] <= indices[...,i] <= (data.shape[b + i]-1)].
+  if (DenseElementsAttr valueAttribute =
+          getDenseElementAttributeFromONNXValue(indices)) {
+    int flatIndex = 0;
+    for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
+      int64_t indexValue = value.getInt();
+      int64_t gatherAxis = b + (flatIndex % indicesLastDim);
+      int64_t dataDimAtAxis = dataShape[gatherAxis];
+      if (dataDimAtAxis >= 0) {
+        if (indexValue < -dataDimAtAxis || indexValue > dataDimAtAxis - 1)
           return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-              *this->getOperation(), "indices[" + std::to_string(n) + "]",
-              index,
+              *this->getOperation(),
+              "indices[" + std::to_string(flatIndex) + "]", indexValue,
               onnx_mlir::Diagnostic::Range<int64_t>(
                   -dataDimAtAxis, dataDimAtAxis - 1));
-        n++;
       }
+      flatIndex++;
+    }
   }
 
   return success();
@@ -5070,7 +5069,8 @@ LogicalResult ONNXScanOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     updateType(std::get<1>(vScanOutputValToTy), squeezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   // Now we have modified loop body function input signatures according to
@@ -5111,7 +5111,8 @@ LogicalResult ONNXScanOp::inferShapes(
         scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
     unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();
@@ -5183,6 +5184,9 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axis,
         onnx_mlir::Diagnostic::Range<int64_t>(-dataRank, dataRank - 1));
+
+  if (axis < 0)
+    axis += dataRank;
 
   // All index values in 'indices' are expected to be within bounds [-s, s-1]
   // along axis of size s.
@@ -5613,6 +5617,11 @@ LogicalResult ONNXZipMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+LogicalResult ONNXGridSampleOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
 #define NOT_IMPLEMENTED_INFERSHAPE(T)                                          \
   LogicalResult T::inferShapes(                                                \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
@@ -5701,7 +5710,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();
@@ -5793,6 +5803,26 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
   // Previous implementation did not print/parse the length field
   // May add the field in future
   printer << "<" << getElementType() << ">";
+}
+
+//===----------------------------------------------------------------------===//
+// DimOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult ONNXDimOp::verify() {
+  // Input data must be ranked.
+  if (!hasShapeAndRank(this->data()))
+    return failure();
+  // Axis must be in [0, rank -1].
+  int64_t axis = this->axis();
+  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
+}
+
+LogicalResult ONNXDimOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  OpBuilder b(getContext());
+  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

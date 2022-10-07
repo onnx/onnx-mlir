@@ -160,8 +160,10 @@ llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
 llvm::cl::opt<std::string> ONNXOpStats("onnx-op-stats",
     llvm::cl::desc(
         "Report the occurrence frequency of ONNX ops in JSON or TXT format:\n"
-        "\"TXT\" for report as text, \n"
-        "\"JSON\" for report as JSON."),
+        "\"TXT\" for report as text,\n"
+        "\"JSON\" for report as JSON.\n"
+        "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
+        "commands."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",

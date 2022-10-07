@@ -165,7 +165,7 @@ constant, it will result in a literal. Otherwise it will result in a new Symbol
 variable.
 
     // Get a dimension from a memref.
-    MemRefBoundIndexCapture dataBounds(data);
+    MemRefBoundsIndexCapture dataBounds(data);
     DimIndexExpr dimInput(dataBounds.getDim(ii));
 
 In the code above, we first capture the (hopefully constant) bounds of hte
@@ -248,8 +248,8 @@ compile time sizes, -1 for runtime sizes).
    ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
 of them expressions that are either literals or runtime values (symbols).
 
-   MemRefBoundIndexCapture allows us to read memref or tensor 1D descriptors and
-generate out of them expressions that are either literals or runtime values
+   MemRefBoundsIndexCapture allows us to read memref or tensor 1D descriptors
+and generate out of them expressions that are either literals or runtime values
 (dims).
 
 Note that in both case, runtime values may be "question marks" during the shape
@@ -448,6 +448,7 @@ public:
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
@@ -457,7 +458,8 @@ public:
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
-      llvm::SmallVectorImpl<int64_t> &intDimList);
+      llvm::SmallVectorImpl<int64_t> &intDimList,
+      bool uniqueQuestionMark = false);
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(
