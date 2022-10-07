@@ -39,7 +39,7 @@ bool IsTopologicallySorted(const onnx::GraphProto &graph) {
   return true;
 }
 
-// Lexicographically Smallest Topological Ordering
+// Sort graph into lexicographically smallest topological ordering.
 bool SortGraph(onnx::GraphProto *graph) {
   int nNodes = graph->node().size();
   // Map of edges / node-outputs to their parent ops
@@ -53,33 +53,33 @@ bool SortGraph(onnx::GraphProto *graph) {
   }
   assert(index == nNodes);
 
-  // Constants and inputs should not be counted as dependencies.
-  std::set<std::string> constants;
+  // graph inputs and initializers should not be counted as dependencies.
+  std::set<std::string> graphInputsAndInitializers;
   for (const auto &initializer : graph->initializer()) {
     const auto &initializerName = initializer.name();
-    constants.insert(initializerName);
+    graphInputsAndInitializers.insert(initializerName);
   }
   for (const auto &input : graph->input()) {
-    constants.insert(input.name());
+    graphInputsAndInitializers.insert(input.name());
   }
   // Empty input names should be ignored.
-  constants.insert("");
+  graphInputsAndInitializers.insert("");
 
   // Users tracks which ops consumes an ops outputs.
   std::vector<std::vector<int>> users(nNodes);
   index = 0;
   for (const auto &node : graph->node()) {
     for (const auto &input : node.input()) {
-      // Input edges to node are constants or inputs to ONNX model.
-      if (constants.count(input))
+      // Input edges to node are graph inputs or initializers.
+      if (graphInputsAndInitializers.count(input))
         continue;
-      // Check if input edges to node aren't constants and don't don't have a
+      // Check if input edges to node aren't graph inputs or initializers and don't have a
       // parent op, in which case its not possible to topologically sort the
       // graph.
       if (!origIndex.count(input)) {
         return false;
       }
-      // Add current node as a user of the op that produces input
+      // Add current node as a user of the op that produces input.
       users[origIndex[input]].push_back(index);
     }
     index++;
@@ -89,7 +89,7 @@ bool SortGraph(onnx::GraphProto *graph) {
   index = 0;
   for (const auto &node : graph->node()) {
     for (const auto &input : node.input()) {
-      if (!constants.count(input)) {
+      if (!graphInputsAndInitializers.count(input)) {
         inDegrees[index]++;
       }
     }
