@@ -153,14 +153,8 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
   return success();
 }
 
-template LogicalResult
-ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>::computeShape(
-    ONNXMatMulOpAdaptor operandAdaptor);
-template LogicalResult
-ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>::computeShape(
-    ONNXMatMulIntegerOpAdaptor operandAdaptor);
-template LogicalResult
-ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>::computeShape(
-    ONNXQLinearMatMulOpAdaptor operandAdaptor);
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir

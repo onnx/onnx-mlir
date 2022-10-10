@@ -566,10 +566,6 @@ template struct ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>;
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
 
-template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
-template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
-template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
-
 // Keep template instantiation at the end of the file.
 
 } // namespace onnx_mlir
