@@ -2,9 +2,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------ MatMul.cpp - Shape Inference for MatMul Op --------------===//
+//===--------- GenericMatMul.cpp - Shape Inference for matmul Ops ---------===//
 //
-// This file implements shape inference for the ONNX MatMul Operator.
+// This file implements shape inference for the ONNX MatMul, QLinearMatMul, and
+// MatMulInteger Operators.
 //
 //===----------------------------------------------------------------------===//
 
@@ -32,13 +33,12 @@ std::pair<Value, Value> matMulInputs(
   return std::pair(A, B);
 }
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
-LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
-    OP_ADAPTOR operandAdaptor) {
-  static_assert(
-      std::is_same<OP_ADAPTOR, ONNXMatMulOpAdaptor>::value ||
-          std::is_same<OP_ADAPTOR, ONNXMatMulIntegerOpAdaptor>::value ||
-          std::is_same<OP_ADAPTOR, ONNXQLinearMatMulOpAdaptor>::value,
+template <typename OP_TYPE>
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
+    typename OP_TYPE::Adaptor operandAdaptor) {
+  static_assert(std::is_same<OP_TYPE, ONNXMatMulOp>::value ||
+                    std::is_same<OP_TYPE, ONNXMatMulIntegerOp>::value ||
+                    std::is_same<OP_TYPE, ONNXQLinearMatMulOp>::value,
       "Unexpected template types");
 
   // Shape inference indicated by passing a null rewriter pointer.
@@ -154,13 +154,13 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 }
 
 template LogicalResult
-ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp, ONNXMatMulOpAdaptor>::computeShape(
+ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>::computeShape(
     ONNXMatMulOpAdaptor operandAdaptor);
-template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp,
-    ONNXMatMulIntegerOpAdaptor>::computeShape(ONNXMatMulIntegerOpAdaptor
-        operandAdaptor);
-template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp,
-    ONNXQLinearMatMulOpAdaptor>::computeShape(ONNXQLinearMatMulOpAdaptor
-        operandAdaptor);
+template LogicalResult
+ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>::computeShape(
+    ONNXMatMulIntegerOpAdaptor operandAdaptor);
+template LogicalResult
+ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>::computeShape(
+    ONNXQLinearMatMulOpAdaptor operandAdaptor);
 
 } // namespace onnx_mlir

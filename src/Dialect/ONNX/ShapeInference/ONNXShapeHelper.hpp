@@ -314,7 +314,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXGemmOp> {
   int cRank;    // Dim of the original C (not padding dims by 1).
 };
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
+template <typename OP_TYPE>
 struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
   ONNXGenericMatMulOpShapeHelper(
       OP_TYPE *newOp, IndexExprScope *inScope = nullptr)
@@ -329,7 +329,7 @@ struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
             newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
             fLoadVal, inScope),
         aDims(), bDims(), aPadDims(), bPadDims() {}
-  mlir::LogicalResult computeShape(OP_ADAPTOR operandAdaptor);
+  mlir::LogicalResult computeShape(typename OP_TYPE::Adaptor operandAdaptor);
   // Additional data for MatMulOp: output = a & b.
   llvm::SmallVector<IndexExpr, 4> aDims,
       bDims; // Dim after applying padding.
@@ -337,30 +337,12 @@ struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
       bPadDims; // When true, that dim was padded.
 };
 
-#define DECLARE_MATMUL_SHAPE_HELPER(OpName)                                    \
-  class OpName##ShapeHelper                                                    \
-      : public ONNXGenericMatMulOpShapeHelper<mlir::OpName,                    \
-            mlir::OpName##Adaptor> {                                           \
-  public:                                                                      \
-    OpName##ShapeHelper(                                                       \
-        mlir::OpName *newOp, IndexExprScope *inScope = nullptr)                \
-        : ONNXGenericMatMulOpShapeHelper<mlir::OpName, mlir::OpName##Adaptor>( \
-              newOp, inScope) {}                                               \
-    OpName##ShapeHelper(mlir::OpName *newOp, mlir::OpBuilder *rewriter,        \
-        ArrayValueIndexCapture::GetDenseVal fGetDenseVal,                      \
-        ArrayValueIndexCapture::LoadVal fLoadVal,                              \
-        IndexExprScope *inScope = nullptr)                                     \
-        : ONNXGenericMatMulOpShapeHelper<mlir::OpName, mlir::OpName##Adaptor>( \
-              newOp, rewriter, fGetDenseVal, fLoadVal, inScope) {}             \
-    mlir::LogicalResult computeShape(mlir::OpName##Adaptor operandAdaptor) {   \
-      return ONNXGenericMatMulOpShapeHelper<mlir::OpName,                      \
-          mlir::OpName##Adaptor>::computeShape(operandAdaptor);                \
-    }                                                                          \
-  };
-DECLARE_MATMUL_SHAPE_HELPER(ONNXMatMulOp)
-DECLARE_MATMUL_SHAPE_HELPER(ONNXQLinearMatMulOp)
-DECLARE_MATMUL_SHAPE_HELPER(ONNXMatMulIntegerOp)
-#undef DECLARE_MATMUL_SHAPE_HELPER
+using ONNXMatMulOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+using ONNXMatMulIntegerOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+using ONNXQLinearMatMulOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {

@@ -35,7 +35,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/GatherND.cpp  
   ShapeInference/Gemm.cpp
   ShapeInference/LRN.cpp
-  ShapeInference/MatMul.cpp
+  ShapeInference/GenericMatMul.cpp
   ShapeInference/MaxPool.cpp
   ShapeInference/ONNXShapeHelper.cpp  
   ShapeInference/OneHot.cpp
