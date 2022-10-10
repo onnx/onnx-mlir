@@ -17,43 +17,28 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-template <class OpShapeHelper, typename OpAdaptor>
 
-
-
-template<typeName OpShapeHelper, typename OpAdaptor>
-static std::pair<Value, Value> matMulInputs(OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
-  auto *op = shapeHelper.op;
-  Value A = operandAdaptor.a(); 
-  Value B = operandAdaptor.a(); 
+template<typename OpAdaptor>
+std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
+  Value A = operandAdaptor.a();
+  Value B = operandAdaptor.b();
   return std::pair(A, B);
 }
 
-ONNXGenericMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
-    ONNXMatMulOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope),
-      aDims(), bDims(), aPadDims(), bPadDims() {}
+template<>
+std::pair<Value, Value> matMulInputs(ONNXMatMulOpAdaptor &operandAdaptor) {
+  Value A = operandAdaptor.A();
+  Value B = operandAdaptor.B();
+  return std::pair(A, B);
+}
 
-ONNXGenericMatMulOpShapeHelper::ONNXGenericMatMulOpShapeHelper(ONNXMatMulOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope),
-      aDims(), bDims(), aPadDims(), bPadDims() {}
 
-template<typeName OpShapeHelper, typename OpAdaptor>
-static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(OP_ADAPTOR operandAdaptor) {
   static_assert(
-    (std::is_same<OpShapeHelper, ONNXMatMulOpShapeHelper>::value && 
-    std::is_same<OpAdaptor, ONNXMatMulOpAdaptor>::value) || 
-    (std::is_same<OpShapeHelper, ONNXMatMulIntegerOpShapeHelper>::value && 
-    std::is_same<OpAdaptor, ONNXMatMulIntegerOpAdaptor>::value) || 
-    (std::is_same<OpShapeHelper, ONNXQLinearMatMulOpShapeHelper>::value && 
-    std::is_same<OpAdaptor, ONNXQLinearMatMulOpAdaptor>::value), "Unexpected template types");
-
-
+    std::is_same<OP_ADAPTOR, ONNXMatMulOpAdaptor>::value || 
+    std::is_same<OP_ADAPTOR, ONNXMatMulIntegerOpAdaptor>::value || 
+    std::is_same<OP_ADAPTOR, ONNXQLinearMatMulOpAdaptor>::value, "Unexpected template types");
 
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
@@ -62,7 +47,7 @@ static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operand
   // Get info.
   Value A;
   Value B;
-  std::tie(A, B) = matMulInputs(shapeHelper, operandAdaptor);
+  std::tie(A, B) = matMulInputs(operandAdaptor);
   MemRefBoundsIndexCapture ABounds(A);
   MemRefBoundsIndexCapture BBounds(B);
 
@@ -119,7 +104,7 @@ static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operand
     } else if (aDims[i].isLiteral() && bDims[i].isLiteral()) {
       // No broadcast, both literals, make sure they have the same value.
       if (aDims[i].getLiteral() != bDims[i].getLiteral())
-        return op->emitError("Incompatible size detected");
+        return this->op->emitError("Incompatible size detected");
       outputDims.emplace_back(aDims[i]);
     } else if (aDims[i].isLiteral()) {
       // A dim is a literal; use it here for output and b, since b
@@ -145,7 +130,7 @@ static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operand
   // And test the K dimensions.
   if (aDims[aK].isLiteral() && bDims[bK].isLiteral()) {
     if (aDims[aK].getLiteral() != bDims[bK].getLiteral())
-      return op->emitError("reduction dimension must be the same");
+      return this->op->emitError("reduction dimension must be the same");
   } else if (aDims[aK].isLiteral()) {
     // Save aK dims into bK dims, in case bK dims was runtime
     bDims[bK] = aDims[aK];
@@ -163,24 +148,21 @@ static LogicalResult computeShape(OpShapeHelper &shapeHelper, OpAdaptor &operand
     assert(outputDims.empty() && "1-D x 1-D results in scalar");
   }
   // Save the final result.
-  setOutputDims(outputDims);
+  this->setOutputDims(outputDims);
   return success();
 }
 
-LogicalResult ONNXMatMulOpShapeHelper::computeShape(
-  ONNXMatMulOpAdaptor operandAdaptor) {
-    return onnx_mlir::computeShape(*this, operandAdaptor);
-  }
-}
 
-LogicalResult ONNXQLinearMatMulOpShapeHelper::computeShape(
-  ONNXQLinearMatMulOpAdaptor operandAdaptor) {
-    return onnx_mlir::computeShape(*this, operandAdaptor);
-  }
-}
+template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp, ONNXMatMulOpAdaptor>::computeShape(ONNXMatMulOpAdaptor operandAdaptor);
 
-LogicalResult ONNXMatMulIntegerOpShapeHelper::computeShape(
-  ONNXMatMulIntegerOpAdaptor operandAdaptor) {
-    return onnx_mlir::computeShape(*this, operandAdaptor);
-  }
+
+//LogicalResult ONNXQLinearMatMulOpShapeHelper::computeShape(
+//  ONNXQLinearMatMulOpAdaptor operandAdaptor) {
+//    return onnx_mlir::computeShape(*this, operandAdaptor);
+//}
+//
+//LogicalResult ONNXMatMulIntegerOpShapeHelper::computeShape(
+//  ONNXMatMulIntegerOpAdaptor operandAdaptor) {
+//    return onnx_mlir::computeShape(*this, operandAdaptor);
+//}
 } // namespace onnx_mlir
