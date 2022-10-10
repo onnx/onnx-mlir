@@ -124,6 +124,8 @@ add_onnx_mlir_library(CompilerUtils
   DEPENDS
   ExternalUtil
   MLIRIR
+  llc
+  opt
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}

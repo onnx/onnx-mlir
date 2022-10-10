@@ -58,10 +58,12 @@ OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
  * @param id for this point. op name is used now.
  * @param tag can used to give extra control of output. Used for begin/end mark
  * now
+ * @param nodeName is an onnx_node_name attribute in the graph.
  * @return void
  *
  */
-OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(int64_t id, int64_t tag);
+OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(
+    int64_t id, int64_t tag, const char* nodeName);
 
 #ifdef __cplusplus
 }
