@@ -533,8 +533,8 @@ template struct ONNXOpShapeHelper<ONNXGatherOp>;
 template struct ONNXOpShapeHelper<ONNXGatherElementsOp>;
 template struct ONNXOpShapeHelper<ONNXGatherNDOp>;
 template struct ONNXOpShapeHelper<ONNXGemmOp>;
-//template struct ONNXOpShapeHelper<ONNXQLinearMatMulOp>;
-//template struct ONNXOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct ONNXOpShapeHelper<ONNXQLinearMatMulOp>;
+template struct ONNXOpShapeHelper<ONNXMatMulIntegerOp>;
 template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;
@@ -566,7 +566,12 @@ template struct ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>;
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
 
-template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp, ONNXMatMulOpAdaptor>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp,
+    ONNXMatMulOpAdaptor>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp,
+    ONNXMatMulIntegerOpAdaptor>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp,
+    ONNXQLinearMatMulOpAdaptor>;
 
 // Keep template instantiation at the end of the file.
 

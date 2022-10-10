@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <utility>
 #include <tuple>
+#include <utility>
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -17,28 +17,29 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-
-template<typename OpAdaptor>
+template <typename OpAdaptor>
 std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
-  Value A = operandAdaptor.a();
-  Value B = operandAdaptor.b();
-  return std::pair(A, B);
-}
-
-template<>
-std::pair<Value, Value> matMulInputs(ONNXMatMulOpAdaptor &operandAdaptor) {
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
   return std::pair(A, B);
 }
 
+template <>
+std::pair<Value, Value> matMulInputs(
+    ONNXQLinearMatMulOpAdaptor &operandAdaptor) {
+  Value A = operandAdaptor.a();
+  Value B = operandAdaptor.b();
+  return std::pair(A, B);
+}
 
 template <typename OP_TYPE, typename OP_ADAPTOR>
-LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(OP_ADAPTOR operandAdaptor) {
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
+    OP_ADAPTOR operandAdaptor) {
   static_assert(
-    std::is_same<OP_ADAPTOR, ONNXMatMulOpAdaptor>::value || 
-    std::is_same<OP_ADAPTOR, ONNXMatMulIntegerOpAdaptor>::value || 
-    std::is_same<OP_ADAPTOR, ONNXQLinearMatMulOpAdaptor>::value, "Unexpected template types");
+      std::is_same<OP_ADAPTOR, ONNXMatMulOpAdaptor>::value ||
+          std::is_same<OP_ADAPTOR, ONNXMatMulIntegerOpAdaptor>::value ||
+          std::is_same<OP_ADAPTOR, ONNXQLinearMatMulOpAdaptor>::value,
+      "Unexpected template types");
 
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
@@ -152,17 +153,14 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   return success();
 }
 
+template LogicalResult
+ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp, ONNXMatMulOpAdaptor>::computeShape(
+    ONNXMatMulOpAdaptor operandAdaptor);
+template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp,
+    ONNXMatMulIntegerOpAdaptor>::computeShape(ONNXMatMulIntegerOpAdaptor
+        operandAdaptor);
+template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp,
+    ONNXQLinearMatMulOpAdaptor>::computeShape(ONNXQLinearMatMulOpAdaptor
+        operandAdaptor);
 
-template LogicalResult ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp, ONNXMatMulOpAdaptor>::computeShape(ONNXMatMulOpAdaptor operandAdaptor);
-
-
-//LogicalResult ONNXQLinearMatMulOpShapeHelper::computeShape(
-//  ONNXQLinearMatMulOpAdaptor operandAdaptor) {
-//    return onnx_mlir::computeShape(*this, operandAdaptor);
-//}
-//
-//LogicalResult ONNXMatMulIntegerOpShapeHelper::computeShape(
-//  ONNXMatMulIntegerOpAdaptor operandAdaptor) {
-//    return onnx_mlir::computeShape(*this, operandAdaptor);
-//}
 } // namespace onnx_mlir
