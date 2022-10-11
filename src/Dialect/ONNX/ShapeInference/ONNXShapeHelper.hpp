@@ -314,21 +314,35 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXGemmOp> {
   int cRank;    // Dim of the original C (not padding dims by 1).
 };
 
-// Shape for MatMulOp.
-struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXMatMulOp> {
-  ONNXMatMulOpShapeHelper(
-      mlir::ONNXMatMulOp *newOp, IndexExprScope *inScope = nullptr);
-  ONNXMatMulOpShapeHelper(mlir::ONNXMatMulOp *newOp, mlir::OpBuilder *rewriter,
+template <typename OP_TYPE>
+struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
+  ONNXGenericMatMulOpShapeHelper(
+      OP_TYPE *newOp, IndexExprScope *inScope = nullptr)
+      : ONNXOpShapeHelper<OP_TYPE>(
+            newOp, newOp->getOperation()->getNumResults(), inScope),
+        aDims(), bDims(), aPadDims(), bPadDims() {}
+  ONNXGenericMatMulOpShapeHelper(OP_TYPE *newOp, mlir::OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,
-      IndexExprScope *inScope = nullptr);
-  mlir::LogicalResult computeShape(mlir::ONNXMatMulOpAdaptor operandAdaptor);
+      IndexExprScope *inScope = nullptr)
+      : ONNXOpShapeHelper<OP_TYPE>(newOp,
+            newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+            fLoadVal, inScope),
+        aDims(), bDims(), aPadDims(), bPadDims() {}
+  mlir::LogicalResult computeShape(typename OP_TYPE::Adaptor operandAdaptor);
   // Additional data for MatMulOp: output = a & b.
   llvm::SmallVector<IndexExpr, 4> aDims,
       bDims; // Dim after applying padding.
   llvm::BitVector aPadDims,
       bPadDims; // When true, that dim was padded.
 };
+
+using ONNXMatMulOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+using ONNXMatMulIntegerOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+using ONNXQLinearMatMulOpShapeHelper =
+    ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
