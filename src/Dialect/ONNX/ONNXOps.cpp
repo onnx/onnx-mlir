@@ -1409,7 +1409,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
       !b().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = a().getType().cast<ShapedType>().getElementType();
+  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXQLinearMatMulOpShapeHelper,
       ONNXQLinearMatMulOp, ONNXQLinearMatMulOpAdaptor>(*this, elementType);
 }

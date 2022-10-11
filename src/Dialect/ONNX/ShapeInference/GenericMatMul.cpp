@@ -36,10 +36,6 @@ std::pair<Value, Value> matMulInputs(
 template <typename OP_TYPE>
 LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
     typename OP_TYPE::Adaptor operandAdaptor) {
-  static_assert(std::is_same<OP_TYPE, ONNXMatMulOp>::value ||
-                    std::is_same<OP_TYPE, ONNXMatMulIntegerOp>::value ||
-                    std::is_same<OP_TYPE, ONNXQLinearMatMulOp>::value,
-      "Unexpected template types");
 
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
