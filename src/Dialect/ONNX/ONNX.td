@@ -9,7 +9,7 @@
 // Defines ONNX Dialect Definitions, Types, and Operations.
 //
 // When adding non-standard ONNX ops, please add them in AdditionalONNXOps.td.
-//
+// After changes, run "make OMONNXOpsIncTranslation".
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_OPS
@@ -32,11 +32,8 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-<<<<<<< HEAD
   let useDefaultAttributePrinterParser = 1;
-=======
   let dependentDialects = ["func::FuncDialect"];
->>>>>>> conv-opt-v1
 }
 
 //===----------------------------------------------------------------------===//
@@ -113,23 +110,23 @@ class ONNXCustomDataLayoutAndFactorsOfPred<
         " == " # xFactor # ")  &&"
         "($_self.cast<::mlir::RankedTensorType>()."
         "getEncoding().cast<ONNXTensorEncodingAttr>().getYFactor()"
-        " == " # yFactor # ")"> 
+        " == " # yFactor # ")">
 ]>;
 
 // So far ONNX Tensor supports only F32 for pre-tranformed custom-layout data.
 class ONNXCustomTensorOf<string layout, int xFactor, int yFactor> :
-    Type<And<[TensorOf<[F32]>.predicate, 
+    Type<And<[TensorOf<[F32]>.predicate,
               ONNXCustomDataLayoutAndFactorsOfPred<layout, xFactor, yFactor>]>,
-         TensorOf<[F32]>.summary # " with layout " # layout # 
+         TensorOf<[F32]>.summary # " with layout " # layout #
          "and factors " # xFactor # ", " # yFactor,
          "::mlir::TensorType">;
 
 def ONNXCustomTensor_unranked : UnrankedTensorOf<[F32]>;
 
 // Definition of types for tiling factor of 4.
-def ONNXTensor_NCHW4C: AnyTypeOf<[ONNXCustomTensor_unranked, 
+def ONNXTensor_NCHW4C: AnyTypeOf<[ONNXCustomTensor_unranked,
     ONNXCustomTensorOf<"NCHWxC", 4, 0>]>;
-def ONNXTensor_KCMN4C4K: AnyTypeOf<[ONNXCustomTensor_unranked, 
+def ONNXTensor_KCMN4C4K: AnyTypeOf<[ONNXCustomTensor_unranked,
     ONNXCustomTensorOf<"KCNMxCyK", 4, 4>]>;
 
 //===----------------------------------------------------------------------===//

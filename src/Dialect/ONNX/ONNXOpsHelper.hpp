@@ -41,14 +41,6 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
     mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
     int64_t yFactor = 0);
 
-#if 0 // hi alex
-/// Convert a data layout to StringAttr, assert on error. Default yFactor value
-/// is undef, namely 0.
-mlir::StringAttr convertCustomONNXTensorDataLayoutToStringAttr(
-    mlir::OpBuilder &builder, mlir::ONNXTensorEncodingAttr::DataLayout layout,
-    int64_t xFactor, int64_t yFactor = 0);
-#endif
-
 // Add ONNX tensor encoding to ranked & shaped types. Return type only has the
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.

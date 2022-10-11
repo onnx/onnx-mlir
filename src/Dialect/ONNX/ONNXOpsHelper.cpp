@@ -34,8 +34,6 @@ namespace onnx_mlir {
 bool convertStringToONNXCustomTensorDataLayout(StringAttr layoutAttr,
     ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
     int64_t &yFactor) {
-  // if (!layoutAttr.)
-  // hi alex
   StringRef layoutStr(layoutAttr.getValue());
   if (layoutStr.equals_insensitive(LAYOUT_NCHW4C)) {
     xFactor = 4;
@@ -78,18 +76,6 @@ StringRef convertONNXTensorDataLayoutToString(
   }
   llvm_unreachable("unsupported ONNX Layout");
 }
-
-#if 0 // hi alex
-
-// Same as above, return a String Attribute.
-StringAttr convertCustomONNXTensorDataLayoutToStringAttr(OpBuilder &builder,
-    ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
-    int64_t yFactor) {
-  StringRef str = convertONNXTensorDataLayoutToString
-(layout, xFactor, yFactor);
-  return builder.getStringAttr(str);
-}
-#endif
 
 bool isONNXTensor(const Type type) {
   if (auto ttp = type.dyn_cast<RankedTensorType>())

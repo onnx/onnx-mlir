@@ -50,7 +50,7 @@ def HasRankAndShape:
   "A value has rank and shape">;
 
 // Generate a convolution with custom data layout pattern.
-// TODO: do not do so if it is a candidate for 1x1 transformation to conv, 
+// TODO: do not do so if it is a candidate for 1x1 transformation to conv,
 // unless there are less transform by switching it to custom layout.
 
 def replaceONNXConvPatternWithLayout : Pat<
