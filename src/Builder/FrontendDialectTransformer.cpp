@@ -333,7 +333,7 @@ private:
     // Import the input tensor types that are not constant and not initialized.
     int inputIndex = 0;
     for (const auto &input : graph.input()) {
-      AddValueInfo(input);
+      AddValueInfo(input, true);
       if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
         Type argTy = ImportType(input.type());
