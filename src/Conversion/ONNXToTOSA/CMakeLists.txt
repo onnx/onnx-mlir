@@ -4,6 +4,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   ConvertONNXToTOSA.cpp
 
   Math/Elementwise.cpp
+  Tensor/Constant.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
