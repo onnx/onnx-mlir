@@ -37,19 +37,36 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
   if (axisIndex < 0)
     axisIndex += commonRank;
 
+  // For Concat Op, the size of each dimension of inputs should be the same,
+  // except for concatenated dimension. To simplify the result, constant
+  // size is used if there is one. Otherwise, the dimension of the last
+  // input tensor (implementation dependent) is used for the output tensor.
+  DimsExpr outputDims(commonRank);
   IndexExpr cumulativeAxisSize = LiteralIndexExpr(0);
+  SmallVector<bool, 4> isConstant(commonRank, false);
   for (unsigned i = 0; i < numInputs; ++i) {
     Value currentInput = operandAdaptor.inputs()[i];
     MemRefBoundsIndexCapture currInputBounds(currentInput);
-    DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
-    cumulativeAxisSize = cumulativeAxisSize + currentSize;
+    for (unsigned dim = 0; dim < commonRank; dim++) {
+      if (dim == axisIndex) {
+        DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
+        cumulativeAxisSize = cumulativeAxisSize + currentSize;
+      } else {
+        if (!isConstant[dim]) {
+          if (currInputBounds.getDim(dim).isLiteral()) {
+            // The size of current dimension of current input  is a constant
+            outputDims[dim] = currInputBounds.getDim(dim);
+            isConstant[dim] = true;
+          } else if (i == numInputs - 1) {
+            // If no constant dimension found for all the inputs, use the
+            // dynamic size of the last input.
+            outputDims[dim] = currInputBounds.getDim(dim);
+          }
+        }
+      }
+    }
   }
-
-  DimsExpr outputDims(commonRank);
-  MemRefBoundsIndexCapture firstInputBounds(firstInput);
-  for (unsigned i = 0; i < commonRank; i++)
-    outputDims[i] =
-        (i == axisIndex) ? cumulativeAxisSize : firstInputBounds.getDim(i);
+  outputDims[axisIndex] = cumulativeAxisSize;
 
   setOutputDims(outputDims);
   return success();
