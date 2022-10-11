@@ -192,7 +192,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
       ONNXTensor_KCMN4C4K]>:$In, 
-      DefaultValuedStrAttr<StrAttr, "UNDEFINED">:$layout
+      DefaultValuedStrAttr<StrAttr, "STANDARD">:$layout
       );
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C, 
       ONNXTensor_KCMN4C4K]>:$Out);

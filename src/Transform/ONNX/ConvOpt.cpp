@@ -23,6 +23,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
 #define DEBUG 0

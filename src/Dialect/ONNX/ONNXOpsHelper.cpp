@@ -29,11 +29,14 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
-/// Get a ONNX Tensor data layout by StringRef. If layout string is undefined or
-/// any other unrecognized string, just return false.
-bool convertStringToONNXTensorDataLayout(StringRef layoutStr,
+/// Get a ONNX Tensor data layout by StringRef. If layout string is a standard
+/// layout, or any other unrecognized string, just return false.
+bool convertStringToONNXCustomTensorDataLayout(StringAttr layoutAttr,
     ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
     int64_t &yFactor) {
+  // if (!layoutAttr.)
+  // hi alex
+  StringRef layoutStr(layoutAttr.getValue());
   if (layoutStr.equals_insensitive(LAYOUT_NCHW4C)) {
     xFactor = 4;
     yFactor = 0;
@@ -43,8 +46,12 @@ bool convertStringToONNXTensorDataLayout(StringRef layoutStr,
     xFactor = yFactor = 4;
     layout = ONNXTensorEncodingAttr::DataLayout::KCNMxCyK;
     return true;
+  } else if (layoutStr.equals_insensitive(LAYOUT_STANDARD)) {
+    // Represent standard layout by no layout, return false.
+    // We really should not get there, but there is no harm in doing so.
+    return false;
   }
-  return false;
+  llvm_unreachable("unknown ONNX Tensor Data Layout");
 }
 
 /// Convert a data layout to StringRef.
@@ -62,19 +69,27 @@ StringRef convertONNXTensorDataLayoutToString(
       return StringRef(LAYOUT_KCMN4C4K);
     llvm_unreachable("KCNMxCyK with unsupported x or y factors");
     break;
+  case ONNXTensorEncodingAttr::DataLayout::STANDARD:
+    if (xFactor == 0 && yFactor == 0)
+      return StringRef(LAYOUT_STANDARD);
+    llvm_unreachable("Standard with unsupported x or y factors");
   default:
     break;
   }
   llvm_unreachable("unsupported ONNX Layout");
 }
 
+#if 0 // hi alex
+
 // Same as above, return a String Attribute.
-StringAttr convertONNXTensorDataLayoutToStringAttr(OpBuilder &builder,
-    mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
+StringAttr convertCustomONNXTensorDataLayoutToStringAttr(OpBuilder &builder,
+    ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
     int64_t yFactor) {
-  StringRef str = convertONNXTensorDataLayoutToString(layout, xFactor, yFactor);
+  StringRef str = convertONNXTensorDataLayoutToString
+(layout, xFactor, yFactor);
   return builder.getStringAttr(str);
 }
+#endif
 
 bool isONNXTensor(const Type type) {
   if (auto ttp = type.dyn_cast<RankedTensorType>())
@@ -92,13 +107,12 @@ ONNXTensorEncodingAttr getONNXTensorEncoding(Type type) {
 ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(Type type) {
   if (ONNXTensorEncodingAttr encoding = getONNXTensorEncoding(type))
     return encoding.getDataLayout();
-  return ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+  return ONNXTensorEncodingAttr::DataLayout::STANDARD;
 }
 
 // Return true if both types have the same ONNX Tensor Data Layout (does not
 // check for dimensions, elementary types...).
-bool identicalONNXTensorDataLayout(
-    const mlir::Type type1, const mlir::Type type2) {
+bool identicalONNXTensorDataLayout(const Type type1, const Type type2) {
 
   ONNXTensorEncodingAttr encoding1 = getONNXTensorEncoding(type1);
   ONNXTensorEncodingAttr encoding2 = getONNXTensorEncoding(type2);
@@ -108,10 +122,6 @@ bool identicalONNXTensorDataLayout(
   // Have encoding, test that they have the same parameters
   ONNXTensorEncodingAttr::DataLayout layout1 = encoding1.getDataLayout();
   ONNXTensorEncodingAttr::DataLayout layout2 = encoding2.getDataLayout();
-  assert(layout1 != ONNXTensorEncodingAttr::DataLayout::UNDEFINED &&
-         "expected a defined layout");
-  assert(layout2 != ONNXTensorEncodingAttr::DataLayout::UNDEFINED &&
-         "expected a defined layout");
   return layout1 == layout2 &&
          encoding1.getXFactor() == encoding2.getXFactor() &&
          encoding1.getYFactor() == encoding2.getYFactor();
@@ -125,7 +135,40 @@ bool hasConvONNXTensorDataLayout(const Type type) {
 
 bool hasCustomONNXTensorDataLayout(const Type type) {
   return getONNXTensorLayout(type) !=
-         ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+         ONNXTensorEncodingAttr::DataLayout::STANDARD;
+}
+
+// Add ONNX tensor encoding to rank & shaped types. Assert otherwise.
+Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+    OpBuilder &builder, const Type inputType, StringAttr layoutAttr) {
+  Type resType = builder.getNoneType();
+  if (!inputType.isa<NoneType>()) {
+    ShapedType shapedType = inputType.cast<ShapedType>();
+    if (shapedType.hasRank()) {
+      assert(layoutAttr && "ONNXLayoutTransformOp builder expect a layout");
+      ONNXTensorEncodingAttr::DataLayout dataLayout;
+      int64_t xFactor, yFactor;
+      // Fails if layout is unknown or standard layout.
+      bool success = convertStringToONNXCustomTensorDataLayout(
+          layoutAttr, dataLayout, xFactor, yFactor);
+      // Compute shape: this op does not change the shape, just the layout.
+      ArrayRef<int64_t> inputShape = shapedType.getShape();
+      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+      Attribute encodingAttr = {};
+      if (success)
+        encodingAttr = ONNXTensorEncodingAttr::get(
+            builder.getContext(), dataLayout, xFactor, yFactor);
+      resType = RankedTensorType::get(
+          resShape, shapedType.getElementType(), encodingAttr);
+      return resType;
+    } else {
+      resType = UnrankedTensorType::get(shapedType.getElementType());
+    }
+  }
+  // May remove the unreachable as it may be ok to try to convert unranked /
+  // unshaped type; let's be a bit stricter initially.
+  llvm_unreachable("Should only convert types that are ranked and shaped.");
+  return resType;
 }
 
 //===----------------------------------------------------------------------===//

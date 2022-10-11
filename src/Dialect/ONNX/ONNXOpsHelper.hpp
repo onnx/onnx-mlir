@@ -29,9 +29,9 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
-/// Get a ONNX Tensor data layout by StringRef. If layout string is undefined or
-/// any other unrecognized string, just return false.
-bool convertStringToONNXTensorDataLayout(llvm::StringRef layoutStr,
+/// Get a ONNX Custom Tensor data layout by StringRef. If layout string is a
+/// standard layout or any other unrecognized string, just return false.
+bool convertStringToONNXCustomTensorDataLayout(mlir::StringAttr layoutAttr,
     mlir::ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
     int64_t &yFactor);
 
@@ -41,11 +41,20 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
     mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
     int64_t yFactor = 0);
 
+#if 0 // hi alex
 /// Convert a data layout to StringAttr, assert on error. Default yFactor value
 /// is undef, namely 0.
-mlir::StringAttr convertONNXTensorDataLayoutToStringAttr(
+mlir::StringAttr convertCustomONNXTensorDataLayoutToStringAttr(
     mlir::OpBuilder &builder, mlir::ONNXTensorEncodingAttr::DataLayout layout,
     int64_t xFactor, int64_t yFactor = 0);
+#endif
+
+// Add ONNX tensor encoding to ranked & shaped types. Return type only has the
+// encoding if the layout is custom, Currently assert for non ranked/shaped
+// type.
+mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+    mlir::OpBuilder &builder, const mlir::Type inputType,
+    mlir::StringAttr layoutAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
@@ -66,7 +75,7 @@ bool identicalONNXTensorDataLayout(
 // optimizations.
 bool hasConvONNXTensorDataLayout(const mlir::Type type);
 
-// Return true if the type has a layout, and that layout is not UNDEFINED.
+// Return true if the type has a layout, and that layout is not STANDARD.
 bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 
 //===----------------------------------------------------------------------===//

@@ -486,6 +486,7 @@ May be used for gdb.
 | `opName` | ::mlir::StringAttr | string attribute
 | `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `nodeName` | ::mlir::StringAttr | string attribute
 
 ### `krnl.isnan` (::mlir::KrnlIsNaNOp)
 

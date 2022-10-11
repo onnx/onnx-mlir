@@ -103,7 +103,7 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
     return {};
 
   ONNXTensorEncodingAttr::DataLayout dataLayout =
-      ONNXTensorEncodingAttr::DataLayout::UNDEFINED;
+      ONNXTensorEncodingAttr::DataLayout::STANDARD;
   int64_t xFactor = 0;
   int64_t yFactor = 0;
 
@@ -116,12 +116,11 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
             parser.getNameLoc(), "expected a string value for data layout");
         return {};
       }
-      StringRef strVal = layoutAttr.getValue();
-      if (!convertStringToONNXTensorDataLayout(
-              strVal, dataLayout, xFactor, yFactor))
+      if (!convertStringToONNXCustomTensorDataLayout(
+              layoutAttr, dataLayout, xFactor, yFactor))
         parser.emitError(
-            parser.getNameLoc(), "unexpected dimension level type: ")
-            << strVal;
+            parser.getNameLoc(), "unexpected data layout attribute value: ")
+            << layoutAttr.getValue();
       return {};
     } else {
       parser.emitError(parser.getNameLoc(), "unexpected key: ")
@@ -4549,29 +4548,9 @@ LogicalResult ONNXIsInfOp::inferShapes(
 
 void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
     Value input, StringAttr layoutAttr) {
-  Type resType = builder.getNoneType();
-  if (!input.getType().isa<NoneType>()) {
-    ShapedType inputType = input.getType().cast<ShapedType>();
-    if (inputType.hasRank()) {
-      assert(layoutAttr && "ONNXLayoutTransformOp builder expect a layout");
-      ONNXTensorEncodingAttr::DataLayout dataLayout;
-      int64_t xFactor, yFactor;
-      bool success = convertStringToONNXTensorDataLayout(
-          layoutAttr, dataLayout, xFactor, yFactor);
-      // Compute shape: this op does not change the shape, just the layout.
-      ArrayRef<int64_t> inputShape = inputType.getShape();
-      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
-      Attribute encodingAttr = {};
-      if (success)
-        encodingAttr = ONNXTensorEncodingAttr::get(
-            builder.getContext(), dataLayout, xFactor, yFactor);
-      resType = RankedTensorType::get(
-          resShape, inputType.getElementType(), encodingAttr);
-    } else {
-      resType = UnrankedTensorType::get(inputType.getElementType());
-    }
-  }
-  build(builder, state, resType, input);
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, input.getType(), layoutAttr);
+  build(builder, state, resType, input, layoutAttr);
 }
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(

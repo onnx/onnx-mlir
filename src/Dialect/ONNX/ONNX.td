@@ -84,9 +84,9 @@ def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
 
   let extraClassDeclaration = [{
     enum class DataLayout {
-      UNDEFINED, // Undefined layout (normal)
-      NCHWxC,    // Layout for conv image, with C=Cin tiled by x.
-      KCNMxCyK   // Layout for conv weights, with C=Cin & K=Cout tiled by x & y.
+      STANDARD, // Standard ONNX layout as defined by the specs.
+      NCHWxC,   // Layout for conv image, with C=Cin tiled by x.
+      KCNMxCyK  // Layout for conv weights, with C=Cin & K=Cout tiled by x & y.
     };
   }];
 
