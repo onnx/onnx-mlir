@@ -70,7 +70,7 @@ add_onnx_mlir_library(CompilerPasses
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
 if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
   string(REGEX MATCH "^([0-9]+)(\\.([0-9]+))?(\\.([0-9]+))?(\\-(.+))$"
-          VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
+	  VERSION_MATCH ${ONNX_MLIR_PRODUCT_VERSION})
 
   # For a version string 1.2.3-foo,
   # CMAKE_MATCH_1 = 1
@@ -86,6 +86,8 @@ if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
   message(DEBUG "PRODUCT_VERSION_MINOR = ${PRODUCT_VERSION_MINOR}")
   message(DEBUG "PRODUCT_VERSION_PATCH = ${PRODUCT_VERSION_PATCH}")
   message(DEBUG "PRODUCT_ID = ${PRODUCT_ID}")
+
+  list(APPEND DEFINITIONS "ONNX_MLIR_PRODUCT_VERSION=${ONNX_MLIR_PRODUCT_VERSION}")
 
   # Major and product ID are mandatory, minor and patch are optional.
   if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "") OR ("${PRODUCT_ID}" STREQUAL ""))
