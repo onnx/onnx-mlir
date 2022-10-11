@@ -1915,6 +1915,30 @@ LogicalResult ONNXConvOp::inferShapes(
       (hasBias && !B().getType().isa<RankedTensorType>()))
     return success();
 
+  auto kernelShape = kernel_shape();
+  if (!kernelShape.has_value()) {
+    // Deduce shape from weight input.
+    auto xTy = X().getType().cast<RankedTensorType>();
+    auto xShape = xTy.getShape();
+    auto weightTy = W().getType().cast<RankedTensorType>();
+    auto weightShape = weightTy.getShape();
+    // Number of spatial dimensions.
+    auto spatialOffset = 2;
+    int32_t spatialRank = xShape.size() - spatialOffset;
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(getContext());
+    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+    kernelShape = kernel_shape();
+  }
+
+  // Process strides, dilations, and pads.
+  LogicalResult res = processConvTypeParams<>(this, X());
+  assert(succeeded(res));
+
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
       ONNXConvOpAdaptor>(*this, elementType);
