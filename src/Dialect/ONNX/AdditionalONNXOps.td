@@ -185,7 +185,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
     Currently, it supports transformations from standard format to a
     NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
 
-    Opertions that transforms data from the same ONNX layout format are
+    Operations that transforms data from the same ONNX layout format are
     considered as a no operation and will be removed.
 
     This operation is not part of the standard and was added to assit onnx-mlir.

@@ -118,7 +118,7 @@ class ONNXCustomTensorOf<string layout, int xFactor, int yFactor> :
     Type<And<[TensorOf<[F32]>.predicate,
               ONNXCustomDataLayoutAndFactorsOfPred<layout, xFactor, yFactor>]>,
          TensorOf<[F32]>.summary # " with layout " # layout #
-         "and factors " # xFactor # ", " # yFactor,
+         " and factors " # xFactor # ", " # yFactor,
          "::mlir::TensorType">;
 
 def ONNXCustomTensor_unranked : UnrankedTensorOf<[F32]>;
