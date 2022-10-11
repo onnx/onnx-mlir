@@ -32,6 +32,7 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let dependentDialects = ["func::FuncDialect"];
 }
 
 //===----------------------------------------------------------------------===//
