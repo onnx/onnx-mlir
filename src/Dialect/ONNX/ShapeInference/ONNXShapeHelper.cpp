@@ -534,6 +534,8 @@ template struct ONNXOpShapeHelper<ONNXGatherOp>;
 template struct ONNXOpShapeHelper<ONNXGatherElementsOp>;
 template struct ONNXOpShapeHelper<ONNXGatherNDOp>;
 template struct ONNXOpShapeHelper<ONNXGemmOp>;
+template struct ONNXOpShapeHelper<ONNXQLinearMatMulOp>;
+template struct ONNXOpShapeHelper<ONNXMatMulIntegerOp>;
 template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;

@@ -255,6 +255,33 @@ func.func @test_matmul_10(%arg0 : tensor<?x42x32xf32>, %arg1 : tensor<32xf32>) -
 
 // -----
 
+/// QLinearMatMul
+
+func.func @test_qlinearmatmul_1(%arg0: tensor<2x2x4xui8>, %arg1: tensor<1xf32>, %arg2: tensor<1xui8>, %arg3: tensor<2x4x3xui8>, %arg4: tensor<1xf32>, %arg5: tensor<1xui8>, %arg6: tensor<1xf32>, %arg7: tensor<1xui8>) -> tensor<*xui8> {
+  %0 = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<2x2x4xui8>, tensor<1xf32>, tensor<1xui8>, tensor<2x4x3xui8>, tensor<1xf32>, tensor<1xui8>, tensor<1xf32>, tensor<1xui8>) -> tensor<*xui8>
+  "func.return"(%0) : (tensor<*xui8>) -> ()
+
+
+  // CHECK-LABEL: test_qlinearmatmul_1
+  // CHECK: [[RES1:%.+]] = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<2x2x4xui8>, tensor<1xf32>, tensor<1xui8>, tensor<2x4x3xui8>, tensor<1xf32>, tensor<1xui8>, tensor<1xf32>, tensor<1xui8>) -> tensor<2x2x3xui8>
+  // CHECK: return [[RES1]] : tensor<2x2x3xui8>
+}
+
+// -----
+
+/// MatMulInteger
+
+func.func @test_matmulinteger_1(%arg0: tensor<4x3xui8>, %arg1: tensor<3x2xui8>, %arg2: tensor<1xui8>, %arg3: tensor<1xui8>) -> tensor<*xi32> {
+    %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<*xi32>
+    return %0 : tensor<*xi32>
+
+  // CHECK-LABEL: test_matmulinteger_1
+  // CHECK: [[RES1:%.+]] = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<4x2xi32>
+  // CHECK: return [[RES1]] : tensor<4x2xi32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for Conv (first with no bias) operation and all its attributes.
 //===----------------------------------------------------------------------===//
