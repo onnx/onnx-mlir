@@ -30,6 +30,16 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let dependentDialects = [
+    "AffineDialect",
+    "arith::ArithmeticDialect",
+    "func::FuncDialect",
+    "linalg::LinalgDialect",
+    "math::MathDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "shape::ShapeDialect",
+  ];
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
@@ -1134,7 +1144,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag, OptionalAttr<StrAttr>:$nodeName);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
