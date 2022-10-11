@@ -3379,7 +3379,7 @@ An operation that transforms data between different ONNX layout format.
 Currently, it supports transformations from standard format to a
 NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
 
-Opertions that transforms data from the same ONNX layout format are
+Operations that transforms data from the same ONNX layout format are
 considered as a no operation and will be removed.
 
 This operation is not part of the standard and was added to assit onnx-mlir.
@@ -3398,13 +3398,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `In` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxCand factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyKand factors 4, 4
+| `In` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxCand factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyKand factors 4, 4
+| `Out` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
 
 ### `onnx.LeakyRelu` (::mlir::ONNXLeakyReluOp)
 
