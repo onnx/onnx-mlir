@@ -40,6 +40,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     auto axis = concatOp.axis();
+    assert(axis >= 0 && "negative axis is supposed to have been normalized");
     unsigned int inputNum = operands.size();
 
     // Convert the output type to MemRefType.
@@ -57,7 +58,12 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     // Creates loops, one for each input.
+    // Since the each input should have same size for each dimension(except
+    // axis), we will try to make the loop upper bound the same for futher
+    // optimization. Difference may come from constant vs. dynamic, or dynamic
+    // dim of different inputs.
     KrnlBuilder createKrnl(rewriter, loc);
+    SmallVector<IndexExpr, 4> commonUB(shapeHelper.dimsForOutput());
     for (unsigned int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
@@ -66,7 +72,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       MemRefBoundsIndexCapture bounds(operands[i]);
       SmallVector<IndexExpr, 4> ubs;
       bounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      // For each input, only the dimension 'axis' is different
+      commonUB[axis] = ubs[axis];
+      createKrnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
