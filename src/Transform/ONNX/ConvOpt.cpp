@@ -265,7 +265,8 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   // unconditionally but the condition under which the operation is legal or not
   // is conditional. So we are all good here.
   populateWithGenerated(patterns);
-  patterns.insert<Conv1x1ToMatmulPattern>(context);
+  // hi alex: disable for window test
+  // patterns.insert<Conv1x1ToMatmulPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

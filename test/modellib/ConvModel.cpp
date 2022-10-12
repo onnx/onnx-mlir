@@ -244,7 +244,7 @@ bool Conv2DLibBuilder::verifyOutputs() {
                                    w * stride + kw * dilation - pWBegin}) *
                       omTensorGetElem<float>(filter, {co, ci, kh, kw});
         }
-  bool ok = areCloseFloat(res, ref, 1e-4, 1e-4);
+  bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
   return ok;
 }
