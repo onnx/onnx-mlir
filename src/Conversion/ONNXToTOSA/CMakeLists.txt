@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_onnx_mlir_library(OMONNXToTOSA
-  ConvertONNXToTOSA.cpp
-
   Math/Elementwise.cpp
   Tensor/Constant.cpp
+  NN/MaxPoolSingleOut.cpp
+
+
+  ConvertONNXToTOSA.cpp
+  ONNXToTosaUtils.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

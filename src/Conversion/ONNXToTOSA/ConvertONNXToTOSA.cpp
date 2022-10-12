@@ -24,8 +24,11 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-
+  // Tensor
   populateLoweringONNXConstOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  // NN
+  populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
 }
 

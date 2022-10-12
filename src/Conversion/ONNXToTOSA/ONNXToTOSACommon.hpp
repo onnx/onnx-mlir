@@ -26,6 +26,7 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
+#include "ONNXToTosaUtils.h"
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
@@ -64,4 +65,14 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(
 
 void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXConvOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXGemmOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 } // namespace onnx_mlir
