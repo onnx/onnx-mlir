@@ -24,6 +24,7 @@ MEMORY_IN_GB               = (os.sysconf('SC_PAGE_SIZE') *
 NPROC                      = str(math.ceil(min(max(2, MEMORY_IN_GB/8), os.cpu_count())))
 
 DOCKER_DEV_IMAGE_WORKDIR   = '/workdir'
+ONNX_MLIR_SOURCE           = '/workdir/onnx-mlir'
 ONNX_MLIR_HOME             = '/workdir/onnx-mlir/build/Debug'
 RUN_ONNX_MODEL_PY          = 'RunONNXModel.py'
 RUN_ONNX_MODELZOO_PY       = 'RunONNXModelZoo.py'
@@ -67,9 +68,12 @@ workspace_modelzoo_py      = os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_
 container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
 
 def main():
+    # Mount workspace into the container because the onnx-mlir source
+    # inside the dev image is owned by root, not jenkins.
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
             '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
+            '-v', workspace             + ':' + ONNX_MLIR_SOURCE,
             '-v', workspace_workdir     + ':' + container_workdir,
             '-v', workspace_reportdir   + ':' + container_reportdir,
             '-v', workspace_model_py    + ':' + container_model_py,
