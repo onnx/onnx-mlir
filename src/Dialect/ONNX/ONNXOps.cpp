@@ -3172,41 +3172,54 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDequantizeLinearOp::verify() {
-  ONNXDequantizeLinearOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.x()))
-    return success(); // Too early to verify.
+  auto xTy = x().getType().cast<ShapedType>();
+  auto scaleTy = x_scale().getType().cast<ShapedType>();
 
-  int64_t xRank = operandAdaptor.x().getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
-
-  if (optionalAxis.has_value()) {
-    // axis attribute must be in the range [-r,r-1], where r = rank(input).
-    int64_t axis = optionalAxis.value();
-    if (axis < -xRank || axis >= xRank)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "axis", axis,
-          onnx_mlir::Diagnostic::Range<int64_t>(-xRank, xRank - 1));
+  if (!isFromNone(x_zero_point())) {
+    auto zeroTy = x_zero_point().getType().cast<ShapedType>();
+    if (scaleTy.hasRank() && zeroTy.hasRank() && scaleTy.getShape() != zeroTy.getShape())
+      return emitOpError("x_scale and x_zero_scale must have the same shape");
+    if (xTy.getElementType() != zeroTy.getElementType())
+      return emitOpError("x and x_zero_scale must have the same data type");
+    if (zeroTy.getElementType().isInteger(32))
+      if (auto values = getDenseElementAttributeFromONNXValue(x_zero_point()))
+        if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
+          return emitOpError("x_zero_point must be 0 for data type int32");
   }
 
-  // TODO: check other input constraints.
+  if (!hasShapeAndRank(x_scale()))
+    return success(); // We cannot verify more until we know the rank of x_scale
+  int64_t scaleRank = scaleTy.getRank();
+  if (scaleRank > 1)
+    return emitOpError("x_scale must be a scalar or 1-D tensor");
+
+  // per-tensor / per layer quantization:
+  if (scaleRank == 0)
+    return success(); // Ignore axis. Nothing more to verify.
+
+  // per-axis quantization:
+  assert(scaleRank == 1 && "x_scale must have rank 1 at this point");
+  if (!hasShapeAndRank(x()))
+    return success(); // We cannot verify more until we know the rank of x
+  int64_t r = xTy.getRank();
+  // axis attribute must be in the range [-r,r-1].
+  int64_t a = axis();
+  if (a < -r || a >= r)
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+        *this->getOperation(), "axis", a,
+        onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
+  if (a < 0)
+    a += r;
+  if (!xTy.isDynamicDim(a) && !scaleTy.isDynamicDim(0) && xTy.getDimSize(a) != scaleTy.getDimSize(0))
+    return emitOpError("x_scale 1-D tensor length must match the input axis dim size");
 
   return success();
 }
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy) {
-    return success();
-  }
-
-  auto yTy = y().getType().cast<ShapedType>();
-
-  if (!yTy.hasStaticShape()) {
-    FloatType f32 = FloatType::getF32(getContext());
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), f32);
-    y().setType(outType);
-  }
+  if (auto xTy = x().getType().dyn_cast<RankedTensorType>())
+    updateType(y(), xTy.getShape());
 
   return success();
 }
