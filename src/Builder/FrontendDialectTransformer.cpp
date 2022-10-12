@@ -27,6 +27,7 @@
 
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -960,15 +961,15 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-    // types: Used for temporary copies of Types, freed at end of function.
-    std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
         std::min(func->input_size(), static_cast<int>(inputTypes.size()));
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
-      typeMap[input_name] = &inputTypes[i];
+      onnx_type_map.AddMapping(input_name, inputTypes[i]);
+      typeMap[input_name] = const_cast<onnx::TypeProto *>(
+          onnx_type_map.GetByOnnxName(input_name));
     }
 
     for (const onnx::NodeProto &n : func->node()) {
@@ -983,15 +984,11 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        std::unique_ptr<onnx::TypeProto> p =
-            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
-        typeMap[n.output(i)] = p.get();
-        types.push_back(std::move(p));
+        const std::string &output_name = n.output(i);
+        onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
+        typeMap[output_name] = const_cast<onnx::TypeProto *>(
+            onnx_type_map.GetByOnnxName(output_name));
       }
-    }
-
-    for (auto pair : typeMap) {
-      onnx_type_map.AddMapping(pair.first, *pair.second);
     }
   }
 
@@ -1212,7 +1209,7 @@ private:
 } // namespace onnx_mlir
 namespace onnx_mlir {
 
-void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
+bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
@@ -1225,7 +1222,14 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     }
   }
 
-  // Didnot do downward convert because support for BatchNorm is missing
+  if (options.allowSorting && !IsTopologicallySorted(model.graph())) {
+    if (!SortGraph(model.mutable_graph())) {
+      llvm::outs() << "The graph is not topologically sortable.\n";
+      return false;
+    }
+  }
+
+  // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
@@ -1238,6 +1242,7 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
       onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
+  return true;
 }
 
 // Return 0 on success, error otherwise.
@@ -1301,7 +1306,12 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       return InvalidOnnxFormat;
     }
   }
-  ImportFrontendModelInternal(model, context, module, options);
+
+  if (!ImportFrontendModelInternal(model, context, module, options)) {
+    *errorMessage = "Onnx Model Import Failed on " + model_fname.str();
+    return CompilerFailure;
+  }
+
   return CompilerSuccess;
 }
 

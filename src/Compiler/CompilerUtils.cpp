@@ -642,6 +642,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.allowSorting = allowSorting;
     options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
@@ -657,6 +658,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
