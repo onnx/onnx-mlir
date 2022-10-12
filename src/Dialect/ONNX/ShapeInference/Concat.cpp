@@ -39,12 +39,18 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
 
   // For Concat Op, the size of each dimension of inputs should be the same,
   // except for concatenated dimension. To simplify the result, constant
-  // size is used if there is one. Otherwise, the dimension of the last
+  // size is used if there is one. Otherwise, the dimension of the first
   // input tensor (implementation dependent) is used for the output tensor.
   DimsExpr outputDims(commonRank);
-  IndexExpr cumulativeAxisSize = LiteralIndexExpr(0);
-  SmallVector<bool, 4> isConstant(commonRank, false);
-  for (unsigned i = 0; i < numInputs; ++i) {
+  MemRefBoundsIndexCapture firstInputBounds(operandAdaptor.inputs()[0]);
+  for (unsigned dim = 0; dim < commonRank; dim++) {
+    outputDims[dim] = firstInputBounds.getDim(dim);
+  }
+  IndexExpr cumulativeAxisSize =
+      DimIndexExpr(firstInputBounds.getDim(axisIndex));
+
+  // Handle the rest of input
+  for (unsigned i = 1; i < numInputs; ++i) {
     Value currentInput = operandAdaptor.inputs()[i];
     MemRefBoundsIndexCapture currInputBounds(currentInput);
     for (unsigned dim = 0; dim < commonRank; dim++) {
@@ -52,16 +58,9 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
         DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
         cumulativeAxisSize = cumulativeAxisSize + currentSize;
       } else {
-        if (!isConstant[dim]) {
-          if (currInputBounds.getDim(dim).isLiteral()) {
-            // The size of current dimension of current input  is a constant
-            outputDims[dim] = currInputBounds.getDim(dim);
-            isConstant[dim] = true;
-          } else if (i == numInputs - 1) {
-            // If no constant dimension found for all the inputs, use the
-            // dynamic size of the last input.
-            outputDims[dim] = currInputBounds.getDim(dim);
-          }
+        if (currInputBounds.getDim(dim).isLiteral()) {
+          // The size of current dimension of current input  is a constant
+          outputDims[dim] = currInputBounds.getDim(dim);
         }
       }
     }
