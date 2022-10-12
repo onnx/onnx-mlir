@@ -3177,7 +3177,8 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
   if (!isFromNone(x_zero_point())) {
     auto zeroTy = x_zero_point().getType().cast<ShapedType>();
-    if (scaleTy.hasRank() && zeroTy.hasRank() && scaleTy.getShape() != zeroTy.getShape())
+    if (scaleTy.hasRank() && zeroTy.hasRank() &&
+        scaleTy.getShape() != zeroTy.getShape())
       return emitOpError("x_scale and x_zero_scale must have the same shape");
     if (xTy.getElementType() != zeroTy.getElementType())
       return emitOpError("x and x_zero_scale must have the same data type");
@@ -3210,8 +3211,10 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
         onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
   if (a < 0)
     a += r;
-  if (!xTy.isDynamicDim(a) && !scaleTy.isDynamicDim(0) && xTy.getDimSize(a) != scaleTy.getDimSize(0))
-    return emitOpError("x_scale 1-D tensor length must match the input axis dim size");
+  if (!xTy.isDynamicDim(a) && !scaleTy.isDynamicDim(0) &&
+      xTy.getDimSize(a) != scaleTy.getDimSize(0))
+    return emitOpError(
+        "x_scale 1-D tensor length must match the input axis dim size");
 
   return success();
 }
