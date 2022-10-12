@@ -3179,9 +3179,15 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     auto zeroTy = x_zero_point().getType().cast<ShapedType>();
     if (scaleTy.hasRank() && zeroTy.hasRank() &&
         scaleTy.getShape() != zeroTy.getShape())
-      return emitOpError("x_scale and x_zero_scale must have the same shape");
-    if (xTy.getElementType() != zeroTy.getElementType())
-      return emitOpError("x and x_zero_scale must have the same data type");
+      return emitOpError("x_scale and x_zero_point must have the same shape");
+
+    // TODO: figure out whether to introduce a variant of this check from the
+    // spec ("'x_zero_point' and 'x' must have same type") but is violated in
+    // in the resnet50-v1-12-qdq model where x, x_zero_point are i8, ui8.
+    //
+    // if (xTy.getElementType() != zeroTy.getElementType())
+    //   return emitOpError("x and x_zero_point must have the same data type");
+
     if (zeroTy.getElementType().isInteger(32))
       if (auto values = getDenseElementAttributeFromONNXValue(x_zero_point()))
         if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
@@ -3194,11 +3200,16 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   if (scaleRank > 1)
     return emitOpError("x_scale must be a scalar or 1-D tensor");
 
-  // per-tensor / per layer quantization:
+  // Per-tensor / per layer quantization, if x_scale is a scalar:
   if (scaleRank == 0)
     return success(); // Ignore axis. Nothing more to verify.
+  // Confusingly, scalars can also be expressed as singleton 1-D tensors (see
+  // example in issue #1784), so we so we stop verification here unless x_scale
+  // is a 1-D tensor with a known length != 1.
+  if (scaleRank == 1 && (scaleTy.isDynamicDim(0) || scaleTy.getDimSize(0) == 1))
+    return success();
 
-  // per-axis quantization:
+  // Per-axis quantization: if x_scale is a 1-D tensor:
   assert(scaleRank == 1 && "x_scale must have rank 1 at this point");
   if (!hasShapeAndRank(x()))
     return success(); // We cannot verify more until we know the rank of x
