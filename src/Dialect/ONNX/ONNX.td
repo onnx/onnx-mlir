@@ -9,7 +9,7 @@
 // Defines ONNX Dialect Definitions, Types, and Operations.
 //
 // When adding non-standard ONNX ops, please add them in AdditionalONNXOps.td.
-// After changes, run "make OMONNXOpsIncTranslation".
+// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_OPS
