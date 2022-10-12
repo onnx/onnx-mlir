@@ -13,6 +13,7 @@
 
 import argparse
 import difflib
+import json
 import logging
 import os
 import shutil
@@ -236,6 +237,7 @@ def clone_modelzoo_source(repo_url, work_dir):
 
     return repo_dir
 
+
 # It would have been much simpler if the ONNX_HUB_MANIFEST.json
 # has been kept up to date.
 def obtain_all_model_paths(repo_dir):
@@ -362,6 +364,107 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
 
     return state, model_name
 
+
+def output_json(report_dir, skipped_models, tested_models,
+                passed_models, failed_models, total_models):
+    json_file = os.path.join(report_dir, os.path.splitext(args.Html)[0] + '.json')
+    try:
+        with open(json_file, 'r') as jf:
+            hist = json.load(jf)
+        prev = hist[0]
+    except:
+        hist = []
+        prev = { 'commit':  '',
+                 'author':  '',
+                 'date':    '',
+                 'skipped': { 'models': [], 'entered': [], 'dropped': [] },
+                 'passed':  { 'models': [], 'entered': [], 'dropped': [] },
+                 'failed':  { 'models': [], 'entered': [], 'dropped': [] },
+                 'total':   { 'models': [], 'entered': [], 'dropped': [] } }
+
+    # Use git command since we don't have GitPython in the dev image
+    curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
+    try:
+        onnx_mlir_repo = '/workdir/onnx-mlir'
+        curr['commit'] = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%H'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+        curr['author'] = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%an <%ae>'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+        curr['date']   = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%ad'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+    except:
+        curr['commit'] = ''
+        curr['author'] = ''
+        curr['date']   = ''
+
+    curr['skipped']['models'] = skipped_models
+    curr['passed']['models']  = passed_models
+    curr['failed']['models']  = failed_models
+    curr['total']['models']   = total_models
+
+    curr['skipped']['entered'] = [ x for x in skipped_models if x not in prev['skipped']['models'] ]
+    curr['passed']['entered']  = [ x for x in passed_models  if x not in prev['passed']['models']  ]
+    curr['failed']['entered']  = [ x for x in failed_models  if x not in prev['failed']['models']  ]
+    curr['total']['entered']   = [ x for x in total_models   if x not in prev['total']['models']   ]
+
+    curr['skipped']['dropped'] = [ x for x in prev['skipped']['models'] if x not in skipped_models ]
+    curr['passed']['dropped']  = [ x for x in prev['passed']['models']  if x not in passed_models  ]
+    curr['failed']['dropped']  = [ x for x in prev['failed']['models']  if x not in failed_models  ]
+    curr['total']['dropped']   = [ x for x in prev['total']['models']   if x not in total_models   ]
+
+    # Keep last 100 commits
+    HIST_MAX = 100
+    with open(json_file, 'w') as jf:
+        json.dump([ curr ] + hist[:HIST_MAX-1], jf, indent=4)
+
+
+def output_html(report_dir, skipped_models, tested_models,
+                passed_models, failed_models, total_models):
+    html_file = os.path.join(report_dir, args.Html)
+    with open(html_file, 'w') as html:
+        html.write('<html>\n' +
+                   '<head>\n' +
+                   '<style>\n' +
+                   'table, th, td {\n' +
+                   '  border: 1px solid black;\n' +
+                   '  border-collapse: collapse;\n' +
+                   '  padding: 10px;\n' +
+                   '  vertical-align: top;\n' +
+                   '}\n' +
+                   'table.sticky {\n' +
+                   '  position: -webkit-sticky;\n' +
+                   '  position: sticky;\n' +
+                   '  top: 0;\n' +
+                   '  background-color: #FFF;\n' +
+                   '}\n' +
+                   '</style>\n' +
+                   '</head>\n' +
+                   '<body>\n' +
+                   '<table class="sticky">\n')
+        t = [ 'Skipped', 'Passed', 'Failed' ]
+        for i, s in enumerate([ skipped_models,
+                                list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
+                                         passed_models)),
+                                list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
+                                         failed_models)) ]):
+            html.write('  <tr>\n' +
+                       '    <td>{}</td>\n'.format(t[i]) +
+                       '    <td>{}</td>\n'.format(len(s)) +
+                       '    <td>{}</td>\n'.format(', '.join(s)) +
+                       '  </tr>\n')
+        h = os.path.basename(os.path.splitext(args.Html)[0] + '.json')
+        html.write('  <tr>\n' +
+                   '    <td>Total</td>\n' +
+                   '    <td>{}</td>\n'.format(len(skipped_models) +
+                                              len(tested_models)) +
+                   '    <td><a href="'+h+' target="output">history</a></td>\n' +
+                   '  </tr>\n' +
+                   '</table>\n' +
+                   '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
+                   '</body>\n' +
+                   '</html>\n')
+
+
 def main():
     work_dir = os.path.realpath(args.workdir)
     repo_dir = clone_modelzoo_source(ONNX_MODEL_ZOO_URL, work_dir)
@@ -412,49 +515,13 @@ def main():
     tested_models  = sorted({r[1] for r in results if r[0] != TEST_SKIPPED})
     passed_models  = sorted({r[1] for r in results if r[0] == TEST_PASSED})
     failed_models  = sorted({r[1] for r in results if r[0] == TEST_FAILED})
+    total_models   = sorted(skipped_models + tested_models)
 
     if args.Html:
-        with open(os.path.join(report_dir, args.Html), 'w') as html:
-            html.write('<html>\n' +
-                       '<head>\n' +
-                       '<style>\n' +
-                       'table, th, td {\n' +
-                       '  border: 1px solid black;\n' +
-                       '  border-collapse: collapse;\n' +
-                       '  padding: 10px;\n' +
-                       '  vertical-align: top;\n' +
-                       '}\n' +
-                       'table.sticky {\n' +
-                       '  position: -webkit-sticky;\n' +
-                       '  position: sticky;\n' +
-                       '  top: 0;\n' +
-                       '  background-color: #FFF;\n' +
-                       '}\n' +
-                       '</style>\n' +
-                       '</head>\n' +
-                       '<body>\n' +
-                       '<table class="sticky">\n')
-            t = [ 'Skipped', 'Passed', 'Failed' ]
-            for i, s in enumerate([ skipped_models,
-                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
-                                             passed_models)),
-                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
-                                             failed_models)) ]):
-                html.write('  <tr>\n' +
-                           '    <td>{}</td>\n'.format(t[i]) +
-                           '    <td>{}</td>\n'.format(len(s)) +
-                           '    <td>{}</td>\n'.format(', '.join(s)) +
-                           '  </tr>\n')
-            html.write('  <tr>\n' +
-                       '    <td>Total</td>\n' +
-                       '    <td>{}</td>\n'.format(len(skipped_models) +
-                                                  len(tested_models)) +
-                       '    <td></td>\n' +
-                       '  </tr>\n' +
-                       '</table>\n' +
-                       '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
-                       '</body>\n' +
-                       '</html>\n')
+        output_json(report_dir, skipped_models, tested_models,
+                    passed_models, failed_models, total_models)
+        output_html(report_dir, skipped_models, tested_models,
+                    passed_models, failed_models, total_models)
 
         # Output summary to stdout for the badge text
         print('Total:{} Skipped:{} Passed:{} Failed:{}'.format(
