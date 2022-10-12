@@ -163,6 +163,9 @@ add_onnx_mlir_library(OnnxMlirCompiler
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
   EXCLUDE_FROM_OM_LIBS
   
   LINK_LIBS PRIVATE
@@ -181,6 +184,7 @@ target_compile_definitions(PyCompile
   )
 target_include_directories(PyCompile
   PRIVATE
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   ${ONNX_MLIR_SRC_ROOT}/include
   )
 target_link_libraries(PyCompile
