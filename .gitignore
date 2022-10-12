@@ -186,16 +186,3 @@ dmypy.json
 
 # Visual Studio Code Files
 .vscode
-
-# Gnu Global
-GPATH
-GRTAGS
-GTAGS
-
-# Emacs save file
-
-\#*\#
-
-# MLIR files
-*.onnx.onnx.mlir
-*.tmp
