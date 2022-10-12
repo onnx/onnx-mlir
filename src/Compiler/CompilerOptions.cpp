@@ -195,6 +195,10 @@ llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
         "at runtime."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> allowSorting("allowSorting",
+    llvm::cl::desc("Allow onnx-mlir to perform topological sort on onnx graph"),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
