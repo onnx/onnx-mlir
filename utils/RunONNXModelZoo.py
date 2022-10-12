@@ -384,18 +384,10 @@ def output_json(report_dir, skipped_models, tested_models,
 
     # Use git command since we don't have GitPython in the dev image
     curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
-    try:
-        onnx_mlir_repo = '/workdir/onnx-mlir'
-        curr['commit'] = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%H'], cwd=onnx_mlir_repo).decode('utf-8').strip()
-        curr['author'] = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%an <%ae>'], cwd=onnx_mlir_repo).decode('utf-8').strip()
-        curr['date']   = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%ad'], cwd=onnx_mlir_repo).decode('utf-8').strip()
-    except:
-        curr['commit'] = ''
-        curr['author'] = ''
-        curr['date']   = ''
+
+    curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
+    curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
+    curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')
 
     curr['skipped']['models'] = skipped_models
     curr['passed']['models']  = passed_models

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import datetime
+import git
 import logging
 import math
 import os
@@ -68,12 +70,19 @@ workspace_modelzoo_py      = os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_
 container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
 
 def main():
-    # Mount workspace into the container because the onnx-mlir source
-    # inside the dev image is owned by root, not jenkins.
+    repo = git.Repo('.')
+    head_commit_hash = repo.head.commit.hexsha
+    head_commit_author = '{} <{}>'.format(
+        repo.head.commit.author.name, repo.head.commit.author.mail)
+    head_commit_date = datetime.datetime.utcfromtimestamp(
+        repo.head.commit.committed_date).isoformat() + 'Z'
+
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
-            '-e', 'ONNX_MLIR_HOME=' + ONNX_MLIR_HOME,
-            '-v', workspace             + ':' + ONNX_MLIR_SOURCE,
+            '-e', 'ONNX_MLIR_HOME="'               + ONNX_MLIR_HOME + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH="'   + head_commit_hash + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR="' + head_commit_author + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE="'   + head_commit_date +'"',
             '-v', workspace_workdir     + ':' + container_workdir,
             '-v', workspace_reportdir   + ':' + container_reportdir,
             '-v', workspace_model_py    + ':' + container_model_py,
