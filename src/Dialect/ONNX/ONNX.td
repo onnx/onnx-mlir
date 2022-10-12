@@ -9,7 +9,11 @@
 // Defines ONNX Dialect Definitions, Types, and Operations.
 //
 // When adding non-standard ONNX ops, please add them in AdditionalONNXOps.td.
+//
 // After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact the documentation of the ops, run
+// "make onnx-mlir-docs".
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_OPS

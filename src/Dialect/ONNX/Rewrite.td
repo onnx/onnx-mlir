@@ -396,7 +396,7 @@ def FuseCastCastPattern : Pat<
 // ONNX_Op (onnx.ONNXLayoutTransformOp (%X)) = ONNX_Op (%X) when input and
 // output layouts are identical
 def ONNXLayoutTransformEliminationPattern : Pat<
-	(ONNXLayoutTransformOp:$res $arg, $layout),
+	(ONNXLayoutTransformOp:$res $arg, $target_layout),
 	(replaceWithValue $arg),
   [(HaveSameONNXTensorDataLayout $res, $arg),
    (HaveSameElementType $res, $arg)]>;

@@ -4,6 +4,9 @@
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
 
+# After changes that impact the documentation of the ops, run
+# "make onnx-mlir-docs".
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

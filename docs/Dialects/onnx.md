@@ -3392,7 +3392,7 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-| `layout` | ::mlir::StringAttr | string attribute
+| `target_layout` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 

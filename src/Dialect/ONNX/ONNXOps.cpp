@@ -4446,10 +4446,10 @@ LogicalResult ONNXIsInfOp::inferShapes(
 //===------------------------------------------------------------------------===//
 
 void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
-    Value input, StringAttr layoutAttr) {
+    Value input, StringAttr targetLayoutAttr) {
   Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-      builder, input.getType(), layoutAttr);
-  build(builder, state, resType, input, layoutAttr);
+      builder, input.getType(), targetLayoutAttr);
+  build(builder, state, resType, input, targetLayoutAttr);
 }
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(

@@ -18,6 +18,10 @@
 //   of original ONNX ops. These ops may possibly be removed in the future.
 //   Example are ONNXBatchNormalizationInferenceModeOp, ...
 //
+// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact the documentation of the ops, run
+// "make onnx-mlir-docs".
+//
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
@@ -192,12 +196,12 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
       ONNXTensor_KCMN4C4K]>:$In,
-      DefaultValuedStrAttr<StrAttr, "STANDARD">:$layout
+      DefaultValuedStrAttr<StrAttr, "STANDARD">:$target_layout
       );
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
       ONNXTensor_KCMN4C4K]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>, // Defined layouts.
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$target_layout)>, // Defined layouts.
   ];
   let hasCanonicalizer = 1;
 }
