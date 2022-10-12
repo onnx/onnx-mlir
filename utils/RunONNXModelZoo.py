@@ -387,11 +387,11 @@ def output_json(report_dir, skipped_models, tested_models,
     try:
         onnx_mlir_repo = '/workdir/onnx-mlir'
         curr['commit'] = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%H'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+            ['git', 'log', '-1', '--format=%H'], cwd=onnx_mlir_repo).decode('utf-8').strip()
         curr['author'] = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%an <%ae>'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+            ['git', 'log', '-1', '--format=%an <%ae>'], cwd=onnx_mlir_repo).decode('utf-8').strip()
         curr['date']   = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%ad'], cwd=onnx-mlir_repo).decode('utf-8').strip()
+            ['git', 'log', '-1', '--format=%ad'], cwd=onnx_mlir_repo).decode('utf-8').strip()
     except:
         curr['commit'] = ''
         curr['author'] = ''
@@ -457,7 +457,7 @@ def output_html(report_dir, skipped_models, tested_models,
                    '    <td>Total</td>\n' +
                    '    <td>{}</td>\n'.format(len(skipped_models) +
                                               len(tested_models)) +
-                   '    <td><a href="'+h+' target="output">history</a></td>\n' +
+                   '    <td><a href="'+h+'" target="output">history</a></td>\n' +
                    '  </tr>\n' +
                    '</table>\n' +
                    '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
