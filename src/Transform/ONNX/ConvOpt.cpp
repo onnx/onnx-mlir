@@ -231,7 +231,7 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
+  target.addLegalDialect<ONNXDialect, arith::ArithDialect,
       func::FuncDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be

@@ -241,9 +241,9 @@ public:
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
 
     memref::AllocOp newStaticMemPoolAlloc =
-        (staticMemPoolAlloc.alignment().has_value())
+        (staticMemPoolAlloc.getAlignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
-                  staticMemPoolAlloc.alignment().value())
+                  staticMemPoolAlloc.getAlignment().value())
             : create.mem.alloc(bundledMemPoolMemRefType);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
@@ -461,10 +461,10 @@ public:
 
     // We need to emit a new alloc which contains the additional MemRef.
     memref::AllocOp bundledAlloc =
-        (oldDynamicMemoryPool.alignment().has_value())
+        (oldDynamicMemoryPool.getAlignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
                   bundledAllocOperand.getResult(),
-                  oldDynamicMemoryPool.alignment().value())
+                  oldDynamicMemoryPool.getAlignment().value())
             : create.mem.alloc(
                   bundledMemPoolMemRefType, bundledAllocOperand.getResult());
 
