@@ -365,6 +365,7 @@ def publish_modelzoo_report(badge) {
              * failing to run the model zoo test, the report is copied from the
              * already published report and then published again.
              */
+            /*
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
                 "${GITHUB_PR_PHRASE}" != 'publish' ||
                 "${currentBuild.currentResult}" != 'SUCCESS') {
@@ -374,6 +375,7 @@ def publish_modelzoo_report(badge) {
                     mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
                     rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
             }
+            */
 
             /* Publish the copied/generated report */
             publishHTML(target : [allowMissing:          true,
