@@ -1095,7 +1095,7 @@ private:
     onnx_type_map.popScope(func_name_prefix);
     onnx_type_map = std::move(callerTypeMap);
 
-    for (int i = 0; i < outputs.size(); ++i) {
+    for (size_t i = 0; i < outputs.size(); ++i) {
       const std::string &name = node.output(i);
       Value value = outputs[i];
       BindOnnxName(name, value);
