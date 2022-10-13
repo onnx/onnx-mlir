@@ -22,9 +22,11 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape(
   MemRefBoundsIndexCapture inputBounds(input);
   int64_t inputRank = inputBounds.getRank();
 
+  DimsExpr outputDims;
   for (int64_t i = 0; i < inputRank; ++i)
-    dimsForOutput().emplace_back(inputBounds.getDim(i));
+    outputDims.emplace_back(inputBounds.getDim(i));
 
+  setOutputDims(outputDims);
   return success();
 }
 

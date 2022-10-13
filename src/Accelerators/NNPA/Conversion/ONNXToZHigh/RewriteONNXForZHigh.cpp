@@ -28,6 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -59,41 +60,13 @@ Value getSqrtResultBatchNormA(
 // Reshape: B1xB2x...xBkxMxN to BxMxN
 Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  int64_t rank = getRank(val.getType());
-  assert(rank > 3 && "Require rank > 3");
-  ArrayRef<int64_t> shape = getShape(val.getType());
-  Type elementType = getElementType(val.getType());
-  Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-  Type twoI64Type = RankedTensorType::get({2}, rewriter.getI64Type());
-  Type threeI64Type = RankedTensorType::get({3}, rewriter.getI64Type());
+  return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
+}
 
-  Value shapeVal = create.onnx.shape(shapeType, val);
-
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value minusOne =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({-1})));
-  Value r2Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank - 2})));
-  Value rConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rank})));
-  Value lastTwoDimVal =
-      create.onnx.slice(twoI64Type, shapeVal, r2Const, rConst, zero, one);
-
-  IntegerAttr concatAxis =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-  // newShapeVal is [-1, M, N] where M and N are the last dims in the input.
-  Value newShapeVal = create.onnx.concat(
-      threeI64Type, ValueRange({minusOne, lastTwoDimVal}), concatAxis);
-
-  // Shape inference will infer the correct shape later.
-  return create.onnx.reshape(
-      RankedTensorType::get(
-          {-1, shape[rank - 2], shape[rank - 1]}, elementType),
-      val, newShapeVal);
+// Reshape: B1xB2x...xBkxM to BxM
+Value reshapeTo2DKeepLast(PatternRewriter &rewriter, Location loc, Value val) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  return create.onnx.reshapeToNDim(val, 2, /*collapseMostSignificant*/ true);
 }
 
 // Get a value that store the shape of the matmul result.
@@ -107,10 +80,6 @@ Value getMatMulResultShape(
   // rhs shape: B1xB2x...xBkxNxP or NxP
 
   int64_t rank = std::max(lhsRank, rhsRank);
-  IntegerAttr concatAxisAttr =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-
   Type rI64Type = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type lhsRType = RankedTensorType::get({lhsRank}, rewriter.getI64Type());
   Type lhsR1Type = RankedTensorType::get({lhsRank - 1}, rewriter.getI64Type());
@@ -121,16 +90,11 @@ Value getMatMulResultShape(
   Value lhsShape = create.onnx.shape(lhsRType, lhs);
   Value rhsShape = create.onnx.shape(rhsRType, rhs);
 
-  Value zero =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-  Value one =
-      create.onnx.constant(rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-  Value lhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 1})));
-  Value rhsRConst = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank})));
-  Value rhsR1Const = create.onnx.constant(
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 1})));
+  Value zero = create.onnx.constantInt64({0});
+  Value one = create.onnx.constantInt64({1});
+  Value lhsR1Const = create.onnx.constantInt64({lhsRank - 1});
+  Value rhsRConst = create.onnx.constantInt64({rhsRank});
+  Value rhsR1Const = create.onnx.constantInt64({rhsRank - 1});
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -143,21 +107,17 @@ Value getMatMulResultShape(
         create.onnx.slice(lhsR1Type, lhsShape, zero, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal =
-        create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), concatAxisAttr);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
-    Value lhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({lhsRank - 2})));
-    Value rhsR2Const = create.onnx.constant(
-        rewriter.getI64TensorAttr(ArrayRef<int64_t>({rhsRank - 2})));
+    Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
+    Value rhsR2Const = create.onnx.constantInt64({rhsRank - 2});
     Value bVal =
         create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
     Value mVal = create.onnx.slice(
         oneI64Type, lhsShape, lhsR2Const, lhsR1Const, zero, one);
     Value pVal = create.onnx.slice(
         oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
-    shapeVal = create.onnx.concat(
-        rI64Type, ValueRange({bVal, mVal, pVal}), concatAxisAttr);
+    shapeVal = create.onnx.concat(rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;
 }
@@ -230,12 +190,189 @@ bool isDefinedByONNXConstantOp(Value v) {
   return isa<ONNXConstantOp>(v.getDefiningOp());
 }
 
+bool CanExpandPowOpToMul(ONNXPowOp op) {
+  Value exponent = op.Y();
+  if (!isDefinedByONNXConstantOp(exponent))
+    return false;
+
+  auto constOp = dyn_cast<ONNXConstantOp>(exponent.getDefiningOp());
+  if (DenseElementsAttr dataAttr =
+          constOp.valueAttr().dyn_cast<DenseElementsAttr>()) {
+    if (dataAttr.getNumElements() == 1) {
+      Type elementType = dataAttr.getElementType();
+      if (elementType.isa<FloatType>()) {
+        auto valueIt = dataAttr.getValues<APFloat>().begin();
+        double val = (*valueIt).convertToDouble();
+        if (ceil(val) == val && val >= 0 && val <= 64)
+          return true;
+      }
+      if (elementType.isa<IntegerType>()) {
+        auto valueIt = dataAttr.getValues<APInt>().begin();
+        int64_t val = (*valueIt).getSExtValue();
+        if (val >= 0 && val <= 64)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
+//
+// Check if pads can be inferenced for ONNXConv op
+//
+bool canInferencePadsForNNPAConv(ONNXConvOp op) {
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
+  ONNXConvOpShapeHelper shapeHelper(&op);
+  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  return (shapeHelper.pads.size() == 4) &&
+         (llvm::all_of(
+             shapeHelper.pads, [](IndexExpr val) { return val.isLiteral(); }));
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
+  ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
+  ONNXConvOpShapeHelper shapeHelper(&op);
+  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  SmallVector<int64_t, 4> vals;
+  IndexExpr::getShape(shapeHelper.pads, vals);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
+// Pad a ArrayAttr with zeros.
+//
+// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
+//
+// becomes:
+//
+// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
+//         |_____|                  |_____|
+//                 nZeros                    nZeros
+//
+// This function is used for padding attribute in Conv.
+DenseElementsAttr insertZerosForNonPaddedDims(
+    PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
+  int nDims = (int)origAttrs.getValue().size() / 2;
+  int nElements = (nDims + extensionLength) * 2;
+  SmallVector<int64_t, 4> pads(nElements, 0);
+  for (int i = 0; i < nDims; ++i) {
+    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    int64_t endPad =
+        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
+    pads[i + extensionLength] = beginPad;
+    pads[nDims + extensionLength + i + extensionLength] = endPad;
+  }
+  return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
+}
+
+DenseElementsAttr createDenseFloatAttrOfValue(
+    PatternRewriter &rewriter, Value origValue, float constantValue) {
+  Type elementType = origValue.getType().cast<TensorType>().getElementType();
+  SmallVector<float, 1> wrapper(1, 0);
+  wrapper[0] = constantValue;
+  return DenseElementsAttr::get(
+      RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+ArrayAttr createArrayAttrOfZeros(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+  int nElements = origAttrs.getValue().size();
+  SmallVector<int64_t, 4> vals(nElements, 0);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
+// Create Type for Padded input
+Type CreatePaddedXType(Value x, ArrayAttr pads) {
+  RankedTensorType inputType = x.getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+  SmallVector<int64_t, 4> paddingShape(4, 0);
+  if (pads) {
+    for (int i = 0; i < 4; i++) {
+      paddingShape[i] = pads.getValue()[i].cast<IntegerAttr>().getInt();
+    }
+  }
+  SmallVector<int64_t, 4> paddedShape = {inputShape[0], inputShape[1],
+      inputShape[2] + paddingShape[0] + paddingShape[2],
+      inputShape[3] + paddingShape[1] + paddingShape[3]};
+  Type paddedType = RankedTensorType::get(paddedShape, elementType);
+  return paddedType;
+}
+
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
+
+struct ExpandPowToMulPattern : public ConversionPattern {
+  ExpandPowToMulPattern(MLIRContext *context)
+      : ConversionPattern(ONNXPowOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto powOp = llvm::dyn_cast<ONNXPowOp>(op);
+    Location loc = powOp.getLoc();
+    // Illegal conditions must be satisfied at this point.
+    assert(CanExpandPowOpToMul(powOp) && "Illegal conditions failed");
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value input = powOp.X();
+    int64_t exponent;
+
+    // Get the scalar integer exponent.
+    // powOp.Y() is exponent that must be a scalar integer tensor by the Match
+    // phase.
+    auto constOp = dyn_cast<ONNXConstantOp>(powOp.Y().getDefiningOp());
+    auto dataAttr = constOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    Type elementType = dataAttr.getElementType();
+    if (elementType.isa<FloatType>()) {
+      auto valueIt = dataAttr.getValues<APFloat>().begin();
+      exponent = (*valueIt).convertToDouble();
+      assert((ceil(exponent) == exponent && exponent <= 64) &&
+             "Exponent must be an integer and <= 64");
+    } else if (elementType.isa<IntegerType>()) {
+      auto valueIt = dataAttr.getValues<APInt>().begin();
+      exponent = (*valueIt).getSExtValue();
+      assert(exponent <= 64 && "Exponent must be an integer and <= 64");
+    } else
+      return failure();
+
+    Value result;
+    Type resultType = powOp.Z().getType();
+    if (exponent == 0) {
+      DenseElementsAttr valAttr;
+      if (elementType.isa<FloatType>())
+        valAttr = DenseElementsAttr::get(resultType, ArrayRef<float>({1.0}));
+      else if (elementType.isa<IntegerType>())
+        valAttr = DenseElementsAttr::get(resultType, ArrayRef<int64_t>({1}));
+      else
+        llvm_unreachable("Unsupported type");
+      result = create.onnx.constant(valAttr);
+    } else {
+      // calculate pow(input,exponent) with "exponentiation by squaring" method
+      bool result_initialized = false;
+      while (exponent > 0) {
+        if (exponent & 1) {
+          result = result_initialized
+                       ? create.onnx.mul(resultType, result, input)
+                       : input;
+          result_initialized = true;
+        }
+        input = create.onnx.mul(resultType, input, input);
+        exponent >>= 1;
+      }
+    }
+
+    rewriter.replaceOp(op, {result});
+    return success();
+  };
+};
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
@@ -266,19 +403,15 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
 
-  // Single ONNX to ZHigh operation lowering.
-  RewritePatternSet patterns(&getContext());
-  populateWithGenerated(patterns);
-
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
       &target, execNodesOnCpu);
 
-  // Legalize BinaryOp if one of the two inputs is a constant and unidirectional
-  // broadcastable to the other input. Rewrite patterns will be added to turn a
-  // broadcasting op into a non-broadcasting op.
+  // Illegalize BinaryOp if one of the two inputs is a constant and
+  // unidirectional broadcastable to the other input. Rewrite patterns will be
+  // added to turn a broadcasting op into a non-broadcasting op.
   //
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
@@ -307,7 +440,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
                  isUniBroadcatableFirstToSecond(op.B(), op.A())));
   });
 
-  // Legalize MatMulOp if
+  // Illegalize MatMulOp if
   // - both inputs are *the same* N-D, N > 3, or
   // - one input is N-D, N > 3 and the other is 2-D.
   // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
@@ -316,25 +449,6 @@ void RewriteONNXForZHighPass::runOnOperation() {
     Type aType = op.A().getType();
     Type bType = op.B().getType();
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
-      return true;
-
-    // Only support static shape at this moment though the code supports dynamic
-    // shape as well.
-    //
-    // The reason is that lowering (3Dx3D) ONNXMatMul of dynamic shape to NNPA
-    // led to wrong results for the bertsquad-12 model. In particular, the final
-    // output values were shifted, e.g.
-    // clang-format off
-    // at (0, 252) mismatch -0.7646484375 (actual) vs -6.084146022796631 (reference)
-    // at (0, 253) mismatch -0.7646484375 (actual) vs -6.100776195526123 (reference)
-    // at (0, 254) mismatch -0.7646484375 (actual) vs -6.13942813873291 (reference)
-    // at (0, 255) mismatch -0.7646484375 (actual) vs -6.0835771560668945 (reference)
-    // clang-format on
-    //
-    // It is unclear why it happened to dynamic shape.
-    // There is no accuracy issue if (3Dx3D) ONNXMatMul runs on CPU or has
-    // static shape.
-    if (!hasStaticShape(aType) || !hasStaticShape(bType))
       return true;
 
     int64_t aRank = getRank(aType);
@@ -348,6 +462,37 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
     return true;
   });
+
+  // Illegalize PowOp if
+  // - exponent is a scalar integer, and
+  // - exponent is <= 64.
+  // This PowOp will be rewritten by using multiple MulOp.
+  target.addDynamicallyLegalOp<ONNXPowOp>(
+      [](ONNXPowOp op) { return !CanExpandPowOpToMul(op); });
+
+  // Illegalize SoftmaxOp if
+  // - axis is the last dimension.
+  // This SoftmaxOp will be rewritten in which its input is reshaped to 2D.
+  target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
+    Value input = op.input();
+    if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
+      if ((shapedType.getRank() > 2) &&
+          ((op.axis() == shapedType.getRank() - 1) || (op.axis() == -1))) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
+    return isSuitableForZDNN<ONNXConvOp>(op) ||
+           !canInferencePadsForNNPAConv(op);
+  });
+
+  // Single ONNX to ZHigh operation lowering.
+  RewritePatternSet patterns(&getContext());
+  populateWithGenerated(patterns);
+  patterns.insert<ExpandPowToMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

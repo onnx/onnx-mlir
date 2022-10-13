@@ -59,7 +59,7 @@ jobs:
       targetType: 'inline'
       script: |
         echo "Install protobuf python package"
-        python3 -m pip install protobuf==3.16
+        python3 -m pip install protobuf==3.18.3
 
   - powershell: |
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
@@ -112,7 +112,7 @@ jobs:
     artifact: $(MLIRArtifactName)
     displayName: Publish mlir artifact
     condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
-      
+
   - task: DownloadPipelineArtifact@2
     inputs:
       source: specific
@@ -124,6 +124,15 @@ jobs:
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
     condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      cd onnx-mlir\third_party\onnx
+      python -m pip install .
+    env:
+      CMAKE_ARGS: -DCMAKE_PREFIX_PATH="$(Agent.BuildDirectory)\protobuf_install" -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_MSVC_STATIC_RUNTIME=OFF
+    displayName: Install onnx
+    workingDirectory: $(Agent.BuildDirectory)
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -146,15 +155,6 @@ jobs:
     workingDirectory: $(Agent.BuildDirectory)
     env:
       CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
-
-  - script: |
-      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      cd onnx-mlir\third_party\onnx
-      python setup.py -q install
-    env:
-      CMAKE_ARGS: -DCMAKE_PREFIX_PATH="$(Agent.BuildDirectory)\protobuf_install" -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_MSVC_STATIC_RUNTIME=OFF
-    displayName: Install onnx
-    workingDirectory: $(Agent.BuildDirectory)
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64

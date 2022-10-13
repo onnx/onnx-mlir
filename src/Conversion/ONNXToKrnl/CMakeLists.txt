@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
+  ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
   Math/CumSum.cpp
@@ -35,12 +36,13 @@ add_onnx_mlir_library(OMONNXToKrnl
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
   ConvertONNXToKrnl.cpp
-  Tensor/ArgMax.cpp
+  Tensor/ArgMinMax.cpp
   Tensor/Compress.cpp  
   Tensor/Concat.cpp
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/DepthToSpace.cpp
+  Tensor/Dim.cpp
   Tensor/Expand.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp

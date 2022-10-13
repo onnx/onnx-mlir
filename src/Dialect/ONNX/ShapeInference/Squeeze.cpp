@@ -40,7 +40,7 @@ LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
       outputDims.emplace_back(dataBounds.getDim(i));
 
   // Save the final result.
-  shapeHelper->dimsForOutput() = outputDims;
+  shapeHelper->setOutputDims(outputDims);
 
   return success();
 }
@@ -63,8 +63,8 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape(
     ONNXSqueezeV11OpAdaptor operandAdaptor) {
   auto axesAttr = op->axes();
   SmallVector<IndexExpr, 4> indexExprArray;
-  if (axesAttr.hasValue()) {
-    ArrayAttributeIndexCapture axesCapture(axesAttr.getValue());
+  if (axesAttr.has_value()) {
+    ArrayAttributeIndexCapture axesCapture(axesAttr.value());
     auto axesRank = axesCapture.size();
     for (unsigned i = 0; i < axesRank; ++i) {
       indexExprArray.emplace_back(axesCapture.getLiteral(i));

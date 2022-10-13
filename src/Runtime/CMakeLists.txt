@@ -109,6 +109,7 @@ target_link_libraries(PyRuntime
   PRIVATE
   ExecutionSession
   )
+llvm_update_compile_flags(PyRuntime)
 
 install(TARGETS PyRuntime
   DESTINATION lib

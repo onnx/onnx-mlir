@@ -192,17 +192,21 @@ struct SoftmaxPattern : public ConversionPattern {
   }
 };
 
+#ifdef ONNX_MLIR_ENABLE_MHLO
 void populateDecomposingONNXBeforeMhloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<SoftmaxPattern>(ctx);
 }
+#endif
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   DecomposeONNXToONNXPass() = default;
-  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass) {}
+  DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
+      : mlir::PassWrapper<DecomposeONNXToONNXPass,
+            OperationPass<func::FuncOp>>() {}
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -244,18 +248,23 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXScatterOp>();
   target.addIllegalOp<ONNXSequenceConstructOp>();
+  target.addIllegalOp<ONNXSplitV11Op>();
+  target.addIllegalOp<ONNXSqueezeV11Op>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
+  target.addIllegalOp<ONNXUnsqueezeV11Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
 
+#ifdef ONNX_MLIR_ENABLE_MHLO
   if (this->target == "mhlo") {
     populateDecomposingONNXBeforeMhloPatterns(patterns, context);
     target.addIllegalOp<ONNXSoftmaxOp>();
   }
+#endif
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

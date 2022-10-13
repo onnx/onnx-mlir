@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
@@ -59,6 +60,93 @@ ZHighOpShapeHelper<OP>::ZHighOpShapeHelper(OP *newOp, int numResults,
       res = getDenseElementAttributeFromONNXValue(array);
     return res;
   };
+}
+
+//===----------------------------------------------------------------------===//
+// StickOp
+//===----------------------------------------------------------------------===//
+
+ZHighStickOpShapeHelper::ZHighStickOpShapeHelper(ZHighStickOp *newOp)
+    : ZHighOpShapeHelper<ZHighStickOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
+
+ZHighStickOpShapeHelper::ZHighStickOpShapeHelper(
+    ZHighStickOp *newOp, OpBuilder *rewriter)
+    : ZHighOpShapeHelper<ZHighStickOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, nullptr, nullptr) {}
+
+LogicalResult ZHighStickOpShapeHelper::computeShape(
+    ZHighStickOpAdaptor operandAdaptor) {
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  Value input = operandAdaptor.In();
+  MemRefBoundsIndexCapture inBounds(input);
+  int64_t rank = inBounds.getRank();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inBounds.getDim(i));
+
+  // Direct stickify from NCHW to NHWC.
+  if (isNHWCLayout(op->layoutAttr())) {
+    assert((rank == 4) && "Stickify input must have rank 4");
+    // NCHW -> NHWC
+    outputDims[0] = inBounds.getDim(0);
+    outputDims[1] = inBounds.getDim(2);
+    outputDims[2] = inBounds.getDim(3);
+    outputDims[3] = inBounds.getDim(1);
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// UnstickOp
+//===----------------------------------------------------------------------===//
+
+ZHighUnstickOpShapeHelper::ZHighUnstickOpShapeHelper(
+    ZHighUnstickOp *newOp, StringAttr layout)
+    : ZHighOpShapeHelper<ZHighUnstickOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      layout(layout) {}
+
+ZHighUnstickOpShapeHelper::ZHighUnstickOpShapeHelper(
+    ZHighUnstickOp *newOp, OpBuilder *rewriter, StringAttr layout)
+    : ZHighOpShapeHelper<ZHighUnstickOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, nullptr, nullptr),
+      layout(layout) {}
+
+LogicalResult ZHighUnstickOpShapeHelper::computeShape(
+    ZHighUnstickOpAdaptor operandAdaptor) {
+  OpBuilder b(op->getOperation());
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  Value input = operandAdaptor.In();
+  MemRefBoundsIndexCapture inBounds(input);
+  int64_t rank = inBounds.getRank();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inBounds.getDim(i));
+
+  // Direct unstickify from NHWC to NCHW.
+  if (isNHWCLayout(layout)) {
+    assert((rank == 4) && "Unstickify input must have rank 4");
+    // NHWC -> NCHW
+    outputDims[0] = inBounds.getDim(0);
+    outputDims[1] = inBounds.getDim(3);
+    outputDims[2] = inBounds.getDim(1);
+    outputDims[3] = inBounds.getDim(2);
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

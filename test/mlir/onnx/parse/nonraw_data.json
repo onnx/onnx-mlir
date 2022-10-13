@@ -1,0 +1,504 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// nonraw_data.json is an onnx model that outputs 11 constant tensors with different data types
+
+// json is generated with utils/testing/x_data.py nonraw
+{
+  "irVersion": "8",
+  "graph": {
+    "node": [
+      {
+        "output": [
+          "output0"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 1,
+              "floatData": [
+                1.0,
+                0.0,
+                1.0
+              ],
+              "name": "tensor0"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output1"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 2,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor1"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output2"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 3,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor2"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output3"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 4,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor3"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output4"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 5,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor4"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output5"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 6,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor5"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output6"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 7,
+              "int64Data": [
+                "1",
+                "0",
+                "1"
+              ],
+              "name": "tensor6"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output7"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 9,
+              "int32Data": [
+                1,
+                0,
+                1
+              ],
+              "name": "tensor7"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output8"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 10,
+              "int32Data": [
+                15360,
+                0,
+                15360
+              ],
+              "name": "tensor8"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output9"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 11,
+              "name": "tensor9",
+              "doubleData": [
+                1.0,
+                0.0,
+                1.0
+              ]
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output10"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 12,
+              "name": "tensor10",
+              "uint64Data": [
+                "1",
+                "0",
+                "1"
+              ]
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output11"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "3"
+              ],
+              "dataType": 13,
+              "name": "tensor11",
+              "uint64Data": [
+                "1",
+                "0",
+                "1"
+              ]
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "rawdata",
+    "output": [
+      {
+        "name": "output0",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output1",
+        "type": {
+          "tensorType": {
+            "elemType": 2,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output2",
+        "type": {
+          "tensorType": {
+            "elemType": 3,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output3",
+        "type": {
+          "tensorType": {
+            "elemType": 4,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output4",
+        "type": {
+          "tensorType": {
+            "elemType": 5,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output5",
+        "type": {
+          "tensorType": {
+            "elemType": 6,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output6",
+        "type": {
+          "tensorType": {
+            "elemType": 7,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output7",
+        "type": {
+          "tensorType": {
+            "elemType": 9,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output8",
+        "type": {
+          "tensorType": {
+            "elemType": 10,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output9",
+        "type": {
+          "tensorType": {
+            "elemType": 11,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output10",
+        "type": {
+          "tensorType": {
+            "elemType": 12,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output11",
+        "type": {
+          "tensorType": {
+            "elemType": 13,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "16"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {input_names = [], output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10", "output11"]} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf32>} : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui8>} : () -> tensor<3xui8>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi8>} : () -> tensor<3xi8>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui16>} : () -> tensor<3xui16>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi16>} : () -> tensor<3xi16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi32>} : () -> tensor<3xi32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xi64>} : () -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Constant"() {value = dense<[true, false, true]> : tensor<3xi1>} : () -> tensor<3xi1>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf16>} : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf64>} : () -> tensor<3xf64>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui32>} : () -> tensor<3xui32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<[1, 0, 1]> : tensor<3xui64>} : () -> tensor<3xui64>
+// CHECK:           return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0, [[VAR_1_]]1 : tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>
+// CHECK:         }
