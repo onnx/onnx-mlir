@@ -255,6 +255,33 @@ func.func @test_matmul_10(%arg0 : tensor<?x42x32xf32>, %arg1 : tensor<32xf32>) -
 
 // -----
 
+/// QLinearMatMul
+
+func.func @test_qlinearmatmul_1(%arg0: tensor<2x2x4xui8>, %arg1: tensor<1xf32>, %arg2: tensor<1xui8>, %arg3: tensor<2x4x3xui8>, %arg4: tensor<1xf32>, %arg5: tensor<1xui8>, %arg6: tensor<1xf32>, %arg7: tensor<1xui8>) -> tensor<*xui8> {
+  %0 = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<2x2x4xui8>, tensor<1xf32>, tensor<1xui8>, tensor<2x4x3xui8>, tensor<1xf32>, tensor<1xui8>, tensor<1xf32>, tensor<1xui8>) -> tensor<*xui8>
+  "func.return"(%0) : (tensor<*xui8>) -> ()
+
+
+  // CHECK-LABEL: test_qlinearmatmul_1
+  // CHECK: [[RES1:%.+]] = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<2x2x4xui8>, tensor<1xf32>, tensor<1xui8>, tensor<2x4x3xui8>, tensor<1xf32>, tensor<1xui8>, tensor<1xf32>, tensor<1xui8>) -> tensor<2x2x3xui8>
+  // CHECK: return [[RES1]] : tensor<2x2x3xui8>
+}
+
+// -----
+
+/// MatMulInteger
+
+func.func @test_matmulinteger_1(%arg0: tensor<4x3xui8>, %arg1: tensor<3x2xui8>, %arg2: tensor<1xui8>, %arg3: tensor<1xui8>) -> tensor<*xi32> {
+    %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<*xi32>
+    return %0 : tensor<*xi32>
+
+  // CHECK-LABEL: test_matmulinteger_1
+  // CHECK: [[RES1:%.+]] = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<4x2xi32>
+  // CHECK: return [[RES1]] : tensor<4x2xi32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for Conv (first with no bias) operation and all its attributes.
 //===----------------------------------------------------------------------===//
@@ -795,6 +822,19 @@ func.func @test_concat_3(%arg0 : tensor<5x1x32xf32>, %arg1 : tensor<5x3x32xf32>,
   // CHECK: [[RES:%.+]] = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x1x32xf32>, tensor<5x3x32xf32>, tensor<5x5x32xf32>) -> tensor<5x9x32xf32>
   // CHECK: return [[RES]] : tensor<5x9x32xf32>
 }
+
+// -----
+
+func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, %arg2 : tensor<?x5x?xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -2 : si64} : (tensor<?x1x?xf32>, tensor<?x3x32xf32>, tensor<?x5x?xf32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  func.func @test_concat_4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32>, [[PARAM_1_:%.+]]: tensor<?x3x32xf32>, [[PARAM_2_:%.+]]: tensor<?x5x?xf32>) -> tensor<?x9x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64} : (tensor<?x1x?xf32>, tensor<?x3x32xf32>, tensor<?x5x?xf32>) -> tensor<?x9x32xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x9x32xf32>
+// CHECK:         }
+}
+
 
 // -----
 
