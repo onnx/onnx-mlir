@@ -3172,60 +3172,75 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDequantizeLinearOp::verify() {
-  auto xTy = x().getType().cast<ShapedType>();
-  auto scaleTy = x_scale().getType().cast<ShapedType>();
+  // Is tensor known to be a scalar (rank 0 or rank 1 with 1 element)?
+  auto isScalar = [](RankedTensorType t) {
+    return t.getRank() == 0 || (t.getRank() == 1 && t.getDimSize(0) == 1);
+  };
+  // Is tensor known to be a non-scalar 1-D vector (longer than 1)?
+  auto isNonScalar1D = [](RankedTensorType t) {
+    return t.getRank() == 1 && t.getDimSize(0) > 1;
+  };
 
-  if (!isFromNone(x_zero_point())) {
-    auto zeroTy = x_zero_point().getType().cast<ShapedType>();
-    if (scaleTy.hasRank() && zeroTy.hasRank() &&
-        scaleTy.getShape() != zeroTy.getShape())
-      return emitOpError("x_scale and x_zero_point must have the same shape");
+  Value scale = x_scale();
+  Value zero = x_zero_point();
+  if (!isFromNone(zero)) {
+    if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
+      if (zeroTy.getRank() > 1)
+        return emitOpError("x_zero_point must be a scalar or 1-D tensor");
+      if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
+        if ((isScalar(scaleTy) && isNonScalar1D(zeroTy)) ||
+            (isNonScalar1D(scaleTy) && isScalar(zeroTy)) ||
+            (isNonScalar1D(scaleTy) && isNonScalar1D(zeroTy) &&
+                scaleTy.getDimSize(0) != zeroTy.getDimSize(0)))
+          return emitOpError(
+              "x_scale and x_zero_point must have the same shape");
+      }
+    }
 
-    // TODO: figure out whether to introduce a variant of this check from the
-    // spec ("'x_zero_point' and 'x' must have same type") but is violated in
+    // TODO: Figure out whether to introduce a variant of this check from the
+    // spec ("'x_zero_point' and 'x' must have same type"). It is violated in
     // in the resnet50-v1-12-qdq model where x, x_zero_point are i8, ui8.
     //
-    // if (xTy.getElementType() != zeroTy.getElementType())
+    // if (getElementType(x().getType()) != getElementType(zero.getType()))
     //   return emitOpError("x and x_zero_point must have the same data type");
 
-    if (zeroTy.getElementType().isInteger(32))
-      if (auto values = getDenseElementAttributeFromONNXValue(x_zero_point()))
+    if (getElementType(zero.getType()).isInteger(32))
+      if (auto values = getDenseElementAttributeFromONNXValue(zero))
         if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
           return emitOpError("x_zero_point must be 0 for data type int32");
   }
 
-  if (!hasShapeAndRank(x_scale()))
-    return success(); // We cannot verify more until we know the rank of x_scale
-  int64_t scaleRank = scaleTy.getRank();
-  if (scaleRank > 1)
-    return emitOpError("x_scale must be a scalar or 1-D tensor");
+  if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
+    if (scaleTy.getRank() > 1)
+      return emitOpError("x_scale must be a scalar or 1-D tensor");
 
-  // Per-tensor / per layer quantization, if x_scale is a scalar:
-  if (scaleRank == 0)
-    return success(); // Ignore axis. Nothing more to verify.
-  // Confusingly, scalars can also be expressed as singleton 1-D tensors (see
-  // example in issue #1784), so we so we stop verification here unless x_scale
-  // is a 1-D tensor with a known length != 1.
-  if (scaleRank == 1 && (scaleTy.isDynamicDim(0) || scaleTy.getDimSize(0) == 1))
-    return success();
+    // If x_scale is a scalar then quantization is per-tensor / per layer.
+    if (isScalar(scaleTy))
+      return success(); // Ignore axis. Nothing more to verify.
 
-  // Per-axis quantization: if x_scale is a 1-D tensor:
-  assert(scaleRank == 1 && "x_scale must have rank 1 at this point");
-  if (!hasShapeAndRank(x()))
-    return success(); // We cannot verify more until we know the rank of x
-  int64_t r = xTy.getRank();
-  // axis attribute must be in the range [-r,r-1].
-  int64_t a = axis();
-  if (a < -r || a >= r)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *this->getOperation(), "axis", a,
-        onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
-  if (a < 0)
-    a += r;
-  if (!xTy.isDynamicDim(a) && !scaleTy.isDynamicDim(0) &&
-      xTy.getDimSize(a) != scaleTy.getDimSize(0))
-    return emitOpError(
-        "x_scale 1-D tensor length must match the input axis dim size");
+    if (!isNonScalar1D(scaleTy))
+      return success(); // Cannot verify more until known if x_scale is scalar.
+
+    // If x_scale is a non-scalar 1-D tensor then quantization is per-axis.
+    if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
+      int64_t r = xTy.getRank();
+      // axis attribute must be in the range [-r,r-1].
+      int64_t a = axis();
+      if (a < -r || a >= r)
+        return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+            *this->getOperation(), "axis", a,
+            onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
+      if (a < 0)
+        a += r;
+      if (!xTy.isDynamicDim(a) && xTy.getDimSize(a) != scaleTy.getDimSize(0))
+        return emitOpError(
+            "x_scale 1-D tensor length must match the input axis dim size");
+    } else {
+      // Cannot verify more until x rank is known.
+    }
+  } else {
+    // Cannot verify more until x_scale rank is known.
+  }
 
   return success();
 }
