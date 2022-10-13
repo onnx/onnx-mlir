@@ -40,6 +40,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     auto axis = concatOp.axis();
+    assert(axis >= 0 && "negative axis is supposed to have been normalized");
     unsigned int inputNum = operands.size();
 
     // Convert the output type to MemRefType.
@@ -57,8 +58,18 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     // Creates loops, one for each input.
+    // Since the each input should have same size for each dimension(except
+    // axis), we will try to make the loop upper bound the same for futher
+    // optimization. Difference may come from constant vs. dynamic, or dynamic
+    // dim of different inputs.
     KrnlBuilder createKrnl(rewriter, loc);
+    SmallVector<IndexExpr, 4> commonUB(shapeHelper.dimsForOutput());
+    // IndexExprScope IEScope(&rewriter, loc);
+    IndexExpr accumulatedOffset = LiteralIndexExpr(0);
     for (unsigned int i = 0; i < inputNum; ++i) {
+      // Since the acculatedOffsetValue will be used in a nested IndexExprScope,
+      // we get the Value of this IndexExpr and pass it as a symbol
+      Value accumulatedOffsetValue = accumulatedOffset.getValue();
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       ValueRange loopDef = createKrnl.defineLoops(rank);
@@ -66,7 +77,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       MemRefBoundsIndexCapture bounds(operands[i]);
       SmallVector<IndexExpr, 4> ubs;
       bounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      // For each input, only the dimension 'axis' is different
+      commonUB[axis] = ubs[axis];
+      createKrnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
@@ -76,10 +89,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
               else {
                 IndexExprScope IEScope(&rewriter, loc);
                 IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
-                for (unsigned int j = 0; j < i; j++) {
-                  MemRefBoundsIndexCapture operandJBounds(operands[j]);
-                  writeOffset = writeOffset + operandJBounds.getDim(r);
-                }
+                IndexExpr accumulatedOffsetIE =
+                    SymbolIndexExpr(accumulatedOffsetValue);
+                writeOffset = writeOffset + accumulatedOffsetIE;
                 writeIndices.emplace_back(writeOffset.getValue());
               }
             }
@@ -87,6 +99,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
             Value loadData = createKrnl.load(operands[i], loopInd);
             createKrnl.store(loadData, alloc, writeIndices);
           });
+      MemRefBoundsIndexCapture operandJBounds(operands[i]);
+      accumulatedOffset = accumulatedOffset + operandJBounds.getDim(axis);
     }
     rewriter.replaceOp(op, alloc);
     return success();
