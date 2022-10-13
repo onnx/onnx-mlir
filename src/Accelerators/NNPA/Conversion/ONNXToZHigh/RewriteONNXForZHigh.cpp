@@ -229,9 +229,8 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   return (shapeHelper.pads.size() == 4) &&
          (llvm::all_of(shapeHelper.pads,
              [](IndexExpr val) { return val.isLiteral(); })) &&
-         (op.auto_pad() != "VALID") &&
-         (inputShape.size() == 4) && (inputShape[1] > 0) &&
-         (inputShape[2] > 0) && (inputShape[3] > 0);
+         (op.auto_pad() != "VALID") && (inputShape.size() == 4) &&
+         (inputShape[1] > 0) && (inputShape[2] > 0) && (inputShape[3] > 0);
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
