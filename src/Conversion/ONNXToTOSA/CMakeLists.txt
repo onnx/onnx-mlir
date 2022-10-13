@@ -2,6 +2,7 @@
 
 add_onnx_mlir_library(OMONNXToTOSA
   ConvertONNXToTOSA.cpp
+  ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
 

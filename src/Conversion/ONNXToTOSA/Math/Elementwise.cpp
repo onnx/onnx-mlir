@@ -14,6 +14,7 @@
 
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 
 using namespace mlir;
 
@@ -79,13 +80,58 @@ public:
   }
 };
 
+class ONNXLeakyReluOpLoweringToTOSA
+    : public OpConversionPattern<ONNXLeakyReluOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  using OpAdaptor = ONNXLeakyReluOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    TensorType outputType = op.getResult().getType().dyn_cast<TensorType>();
+
+    if (!outputType.getElementType().isF32()) {
+      return rewriter.notifyMatchFailure(op, "Only float is supported");
+    }
+
+    FloatAttr alphaAttr = adaptor.alphaAttr();
+
+    double alpha = 0.01;
+
+    if (alphaAttr) {
+      alpha = alphaAttr.getValueAsDouble();
+    }
+
+    Value constZero = tosa::getTosaConstTensorSingleF32(
+        rewriter, op, 0.0, outputType.getShape());
+
+    auto mul = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, op.getLoc(),
+        outputType, adaptor.X(),
+        tosa::getTosaConstTensorSingleF32(
+            rewriter, op, alpha, outputType.getShape()),
+        0);
+
+    auto greaterEqual = tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter,
+        op.getLoc(), UnrankedTensorType::get(rewriter.getI1Type()), adaptor.X(),
+        constZero);
+
+    auto select = tosa::CreateOpAndInfer<tosa::SelectOp>(rewriter, op.getLoc(),
+        outputType, greaterEqual, adaptor.X(), mul.getResult());
+
+    rewriter.replaceOp(op, {select.getResult()});
+
+    return success();
+  }
+};
+
 } // namespace
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
-      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
+      ONNXLeakyReluOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
