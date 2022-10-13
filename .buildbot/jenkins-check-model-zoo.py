@@ -41,11 +41,13 @@ github_pr_baseref2         = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number           = os.getenv('GITHUB_PR_NUMBER')
 jenkins_home               = os.getenv('JENKINS_HOME')
 job_name                   = os.getenv('JOB_NAME')
-workspace                  = os.getenv('WORKSPACE')
+workspace_dir              = os.getenv('WORKSPACE')
+
 modelzoo_workdir           = os.getenv('MODELZOO_WORKDIR')
 modelzoo_reportdir         = os.getenv('MODELZOO_REPORTDIR')
 modelzoo_html              = os.getenv('MODELZOO_HTML')
 modelzoo_stdout            = os.getenv('MODELZOO_STDOUT')
+modelzoo_publishdir        = os.getenv('MODELZOO_PUBLISHDIR')
 
 docker_dev_image_name      = (github_repo_name + '-dev' +
                               ('.' + github_pr_baseref2
@@ -57,41 +59,47 @@ docker_dev_image_full      = ((docker_registry_host_name +
                                '/' if docker_registry_user_name else '') +
                               docker_dev_image_name + ':' + docker_dev_image_tag)
 
-workspace_workdir          = os.path.join(workspace, modelzoo_workdir)
+workspace_workdir          = os.path.join(workspace_dir, modelzoo_workdir)
 container_workdir          = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)
 
-workspace_reportdir        = os.path.join(workspace, modelzoo_reportdir)
+workspace_reportdir        = os.path.join(workspace_dir, modelzoo_reportdir)
 container_reportdir        = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_reportdir)
 
-workspace_model_py         = os.path.join(workspace, 'utils', RUN_ONNX_MODEL_PY)
+workspace_model_py         = os.path.join(workspace_dir, 'utils', RUN_ONNX_MODEL_PY)
 container_model_py         = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODEL_PY)
 
-workspace_modelzoo_py      = os.path.join(workspace, 'utils', RUN_ONNX_MODELZOO_PY)
+workspace_modelzoo_py      = os.path.join(workspace_dir, 'utils', RUN_ONNX_MODELZOO_PY)
 container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
+
+workspace_publishdir       = modelzoo_publishdir
+container_publishdir       = os.path.join(DOCKER_DEV_IMAGE_WORKDIR,
+                                          os.path.split(modelzoo_publishdir)[1])
 
 def main():
     repo = git.Repo('.')
     head_commit_hash = repo.head.commit.hexsha
     head_commit_author = '{} <{}>'.format(
-        repo.head.commit.author.name, repo.head.commit.author.mail)
+        repo.head.commit.author.name, repo.head.commit.author.email)
     head_commit_date = datetime.datetime.utcfromtimestamp(
         repo.head.commit.committed_date).isoformat() + 'Z'
 
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
-            '-e', 'ONNX_MLIR_HOME="'               + ONNX_MLIR_HOME + '"',
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH="'   + head_commit_hash + '"',
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR="' + head_commit_author + '"',
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE="'   + head_commit_date +'"',
+            '-e', 'ONNX_MLIR_HOME="'               + ONNX_MLIR_HOME       + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH="'   + head_commit_hash     + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR="' + head_commit_author   + '"',
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE="'   + head_commit_date     + '"',
             '-v', workspace_workdir     + ':' + container_workdir,
             '-v', workspace_reportdir   + ':' + container_reportdir,
             '-v', workspace_model_py    + ':' + container_model_py,
             '-v', workspace_modelzoo_py + ':' + container_modelzoo_py,
+            '-v', workspace_publishdir  + ':' + container_publishdir + ':ro',
             docker_dev_image_full,
             container_modelzoo_py,
             '-H', modelzoo_html,
             '-j', NPROC,
             '-l', 'info',
+            '-q', container_publishdir,
             '-r', container_reportdir,
             '-w', container_workdir ]
 

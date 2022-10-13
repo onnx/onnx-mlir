@@ -116,6 +116,10 @@ def get_args():
                         '--print-paths',
                         action='store_true',
                         help="Only print model paths in the model zoo.")
+    parser.add_argument('-q',
+                        '--publishdir',
+                        default='',
+                        help="Publish dir for previously published results, no default.")
     parser.add_argument('-r',
                         '--reportdir',
                         default=os.getcwd(),
@@ -365,11 +369,14 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
     return state, model_name
 
 
-def output_json(report_dir, skipped_models, tested_models,
+def output_json(publish_dir, report_dir, skipped_models, tested_models,
                 passed_models, failed_models, total_models):
-    json_file = os.path.join(report_dir, os.path.splitext(args.Html)[0] + '.json')
+
+    json_file      = os.path.splitext(args.Html)[0] + '.json'
+    prev_json_file = os.path.join(publish_dir, json_file)
+    curr_json_file = os.path.join(report_dir, json_file)
     try:
-        with open(json_file, 'r') as jf:
+        with open(prev_json_file, 'r') as jf:
             hist = json.load(jf)
         prev = hist[0]
     except:
@@ -382,7 +389,6 @@ def output_json(report_dir, skipped_models, tested_models,
                  'failed':  { 'models': [], 'entered': [], 'dropped': [] },
                  'total':   { 'models': [], 'entered': [], 'dropped': [] } }
 
-    # Use git command since we don't have GitPython in the dev image
     curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
 
     curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
@@ -406,11 +412,11 @@ def output_json(report_dir, skipped_models, tested_models,
 
     # Keep last 100 commits
     HIST_MAX = 100
-    with open(json_file, 'w') as jf:
+    with open(curr_json_file, 'w') as jf:
         json.dump([ curr ] + hist[:HIST_MAX-1], jf, indent=4)
 
 
-def output_html(report_dir, skipped_models, tested_models,
+def output_html(publish_dir, report_dir, skipped_models, tested_models,
                 passed_models, failed_models, total_models):
     html_file = os.path.join(report_dir, args.Html)
     with open(html_file, 'w') as html:
@@ -510,9 +516,10 @@ def main():
     total_models   = sorted(skipped_models + tested_models)
 
     if args.Html:
-        output_json(report_dir, skipped_models, tested_models,
+        publish_dir = os.path.realpath(args.publishdir)
+        output_json(publish_dir, report_dir, skipped_models, tested_models,
                     passed_models, failed_models, total_models)
-        output_html(report_dir, skipped_models, tested_models,
+        output_html(publish_dir, report_dir, skipped_models, tested_models,
                     passed_models, failed_models, total_models)
 
         # Output summary to stdout for the badge text
