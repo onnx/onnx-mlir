@@ -63,6 +63,7 @@ static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 using namespace mlir;
 
 namespace onnx_mlir {
+
 namespace detail {
 
 using ValueSymbolMapping = SymbolMapping<Value>;
@@ -161,6 +162,28 @@ private:
   Value LookupOnnxName(const std::string &onnx_name) {
     const Value *valuePtr = frontend_symbols_.GetByOnnxName(onnx_name);
     return *valuePtr;
+  }
+
+  static onnx::TypeProto fromMlirToONNXType(Type mlirType) {
+    onnx::TypeProto onnxType;
+    if (mlirType.isa<NoneType>()) {
+      // Done: Uninitialized TypeProto onnxType represents NoneType.
+    } else if (auto mlirTensorType = dyn_cast<TensorType>(mlirType)) {
+      onnx::TypeProto::Tensor &onnxTensorType = *onnxType.mutable_tensor_type();
+      onnxTensorType.set_elem_type(
+          mlirTypeToOnnxType(mlirTensorType.getElementType()));
+      if (mlirTensorType.hasRank()) {
+        onnx::TensorShapeProto &onnxShape = *onnxTensorType.mutable_shape();
+        for (int64_t mlirDim : mlirTensorType.getShape()) {
+          onnx::TensorShapeProto::Dimension &onnxDim = *onnxShape.add_dim();
+          onnxDim.set_dim_value(mlirDim);
+        }
+      }
+    } else {
+      // TODO: Convert optional and sequence types, if needed.
+      llvm_unreachable("type's MLIR->ONNX conversion is unsupported");
+    }
+    return onnxType;
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
@@ -971,7 +994,7 @@ private:
     if (namePrefix.empty())
       namePrefix = "fn";
     std::string funcName = namePrefix;
-    // make name  unique:
+    // make name unique:
     for (int suffix = 1; module_.lookupSymbol(funcName); ++suffix) {
       funcName = namePrefix + "_" + std::to_string(suffix);
     }
@@ -1014,104 +1037,78 @@ private:
     }
   }
 
-  bool TryImportFunctionCallNode(const onnx::NodeProto &node) {
-    const onnx::OpSchema *schema = GetOpSchema(node);
-    if (schema == nullptr)
-      return false;
+  // Precondition: schema is the node's schema and has a (possibly context
+  // dependent) function.
+  void ImportFunctionCallNode(
+      const onnx::NodeProto &node, const onnx::OpSchema &schema) {
+    // TODO: Handle optional function inputs/outputs.
 
-    // Collect input/output MLIR types, input ONNX types, and input MLIR values.
-    // TODO: Optional inputs/outputs of functions not handled yet.
-    onnx::TypeProto unspecifiedType;
-    llvm::SmallVector<Type, 16> operandTypes;
-    llvm::SmallVector<Type, 16> resultTypes;
-    llvm::SmallVector<::Value, 16> operands;
-    std::vector<onnx::TypeProto> operandOnnxTypes;
-
-    for (auto &v : node.input()) {
-      if (v.empty()) {
-        // Missing (optional) parameter.
-        operandOnnxTypes.push_back(unspecifiedType);
-        operands.push_back(createNoneValue());
-        operandTypes.push_back(builder_.getNoneType());
-        continue;
-      }
-      // Function translation requires input (onnx) types
-      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
-        operandOnnxTypes.push_back(*onnxTypePtr);
-        auto val = LookupOnnxName(v);
-        operands.push_back(val);
-        operandTypes.push_back(val.getType());
+    // Collect the input values and their onnx types:
+    std::vector<Value> inputs;
+    std::vector<onnx::TypeProto> inputOnnxTypes;
+    for (const auto &input_name : node.input()) {
+      if (input_name.empty()) {
+        inputs.emplace_back(createNoneValue());
+        // Uninitialized TypeProto represents NoneType.
+        inputOnnxTypes.emplace_back();
       } else {
-        return false;
-      }
-    }
-    for (auto &v : node.output()) {
-      if (v.empty())
-        continue;
-      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
-        auto resultType = ImportType(*onnxTypePtr);
-        resultTypes.push_back(resultType);
-      } else {
-        return false;
+        Value value = inputs.emplace_back(LookupOnnxName(input_name));
+        if (const onnx::TypeProto *onnxTypePtr =
+                onnx_type_map.GetByOnnxName(input_name)) {
+          inputOnnxTypes.push_back(*onnxTypePtr);
+        } else {
+          inputOnnxTypes.emplace_back(fromMlirToONNXType(value.getType()));
+        }
       }
     }
 
     // Get ONNX function body:
     onnx::FunctionProto functionProto;
     // Try generating a context-independent function body:
-    const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
+    const onnx::FunctionProto *pFunctionProto = schema.GetFunction();
     if (!pFunctionProto) {
-      // Try generating a context-dependent function body:
-      onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
-      if (schema->HasContextDependentFunction() &&
-          schema->BuildContextDependentFunction(onnxFunContext, functionProto))
-        pFunctionProto = &functionProto;
-      else
-        return false;
+      assert(schema.HasContextDependentFunction() &&
+             "must have context "
+             "dependent function absent a context independent function");
+      // Generate a context-dependent function body:
+      onnx::FunctionBodyBuildContextImpl onnxFunContext(node, inputOnnxTypes);
+      if (!schema.BuildContextDependentFunction(onnxFunContext, functionProto))
+        llvm_unreachable("failed to generate context dependent function");
+      pFunctionProto = &functionProto;
     }
 
-    // Create MLIR function:
+    assert(pFunctionProto->output_size() == node.output_size() &&
+           "function must return as many results as caller's outputs");
+
     const std::string &func_name_prefix =
         node.name().empty() ? node.op_type() : node.name();
-    auto funcOp = CreateFuncOp(func_name_prefix, operandTypes, resultTypes);
-    auto *fnEntryBlock = funcOp.addEntryBlock();
 
-    // Save caller context, while generating callee function body.
+    // Save caller context, while generating function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
     frontend_symbols_.pushScope(func_name_prefix);
     SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
     onnx_type_map.pushScope(func_name_prefix);
 
-    auto prev_ip = builder_.saveInsertionPoint();
-    builder_.setInsertionPointToStart(fnEntryBlock);
-
-    // Generate MLIR function body
-
-    auto formalParamValues = fnEntryBlock->getArguments();
     // Due to missing trailing optional parameters,
-    // fnEntryBlock->getNumArguments() and pFunctionProto->input_size() may be
-    // unequal.
-    int num_formals =
-        std::min(static_cast<int>(fnEntryBlock->getNumArguments()),
-            pFunctionProto->input_size());
-    for (int formal_num = 0; formal_num < num_formals; formal_num++) {
-      const std::string &v = pFunctionProto->input(formal_num);
-      BindOnnxName(v, formalParamValues[formal_num]);
+    // node.input_size() and pFunctionProto->input_size() may be unequal.
+    int num_formals = std::min(node.input_size(), pFunctionProto->input_size());
+    for (int i = 0; i < num_formals; ++i) {
+      const std::string &name = pFunctionProto->input(i);
+      Value value = inputs[i];
+      BindOnnxName(name, value);
     }
 
     // Apply ONNX type inference to FunctionProto:
-    InferTypes(pFunctionProto, operandOnnxTypes);
+    InferTypes(pFunctionProto, inputOnnxTypes);
 
     for (auto &fb_node : pFunctionProto->node()) {
       ImportNode(fb_node);
     }
 
-    // Create a return operation to return all output tensors.
-    llvm::SmallVector<Value, 4> ret_vals;
-    for (auto &v : pFunctionProto->output()) {
-      ret_vals.push_back(LookupOnnxName(v));
+    SmallVector<Value, 4> outputs;
+    for (auto &name : pFunctionProto->output()) {
+      outputs.push_back(LookupOnnxName(name));
     }
-    builder_.create<ONNXReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
@@ -1119,54 +1116,49 @@ private:
     onnx_type_map.popScope(func_name_prefix);
     onnx_type_map = std::move(callerTypeMap);
 
-    builder_.restoreInsertionPoint(prev_ip);
-
-    // Generate call statement
-    auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
-    int result_num = 0;
-    for (auto &v : node.output()) {
-      BindOnnxName(v, op.getResult(result_num++));
+    for (size_t i = 0; i < outputs.size(); ++i) {
+      const std::string &name = node.output(i);
+      Value value = outputs[i];
+      BindOnnxName(name, value);
     }
-
-    return true;
   }
 
   void ImportCustomNode(const onnx::NodeProto &node) {
-    if (!TryImportFunctionCallNode(node)) {
-      emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
-                                "represents a custom operator.");
-
-      llvm::StringRef opName = node.op_type();
-      auto funcName = opName.str();
-      std::vector<Type> outputTypes;
-      std::vector<Value> inputs;
-      auto attributes = ImportNodeAttributes(node);
-      auto mlirAttr = builder_.getStringAttr(funcName);
-      auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
-      attributes.push_back(funcAttr);
-      auto domainAttr = builder_.getNamedAttr(
-          "domain_name", builder_.getStringAttr(node.domain()));
-      attributes.push_back(domainAttr);
-      int nIn = 0;
-      int nOut = 0;
-      getNodeInputs(node, inputs);
-      nOut = node.output().size();
-      buildOutputAndOperation<ONNXCustomOp>(
-          node, inputs, nIn, nOut, attributes);
-    }
+    llvm::StringRef opName = node.op_type();
+    auto funcName = opName.str();
+    std::vector<Type> outputTypes;
+    std::vector<Value> inputs;
+    auto attributes = ImportNodeAttributes(node);
+    auto mlirAttr = builder_.getStringAttr(funcName);
+    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+    attributes.push_back(funcAttr);
+    auto domainAttr = builder_.getNamedAttr(
+        "domain_name", builder_.getStringAttr(node.domain()));
+    attributes.push_back(domainAttr);
+    int nIn = 0;
+    int nOut = 0;
+    getNodeInputs(node, inputs);
+    nOut = node.output().size();
+    buildOutputAndOperation<ONNXCustomOp>(node, inputs, nIn, nOut, attributes);
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    std::string versionStr = GetImportVersionOfNode(node);
-
-    // look up handler for the opName. If not found, create a node
-    // for a custom op, and issue a warning.
-    auto handler =
-        import_handler_map_.find(node.op_type() + versionStr.c_str());
+    std::string opName = node.op_type() + GetImportVersionOfNode(node);
+    auto handler = import_handler_map_.find(opName);
     if (handler != import_handler_map_.end()) {
+      // It's a regular op with a registered handler.
       (this->*(handler->second))(node);
     } else {
-      ImportCustomNode(node);
+      const onnx::OpSchema *schema = GetOpSchema(node);
+      if (schema &&
+          (schema->HasFunction() || schema->HasContextDependentFunction())) {
+        // The op has a function decomposition.
+        ImportFunctionCallNode(node, *schema);
+      } else {
+        emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
+                                  "represents a custom operator.");
+        ImportCustomNode(node);
+      }
     }
   }
 
@@ -1225,9 +1217,8 @@ private:
     return mainFunc;
   }
 }; // class FrontendGenImpl
+
 } // namespace detail
-} // namespace onnx_mlir
-namespace onnx_mlir {
 
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
