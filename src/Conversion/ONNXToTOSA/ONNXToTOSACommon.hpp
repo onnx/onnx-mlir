@@ -64,4 +64,6 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(
 
 void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXPadOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 } // namespace onnx_mlir
