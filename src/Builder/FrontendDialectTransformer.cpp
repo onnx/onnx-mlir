@@ -136,6 +136,28 @@ private:
     return *valuePtr;
   }
 
+  static bool fromMlirToONNXType(Type mlirType, onnx::TypeProto &onnxType) {
+    if (mlirType.isa<NoneType>()) {
+      onnxType.Clear(); // Uninitialized TypeProto represents NoneType.
+      return true;
+    }
+    if (mlirType.isa<TensorType>()) {
+      auto shapedType = mlirType.cast<ShapedType>();
+      onnx::TypeProto::Tensor &onnxTensorType = *onnxType.mutable_tensor_type();
+      onnxTensorType.set_elem_type(
+          mlirTypeToOnnxType(shapedType.getElementType()));
+      if (shapedType.hasRank()) {
+        onnx::TensorShapeProto &onnxShape = *onnxTensorType.mutable_shape();
+        for (int64_t mlirDim : shapedType.getShape()) {
+          onnx::TensorShapeProto::Dimension &onnxDim = *onnxShape.add_dim();
+          onnxDim.set_dim_value(mlirDim);
+        }
+      }
+      return true;
+    }
+    return false; // TODO: convert optional and sequence types, if needed
+  }
+
   Value ImportTensor(const onnx::TensorProto &tensor) {
     return EmitInitializerForInputTensor(
         UnknownLoc(), builder_, options_.externalDataDir, tensor);
@@ -997,42 +1019,26 @@ private:
     if (schema == nullptr)
       return false;
 
-    // Collect input/output MLIR types, input ONNX types, and input MLIR values.
     // TODO: Optional inputs/outputs of functions not handled yet.
-    onnx::TypeProto unspecifiedType;
-    llvm::SmallVector<Type, 16> operandTypes;
-    llvm::SmallVector<Type, 16> resultTypes;
-    llvm::SmallVector<::Value, 16> operands;
+
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+
     std::vector<onnx::TypeProto> operandOnnxTypes;
-
-    for (auto &v : node.input()) {
-      if (v.empty()) {
-        // Missing (optional) parameter.
-        operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
-
-        operands.push_back(no_value);
-        operandTypes.push_back(builder_.getNoneType());
-        continue;
-      }
-      // Function translation requires input (onnx) types
-      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      const std::string &name = node.input(i);
+      Value value = inputs[i];
+      if (name.empty()) {
+        operandOnnxTypes
+            .emplace_back(); // Uninitialized TypeProto represents NoneType.
+      } else if (const onnx::TypeProto *onnxTypePtr =
+                     onnx_type_map.GetByOnnxName(name)) {
         operandOnnxTypes.push_back(*onnxTypePtr);
-        auto val = LookupOnnxName(v);
-        operands.push_back(val);
-        operandTypes.push_back(val.getType());
       } else {
-        return false;
-      }
-    }
-    for (auto &v : node.output()) {
-      if (v.empty())
-        continue;
-      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
-        auto resultType = ImportType(*onnxTypePtr);
-        resultTypes.push_back(resultType);
-      } else {
-        return false;
+        Type mlirType = value.getType();
+        onnx::TypeProto &onnxType = operandOnnxTypes.emplace_back();
+        if (!fromMlirToONNXType(mlirType, onnxType))
+          return false;
       }
     }
 
@@ -1050,11 +1056,11 @@ private:
         return false;
     }
 
-    // Create MLIR function:
+    assert(pFunctionProto->output_size() == node.output_size() &&
+           "function must return as many results as caller's outputs");
+
     const std::string &func_name_prefix =
         node.name().empty() ? node.op_type() : node.name();
-    auto funcOp = CreateFuncOp(func_name_prefix, operandTypes, resultTypes);
-    auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
@@ -1062,21 +1068,13 @@ private:
     SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
     onnx_type_map.pushScope(func_name_prefix);
 
-    auto prev_ip = builder_.saveInsertionPoint();
-    builder_.setInsertionPointToStart(fnEntryBlock);
-
-    // Generate MLIR function body
-
-    auto formalParamValues = fnEntryBlock->getArguments();
     // Due to missing trailing optional parameters,
-    // fnEntryBlock->getNumArguments() and pFunctionProto->input_size() may be
-    // unequal.
-    int num_formals =
-        std::min(static_cast<int>(fnEntryBlock->getNumArguments()),
-            pFunctionProto->input_size());
-    for (int formal_num = 0; formal_num < num_formals; formal_num++) {
-      const std::string &v = pFunctionProto->input(formal_num);
-      BindOnnxName(v, formalParamValues[formal_num]);
+    // node.input_size() and pFunctionProto->input_size() may be unequal.
+    int num_formals = std::min(node.input_size(), pFunctionProto->input_size());
+    for (int i = 0; i < num_formals; ++i) {
+      const std::string &name = pFunctionProto->input(i);
+      Value value = inputs[i];
+      BindOnnxName(name, value);
     }
 
     // Apply ONNX type inference to FunctionProto:
@@ -1086,12 +1084,10 @@ private:
       ImportNode(fb_node);
     }
 
-    // Create a return operation to return all output tensors.
-    llvm::SmallVector<Value, 4> ret_vals;
-    for (auto &v : pFunctionProto->output()) {
-      ret_vals.push_back(LookupOnnxName(v));
+    llvm::SmallVector<Value, 4> outputs;
+    for (auto &name : pFunctionProto->output()) {
+      outputs.push_back(LookupOnnxName(name));
     }
-    builder_.create<func::ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
@@ -1099,13 +1095,10 @@ private:
     onnx_type_map.popScope(func_name_prefix);
     onnx_type_map = std::move(callerTypeMap);
 
-    builder_.restoreInsertionPoint(prev_ip);
-
-    // Generate call statement
-    auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
-    int result_num = 0;
-    for (auto &v : node.output()) {
-      BindOnnxName(v, op.getResult(result_num++));
+    for (int i = 0; i < outputs.size(); ++i) {
+      const std::string &name = node.output(i);
+      Value value = outputs[i];
+      BindOnnxName(name, value);
     }
 
     return true;
