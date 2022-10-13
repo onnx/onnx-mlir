@@ -171,7 +171,7 @@ set(NNPA_TEST_LIST
     # test_gru_with_initial_bias_cpu
 
     # ==OP== LeakyRelu
-    # ==LIM== The Leakyrelu Operation is executed on the NNPA if the operations immediately before and after the LeakyRelu operation are also executed on the NNPA. Otherwise, LeakyRelu is executed on the CPU. This limitation is set to avoid performance degradation.
+    # ==LIM== The operations immediately before and after the LeakyRelu operation must be executed on the NNPA. Otherwise, LeakyRelu is executed on the CPU. This limitation is set to avoid performance degradation.
     # Leakyrelu op in following test cases doesn't run on NNPA because single LeakyRelu op is included.
     # test_leakyrelu_cpu
     # test_leakyrelu_default_cpu
