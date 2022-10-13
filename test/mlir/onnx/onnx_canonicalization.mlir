@@ -243,6 +243,45 @@ func.func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10
 
 // -----
 
+// Check the combining of two transposes besides Atan op into a simple transpose and the removing of combined transpose. (No attribute case)
+//
+// CHECK-LABEL: func @test_transpose_besides_atan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_atan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.Atan"(%0) : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.Atan"(%arg0) : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of two transposes besides leaky relu op into a simple transpose and the removing of combined transpose. (One attribute case)
+//
+// CHECK-LABEL: func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_leakyrelu_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.LeakyRelu"(%0) {alpha = 1.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.LeakyRelu"(%arg0) {alpha = 1.000000e-01 : f32} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of two transposes besides HardSigmoid op into a simple transpose and the removing of combined transpose. (Two attribute case)
+//
+// CHECK-LABEL: func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.HardSigmoid"(%0)  {alpha = 1.000000e-01 : f32, beta = 2.000000e-01 : f32} : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xf32>
+  %2 = "onnx.Transpose"(%1)  {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.HardSigmoid"(%arg0) {alpha = 1.000000e-01 : f32, beta = 2.000000e-01 : f32} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  "func.return"(%2) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
 // Check the combining of reshape into a simple reshape.
 // CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
@@ -402,6 +441,25 @@ func.func @test_remove_unsqueezev11_squeezev11(%arg0 : tensor<10x10xf32>) -> ten
 
 // -----
 
+// COM: Test removing squeeze/cast/unsqueeze pairs when they use the same axes.
+
+func.func @test_remove_unsqueeze_cast_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xi64> {
+  %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Constant"() {value = dense<[0, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<1x10x1x10xf32>
+  %3 = "onnx.Cast"(%2) {to = i64}: (tensor<1x10x1x10xf32>) -> tensor<1x10x1x10xi64>
+  %4 = "onnx.Squeeze"(%3, %1) : (tensor<1x10x1x10xi64>, tensor<2xi64>) -> tensor<10x10xi64>
+  return %4: tensor<10x10xi64>
+
+  // CHECK-LABEL: test_remove_unsqueeze_cast_squeeze
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
+  // CHECK: return [[RES]] 
+}
+
+// -----
+
 func.func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
   %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -438,6 +496,22 @@ func.func @test_remove_squeeze_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<
   // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
   // CHECK: return {{.*}}
+}
+
+// -----
+
+func.func @test_remove_squeeze_cast_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xi64> {
+  %0 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Squeeze"(%arg0, %0) : (tensor<10x1x10xf32>, tensor<1xi64>) -> tensor<10x10xf32>
+  %3 = "onnx.Cast"(%2) { to = i64 } : (tensor<10x10xf32>) -> tensor<10x10xi64>
+  %4 = "onnx.Unsqueeze"(%3, %1) : (tensor<10x10xi64>, tensor<1xi64>) -> tensor<10x1x10xi64>
+  return %4: tensor<10x1x10xi64>
+  // CHECK-LABEL: test_remove_squeeze_cast_unsqueeze
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
+  // CHECK: return [[RES]] 
 }
 
 // -----
@@ -779,4 +853,67 @@ func.func @test_loop_derive_max_trip_count_non_constant_ub(%arg0: tensor<?x30xf3
 // CHECK:           }) : (tensor<i64>, tensor<i1>, tensor<i32>, tensor<i32>, tensor<?x30xf32>) -> (tensor<i32>, tensor<i32>, tensor<?x30xf32>, tensor<?x?x30xf32>)
 // CHECK:           return [[VAR_13_]]#3 : tensor<?x?x30xf32>
 // CHECK:         }
+}
+
+// -----
+
+func.func @test_rnn_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>, %arg3: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %arg3) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<5x1x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>)
+  return %Y_h : tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_rnn_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x3x2xf32>, [[PARAM_2_:%.+]]: tensor<1x3x3xf32>, [[PARAM_3_:%.+]]: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
+// CHECK:           %Y, %Y_h = "onnx.RNN"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<1x5x3xf32>) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gru_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>) {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>)
+  return %Y, %Y_h : tensor<5x4x1x3xf32>, tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_gru_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x9x2xf32>, [[PARAM_2_:%.+]]: tensor<1x9x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK:           %Y, %Y_h = "onnx.GRU"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"(%Y) {perm = [2, 0, 1, 3]} : (tensor<4x1x5x3xf32>) -> tensor<5x4x1x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_2_]], [[VAR_3_]] : tensor<5x4x1x3xf32>, tensor<5x1x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_lstm_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>, %arg3: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %arg3, %cst) {layout = 1 : si64} : (tensor<5x4x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<5x1x3xf32>, none) -> (tensor<5x4x1x3xf32>, none, tensor<5x1x3xf32>)
+  return %Y_c : tensor<5x1x3xf32>
+// CHECK-LABEL:  func.func @test_lstm_layout1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x12x2xf32>, [[PARAM_2_:%.+]]: tensor<1x12x3xf32>, [[PARAM_3_:%.+]]: tensor<5x1x3xf32>) -> tensor<5x1x3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
+// CHECK:           %Y, %Y_h, %Y_c = "onnx.LSTM"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<1x5x3xf32>, none) -> (tensor<4x1x5x3xf32>, none, tensor<1x5x3xf32>)
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_c) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
+// CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_dim_to_constant(%arg0: tensor<?x256xi64>) -> (tensor<1xi64>) {
+  %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+  return %0 : tensor<1xi64>
+
+// CHECK-LABEL: test_dim_to_constant
+// CHECK-NOT: "onnx.Dim"
+// CHECK:     [[RES:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:     return [[RES]] : tensor<1xi64>
 }

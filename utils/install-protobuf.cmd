@@ -1,5 +1,5 @@
-REM Check out a specific tag v3.16.0 which is the recommended version of onnx 1.11.0
-set protobuf_version=3.16.0
+REM Check out protobuf v3.18.3
+set protobuf_version=3.18.3
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%

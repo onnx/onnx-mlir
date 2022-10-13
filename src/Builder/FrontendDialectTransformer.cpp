@@ -18,15 +18,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "FrontendDialectTransformer.hpp"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Support/FileUtilities.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/LineIterator.h"
+#include "llvm/Support/MemoryBuffer.h"
+
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
+#include "src/Builder/SymbolTable.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Support/SuppressWarnings.h"
-
-#include "mlir/IR/BuiltinOps.h"
-#include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/Debug.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -35,10 +42,13 @@ SUPPRESS_WARNINGS_PUSH
 #include "onnx/version_converter/convert.h"
 SUPPRESS_WARNINGS_POP
 
+#include <google/protobuf/util/json_util.h>
+
+#include <array>
 #include <fstream>
-#include <iostream>
 #include <map>
-#include <type_traits>
+#include <unordered_map>
+#include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
@@ -57,42 +67,16 @@ using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(MLIRContext &context)
-      : context_(context), builder_(&context),
-        force_dim_dynamic_enabled_(false) {
+      : context_(context), builder_(&context) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
-    if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
-      force_dim_dynamic_enabled_ = true;
-      std::stringstream envString;
-      envString << envInputString;
-      std::string dynamicInput;
-      while (getline(envString, dynamicInput, '|')) {
-        size_t pos = dynamicInput.find(':');
-        std::string inputString = dynamicInput.substr(0, pos);
-        std::string dimString = dynamicInput.substr(pos + 1);
-
-        std::stringstream dimIndices(dimString);
-        std::string dimIndex;
-        std::vector<int> dims;
-        while (getline(dimIndices, dimIndex, ',')) {
-          dims.emplace_back(stoi(dimIndex));
-        }
-        // Default to the all dimensions if dims are not specified.
-        if (dims.empty())
-          dims.emplace_back(-1);
-        forced_inputs_dims.insert(std::make_pair(stoi(inputString), dims));
-      }
-      // Default to the all inputs and dimensions.
-      if (forced_inputs_dims.empty())
-        forced_inputs_dims.insert(std::make_pair(-1, std::vector<int>(1, -1)));
-    }
   }
 
   ModuleOp ImportONNXModel(
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
+    modelInputShaper_.setShapeInformation(options_.shapeInformation);
     SetOpSetImport(model); // Determines which opsets to use.
-    SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
     return module_;
   }
@@ -108,83 +92,10 @@ private:
   // onnxop: the top version in third_part/onnx
   std::map<std::string, int> op_dialect_top_version_map_;
 
-  /*!
-   *  The list of tensors initialized by the ONNX model.
-   */
-  InitializedTensorMapping initializedTensors;
-
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
 
-  // Flag to change the inputs of function to unknown dimension.
-  // Temporarily added to use the test cases with static shape to test.
-  // The values are set by enviroment variable IMPORTER_FORCE_DYNAMIC
-  // The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
-  //
-  // <ImportForceDymanicExpr> :== `'` <expr> `'`
-  //                   <expr> ::= <inputString> | <inputString> `|` <expr>
-  //             <inputString ::= <inputIndex> `:` <dimString>
-  //              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
-  //             <inputIndex> ::= <index>
-  //               <dimIndex> ::= <index>
-  //                  <index> ::= -1 | <number>
-  //                 <number> ::= <digit> | <digit><number>
-  //                  <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-  //
-  // Value `-1` semantically represents all inputs or all dimensions, and it
-  // has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the
-  // first input will be changed. Input and dimension indices start from 0.
-  //
-  // Examples:
-  // 1. IMPORTER_FORCE_DYNAMIC='-1:-1'
-  //    - change all dimensions in all inputs to unknown dimensions.
-  // 2. IMPORTER_FORCE_DYNAMIC='-1:0'
-  //    - change the first dimension in all inputs to unknown dimensions.
-  // 3. IMPORTER_FORCE_DYNAMIC='1:-1'
-  //    - change all dimensions in the second input to unknown dimensions.
-  // 4. IMPORTER_FORCE_DYNAMIC='1:0,1'
-  //    - change the first and second dimensions in the second input to unknown
-  //    dimensions.
-  // 5. IMPORTER_FORCE_DYNAMIC='0:1|1:0,1'
-  //    - change the second dimension in the first input to unknown dimensions,
-  //    and
-  //    - change the first and second dimensions in the second input to unknown
-  //    dimensions,
-
-  bool force_dim_dynamic_enabled_;
-  // A map from an input index to a list of dim indices those are changed to
-  // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
-  std::map<int, std::vector<int>> forced_inputs_dims;
-
-  // Custom shape information for the graph inputs.
-  std::map<int64_t, std::vector<int64_t>> inputs_shape_information;
-  void SetCustomShapeInfo() {
-    // Use the custom shape for the inputs if avaiable.
-    if (options_.shapeInformation.empty()) {
-      return;
-    }
-
-    std::stringstream shapeInfoString(options_.shapeInformation);
-    std::string shapeString;
-    while (getline(shapeInfoString, shapeString, ',')) {
-      size_t pos = shapeString.find(':');
-      std::string inputString = shapeString.substr(0, pos);
-      std::string dimString = shapeString.substr(pos + 1);
-
-      int64_t inputID = std::stoi(inputString);
-      assert(inputID >= 0 && "input_id must be >= 0");
-
-      std::stringstream dimSizes(dimString);
-      std::string dimStr;
-      std::vector<int64_t> dims;
-      while (getline(dimSizes, dimStr, 'x')) {
-        int64_t dimSize = std::stoi(dimStr);
-        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
-        dims.emplace_back(dimSize);
-      }
-      inputs_shape_information.insert(std::make_pair(inputID, dims));
-    }
-  }
+  ModelInputShaper modelInputShaper_;
 
   using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &);
@@ -199,7 +110,7 @@ private:
   SymbolToOnnxTypeMapping onnx_type_map;
 
   void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
-    if (allowExist && onnx_type_map.ContainKey(vi.name()))
+    if (allowExist && onnx_type_map.ContainsKey(vi.name()))
       return;
     onnx_type_map.AddMapping(vi.name(), vi.type());
   }
@@ -220,7 +131,13 @@ private:
   }
 
   Value LookupOnnxName(const std::string &onnx_name) {
-    return frontend_symbols_.GetTensorByOnnxName(onnx_name);
+    const Value *valuePtr = frontend_symbols_.GetByOnnxName(onnx_name);
+    return *valuePtr;
+  }
+
+  Value ImportTensor(const onnx::TensorProto &tensor) {
+    return EmitInitializerForInputTensor(
+        UnknownLoc(), builder_, options_.externalDataDir, tensor);
   }
 
   /*!
@@ -274,6 +191,16 @@ private:
     llvm_unreachable("unexpected type");
   }
 
+  OptType ImportOptionalType(const onnx::TypeProto &type_proto) {
+    auto input_opt_type = type_proto.optional_type();
+    if (input_opt_type.has_elem_type()) {
+      onnx::TypeProto elem_type = input_opt_type.elem_type();
+      Type mlir_elem_type = ImportType(elem_type);
+      return mlir::OptType::get(mlir_elem_type);
+    }
+    llvm_unreachable("unexpected type");
+  }
+
   Type ImportType(const onnx::TypeProto &type_proto) {
     switch (type_proto.value_case()) {
     case onnx::TypeProto::kTensorType:
@@ -281,6 +208,9 @@ private:
       break;
     case onnx::TypeProto::kSequenceType:
       return ImportSequenceType(type_proto);
+      break;
+    case onnx::TypeProto::kOptionalType:
+      return ImportOptionalType(type_proto);
       break;
     default:
       llvm_unreachable("unexpected type");
@@ -290,24 +220,12 @@ private:
 
   llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
-      if (onnx_type_map.ContainKey(onnx_name)) {
-        return llvm::Optional<Type>(
-            ImportType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
+      if (const onnx::TypeProto *onnxTypePtr =
+              onnx_type_map.GetByOnnxName(onnx_name)) {
+        return llvm::Optional<Type>(ImportType(*onnxTypePtr));
       }
     }
     return llvm::Optional<Type>();
-  }
-
-  /*!
-   * Import a input tensor symbol by recording a new entry in frontend_symbols_
-   * recording the mapping between legalized onnx tensor name and Value
-   * for further lookup in computation node importing.
-   * @param input onnx input tensor ValueInfoProto.
-   * @param symbol mlir input argument.
-   */
-  void ImportInputTensorSymbol(
-      const onnx::ValueInfoProto &input, Value symbol) {
-    BindOnnxName(input.name(), symbol);
   }
 
   NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
@@ -334,7 +252,8 @@ private:
           llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
+      mlirAttr = onnxTensorProtoToDenseElmAttr(
+          builder_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
@@ -343,10 +262,12 @@ private:
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
-    case onnx::AttributeProto::GRAPH: {
+    case onnx::AttributeProto::TYPE_PROTO:
+      mlirAttr = TypeAttr::get(ImportType(attr.tp()));
+      break;
+    case onnx::AttributeProto::GRAPH:
       llvm_unreachable("Subgraph attribute is imported as regions.");
       break;
-    }
     default:
       llvm_unreachable("datatype for attribute is not implemented");
       break;
@@ -389,14 +310,14 @@ private:
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
       Operation *op, bool useStdReturn) {
     frontend_symbols_.pushScope(graph.name());
-    initializedTensors.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
 
     // Maintain a mapping between the parameter and its initializer.
+    std::unordered_set<std::string> initializerNames;
     for (const auto &initializer : graph.initializer()) {
-      const auto &initializerName = initializer.name();
-      initializedTensors.AddMapping(initializerName, initializer);
+      BindOnnxName(initializer.name(), ImportTensor(initializer));
+      initializerNames.insert(initializer.name());
     }
 
     // create a function for the graph
@@ -409,52 +330,26 @@ private:
     llvm::SmallVector<llvm::StringRef, 4> outputNames;
 
     // Import the input tensor types that are not constant and not initialized.
-    int numInputs = 0;
+    int inputIndex = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
-      if (!initializedTensors.ContainKey(input.name())) {
+      if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
-        auto argTy = ImportType(input.type());
-        auto shapedTy = argTy.dyn_cast<RankedTensorType>();
-        // Change the first dimension to unknown (-1) for test purpose only
-        if (shapedTy && force_dim_dynamic_enabled_ &&
-            ((forced_inputs_dims.find(-1) != forced_inputs_dims.end()) ||
-                (forced_inputs_dims.find(numInputs) !=
-                    forced_inputs_dims.end()))) {
-          std::vector<int> forced_dims;
-          if (forced_inputs_dims.find(-1) != forced_inputs_dims.end())
-            forced_dims = forced_inputs_dims.at(-1);
-          else
-            forced_dims = forced_inputs_dims.at(numInputs);
-          auto argShape = shapedTy.getShape();
-          llvm::SmallVector<int64_t, 4> newDims;
-          for (unsigned int i = 0; i < argShape.size(); i++) {
-            if (llvm::is_contained(forced_dims, -1) ||
-                llvm::is_contained(forced_dims, i)) {
-              newDims.push_back(-1);
-            } else {
-              newDims.push_back(argShape[i]);
-            }
-          }
-          argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
-        } else if (shapedTy && !inputs_shape_information.empty() &&
-                   (inputs_shape_information.find(numInputs) !=
-                       inputs_shape_information.end())) {
-          // Change to the custom shape if users provide.
-          std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
-          argTy = RankedTensorType::get(shape, shapedTy.getElementType());
-        }
+        Type argTy = ImportType(input.type());
+        argTy = modelInputShaper_.reshape(inputIndex, argTy);
 
         argTypes.emplace_back(argTy);
 
         // numInputs is the number of graph inputs not contained within the
         // initializer
-        ++numInputs;
+        ++inputIndex;
       }
     }
 
+    // The compiler assumes the model is correct and doesn't try to do
+    // exhaustive correctness checking of its own
     for (const auto &internal : graph.value_info()) {
-      AddValueInfo(internal);
+      AddValueInfo(internal, true);
     }
 
     for (const auto &output : graph.output()) {
@@ -470,10 +365,10 @@ private:
     // Counter of un-initialized tensors. This counter is used to index the
     // entry block arguments.
     int entryBlockArgIdx = 0;
-    for (const onnx::ValueInfoProto &inputProto : graph.input()) {
-      if (!initializedTensors.ContainKey(inputProto.name())) {
-        ImportInputTensorSymbol(
-            inputProto, entryBlock->getArguments()[entryBlockArgIdx]);
+    for (const auto &input : graph.input()) {
+      if (initializerNames.count(input.name()) == 0) {
+        BindOnnxName(
+            input.name(), entryBlock->getArguments()[entryBlockArgIdx]);
         entryBlockArgIdx++;
       }
     }
@@ -500,7 +395,6 @@ private:
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
 
     frontend_symbols_.popScope(graph.name());
-    initializedTensors.popScope(graph.name());
     onnx_type_map.popScope(graph.name());
     return builder_.getFunctionType(argTypes, retTys);
   }
@@ -508,8 +402,8 @@ private:
   void ImportNodeGeneric(const onnx::NodeProto &node) {
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(item)) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+        inputs.push_back(*valuePtr);
       }
     }
     OperationState result(UnknownLoc(), "frontend." + node.op_type());
@@ -567,6 +461,8 @@ private:
       typeTuple.push_back(builder_.getF64Type());
       return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
     }
+    case 11:
+      return mlir::ONNXStringType::get(builder_.getContext());
     default:
       assert(false && "Unsupported type index encountered.");
       return nullptr;
@@ -680,17 +576,15 @@ private:
   }
 
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
-    for (const auto &item : node.input())
+    for (const auto &item : node.input()) {
       if (item.empty()) {
         inputs.emplace_back(none());
       } else {
-        if (initializedTensors.ContainKey(item)) {
-          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+          inputs.push_back(*valuePtr);
         }
       }
+    }
   }
 
   template <typename T>
@@ -756,11 +650,8 @@ private:
         // Optional inputs using empty string will be imported as NoneType.
         inputs.emplace_back(none());
       } else {
-        if (initializedTensors.ContainKey(item)) {
-          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+          inputs.push_back(*valuePtr);
         }
       }
     auto attributes = ImportCastAttributes(node);
@@ -810,13 +701,8 @@ private:
     // Copy the provided inputs first
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (initializedTensors.ContainKey(item)) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, item));
-      } else {
-        if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-        }
+      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+        inputs.push_back(*valuePtr);
       }
     }
 
@@ -866,9 +752,15 @@ private:
     if (nOps == 2) {
       llvm::SmallVector<int64_t, 2> dims;
       dims.push_back(1);
-      llvm::SmallVector<float, 2> values;
-      values.push_back(0.);
-      auto elementType = builder_.getF32Type();
+
+      std::vector<Value> inputs;
+      getNodeInputs(node, inputs);
+      auto elementType =
+          inputs[0].getType().cast<TensorType>().getElementType();
+
+      llvm::SmallVector<Attribute, 2> values(
+          1, builder_.getZeroAttr(elementType));
+
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
@@ -878,15 +770,6 @@ private:
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
-      std::vector<Value> inputs;
-      for (const auto &item : node.input()) {
-        if (initializedTensors.ContainKey(item)) {
-          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              UnknownLoc(), builder_, item));
-        } else if (frontend_symbols_.ContainKey(item)) {
-          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-        }
-      }
       inputs.push_back(constantResult);
 
       int nIn = ONNXPadOp::getNumberOfOperands();
@@ -904,16 +787,11 @@ private:
     };
 
     for (const auto &item : llvm::enumerate(node.input())) {
-      if (initializedTensors.ContainKey(item.value())) {
-        inVals[item.index()] = initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, item.value());
+      if (const Value *valuePtr =
+              frontend_symbols_.GetByOnnxName(item.value())) {
+        inVals[item.index()] = *valuePtr;
       } else {
-        if (frontend_symbols_.ContainKey(item.value())) {
-          inVals[item.index()] =
-              frontend_symbols_.GetTensorByOnnxName(item.value());
-        } else {
-          assert(false && "Unknown input");
-        }
+        assert(false && "Unknown input");
       }
     }
 
@@ -967,11 +845,8 @@ private:
     // Copy the provided inputs first.
     std::vector<Value> inputs;
     for (const auto &item : node.input()) {
-      if (initializedTensors.ContainKey(item)) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, item));
-      } else if (frontend_symbols_.ContainKey(item)) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+        inputs.push_back(*valuePtr);
       }
     }
 
@@ -1054,7 +929,7 @@ private:
         }
       }
     } else {
-      llvm::outs() << node.op_type();
+      llvm::errs() << node.op_type();
       if (op_dialect_top_version_map_.find(node.op_type()) !=
           op_dialect_top_version_map_.end()) {
         llvm_unreachable(
@@ -1085,15 +960,15 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-    // types: Used for temporary copies of Types, freed at end of function.
-    std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;
     // Initialize types and values (if available) of function inputs:
     const auto num_inputs =
         std::min(func->input_size(), static_cast<int>(inputTypes.size()));
     for (int i = 0; i < num_inputs; ++i) {
       const std::string &input_name = func->input(i);
-      typeMap[input_name] = &inputTypes[i];
+      onnx_type_map.AddMapping(input_name, inputTypes[i]);
+      typeMap[input_name] = const_cast<onnx::TypeProto *>(
+          onnx_type_map.GetByOnnxName(input_name));
     }
 
     for (const onnx::NodeProto &n : func->node()) {
@@ -1108,15 +983,11 @@ private:
 
       // Update types:
       for (int i = 0; i < n.output_size(); ++i) {
-        std::unique_ptr<onnx::TypeProto> p =
-            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
-        typeMap[n.output(i)] = p.get();
-        types.push_back(std::move(p));
+        const std::string &output_name = n.output(i);
+        onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
+        typeMap[output_name] = const_cast<onnx::TypeProto *>(
+            onnx_type_map.GetByOnnxName(output_name));
       }
-    }
-
-    for (auto pair : typeMap) {
-      onnx_type_map.AddMapping(pair.first, *pair.second);
     }
   }
 
@@ -1144,20 +1015,24 @@ private:
         continue;
       }
       // Function translation requires input (onnx) types
-      if (!onnx_type_map.ContainKey(v))
+      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
+        operandOnnxTypes.push_back(*onnxTypePtr);
+        auto val = LookupOnnxName(v);
+        operands.push_back(val);
+        operandTypes.push_back(val.getType());
+      } else {
         return false;
-      operandOnnxTypes.push_back(onnx_type_map.GetTensorByOnnxName(v));
-      auto val = LookupOnnxName(v);
-      operands.push_back(val);
-      operandTypes.push_back(val.getType());
+      }
     }
     for (auto &v : node.output()) {
       if (v.empty())
         continue;
-      if (!onnx_type_map.ContainKey(v))
+      if (const onnx::TypeProto *onnxTypePtr = onnx_type_map.GetByOnnxName(v)) {
+        auto resultType = ImportType(*onnxTypePtr);
+        resultTypes.push_back(resultType);
+      } else {
         return false;
-      auto resultType = ImportType(onnx_type_map.GetTensorByOnnxName(v));
-      resultTypes.push_back(resultType);
+      }
     }
 
     // Get ONNX function body:
@@ -1279,28 +1154,29 @@ private:
   }
 
   /*!
-   * Import output tensor, by doing the following:
-   * - Add the t/yp this output tensor to a list of tensor
+   * Import output value, by doing the following:
+   * - Add the type of this output tensor to a list of
    *   types representing return types of this graph function.
-   * - Add this output tensor to the list of Value
+   * - Add this output value to the list of values
    *   to be returned by the function representing computation graph.
-   * @param output onnx output tensor ValueInfoProto.
-   * @param ret_types a vector of tensor types representing graph's
-   *   output tensor types.
-   * @param ret_vals a vector of mlir Value  representing graph's
-   *   output tensor.
+   * @param output onnx output ValueInfoProto.
+   * @param ret_types a vector of types representing graph's output types.
+   * @param ret_vals a vector of mlir Value representing graph's output.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
       llvm::SmallVectorImpl<Value> &ret_vals) {
-    Value tensor_val = frontend_symbols_.GetTensorByOnnxName(output.name());
+    const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
+    Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        tensor_val.setType(ImportType(output.type()));
+        val.setType(ImportType(output.type()));
       }
+      ret_types.emplace_back(val.getType());
+    } else {
+      ret_types.emplace_back(ImportType(output.type()));
     }
-    ret_types.emplace_back(tensor_val.getType());
-    ret_vals.push_back(tensor_val);
+    ret_vals.push_back(val);
   }
 
   /*!
@@ -1376,21 +1252,50 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 // Return 0 on success, error otherwise.
-int ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
-  std::fstream input(model_fname, std::ios::in | std::ios::binary);
-  // check if the input file is opened
-  if (!input.is_open()) {
-    *errorMessage = "Unable to open or access " + model_fname;
-    return InvalidInputFileAccess;
-  }
+  if (model_fname.endswith(".json")) {
+    auto buf = openInputFile(model_fname, errorMessage);
+    if (!buf) {
+      return InvalidInputFileAccess;
+    }
+    // Remove // comments, which are non-standard json but appear in lit tests
+    // in test/mlir/onnx/parse.
+    std::string json;
+    for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
+         ++line) {
+      if (line->ltrim(" \t").startswith("//"))
+        continue; // omit comment lines beginning with (whitespace and) //
+      if (line->contains("//")) {
+        // Not stripping end-of-line comments because there's no robust way to
+        // distinguish them from valid uses of // in the json itself.
+        llvm::errs() << "Warning: possible invalid end-of-line // comment in "
+                        "json input file "
+                     << model_fname.str() << ":" << line.line_number() << "\n";
+      }
+      json.append(*line);
+    }
+    auto status = google::protobuf::util::JsonStringToMessage(json, &model);
+    if (!status.ok()) {
+      *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +
+                      " with error '" + status.ToString() + "'";
+      return InvalidOnnxFormat;
+    }
+  } else {
+    std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
+    // check if the input file is opened
+    if (!input.is_open()) {
+      *errorMessage = "Unable to open or access " + model_fname.str();
+      return InvalidInputFileAccess;
+    }
 
-  auto parse_success = model.ParseFromIstream(&input);
-  if (!parse_success) {
-    *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
-    return InvalidOnnxFormat;
+    auto parse_success = model.ParseFromIstream(&input);
+    if (!parse_success) {
+      *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
+      return InvalidOnnxFormat;
+    }
   }
   ImportFrontendModelInternal(model, context, module, options);
   return CompilerSuccess;

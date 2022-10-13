@@ -36,15 +36,15 @@ namespace onnx_mlir {
 // Check for valid TOSA types.
 //===----------------------------------------------------------------------===//
 
-inline bool isTOSASignedInt(Type type) {
-  IntegerType intType = type.dyn_cast<IntegerType>();
+inline bool isTOSASignedInt(mlir::Type type) {
+  mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
   std::set<unsigned> intWidth{8, 16, 32, 48, 64};
   return intType && intType.isSigned() &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
 }
 
-inline bool isTOSAFloat(Type type) {
-  return type.isa<BFloat16Type, Float16Type, Float32Type>();
+inline bool isTOSAFloat(mlir::Type type) {
+  return type.isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>();
 }
 
 //===----------------------------------------------------------------------===//

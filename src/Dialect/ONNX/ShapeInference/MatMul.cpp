@@ -137,7 +137,7 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     assert(outputDims.empty() && "1-D x 1-D results in scalar");
   }
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

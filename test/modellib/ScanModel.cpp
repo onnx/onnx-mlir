@@ -20,6 +20,8 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
+#include <regex>
+
 #undef PRINT_TENSORS
 
 using namespace mlir;
@@ -122,20 +124,27 @@ bool ScanLibBuilder::build() {
 }
 
 bool ScanLibBuilder::prepareInputs() {
-  return ScanLibBuilder::prepareInputs(omDefaultRangeBound);
+  return ScanLibBuilder::prepareInputs(
+      -omDefaultRangeBound, omDefaultRangeBound);
 }
 
-bool ScanLibBuilder::prepareInputs(float dataRange) {
+bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(initialShape), -dataRange, dataRange);
+      llvm::makeArrayRef(initialShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), -dataRange, dataRange);
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
+}
+
+bool ScanLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool ScanLibBuilder::verifyOutputs() {

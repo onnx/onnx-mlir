@@ -28,7 +28,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXSequenceEraseOpAdaptor operandAdaptor(operands);
-    ONNXSequenceInsertOp thisOp = dyn_cast<ONNXSequenceInsertOp>(op);
+    ONNXSequenceEraseOp thisOp = dyn_cast<ONNXSequenceEraseOp>(op);
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
@@ -66,7 +66,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
       positionIE = IndexExpr::select(positionIE < 0, correctionIE, positionIE);
     }
 
-    // Copy before the insert
+    // Copy the elements before the position
     KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 1> lbs;
     lbs.emplace_back(LiteralIndexExpr(0));
@@ -80,9 +80,12 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
           createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
 
-    // ToDo (chentong)Free the erased element
+    // Free the element to be erased
+    Value element =
+        createKrnl.load(operandAdaptor.input_sequence(), positionIE.getValue());
+    create.mem.dealloc(element);
 
-    // Copy after the insert
+    // Copy the elements after the position
     SmallVector<IndexExpr, 1> lbs1;
     lbs1.emplace_back(positionIE + 1);
     SmallVector<IndexExpr, 1> ubs1;

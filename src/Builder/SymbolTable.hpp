@@ -4,16 +4,15 @@
 
 #pragma once
 
-#include <map>
+#include <cassert>
+#include <llvm/ADT/STLExtras.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
-
-#include "mlir/IR/Value.h"
-#include "onnx/onnx_pb.h"
 
 namespace onnx_mlir {
 /*!
- * A data structure for maintaining mappings from symbol names to symbol values
+ * A data structure for maintaining mappings from symbol names to objects
  * within a single variable scope.
  */
 template <typename T>
@@ -23,29 +22,29 @@ struct VariableScope {
    * @param identifier name of the variable scope.
    */
   explicit VariableScope<T>(std::string _identifier)
-      : identifier(std::move(_identifier)), nameToValue(){};
+      : identifier(std::move(_identifier)), nameToObject(){};
 
   /*!
-   * Record a symbol name value correspondence.
+   * Record a symbol name object correspondence.
    * @param name symbol name.
-   * @param value symbol value.
+   * @param object object.
    */
-  void set(const std::string &name, T value);
+  void set(const std::string &name, T object);
 
   /*!
-   * Retrieve the symbol value associated with a name. An assertion failure will
-   * occur if symbol is not found.
+   * Retrieve pointer to the object associated with a symbol name, or nullptr
+   * if symbol name is not found.
    * @param name symbol name.
-   * @return symbol value.
+   * @return pointer to object, or nullptr.
    */
-  T get(const std::string &name) const;
+  const T *get(const std::string &name) const;
 
   /*!
-   * Check whether symbol exists in the current scope.
+   * Check whether symbol name exists in the current scope.
    * @param name symbol name.
-   * @return whether symbol exists.
+   * @return whether symbol name exists.
    */
-  bool contain(const std::string &name) const;
+  bool contains(const std::string &name) const;
 
   const std::string &getIdentifier() const { return identifier; }
 
@@ -56,9 +55,9 @@ private:
   const std::string identifier;
 
   /*!
-   * A mapping between symbol name and symbol value.
+   * A mapping between symbol name and object.
    */
-  std::map<std::string, T> nameToValue;
+  std::unordered_map<std::string, T> nameToObject;
 };
 
 /*!
@@ -69,31 +68,31 @@ struct SymbolMapping {
   SymbolMapping() = default;
 
   /*!
-   *  Get MLIR tensor by onnx tensor name.
-   *  @param name onnx tensor name.
-   *  @return onnx mlir tensor corresponding to `name`.
+   *  Get pointer to object by onnx name, or nullptr if onnx name is not found.
+   *  @param name onnx name.
+   *  @return pointer to object corresponding to `name`, or nullptr.
    */
-  T GetTensorByOnnxName(const std::string &name) const;
+  const T *GetByOnnxName(const std::string &name) const;
 
   /*!
-   *  Add a new mapping from onnx tensor name to MLIR symbol.
-   *  @param name onnx tensor name.
-   *  @param tensor MLIR Value  pointer.
+   *  Add a new mapping from onnx name to object.
+   *  @param name onnx name.
+   *  @param tensor object.
    */
-  void AddMapping(const std::string &name, T tensor);
+  void AddMapping(const std::string &name, T object);
 
   /*!
-   * Check whether a symbol with the specified name exists.
-   * @param name symbol name.
-   * @return whether a symbol with the sepcified name exists.
+   * Check whether an object with the specified onnx name exists.
+   * @param name onnx name.
+   * @return whether an object with the sepcified onnx name exists.
    */
-  bool ContainKey(const std::string &name) const;
+  bool ContainsKey(const std::string &name) const;
 
   /*!
    * Push a new variable scope with a specified identifier to symbol table.
-   * @param identifier identifier for the variable scope.
+   * @param scopeIdentifier identifier for the variable scope.
    */
-  void pushScope(const std::string &identifier);
+  void pushScope(const std::string &scopeIdentifier);
 
   /*!
    * Pop the outermost variable scope, and checks wether the identifer match up.
@@ -116,29 +115,29 @@ private:
  */
 
 template <typename T>
-T SymbolMapping<T>::GetTensorByOnnxName(const std::string &name) const {
+const T *SymbolMapping<T>::GetByOnnxName(const std::string &name) const {
   for (const auto &scope : scopes)
-    if (scope.contain(name))
-      return scope.get(name);
-  llvm_unreachable("Tensor not found");
+    if (const T *objPtr = scope.get(name))
+      return objPtr;
+  return nullptr;
 }
 
 template <typename T>
-void SymbolMapping<T>::AddMapping(const std::string &name, T tensor) {
+void SymbolMapping<T>::AddMapping(const std::string &name, T object) {
   assert(!scopes.empty());
-  assert(!scopes.back().contain(name) && "Tensor already exists.");
-  scopes.back().set(name, tensor);
+  assert(!scopes.back().contains(name) && "Object already exists.");
+  scopes.back().set(name, object);
 }
 
 template <typename T>
-bool SymbolMapping<T>::ContainKey(const std::string &name) const {
+bool SymbolMapping<T>::ContainsKey(const std::string &name) const {
   return llvm::any_of(scopes,
-      [name](const VariableScope<T> &scope) { return scope.contain(name); });
+      [name](const VariableScope<T> &scope) { return scope.contains(name); });
 }
 
 template <typename T>
-void SymbolMapping<T>::pushScope(const std::string &identifier) {
-  scopes.emplace_back(VariableScope<T>(identifier));
+void SymbolMapping<T>::pushScope(const std::string &scopeIdentifier) {
+  scopes.emplace_back(VariableScope<T>(scopeIdentifier));
 }
 
 template <typename T>
@@ -148,19 +147,20 @@ void SymbolMapping<T>::popScope(const std::string &scopeIdentifier) {
 }
 
 template <typename T>
-void VariableScope<T>::set(const std::string &name, T val) {
-  assert(nameToValue.count(name) == 0 && "duplicate key in symbol table");
-  nameToValue.emplace(name, val);
+void VariableScope<T>::set(const std::string &name, T object) {
+  assert(nameToObject.count(name) == 0 && "duplicate key in symbol table");
+  nameToObject.emplace(name, object);
 }
 
 template <typename T>
-T VariableScope<T>::get(const std::string &name) const {
-  return nameToValue.at(name);
+const T *VariableScope<T>::get(const std::string &name) const {
+  auto iter = nameToObject.find(name);
+  return iter == nameToObject.end() ? nullptr : &(iter->second);
 }
 
 template <typename T>
-bool VariableScope<T>::contain(const std::string &name) const {
-  return nameToValue.count(name) > 0;
+bool VariableScope<T>::contains(const std::string &name) const {
+  return nameToObject.count(name) > 0;
 }
 
 } // namespace onnx_mlir

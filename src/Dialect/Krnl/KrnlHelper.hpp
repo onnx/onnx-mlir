@@ -14,58 +14,14 @@
 
 #pragma once
 
-#include <queue>
-
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
-
-namespace mlir {
-class KrnlIterateOp;
-class KrnlGetRefOp;
-class KrnlMovableOp;
-} // namespace mlir
 
 namespace onnx_mlir {
 namespace krnl {
-
-class KrnlDialectOperandParser {
-public:
-  explicit KrnlDialectOperandParser(mlir::OpAsmParser &parser)
-      : parser(parser), builder(parser.getBuilder()){};
-
-  // Parse an optional operand.
-  mlir::ParseResult ParseOptionalOperand(
-      const mlir::Type &operandType, mlir::Value &operand);
-
-  // Parse an optional operand and push it to an operand list.
-  mlir::ParseResult ParseOptionalOperand(const mlir::Type &operandType,
-      llvm::SmallVectorImpl<mlir::Value> &operandList);
-
-  // Parse a required operand.
-  mlir::ParseResult ParseOperand(
-      const mlir::Type &operandType, mlir::Value &operand);
-
-  // Parse a required operand and push it to an operand list.
-  mlir::ParseResult ParseOperand(const mlir::Type &operandType,
-      llvm::SmallVectorImpl<mlir::Value> &operandList);
-
-  // Do we have more operands to parse?
-  bool hasOperandLeft() { return !operandRefQueue.empty(); }
-
-private:
-  mlir::OpAsmParser &parser;
-  mlir::Builder &builder;
-
-  // A queue storing the parsed SSA id references.
-  std::queue<mlir::OpAsmParser::UnresolvedOperand> operandRefQueue;
-};
 
 // Adapted from:
 // https://github.com/tensorflow/mlir/blob/6a150d70c7e06fb37cddd7188fa48cde9a90fe59/lib/Dialect/StandardOps/Ops.cpp#L197
