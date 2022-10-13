@@ -28,12 +28,12 @@ public:
   LogicalResult matchAndRewrite(ONNXConstantOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     ::mlir::Attribute valueAttr = *adaptor.value();
-    mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    mlir::Type resultType =
+        getTypeConverter()->convertType(op.getResult().getType());
     rewriter.replaceOpWithNewOp<tosa::ConstOp>(op, resultType, valueAttr);
     return success();
   }
 };
-
 
 } // namespace
 
