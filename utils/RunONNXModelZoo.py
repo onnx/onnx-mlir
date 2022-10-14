@@ -429,7 +429,7 @@ def output_report(publish_dir, report_dir, skipped_models, tested_models,
                    '</style>\n' +
                    '<script type="text/javascript" src="renderjson.js"></script>\n' +
                    '<script>\n' +
-                   '  renderjson.set_icons("\u{2795}", "\u{2796}");\n' +
+                   '  renderjson.set_icons("\\u{2795}", "\\u{2796}");\n' +
                    '  renderjson.set_sort_objects(true);\n' +
                    '  renderjson.set_show_to_level(3);\n' +
                    '  document.getElementById("history").appendChild(renderjson(' +
