@@ -31,11 +31,11 @@ static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 LSTMLibBuilder::LSTMLibBuilder(const std::string &modelName,
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB, const bool isNoneH,
-    const bool isNoneC, const bool isNoneP)
-    : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
-      isDynamicS(isDynamicS), isDynamicB(isDynamicB), isNoneH(isNoneH),
-      isNoneC(isNoneC), isNoneP(isNoneP), xShape(), hShape(), cShape(),
-      wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
+    const bool isNoneC, const bool isNoneP, const int layout)
+    : RNNModelLibBuilder(modelName, layout), direction(direction), S(S), B(B),
+      I(I), H(H), isDynamicS(isDynamicS), isDynamicB(isDynamicB),
+      isNoneH(isNoneH), isNoneC(isNoneC), isNoneP(isNoneP), xShape(), hShape(),
+      cShape(), wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
 
 LSTMLibBuilder::~LSTMLibBuilder() {
   omTensorDestroy(wOmt);
@@ -52,16 +52,16 @@ bool LSTMLibBuilder::build() {
   if (isDynamicB)
     B1 = -1;
 
-  xShape = {S, B, I};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
-  llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
-  llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
-  llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
-  hShape = {D, B, H};
-  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
-  cShape = {D, B, H};
-  llvm::SmallVector<int64_t, 3> cShapeSymbol = {D, B1, H};
-  llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
+  xShape = perm3(S, B, I);
+  SmallVector<int64_t, 3> xShapeSymbol = perm3(S1, B1, I);
+  SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
+  SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
+  SmallVector<int64_t, 2> bShape = {D, 8 * H};
+  hShape = perm3(D, B, H);
+  SmallVector<int64_t, 3> hShapeSymbol = perm3(D, B1, H);
+  cShape = perm3(D, B, H);
+  SmallVector<int64_t, 3> cShapeSymbol = perm3(D, B1, H);
+  SmallVector<int64_t, 2> pShape = {D, 3 * H};
 
   auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
@@ -96,6 +96,12 @@ bool LSTMLibBuilder::build() {
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
+  auto inputForgetAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, 0, /*isSigned=*/true));
+  auto layoutAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, layout, /*isSigned=*/true));
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
@@ -114,7 +120,8 @@ bool LSTMLibBuilder::build() {
       /*initial_c=*/cVal, /*P=*/pConstant,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
-      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
+      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
+      /*input_forget=*/inputForgetAttr, /*layout=*/layoutAttr);
 
   lstmOp.getResults()[0].setType(yType);
   lstmOp.getResults()[1].setType(yHType);
@@ -127,19 +134,33 @@ bool LSTMLibBuilder::build() {
   return true;
 }
 
-bool LSTMLibBuilder::prepareInputs() {
+bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] =
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
+  float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLB;
+  float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUB;
+  float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLB;
+  float dataRangeCUL = (isNoneC) ? 0.0 : dataRangeUB;
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(hShape), 0.0, (isNoneH) ? 0.0 : 1.0);
+      llvm::makeArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(cShape), 0.0, (isNoneC) ? 0.0 : 1.0);
+      llvm::makeArrayRef(cShape), dataRangeCLL, dataRangeCUL);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
+}
+
+bool LSTMLibBuilder::prepareInputs() {
+  return LSTMLibBuilder::prepareInputs(0.0, 1.0);
+}
+
+bool LSTMLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {
+  std::vector<float> range = ModelLibBuilder::getDataRangeFromEnv(envDataRange);
+  return range.size() == 2 ? prepareInputs(range[0], range[1])
+                           : prepareInputs();
 }
 
 bool LSTMLibBuilder::verifyOutputs() {
@@ -147,9 +168,12 @@ bool LSTMLibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  auto refY = omTensorCreateWithShape<float>({S, D, B, H});
-  auto refYh = omTensorCreateWithShape<float>({D, B, H});
-  auto refYc = omTensorCreateWithShape<float>({D, B, H});
+  auto refY =
+      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm4(S, D, B, H)));
+  auto refYh =
+      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm3(D, B, H)));
+  auto refYc =
+      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm3(D, B, H)));
   // Naive LSTM implementation.
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -176,10 +200,11 @@ bool LSTMLibBuilder::verifyOutputs() {
   for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++) {
-        omTensorGetElem<float>(refYh, {d, b, h}) =
-            omTensorGetElem<float>(initialH, {d, b, h});
-        omTensorGetElem<float>(refYc, {d, b, h}) =
-            omTensorGetElem<float>(initialC, {d, b, h});
+        std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+        omTensorGetElem<float>(refYh, p3) =
+            omTensorGetElem<float>(initialH, p3);
+        omTensorGetElem<float>(refYc, p3) =
+            omTensorGetElem<float>(initialC, p3);
       }
 
   // Main computation.
@@ -204,7 +229,8 @@ bool LSTMLibBuilder::verifyOutputs() {
           omTensorGetElem<float>(XtWf, {b, h}) = 0;
           omTensorGetElem<float>(XtWc, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            float xt = omTensorGetElem<float>(input, {seq, b, k});
+            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(seq, b, k));
+            float xt = omTensorGetElem<float>(input, p3);
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight, {d, h, k});
             omTensorGetElem<float>(XtWo, {b, h}) +=
@@ -219,7 +245,8 @@ bool LSTMLibBuilder::verifyOutputs() {
           omTensorGetElem<float>(HtRf, {b, h}) = 0;
           omTensorGetElem<float>(HtRc, {b, h}) = 0;
           for (int64_t k = 0; k < H; k++) {
-            float previousHt = omTensorGetElem<float>(refYh, {d, b, k});
+            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, k));
+            float previousHt = omTensorGetElem<float>(refYh, p3);
             omTensorGetElem<float>(HtRi, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr, {d, h, k});
             omTensorGetElem<float>(HtRo, {b, h}) +=
@@ -233,7 +260,8 @@ bool LSTMLibBuilder::verifyOutputs() {
       }
       for (int64_t b = 0; b < B; b++) {
         for (int64_t h = 0; h < H; h++) {
-          float previousCt = omTensorGetElem<float>(refYc, {d, b, h});
+          std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+          float previousCt = omTensorGetElem<float>(refYc, p3);
           // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
           float it =
               sigmoid(omTensorGetElem<float>(XtWi, {b, h}) +
@@ -255,7 +283,7 @@ bool LSTMLibBuilder::verifyOutputs() {
                           omTensorGetElem<float>(bias, {d, h + 7 * H}));
           // Ct = ft (.) Ct-1 + it (.) ct
           float Ct = ft * previousCt + it * ct;
-          omTensorGetElem<float>(refYc, {d, b, h}) = Ct;
+          omTensorGetElem<float>(refYc, p3) = Ct;
           // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
           float ot =
               sigmoid(omTensorGetElem<float>(XtWo, {b, h}) +
@@ -265,8 +293,9 @@ bool LSTMLibBuilder::verifyOutputs() {
                       omTensorGetElem<float>(bias, {d, h + 5 * H}));
           // Ht = ot (.) h(Ct)
           float Ht = ot * tanh(Ct);
-          omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
-          omTensorGetElem<float>(refY, {seq, d, b, h}) = Ht;
+          omTensorGetElem<float>(refYh, p3) = Ht;
+          std::vector<int64_t> p4 = llvm::makeArrayRef(perm4(seq, d, b, h));
+          omTensorGetElem<float>(refY, p4) = Ht;
         }
       }
     }

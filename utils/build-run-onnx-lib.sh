@@ -8,42 +8,51 @@
 #
 # Assumptions:
 # 1) script run in the onnx-mlir/build subdir. 
-# 2) llvm-project is built with all its libraries (needed to run the tool)/
+# 2) llvm-project is built with all its libraries (needed to run the tool)
 
-cd ../..
-TOP_DIR=`pwd`
-cd $TOP_DIR/onnx-mlir/build
+# ask git for the onnx-mlir top level dir
+ONNX_MLIR=$(git rev-parse --show-toplevel)
+if [ $(pwd) != $ONNX_MLIR/build ] ; then
+  echo "Error: this script must be run from the build dir $ONNX_MLIR/build"
+  exit 1
+fi
+ONNX_MLIR_BIN=$ONNX_MLIR/build/Debug/bin
 
-LLVM_PROJ_SRC=$TOP_DIR/llvm-project
-LLVM_PROJ_BUILD=$LLVM_PROJ_SRC/build
-
-ONNX_MLIR_SRC=$TOP_DIR/onnx-mlir
-ONNX_MLIR_UTIL=$ONNX_MLIR_SRC/utils
-ONNX_MLIR_BIN=$ONNX_MLIR_SRC/build/Debug/bin
-DRIVERNAME=RunONNXLib.cpp
-echo $ONNX_MLIR_SRC
+if [ -z $LLVM_PROJECT ] ; then
+  if [ $MLIR_DIR ] ; then
+    # find llvm-project in MLIR_DIR, used to configure cmake,
+    LLVM_PROJECT=${MLIR_DIR%llvm-project/*}llvm-project
+  else
+    # or else assume llvm-project shares parent directory with ONNX-MLIR
+    LLVM_PROJECT=$(dirname $ONNX_MLIR)/llvm-project
+  fi
+fi
 
 if [ "$#" -eq 0 ] ; then
-  echo "Compile run-onnx-lib for models passed at runtime"
-  g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
-  -D LOAD_MODEL_STATICALLY=0 -I $LLVM_PROJ_SRC/llvm/include \
-  -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
-  -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl &&
-  echo "  success, dynamically linked run-onnx-lib built in $ONNX_MLIR_BIN"
+  echo "Compiling run-onnx-lib for dynamically linked models passed at runtime"
 elif  [ "$#" -eq 1 ] ; then
   if [ -e $1 ] ; then
-    echo "Compile run-onnx-lib for model $1"
-    g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
-    -D LOAD_MODEL_STATICALLY=1 -I $LLVM_PROJ_SRC/llvm/include \
-    -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
-    -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl $1 \
-      &&
-    echo "  success, statically linked run-onnx-lib built in $ONNX_MLIR_BIN"
-    echo ""
-    echo "TO RUN: easiest is to cd into the directory of the model"
-   else
-     echo "Error: could not find model $1"
-   fi
+    echo "Compiling run-onnx-lib statically linked to model $1"
+  else
+    echo "Error: could not find model $1"
+    exit 1
+  fi
 else
   echo "Error: pass either zero/one argument for dynamically/statically linked models"
+  exit 1
+fi
+
+DRIVER_NAME=$ONNX_MLIR/utils/RunONNXLib.cpp
+RUN_BIN=$ONNX_MLIR_BIN/run-onnx-lib
+RUN_BIN_RELATIVE=${RUN_BIN#$(pwd)/}
+g++ $DRIVER_NAME -o $RUN_BIN -std=c++17 -D LOAD_MODEL_STATICALLY=$# \
+-I $LLVM_PROJECT/llvm/include -I $LLVM_PROJECT/build/include \
+-I $ONNX_MLIR/include -L $LLVM_PROJECT/build/lib \
+-lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl "$@" &&
+echo "Success, built $RUN_BIN_RELATIVE"
+
+if [ "$#" -eq 1 -a $(uname -s) = Darwin ] ; then
+  echo ""
+  echo "TO RUN: easiest is to cd into the directory where the model was built"
+  echo "(run \"otool -L $RUN_BIN_RELATIVE\" to see $(basename $1) path)"
 fi

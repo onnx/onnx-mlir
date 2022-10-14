@@ -50,7 +50,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
     outputDims[1] = outputDims[1] * LiteralIndexExpr(inputShape[i]);
   }
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

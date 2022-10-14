@@ -92,19 +92,67 @@ Run these commands directly in the docs/docs/mnist_example and everything should
 
 ## Compile Model
 
-To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `--EmitLib` option (it can be omitted since it's the default):
+To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `-EmitLib` option (it can be omitted since it's the default):
 ```bash
-onnx-mlir -O3 [--EmitLib] mnist.onnx
+onnx-mlir -O3 [-EmitLib] mnist.onnx
 ```
 
 A `mnist.so` should appear, which corresponds to the compiled model object file.
 
-To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `--EmitJNI` option:
+To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `-EmitJNI` option:
 ```bash
-onnx-mlir -O3 --EmitJNI mnist.onnx
+onnx-mlir -O3 -EmitJNI mnist.onnx
 ```
 
 A `mnist.jar` should appear, which corresponds to the compiled model object file along with Java API classes.
+
+## Multi-threading
+
+onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you would like to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
+
+```bash
+export MNIST_WITH_O3="-O3"
+onnx-mlir -O3 -customEnvFlags=MNIST_WITH_O3 [--EmitLib] mnist.onnx -o mnist03
+```
+
+A multi-threaded experiment from command line written in Python is provided.
+
+```python
+import datetime
+import os
+import threading
+ 
+def execCmd(cmd):
+    try:
+        print("command " + cmd + " starts at " + str(datetime.datetime.now()))
+        os.system(cmd)
+        print("command " + cmd + " is finished at " + str(datetime.datetime.now()))
+    except:
+        print("command " + cmd + " meets errors")
+ 
+if __name__ == '__main__':
+    
+    # define 2 different commands
+    cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
+
+    threads = []
+    
+    print("program starts at " + str(datetime.datetime.now()))
+
+    # run the commands
+    for cmd in cmds:
+        th = threading.Thread(target=execCmd, args=(cmd,))
+        th.start()
+        threads.append(th)
+
+    # wait for all the commands finish
+    for th in threads:
+        th.join()
+
+    print("program is finished at " + str(datetime.datetime.now()))
+```
+
+You can execute `python3 multi-threading-test.py` under the current directory to test.
 
 ## Write a C Driver Code
 
@@ -119,7 +167,7 @@ The signature of the model inference function for all models is:
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
 
-I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 ### Feeding Inputs and Retrieving Results
 
@@ -196,7 +244,7 @@ The full code is available [here](mnist.cpp).
 
 ## Write a Python Driver Code
 
-You will find most of the details of they Python driver interface described [here](https//onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
+You will find most of the details of the Python driver interface described [here](https://onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
 
 First, we include the necessary Python runtime library. The library path can be set by using the PYTHONPATH or simply creating a soft link in the current directory to the Python shared library (typically: `build/Debug/lib/PyRuntime.cpython-<target>.so`).
 
@@ -248,7 +296,7 @@ The digit is 0
 
 ## Write a Java Driver Code
 
-Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
+Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
 
 An example Java driver for the mnist model is given below.
 

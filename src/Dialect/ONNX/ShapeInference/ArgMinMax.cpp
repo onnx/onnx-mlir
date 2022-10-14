@@ -67,7 +67,7 @@ static LogicalResult computeShape(
   }
 
   // Save the final result.
-  shapeHelper.dimsForOutput() = outputDims;
+  shapeHelper.setOutputDims(outputDims);
   return success();
 }
 

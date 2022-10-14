@@ -16,6 +16,8 @@ import warnings
 import json
 import base64
 import numpy as np
+import re
+import onnx
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
 from onnx.backend.test import BackendTest
@@ -30,6 +32,9 @@ def get_test_models():
     # https://github.com/onnx/onnx/tree/main/onnx/backend/test/data/node
     # In our directories, the python files that generate the tests are found here
     # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
+
+    # For your convenience, all the test cases can be found in file:
+    #       ./all_test_names.txt
 
     # Each benchmark is defined by a dictionary element: `key:value`, where
     # - key: the ONNX testname
@@ -62,7 +67,7 @@ def get_test_models():
     # see utils/genSupportedOps.py
     # command processed by makefile.
 
-    variables.test_to_enable_dict = {
+    variables.node_test_to_enable_dict = {
         ############################################################
         # Elementary ops, ordered in the order they are found in
         # onnx-mlir/third_party/onnx/onnx/backend/test/case/node.
@@ -108,8 +113,14 @@ def get_test_models():
         "test_argmax_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_argmax_default_axis_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     
-        # ArgMin
-
+        # ==OP== ArgMin
+        "test_argmin_no_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_argmin_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_argmin_default_axis_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_argmin_no_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_argmin_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_argmin_default_axis_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+ 
         # ==OP== Asin
         "test_asin_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_asin_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -378,12 +389,11 @@ def get_test_models():
         # GridSample
 
         # ==OP== GRU
-        # ==LIM== layout is not supported.
         # CONSTANT_INPUT for W and R.
         "test_gru_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_gru_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_gru_seq_length_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
-        #"test_gru_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+        "test_gru_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
         # ==OP== Hardmax
         "test_hardmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -407,7 +417,11 @@ def get_test_models():
         #"test_identity_sequence_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_identity_opt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-        # If
+        # ==OP== If
+        # ==LIM== Sequence and Optional outputs are not supported.
+        "test_if_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_if_opt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_if_seq_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== InstanceNormalization
         "test_instancenorm_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -460,12 +474,11 @@ def get_test_models():
         "test_lrn_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== LSTM
-        # ==LIM== layout is not supported.
         # CONSTANT_INPUT for W and R.
         "test_lstm_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_lstm_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_lstm_with_peepholes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
-        #"test_lstm_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+        "test_lstm_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
         # ==OP== MatMul
         "test_matmul_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -599,6 +612,8 @@ def get_test_models():
         "test_onehot_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+        # Optional
 
         # OptionalGetElement
 
@@ -806,11 +821,10 @@ def get_test_models():
         "test_reversesequence_batch_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== RNN
-        # ==LIM== layout is not supported.
         "test_simple_rnn_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_simple_rnn_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
         "test_rnn_seq_length_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
-        #  "test_simple_rnn_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+        "test_simple_rnn_batchwise_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
         # RoiAlign
 
@@ -842,9 +856,12 @@ def get_test_models():
         "test_selu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== SequenceInsert
-        # TODO: add test?
+        # ==LIM== Does not support unranked sequence element.
+        #"test_sequence_insert_at_front_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_sequence_insert_at_back_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Shape
+        # ==LIM== Does not support start and end attributes.
         "test_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_shape_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
@@ -1015,10 +1032,11 @@ def get_test_models():
         "test_xor_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    }
 
         ############################################################
         # Model (alphabetical order)
-
+    variables.model_test_to_enable_dict = {
         "test_densenet121_cpu": {STATIC_SHAPE:{}},
         "test_inception_v1_cpu": {STATIC_SHAPE:{}},
         "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
@@ -1027,42 +1045,68 @@ def get_test_models():
         "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
 
+    variables.test_to_enable_dict = { **variables.node_test_to_enable_dict,
+                                      **variables.model_test_to_enable_dict }
+
     # Test for static inputs.
+    node_test_to_enable = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if STATIC_SHAPE in value ]
+    model_test_to_enable = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if STATIC_SHAPE in value ]
     test_to_enable = [
-        key for (key, value) in variables.test_to_enable_dict.items() if STATIC_SHAPE in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if STATIC_SHAPE in value ]
 
     # Test for dynamic inputs.
     # Specify the test cases which currently can not pass for dynamic shape
     # Presumably, this list should be empty
     # Except for some operation too difficult to handle for dynamic shape
     # or big models
+    variables.node_test_for_dynamic = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
+    variables.model_test_for_dynamic = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
     variables.test_for_dynamic = [
-        key for (key, value) in variables.test_to_enable_dict.items() if DYNAMIC_SHAPE in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if DYNAMIC_SHAPE in value ]
 
     # Test for constant inputs.
+    variables.node_test_for_constant = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if CONSTANT_INPUT in value ]
+    variables.model_test_for_constant = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if CONSTANT_INPUT in value ]
     variables.test_for_constant = [
-        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value
-    ]
+        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value ]
 
     # Specify the test cases which need version converter
     variables.test_need_converter = []
 
     if args.dynamic:
-        print("dynamic shape is enabled", file=sys.stderr)
+        if args.verbose:
+            print("dynamic shape is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_dynamic
+        model_test_to_enable = variables.model_test_for_dynamic
         test_to_enable = variables.test_for_dynamic
 
     if args.constant:
-        print("constant input is enabled", file=sys.stderr)
+        if args.verbose:
+            print("constant input is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_constant
+        model_test_to_enable = variables.model_test_for_constant
         test_to_enable = variables.test_for_constant
 
-    # User case specify one test case with BCKEND_TEST env
+    # User can specify a list of test cases with TEST_CASE_BY_USER
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
     if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
-        test_to_enable = TEST_CASE_BY_USER.split()
+        variables.test_by_user = TEST_CASE_BY_USER.split()
+        variables.node_test_by_user = [
+            x for x in variables.test_by_user if x in node_test_to_enable ]
+        variables.model_test_by_user = [
+            x for x in variables.test_by_user if x in model_test_to_enable ]
 
-    return test_to_enable
+        node_test_to_enable = variables.node_test_by_user
+        model_test_to_enable = variables.model_test_by_user
+        test_to_enable = variables.test_by_user
+
+    return node_test_to_enable, model_test_to_enable, test_to_enable
 
 
 def JniExecutionSession(jar_name, inputs):
@@ -1268,3 +1312,15 @@ class InferenceBackend(Backend):
         if d.type == DeviceType.CPU:
             return True
         return False
+
+def save_all_test_names(all_test_names):
+    filename = "all_test_names.txt"
+    print("all test names supported by current onnx are listed in "+os.getcwd()+"/"+filename+"\n")
+    with open("./"+filename,"w") as f:
+        f.write("# This file is automatically generated by \"make check-backend-case\"\n")
+        f.write("# From onnx {}\n".format(onnx.__version__))
+        f.write("# All test cases for cpu target\n")
+        for test_name in all_test_names:
+            if re.match("^test_", test_name) and re.match("^aduc_", test_name[::-1]) is None:
+                f.write(test_name)
+                f.write("\n")

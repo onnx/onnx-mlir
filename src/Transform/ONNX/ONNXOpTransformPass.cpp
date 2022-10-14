@@ -47,19 +47,23 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
 
   Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
       llvm::cl::desc("max iteration for op transform passes."),
-      llvm::cl::init(3)};
-
+      llvm::cl::init(10)};
   Option<bool> onnxOpTransformReport{*this, "onnx-op-transform-report",
       llvm::cl::desc("Report diagnostic info for op transform passes."),
       llvm::cl::init(false)};
+  // NOTE: FlexML changes the default for this flag to false, as we do not want
+  //       to run the CPU specific transformations.
+  Option<bool> onnxOpTransformTargetCPU{*this, "onnx-op-transform-target-cpu",
+      llvm::cl::desc("Target CPU op transform passes."), llvm::cl::init(false)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold, bool report) {
+  ONNXOpTransformPass(int threshold, bool report, bool targetCPU) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
+    this->onnxOpTransformTargetCPU = targetCPU;
   }
 
   void runOnOperation() final;
@@ -130,6 +134,7 @@ void ONNXOpTransformPass::runOnOperation() {
     return signalPassFailure();
 
   int n = onnxOpTransformThreshold;
+  bool targetCPU = onnxOpTransformTargetCPU;
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
@@ -138,6 +143,12 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    // Convolution Optimization currently only for CPU.
+    if (targetCPU) {
+      dynamicPM.addNestedPass<func::FuncOp>(
+          onnx_mlir::createConvOptONNXToONNXPass());
+      dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
@@ -168,6 +179,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report) {
-  return std::make_unique<ONNXOpTransformPass>(threshold, report);
+    int threshold, bool report, bool targetCPU) {
+  return std::make_unique<ONNXOpTransformPass>(threshold, report, targetCPU);
 }

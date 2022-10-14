@@ -2,13 +2,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <rapidcheck.h>
+//====-- TestRNN.cpp - test RNN code -========================================//
+//
+// Copyright 2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains the code to test RNN code.
+//
+//===----------------------------------------------------------------------===//
 
-#include "llvm/Support/FileSystem.h"
-
-#include "include/OnnxMlirRuntime.h"
-#include "src/Runtime/OMTensorHelper.hpp"
-#include "test/modellib/ModelLib.hpp"
+// Common.hpp needs to be included first to correctly suppress the rapidcheck.h
+// warnings.
+#include "Common.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestRNN_main_graph");
 
@@ -21,13 +27,14 @@ namespace test {
 // naive implementation of RNN for a specific set of RNN
 // parameters/configuration.
 bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
-    const int I, const int H, bool isDynamicS = false,
-    bool isDynamicB = false) {
+    const int I, const int H, bool isDynamicS = false, bool isDynamicB = false,
+    int layout = 0) {
 
   RNNLibBuilder rnn(
       SHARED_LIB_BASE.str(), direction, S, B, I, H, isDynamicS, isDynamicB);
-  return rnn.build() && rnn.compileAndLoad() && rnn.prepareInputs() &&
-         rnn.checkInstructionFromEnv("TestRNNNNPA_INSTRUCTION") && rnn.run() &&
+  return rnn.build() && rnn.compileAndLoad() &&
+         rnn.prepareInputsFromEnv("TEST_DATARANGE") &&
+         rnn.checkInstructionFromEnv("TEST_INSTRUCTION") && rnn.run() &&
          rnn.verifyOutputs();
 }
 
@@ -52,22 +59,24 @@ int main(int argc, char *argv[]) {
   bool success = rc::check("RNN implementation correctness", []() {
     // The number of directions.
     // 1: forward, -1: reverse, 2: bidirectional
-    const auto D = *rc::gen::element(1, -1, 2);
+    const int D = *rc::gen::element(1, -1, 2);
     // Sequence length.
-    const auto S = *rc::gen::inRange(1, 5);
+    const int S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 10);
+    const int B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(5, 10);
+    const int I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(5, 10);
+    const int H = *rc::gen::inRange(5, 10);
+    // Layout.
+    const int layout = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(0, 1);
+    const int isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(0, 1);
+    const int isDynB = *rc::gen::element(0, 1);
 
-    RC_ASSERT(
-        isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
+    RC_ASSERT(isOMRNNTheSameAsNaiveImplFor(
+        D, S, B, I, H, isDynS == 0, isDynB == 0, layout));
   });
   if (!success)
     return 1;

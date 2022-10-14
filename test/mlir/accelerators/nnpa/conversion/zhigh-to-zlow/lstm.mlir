@@ -299,9 +299,9 @@ func.func @lstm_no_intial_h_and_c(%input : tensor<?x?x7xf32, #zhigh.encoding<{da
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_2_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_2_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK:           [[RES_3_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<1x?x9xf16, #map0>
-// CHECK:           krnl.memset [[RES_3_]], [[VAR_cst_]] : memref<1x?x9xf16, #map0>
+// CHECK:           krnl.memset [[RES_3_]], [[VAR_cst_]] {delayed = true} : memref<1x?x9xf16, #map0>
 // CHECK:           [[RES_4_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<1x?x9xf16, #map0>
-// CHECK:           krnl.memset [[RES_4_]], [[VAR_cst_]] : memref<1x?x9xf16, #map0>
+// CHECK:           krnl.memset [[RES_4_]], [[VAR_cst_]] {delayed = true} : memref<1x?x9xf16, #map0>
 // CHECK-DAG:       [[VAR_9_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
 // CHECK-DAG:       [[VAR_10_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
 // CHECK-NOT: separator of consecutive DAGs
