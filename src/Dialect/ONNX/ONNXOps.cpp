@@ -384,6 +384,8 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
+      if (sumOfPad < 0)
+        sumOfPad = 0;
       // Pad values are assumed equal on both size, at half the total value.
       actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
       // But if the total pad value is odd, we add 1 to begining or end
