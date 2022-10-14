@@ -1,9 +1,9 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch NNPA --input test/accelerators/NNPA/backend/CMakeLists.txt --path utils --notes -->
+<!--- python documentOps.py --arch NNPA --input ../test/accelerators/NNPA/backend/CMakeLists.txt --path . --notes -->
 
 # Supported ONNX Operation for Target *NNPA*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 15. Limitations are listed when applicable.
+Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitations are listed when applicable.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
@@ -24,6 +24,7 @@ NNPA has hardware limitations in dimension index size and tensor size, which are
 | **Gemm** |13 |- `alpha` and `beta` must be default value(1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`. | |
 | **GlobalAveragePool** |1 |- Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static. | |
 | **LSTM** |14 |- `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be default value(0).<br>- `layout` is not supported. | |
+| **LeakyRelu** |16 |The operations immediately before and after the LeakyRelu operation must be executed on the NNPA. Otherwise, LeakyRelu is executed on the CPU. This limitation is set to avoid performance degradation. | |
 | **Log** |13 |Input tensor must have 4 dimensions. | |
 | **LogSoftmax** |13 | | |
 | **MatMul** |13 |Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2. | |
