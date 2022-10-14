@@ -375,10 +375,14 @@ def output_json(publish_dir, report_dir, skipped_models, tested_models,
     json_file      = os.path.splitext(args.Html)[0] + '.json'
     prev_json_file = os.path.join(publish_dir, json_file)
     curr_json_file = os.path.join(report_dir, json_file)
+
+    print('--------read from ' + prev_json_file, file=sys.stderr)
+
     try:
         with open(prev_json_file, 'r') as jf:
             hist = json.load(jf)
         prev = hist[0]
+        print('--------' + str(hist), file=sys.stderr)
     except:
         hist = []
         prev = { 'commit':  '',
@@ -388,6 +392,7 @@ def output_json(publish_dir, report_dir, skipped_models, tested_models,
                  'passed':  { 'models': [], 'entered': [], 'dropped': [] },
                  'failed':  { 'models': [], 'entered': [], 'dropped': [] },
                  'total':   { 'models': [], 'entered': [], 'dropped': [] } }
+        print('--------read from ' + prev_json_file + ' failed', file=sys.stderr)
 
     curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
 
