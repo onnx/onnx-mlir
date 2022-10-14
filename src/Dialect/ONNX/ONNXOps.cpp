@@ -3172,8 +3172,8 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace {
-// Returns rank if ty is a non-scalar 1-D vector with known rank, otherwise -1.
-int64_t nonScalar1DRank(ShapedType ty) {
+// Returns known length if ty is a non-scalar 1-D vector, otherwise -1.
+int64_t nonScalar1DLen(ShapedType ty) {
   if (!ty.hasRank() || ty.getRank() != 1 || ty.isDynamicDim(0))
     return -1;
   int64_t d = ty.getDimSize(0);
@@ -3191,20 +3191,19 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   auto scaleTy = scale.getType().cast<ShapedType>();
   if (scaleTy.hasRank() && scaleTy.getRank() > 1)
     return emitOpError("x_scale must be a scalar or 1-D tensor");
-  int64_t scale1DRank = nonScalar1DRank(scaleTy);
+  int64_t scaleLen = nonScalar1DLen(scaleTy);
 
   Value zero = x_zero_point();
-  int64_t zero1DRank = -1;
+  int64_t zeroLen = -1;
   if (!isFromNone(zero)) {
     if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
       if (zeroTy.getRank() > 1)
         return emitOpError("x_zero_point must be a scalar or 1-D tensor");
-      zero1DRank = nonScalar1DRank(zeroTy);
+      zeroLen = nonScalar1DLen(zeroTy);
       if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
-        if ((isScalar(scaleTy) && scale1DRank != -1) ||
-            (zero1DRank != -1 && isScalar(zeroTy)) ||
-            (zero1DRank != -1 && scale1DRank != -1 &&
-                zero1DRank != scale1DRank))
+        if ((isScalar(scaleTy) && scaleLen != -1) ||
+            (zeroLen != -1 && isScalar(zeroTy)) ||
+            (zeroLen != -1 && scaleLen != -1 && zeroLen != scaleLen))
           return emitOpError(
               "x_scale and x_zero_point must have the same shape");
       }
@@ -3217,20 +3216,20 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     // if (getElementType(x().getType()) != getElementType(zero.getType()))
     //   return emitOpError("x and x_zero_point must have the same data type");
 
-    if (getElementType(zero.getType()).isInteger(32) && zero1DRank != 0)
+    if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
       if (auto values = getDenseElementAttributeFromONNXValue(zero))
         if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
           return emitOpError("x_zero_point must be 0 for data type int32");
   }
 
-  if (scale1DRank == -1 && zero1DRank == -1) {
+  if (scaleLen == -1 && zeroLen == -1) {
     // Either x_scale or x_zero_point is scalar, so quantization is per-tensor /
     // per layer and axis is ignored and there is nothing more to verify, or
     // their 1-D rank is unknown and we cannot verify more until they are known.
   } else {
     // If x_scale or x_zero_point is a non-scalar 1-D tensor then quantization
     // is per-axis.
-    int64_t d = std::max(scale1DRank, zero1DRank);
+    int64_t d = scaleLen != -1 ? scaleLen : zeroLen;
     if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
       int64_t r = xTy.getRank();
       // axis attribute must be in the range [-r,r-1].
@@ -3258,9 +3257,9 @@ LogicalResult ONNXDequantizeLinearOp::inferShapes(
   if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
     auto xShape = xTy.getShape();
     SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
-    int64_t d = nonScalar1DRank(x_scale().getType().cast<ShapedType>());
+    int64_t d = nonScalar1DLen(x_scale().getType().cast<ShapedType>());
     if (d == -1 && !isFromNone(x_zero_point())) {
-      d = nonScalar1DRank(x_zero_point().getType().cast<ShapedType>());
+      d = nonScalar1DLen(x_zero_point().getType().cast<ShapedType>());
     }
     if (d != -1) {
       int64_t r = xTy.getRank();
