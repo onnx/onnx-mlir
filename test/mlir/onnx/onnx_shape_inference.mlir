@@ -69,7 +69,7 @@ func.func @test_default_argmin(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
   "func.return"(%0) : (tensor<*xi64>) -> ()
 
   // CHECK-LABEL: test_default_argmin
-  // CHECK: [[RES:%.+]] = "onnx.ArgMin"(%arg0) : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
+  // CHECK: [[RES:%.+]] = "onnx.ArgMin"(%arg0) {axis = 0 : si64, keepdims = 1 : si64, select_last_index = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
   // CHECK: return [[RES]] : tensor<1x3x4xi64>
 }
 
@@ -2949,7 +2949,7 @@ func.func @test_roialign(%arg0: tensor<1x2x4x8xf32>, %arg1: tensor<100x4xf32>, %
   return %0 : tensor<*xf32>
   
   // CHECK-LABEL: func @test_roialign
-  // CHECK: [[RES:%.+]] = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {mode = "avg", output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<100x2x7x7xf32>
+  // CHECK: [[RES:%.+]] = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {coordinate_transformation_mode = "half_pixel", mode = "avg", output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<100x2x7x7xf32>
   // CHECK: return [[RES]] : tensor<100x2x7x7xf32>
 }
 
@@ -2963,7 +2963,7 @@ func.func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x10
   return %0 : tensor<*xf32>
   
   // CHECK-LABEL: func @test_scatterelements
-  // CHECK: [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<64x25600xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2)  {axis = 1 : si64, reduction = "none"} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<64x25600xf32>
   // CHECK: return [[RES]] : tensor<64x25600xf32>
 }
 

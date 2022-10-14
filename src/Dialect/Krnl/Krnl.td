@@ -33,7 +33,7 @@ def Krnl_Dialect : Dialect {
   let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = [
     "AffineDialect",
-    "arith::ArithmeticDialect",
+    "arith::ArithDialect",
     "func::FuncDialect",
     "linalg::LinalgDialect",
     "math::MathDialect",
