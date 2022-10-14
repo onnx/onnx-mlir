@@ -5,6 +5,7 @@ import git
 import logging
 import math
 import os
+import requests
 import subprocess
 import sys
 
@@ -30,6 +31,9 @@ ONNX_MLIR_SOURCE           = '/workdir/onnx-mlir'
 ONNX_MLIR_HOME             = '/workdir/onnx-mlir/build/Debug'
 RUN_ONNX_MODEL_PY          = 'RunONNXModel.py'
 RUN_ONNX_MODELZOO_PY       = 'RunONNXModelZoo.py'
+
+RENDERJSON_URL             = 'https://raw.githubusercontent.com/caldwell/renderjson/master/'
+RENDERJSON_JS              = 'renderjson.js'
 
 docker_daemon_socket       = os.getenv('DOCKER_DAEMON_SOCKET')
 docker_registry_host_name  = os.getenv('DOCKER_REGISTRY_HOST_NAME')
@@ -75,6 +79,12 @@ workspace_publishdir       = modelzoo_publishdir
 container_publishdir       = os.path.join(DOCKER_DEV_IMAGE_WORKDIR,
                                           os.path.split(modelzoo_publishdir)[1])
 
+def urlretrieve(remote_url, local_file):
+    req = requests.get(remote_url)
+    with open(local_file, 'wb') as f:
+        f.write(req.content)
+
+
 def main():
     repo = git.Repo('.')
     head_commit_hash = repo.head.commit.hexsha
@@ -103,7 +113,7 @@ def main():
             '-r', container_reportdir,
             '-w', container_workdir ]
 
-    # write summary line to file for Jenkinsfile to pickup
+    # Write summary line to file for Jenkinsfile to pickup
     logging.info(' '.join(cmd))
     os.makedirs(workspace_workdir)
     os.makedirs(workspace_reportdir)
@@ -119,6 +129,9 @@ def main():
         except:
             f.write('failed')
 
+    # Download renderjson.js
+    urlretrieve(RENDERJSON_URL + RENDEERJSON_JS,
+                os.path.join(workspace_reportdir, RENDERJSON_JS))
 
 if __name__ == "__main__":
     main()

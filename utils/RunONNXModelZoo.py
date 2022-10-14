@@ -369,30 +369,29 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
     return state, model_name
 
 
-def output_json(publish_dir, report_dir, skipped_models, tested_models,
-                passed_models, failed_models, total_models):
+def output_report(publish_dir, report_dir, skipped_models, tested_models,
+                  passed_models, failed_models, total_models):
 
-    json_file      = os.path.splitext(args.Html)[0] + '.json'
+    # Ignore path in args.Html
+    html_file      = os.path.basename(args.Html)              # foo.html
+    json_file      = os.path.splitext(html_file)[0] + '.json' # foo.json
+    hist_file      = json_file + '.html'                      # foo.json.html
     prev_json_file = os.path.join(publish_dir, json_file)
     curr_json_file = os.path.join(report_dir, json_file)
-
-    print('--------read from ' + prev_json_file, file=sys.stderr)
 
     try:
         with open(prev_json_file, 'r') as jf:
             hist = json.load(jf)
         prev = hist[0]
-        print('--------' + str(hist), file=sys.stderr)
     except:
         hist = []
         prev = { 'commit':  '',
                  'author':  '',
                  'date':    '',
-                 'skipped': { 'models': [], 'entered': [], 'dropped': [] },
-                 'passed':  { 'models': [], 'entered': [], 'dropped': [] },
-                 'failed':  { 'models': [], 'entered': [], 'dropped': [] },
-                 'total':   { 'models': [], 'entered': [], 'dropped': [] } }
-        print('--------read from ' + prev_json_file + ' failed', file=sys.stderr)
+                 'skipped': { '_models': [], 'entered': [], 'dropped': [] },
+                 'passed':  { '_models': [], 'entered': [], 'dropped': [] },
+                 'failed':  { '_models': [], 'entered': [], 'dropped': [] },
+                 'total':   { '_models': [], 'entered': [], 'dropped': [] } }
 
     curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
 
@@ -400,31 +399,45 @@ def output_json(publish_dir, report_dir, skipped_models, tested_models,
     curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
     curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')
 
-    curr['skipped']['models'] = skipped_models
-    curr['passed']['models']  = passed_models
-    curr['failed']['models']  = failed_models
-    curr['total']['models']   = total_models
+    curr['skipped']['_models'] = skipped_models
+    curr['passed']['_models']  = passed_models
+    curr['failed']['_models']  = failed_models
+    curr['total']['_models']   = total_models
 
-    curr['skipped']['entered'] = [ x for x in skipped_models if x not in prev['skipped']['models'] ]
-    curr['passed']['entered']  = [ x for x in passed_models  if x not in prev['passed']['models']  ]
-    curr['failed']['entered']  = [ x for x in failed_models  if x not in prev['failed']['models']  ]
-    curr['total']['entered']   = [ x for x in total_models   if x not in prev['total']['models']   ]
+    curr['skipped']['entered'] = [ x for x in skipped_models if x not in prev['skipped']['_models'] ]
+    curr['passed']['entered']  = [ x for x in passed_models  if x not in prev['passed']['_models']  ]
+    curr['failed']['entered']  = [ x for x in failed_models  if x not in prev['failed']['_models']  ]
+    curr['total']['entered']   = [ x for x in total_models   if x not in prev['total']['_models']   ]
 
-    curr['skipped']['dropped'] = [ x for x in prev['skipped']['models'] if x not in skipped_models ]
-    curr['passed']['dropped']  = [ x for x in prev['passed']['models']  if x not in passed_models  ]
-    curr['failed']['dropped']  = [ x for x in prev['failed']['models']  if x not in failed_models  ]
-    curr['total']['dropped']   = [ x for x in prev['total']['models']   if x not in total_models   ]
+    curr['skipped']['dropped'] = [ x for x in prev['skipped']['_models'] if x not in skipped_models ]
+    curr['passed']['dropped']  = [ x for x in prev['passed']['_models']  if x not in passed_models  ]
+    curr['failed']['dropped']  = [ x for x in prev['failed']['_models']  if x not in failed_models  ]
+    curr['total']['dropped']   = [ x for x in prev['total']['_models']   if x not in total_models   ]
 
-    # Keep last 100 commits
-    HIST_MAX = 100
+    # Write history json. Keep last 100 commits
+    HIST_MAX  = 100
+    hist_json = [ curr ] + hist[:HIST_MAX-1]
     with open(curr_json_file, 'w') as jf:
-        json.dump([ curr ] + hist[:HIST_MAX-1], jf, indent=4)
+        json.dump(hist_json, jf)
 
+    # Write history html
+    with open(os.path.join(report_dir, hist_file), 'w') as html:
+        html.write('<div id="history"></div>\n' +
+                   '<style>\n' +
+                   '  .renderjson a { text-decoration: none; }\n' +
+                   '  .renderjson .disclosure { font-size: 100%; }\n' +
+                   '</style>\n' +
+                   '<script type="text/javascript" src="renderjson.js"></script>\n' +
+                   '<script>\n' +
+                   '  renderjson.set_icons("\u{2795}", "\u{2796}");\n' +
+                   '  renderjson.set_sort_objects(true);\n' +
+                   '  renderjson.set_show_to_level(3);\n' +
+                   '  document.getElementById("history").appendChild(renderjson(' +
+                   json.dumps(hist_json) + '));\n' +
+                   '</script>\n')
 
-def output_html(publish_dir, report_dir, skipped_models, tested_models,
-                passed_models, failed_models, total_models):
-    html_file = os.path.join(report_dir, args.Html)
-    with open(html_file, 'w') as html:
+    # Write report html
+    with open(os.path.join(report_dir, html_file), 'w') as html:
         html.write('<html>\n' +
                    '<head>\n' +
                    '<style>\n' +
@@ -444,26 +457,30 @@ def output_html(publish_dir, report_dir, skipped_models, tested_models,
                    '</head>\n' +
                    '<body>\n' +
                    '<table class="sticky">\n')
+
         t = [ 'Skipped', 'Passed', 'Failed' ]
         for i, s in enumerate([ skipped_models,
-                                list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
+                                list(map(lambda m: ('<a href="' + m + '.html" ' +
+                                                    'target="output">' + m + '</a>'),
                                          passed_models)),
-                                list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
+                                list(map(lambda m: ('<a href="' + m + '.html" ' +
+                                                    'target="output">' + m + '</a>'),
                                          failed_models)) ]):
             html.write('  <tr>\n' +
                        '    <td>{}</td>\n'.format(t[i]) +
                        '    <td>{}</td>\n'.format(len(s)) +
                        '    <td>{}</td>\n'.format(', '.join(s)) +
                        '  </tr>\n')
-        h = os.path.basename(os.path.splitext(args.Html)[0] + '.json')
+
         html.write('  <tr>\n' +
                    '    <td>Total</td>\n' +
                    '    <td>{}</td>\n'.format(len(skipped_models) +
                                               len(tested_models)) +
-                   '    <td><a href="'+h+'" target="output">history</a></td>\n' +
+                   '    <td>[ <a href="'+hist_file+'" target="output">History</a> ]</td>\n' +
                    '  </tr>\n' +
                    '</table>\n' +
-                   '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
+                   '<iframe name="output" scrolling="auto"' +
+                   ' style="border:0px;width:100%;height:100%">\n' +
                    '</body>\n' +
                    '</html>\n')
 
@@ -521,11 +538,10 @@ def main():
     total_models   = sorted(skipped_models + tested_models)
 
     if args.Html:
+        # Output report files
         publish_dir = os.path.realpath(args.publishdir)
-        output_json(publish_dir, report_dir, skipped_models, tested_models,
-                    passed_models, failed_models, total_models)
-        output_html(publish_dir, report_dir, skipped_models, tested_models,
-                    passed_models, failed_models, total_models)
+        output_report(publish_dir, report_dir, skipped_models, tested_models,
+                      passed_models, failed_models, total_models)
 
         # Output summary to stdout for the badge text
         print('Total:{} Skipped:{} Passed:{} Failed:{}'.format(
