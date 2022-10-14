@@ -237,8 +237,8 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   if (op.auto_pad().equals_insensitive("VALID"))
     return false;
   // image dimensions of input shape should be static
-  // if ((inputShape[1] <= 0) || (inputShape[2] <= 0) || (inputShape[3] <= 0))
-  //  return false;
+  if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
+    return false;
   return true;
 }
 
