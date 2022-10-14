@@ -130,7 +130,7 @@ def main():
             f.write('failed')
 
     # Download renderjson.js
-    urlretrieve(RENDERJSON_URL + RENDEERJSON_JS,
+    urlretrieve(RENDERJSON_URL + RENDERJSON_JS,
                 os.path.join(workspace_reportdir, RENDERJSON_JS))
 
 if __name__ == "__main__":
