@@ -4,6 +4,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Elementwise.cpp
   Tensor/Constant.cpp
   NN/MaxPoolSingleOut.cpp
+  Math/Gemm.cpp
 
 
   ConvertONNXToTOSA.cpp

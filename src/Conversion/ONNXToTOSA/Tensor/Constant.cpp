@@ -14,6 +14,7 @@
 
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include <cassert>
 
 using namespace mlir;
 

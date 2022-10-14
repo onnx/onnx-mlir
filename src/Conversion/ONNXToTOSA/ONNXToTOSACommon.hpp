@@ -48,6 +48,10 @@ inline bool isTOSAFloat(Type type) {
   return type.isa<BFloat16Type, Float16Type, Float32Type>();
 }
 
+inline bool isTOSANone(Type type) {
+  return type.isa<mlir::NoneType>();
+}
+
 //===----------------------------------------------------------------------===//
 // This is to get a TOSA operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -66,13 +70,13 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(
 void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 
+void populateLoweringONNXGemmOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXConvOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-
-void populateLoweringONNXGemmOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 } // namespace onnx_mlir

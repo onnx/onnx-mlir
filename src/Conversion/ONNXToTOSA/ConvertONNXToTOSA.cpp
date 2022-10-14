@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 
 using namespace mlir;
@@ -23,6 +25,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXGemmOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXConstOpToTOSAPattern(
@@ -60,12 +64,23 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
-    if (isTOSASignedInt(type) || isTOSAFloat(type))
+    if (isTOSASignedInt(type) || isTOSAFloat(type) || isTOSANone(Type))
       return type;
     return llvm::None;
   });
   typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
     if (typeConverter.isLegal(type.getElementType()))
+      return type;
+    return llvm::None;
+  });
+  /*target.markUnknownOpDynamicallyLegal([&](Operation *op) {
+    return isNotBranchOpInterfaceOrReturnLikeOp(op) ||
+           isLegalForBranchOpInterfaceTypeConversionPattern(op, typeConverter) ||
+           isLegalForReturnOpTypeConversionPattern(op, typeConverter);
+  }); */
+  target.addLegalOp<ONNXNoneOp>();
+  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
+    if (type.getElementType().isa<NoneType>())
       return type;
     return llvm::None;
   });
