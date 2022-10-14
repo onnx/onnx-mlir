@@ -385,34 +385,42 @@ def output_report(publish_dir, report_dir, skipped_models, tested_models,
         prev = hist[0]
     except:
         hist = []
-        prev = { 'commit':  '',
-                 'author':  '',
+        prev = { 'author':  '',
+                 'commit':  '',
                  'date':    '',
-                 'skipped': { '_models': [], 'entered': [], 'dropped': [] },
-                 'passed':  { '_models': [], 'entered': [], 'dropped': [] },
-                 'failed':  { '_models': [], 'entered': [], 'dropped': [] },
-                 'total':   { '_models': [], 'entered': [], 'dropped': [] } }
+                 'failed':  { '_models': [], 'dropped': [], 'entered': [] },
+                 'passed':  { '_models': [], 'dropped': [], 'entered': [] },
+                 'skipped': { '_models': [], 'dropped': [], 'entered': [] },
+                 'total':   { '_models': [], 'dropped': [], 'entered': [] } }
 
-    curr = { 'skipped': {}, 'passed': {}, 'failed': {}, 'total': {} }
-
-    curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
     curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
+    curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
     curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')
 
-    curr['skipped']['_models'] = skipped_models
-    curr['passed']['_models']  = passed_models
+    curr = { 'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
+
     curr['failed']['_models']  = failed_models
+    curr['passed']['_models']  = passed_models
+    curr['skipped']['_models'] = skipped_models
     curr['total']['_models']   = total_models
 
-    curr['skipped']['entered'] = [ x for x in skipped_models if x not in prev['skipped']['_models'] ]
-    curr['passed']['entered']  = [ x for x in passed_models  if x not in prev['passed']['_models']  ]
-    curr['failed']['entered']  = [ x for x in failed_models  if x not in prev['failed']['_models']  ]
-    curr['total']['entered']   = [ x for x in total_models   if x not in prev['total']['_models']   ]
+    curr['failed']['dropped']  = ([ x for x in prev['failed']['_models']
+                                    if x not in failed_models  ])
+    curr['passed']['dropped']  = ([ x for x in prev['passed']['_models']
+                                    if x not in passed_models  ])
+    curr['skipped']['dropped'] = ([ x for x in prev['skipped']['_models']
+                                    if x not in skipped_models ])
+    curr['total']['dropped']   = ([ x for x in prev['total']['_models']
+                                    if x not in total_models   ])
 
-    curr['skipped']['dropped'] = [ x for x in prev['skipped']['_models'] if x not in skipped_models ]
-    curr['passed']['dropped']  = [ x for x in prev['passed']['_models']  if x not in passed_models  ]
-    curr['failed']['dropped']  = [ x for x in prev['failed']['_models']  if x not in failed_models  ]
-    curr['total']['dropped']   = [ x for x in prev['total']['_models']   if x not in total_models   ]
+    curr['failed']['entered']  = ([ x for x in failed_models
+                                    if x not in prev['failed']['_models']  ])
+    curr['passed']['entered']  = ([ x for x in passed_models
+                                    if x not in prev['passed']['_models']  ])
+    curr['skipped']['entered'] = ([ x for x in skipped_models
+                                    if x not in prev['skipped']['_models'] ])
+    curr['total']['entered']   = ([ x for x in total_models
+                                    if x not in prev['total']['_models']   ])
 
     # Write history json. Keep last 100 commits
     HIST_MAX  = 100
