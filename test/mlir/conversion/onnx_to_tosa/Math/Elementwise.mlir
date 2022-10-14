@@ -10,6 +10,7 @@ func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:    }
 }
 
+// -----
 func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -20,6 +21,7 @@ func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-NEXT:    }
 }
 
+// -----
 func.func @test_neg(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Neg"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -28,6 +30,7 @@ func.func @test_neg(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.negate"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
 }
 
+// -----
 func.func @test_floor(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Floor"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -36,6 +39,7 @@ func.func @test_floor(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.floor"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
 }
 
+// -----
 func.func @test_add(%arg0: tensor<10x10xf32>, %arg1: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -44,12 +48,29 @@ func.func @test_add(%arg0: tensor<10x10xf32>, %arg1: tensor<10x10xf32>) -> tenso
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
 }
 
+// -----
+func.func @test_add_int(%arg0: tensor<10x10xi32>, %arg1: tensor<10x10xi32>) -> tensor<10x10xi32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
+  "func.return"(%0) : (tensor<10x10xi32>) -> ()
+// CHECK-LABEL:  func @test_add
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi32>, [[PARAM_1_:%.+]]: tensor<10x10xi32>) -> tensor<10x10xi32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
+}
 
-
+// -----
 func.func @test_sub(%arg0: tensor<10x10xf32>, %arg1: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_sub
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.sub"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
+}
+
+// -----
+func.func @test_sub_int(%arg0: tensor<10x10xi32>, %arg1: tensor<10x10xi32>) -> tensor<10x10xi32> {
+  %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
+  "func.return"(%0) : (tensor<10x10xi32>) -> ()
+// CHECK-LABEL:  func @test_add
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi32>, [[PARAM_1_:%.+]]: tensor<10x10xi32>) -> tensor<10x10xi32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.sub"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
 }

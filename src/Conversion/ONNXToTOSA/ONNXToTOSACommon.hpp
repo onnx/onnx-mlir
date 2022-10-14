@@ -25,7 +25,6 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-#include "llvm/Support/raw_ostream.h"
 
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
