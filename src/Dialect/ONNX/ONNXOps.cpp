@@ -5476,7 +5476,45 @@ LogicalResult ONNXUniqueOp::inferShapes(
 
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Sanity checks on input data argument
+  if (!X().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+  if (!scales().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+
+  auto inputTy = X().getType().cast<RankedTensorType>();
+  int32_t inputRank = inputTy.getShape().size();
+
+  SmallVector<int64_t, 4> outputDims(inputRank, -1);
+
+  // Extract the scale values
+  auto scalesConstOp = getONNXConstantOp(scales());
+  if (!scalesConstOp) {
+    return success();
+  }
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!valueAttr) {
+    return emitError("Scales constant is not a DenseElementsAttr");
+  }
+  int scaleIdx = 0;
+  // Why are the scale values float's?
+  for (auto it = valueAttr.getValues<FloatAttr>().begin();
+       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
+    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
+  }
+
+  // Compute and set the output shape
+  for (int i = 0; i < inputRank; ++i) {
+    outputDims[i] *= inputTy.getShape()[i];
+  }
+  getResult().setType(
+      RankedTensorType::get(outputDims, inputTy.getElementType()));
+
+  return success();
+}
+
+LogicalResult ONNXUpsampleOp::verify() {
   if (!X().getType().isa<RankedTensorType>()) {
     return success();
   }
@@ -5496,8 +5534,6 @@ LogicalResult ONNXUpsampleOp::inferShapes(
     return emitError("Input tensor rank doesn't match scales tensor shape");
   }
 
-  SmallVector<int64_t, 4> outputDims(inputRank, -1);
-
   // Extract the scale values
   auto scalesConstOp = getONNXConstantOp(scales());
   if (!scalesConstOp) {
@@ -5507,26 +5543,18 @@ LogicalResult ONNXUpsampleOp::inferShapes(
   if (!valueAttr) {
     return emitError("Scales constant is not a DenseElementsAttr");
   }
+
   int scaleIdx = 0;
-  // Why are the scale values float's?
   for (auto it = valueAttr.getValues<FloatAttr>().begin();
        it != valueAttr.getValues<FloatAttr>().end(); ++it) {
     if (scaleIdx >= inputRank) {
       return emitError("Scales tensor shape doesn't match # of scale values");
     }
-    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
+    scaleIdx++;
   }
   if (scaleIdx != inputRank) {
     return emitError("Scales tensor shape doesn't match # of scale values");
   }
-
-  // Compute and set the output shape
-  for (int i = 0; i < inputRank; ++i) {
-    outputDims[i] *= inputTy.getShape()[i];
-  }
-  getResult().setType(
-      RankedTensorType::get(outputDims, inputTy.getElementType()));
-
   return success();
 }
 
