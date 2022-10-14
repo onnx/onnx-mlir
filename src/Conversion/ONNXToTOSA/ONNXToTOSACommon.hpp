@@ -25,6 +25,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
+#include "llvm/Support/raw_ostream.h"
 
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
@@ -39,7 +40,7 @@ namespace onnx_mlir {
 inline bool isTOSASignedInt(Type type) {
   IntegerType intType = type.dyn_cast<IntegerType>();
   std::set<unsigned> intWidth{8, 16, 32, 48, 64};
-  return intType && intType.isSigned() &&
+  return intType && intType.isSignless() &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
 }
 
