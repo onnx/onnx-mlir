@@ -158,11 +158,13 @@ void addKrnlToLLVMPasses(
 
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
   pm.addPass(mlir::createAsyncParallelForPass(false, 4, 1));
+  pm.addPass(mlir::createSymbolDCEPass());
   //pm.addPass(mlir::createConvertSCFToOpenMPPass());
   pm.addPass(mlir::createCanonicalizerPass());
   //pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
   pm.addPass(mlir::createAsyncToAsyncRuntimePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createMemRefToLLVMPass());
   pm.addPass(mlir::createConvertAsyncToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());

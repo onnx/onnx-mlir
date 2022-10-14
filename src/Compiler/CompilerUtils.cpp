@@ -711,7 +711,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
           "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
-    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime", "mlir_async_runtime"});
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);
