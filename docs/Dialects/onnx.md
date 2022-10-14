@@ -2860,6 +2860,44 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values
 
+### `onnx.GridSample` (::mlir::ONNXGridSampleOp)
+
+ONNX GridSample operation
+
+Given an `input` and a flow-field `grid`, computes the `output` using `input` values and pixel locations from `grid`.
+Currently, only spatial (4-D) inputs are supported. For `input` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
+the `output` will have shape (N, C, H_out, W_out).
+For each output location `output[N, C, H_out, W_out]`, the size-2 vector `grid[N, H_out, W_out]` specifies `input` pixel locations `x` and `y`,
+which are used to interpolate the output value `output[N, C, H_out, W_out]`.
+
+The GridSample operator is often used in doing grid generator and sampler in the [Spatial Transformer Networks](https://arxiv.org/abs/1506.02025).
+See also in [torch.nn.functional.grid_sample](https://pytorch.org/docs/master/generated/torch.nn.functional.grid_sample.html#torch-nn-functional-grid-sample).
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `align_corners` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `mode` | ::mlir::StringAttr | string attribute
+| `padding_mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `grid` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
 ### `onnx.HardSigmoid` (::mlir::ONNXHardSigmoidOp)
 
 ONNX HardSigmoid operation
@@ -6184,6 +6222,7 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
 | `mode` | ::mlir::StringAttr | string attribute
 | `output_height` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 | `output_width` | ::mlir::IntegerAttr | 64-bit signed integer attribute
@@ -6510,11 +6549,24 @@ index-value for dimension = axis is obtained from the value of the corresponding
 entry in `indices` and the index-value for dimension != axis is obtained from the
 index of the entry itself.
 
-For instance, in a 2-D tensor case, the update corresponding to the [i][j] entry
-is performed as below:
+`reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
+tensor into `output` at the specified `indices`.
+In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2, 
+then indices[idx1] != indices[idx2]. For instance, in a 2-D tensor case, the update 
+corresponding to the [i][j] entry is performed as below:
 ```
   output[indices[i][j]][j] = updates[i][j] if axis = 0,
   output[i][indices[i][j]] = updates[i][j] if axis = 1,
+```
+When `reduction` is set to \"add\", the update corresponding to the [i][j] entry is performed as below:
+```
+  output[indices[i][j]][j] += updates[i][j] if axis = 0,
+  output[i][indices[i][j]] += updates[i][j] if axis = 1,
+```
+When `reduction` is set to \"mul\", the update corresponding to the [i][j] entry is performed as below:
+```
+  output[indices[i][j]][j] *= updates[i][j] if axis = 0,
+  output[i][indices[i][j]] *= updates[i][j] if axis = 1,
 ```
 
 This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
@@ -6558,6 +6610,7 @@ Effects: MemoryEffects::Effect{}
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `reduction` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
