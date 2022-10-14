@@ -393,11 +393,12 @@ def output_report(publish_dir, report_dir, skipped_models, tested_models,
                  'skipped': { '_models': [], 'dropped': [], 'entered': [] },
                  'total':   { '_models': [], 'dropped': [], 'entered': [] } }
 
+    curr = { 'author': '', 'commit': '', 'date': '',
+             'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
+
     curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
     curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
     curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')
-
-    curr = { 'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
 
     curr['failed']['_models']  = failed_models
     curr['passed']['_models']  = passed_models
