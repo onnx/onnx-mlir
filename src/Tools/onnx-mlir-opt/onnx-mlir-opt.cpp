@@ -38,6 +38,7 @@
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ResourceGarbageCollector.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -188,9 +189,23 @@ int main(int argc, char **argv) {
     return failed(LogicalResult::failure());
   }
 
+  auto passManagerSetupFn = [&](PassManager &pm) {
+    ResourceGarbageCollector &resourceGarbageCollector =
+        pm.getContext()
+            ->getLoadedDialect<BuiltinDialect>()
+            ->addInterface<ResourceGarbageCollector>();
+    pm.addInstrumentation(
+        std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
+    auto errorHandler = [&](const Twine &msg) {
+      emitError(UnknownLoc::get(pm.getContext())) << msg;
+      return failure();
+    };
+    return passPipeline.addToPipeline(pm, errorHandler);
+  };
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
-      registry, split_input_file, verify_diagnostics, verify_passes,
-      allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-      /*emitBytecode*/ false, /*implicitModule*/ true));
+  return failed(
+      mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
+          registry, split_input_file, verify_diagnostics, verify_passes,
+          allowUnregisteredDialects, /*preloadDialectsInContext=*/true,
+          /*emitBytecode=*/false, /*implicitModule=*/true));
 }
