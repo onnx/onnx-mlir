@@ -79,6 +79,7 @@ workspace_publishdir       = modelzoo_publishdir
 container_publishdir       = os.path.join(DOCKER_DEV_IMAGE_WORKDIR,
                                           os.path.split(modelzoo_publishdir)[1])
 
+
 def urlretrieve(remote_url, local_file):
     req = requests.get(remote_url)
     with open(local_file, 'wb') as f:
