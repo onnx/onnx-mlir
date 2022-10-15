@@ -10,7 +10,6 @@
 
 #include "src/Transform/ResourceGarbageCollector.hpp"
 
-#include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/Transforms/Passes.h"

@@ -12,7 +12,6 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectInterface.h"
-#include "mlir/Pass/PassInstrumentation.h"
 
 #include <unordered_set>
 
