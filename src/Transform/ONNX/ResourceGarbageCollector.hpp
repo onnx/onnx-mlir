@@ -18,7 +18,8 @@
 
 namespace onnx_mlir {
 
-class ResourceGarbageCollector : public mlir::DialectInterface::Base<ResourceGarbageCollector> {
+class ResourceGarbageCollector
+    : public mlir::DialectInterface::Base<ResourceGarbageCollector> {
 public:
   struct ResourceHash {
     size_t operator()(const mlir::DenseResourceElementsHandle &r) const;

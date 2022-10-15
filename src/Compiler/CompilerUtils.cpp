@@ -898,7 +898,9 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  ResourceGarbageCollector &resourceGarbageCollector = context.getLoadedDialect<BuiltinDialect>()->addInterface<ResourceGarbageCollector>();
+  ResourceGarbageCollector &resourceGarbageCollector =
+      context.getLoadedDialect<BuiltinDialect>()
+          ->addInterface<ResourceGarbageCollector>();
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   pm.addInstrumentation(
       std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
