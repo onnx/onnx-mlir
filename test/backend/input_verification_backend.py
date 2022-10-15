@@ -208,6 +208,7 @@ class InputVerificationExecutionSession(object):
         with redirect_c_stdout(f):
             try:
                 session.run(inputs)
+                session.close()
             except RuntimeError as re:
                 pass
         output = f.getvalue().decode('utf-8')

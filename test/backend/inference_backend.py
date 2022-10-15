@@ -1276,6 +1276,7 @@ class EndiannessAwareExecutionSession(object):
             if args.emit == "lib":
                 session = ExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
+                session.close()
                 # print('input='+str(inputs), file=sys.stderr)
                 # print('output='+str(outputs), file=sys.stderr)
             elif args.emit == "jni":
@@ -1295,6 +1296,7 @@ class EndiannessAwareExecutionSession(object):
             if args.emit == "lib":
                 session = ExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
+                session.close()
             elif args.emit == "jni":
                 outputs = JniExecutionSession(self.exec_name, inputs)
             return outputs

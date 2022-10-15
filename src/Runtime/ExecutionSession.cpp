@@ -147,9 +147,12 @@ const std::string ExecutionSession::outputSignature() const {
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 
-ExecutionSession::~ExecutionSession() {
-  llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
+ExecutionSession::close() {
+  if (_sharedLibraryHandle.isValid())
+    llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 }
+
+ExecutionSession::~ExecutionSession() { close(); }
 
 std::string ExecutionSession::reportLibraryOpeningError(
     const std::string &libraryName) const {

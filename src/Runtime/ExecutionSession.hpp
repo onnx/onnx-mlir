@@ -75,6 +75,10 @@ public:
   const std::string inputSignature() const;
   const std::string outputSignature() const;
 
+  // Closes the model in the execution session. This is called automatically
+  // when the execution session is destroyed.
+  void close();
+
   ~ExecutionSession();
 
 protected:

@@ -30,6 +30,7 @@ public:
 
   std::vector<std::string> pyQueryEntryPoints();
   void pySetEntryPoint(std::string entryPointName);
+  void pyClose();
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
   std::string pyInputSignature();
   std::string pyOutputSignature();
@@ -45,6 +46,7 @@ PYBIND11_MODULE(PyRuntime, m) {
       .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint,
           py::arg("name"))
       .def("run", &onnx_mlir::PyExecutionSession::pyRun, py::arg("input"))
+      .def("close", &onnx_mlir::PyExecutionSession::pyClose)
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature);
