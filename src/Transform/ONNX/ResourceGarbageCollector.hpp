@@ -27,7 +27,7 @@ public:
   using ResourceSet =
       std::unordered_set<mlir::DenseResourceElementsHandle, ResourceHash>;
 
-  ResourceGarbageCollector(mlir::Dialect *dialect);
+  ResourceGarbageCollector(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~ResourceGarbageCollector();
   void insertResource(mlir::DenseResourceElementsHandle resource);
   void resetLiveResources(const ResourceSet &newLiveResources);
@@ -35,6 +35,7 @@ public:
   void close();
 
 private:
+  mlir::MLIRContext *context;
   bool closed = false;
   ResourceSet liveResources;
 };

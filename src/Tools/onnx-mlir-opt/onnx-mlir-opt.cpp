@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
     ResourceGarbageCollector &resourceGarbageCollector =
         pm.getContext()
             ->getLoadedDialect<BuiltinDialect>()
-            ->addInterface<ResourceGarbageCollector>();
+            ->addInterface<ResourceGarbageCollector>(pm.getContext());
     pm.addInstrumentation(
         std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
     auto errorHandler = [&](const Twine &msg) {

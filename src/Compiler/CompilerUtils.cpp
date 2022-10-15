@@ -622,7 +622,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlDialect>();
 
   context.getLoadedDialect<BuiltinDialect>()
-      ->addInterface<ResourceGarbageCollector>();
+      ->addInterface<ResourceGarbageCollector>(&context);
 }
 
 namespace {
@@ -904,7 +904,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   ResourceGarbageCollector *resourceGarbageCollector =
       context.getLoadedDialect<BuiltinDialect>()
-           ->getRegisteredInterface<ResourceGarbageCollector>();
+          ->getRegisteredInterface<ResourceGarbageCollector>();
   pm.addInstrumentation(
       std::make_unique<ResourceGCInstrumentation>(*resourceGarbageCollector));
   // TODO(tung): Revise adding passes. The current mechanism does not work if

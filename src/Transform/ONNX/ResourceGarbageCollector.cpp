@@ -24,8 +24,9 @@ size_t ResourceGarbageCollector::ResourceHash::operator()(
   return hash_value(r);
 }
 
-ResourceGarbageCollector::ResourceGarbageCollector(Dialect *dialect)
-    : Base(dialect) {}
+ResourceGarbageCollector::ResourceGarbageCollector(
+    Dialect *dialect, MLIRContext *context)
+    : Base(dialect), context(context) {}
 ResourceGarbageCollector::~ResourceGarbageCollector() {}
 
 void ResourceGarbageCollector::insertResource(
