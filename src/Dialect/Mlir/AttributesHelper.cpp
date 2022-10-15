@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------------ AttributesHelper.hpp ------------------------===//
+//===------------------------ AttributesHelper.cpp ------------------------===//
 //
 // Attributes helper functions.
 //
