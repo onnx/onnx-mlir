@@ -33,6 +33,7 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Transform/ONNX/ResourceGarbageCollector.hpp"
 #include "src/Version/Version.hpp"
 
 #define DEBUG_TYPE "compiler_utils"
@@ -897,7 +898,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
+  ResourceGarbageCollector &resourceGarbageCollector = context.getLoadedDialect<BuiltinDialect>()->addInterface<ResourceGarbageCollector>();
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  pm.addInstrumentation(
+      std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
