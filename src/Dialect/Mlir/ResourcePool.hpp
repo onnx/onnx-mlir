@@ -12,6 +12,7 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectInterface.h"
+#include "llvm/ADT/SmallString.h"
 
 #include <unordered_set>
 
@@ -26,19 +27,30 @@ public:
       std::unordered_set<mlir::DenseResourceElementsHandle, ResourceHash>;
 
   static ResourcePool &create(mlir::MLIRContext *context);
+
   static ResourcePool *get(mlir::MLIRContext *context);
 
   ResourcePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
+
   ~ResourcePool();
-  void insertResource(mlir::DenseResourceElementsHandle resource);
+
+  mlir::DenseResourceElementsHandle createResource(
+      mlir::AsmResourceBlob &&blob);
+
   void garbageCollect(const ResourceSet &newLiveResources);
+
   bool isActive() const { return active; }
+
   void close();
 
 private:
-  mlir::MLIRContext *context; // TODO: decide whether to remove this
+  // TODO: decide whether to remove the context field and instead pass context
+  // arg to createResource()
+  mlir::MLIRContext *context;
   bool active = true;
   ResourceSet liveResources;
+  size_t nameCounter = 0;
+  llvm::SmallString<32> name;
 };
 
 } // namespace onnx_mlir

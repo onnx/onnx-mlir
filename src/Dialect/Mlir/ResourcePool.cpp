@@ -18,6 +18,10 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace {
+const char *const namePrefix = "pool_";
+}
+
 size_t ResourcePool::ResourceHash::operator()(
     const DenseResourceElementsHandle &r) const {
   return hash_value(r);
@@ -36,13 +40,20 @@ ResourcePool *ResourcePool::get(MLIRContext *context) {
 }
 
 ResourcePool::ResourcePool(Dialect *dialect, MLIRContext *context)
-    : Base(dialect), context(context) {}
+    : Base(dialect), context(context), name(namePrefix) {}
 ResourcePool::~ResourcePool() {}
 
-void ResourcePool::insertResource(DenseResourceElementsHandle resource) {
-  auto insertion = liveResources.insert(resource);
+DenseResourceElementsHandle ResourcePool::createResource(
+    AsmResourceBlob &&blob) {
+  name.resize(strlen(namePrefix));
+  Twine(++nameCounter).toVector(name);
+  DenseResourceElementsHandle r =
+      DenseResourceElementsHandle::getManagerInterface(context).insert(
+          name, std::move(blob));
+  auto insertion = liveResources.insert(r);
   if (!insertion.second)
     llvm_unreachable("cannot insert existing resource");
+  return r;
 }
 
 void ResourcePool::garbageCollect(const ResourceSet &newLiveResources) {
