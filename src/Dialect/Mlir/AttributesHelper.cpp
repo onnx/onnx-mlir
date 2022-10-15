@@ -22,7 +22,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ElementsAttr makeDenseIntOrFPElementsAttr(
+ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
     ShapedType type, ArrayRef<char> bytes, size_t align) {
   assert(type.getElementType().isIntOrFloat());
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());

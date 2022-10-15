@@ -14,19 +14,21 @@
 
 namespace onnx_mlir {
 
-mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
+mlir::ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
     mlir::ShapedType type, llvm::ArrayRef<char> bytes, size_t align = 1);
 
 template <typename NumericType>
 mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
     mlir::ShapedType type, llvm::ArrayRef<NumericType> numbers) {
   constexpr size_t BYTE_BITWIDTH = 8;
-  assert(sizeof(NumericType) ==
-             type.getElementType().getIntOrFloatBitWidth() * BYTE_BITWIDTH &&
+  size_t w = type.getElementType().getIntOrFloatBitWidth();
+  (void)w;
+  assert(w == sizeof(NumericType) * (w == 1 ? 1 : BYTE_BITWIDTH) &&
          "static template type must match dynamic argument type");
   llvm::ArrayRef<char> bytes(reinterpret_cast<const char *>(numbers.data()),
       numbers.size() * sizeof(NumericType));
-  return makeDenseIntOrFPElementsAttr(type, bytes, alignof(NumericType));
+  return makeDenseIntOrFPElementsAttrFromRawBuffer(
+      type, bytes, alignof(NumericType));
 }
 
 } // namespace onnx_mlir
