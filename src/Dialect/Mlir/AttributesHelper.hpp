@@ -14,7 +14,7 @@
 
 namespace onnx_mlir {
 
-mlir::ElementsAttr makeDenseElementsAttr(
+mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
     mlir::ShapedType type, char *data, size_t size);
 
 }

@@ -21,14 +21,22 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ElementsAttr makeDenseElementsAttr(ShapedType type, char *data, size_t size) {
-  // TODO: consider aligning everything to something large that works well for
-  //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
-  mlir::DenseResourceElementsHandle r =
-      ResourcePool::get(type.getContext())
-          ->createResource(HeapAsmResourceBlob::allocateAndCopy(
-              llvm::makeArrayRef(data, size), alignof(char)));
-  return DenseResourceElementsAttr::get(type, r);
+ElementsAttr makeDenseIntOrFPElementsAttr(
+    ShapedType type, char *data, size_t size) {
+  // TODO: test type.getElementType() is int or fp
+  ArrayRef<char> bytes = llvm::makeArrayRef(data, size);
+  ResourcePool *resourcePool = ResourcePool::get(type.getContext());
+  if (resourcePool && resourcePool->isActive()) {
+    // TODO: consider aligning everything to something large that works well for
+    //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
+    mlir::DenseResourceElementsHandle r =
+        ResourcePool::get(type.getContext())
+            ->createResource(
+                HeapAsmResourceBlob::allocateAndCopy(bytes, alignof(char)));
+    return DenseResourceElementsAttr::get(type, r);
+  } else {
+    return DenseElementsAttr::getFromRawBuffer(type, bytes);
+  }
 }
 
 } // namespace onnx_mlir
