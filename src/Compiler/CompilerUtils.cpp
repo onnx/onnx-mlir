@@ -620,6 +620,9 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
+
+  context.getLoadedDialect<BuiltinDialect>()
+      ->addInterface<ResourceGarbageCollector>();
 }
 
 namespace {
@@ -898,12 +901,12 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  ResourceGarbageCollector &resourceGarbageCollector =
-      context.getLoadedDialect<BuiltinDialect>()
-          ->addInterface<ResourceGarbageCollector>();
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  ResourceGarbageCollector *resourceGarbageCollector =
+      context.getLoadedDialect<BuiltinDialect>()
+           ->getRegisteredInterface<ResourceGarbageCollector>();
   pm.addInstrumentation(
-      std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
+      std::make_unique<ResourceGCInstrumentation>(*resourceGarbageCollector));
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
