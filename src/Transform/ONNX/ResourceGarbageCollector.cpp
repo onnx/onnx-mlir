@@ -24,6 +24,20 @@ size_t ResourceGarbageCollector::ResourceHash::operator()(
   return hash_value(r);
 }
 
+/*static*/
+ResourceGarbageCollector &ResourceGarbageCollector::create(
+    mlir::MLIRContext *context) {
+  return context->getLoadedDialect<BuiltinDialect>()
+      ->addInterface<ResourceGarbageCollector>(context);
+}
+
+/*static*/
+ResourceGarbageCollector *ResourceGarbageCollector::get(
+    mlir::MLIRContext *context) {
+  return context->getLoadedDialect<BuiltinDialect>()
+      ->getRegisteredInterface<ResourceGarbageCollector>();
+}
+
 ResourceGarbageCollector::ResourceGarbageCollector(
     Dialect *dialect, MLIRContext *context)
     : Base(dialect), context(context) {}

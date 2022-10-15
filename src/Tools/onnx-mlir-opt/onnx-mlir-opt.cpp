@@ -191,9 +191,7 @@ int main(int argc, char **argv) {
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     ResourceGarbageCollector &resourceGarbageCollector =
-        pm.getContext()
-            ->getLoadedDialect<BuiltinDialect>()
-            ->addInterface<ResourceGarbageCollector>(pm.getContext());
+        ResourceGarbageCollector::create(pm.getContext());
     pm.addInstrumentation(
         std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
     auto errorHandler = [&](const Twine &msg) {

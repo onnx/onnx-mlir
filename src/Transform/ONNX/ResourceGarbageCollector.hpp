@@ -27,6 +27,9 @@ public:
   using ResourceSet =
       std::unordered_set<mlir::DenseResourceElementsHandle, ResourceHash>;
 
+  static ResourceGarbageCollector &create(mlir::MLIRContext *context);
+  static ResourceGarbageCollector *get(mlir::MLIRContext *context);
+
   ResourceGarbageCollector(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~ResourceGarbageCollector();
   void insertResource(mlir::DenseResourceElementsHandle resource);
