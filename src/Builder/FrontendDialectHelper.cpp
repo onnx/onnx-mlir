@@ -172,15 +172,6 @@ mlir::DenseElementsAttr createDenseElmAttr(const std::string &externalDataDir,
   }
 }
 
-llvm::SmallVector<llvm::APFloat> U16ToF16Array(
-    llvm::ArrayRef<uint16_t> u16arrayRef) {
-  llvm::SmallVector<llvm::APFloat> f16Array;
-  f16Array.reserve(u16arrayRef.size());
-  for (uint16_t u : u16arrayRef)
-    f16Array.emplace_back(llvm::APFloat::IEEEhalf(), llvm::APInt(16, u));
-  return f16Array;
-}
-
 } // namespace
 
 namespace onnx_mlir {
@@ -214,8 +205,10 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
   case (onnx::TensorProto::FLOAT16): {
     // F16s are converted bit-wise to U16s when written to protobufs.
     // So we read U16 from the protobuf and then convert to F16.
-    auto denseBuilderU16ToF16 = [denseBuilder](auto arrayRef) {
-      return denseBuilder(llvm::makeArrayRef(U16ToF16Array(arrayRef)));
+    auto denseBuilderU16ToF16 = [tensorType](llvm::ArrayRef<uint16_t> arrayRef) {
+      llvm::ArrayRef<char> bytes(reinterpret_cast<const char *>(arrayRef.data()),
+          arrayRef.size() * sizeof(uint16_t));
+      return mlir::DenseElementsAttr::getFromRawBuffer(tensorType, bytes);
     };
     return createDenseElmAttr<uint16_t>(
         externalDataDir, tp, denseBuilderU16ToF16);
