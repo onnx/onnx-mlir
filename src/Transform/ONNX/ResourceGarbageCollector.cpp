@@ -70,7 +70,7 @@ void ResourceGarbageCollector::resetLiveResources(
 
 void ResourceGarbageCollector::close() {
   resetLiveResources({});
-  closed = true;
+  active = false;
 }
 
 void ResourceGCInstrumentation::runAfterPass(Pass *pass, Operation *op) {

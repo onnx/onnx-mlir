@@ -34,12 +34,12 @@ public:
   ~ResourceGarbageCollector();
   void insertResource(mlir::DenseResourceElementsHandle resource);
   void resetLiveResources(const ResourceSet &newLiveResources);
-  bool isClosed() const { return closed; }
+  bool isActive() const { return active; }
   void close();
 
 private:
   mlir::MLIRContext *context;
-  bool closed = false;
+  bool active = true;
   ResourceSet liveResources;
 };
 
