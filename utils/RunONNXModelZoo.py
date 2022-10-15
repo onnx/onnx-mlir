@@ -434,7 +434,7 @@ def output_report(publish_dir, report_dir, skipped_models, tested_models,
         html.write('<div id="history"></div>\n' +
                    '<style>\n' +
                    '  .renderjson a { text-decoration: none; }\n' +
-                   '  .renderjson .disclosure { font-size: 100%; }\n' +
+                   '  .renderjson .disclosure { font-size: 75%; }\n' +
                    '</style>\n' +
                    '<script type="text/javascript" src="renderjson.js"></script>\n' +
                    '<script>\n' +
