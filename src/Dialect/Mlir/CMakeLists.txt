@@ -4,6 +4,7 @@ add_onnx_mlir_library(OMMlirDialects
   IndexExpr.cpp
   IndexExprDetail.cpp
   DialectBuilder.cpp
+  ResourcePool.cpp
 
   DEPENDS
   OMKrnlIncGen

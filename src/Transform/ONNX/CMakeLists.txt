@@ -24,7 +24,6 @@ add_onnx_mlir_library(OMONNXRewrite
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
-  ResourceGarbageCollector.cpp
 
   DEPENDS
   OMONNXOps

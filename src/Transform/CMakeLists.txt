@@ -10,6 +10,13 @@ add_onnx_mlir_library(OMElideKrnlGlobalConstants
   MLIRTransformUtils
   )
 
+add_onnx_mlir_library(OMResourceGarbageCollector
+  ResourceGarbageCollector.cpp
+
+  LINK_LIBS PUBLIC
+  OMMlirDialects
+  )
+
 add_onnx_mlir_library(OMEnableMemoryPool
   EnableMemoryPool.cpp
 

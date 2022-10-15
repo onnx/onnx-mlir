@@ -32,8 +32,9 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Dialect/Mlir/ResourcePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Transform/ONNX/ResourceGarbageCollector.hpp"
+#include "src/Transform/ResourceGarbageCollector.hpp"
 #include "src/Version/Version.hpp"
 
 #define DEBUG_TYPE "compiler_utils"
@@ -621,7 +622,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
 
-  ResourceGarbageCollector::create(&context);
+  ResourcePool::create(&context);
 }
 
 namespace {
@@ -901,10 +902,9 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return rc;
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  ResourceGarbageCollector *resourceGarbageCollector =
-      ResourceGarbageCollector::get(&context);
+  ResourcePool *resourcePool = ResourcePool::get(&context);
   pm.addInstrumentation(
-      std::make_unique<ResourceGCInstrumentation>(*resourceGarbageCollector));
+      std::make_unique<ResourceGarbageCollector>(*resourcePool));
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation

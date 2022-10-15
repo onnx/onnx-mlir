@@ -34,11 +34,12 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/ResourcePool.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ResourceGarbageCollector.hpp"
+#include "src/Transform/ResourceGarbageCollector.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -190,10 +191,9 @@ int main(int argc, char **argv) {
   }
 
   auto passManagerSetupFn = [&](PassManager &pm) {
-    ResourceGarbageCollector &resourceGarbageCollector =
-        ResourceGarbageCollector::create(pm.getContext());
+    ResourcePool &resourcePool = ResourcePool::create(pm.getContext());
     pm.addInstrumentation(
-        std::make_unique<ResourceGCInstrumentation>(resourceGarbageCollector));
+        std::make_unique<ResourceGarbageCollector>(resourcePool));
     auto errorHandler = [&](const Twine &msg) {
       emitError(UnknownLoc::get(pm.getContext())) << msg;
       return failure();
