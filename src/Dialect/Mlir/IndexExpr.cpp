@@ -1492,7 +1492,7 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   }
   // Check if we have an array of literals.
   assert(fGetDenseArrayAttr && "expected method to get a dense array");
-  if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
+  if (ElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
     int64_t dimSize;
     if (attrArray.getType().getRank() == 0)

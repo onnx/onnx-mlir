@@ -51,7 +51,7 @@ ZHighOpShapeHelper<OP>::ZHighOpShapeHelper(OP *newOp, int numResults,
   // Get the dense value by combining provided function (if any) with the
   // default one.
   fGetDenseVal = [=](Value array) {
-    DenseElementsAttr res = nullptr;
+    ElementsAttr res = nullptr;
     // Try with the provided method, if any.
     if (fGetDenseValInput)
       res = fGetDenseValInput(array);

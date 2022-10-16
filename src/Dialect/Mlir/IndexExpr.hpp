@@ -778,7 +778,7 @@ public:
   // GetDenseVal locate a DenseElementAttr by looking at the definition of the
   // array value. Return null if this definition is not generating a dense
   // array.
-  using GetDenseVal = std::function<mlir::DenseElementsAttr(mlir::Value array)>;
+  using GetDenseVal = std::function<mlir::ElementsAttr(mlir::Value array)>;
   // LoadVal will load the value at array[i] where array is a single dimensional
   // array.
   using LoadVal = std::function<mlir::Value(mlir::OpBuilder &rewriter,

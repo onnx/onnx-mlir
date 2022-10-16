@@ -43,14 +43,9 @@ bool isFromDenseONNXConstantOp(Value result) {
     return false;
 
   // The dense attribute must be available.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+  if (!(op->getAttrOfType<::mlir::Attribute>("value") &&
+          op->getAttrOfType<::mlir::Attribute>("value").cast<ElementsAttr>()))
     return false;
-  else {
-    DenseElementsAttr denseAttr =
-        op->getAttrOfType<::mlir::Attribute>("value").cast<DenseElementsAttr>();
-    if (!denseAttr)
-      return false;
-  }
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
     return false;

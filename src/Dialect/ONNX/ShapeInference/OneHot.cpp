@@ -40,7 +40,7 @@ LogicalResult ONNXOneHotOpShapeHelper::computeShape(
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
   Value depthVal = operandAdaptor.depth();
-  DenseElementsAttr depthAttr = fGetDenseVal(depthVal);
+  ElementsAttr depthAttr = fGetDenseVal(depthVal);
   if (depthAttr) {
     Type depthType = depthVal.getType();
     int64_t val = getScalarValue<int64_t>(depthAttr, depthType);

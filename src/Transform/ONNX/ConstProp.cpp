@@ -81,36 +81,6 @@ const StringRef BUFFER_ID_ATTR = "buffer_id";
 /// Buffer pool to store buffer pointers.
 SmallVector<char *, 4> bufferPtrs;
 
-/// A helper function to get a value of a given type from an attribute.
-template <typename T>
-T getAttrValue(Attribute attr) {
-  llvm_unreachable("unknown operation");
-}
-
-template <>
-ATTRIBUTE(unused)
-double getAttrValue(Attribute attr) {
-  return attr.cast<FloatAttr>().getValueAsDouble();
-}
-
-template <>
-ATTRIBUTE(unused)
-float getAttrValue(Attribute attr) {
-  return (float)attr.cast<FloatAttr>().getValueAsDouble();
-}
-
-template <>
-ATTRIBUTE(unused)
-int64_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
-}
-
-template <>
-ATTRIBUTE(unused)
-int32_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
-}
-
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
 /// get from memory. Otherwise, get from the dense attribute.
 char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
