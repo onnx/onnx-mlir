@@ -147,7 +147,7 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
     mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createONNXConstantOpWithDenseAttr(
+mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 mlir::Value createNoneIntegerConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
