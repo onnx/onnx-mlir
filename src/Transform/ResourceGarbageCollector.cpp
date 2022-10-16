@@ -33,22 +33,26 @@ struct ScrubResourcesPass
     : public PassWrapper<ScrubResourcesPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ScrubResourcesPass)
 
-  ScrubResourcesPass(ResourcePool &resourcePool) : resourcePool(resourcePool) {}
+  ScrubResourcesPass(ResourcePool *resourcePool) : resourcePool(resourcePool) {}
 
   StringRef getArgument() const override { return "scrub-resources"; }
 
   void runOnOperation() final {
     // TODO: replace every DenseResourceElementsAttr with DenseElementsAttr
-    resourcePool.close();
+    getResourcePool()->close();
   }
 
-  ResourcePool &resourcePool;
+  ResourcePool *getResourcePool() {
+    return resourcePool ? resourcePool : ResourcePool::get(&getContext());
+  }
+
+  ResourcePool *resourcePool;
 };
 
 } // namespace
 
 std::unique_ptr<mlir::Pass> createScrubResourcesPass(
-    ResourcePool &resourcePool) {
+    ResourcePool *resourcePool) {
   return std::make_unique<ScrubResourcesPass>(resourcePool);
 }
 

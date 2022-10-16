@@ -22,6 +22,12 @@ class Pass;
 
 namespace onnx_mlir {
 
+class ResourcePool;
+
+/// Pass for removing DenseResourceElementsAttr attributes.
+std::unique_ptr<mlir::Pass> createScrubResourcesPass(
+    ResourcePool *resourcePool = nullptr);
+
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
