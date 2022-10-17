@@ -23,6 +23,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "onnx/onnx_pb.h"
+
 #include "src/Dialect/Mlir/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
@@ -38,40 +40,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
-
-ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(ONNXConstantOp constOp) {
-  ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
-  return getDenseIntOrFPRawData(elements);
-}
-
-ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
-  ONNXConstantOp constOp = getONNXConstantOp(constValue);
-  return getDenseIntOrFPRawDataFromConstOp(constOp);
-}
-
-template <typename Out, template <typename, typename...> class Action,
-    typename... Ts>
-struct dispatchIntOrFP {
-  static Out eval(Type type, Ts... xs) {
-#define ACT(T) (Action<T, Ts...>::eval(type, xs...))
-    // clang-format off
-    if (type.isBF16()) llvm_unreachable("bf16 is unsupported");
-    if (type.isF16()) return ACT(uint16_t);
-    if (type.isF32()) return ACT(float);
-    if (type.isF64()) return ACT(double);
-    auto itype = type.cast<IntegerType>();
-    switch (itype.getWidth()) {
-      case  1: return ACT(bool);
-      case  8: return itype.isUnsigned() ? ACT(uint8_t)  : ACT(int8_t);
-      case 16: return itype.isUnsigned() ? ACT(uint16_t) : ACT(int16_t);
-      case 32: return itype.isUnsigned() ? ACT(uint32_t) : ACT(int32_t);
-      case 64: return itype.isUnsigned() ? ACT(uint64_t) : ACT(int64_t);
-      default: llvm_unreachable("impossible integer width");
-    }
-    // clang-format on
-#undef ACT
-  }
-};
 
 //===----------------------------------------------------------------------===//
 // Instructions to add a constant operation.
@@ -91,6 +59,94 @@ struct dispatchIntOrFP {
 //
 
 const StringRef BUFFER_ID_ATTR = "buffer_id";
+
+ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(ONNXConstantOp constOp) {
+  assert(!constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR));
+  ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
+  return getDenseIntOrFPRawData(elements);
+}
+
+ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
+  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  return getDenseIntOrFPRawDataFromConstOp(constOp);
+}
+
+using TP = onnx::TensorProto;
+
+template <int ONNXType>
+struct ONNXTypeToCppTypeDef {};
+#define MAP_ONNX_TO_CPP_TYPE(ONNXTy, CppTy)                                    \
+  template <>                                                                  \
+  struct ONNXTypeToCppTypeDef<TP::ONNXTy> {                                    \
+    using type = CppTy;                                                        \
+  }
+MAP_ONNX_TO_CPP_TYPE(FLOAT16, uint16_t);
+MAP_ONNX_TO_CPP_TYPE(FLOAT, float);
+MAP_ONNX_TO_CPP_TYPE(DOUBLE, double);
+MAP_ONNX_TO_CPP_TYPE(BOOL, bool);
+MAP_ONNX_TO_CPP_TYPE(INT8, int8_t);
+MAP_ONNX_TO_CPP_TYPE(UINT8, uint8_t);
+MAP_ONNX_TO_CPP_TYPE(INT16, int16_t);
+MAP_ONNX_TO_CPP_TYPE(UINT16, uint16_t);
+MAP_ONNX_TO_CPP_TYPE(INT32, int32_t);
+MAP_ONNX_TO_CPP_TYPE(UINT32, uint32_t);
+MAP_ONNX_TO_CPP_TYPE(INT64, int64_t);
+MAP_ONNX_TO_CPP_TYPE(UINT64, uint64_t);
+#undef MAP_ONNX_TO_CPP_TYPE
+
+template <int ONNXTy>
+using ONNXTypeToCppType = typename ONNXTypeToCppTypeDef<ONNXTy>::type;
+
+template <int ONNXTy>
+struct TypeDesc {
+  static constexpr int ONNXType = ONNXTy;
+  using type = ONNXTypeToCppType<ONNXTy>;
+  using unpacked_type = type;
+  static type pack(unpacked_type unpacked) { return unpacked; }
+  static unpacked_type unpack(type packed) { return packed; }
+};
+
+template <>
+struct TypeDesc<TP::FLOAT16> {
+  static constexpr int ONNXType = TP::FLOAT16;
+  using type = uint16_t;
+  using unpacked_type = float;
+  static type pack(unpacked_type unpacked) {
+    APFloat fu(unpacked);
+    bool ignored;
+    fu.convert(
+        llvm::APFloat::IEEEhalf(), APFloat::rmNearestTiesToEven, &ignored);
+    return fu.bitcastToAPInt().getZExtValue();
+  }
+  static unpacked_type unpack(type packed) {
+    APFloat f(llvm::APFloat::IEEEhalf(), llvm::APInt(16, packed));
+    return f.convertToFloat();
+  }
+};
+
+template <typename Out, template <typename, typename...> class Action,
+    typename... Ts>
+struct dispatchIntOrFP {
+  static Out eval(Type type, Ts... xs) {
+#define ACT(T) (Action<TypeDesc<TP::T>, Ts...>::eval(type, xs...))
+    // clang-format off
+    if (type.isBF16()) llvm_unreachable("bf16 is unsupported");
+    if (type.isF16()) return ACT(FLOAT16);
+    if (type.isF32()) return ACT(FLOAT);
+    if (type.isF64()) return ACT(DOUBLE);
+    auto itype = type.cast<IntegerType>();
+    switch (itype.getWidth()) {
+      case  1: return ACT(BOOL);
+      case  8: return itype.isUnsigned() ? ACT(UINT8)  : ACT(INT8);
+      case 16: return itype.isUnsigned() ? ACT(UINT16) : ACT(INT16);
+      case 32: return itype.isUnsigned() ? ACT(UINT32) : ACT(INT32);
+      case 64: return itype.isUnsigned() ? ACT(UINT64) : ACT(INT64);
+      default: llvm_unreachable("unsupported integer width");
+    }
+    // clang-format on
+#undef ACT
+  }
+};
 
 /// Buffers will be allocated to store intermediate constants during the const
 /// propagation. The use of buffers is to avoid creating dense attributes which
@@ -233,6 +289,9 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
     bufferId = bufferPtrs.size() - 1;
   }
   // Store the buffer id.
+  // llvm::errs() << "BUFFER_ID_ATTR: " << replacingValue.getType() << "\n";
+  // replacingValue.dump();
+  // llvm::errs() << "\n";
   constOp.getOperation()->setAttr(BUFFER_ID_ATTR,
       IntegerAttr::get(
           rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false), bufferId));
@@ -768,16 +827,19 @@ public:
 
 template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
-  static void eval(
-      Type srcType, DstTy zero, ArrayRef<char> src, MutableArrayRef<char> dst) {
+  static void eval(Type srcType, DstTy dstTypeToken, ArrayRef<char> src,
+      MutableArrayRef<char> dst) {
     int64_t numElements = src.size() / sizeof(SrcTy);
-    // TODO: fix conversion of FP16 which is represented by uint16_t
+    using S = typename SrcTy::type;
+    using D = typename DstTy::type;
     // cannot use copyAndCastArr because it's not defined for all types
     // copyAndCastArr<SrcTy, DstTy>(src.data(), dst.data(), numElements);
-    auto *srcArr = reinterpret_cast<const SrcTy *>(src.data());
-    auto *dstArr = reinterpret_cast<DstTy *>(dst.data());
-    std::transform(srcArr, srcArr + numElements, dstArr,
-        [](SrcTy v) { return static_cast<DstTy>(v); });
+    auto *srcArr = reinterpret_cast<const S *>(src.data());
+    auto *dstArr = reinterpret_cast<D *>(dst.data());
+    std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
+      return DstTy::pack(
+          static_cast<typename DstTy::unpacked_type>(SrcTy::unpack(v)));
+    });
   }
 };
 
@@ -785,9 +847,9 @@ template <typename DstTy, typename... Ts>
 struct DstCast {
   static void eval(Type dstType, Type srcType, MutableArrayRef<char> dst,
       ArrayRef<char> src) {
-    DstTy zero = 0; // hack to propagate DstTy
+    DstTy dstTypeToken; // hack to propagate DstTy
     dispatchIntOrFP<void, SrcDstCast, DstTy, ArrayRef<char>,
-        MutableArrayRef<char>>::eval(srcType, zero, src, dst);
+        MutableArrayRef<char>>::eval(srcType, dstTypeToken, src, dst);
   }
 };
 
