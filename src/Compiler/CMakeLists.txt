@@ -183,6 +183,11 @@ endif()
 
 pybind11_add_module(PyCompile PyOMCompileSession.cpp)
 add_dependencies(PyCompile onnx_proto)
+target_compile_options(PyCompile
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
 target_compile_definitions(PyCompile
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
