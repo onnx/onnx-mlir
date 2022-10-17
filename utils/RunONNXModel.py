@@ -21,6 +21,7 @@ import numpy as np
 import tempfile
 
 from onnx import numpy_helper
+from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
 # Command arguments.
@@ -34,9 +35,9 @@ parser.add_argument('--print-output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
 parser.add_argument('--save-onnx',
-                       metavar='PATH',
-                       type=str,
-                       help="File path to save the onnx model")
+                    metavar='PATH',
+                    type=str,
+                    help="File path to save the onnx model")
 lib_group.add_argument('--save-so',
                        metavar='PATH',
                        type=str,
@@ -72,9 +73,10 @@ parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
-parser.add_argument('--verify-all-ops',
-                    action='store_true',
-                    help="Verify all operation outputs when using onnxruntime.")
+parser.add_argument(
+    '--verify-all-ops',
+    action='store_true',
+    help="Verify all operation outputs when using onnxruntime.")
 parser.add_argument(
     '--compile-using-input-shape',
     action='store_true',
@@ -95,7 +97,8 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
         "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`")
+        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
+    )
 
 VERBOSE = os.environ.get('VERBOSE', False)
 
@@ -137,7 +140,8 @@ def extend_model_output(model, intermediate_outputs):
         model.graph.output.pop()
 
     for output_name in intermediate_outputs:
-        output_value_info = onnx.helper.make_empty_tensor_value_info(output_name)
+        output_value_info = onnx.helper.make_empty_tensor_value_info(
+            output_name)
         model.graph.output.extend([output_value_info])
     return model
 
@@ -193,6 +197,7 @@ def generate_random_input(model, input_shapes):
         if input_proto.name in initializers:
             continue
         input_names.append(input_proto.name)
+        # Get shape.
         shape_proto = input_proto.type.tensor_type.shape
         explicit_shape = []
         for d, dim in enumerate(shape_proto.dim):
@@ -213,9 +218,24 @@ def generate_random_input(model, input_shapes):
                       "is unknown. Use --shape-info to set.")
                 print(shape_proto)
                 exit(1)
-        rinput = np.random.uniform(-1.0, 1.0,
-                                   explicit_shape).astype(np.float32)
-        print("  - {} input's shape {}".format(ordinal(i + 1), rinput.shape))
+        # Get element type.
+        elem_type = input_proto.type.tensor_type.elem_type
+        np_elem_type = TENSOR_TYPE_TO_NP_TYPE[elem_type]
+        # Set a range for random values.
+        lb = ub = 0
+        if (np.issubdtype(np_elem_type, np.floating)):
+            lb = -1.0
+            ub = 1.0
+        elif (np.issubdtype(np_elem_type, np.integer)):
+            lb = -10
+            ub = 10
+        else:
+            raise AssertionError("Unsuported element type")
+        rinput = np.random.uniform(lb, ub, explicit_shape).astype(np_elem_type)
+        print(
+            "  - {} input's shape {}, element type {}.".format(
+                ordinal(i + 1), rinput.shape, np_elem_type),
+            "Value ranges [{}, {}]".format(lb, ub))
         inputs.append(rinput)
     print("  done.\n")
     return (inputs, input_names)

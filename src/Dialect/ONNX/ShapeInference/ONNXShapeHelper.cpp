@@ -15,6 +15,7 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
 
@@ -27,6 +28,53 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
+
+/// Refine `inferredDims` using the output's shape if possbile. For example,
+/// replacing a dynamic dim in `inferredDims` by a static dim in the output's
+/// shape.
+static void refineDims(DimsExpr &inferredDims, Value output) {
+  // Nothing to do if the output is unranked.
+  if (!isRankedShapedType(output.getType()))
+    return;
+
+  llvm::ArrayRef<int64_t> existingDims = getShape(output.getType());
+  // Do not handle the case of scalar tensor whose type can be tensor<f32>
+  // or tensor<1xf32>. Just use the inferredShape in this case.
+  if (existingDims.size() < 1 || inferredDims.size() < 1)
+    return;
+
+  assert((existingDims.size() == inferredDims.size()) &&
+         "Inferred shape and existing shape are inconsistent in the number "
+         "of elements");
+
+  // Try to update inferredDim if existingDim is static.
+  for (unsigned i = 0; i < existingDims.size(); ++i) {
+    // existingDim is dynamic, nothing to do.
+    if (existingDims[i] == -1)
+      continue;
+
+    // inferredDim is unknown at shape inference: update it.
+    if (inferredDims[i].isQuestionmark()) {
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      continue;
+    }
+    // inferredDim is unknown at lowering: use exising dim for efficiency.
+    if (!inferredDims[i].isLiteral()) {
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+      continue;
+    }
+    // inferedDim is different from existingDim. Believe in existingDim.
+    if (inferredDims[i].isLiteral() &&
+        (existingDims[i] != inferredDims[i].getLiteral())) {
+      // Warning for users.
+      llvm::outs() << "Warning: [Shape inference] the inferred dim ("
+                   << inferredDims[i].getLiteral()
+                   << ") is different from the existing dim ("
+                   << existingDims[i] << "). Use the existing dim instead.\n";
+      inferredDims[i] = LiteralIndexExpr(existingDims[i]);
+    }
+  }
+}
 
 // Reuse scope if given, otherwise create one now and free in destructor.
 template <class OP>
@@ -62,6 +110,22 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
       res = getDenseElementAttributeFromONNXValue(array);
     return res;
   };
+}
+
+template <>
+Value ONNXOpShapeHelper<Operation>::getOutput(int n) {
+  return op->getResult(n);
+}
+
+// Set output dims for the N-th output.
+template <class OP>
+void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
+  outputsDims[n] = inferredDims;
+  // Try to refine outputsDims[n] using the output's shape if possbile. For
+  // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
+  // output's shape.
+  Value output = getOutput(n);
+  refineDims(outputsDims[n], output);
 }
 
 //===----------------------------------------------------------------------===//
@@ -191,7 +255,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     }
   }
   // Set the final output.
-  ONNXOpShapeHelper<OP>::dimsForOutput() = dimsExpr;
+  ONNXOpShapeHelper<OP>::setOutputDims(dimsExpr);
   return success();
 }
 
@@ -395,8 +459,58 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 #endif
 
   // Set type for the first output.
-  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput() = outputDims;
+  ONNXOpShapeHelper<OP_TYPE>::setOutputDims(outputDims);
   return success();
+}
+
+/// Handle shape inference for unary element-wise operators.
+LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
+  Value input = op->getOperand(0);
+  Value output = op->getResult(0);
+
+  if (!hasShapeAndRank(input))
+    return success();
+
+  // Inferred shape is getting from the input's shape.
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  updateType(output, inputType.getShape(), inputType.getElementType(),
+      inputType.getEncoding());
+  return success();
+}
+
+/// Update a tensor type by using the given shape, elementType and encoding.
+void updateType(
+    Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+  // Try to combine the given shape and the output's shape if possbile.
+  IndexExprScope scope(nullptr, val.getLoc());
+  DimsExpr inferredDims;
+  for (int64_t d : shape) {
+    if (d == -1)
+      inferredDims.emplace_back(QuestionmarkIndexExpr());
+    else
+      inferredDims.emplace_back(LiteralIndexExpr(d));
+  }
+  refineDims(inferredDims, val);
+  SmallVector<int64_t, 4> inferredShape;
+  IndexExpr::getShape(inferredDims, inferredShape);
+
+  // Get element type.
+  if (!elementType)
+    elementType = getElementType(val.getType());
+
+  // Get encoding.
+  if (auto valType = val.getType().dyn_cast<RankedTensorType>())
+    if (!encoding)
+      encoding = valType.getEncoding();
+
+  // Build result type.
+  RankedTensorType resType;
+  if (encoding)
+    resType = RankedTensorType::get(inferredShape, elementType, encoding);
+  else
+    resType = RankedTensorType::get(inferredShape, elementType);
+
+  val.setType(resType);
 }
 
 //===----------------------------------------------------------------------===//

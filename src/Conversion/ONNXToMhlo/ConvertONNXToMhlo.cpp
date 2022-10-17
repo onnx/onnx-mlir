@@ -53,6 +53,10 @@ struct FrontendToMhloLoweringPass
   FrontendToMhloLoweringPass(const FrontendToMhloLoweringPass &pass)
       : PassWrapper<FrontendToMhloLoweringPass, OperationPass<ModuleOp>>() {}
 
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<mlir::mhlo::MhloDialect>();
+  }
+
   void runOnOperation() final;
 };
 

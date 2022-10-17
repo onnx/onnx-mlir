@@ -303,41 +303,35 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
       /*printBlockTerminators=*/false);
 }
 
-ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
-  auto builder = parser.getBuilder();
-  auto context = builder.getContext();
-  onnx_mlir::krnl::KrnlDialectOperandParser operandParser(parser);
+namespace {
 
-  // Parse optimized loops:
-  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
-  if (parser.parseOperandList(
-          optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
-      parser.resolveOperands(optimizedLoopRefs,
-          krnl::LoopType::get(result.getContext()), result.operands))
-    return failure();
-
-  // Record how many optimized loops did we parse.
-  result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
-      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
-
+struct LoopParser {
   // Parse input loops and their lower and upper bounds.
   SmallVector<OpAsmParser::UnresolvedOperand, 4> inductionVarRefs;
   SmallVector<Attribute, 4> boundMaps;
+  OpAsmParser &parser;
+  const Type loopType;
 
-  if (parser.parseKeyword("with") || parser.parseLParen())
-    return failure();
+  LoopParser(OpAsmParser &parser, Type loopType)
+      : parser(parser), loopType(loopType) {}
 
-  // A function to parse a lower or upper bound.
-  auto parseBound = [&result, &builder, &parser, &operandParser, &boundMaps](
-                        bool isUpper) -> ParseResult {
+  // A method to parse a lower or upper bound.
+  ParseResult parseBound(bool isUpper, OperationState &result) {
+    Builder builder = parser.getBuilder();
+
     // 'min' / 'max' prefixes are generally syntactic sugar, but are required
     // if the map has multiple results.
     bool failedToParsedMinMax =
         failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
 
     // Try parse an SSA operand.
-    if (succeeded(operandParser.ParseOptionalOperand(
-            builder.getIndexType(), result.operands))) {
+    OpAsmParser::UnresolvedOperand ssa;
+    OptionalParseResult ssaParseResult = parser.parseOptionalOperand(ssa);
+    if (ssaParseResult.has_value()) {
+      if (failed(ssaParseResult.value()) ||
+          parser.resolveOperand(ssa, builder.getIndexType(), result.operands))
+        return failure();
+
       AffineMap map = builder.getSymbolIdentityMap();
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -378,8 +372,8 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
               "upper loop bound affine map with multiple "
               "results requires 'min' prefix");
         return parser.emitError(attrLoc,
-            "lower loop bound affine mapwith "
-            "multiple results requires 'max' prefix");
+            "lower loop bound affine map with multiple "
+            "results requires 'max' prefix");
       }
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -391,12 +385,15 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
       boundMaps.emplace_back(AffineMapAttr::get(map));
     }
     return success();
-  };
+  }
 
-  while (failed(parser.parseOptionalRParen())) {
+  ParseResult parse(OperationState &result) {
     // Parse an input loop operand;
-    operandParser.ParseOperand(krnl::LoopType::get(context), result.operands);
-    parser.parseArrow();
+    OpAsmParser::UnresolvedOperand loop;
+    if (parser.parseOperand(loop) ||
+        parser.resolveOperand(loop, loopType, result.operands) ||
+        parser.parseArrow())
+      return failure();
 
     // Parse induction variable.
     OpAsmParser::UnresolvedOperand inductionVar;
@@ -406,32 +403,55 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
     inductionVarRefs.emplace_back(inductionVar);
 
     // Parse bound par (min to max).
-    if (parseBound(/*isUpper=*/false) || parser.parseKeyword("to") ||
-        parseBound(/*isUpper=*/true))
+    if (parseBound(/*isUpper=*/false, result) || parser.parseKeyword("to") ||
+        parseBound(/*isUpper=*/true, result))
       return failure();
 
-    // We may fail to parse a comma if an operand bound is followed by
-    // a comma and the next input loop operand, in which case
-    // the entire "{operand bound}, {input_loop_operand}" sequence will
-    // be parsed as an operand list.
-    parser.parseOptionalComma();
+    return success();
   }
 
-  // At this point, there shouldn't be any operands left to parse.
-  if (operandParser.hasOperandLeft())
-    return parser.emitError(parser.getCurrentLocation());
-  result.addAttribute(
-      KrnlIterateOp::getBoundsAttrName(), builder.getArrayAttr(boundMaps));
+}; // struct LoopParser
+
+} // namespace
+
+ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
+  auto builder = parser.getBuilder();
+
+  Type loopType = krnl::LoopType::get(result.getContext());
+
+  // Parse optimized loops:
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> optimizedLoopRefs;
+  if (parser.parseOperandList(
+          optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
+      parser.resolveOperands(optimizedLoopRefs, loopType, result.operands))
+    return failure();
+
+  // Record how many optimized loops did we parse.
+  result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
+      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
+
+  LoopParser loopParser(parser, loopType);
+
+  if (parser.parseKeyword("with") || parser.parseLParen())
+    return failure();
+
+  if (failed(parser.parseOptionalRParen())) {
+    if (parser.parseCommaSeparatedList(
+            [&] { return loopParser.parse(result); }) ||
+        parser.parseRParen())
+      return failure();
+  }
+
+  result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
+      builder.getArrayAttr(loopParser.boundMaps));
 
   Region *region = result.addRegion();
-  SmallVector<Type, 4> inductionVarTypes(
-      inductionVarRefs.size(), builder.getIndexType());
 
   SmallVector<OpAsmParser::Argument> entryArgs;
-  for (auto it : llvm::zip(inductionVarRefs, inductionVarTypes)) {
+  for (OpAsmParser::UnresolvedOperand name : loopParser.inductionVarRefs) {
     OpAsmParser::Argument arg;
-    arg.ssaName = std::get<0>(it);
-    arg.type = std::get<1>(it);
+    arg.ssaName = name;
+    arg.type = builder.getIndexType();
     entryArgs.push_back(arg);
   }
 
@@ -720,22 +740,22 @@ LogicalResult KrnlMatMulOp::verify() {
     return emitOpError("loops rank should be 3 (i,j,k)");
 
   if (operandAdaptor.computeTileSize().has_value()) {
-    ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
+    ArrayAttr computeAttr = operandAdaptor.computeTileSize().value();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
       return emitOpError("computeTileSize rank should be 0 or 3");
   }
   if (operandAdaptor.aTileSize().has_value()) {
-    ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();
+    ArrayAttr aTileAttr = operandAdaptor.aTileSize().value();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
       return emitOpError("aTileSize rank should be 0 or 2");
   }
   if (operandAdaptor.bTileSize().has_value()) {
-    ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();
+    ArrayAttr bTileAttr = operandAdaptor.bTileSize().value();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
       return emitOpError("bTileSize rank should be 0 or 2");
   }
   if (operandAdaptor.cTileSize().has_value()) {
-    ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();
+    ArrayAttr cTileAttr = operandAdaptor.cTileSize().value();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
       return emitOpError("cTileSize rank should be 0 or 2");
   }
@@ -784,12 +804,12 @@ LogicalResult KrnlCopyToBufferOp::verify() {
   if (startRank != srcRank)
     return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().getValue().size();
+    int64_t tRank = opAdaptor.tileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
   if (opAdaptor.padToNext()) {
-    int64_t padRank = opAdaptor.padToNext().getValue().size();
+    int64_t padRank = opAdaptor.padToNext().value().size();
     if (!(padRank == 0 || padRank == bufferRank))
       return emitOpError("Rank of padToNext must be identical to buffer");
   }
@@ -839,7 +859,7 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
   if (startRank != destRank)
     return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().getValue().size();
+    int64_t tRank = opAdaptor.tileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }

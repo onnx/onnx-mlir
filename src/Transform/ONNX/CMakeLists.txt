@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-
 add_onnx_mlir_library(OMElideConstants
   ElideConstants.cpp
 
@@ -20,11 +19,13 @@ add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
 add_onnx_mlir_library(OMONNXRewrite
+  ConstProp.cpp
+  ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
-  ConstProp.cpp
 
   DEPENDS
+  OMONNXOps
   OMONNXDecomposeIncGen
   OMONNXConstPropIncGen
 
@@ -74,4 +75,16 @@ add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   OMONNXOps
   MLIRPass
   OMSupport
+  )
+
+add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
+  SimplifyShapeRelatedOps.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
   )

@@ -62,6 +62,8 @@ struct MathBuilder final : DialectBuilder {
       : DialectBuilder(b, loc) {}
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
 
+  mlir::Value abs(mlir::Value val) const;
+
   mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
 
@@ -176,6 +178,10 @@ struct SCFBuilder final : DialectBuilder {
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
 
+  void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
+      mlir::ValueRange steps,
+      mlir::function_ref<void(DialectBuilder &, mlir::ValueRange)> bodyFn)
+      const;
   void yield() const;
 };
 

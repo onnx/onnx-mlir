@@ -18,6 +18,8 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
+extern int64_t IndexExpr_gQuestionMarkCounter;
+
 namespace onnx_mlir {
 
 // Implementation of the IndexExpr. In nearly all cases, the value described by
@@ -37,7 +39,7 @@ public:
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);
-  // Transformative initialization calls.
+  // Transformational initialization calls.
   void initAsKind(IndexExprImpl const *expr, IndexExprKind const kind);
 
   // Copy.
@@ -66,6 +68,7 @@ public:
   mlir::Location getLoc() const { return getScope().getLoc(); }
   IndexExprKind getKind() const;
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr();
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
@@ -80,7 +83,8 @@ public:
   bool literal;
   // Type of IndexExpr. Literal are by default affine.
   IndexExprKind kind;
-  // Integer value, valid when "literal" is true.
+  // Integer value, valid when "literal" or "question mark" is true. Negative
+  // value in case of question mark.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine
   // expr.

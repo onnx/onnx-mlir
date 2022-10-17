@@ -43,7 +43,7 @@ LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
       outputDims.emplace_back(dataBounds.getDim(j++));
 
   // Save the final result.
-  shapeHelper->dimsForOutput() = outputDims;
+  shapeHelper->setOutputDims(outputDims);
 
   return success();
 }

@@ -40,6 +40,12 @@ struct ScalarOp<ONNXAddOp> {
 };
 
 template <>
+struct ScalarOp<ONNXAbsOp> {
+  using FOp = math::AbsFOp;
+  using IOp = math::AbsIOp;
+};
+
+template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
@@ -322,16 +328,12 @@ template <>
 Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  // ONNXReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
-  //                           ConstantOp 0,
-  //                           %X)
   Value operand = scalarOperands[0];
 
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
-  auto lessThanZero = rewriter.create<arith::CmpFOp>(
-      loc, arith::CmpFPredicate::OLT, operand, zero);
-  return createMath.select(lessThanZero, zero, operand);
+  Value geZero = createMath.sge(operand, zero);
+  return createMath.select(geZero, operand, zero);
 }
 
 //===----------------------------------------------------------------------===//
@@ -462,8 +464,8 @@ Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
   Value operand = scalarOperands[0];
 
-  auto abs = rewriter.create<math::AbsFOp>(loc, operand);
   MathBuilder createMath(rewriter, loc);
+  Value abs = createMath.abs(operand);
   Value one = createMath.constant(elementType, 1);
   Value add = createMath.add(abs, one);
   return createMath.div(operand, add);
@@ -571,29 +573,6 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
     llvm_unreachable("unsupported element type");
   }
   return rewriter.create<arith::SelectOp>(loc, min, lhs, rhs);
-}
-
-//===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXAbsOp
-//===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  Value operand = scalarOperands[0];
-
-  if (elementType.isa<FloatType>()) {
-    return rewriter.create<math::AbsFOp>(loc, operand);
-  } else if (elementType.isa<IntegerType>()) {
-    MathBuilder createMath(rewriter, loc);
-    Value zero = createMath.constant(elementType, 0);
-    auto lessThanZero = rewriter.create<arith::CmpIOp>(
-        loc, arith::CmpIPredicate::slt, operand, zero);
-    Value negativeOperand = createMath.sub(zero, operand);
-    return createMath.select(lessThanZero, negativeOperand, operand);
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
 }
 
 //===----------------------------------------------------------------------===//

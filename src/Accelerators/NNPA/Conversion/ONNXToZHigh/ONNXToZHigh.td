@@ -315,25 +315,20 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceMeanOp %X = (NHWCtoNCHW
-//                         (ZHighUnstickOp
-//                            (ZHighMeanReduce2DOp
-//                               (ZHighStickOp (NCHWtoNHWC %X)))))
+// ONNXReduceMeanOp %X = (ZHighUnstickOp
+//                          (ZHighMeanReduce2DOp
+//                             (ZHighStickOp %X))))
 //===----------------------------------------------------------------------===//
 def replaceONNXReduceMeanPattern : Pat<
   (ONNXReduceMeanOp:$res $x, $_, $_),
-  (NHWCtoNCHW (GetTypeOf $res),
-     (ZHighUnstickOp
-        (ZHighMeanReduce2DOp
-           (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)))))
+  (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr))))
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXMaxPoolSingleOutOp %X
-//             = NHWCtoNCHW
+// ONNXMaxPoolSingleOutOp %X = 
 //                 (ZHighUnstickOp
 //                     (ZHighMaxPoolOp
-//                         (ZHighStickOp(NCHWtoNHWC %X)),
+//                         (ZHighStickOp %X),
 //                         $krnel_shape,
 //                         $strides,
 //		           $padding_type))
@@ -362,22 +357,20 @@ def replaceONNXMaxPoolSingleOutPattern : Pattern<
     (GetI64ArrayAttrKernelShapeMaxPool:$kernel_shape $res),
     (GetI64ArrayAttrStridesMaxPool:$strides $res),
 
-    (NHWCtoNCHW (GetTypeOf $res),
-       (ZHighUnstickOp
-          (ZHighMaxPool2DOp
-             (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-             $kernel_shape,
-             $strides,
-             $padtype)))
+    (ZHighUnstickOp
+       (ZHighMaxPool2DOp
+          (ZHighStickOp $x, (NHWCLayoutAttr)),
+          $kernel_shape,
+          $strides,
+          $padtype))
   ]
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXAveragePoolOp %X
-//             = NHWCtoNCHW
+// ONNXAveragePoolOp %X = 
 //                 (ZHighUnstickOp
 //                     (ZHighAvgPoolOp
-//                         (ZHighStickOp(NCHWtoNHWC %X)),
+//                         (ZHighStickOp %X),
 //                         $krnel_shape,
 //                         $strides,
 //		           $padding_type))
@@ -406,13 +399,12 @@ def replaceONNXAveragePoolPattern : Pattern<
     (GetI64ArrayAttrKernelShapeAveragePool:$kernel_shape $res),
     (GetI64ArrayAttrStridesAveragePool:$strides $res),
 
-    (NHWCtoNCHW (GetTypeOf $res),
-       (ZHighUnstickOp
-          (ZHighAvgPool2DOp
-             (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-             $kernel_shape,
-             $strides,
-             $padtype)))
+    (ZHighUnstickOp
+       (ZHighAvgPool2DOp
+          (ZHighStickOp $x, (NHWCLayoutAttr)),
+          $kernel_shape,
+          $strides,
+          $padtype))
   ]
 >;
 
@@ -913,16 +905,15 @@ def replaceONNXGRUPattern4 : Pattern<
 // 
 // to
 //
-// NHWCtoNCHW
-//   (ZHighUnstickOp
-//      (ZHighConvOp
-//        (ZHighStickOp (NCHWtoNHWC %X), "NHWC"),
-//        (ZHighStickOp (NCHWtoHWCK %W), "HWCK"),
-//        (ZHighStickOp %B, "1D"),
-//        kernel_shape,
-//        strides,
-//        GetPaddingType,
-//        ACT_NONE)))
+// (ZHighUnstickOp
+//    (ZHighConvOp
+//      (ZHighStickOp %X, "NHWC"),
+//      (ZHighStickOp (NCHWtoHWCK %W), "HWCK"),
+//      (ZHighStickOp %B, "1D"),
+//      kernel_shape,
+//      strides,
+//      GetPaddingType,
+//      ACT_NONE)))
 //        
 //===----------------------------------------------------------------------===//
 
@@ -946,16 +937,15 @@ def replaceONNXConv2DPattern : Pattern<
    (GetI64ArrayAttrKernelShapeConv:$kernel_shape $res),
    (GetI64ArrayAttrStridesConv:$strides $res),
  
-   (NHWCtoNCHW (GetTypeOf $res),
-     (ZHighUnstickOp
-      (ZHighConv2DOp
-         (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-         (ZHighStickOp (NCHWtoHWCK $w), (HWCKLayoutAttr)),
-         (ZHighStickOp $b, (_1DLayoutAttr)),
-         $kernel_shape,
-         $strides,
-         $padtype,
-         (ACT_NONEAttr))))
+   (ZHighUnstickOp
+    (ZHighConv2DOp
+       (ZHighStickOp $x, (NHWCLayoutAttr)),
+       (ZHighStickOp (NCHWtoHWCK $w), (HWCKLayoutAttr)),
+       (ZHighStickOp $b, (_1DLayoutAttr)),
+       $kernel_shape,
+       $strides,
+       $padtype,
+       (ACT_NONEAttr)))
   ]
 >;
 
@@ -966,16 +956,15 @@ def replaceONNXConv2DPattern : Pattern<
 //
 // to
 //
-// NHWCtoNCHW
-//   (ZHighUnstickOp
-//      (ZHighConvOp
-//        (ZHighStickOp (NCHWtoNHWC %X), "NHWC"),
-//        (ZHighStickOp (NCHWtoHWCK %W), "HWCK"),
-//        (ZHighStickOp %B, "1D"),
-//        kernel_shape,
-//        strides,
-//        GetPaddingType,
-//        ACT_RELU)))
+// (ZHighUnstickOp
+//    (ZHighConvOp
+//      (ZHighStickOp %X, "NHWC"),
+//      (ZHighStickOp (NCHWtoHWCK %W), "HWCK"),
+//      (ZHighStickOp %B, "1D"),
+//      kernel_shape,
+//      strides,
+//      GetPaddingType,
+//      ACT_RELU)))
 //
 //===----------------------------------------------------------------------===//
 
@@ -993,16 +982,15 @@ def replaceONNXReluConvPattern : Pattern<
    (GetI64ArrayAttrKernelShapeConv:$kernel_shape $res),
    (GetI64ArrayAttrStridesConv:$strides $res),
  
-   (NHWCtoNCHW (GetTypeOf $res),
-     (ZHighUnstickOp
-      (ZHighConv2DOp
-         (ZHighStickOp (NCHWtoNHWC $x), (NHWCLayoutAttr)),
-         (ZHighStickOp (NCHWtoHWCK $w), (HWCKLayoutAttr)),
-         (ZHighStickOp $b, (_1DLayoutAttr)),
-         $kernel_shape,
-         $strides,
-         $padtype,
-         (ACT_RELUAttr))))
+   (ZHighUnstickOp
+    (ZHighConv2DOp
+       (ZHighStickOp $x, (NHWCLayoutAttr)),
+       (ZHighStickOp (NCHWtoHWCK $w), (HWCKLayoutAttr)),
+       (ZHighStickOp $b, (_1DLayoutAttr)),
+       $kernel_shape,
+       $strides,
+       $padtype,
+       (ACT_RELUAttr)))
   ],
   [(IsConv2DLegalForZDNN $res)],
   (addBenefit 0)
