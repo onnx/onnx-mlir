@@ -826,7 +826,7 @@ public:
 
 template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
-  static void eval(DstTy dstTypeToken, ArrayRef<char> src,
+  static void eval(ArrayRef<char> src,
       MutableArrayRef<char> dst) {
     using S = typename SrcTy::type;
     using D = typename DstTy::type;
@@ -841,17 +841,22 @@ struct SrcDstCast {
   }
 };
 
+template <typename DstTy>
+struct SrcCast {
+  template <typename SrcTy, typename ...Ts>
+  using Cast = SrcDstCast<SrcTy, DstTy, Ts...>;
+};
+
 template <typename DstTy, typename... Ts>
 struct DstCast {
   static void eval(Type srcType, MutableArrayRef<char> dst,
       ArrayRef<char> src) {
-    DstTy dstTypeToken; // hack to propagate DstTy
-    dispatchIntOrFP<void, SrcDstCast, DstTy, ArrayRef<char>,
-        MutableArrayRef<char>>::eval(srcType, dstTypeToken, src, dst);
+    dispatchIntOrFP<void, SrcCast<DstTy>::template Cast, ArrayRef<char>,
+        MutableArrayRef<char>>::eval(srcType, src, dst);
   }
 };
 
-void doCast(
+void doConstPropCast(
     Type dstType, Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
   dispatchIntOrFP<void, DstCast, Type, MutableArrayRef<char>,
       ArrayRef<char>>::eval(dstType, srcType, dst, src);
@@ -859,8 +864,6 @@ void doCast(
 
 Value ConstPropCast(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
-
   ShapedType srcType = constValue.getType().cast<ShapedType>();
   ShapedType dstType = replacingValue.getType().cast<ShapedType>();
   assert(srcType.getNumElements() == dstType.getNumElements() &&
@@ -869,9 +872,11 @@ Value ConstPropCast(
   Type srcElemType = srcType.getElementType();
   Type dstElemType = dstType.getElementType();
 
+  ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
+
   ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
       dstType, [&](MutableArrayRef<char> dst) {
-        doCast(dstElemType, srcElemType, dst, src);
+        doConstPropCast(dstElemType, srcElemType, dst, src);
       });
 
   // Construct a new ONNXConstantOp.
