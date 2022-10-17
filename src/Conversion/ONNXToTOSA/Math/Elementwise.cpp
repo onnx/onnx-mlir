@@ -88,16 +88,16 @@ public:
   LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    TensorType outputType = op.getResult().getType().dyn_cast<TensorType>();
+    TensorType outputType = op.getResult().getType().cast<TensorType>();
 
     if (!outputType.getElementType().isF32()) {
       return rewriter.notifyMatchFailure(op, "Only float is supported");
     }
 
-    FloatAttr alphaAttr = adaptor.alphaAttr();
-
+    // ONNX docs: alpha : float (default 0.01)
+    // No easy interface in MLIR to get value as float
     double alpha = 0.01;
-
+    FloatAttr alphaAttr = adaptor.alphaAttr();
     if (alphaAttr) {
       alpha = alphaAttr.getValueAsDouble();
     }
