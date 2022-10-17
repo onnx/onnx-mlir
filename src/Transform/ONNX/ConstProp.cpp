@@ -99,7 +99,7 @@ using ONNXTypeToCppType = typename ONNXTypeToCppTypeDef<ONNXTy>::type;
 
 template <int ONNXTy>
 struct TypeDesc {
-  static constexpr int ONNXType = ONNXTy;
+  static constexpr int ONNXType = ONNXTy; // TODO: consider removing this
   using type = ONNXTypeToCppType<ONNXTy>;
   using unpacked_type = type;
   static type pack(unpacked_type unpacked) { return unpacked; }
@@ -128,7 +128,7 @@ template <typename Out, template <typename, typename...> class Action,
     typename... Ts>
 struct dispatchIntOrFP {
   static Out eval(Type type, Ts... xs) {
-#define ACT(T) (Action<TypeDesc<TP::T>, Ts...>::eval(type, xs...))
+#define ACT(T) (Action<TypeDesc<TP::T>, Ts...>::eval(xs...))
     // clang-format off
     if (type.isBF16()) llvm_unreachable("bf16 is unsupported");
     if (type.isF16()) return ACT(FLOAT16);
@@ -826,13 +826,12 @@ public:
 
 template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
-  static void eval(Type srcType, DstTy dstTypeToken, ArrayRef<char> src,
+  static void eval(DstTy dstTypeToken, ArrayRef<char> src,
       MutableArrayRef<char> dst) {
     using S = typename SrcTy::type;
     using D = typename DstTy::type;
     int64_t numElements = src.size() / sizeof(S);
-    // cannot use copyAndCastArr because it's not defined for all types
-    // copyAndCastArr<SrcTy, DstTy>(src.data(), dst.data(), numElements);
+    // Cannot use copyAndCastArr here because it's not defined for all types.
     auto *srcArr = reinterpret_cast<const S *>(src.data());
     auto *dstArr = reinterpret_cast<D *>(dst.data());
     std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
@@ -844,7 +843,7 @@ struct SrcDstCast {
 
 template <typename DstTy, typename... Ts>
 struct DstCast {
-  static void eval(Type dstType, Type srcType, MutableArrayRef<char> dst,
+  static void eval(Type srcType, MutableArrayRef<char> dst,
       ArrayRef<char> src) {
     DstTy dstTypeToken; // hack to propagate DstTy
     dispatchIntOrFP<void, SrcDstCast, DstTy, ArrayRef<char>,
