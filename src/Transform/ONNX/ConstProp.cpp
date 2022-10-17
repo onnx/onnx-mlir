@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Mlir/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -37,6 +38,40 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
+
+ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(ONNXConstantOp constOp) {
+  ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
+  return getDenseIntOrFPRawData(elements);
+}
+
+ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
+  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  return getDenseIntOrFPRawDataFromConstOp(constOp);
+}
+
+template <typename Out, template <typename, typename...> class Action,
+    typename... Ts>
+struct dispatchIntOrFP {
+  static Out eval(Type type, Ts... xs) {
+#define ACT(T) (Action<T, Ts...>::eval(type, xs...))
+    // clang-format off
+    if (type.isBF16()) llvm_unreachable("bf16 is unsupported");
+    if (type.isF16()) return ACT(uint16_t);
+    if (type.isF32()) return ACT(float);
+    if (type.isF64()) return ACT(double);
+    auto itype = type.cast<IntegerType>();
+    switch (itype.getWidth()) {
+      case  1: return ACT(bool);
+      case  8: return itype.isUnsigned() ? ACT(uint8_t)  : ACT(int8_t);
+      case 16: return itype.isUnsigned() ? ACT(uint16_t) : ACT(int16_t);
+      case 32: return itype.isUnsigned() ? ACT(uint32_t) : ACT(int32_t);
+      case 64: return itype.isUnsigned() ? ACT(uint64_t) : ACT(int64_t);
+      default: llvm_unreachable("impossible integer width");
+    }
+    // clang-format on
+#undef ACT
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Instructions to add a constant operation.
@@ -731,40 +766,57 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
+template <typename SrcTy, typename DstTy, typename... Ts>
+struct SrcDstCast {
+  static void eval(
+      Type srcType, DstTy zero, ArrayRef<char> src, MutableArrayRef<char> dst) {
+    int64_t numElements = src.size() / sizeof(SrcTy);
+    // TODO: fix conversion of FP16 which is represented by uint16_t
+    // cannot use copyAndCastArr because it's not defined for all types
+    // copyAndCastArr<SrcTy, DstTy>(src.data(), dst.data(), numElements);
+    auto *srcArr = reinterpret_cast<const SrcTy *>(src.data());
+    auto *dstArr = reinterpret_cast<DstTy *>(dst.data());
+    std::transform(srcArr, srcArr + numElements, dstArr,
+        [](SrcTy v) { return static_cast<DstTy>(v); });
+  }
+};
+
+template <typename DstTy, typename... Ts>
+struct DstCast {
+  static void eval(Type dstType, Type srcType, MutableArrayRef<char> dst,
+      ArrayRef<char> src) {
+    DstTy zero = 0; // hack to propagate DstTy
+    dispatchIntOrFP<void, SrcDstCast, DstTy, ArrayRef<char>,
+        MutableArrayRef<char>>::eval(srcType, zero, src, dst);
+  }
+};
+
+void doCast(
+    Type dstType, Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
+  dispatchIntOrFP<void, DstCast, Type, MutableArrayRef<char>,
+      ArrayRef<char>>::eval(dstType, srcType, dst, src);
+}
+
 Value ConstPropCast(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  // Get the const value using the maximum precision e.g. double, int64_t.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
-
-  // Create the result buffer.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+  ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
 
   ShapedType srcType = constValue.getType().cast<ShapedType>();
-  ShapedType destType = replacingValue.getType().cast<ShapedType>();
-  Type srcElemType = srcType.getElementType();
-  Type destElemType = destType.getElementType();
+  ShapedType dstType = replacingValue.getType().cast<ShapedType>();
+  assert(srcType.getNumElements() == dstType.getNumElements() &&
+         "types must have the equally many elements");
 
-  // Convert to the maximum destination type. Values will be converted to the
-  // correct type automatically when constructing the output ONNXConstantOp.
-  int64_t numElements = ShapedType::getNumElements(srcType.getShape());
-  if (destElemType.isa<FloatType>()) {
-    if (srcElemType.isa<FloatType>())
-      copyAndCastArr<double, double>(constArray, resArray, numElements);
-    else
-      copyAndCastArr<int64_t, double>(constArray, resArray, numElements);
-  } else if (destElemType.isa<IntegerType>()) {
-    if (srcElemType.isa<FloatType>())
-      copyAndCastArr<double, int64_t>(constArray, resArray, numElements);
-    else
-      copyAndCastArr<int64_t, int64_t>(constArray, resArray, numElements);
-  } else
-    llvm_unreachable("Unsupport data type");
+  Type srcElemType = srcType.getElementType();
+  Type dstElemType = dstType.getElementType();
+
+  ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
+      dstType, [&](MutableArrayRef<char> dst) {
+        doCast(dstElemType, srcElemType, dst, src);
+      });
 
   // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+  ONNXConstantOp res = createONNXConstantOpWithDenseAttr(
+      rewriter, replacingValue.getLoc(), elements);
 
   return res.getResult();
 }
