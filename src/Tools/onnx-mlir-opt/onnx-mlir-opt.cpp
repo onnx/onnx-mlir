@@ -191,9 +191,11 @@ int main(int argc, char **argv) {
   }
 
   auto passManagerSetupFn = [&](PassManager &pm) {
+#ifndef DISABLE_RESOURCE_POOL
     ResourcePool &resourcePool = ResourcePool::create(pm.getContext());
     pm.addInstrumentation(
         std::make_unique<ResourceGarbageCollector>(resourcePool));
+#endif
     auto errorHandler = [&](const Twine &msg) {
       emitError(UnknownLoc::get(pm.getContext())) << msg;
       return failure();

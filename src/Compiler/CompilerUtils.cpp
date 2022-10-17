@@ -622,7 +622,9 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
 
+#ifndef DISABLE_RESOURCE_POOL
   ResourcePool::create(&context);
+#endif
 }
 
 namespace {
@@ -903,8 +905,9 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   ResourcePool *resourcePool = ResourcePool::get(&context);
-  pm.addInstrumentation(
-      std::make_unique<ResourceGarbageCollector>(*resourcePool));
+  if (resourcePool)
+    pm.addInstrumentation(
+        std::make_unique<ResourceGarbageCollector>(*resourcePool));
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
