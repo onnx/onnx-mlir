@@ -28,9 +28,6 @@ from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 import pprint
 import onnx
 
-# Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.9.0"
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--dry-run-onnx-ops",
                     help="Output ONNXOps.td.inc content to stdout.",
@@ -54,7 +51,11 @@ args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
+
+# Change this variable only when upgrading the ONNX support within ONNX-MLIR.
 current_onnx_version = "1.11.0"
+current_onnx_opset = 16
+
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
