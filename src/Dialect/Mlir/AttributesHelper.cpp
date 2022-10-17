@@ -24,6 +24,7 @@ namespace onnx_mlir {
 
 namespace {
 // Always align to the largest possible element type.
+// TODO: Consider aligning for SIMD ops.
 constexpr size_t ALIGN = std::max(alignof(int64_t), alignof(double));
 
 size_t byteWidth(size_t bitWidth) {
@@ -44,8 +45,6 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
          "data size must match type");
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
-    // TODO: consider aligning everything to something large that works well for
-    //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
     DenseResourceElementsHandle r = resourcePool->createResource(
         HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false));
     return DenseResourceElementsAttr::get(type, r);
@@ -60,8 +59,6 @@ ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
                 byteWidth(type.getElementType().getIntOrFloatBitWidth());
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
-    // TODO: consider aligning everything to something large that works well for
-    //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
     AsmResourceBlob blob = HeapAsmResourceBlob::allocate(size, ALIGN);
     fill(blob.getMutableData());
     DenseResourceElementsHandle r =
