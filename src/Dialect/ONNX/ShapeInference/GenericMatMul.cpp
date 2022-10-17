@@ -2,11 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------ MatMul.cpp - Shape Inference for MatMul Op --------------===//
+//===--------- GenericMatMul.cpp - Shape Inference for matmul Ops ---------===//
 //
-// This file implements shape inference for the ONNX MatMul Operator.
+// This file implements shape inference for the ONNX MatMul, QLinearMatMul, and
+// MatMulInteger Operators.
 //
 //===----------------------------------------------------------------------===//
+
+#include <tuple>
+#include <utility>
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -14,29 +18,33 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
-    ONNXMatMulOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope),
-      aDims(), bDims(), aPadDims(), bPadDims() {}
+template <typename OpAdaptor>
+std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
+  Value A = operandAdaptor.A();
+  Value B = operandAdaptor.B();
+  return std::pair(A, B);
+}
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope),
-      aDims(), bDims(), aPadDims(), bPadDims() {}
+template <>
+std::pair<Value, Value> matMulInputs(
+    ONNXQLinearMatMulOpAdaptor &operandAdaptor) {
+  Value A = operandAdaptor.a();
+  Value B = operandAdaptor.b();
+  return std::pair(A, B);
+}
 
-LogicalResult ONNXMatMulOpShapeHelper::computeShape(
-    ONNXMatMulOpAdaptor operandAdaptor) {
+template <typename OP_TYPE>
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
+    typename OP_TYPE::Adaptor operandAdaptor) {
+
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get info.
-  Value A = operandAdaptor.A();
-  Value B = operandAdaptor.B();
+  Value A;
+  Value B;
+  std::tie(A, B) = matMulInputs(operandAdaptor);
   MemRefBoundsIndexCapture ABounds(A);
   MemRefBoundsIndexCapture BBounds(B);
 
@@ -93,7 +101,7 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     } else if (aDims[i].isLiteral() && bDims[i].isLiteral()) {
       // No broadcast, both literals, make sure they have the same value.
       if (aDims[i].getLiteral() != bDims[i].getLiteral())
-        return op->emitError("Incompatible size detected");
+        return this->op->emitError("Incompatible size detected");
       outputDims.emplace_back(aDims[i]);
     } else if (aDims[i].isLiteral()) {
       // A dim is a literal; use it here for output and b, since b
@@ -119,7 +127,7 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
   // And test the K dimensions.
   if (aDims[aK].isLiteral() && bDims[bK].isLiteral()) {
     if (aDims[aK].getLiteral() != bDims[bK].getLiteral())
-      return op->emitError("reduction dimension must be the same");
+      return this->op->emitError("reduction dimension must be the same");
   } else if (aDims[aK].isLiteral()) {
     // Save aK dims into bK dims, in case bK dims was runtime
     bDims[bK] = aDims[aK];
@@ -137,8 +145,12 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
     assert(outputDims.empty() && "1-D x 1-D results in scalar");
   }
   // Save the final result.
-  setOutputDims(outputDims);
+  this->setOutputDims(outputDims);
   return success();
 }
+
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir
