@@ -9,6 +9,7 @@ add_onnx_mlir_library(OMONNXToTOSA
 
   ConvertONNXToTOSA.cpp
   ONNXToTosaUtils.cpp
+  ONNXToTOSACommon.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

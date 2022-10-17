@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "mlir/Transforms/DialectConversion.h"
 
 using namespace mlir;
 
@@ -62,9 +63,9 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // We use the type converter to legalize types before any conversion patterns
   // are executed. This ensures that we do not need to trigger separate
   // conversion failures. Quantized types are not supported right now.
-  TypeConverter typeConverter;
+  TosaTypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
-    if (isTOSASignedInt(type) || isTOSAFloat(type) || isTOSANone(Type))
+    if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
       return type;
     return llvm::None;
   });
@@ -73,14 +74,9 @@ void FrontendToTosaLoweringPass::runOnOperation() {
       return type;
     return llvm::None;
   });
-  /*target.markUnknownOpDynamicallyLegal([&](Operation *op) {
-    return isNotBranchOpInterfaceOrReturnLikeOp(op) ||
-           isLegalForBranchOpInterfaceTypeConversionPattern(op, typeConverter) ||
-           isLegalForReturnOpTypeConversionPattern(op, typeConverter);
-  }); */
-  target.addLegalOp<ONNXNoneOp>();
+
   typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
-    if (type.getElementType().isa<NoneType>())
+    if (type.isa<NoneType>())
       return type;
     return llvm::None;
   });

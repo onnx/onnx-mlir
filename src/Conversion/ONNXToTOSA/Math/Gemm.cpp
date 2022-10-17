@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -31,7 +32,7 @@ class ONNXGemmOpLoweringToTOSA : public OpConversionPattern<ONNXGemmOp> {
 public:
   using OpConversionPattern<ONNXGemmOp>::OpConversionPattern;
   //using OpAdaptor = typename ONNXGemmOp::Adaptor;
-  LogicalResult rewriteToAtenLinear(ONNXGemmOp op, OpAdaptor adaptor,
+  LogicalResult rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
     Value A = adaptor.A();
     Value B = adaptor.B();
@@ -42,25 +43,31 @@ public:
     // If no bias is given to the GEMM operator, we create a 1D bias with all
     // zeroes
     if (C.getType().isa<mlir::NoneType>()) {
-      ArrayRef<int64_t> format = A.getType().cast<TensorType>().getShape();
+      ArrayRef<int64_t> cformat = A.getType().cast<TensorType>().getShape();
+      // Input for TOSA must be a single dimension. If the incoming shape is more than
+      // one, "flatten" it.
+      if (cformat.size() != 1) {
+        ArrayRef<int64_t> finalFormat(cformat[0] * cformat[1]);
+        cformat = finalFormat;
+      }
       std::vector<float> elements = {};
-      for (int i = 0; i < format[0]; ++i)
+      for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);
-      C = mlir::tosa::getConstTensor<float>(rewriter, op, elements, format).value();
+      C = mlir::tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
     }
 
     rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(op, resultType, A, B, C);
     return success();
   }
 
-  /// The GEMM can also be described as a linear function
+  /// The GEMM can be described as a FullyConnected operator
   /// Y = AB^T + C if we perform a transpose on B only with
   /// alpha and beta factors set to 1.
   /// The constraints on rank were taken from the torch implementation check
   /// Input A must be of rank 2 (input)
   /// Input B must be of rank 2 (weights)
   /// Input C must be of rank 1 (bias)
-  static bool checkLegalAtenLinearOp(ONNXGemmOp op, OpAdaptor adaptor) {
+  static bool checkLegalTosaFCOp(ONNXGemmOp op, OpAdaptor adaptor) {
     Value A = op.A();
     Value B = op.B();
     Value C = op.C();
@@ -99,6 +106,8 @@ public:
     Value C = op.C();
     int64_t transA = adaptor.transA();
     int64_t transB = adaptor.transB();
+    //FloatAttr alpha = adaptor.alpha();
+    //FloatAttr beta = adaptor.beta();
     auto AType = A.getType().cast<RankedTensorType>();
     auto BType = B.getType().cast<RankedTensorType>();
     auto shapeA = A.getType().dyn_cast<ShapedType>();
@@ -108,17 +117,26 @@ public:
     // C is optional, if it's not there, we need to be aware of it for later computations
     bool isCOpt = C.getType().isa<TensorType>();
 
-    if (checkLegalAtenLinearOp(op, adaptor)) {
-      return rewriteToAtenLinear(op, adaptor, rewriter);
+    if (checkLegalTosaFCOp(op, adaptor)) {
+      return rewriteToTosaFC(op, adaptor, rewriter);
     }
 
     /*if (transA) {
       Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
       Type outputType = UnrankedTensorType::get(AType.getElementType());
       A = rewriter.create<tosa::TransposeOp>(loc, outputType, A, targetTensor).getResult();
-    }*/
-    
-    //rewriter.replaceOpWithNewOp<tosa::MatMulOp>(op, resultType, valueAttr);
+    }
+    if (transB) {
+      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
+      Type outputType = UnrankedTensorType::get(AType.getElementType());
+      B = rewriter.create<tosa::TransposeOp>(loc, outputType, B, targetTensor).getResult();
+    }
+
+    // Alpha * A
+    if (alpha && alpha.getValueAsDouble() != 1.)
+
+    rewriter.replaceOpWithNewOp<tosa::MatMulOp>(op, resultType, A, B);
+    */
     return success();
   }
 };

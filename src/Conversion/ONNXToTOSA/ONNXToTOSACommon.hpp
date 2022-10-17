@@ -31,6 +31,14 @@
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
+class TosaTypeConverter : public TypeConverter {
+public:
+  using TypeConverter::TypeConverter;
+
+  TosaTypeConverter();
+};
+
+
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//

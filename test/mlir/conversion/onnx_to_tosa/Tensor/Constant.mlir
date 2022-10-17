@@ -21,7 +21,7 @@ func.func @test_single_value_attr() -> tensor<1xf32> {
 }
 
 func.func @test_splat_attr() -> tensor<3xf32> {
-  %0 = "onnx.Constant"() {value = dense<1.0> : tensor<3xf32>} : () -> tensor<3xf32>
+  %0 = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<3xf32>
   %1 = "onnx.Constant"() {value = dense<2.0> : tensor<3xf32>} : () -> tensor<3xf32>
   %2 = "onnx.Add"(%0, %1) : (tensor<3xf32> , tensor<3xf32>) -> tensor<3xf32>
   "func.return"(%2) : (tensor<3xf32>) -> ()
