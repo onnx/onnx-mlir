@@ -109,7 +109,7 @@ public:
         outputType, adaptor.X(),
         tosa::getTosaConstTensorSingleF32(
             rewriter, op, alpha, outputType.getShape()),
-        0);
+        /*shift=*/0);
 
     auto greaterEqual = tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter,
         op.getLoc(), UnrankedTensorType::get(rewriter.getI1Type()), adaptor.X(),

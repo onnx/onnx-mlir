@@ -2,8 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering Utils---===//
+//==== ONNXToTosaLegalizeUtils.hpp - ONNX dialects to TOSA lowering Utils-===//
 //
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
