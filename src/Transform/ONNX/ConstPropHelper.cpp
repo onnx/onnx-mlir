@@ -80,7 +80,7 @@ char *allocateBufferFor(Type type, bool useMaxSize) {
 }
 
 /// Get a data array from a given ONNXConstantOp.
-char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
+char *createArrayFromDenseElementsAttr(ElementsAttr dataAttr) {
   Type elementType = getElementType(dataAttr.getType());
   int64_t numElements = getNumberOfElements(dataAttr.getType());
   char *res = allocateBufferFor(dataAttr.getType(), /*useMaxSize=*/true);

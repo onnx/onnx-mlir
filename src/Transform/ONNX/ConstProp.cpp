@@ -184,9 +184,8 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     res = bufferPtrs[bufferId];
   } else {
-    DenseElementsAttr dataAttr =
-        op->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    ElementsAttr dataAttr = op->getAttrOfType<::mlir::Attribute>("value")
+                                .cast<mlir::ElementsAttr>();
     res = createArrayFromDenseElementsAttr(dataAttr);
     bufferPtrs.emplace_back(res);
     unsigned bufferId = bufferPtrs.size() - 1;
