@@ -103,7 +103,7 @@ func.func @test_pass_dims_through_concat(%arg0: tensor<?x256xi64>) -> (tensor<4x
 
 // -----
 
-func.func @test_pass_dims_through_cast(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
+func.func @test_pass_dims_through_cast2(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
   %0 = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
   %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
@@ -113,7 +113,7 @@ func.func @test_pass_dims_through_cast(%arg0: tensor<?x?x200xf32>) -> tensor<2xi
   return %5 : tensor<2xi64>
 
 // mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_pass_dims_through_cast
+// CHECK-LABEL:  func.func @test_pass_dims_through_cast2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<2xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
