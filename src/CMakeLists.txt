@@ -12,6 +12,11 @@ add_subdirectory(Tools)
 add_subdirectory(Version)
 add_subdirectory(Compiler)
 
+if (ONNX_MLIR_VENDOR)
+  list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
+endif()
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
+
 add_onnx_mlir_executable(onnx-mlir
   onnx-mlir.cpp
 

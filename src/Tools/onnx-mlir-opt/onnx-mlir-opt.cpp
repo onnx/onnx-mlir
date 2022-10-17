@@ -108,6 +108,14 @@ void scanAndSetMAccel(int argc, char **argv) {
   }
 }
 
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
+
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   // Scan Opt Level manually now as it is needed for initializing the OM
@@ -167,7 +175,7 @@ int main(int argc, char **argv) {
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
-          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
