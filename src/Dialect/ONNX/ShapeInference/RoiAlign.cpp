@@ -48,7 +48,7 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape(
       LiteralIndexExpr(height), LiteralIndexExpr(width)};
 
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
 
   return success();
 }

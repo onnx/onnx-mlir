@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -162,14 +163,14 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.getValue().size(); }
+size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
-  return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
+  return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
@@ -218,7 +219,7 @@ bool isFromNone(Value v) {
   if (v.getDefiningOp() &&
       dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
     auto c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
-    if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
+    if (c.value().has_value() && c.valueAttr().isa<DenseElementsAttr>()) {
       auto d = c.valueAttr().cast<DenseElementsAttr>();
       auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
       if (shape.size() == 1 && shape[0] == 0)
@@ -357,11 +358,13 @@ bool AreTheSameConstantOpDenseAttr(
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
-  if (!valType.isa<SeqType>())
-    return valType.isa<ShapedType>() && valType.cast<ShapedType>().hasRank();
-
-  // Check the element type for a Sequence.
-  return valType.cast<SeqType>().getElementType().hasRank();
+  ShapedType shapedType;
+  if (auto seqType = valType.dyn_cast<SeqType>()) {
+    shapedType = seqType.getElementType().dyn_cast<ShapedType>();
+  } else {
+    shapedType = valType.dyn_cast<ShapedType>();
+  }
+  return shapedType && shapedType.hasRank();
 }
 
 //===----------------------------------------------------------------------===//
@@ -491,14 +494,14 @@ Value normalizeConstantOp(
       ArrayAttr(), StringAttr(), ArrayAttr());
 }
 
-// Create a DenseElementsAttr based on the shape of type.
-DenseElementsAttr createDenseElementsAttrFromShape(
-    PatternRewriter &rewriter, Value value) {
+// Create a DenseElementsAttr based on the shape of type at the given index.
+DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
+    PatternRewriter &rewriter, Value value, IntegerAttr indexAttr) {
   auto inType = value.getType().cast<ShapedType>();
-  auto shape = inType.getShape();
-  SmallVector<int64_t, 1> dims = {inType.getRank()};
-  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
-  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  ArrayRef<int64_t> shape = inType.getShape();
+  int64_t index = indexAttr.getValue().getSExtValue();
+  SmallVector<int64_t, 4> values(1, shape[index]);
+  auto tensorType = RankedTensorType::get({1}, rewriter.getIntegerType(64));
   return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
@@ -620,6 +623,62 @@ mlir::Type convertONNXTypeToMLIRType(
   }
 
   llvm_unreachable("Unsupported data type encountered.");
+}
+
+// Convert an MLIR type to the correspoding ONNX type.
+int64_t mlirTypeToOnnxType(Type elemType) {
+  onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
+
+  TypeSwitch<Type>(elemType)
+      .Case<BFloat16Type>(
+          [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
+      .Case<ComplexType>([&](ComplexType type) {
+        if (type.getElementType().isa<Float32Type>())
+          onnxType = onnx::TensorProto::COMPLEX64;
+        else if (type.getElementType().isa<Float64Type>())
+          onnxType = onnx::TensorProto::COMPLEX128;
+      })
+      .Case<Float16Type>(
+          [&](Float16Type) { onnxType = onnx::TensorProto::FLOAT16; })
+      .Case<Float32Type>(
+          [&](Float32Type) { onnxType = onnx::TensorProto::FLOAT; })
+      .Case<Float64Type>(
+          [&](Float64Type) { onnxType = onnx::TensorProto::DOUBLE; })
+      .Case<IntegerType>([&](IntegerType type) {
+        switch (type.getWidth()) {
+        case 1:
+          // only a signless type can be a bool.
+          onnxType = (type.isSigned() || type.isUnsigned())
+                         ? onnx::TensorProto::UNDEFINED
+                         : onnx::TensorProto::BOOL;
+          break;
+        case 8:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
+                                       : onnx::TensorProto::INT8;
+          break;
+        case 16:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT16
+                                       : onnx::TensorProto::INT16;
+          break;
+        case 32:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT32
+                                       : onnx::TensorProto::INT32;
+          break;
+        case 64:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT64
+                                       : onnx::TensorProto::INT64;
+          break;
+        }
+      })
+      .Case<LLVM::LLVMStructType>(
+          [&](LLVM::LLVMStructType) { onnxType = onnx::TensorProto::STRING; });
+
+  if (onnxType == onnx::TensorProto::UNDEFINED) {
+    elemType.dump();
+    llvm_unreachable("MLIR type cannot be converted to ONNX type");
+  }
+
+  return onnxType;
 }
 
 } // namespace onnx_mlir

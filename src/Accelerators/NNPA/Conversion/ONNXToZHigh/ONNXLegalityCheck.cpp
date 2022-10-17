@@ -206,7 +206,6 @@ StringRef getStrPaddingType(OP op) {
       IndexExpr pHBottom = pH - pHTop;
       IndexExpr pWLeft = pW.floorDiv(twoIE);
       IndexExpr pWRight = pW - pWLeft;
-
       // Compare ONNX pads and zDNN pads.
       if (pHTop.getLiteral() == shapeHelper.pads[0].getLiteral() &&
           pWLeft.getLiteral() == shapeHelper.pads[1].getLiteral() &&
@@ -357,7 +356,6 @@ bool isSuitableForZDNN<ONNXMaxOp>(ONNXMaxOp op) {
 /// Check legality for ONNXSoftmax.
 /// zDNN softmax only supports axis = 1 (or -1 when rank = 2). If axis is not
 /// 1 (or -1 when rank = 2), keep ONNXSoftmax unchanged.
-/// TODO: support rank != 2.
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
   if (!isValidElementType(op.input()))
@@ -533,7 +531,7 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
     return false;
 
   // Check axes.
-  mlir::ArrayAttr axesVal = axes.getValue();
+  mlir::ArrayAttr axesVal = axes.value();
   SmallVector<Attribute> axesAttrs(axesVal.begin(), axesVal.end());
   if ((axesAttrs.size() != 2) ||
       (axesAttrs[0].dyn_cast<IntegerAttr>().getInt() != 2) ||
@@ -601,21 +599,20 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
-  if ((activations && (activations.getValue().size() > 0) &&
-          (activations.getValue()[0].cast<StringAttr>().getValue() !=
+  if ((activations && (activations.value().size() > 0) &&
+          (activations.value()[0].cast<StringAttr>().getValue() !=
               "Sigmoid")) ||
-      (activations && (activations.getValue().size() > 1) &&
-          (activations.getValue()[1].cast<StringAttr>().getValue() !=
-              "Tanh")) ||
-      (activations && (activations.getValue().size() > 2) &&
-          (activations.getValue()[2].cast<StringAttr>().getValue() != "Tanh")))
+      (activations && (activations.value().size() > 1) &&
+          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+      (activations && (activations.value().size() > 2) &&
+          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
   // zDNN does not supprt clip(Cell clip threshold).
   if (op.clip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
+  if (op.hidden_size() && (op.hidden_size().value() != hidden_size))
     return false;
   // zDNN does not support input_forget.
   if (op.input_forget() != 0)
@@ -673,21 +670,20 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   if (op.activation_alpha() || op.activation_beta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
-  if ((activations && (activations.getValue().size() > 0) &&
-          (activations.getValue()[0].cast<StringAttr>().getValue() !=
+  if ((activations && (activations.value().size() > 0) &&
+          (activations.value()[0].cast<StringAttr>().getValue() !=
               "Sigmoid")) ||
-      (activations && (activations.getValue().size() > 1) &&
-          (activations.getValue()[1].cast<StringAttr>().getValue() !=
-              "Tanh")) ||
-      (activations && (activations.getValue().size() > 2) &&
-          (activations.getValue()[2].cast<StringAttr>().getValue() != "Tanh")))
+      (activations && (activations.value().size() > 1) &&
+          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+      (activations && (activations.value().size() > 2) &&
+          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
   // zDNN does not supprt clip(Cell clip threshold).
   if (op.clip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.hidden_size() && (op.hidden_size().getValue() != hidden_size))
+  if (op.hidden_size() && (op.hidden_size().value() != hidden_size))
     return false;
   // zDNN support the "linear_before_reset==1" case only.
   if (op.linear_before_reset() != 1)
@@ -797,6 +793,10 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
+  // 4D tensors(N x C x H x W) are supported as input and output.
+  if (shapeInput.size() != 4 || shapeOutput.size() != 4)
+    return false;
+
   // Do not support dynamic height and weight dimensions since we can not check
   // them at compile time.
   if (shapeInput[2] == -1 || shapeInput[3] == -1 || shapeOutput[2] == -1 ||
@@ -805,10 +805,6 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
 
   // Do not support group.
   if (operandAdaptor.group() != 1)
-    return false;
-
-  // 4D tensors(N x C x H x W) are supported as input and output.
-  if (shapeInput.size() != 4 || shapeOutput.size() != 4)
     return false;
 
   // Do not support non-default dilations.

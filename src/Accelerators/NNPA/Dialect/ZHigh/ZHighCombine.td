@@ -52,6 +52,21 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def GetMinusBcastConst : NativeCodeCall<
+  "::onnx_mlir::zhigh::getMinusBcastConst($_builder, $_loc, $0, $1)"
+>;
+
+def IsStaticShapeTensor:
+  Constraint<
+    CPred<
+      "$0.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+    "hasStaticShape">;
+
+def IsPlusConstantFloat : Constraint<
+  CPred<"($0.getValueAsDouble() > 0.0)">,
+  "Is the float attribute is greater than 0"
+>;
+
 //===----------------------------------------------------------------------===//
 // Transformations
 //===----------------------------------------------------------------------===//
@@ -77,8 +92,8 @@ def StickUnstickRemovalPattern : Pat<
 >;
 
 def ProducedByUnstickOp: Constraint<
-  CPred<"areProducedByUnstickOp($0)">,
-  "all values are produced by ZHighUnstickOp"
+  CPred<"areProducedByUnstickOp($_builder, $0, $1)">,
+  "all values are produced by ZHighUnstickOp with the given layout"
 >;
 
 def HaveNoPadsWhenStickified: Constraint<
@@ -88,6 +103,10 @@ def HaveNoPadsWhenStickified: Constraint<
 
 def GetStickifiedInputs: NativeCodeCall<
   "getStickifiedInputs($_builder, $_loc, $0)"
+>;
+
+def GetStickifiedConcatAxis: NativeCodeCall<
+  "getStickifiedConcatAxis($_builder, $0, $1)"
 >;
 
 // The pattern
@@ -102,11 +121,11 @@ def GetStickifiedInputs: NativeCodeCall<
 // `zhigh.Concat` is used instead of `onnx.Concat` because `onnx.Concat` cannot 
 // allocate a 4K-aligned buffer for the output stickified tensor.
 //
-// Note: Support NHWC layout only at this moment.
+// Note: Support 4D/NHWC layout only at this moment.
 def ReplaceONNXConcatByZHighConcatPattern: Pat<
   (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
-  (ZHighConcatOp (GetStickifiedInputs $inputs), $axis),
-  [(ProducedByUnstickOp $inputs),
+  (ZHighConcatOp (GetStickifiedInputs $inputs), (GetStickifiedConcatAxis $layout, $axis)),
+  [(ProducedByUnstickOp $inputs, $layout),
    (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
 >;
 
@@ -125,6 +144,30 @@ def SigmoidLayoutChangingPattern : Pat<
                                                          (GetLayout $x)),
                                   (returnType $new_s_x))),
   [(NotSameLayout $x, $s_x)]
+>;
+
+// The pattern
+//   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
+// can be replaced by
+//   zhigh.Sub (zhigh.Relu(%X),
+//              zhigh.Relu(zhigh.Mul(%X, MinusBcastConst(%alpha))))
+//
+// Constraints:
+//   - %X should have static shape, and %alpha should be constant.
+//
+def ReplaceONNXLeakyReluPattern: Pat<
+  (ZHighStickOp:$stickout (ONNXLeakyReluOp:$out (ZHighUnstickOp $X), $alpha),
+                $layout),
+  (ZHighSubOp
+     (ZHighReluOp $X, (returnType $X)),
+     (ZHighReluOp (ZHighMulOp $X,
+                              (ZHighStickOp (GetMinusBcastConst $alpha,
+                                             $out),
+                                            $layout),
+                              (returnType $X)),
+                  (returnType $X))),
+  [(IsStaticShapeTensor $X), (IsPlusConstantFloat $alpha),
+   (SameLayout $X, $stickout)]
 >;
 
 #endif // ZHIGH_COMBINE

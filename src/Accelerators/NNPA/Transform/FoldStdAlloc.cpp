@@ -126,7 +126,7 @@ public:
             expandAffineMap(rewriter, loc, op.getAffineMap(), indices);
         if (!maybeExpandedMap)
           continue;
-        storeIndex = maybeExpandedMap.getValue()[0];
+        storeIndex = maybeExpandedMap.value()[0];
         storeVal = op.getValueToStore();
       }
 

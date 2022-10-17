@@ -679,7 +679,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
-  target.addIllegalOp<KrnlMemsetOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();

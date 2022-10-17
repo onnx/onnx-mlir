@@ -14,17 +14,22 @@ add_custom_target(check-onnx-numerical-nnpa
   )
 set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 
-# add_numerical_unittest(test_name check_instruction sources... options...
+# add_numerical_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
 #   all the rest of the arguments are passed directly to add_onnx_mlir_executable.
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
-#   The check_instruction is an instruction name which should be included in
-#   generated library.
 #   )
-function(add_numerical_unittest test_name check_instruction)
-  add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
+function(add_numerical_unittest test_name)
+  add_onnx_mlir_executable(${test_name}
+    ${ARGN}
+
+    NO_INSTALL
+
+    INCLUDE_DIRS PRIVATE
+    ${ONNX_NUMERICALTEST_SRC_DIR}
+    )
 
   add_dependencies(numerical-nnpa ${test_name})
   get_target_property(test_suite_folder numerical-nnpa FOLDER)
@@ -38,44 +43,73 @@ function(add_numerical_unittest test_name check_instruction)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)
-  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "TEST_ATOL=0.01;TEST_RTOL=0.05;${test_name}_INSTRUCTION=${check_instruction}")
-endfunction()
 
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# rapidcheck as well, so that we can successfully link against it. Otherwise some
-# of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(rapidcheck)
+  # Set environment variables
+  set(TEST_ENV_VAR "TEST_ATOL=0.01;TEST_RTOL=0.05")
+  if (${test_name}_instruction)
+    set(TEST_ENV_VAR "${TEST_ENV_VAR};TEST_INSTRUCTION=${${test_name}_instruction}")
+  endif ()
+  if (${test_name}_data_range)
+     set(TEST_ENV_VAR "${TEST_ENV_VAR};TEST_DATARANGE=${${test_name}_data_range}")
+  endif ()
+  if (${test_name}_config)
+     set(TEST_ENV_VAR "${TEST_ENV_VAR};TEST_CONFIG=${${test_name}_config}")
+  endif ()
+  set_tests_properties(${test_name} PROPERTIES ENVIRONMENT "${TEST_ENV_VAR}")
+endfunction()
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-# TODO: Support tests for Conv
-# add_numerical_unittest(TestConvNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
+# Conv2D
+set(TestConvNNPA_instruction zdnn_conv2d)
+set(TestConvNNPA_data_range -0.1,0.1)
+# Automatically set following config when using --maccel=NNPA
+# set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
+add_numerical_unittest(TestConvNNPA
+   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
+   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+   )
 
-add_numerical_unittest(TestMatMul2DNNPA zdnn_matmul_op
+# MatMul2D
+set(TestMatMul2DNNPA_instruction zdnn_matmul_op)
+add_numerical_unittest(TestMatMul2DNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGemmNNPA zdnn_matmul_op
+# Gemm
+set(TestGemmNNPA_instruction zdnn_matmul_op)
+# Automatically set following config when using --maccel=NNPA
+# set(TestGemmNNPA_config "-alpha=1 -beta=1")
+add_numerical_unittest(TestGemmNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
-  DEFINE PRIVATE TEST_GEMM_ALPHA_BETA_1
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestLSTMNNPA zdnn_lstm
+# LSTM
+set(TestLSTMNNPA_instruction zdnn_lstm)
+# Automatically set following config when using --maccel=NNPA
+# set(TestLSTMNNPA_config "-peephole=0")
+add_numerical_unittest(TestLSTMNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-  DEFINE PRIVATE TEST_LSTM_NONEP_ONLY
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_numerical_unittest(TestGRUNNPA zdnn_gru
+# GRU
+set(TestGRUNNPA_instruction zdnn_gru)
+# Automatically set following config when using --maccel=NNPA
+# set(TestGRUNNPA_config "-linearBeforeReset=1")
+add_numerical_unittest(TestGRUNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
-  DEFINE PRIVATE TEST_GRU_L1
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+# LeakyRelu
+set(TestLeakyReluNNPA_instruction zdnn_mul)
+# Automatically set following config when using --maccel=NNPA
+add_numerical_unittest(TestLeakyReluNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLeakyRelu.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )

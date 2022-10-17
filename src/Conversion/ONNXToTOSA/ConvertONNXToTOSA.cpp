@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 
 using namespace mlir;
@@ -58,7 +59,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
-    if (isTOSASignedInt(type) || isTOSAFloat(type))
+    if (isTOSASignedInt(type) || isTOSAFloat(type) ||
+        type.isa<mlir::NoneType>())
       return type;
     return llvm::None;
   });

@@ -10,8 +10,8 @@
 # Overview <a name="overview"></a>
 ONNX-MLIR defines an ONNX dialect to represent operations specified by ONNX.The ONNX dialect is created with MLIR table
 gen tool. The definition of each operation is transferred from ONNX automatically with a
- python script, 
-[utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). 
+ python script,
+[utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py).
 This script retrieves operation definition from
  ONNX package to generate ONNXOps.td.inc for dialect table gen and OpBuilderTable.inc for
 ONNX model importer in ONNX-MLIR.
@@ -20,8 +20,8 @@ The following sections will describe how to use gen_onnx_mlir.py to add an opera
 
 # Add an Operation <a name="add_operation"></a>
 To generate an operation for ONNX dialect, add this operation into the dictionary,
-'version_dict', in gen_onnx_mlir.py. 
-The key of this directory is the operation name and the value is the list of 
+'version_dict', in gen_onnx_mlir.py.
+The key of this directory is the operation name and the value is the list of
 opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#version).
 With this entry, the script will generate the operation definition for ONNX dialect.
 
@@ -31,25 +31,25 @@ With this entry, the script will generate the operation definition for ONNX dial
 * By default, all operation has shape inference interface and `NoSideEffect` trait.
 * If an operation has `ResultTypeInferenceOpInterface`, add it to dictionary `OpsWithResultTypeInference`.
 This interface infers the type of result tensor, not shape.
-* If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
+* If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`.
 This attribute is inferred from the ONNX operation definition.
-* You can define helper function for an operation with dictionary `OpsWithHelpers`. 
+* You can define helper function for an operation with dictionary `OpsWithHelpers`.
 
 By default, all operation has shape inference interface and `NoSideEffect` trait.
 If an operation has `ResultTypeInferenceOpInterface`, use dictionary `OpsWithResultTypeInference`.
 This interface infers the type of result tensor, not shape.
-If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
+If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`.
 
 ## Add canonicalization interface
-If a transformation should be applied locally to an operation across passes, canonicalization 
-interface can be used for this transformation. To enable the canonicalization for an operation, 
-add the name of this operation into this list of  `OpsWithCanonicalizer` and then the operation 
+If a transformation should be applied locally to an operation across passes, canonicalization
+interface can be used for this transformation. To enable the canonicalization for an operation,
+add the name of this operation into this list of  `OpsWithCanonicalizer` and then the operation
 will have `hasCanonicalizer = 1;` in its definition.
 
 ## Customize builder
 The default builders for an operation require the type of results as a parameter. However, the type
 of results can be inferred. A customize builder may be a useful to simplify the code. Based on the
-type of inference, there are two kinds builder, unranked type and broadcast type. To enable the 
+type of inference, there are two kinds builder, unranked type and broadcast type. To enable the
 special builder for an operation, you can add its name into `custom_builder_unranked_ops_list`
  and `custom_builder_broadcast_ops_list` respectively.
 
@@ -67,7 +67,7 @@ and get rid of customize builder.
 The operation description for an operation lists out the allowed types of each input/output and
 attribute. The table gen will generate a default verifier to check IR for the allowed types.
 If an operation has extra constraints, a customized verifier should be defined to enhance error detection.
-For example, two inputs of an operation may require the same element type or same rank. 
+For example, two inputs of an operation may require the same element type or same rank.
 Such information can be found in the ONNX operation definition, but can not be expressed with the dialect definition.
 The best way to test for these constraints are in a verifier. To add the interface of customized verifier to an operation, locate the array below in `gen_onnx_mlir.py` and add your operation in it.
 ```
@@ -101,18 +101,21 @@ If the definition of an operation needs extra code other than described above, y
 the code in the dictionary `custom_definition_misc`. The key is the operation name and the value is the code.
 
 # Build <a name="build"></a>
-In order to run gen_onnx_mlir.py, ONNX has to be installed. Refer to Readme. In your build
-directory, execute command `make OMONNXOpsIncTranslation`. This command will generate those two
-files (src/Dialect/ONNX/ONNXOps.td.inc and OpBuilderTable.inc),
-and copy them to the right place in src directory.
-If you modified gen_onnx_mlir.py, you need to check in two generated files too. They are treated 
+In order to run gen_onnx_mlir.py, ONNX has to be installed. Refer to Readme.
+In your build directory, execute the following command.
+ ```
+ make OMONNXOpsIncTranslation
+ ```
+This command will generate those two files (src/Dialect/ONNX/ONNXOps.td.inc and
+OpBuilderTable.inc), and copy them to the right place in src directory.
+If you modified gen_onnx_mlir.py, you need to check in two generated files too. They are treated
 source file in ONNX-MLIR build so that user of ONNX-MLIR does not need to install the particular
 version of ONNX. Do not modify these files directly.
 You can also run the script directly with the files generated in utils directory. `python ../utils/gen_onnx_mlir.py`.
 
 ## Update the documentation
 
-When adding a new op version or making changes to the ONNX version, we would like to also reflect these changes in the ONNX documentation of our supported operations. While the latest [ONNX specs](https://github.com/onnx/onnx/blob/master/docs/Operators.md) are always available, the specs that we support are often a bit back, plus we support older versions under the versioned name as mentioned in the previous section.
+When adding a new op version or making changes to the ONNX version, we would like to also reflect these changes in the ONNX documentation of our supported operations. While the latest [ONNX specs](https://github.com/onnx/onnx/blob/main/docs/Operators.md) are always available, the specs that we support are often a bit back, plus we support older versions under the versioned name as mentioned in the previous section.
 
 There is a convenient command to update both the ONNX and Krnl dialect, as shown below.
 ```
@@ -125,7 +128,7 @@ The same command should be used when adding operations/making changes to the Krn
 # Operation Version <a ref="version"></a>
 ONNX-MLIR project started when ONNX was at version 1.7.0 and does not intended to be backward compatible. We relies on onnx/converter to convert the model to the version which ONNX-MLIR supports. As ONNX version is evolving, ONNX-MLIR tries to follow but may be behind the latest version.
 
-## Version of Operations 
+## Version of Operations
 As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
 
 ## Support Multiple versions
@@ -133,22 +136,22 @@ To support multiple versions of an op, the selected version should be added in t
 
 In ONNX dialect, the op for the top version has no version in the op name, while other version with name followed by 'V' and version number. For example, ReduceSum of opset 13 will be `ONNXReduceSumOp`, while ReduceSum of opset 11 is 'ONNXReduceSumV11Op`. Since most of ONNX op are compatible when upgraded to higher version, we can keep the name of the operation in the dialect and just update version_dict in gen_onnx_mlir.py without touching the code in ONNX-MLIR.
 
-When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.  
+When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.
 
 ## Migrating
 To migrate a new version ONNX, first the third_part/onnx should be upgraded and your installation
 of ONNX.
-Then you can run gen_onnx_mlir.py with flag `--check_operation_version`. The top version for all 
+Then you can run gen_onnx_mlir.py with flag `--check_operation_version`. The top version for all
 operation will be outputted as a new `version_dict`.
 If the interface of an operation remains the same (from the change document of ONNX), you can
 just use the new version.
 If the interface does change, you can insert the new version as the first in the version list.
-For the existing code, all the corresponding code has to be changed. For example, when ReduceSum 
-is moved from version 11 to 13, ONNXReduceSumOp is replaced with ONNXReduceSumOpV11 first. 
+For the existing code, all the corresponding code has to be changed. For example, when ReduceSum
+is moved from version 11 to 13, ONNXReduceSumOp is replaced with ONNXReduceSumOpV11 first.
 Then the code for version 13 will use ONNXReduceSumOp.
 The reason for such design is that most of ONNX changes do not change the interface. We do not
 want to put burden on developer to remember which version of operation is used unless absolutely
-necessary. 
+necessary.
 It is not always needed to keep the code for an older version, which may be rewritten into the new
 operation. Thus, we just need to have the dialect definition, but not the code for inference or
-lowering. 
+lowering.

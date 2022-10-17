@@ -16,7 +16,8 @@
 #include "mlir/Pass/PassManager.h"
 
 namespace onnx_mlir {
-void addONNXToMLIRPasses(mlir::PassManager &pm);
+void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
+    bool transformReport, bool targetCPU);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);

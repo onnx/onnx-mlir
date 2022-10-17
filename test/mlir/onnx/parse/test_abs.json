@@ -1,0 +1,81 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// test_abs.json is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/abs.py
+
+// json is generated with:
+// utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_abs/model.onnx
+{
+  "irVersion": "3",
+  "producerName": "backend-test",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "x"
+        ],
+        "output": [
+          "y"
+        ],
+        "opType": "Abs"
+      }
+    ],
+    "name": "test_abs",
+    "input": [
+      {
+        "name": "x",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                },
+                {
+                  "dimValue": "5"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "y",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                },
+                {
+                  "dimValue": "5"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "9"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {{.*}} {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:         }
