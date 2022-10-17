@@ -31,4 +31,6 @@ mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
       type, bytes, alignof(NumericType));
 }
 
+llvm::ArrayRef<char> getDenseIntOrFPRawData(mlir::ElementsAttr elements);
+
 } // namespace onnx_mlir

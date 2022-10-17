@@ -37,4 +37,12 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
   }
 }
 
+ArrayRef<char> getDenseIntOrFPRawData(ElementsAttr elements) {
+  if (auto dense = elements.dyn_cast<DenseElementsAttr>())
+    return dense.getRawData();
+  if (auto x = elements.dyn_cast<DenseResourceElementsAttr>())
+    return x.getRawHandle().getResource()->getBlob()->getData();
+  llvm_unreachable("unexpected ElementsAttr instance");
+}
+
 } // namespace onnx_mlir
