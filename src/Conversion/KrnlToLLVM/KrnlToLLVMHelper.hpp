@@ -17,7 +17,6 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "onnx/onnx_pb.h"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 
 namespace onnx_mlir {
@@ -27,7 +26,7 @@ namespace krnl {
 int64_t getRankFromMemRefType(mlir::LLVM::LLVMStructType memRefTy);
 
 /// Get the ONNX type corresponding to an MLIR type.
-onnx::TensorProto::DataType mlirTypeToOnnxType(mlir::Type elemType);
+int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 /// Create an OMTensor from a memref.
 void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Value &outOMTensor,

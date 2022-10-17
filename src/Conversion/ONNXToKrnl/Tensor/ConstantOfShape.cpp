@@ -30,7 +30,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
     auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
                          .value()
-                         .getValue()
+                         .value()
                          .cast<DenseElementsAttr>();
 
     // Convert the output type to MemRefType.
@@ -39,7 +39,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
-    size_t rank = memRefType.cast<ShapedType>().getRank();
+    ArrayRef<int64_t> outputShape = memRefType.getShape();
+    size_t rank = outputShape.size();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
@@ -53,10 +54,12 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        Value index = create.math.constantIndex(i);
-        Value dim = create.krnl.load(operandAdaptor.input(), index);
-        Value dimIndex = create.math.castToIndex(dim);
-        allocOperands.emplace_back(dimIndex);
+        if (outputShape[i] == -1) {
+          Value index = create.math.constantIndex(i);
+          Value dim = create.krnl.load(operandAdaptor.input(), index);
+          Value dimIndex = create.math.castToIndex(dim);
+          allocOperands.emplace_back(dimIndex);
+        }
       }
       // Allocate memory.
       alloc = create.mem.alignedAlloc(memRefType, allocOperands);

@@ -47,10 +47,10 @@ public:
     auto loc = op.getLoc();
     auto constOp = llvm::dyn_cast<ONNXConstantOp>(&op);
 
-    if (constOp->sparse_value().hasValue())
+    if (constOp->sparse_value().has_value())
       return emitError(loc, "Only support dense values at this time");
 
-    if (constOp->value().hasValue()) {
+    if (constOp->value().has_value()) {
       auto newConstOp = rewriter.create<ONNXConstantOp>(loc,
           constOp->getResult().getType(), nullptr, nullptr, nullptr, nullptr,
           nullptr, nullptr, nullptr, nullptr);

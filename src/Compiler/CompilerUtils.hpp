@@ -23,22 +23,61 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/ADT/SmallVector.h"
-
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
-
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Target/TargetMachine.h"
+
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Version/Version.hpp"
 
 namespace onnx_mlir {
+
+llvm::Optional<std::string> getEnvVar(std::string name);
+
+struct Command {
+
+  std::string _path;
+  std::vector<std::string> _args;
+
+  Command(std::string exePath)
+      : _path(std::move(exePath)),
+        _args({llvm::sys::path::filename(_path).str()}) {}
+
+  Command &appendStr(const std::string &arg);
+  Command &appendStrOpt(const llvm::Optional<std::string> &arg);
+  Command &appendList(const std::vector<std::string> &args);
+  Command &resetArgs();
+  int exec(std::string wdir = "") const;
+};
+
 void registerDialects(mlir::MLIRContext &context);
 
+// Get Tool path, see comments in CompilerUtils.cpp for more details.
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath);
+
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+int processInputFile(llvm::StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
 int processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
@@ -57,7 +96,7 @@ int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // libraries or jar files, the compiler will link in lightweight runtimes / jar
 // files. If these libraries / jar files are not in the system wide directory
 // (typically /usr/local/lib), the user can override the default location using
-// the ONNX_MLIR_RUNTIME_DIR environment variable.
+// the ONNX_MLIR_LIBRARY_PATH environment variable.
 // Returns 0 on success,OnnxMlirCompilerErrorCodes on failure.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,

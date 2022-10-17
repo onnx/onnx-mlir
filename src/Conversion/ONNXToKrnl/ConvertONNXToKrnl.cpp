@@ -15,6 +15,7 @@
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
+#include "src/Compiler/CompilerOptions.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -165,7 +166,8 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
     {std::string(" ui8 "), std::string(" \"ui8\" ")}};
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
+    bool enableParallel) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
@@ -176,6 +178,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 
   // Frontend operation lowering.
   // ControlFlow
+  populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
@@ -197,7 +200,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Tensor
-  populateLoweringONNXArgMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
@@ -232,7 +236,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   // Neural network
-  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConvOpPattern(
+      patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
@@ -270,15 +275,18 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc, bool enableTiling) {
+  FrontendToKrnlLoweringPass(
+      bool emitDealloc, bool enableTiling, bool enableParallel) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
+    this->enableParallel = enableParallel;
   }
-  FrontendToKrnlLoweringPass(int optLevel)
+  FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
       : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3) {}
+            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
+            enableParallel) {}
 
   void runOnOperation() final;
 
@@ -304,6 +312,8 @@ public:
   Option<bool> enableTiling{*this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
+  Option<bool> enableParallel{*this, "enable-parallel",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 };
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
@@ -339,8 +349,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!emitDealloc)
-    target.addIllegalOp<mlir::memref::DeallocOp>();
+  // However, since the SequenceErase needs to emit memref dealloc, the previous
+  // the following statement is commented out (Chentong)
+  // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -391,7 +402,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(
-      patterns, krnlTypeConverter, &getContext(), enableTiling);
+      patterns, krnlTypeConverter, &getContext(), enableTiling, enableParallel);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -409,14 +420,14 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel, enableParallel);
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling) {
+    bool emitDealloc, bool enableTiling, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      emitDealloc, enableTiling);
+      emitDealloc, enableTiling, enableParallel);
 }
 
 } // namespace onnx_mlir

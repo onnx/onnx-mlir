@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input /workdir/onnx-mlir/test/backend/inference_backend.py --path /workdir/onnx-mlir/utils --notes --unsupported -->
+<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -19,17 +19,19 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Add** |14 |No support for short integers. | |
 | **And** |7 | | |
 | **ArgMax** |13 | | |
-| **ArgMin** | |unsupported | |
+| **ArgMin** |13 | | |
 | **ArrayFeatureExtractor** | |unsupported | |
 | **Asin** |7 | | |
 | **Asinh** |9 | | |
 | **Atan** |7 | | |
 | **Atanh** |9 | | |
 | **AveragePool** |11 | | |
-| **BatchNormalization** |14 |Training not supported. | |
+| **BatchNormalization** |15 |Training not supported. | |
+| **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
+| **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
 | **Ceil** |13 | | |
@@ -63,7 +65,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **FeatureVectorizer** | |unsupported | |
 | **Flatten** |13 | | |
 | **Floor** |13 | | |
-| **GRU** |14 |layout is not supported. | |
+| **GRU** |14 | | |
 | **Gather** |13 | | |
 | **GatherElements** |13 | | |
 | **GatherND** |13 | | |
@@ -78,13 +80,13 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **HardSwish** | |unsupported | |
 | **Hardmax** |13 | | |
 | **Identity** |16 |Sequence identity not supported. | |
-| **If** | |unsupported | |
+| **If** |16 |Sequence and Optional outputs are not supported. | |
 | **Imputer** | |unsupported | |
 | **InstanceNormalization** |6 | | |
 | **IsInf** | |unsupported | |
 | **IsNaN** | |unsupported | |
 | **LRN** |13 | | |
-| **LSTM** |14 |layout is not supported. | |
+| **LSTM** |14 | | |
 | **LabelEncoder** | |unsupported | |
 | **LeakyRelu** |16 | | |
 | **Less** |13 | | |
@@ -117,6 +119,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Not** |1 | | |
 | **OneHot** |11 | | |
 | **OneHotEncoder** | |unsupported | |
+| **Optional** | |unsupported | |
+| **OptionalGetElement** | |unsupported | |
+| **OptionalHasElement** | |unsupported | |
 | **Or** |7 | | |
 | **PRelu** |16 | | |
 | **Pad** |13, 11, 2 | | |
@@ -124,7 +129,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
 | **QuantizeLinear** | |unsupported | |
-| **RNN** |14 |layout is not supported. | |
+| **RNN** |14 | | |
 | **RandomNormal** | |unsupported | |
 | **RandomNormalLike** | |unsupported | |
 | **RandomUniform** | |unsupported | |
@@ -159,9 +164,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **SequenceConstruct** | |unsupported | |
 | **SequenceEmpty** | |unsupported | |
 | **SequenceErase** | |unsupported | |
-| **SequenceInsert** |11 | | |
+| **SequenceInsert** |11 |Does not support unranked sequence element. | |
 | **SequenceLength** | |unsupported | |
-| **Shape** |13 | | |
+| **Shape** |15 |Does not support start and end attributes. | |
 | **Shrink** | |unsupported | |
 | **Sigmoid** |13 | | |
 | **Sign** |13 | | |
