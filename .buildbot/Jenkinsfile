@@ -90,7 +90,7 @@ def call() {
       MODELZOO_REPORTDIR    = 'modelzoo_report'
       MODELZOO_HTML         = 'modelzoo.html'
       MODELZOO_STDOUT       = 'modelzoo.stdout'
-      MODELZOO_PUBLISH      = "${JENKINS_HOME}/jobs/${JOB_NAME}/htmlreports/Model_20Zoo_20Report"
+      MODELZOO_PUBLISHDIR   = "${JENKINS_HOME}/jobs/${JOB_NAME}/htmlreports/Model_20Zoo_20Report"
 
       /* External stage build scripts */
       JENKINS_SCRIPT_DIR="${JENKINS_WORKSPACE_AT}/.buildbot"
@@ -160,7 +160,7 @@ def call() {
           echo "MODELZOO_REPORTDIR       = ${MODELZOO_REPORTDIR}"
           echo "MODELZOO_HTML            = ${MODELZOO_HTML}"
           echo "MODELZOO_STDOUT          = ${MODELZOO_STDOUT}"
-          echo "MODELZOO_PUBLISH         = ${MODELZOO_PUBLISH}"
+          echo "MODELZOO_PUBLISHDIR      = ${MODELZOO_PUBLISHDIR}"
 
           checkout_pr_source("${GITHUB_PR_REPO_URL}",
                              "${GITHUB_PR_REMOTE}",
@@ -369,7 +369,7 @@ def publish_modelzoo_report(badge) {
                 sh (script: """#!/bin/bash +x
                     mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
                     mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
-                    rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
+                    rsync -a ${MODELZOO_PUBLISHDIR}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
             }
 
             /* Publish the copied/generated report */
