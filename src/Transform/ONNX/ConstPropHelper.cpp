@@ -106,9 +106,9 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
 }
 
 template <typename SRC_TYPE, typename DEST_TYPE>
-void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size) {
-  SRC_TYPE *srcArr = (SRC_TYPE *)srcRawArr;
-  DEST_TYPE *destArr = (DEST_TYPE *)destRawArr;
+void copyAndCastArr(const char *srcRawArr, char *destRawArr, int64_t size) {
+  const SRC_TYPE *srcArr = reinterpret_cast<const SRC_TYPE *>(srcRawArr);
+  DEST_TYPE *destArr = reinterpret_cast<DEST_TYPE *>(destRawArr);
   std::transform(
       srcArr, srcArr + size, destArr, [](SRC_TYPE v) { return (DEST_TYPE)v; });
 }
@@ -276,29 +276,29 @@ void ConstPropTransposeImpl(Type elementType, char *constArray,
 
 /// Explicit instantiation of all templated API functions.
 template void copyAndCastArr<double, bool>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int8_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int32_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int64_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, float>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, double>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 
 template void copyAndCastArr<int64_t, bool>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int8_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int32_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int64_t>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, float>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, double>(
-    char *srcRawArr, char *destRawArr, int64_t size);
+    const char *srcRawArr, char *destRawArr, int64_t size);
 
 } // namespace onnx_mlir
