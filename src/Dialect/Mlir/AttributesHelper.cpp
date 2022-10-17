@@ -22,9 +22,23 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace {
+size_t byteWidth(size_t bitWidth) {
+  if (bitWidth == 1)
+    return 1;
+  constexpr size_t BYTE_BITWIDTH = 8;
+  assert(
+      bitWidth % BYTE_BITWIDTH == 0 && "non-boolean types must fill out bytes");
+  return bitWidth / BYTE_BITWIDTH;
+}
+} // namespace
+
 ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
     ShapedType type, ArrayRef<char> bytes, size_t align) {
-  assert(type.getElementType().isIntOrFloat());
+  assert(static_cast<size_t>(type.getNumElements()) ==
+             bytes.size() /
+                 byteWidth(type.getElementType().getIntOrFloatBitWidth()) &&
+         "data size must match type");
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
     // TODO: consider aligning everything to something large that works well for
