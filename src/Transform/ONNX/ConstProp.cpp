@@ -828,9 +828,9 @@ template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
   static void eval(Type srcType, DstTy dstTypeToken, ArrayRef<char> src,
       MutableArrayRef<char> dst) {
-    int64_t numElements = src.size() / sizeof(SrcTy);
     using S = typename SrcTy::type;
     using D = typename DstTy::type;
+    int64_t numElements = src.size() / sizeof(S);
     // cannot use copyAndCastArr because it's not defined for all types
     // copyAndCastArr<SrcTy, DstTy>(src.data(), dst.data(), numElements);
     auto *srcArr = reinterpret_cast<const S *>(src.data());
