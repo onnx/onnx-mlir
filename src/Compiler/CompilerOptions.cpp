@@ -126,8 +126,7 @@ llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
 
-llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Levels:"),
+llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
         clEnumVal(O1, "Optimization level 1,"),
         clEnumVal(O2, "Optimization level 2,"),
