@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
+  Tensor/Reshape.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
