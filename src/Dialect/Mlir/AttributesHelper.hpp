@@ -26,6 +26,12 @@ mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
       type, bytes, alignof(NumericType));
 }
 
+typedef llvm::function_ref<void(llvm::MutableArrayRef<char>)>
+    FillDenseRawBufferFn;
+
+mlir::ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
+    mlir::ShapedType type, FillDenseRawBufferFn fill, size_t align);
+
 llvm::ArrayRef<char> getDenseIntOrFPRawData(mlir::ElementsAttr elements);
 
 } // namespace onnx_mlir

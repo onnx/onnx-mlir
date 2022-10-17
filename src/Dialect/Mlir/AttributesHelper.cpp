@@ -43,10 +43,30 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
       resourcePool && resourcePool->isActive()) {
     // TODO: consider aligning everything to something large that works well for
     //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
-    mlir::DenseResourceElementsHandle r = resourcePool->createResource(
-        HeapAsmResourceBlob::allocateAndCopy(bytes, align));
+    DenseResourceElementsHandle r = resourcePool->createResource(
+        HeapAsmResourceBlob::allocateAndCopy(bytes, align, false));
     return DenseResourceElementsAttr::get(type, r);
   } else {
+    return DenseElementsAttr::getFromRawBuffer(type, bytes);
+  }
+}
+
+ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
+    ShapedType type, FillDenseRawBufferFn fill, size_t align) {
+  size_t size = type.getNumElements() *
+                byteWidth(type.getElementType().getIntOrFloatBitWidth());
+  if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
+      resourcePool && resourcePool->isActive()) {
+    // TODO: consider aligning everything to something large that works well for
+    //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
+    AsmResourceBlob blob = HeapAsmResourceBlob::allocate(size, align);
+    fill(blob.getMutableData());
+    DenseResourceElementsHandle r =
+        resourcePool->createResource(std::move(blob));
+    return DenseResourceElementsAttr::get(type, r);
+  } else {
+    std::vector<char> bytes(size, 0);
+    fill(bytes);
     return DenseElementsAttr::getFromRawBuffer(type, bytes);
   }
 }
