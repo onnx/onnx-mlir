@@ -15,22 +15,21 @@
 namespace onnx_mlir {
 
 mlir::ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
-    mlir::ShapedType type, llvm::ArrayRef<char> bytes, size_t align = 1);
+    mlir::ShapedType type, llvm::ArrayRef<char> bytes);
 
 template <typename NumericType>
 mlir::ElementsAttr makeDenseIntOrFPElementsAttr(
     mlir::ShapedType type, llvm::ArrayRef<NumericType> numbers) {
   llvm::ArrayRef<char> bytes(reinterpret_cast<const char *>(numbers.data()),
       numbers.size() * sizeof(NumericType));
-  return makeDenseIntOrFPElementsAttrFromRawBuffer(
-      type, bytes, alignof(NumericType));
+  return makeDenseIntOrFPElementsAttrFromRawBuffer(type, bytes);
 }
 
 typedef llvm::function_ref<void(llvm::MutableArrayRef<char>)>
     FillDenseRawBufferFn;
 
 mlir::ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
-    mlir::ShapedType type, FillDenseRawBufferFn fill, size_t align);
+    mlir::ShapedType type, FillDenseRawBufferFn fill);
 
 llvm::ArrayRef<char> getDenseIntOrFPRawData(mlir::ElementsAttr elements);
 

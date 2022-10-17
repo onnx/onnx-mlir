@@ -23,6 +23,9 @@ using namespace mlir;
 namespace onnx_mlir {
 
 namespace {
+// Always align to the largest possible element type.
+constexpr size_t ALIGN = std::max(alignof(int64_t), alignof(double));
+
 size_t byteWidth(size_t bitWidth) {
   if (bitWidth == 1)
     return 1;
@@ -34,7 +37,7 @@ size_t byteWidth(size_t bitWidth) {
 } // namespace
 
 ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
-    ShapedType type, ArrayRef<char> bytes, size_t align) {
+    ShapedType type, ArrayRef<char> bytes) {
   assert(static_cast<size_t>(type.getNumElements()) ==
              bytes.size() /
                  byteWidth(type.getElementType().getIntOrFloatBitWidth()) &&
@@ -44,7 +47,7 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
     // TODO: consider aligning everything to something large that works well for
     //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
     DenseResourceElementsHandle r = resourcePool->createResource(
-        HeapAsmResourceBlob::allocateAndCopy(bytes, align, false));
+        HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false));
     return DenseResourceElementsAttr::get(type, r);
   } else {
     return DenseElementsAttr::getFromRawBuffer(type, bytes);
@@ -52,14 +55,14 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
 }
 
 ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
-    ShapedType type, FillDenseRawBufferFn fill, size_t align) {
+    ShapedType type, FillDenseRawBufferFn fill) {
   size_t size = type.getNumElements() *
                 byteWidth(type.getElementType().getIntOrFloatBitWidth());
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
     // TODO: consider aligning everything to something large that works well for
     //       everything, e.g. 8 for double and i64, or 16 or 64 for SIMD ops
-    AsmResourceBlob blob = HeapAsmResourceBlob::allocate(size, align);
+    AsmResourceBlob blob = HeapAsmResourceBlob::allocate(size, ALIGN);
     fill(blob.getMutableData());
     DenseResourceElementsHandle r =
         resourcePool->createResource(std::move(blob));
