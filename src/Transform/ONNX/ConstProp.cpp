@@ -415,35 +415,30 @@ Value ConstPropElementwiseBinary(
 //// Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
 
-template <typename OP, typename DTy, class Enable = void>
+template <typename OP, typename U, class Enable = void>
 struct ElementWiseUnaryOpImpl {
-  using S = typename DTy::unpacked_type;
-  static S impl(S val) { llvm_unreachable("unknown operation"); }
+  static U impl(U val) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename DTy>
-using onlyFP =
-    std::enable_if_t<std::is_floating_point_v<typename DTy::unpacked_type>>;
+template <typename U>
+using onlyFP = std::enable_if_t<std::is_floating_point_v<U>>;
 
-template <typename DTy>
-using onlyFPOrInt = std::enable_if_t<!std::is_same_v<typename DTy::type, bool>>;
+template <typename U>
+using onlyFPOrInt = std::enable_if_t<!std::is_same_v<U, bool>>;
 
-template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, DTy, onlyFP<DTy>> {
-  using S = typename DTy::unpacked_type;
-  static S impl(S val) { return sqrt(val); }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, U, onlyFP<U>> {
+  static U impl(U val) { return sqrt(val); }
 };
 
-template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, DTy, onlyFPOrInt<DTy>> {
-  using S = typename DTy::unpacked_type;
-  static S impl(S val) { return -val; }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXNegOp, U, onlyFPOrInt<U>> {
+  static U impl(U val) { return -val; }
 };
 
-template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, DTy, onlyFPOrInt<DTy>> {
-  using S = typename DTy::unpacked_type;
-  static S impl(S val) { return val < 0 ? 0 : val; }
+template <typename U>
+struct ElementWiseUnaryOpImpl<ONNXReluOp, U, onlyFPOrInt<U>> {
+  static U impl(U val) { return val < 0 ? 0 : val; }
 };
 
 template <typename OP>
@@ -451,11 +446,12 @@ struct ElementwiseUnary {
   template <typename DTy, typename... Ts>
   struct Compute {
     using S = typename DTy::type;
+    using U = typename DTy::unpacked_type;
     static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
       fillOrTransform(
           castArrayRef<S>(src), castMutableArrayRef<S>(dst), [](S v) {
             return DTy::pack(
-                ElementWiseUnaryOpImpl<OP, DTy>::impl(DTy::unpack(v)));
+                ElementWiseUnaryOpImpl<OP, U>::impl(DTy::unpack(v)));
           });
     }
   };
