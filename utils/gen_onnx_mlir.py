@@ -355,7 +355,8 @@ OpsWithVerifier = [
     'Split',
     'SplitToSequence',
     'TopK',
-    'Unique'
+    'Unique',
+    'Upsample'
 ]
 
 OpsWithHelpers = {
