@@ -55,9 +55,10 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     auto scalarType = getElementTypeOrSelf(adaptor.X());
-    if (!isTOSAFloat(scalarType))
+    if (!isTOSAFloat(scalarType)) {
       return rewriter.notifyMatchFailure(
           op, "`tosa.floor` only supports float types");
+    }
 
     rewriter.replaceOpWithNewOp<tosa::FloorOp>(op, op.getType(), adaptor.X());
     return success();
@@ -121,10 +122,10 @@ public:
     }
 
     // ONNX docs: alpha : float (default 0.01)
-    // No easy interface in MLIR to get value as float
-    double alpha = 0.01;
+    float alpha = 0.01;
     FloatAttr alphaAttr = adaptor.alphaAttr();
     if (alphaAttr) {
+      // No easy interface in MLIR to get value as float
       alpha = alphaAttr.getValueAsDouble();
     }
     return LegalizeFloatingPointPrelu(

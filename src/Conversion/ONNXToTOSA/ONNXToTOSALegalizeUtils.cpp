@@ -30,21 +30,18 @@
 namespace mlir {
 namespace tosa {
 
-llvm::SmallVector<int64_t, 4> reduceAxisToOne(llvm::ArrayRef<int64_t> shapes) {
-  llvm::SmallVector<int64_t, 4> vec(shapes.size(), 1);
-  return vec;
-};
-
-mlir::RankedTensorType getTypeFromTensorShape(llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType, mlir::Attribute encoding = {}) {
+mlir::RankedTensorType reduceAxisToOneAndGetTypeFromTensorShape(
+    llvm::ArrayRef<int64_t> shape, mlir::Type elementType,
+    mlir::Attribute encoding = {}) {
   return mlir::RankedTensorType::get(
-      reduceAxisToOne(shape), elementType, encoding);
+      llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }
 
 // Create a 32-bit float constant operator from a float
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape) {
-  auto constType = getTypeFromTensorShape(shape, rewriter.getF32Type());
+  auto constType =
+      reduceAxisToOneAndGetTypeFromTensorShape(shape, rewriter.getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp = rewriter.create<ConstOp>(op->getLoc(), constType, constAttr);
