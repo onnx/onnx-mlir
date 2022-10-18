@@ -546,32 +546,6 @@ public:
   }
 };
 
-// Canonicalize Conv op with pads, strides, dilations
-// template <typename ONNXOp>
-
-class ConvPattern : public OpRewritePattern<ONNXConvOp> {
-public:
-  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXConvOp onnxConvOp, PatternRewriter &rewriter) const override {
-
-    // LSTM requires extra work for initial_c input and Y_c output.
-    // auto onnxConvOp = llvm::dyn_cast<ONNXConvOp>(*onnxOp);
-
-    // Rewrite in-place because there are so many attributes, inputs, outputs.
-    // Constructing a new op would be lengthy and hard to maintain.
-
-    LogicalResult res = success();
-
-    rewriter.updateRootInPlace(onnxConvOp, [&]() {
-      res = processConvTypeParams<ONNXConvOp>(
-          &onnxConvOp, onnxConvOp.X(), onnxConvOp.W());
-    });
-    return res;
-  }
-};
-
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -777,10 +751,4 @@ void ONNXLSTMOp::getCanonicalizationPatterns(
 void ONNXRNNOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
-}
-
-/// on the ONNXRNNOp.
-void ONNXConvOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ConvPattern>(context);
 }
