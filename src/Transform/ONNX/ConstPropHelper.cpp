@@ -18,6 +18,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
+#include "src/Dialect/Mlir/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -87,19 +88,11 @@ char *createArrayFromDenseElementsAttr(ElementsAttr dataAttr) {
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     double *resArr = (double *)res;
-    auto valueIt = dataAttr.getValues<APFloat>().begin();
-    for (int64_t i = 0; i < numElements; ++i) {
-      double val = (*valueIt++).convertToDouble();
-      *(resArr + i) = val;
-    }
+    readDenseFPs(dataAttr, llvm::makeMutableArrayRef(resArr, numElements));
   } else if (elementType.isa<IntegerType>()) {
     // Use int64_t to avoid the precision loss during computation.
     int64_t *resArr = (int64_t *)res;
-    auto valueIt = dataAttr.getValues<APInt>().begin();
-    for (int64_t i = 0; i < numElements; ++i) {
-      int64_t val = (*valueIt++).getSExtValue();
-      *(resArr + i) = val;
-    }
+    readDenseInts(dataAttr, llvm::makeMutableArrayRef(resArr, numElements));
   } else
     llvm_unreachable("Unknown data type");
   return res;
