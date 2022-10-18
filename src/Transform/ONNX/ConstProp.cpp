@@ -24,8 +24,6 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "onnx/onnx_pb.h"
-
 #include "src/Dialect/Mlir/AttributesHelper.hpp"
 #include "src/Dialect/Mlir/DType.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -135,83 +133,6 @@ ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
   return getDenseIntOrFPRawDataFromConstOp(constOp, constValue.getType());
 }
-
-using TP = onnx::TensorProto;
-
-template <int ONNXType>
-struct ONNXTypeToCppTypeDef {};
-#define MAP_ONNX_TO_CPP_TYPE(ONNXTy, CppTy)                                    \
-  template <>                                                                  \
-  struct ONNXTypeToCppTypeDef<TP::ONNXTy> {                                    \
-    using type = CppTy;                                                        \
-  }
-MAP_ONNX_TO_CPP_TYPE(FLOAT16, uint16_t);
-MAP_ONNX_TO_CPP_TYPE(FLOAT, float);
-MAP_ONNX_TO_CPP_TYPE(DOUBLE, double);
-MAP_ONNX_TO_CPP_TYPE(BOOL, bool);
-MAP_ONNX_TO_CPP_TYPE(INT8, int8_t);
-MAP_ONNX_TO_CPP_TYPE(UINT8, uint8_t);
-MAP_ONNX_TO_CPP_TYPE(INT16, int16_t);
-MAP_ONNX_TO_CPP_TYPE(UINT16, uint16_t);
-MAP_ONNX_TO_CPP_TYPE(INT32, int32_t);
-MAP_ONNX_TO_CPP_TYPE(UINT32, uint32_t);
-MAP_ONNX_TO_CPP_TYPE(INT64, int64_t);
-MAP_ONNX_TO_CPP_TYPE(UINT64, uint64_t);
-#undef MAP_ONNX_TO_CPP_TYPE
-
-template <int ONNXTy>
-using ONNXTypeToCppType = typename ONNXTypeToCppTypeDef<ONNXTy>::type;
-
-template <int ONNXTy>
-struct TypeDesc {
-  static constexpr int ONNXType = ONNXTy; // TODO: consider removing this
-  using type = ONNXTypeToCppType<ONNXTy>;
-  using unpacked_type = type;
-  static type pack(unpacked_type unpacked) { return unpacked; }
-  static unpacked_type unpack(type packed) { return packed; }
-};
-
-template <>
-struct TypeDesc<TP::FLOAT16> {
-  static constexpr int ONNXType = TP::FLOAT16;
-  using type = uint16_t;
-  using unpacked_type = float;
-  static type pack(unpacked_type unpacked) {
-    APFloat fu(unpacked);
-    bool ignored;
-    fu.convert(
-        llvm::APFloat::IEEEhalf(), APFloat::rmNearestTiesToEven, &ignored);
-    return fu.bitcastToAPInt().getZExtValue();
-  }
-  static unpacked_type unpack(type packed) {
-    APFloat f(llvm::APFloat::IEEEhalf(), llvm::APInt(16, packed));
-    return f.convertToFloat();
-  }
-};
-
-template <typename Out, template <typename, typename...> class Action,
-    typename... Ts>
-struct dispatchIntOrFP {
-  static Out eval(Type type, Ts... xs) {
-#define ACT(T) (Action<TypeDesc<TP::T>, Ts...>::eval(xs...))
-    // clang-format off
-    if (type.isBF16()) llvm_unreachable("bf16 is unsupported");
-    if (type.isF16()) return ACT(FLOAT16);
-    if (type.isF32()) return ACT(FLOAT);
-    if (type.isF64()) return ACT(DOUBLE);
-    auto itype = type.cast<IntegerType>();
-    switch (itype.getWidth()) {
-      case  1: return ACT(BOOL);
-      case  8: return itype.isUnsigned() ? ACT(UINT8)  : ACT(INT8);
-      case 16: return itype.isUnsigned() ? ACT(UINT16) : ACT(INT16);
-      case 32: return itype.isUnsigned() ? ACT(UINT32) : ACT(INT32);
-      case 64: return itype.isUnsigned() ? ACT(UINT64) : ACT(INT64);
-      default: llvm_unreachable("unsupported integer width");
-    }
-    // clang-format on
-#undef ACT
-  }
-};
 
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
 /// get from memory. Otherwise, get from the dense attribute.
@@ -494,11 +415,6 @@ Value ConstPropElementwiseBinary(
 //// Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
 
-template <typename OP, typename T>
-struct ElementWiseUnaryOpImpl {
-  static T impl(T val) { llvm_unreachable("unknown operation"); }
-};
-
 template <typename Ty>
 std::enable_if_t<std::is_floating_point_v<typename Ty::unpacked_type>,
     typename Ty::unpacked_type>
@@ -506,28 +422,34 @@ sqrtImpl(typename Ty::unpacked_type val) {
   return sqrt(val);
 }
 
-template <typename Ty>
-std::enable_if_t<!std::is_floating_point_v<typename Ty::unpacked_type>,
-    typename Ty::unpacked_type>
-sqrtImpl(typename Ty::unpacked_type x) {
+template <typename DTy>
+std::enable_if_t<!std::is_floating_point_v<typename DTy::unpacked_type>,
+    typename DTy::unpacked_type>
+sqrtImpl(typename DTy::unpacked_type x) {
   llvm_unreachable("sqrt is unsupported for ints");
 }
 
-template <typename Ty>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, Ty> {
-  using S = typename Ty::unpacked_type;
-  static S impl(S val) { return sqrtImpl<Ty>(val); }
+template <typename OP, typename DTy>
+struct ElementWiseUnaryOpImpl {
+  using S = typename DTy::unpacked_type;
+  static S impl(S val) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename Ty>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, Ty> {
-  using S = typename Ty::unpacked_type;
+template <typename DTy>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, DTy> {
+  using S = typename DTy::unpacked_type;
+  static S impl(S val) { return sqrtImpl<DTy>(val); }
+};
+
+template <typename DTy>
+struct ElementWiseUnaryOpImpl<ONNXNegOp, DTy> {
+  using S = typename DTy::unpacked_type;
   static S impl(S val) { return (-val); }
 };
 
-template <typename Ty>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, Ty> {
-  using S = typename Ty::unpacked_type;
+template <typename DTy>
+struct ElementWiseUnaryOpImpl<ONNXReluOp, DTy> {
+  using S = typename DTy::unpacked_type;
   static S impl(S val) {
     if (val < 0)
       return 0;
@@ -535,14 +457,13 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, Ty> {
   }
 };
 
-template <typename ElementwiseUnaryOp>
+template <typename OP>
 struct ElementwiseUnary {
-  template <typename Ty, typename... Ts>
+  template <typename DTy, typename... Ts>
   struct Compute {
-    using S = typename Ty::type;
+    using S = typename DTy::type;
     static S f(S v) {
-      return Ty::pack(
-          ElementWiseUnaryOpImpl<ElementwiseUnaryOp, Ty>::impl(Ty::unpack(v)));
+      return DTy::pack(ElementWiseUnaryOpImpl<OP, DTy>::impl(DTy::unpack(v)));
     }
     static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
       auto vs = castArrayRef<S>(src);
@@ -558,7 +479,7 @@ struct ElementwiseUnary {
 template <typename ElementwiseUnaryOp>
 void doConstPropElementwiseUnary(
     Type type, ArrayRef<char> src, MutableArrayRef<char> dst) {
-  dispatchIntOrFP<void, ElementwiseUnary<ElementwiseUnaryOp>::template Compute,
+  dispatchFPOrInt<ElementwiseUnary<ElementwiseUnaryOp>::template Compute, void,
       ArrayRef<char>, MutableArrayRef<char>>::eval(type, src, dst);
 }
 
@@ -881,43 +802,38 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
-template <typename SrcTy, typename DstTy, typename... Ts>
-struct SrcDstCast {
-  using S = typename SrcTy::type;
-  using D = typename DstTy::type;
-  static D f(S v) {
-    // TODO: check if BOOL needs to be special cased
-    return DstTy::pack(
-        static_cast<typename DstTy::unpacked_type>(SrcTy::unpack(v)));
-  }
-  static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
-    auto vs = castArrayRef<S>(src);
-    auto rs = castMutableArrayRef<D>(dst);
-    if (vs.size() == 1)
-      std::fill(rs.begin(), rs.end(), f(vs.front()));
-    else
-      std::transform(vs.begin(), vs.end(), rs.begin(), f);
-  }
-};
-
-template <typename DstTy>
-struct SrcCast {
-  template <typename SrcTy, typename... Ts>
-  using Cast = SrcDstCast<SrcTy, DstTy, Ts...>;
-};
-
-template <typename DstTy, typename... Ts>
+template <typename DstDTy, typename... Args>
 struct DstCast {
+  using D = typename DstDTy::type;
+
+  template <typename SrcDTy, typename... InnerArgs>
+  struct SrcCast {
+    using S = typename SrcDTy::type;
+    static D f(S v) {
+      // TODO: check if BOOL needs to be special cased
+      return DstDTy::pack(
+          static_cast<typename DstDTy::unpacked_type>(SrcDTy::unpack(v)));
+    }
+    static void eval(ArrayRef<char> src, MutableArrayRef<D> rs) {
+      auto vs = castArrayRef<S>(src);
+      if (vs.size() == 1)
+        std::fill(rs.begin(), rs.end(), f(vs.front()));
+      else
+        std::transform(vs.begin(), vs.end(), rs.begin(), f);
+    }
+  };
+
   static void eval(
       Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
-    dispatchIntOrFP<void, SrcCast<DstTy>::template Cast, ArrayRef<char>,
-        MutableArrayRef<char>>::eval(srcType, src, dst);
+    auto rs = castMutableArrayRef<D>(dst);
+    dispatchFPOrInt<SrcCast, void, ArrayRef<char>, MutableArrayRef<D>>::eval(
+        srcType, src, rs);
   }
 };
 
 void doConstPropCast(
     Type dstType, Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
-  dispatchIntOrFP<void, DstCast, Type, MutableArrayRef<char>,
+  dispatchFPOrInt<DstCast, void, Type, MutableArrayRef<char>,
       ArrayRef<char>>::eval(dstType, srcType, dst, src);
 }
 
