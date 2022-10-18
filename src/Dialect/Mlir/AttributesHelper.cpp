@@ -88,20 +88,29 @@ struct ReadIntsOrFPs {
     static void eval(ArrayRef<char> src, MutableArrayRef<D> dst) {
       using S = typename DTy::type;
       ArrayRef<S> vs = castArrayRef<S>(src);
-      std::transform(vs.begin(), vs.end(), dst.begin(),
-          [](S v) { return static_cast<D>(v); });
+      if (vs.size() == 1)
+        std::fill(dst.begin(), dst.end(), vs.front());
+      else
+        std::transform(vs.begin(), vs.end(), dst.begin(),
+            [](S v) { return static_cast<D>(v); });
     }
   };
 };
 
 void readDenseInts(mlir::ElementsAttr elements, MutableArrayRef<int64_t> ints) {
   ArrayRef<char> src = getDenseIntOrFPRawData(elements);
+  ShapedType type = elements.getType();
+  size_t w = byteWidth(type.getElementType().getIntOrFloatBitWidth());
+  assert(src.size() == w || src.size() == type.getNumElements() * w);
   dispatchInt<ReadIntsOrFPs<int64_t>::template Read, void, ArrayRef<char>,
       MutableArrayRef<int64_t>>::eval(elements.getElementType(), src, ints);
 }
 
 void readDenseFPs(mlir::ElementsAttr elements, MutableArrayRef<double> fps) {
   ArrayRef<char> src = getDenseIntOrFPRawData(elements);
+  ShapedType type = elements.getType();
+  size_t w = byteWidth(type.getElementType().getIntOrFloatBitWidth());
+  assert(src.size() == w || src.size() == type.getNumElements() * w);
   dispatchFP<ReadIntsOrFPs<double>::template Read, void, ArrayRef<char>,
       MutableArrayRef<double>>::eval(elements.getElementType(), src, fps);
 }
