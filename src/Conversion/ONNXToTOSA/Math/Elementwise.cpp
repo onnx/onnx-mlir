@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
+#include "mlir/Support/LogicalResult.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 
@@ -80,6 +84,28 @@ public:
   }
 };
 
+static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
+    PatternRewriter &rewriter, Value input, float alpha,
+    TensorType outputType) {
+  Value constZero = tosa::getTosaConstTensorSingleF32(
+      rewriter, op, 0.0, outputType.getShape());
+
+  auto mul = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, op->getLoc(),
+      outputType, input,
+      tosa::getTosaConstTensorSingleF32(
+          rewriter, op, alpha, outputType.getShape()),
+      /*shift=*/0);
+
+  auto greaterEqual =
+      tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter, op->getLoc(),
+          UnrankedTensorType::get(rewriter.getI1Type()), input, constZero);
+
+  tosa::CreateReplaceOpAndInfer<tosa::SelectOp>(
+      rewriter, op, outputType, greaterEqual, input, mul.getResult());
+
+  return success();
+}
+
 class ONNXLeakyReluOpLoweringToTOSA
     : public OpConversionPattern<ONNXLeakyReluOp> {
 public:
@@ -101,26 +127,8 @@ public:
     if (alphaAttr) {
       alpha = alphaAttr.getValueAsDouble();
     }
-
-    Value constZero = tosa::getTosaConstTensorSingleF32(
-        rewriter, op, 0.0, outputType.getShape());
-
-    auto mul = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, op.getLoc(),
-        outputType, adaptor.X(),
-        tosa::getTosaConstTensorSingleF32(
-            rewriter, op, alpha, outputType.getShape()),
-        /*shift=*/0);
-
-    auto greaterEqual = tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter,
-        op.getLoc(), UnrankedTensorType::get(rewriter.getI1Type()), adaptor.X(),
-        constZero);
-
-    auto select = tosa::CreateOpAndInfer<tosa::SelectOp>(rewriter, op.getLoc(),
-        outputType, greaterEqual, adaptor.X(), mul.getResult());
-
-    rewriter.replaceOp(op, {select.getResult()});
-
-    return success();
+    return LegalizeFloatingPointPrelu(
+        op, rewriter, adaptor.X(), alpha, outputType);
   }
 };
 
