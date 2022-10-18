@@ -60,15 +60,46 @@ namespace {
 
 const StringRef BUFFER_ID_ATTR = "buffer_id";
 
-ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(ONNXConstantOp constOp) {
-  assert(!constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR));
+/// Buffers will be allocated to store intermediate constants during the const
+/// propagation. The use of buffers is to avoid creating dense attributes which
+/// are immortal by design in MLIR, leading to small memory footprint.
+///
+/// There are three helper functions to use when working with buffers:
+/// 1) getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)
+///    - create a buffer from a dense attribute at the first time we reach the
+///      const 'op' and add the buffer to the buffer pool, or
+///    - get the buffer from the buffer pool if it was created.
+/// 2) createConstantOpAndStoreBufferPtr(..., char *buffer)
+///    - create a new ONNXConstantOp using the given buffer, and
+///    - add the buffer to the buffer pool.
+/// 3) allocateBufferFor(Value value, bool useMaxSize = false)
+///    - create a new buffer whose size is obtained from the type of 'value'.
+///
+/// Note that:
+///   - The buffers in the buffer pool will be automatically freed. Users don't
+///     need to take care about that.
+///   - If we create a buffer and do not put it on the buffer pool, please
+///     make sure that it is correctly freed.
+///
+/// Buffer pool to store buffer pointers.
+SmallVector<char *, 4> bufferPtrs;
+
+ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(
+    ONNXConstantOp constOp, size_t sizeInBytes) {
+  Attribute bufferIDAttr =
+      constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
+  if (bufferIDAttr) {
+    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
+    return {bufferPtrs[bufferId], sizeInBytes};
+  }
   ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
   return getDenseIntOrFPRawData(elements);
 }
 
 ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
-  return getDenseIntOrFPRawDataFromConstOp(constOp);
+  return getDenseIntOrFPRawDataFromConstOp(
+      constOp, getSizeInBytes(constValue.getType()));
 }
 
 using TP = onnx::TensorProto;
@@ -147,30 +178,6 @@ struct dispatchIntOrFP {
 #undef ACT
   }
 };
-
-/// Buffers will be allocated to store intermediate constants during the const
-/// propagation. The use of buffers is to avoid creating dense attributes which
-/// are immortal by design in MLIR, leading to small memory footprint.
-///
-/// There are three helper functions to use when working with buffers:
-/// 1) getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)
-///    - create a buffer from a dense attribute at the first time we reach the
-///      const 'op' and add the buffer to the buffer pool, or
-///    - get the buffer from the buffer pool if it was created.
-/// 2) createConstantOpAndStoreBufferPtr(..., char *buffer)
-///    - create a new ONNXConstantOp using the given buffer, and
-///    - add the buffer to the buffer pool.
-/// 3) allocateBufferFor(Value value, bool useMaxSize = false)
-///    - create a new buffer whose size is obtained from the type of 'value'.
-///
-/// Note that:
-///   - The buffers in the buffer pool will be automatically freed. Users don't
-///     need to take care about that.
-///   - If we create a buffer and do not put it on the buffer pool, please
-///     make sure that it is correctly freed.
-///
-/// Buffer pool to store buffer pointers.
-SmallVector<char *, 4> bufferPtrs;
 
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
 /// get from memory. Otherwise, get from the dense attribute.
@@ -501,7 +508,6 @@ struct ElementwiseUnary {
     static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
       using S = typename Ty::type;
       int64_t numElements = src.size() / sizeof(S);
-      // Cannot use copyAndCastArr here because it's not defined for all types.
       auto *srcArr = reinterpret_cast<const S *>(src.data());
       auto *dstArr = reinterpret_cast<S *>(dst.data());
       std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
@@ -848,6 +854,7 @@ struct SrcDstCast {
     auto *srcArr = reinterpret_cast<const S *>(src.data());
     auto *dstArr = reinterpret_cast<D *>(dst.data());
     std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
+      // TODO: check if BOOL needs to be special cased
       return DstTy::pack(
           static_cast<typename DstTy::unpacked_type>(SrcTy::unpack(v)));
     });
