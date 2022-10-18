@@ -43,13 +43,8 @@ public:
     // If no bias is given to the GEMM operator, we create a 1D bias with all
     // zeroes
     if (C.getType().isa<mlir::NoneType>()) {
-      ArrayRef<int64_t> cformat = A.getType().cast<TensorType>().getShape();
-      // Input for TOSA must be a single dimension. If the incoming shape is more than
-      // one, "flatten" it.
-      if (cformat.size() != 1) {
-        ArrayRef<int64_t> finalFormat(cformat[0] * cformat[1]);
-        cformat = finalFormat;
-      }
+      // B is supposed to have 
+      ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[1]);
       std::vector<float> elements = {};
       for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);
@@ -171,7 +166,6 @@ public:
     else {
       rewriter.replaceOp(op, matmulRes);
     }
-    
     return success();
   }
 };

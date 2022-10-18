@@ -21,26 +21,6 @@
 namespace mlir {
 namespace tosa {
 
-// Create a TOSA rescale op from input framework scaling, zero points and
-// rounding mode
-Value buildRescale(PatternRewriter &rewriter, Operation *op,
-                   ShapedType output_type, Value input_val, double scale,
-                   int64_t input_zp, int64_t output_zp, bool double_round,
-                   bool scale32);
-
-// Creates TOSA rescale op with int32 output
-Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
-                          Value input_val, double input_scale,
-                          int64_t input_zp);
-
-// Creates a TOSA rescale op based on conv2d parameters.
-Value buildRescaleOpConvOutput(PatternRewriter &rewriter, Operation *op,
-                               Value conv_val, ShapedType input_type,
-                               ShapedType weight_type, ShapedType output_type);
-
-// Check if scale32 mode is used for given output_element_type
-bool isScale32(mlir::quant::UniformQuantizedType output_element_type);
-
 // Create a 32-bit float constant operator from a float
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
                                   float val, llvm::ArrayRef<int64_t> shape={});
@@ -96,14 +76,6 @@ TosaOp CreateOpAndInfer(PatternRewriter &rewriter, Location loc, Type result_ty,
   auto new_ty = newKnowledge.getType();
   result.setType(new_ty);
   return op;
-}
-
-template <typename TosaOp, typename... Args>
-void CreateReplaceOpAndInfer(PatternRewriter &rewriter, Operation *op,
-                             Type result_ty, Args &&... args) {
-  auto result =
-      CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
-  rewriter.replaceOp(op, result->getResults());
 }
 
 } // namespace tosa
