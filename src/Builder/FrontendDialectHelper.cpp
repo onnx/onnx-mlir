@@ -205,8 +205,10 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
   case (onnx::TensorProto::FLOAT16): {
     // F16s are converted bit-wise to U16s when written to protobufs.
     // So we read U16 from the protobuf and then convert to F16.
-    auto denseBuilderU16ToF16 = [tensorType](llvm::ArrayRef<uint16_t> arrayRef) {
-      llvm::ArrayRef<char> bytes(reinterpret_cast<const char *>(arrayRef.data()),
+    auto denseBuilderU16ToF16 = [tensorType](
+                                    llvm::ArrayRef<uint16_t> arrayRef) {
+      llvm::ArrayRef<char> bytes(
+          reinterpret_cast<const char *>(arrayRef.data()),
           arrayRef.size() * sizeof(uint16_t));
       return mlir::DenseElementsAttr::getFromRawBuffer(tensorType, bytes);
     };
