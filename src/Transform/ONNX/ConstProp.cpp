@@ -802,20 +802,20 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
-template <typename DstDTy, typename... Args>
-struct DstCast {
-  using D = typename DstDTy::type;
+template <typename SrcDTy, typename... Args>
+struct SrcDstCast {
+  using S = typename SrcDTy::type;
 
-  template <typename SrcDTy, typename... InnerArgs>
-  struct SrcCast {
-    using S = typename SrcDTy::type;
+  template <typename DstDTy, typename... InnerArgs>
+  struct DstCast {
+    using D = typename DstDTy::type;
     static D f(S v) {
       // TODO: check if BOOL needs to be special cased
       return DstDTy::pack(
           static_cast<typename DstDTy::unpacked_type>(SrcDTy::unpack(v)));
     }
-    static void eval(ArrayRef<char> src, MutableArrayRef<D> rs) {
-      auto vs = castArrayRef<S>(src);
+    static void eval(ArrayRef<S> vs, MutableArrayRef<char> dst) {
+      auto rs = castMutableArrayRef<D>(dst);
       if (vs.size() == 1)
         std::fill(rs.begin(), rs.end(), f(vs.front()));
       else
@@ -824,18 +824,12 @@ struct DstCast {
   };
 
   static void eval(
-      Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
-    auto rs = castMutableArrayRef<D>(dst);
-    dispatchFPOrInt<SrcCast, void, ArrayRef<char>, MutableArrayRef<D>>::eval(
-        srcType, src, rs);
+      Type dstType, ArrayRef<char> src, MutableArrayRef<char> dst) {
+    auto vs = castArrayRef<S>(src);
+    dispatchFPOrInt<DstCast, void, ArrayRef<S>, MutableArrayRef<char>>::eval(
+        dstType, vs, dst);
   }
 };
-
-void doConstPropCast(
-    Type dstType, Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
-  dispatchFPOrInt<DstCast, void, Type, MutableArrayRef<char>,
-      ArrayRef<char>>::eval(dstType, srcType, dst, src);
-}
 
 Value ConstPropCast(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
@@ -851,7 +845,8 @@ Value ConstPropCast(
 
   ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
       dstType, [&](MutableArrayRef<char> dst) {
-        doConstPropCast(dstElemType, srcElemType, dst, src);
+        dispatchFPOrInt<SrcDstCast, void, Type, ArrayRef<char>,
+            MutableArrayRef<char>>::eval(srcElemType, dstElemType, src, dst);
       });
 
   // Construct a new ONNXConstantOp.
