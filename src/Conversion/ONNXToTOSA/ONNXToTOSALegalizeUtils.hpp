@@ -2,8 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering Utils---===//
+//==== ONNXToTosaLegalizeUtils.hpp - ONNX dialects to TOSA lowering Utils-===//
 //
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
@@ -29,6 +30,8 @@ namespace mlir {
 namespace tosa {
 
 // Create a 32-bit float constant operator from a float
+// The tensor will have the same rank as shape but with axis 1 (differs from
+// tensorflow impl.)
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape = {});
 
