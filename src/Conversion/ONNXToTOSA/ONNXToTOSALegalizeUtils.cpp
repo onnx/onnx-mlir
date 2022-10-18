@@ -2,8 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering Utils---===//
+//==== ONNXToTosaLegalizeUtils.cpp - ONNX dialects to TOSA lowering Utils-===//
 //
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
@@ -29,22 +30,16 @@
 namespace mlir {
 namespace tosa {
 
-llvm::SmallVector<int64_t, 4> convertRankToShape(
-    llvm::ArrayRef<int64_t> shapes) {
-  llvm::SmallVector<int64_t, 4> vec(shapes.size(), 1);
-  return vec;
-};
-
-mlir::RankedTensorType getTypeFromTensorShape(llvm::ArrayRef<int64_t> shape,
+mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {}) {
   return mlir::RankedTensorType::get(
-      convertRankToShape(shape), elementType, encoding);
+      llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }
 
 // Create a 32-bit float constant operator from a float
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape) {
-  auto constType = getTypeFromTensorShape(shape, rewriter.getF32Type());
+  auto constType = reduceAxisToOne(shape, rewriter.getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp = rewriter.create<ConstOp>(op->getLoc(), constType, constAttr);
