@@ -259,193 +259,6 @@ static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 }
 
 //===----------------------------------------------------------------------===//
-// Support function that computes default values for dilations.
-//===----------------------------------------------------------------------===//
-template <class T>
-static LogicalResult processConvDilationParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
-  auto kernelRank = ArrayAttrSize(kernelShape);
-
-  auto dilationsOpt = op->dilations();
-  if (dilationsOpt.has_value()) {
-    if (ArrayAttrSize(dilationsOpt) != kernelRank) {
-      return op->emitError("dilation rank is not the same as the spatial rank");
-    }
-    // Test values to be greater than 0.
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
-        return op->emitError("dilation value must be nonzero positive");
-      }
-    }
-  } else {
-    // Default dilatation is needed, all dimensions init with 1.
-    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    op->dilationsAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for strides.
-//===----------------------------------------------------------------------===//
-template <class T>
-static LogicalResult processConvStrideParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
-  auto kernelRank = ArrayAttrSize(kernelShape);
-
-  auto stridesOpt = op->strides();
-  if (stridesOpt.has_value()) {
-    if (ArrayAttrSize(stridesOpt) != kernelRank)
-      return op->emitError("strides rank is not the same as the spatial rank");
-    // Check values to be greater than 0.
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(stridesOpt, i) < 1)
-        return op->emitError("strides value must be nonzero positive");
-    }
-  } else {
-    // Default stride is needed, all dimensions init with 1.
-    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    op->stridesAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for pads.
-//===----------------------------------------------------------------------===//
-template <class T>
-static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
-    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
-    Optional<ArrayAttr> dilationsOpt = llvm::None) {
-  auto builder = mlir::Builder(op->getContext());
-
-  auto inputRank = inputShape.size();
-  auto kernelRank = ArrayAttrSize(kernelShape);
-  auto kernelOffset = inputRank - kernelRank;
-
-  // Try to find padding, getting auto_pad attribute first.
-  auto autoPad = op->auto_pad();
-  // And then investigate the various different cases. Prefill pad values with
-  // zeros, the most common case.
-  SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
-  bool updatedPad = false;
-  if (autoPad == "NOTSET") {
-    auto padsOpt = op->pads();
-    if (padsOpt.has_value()) {
-      // Only option where pads are not updated. Pads consists of two entries
-      // for each spatial axis.
-      if (ArrayAttrSize(padsOpt) != 2 * kernelRank) {
-        return op->emitError("pads rank is not twice the spatial rank");
-      }
-      // Check values, pads cannot be negative.
-      for (decltype(kernelRank) i = 0; i < 2 * kernelRank; ++i) {
-        if (ArrayAttrIntVal(padsOpt, i) < 0) {
-          return op->emitError("pads value must be nonnegative");
-        }
-      }
-    } else {
-      // We have notset with no pads, they are assumed to be all zero.
-      updatedPad = true;
-    }
-  } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    // Reload dilation and strides as they may have gotten default values.
-    updatedPad = true;
-    int64_t dilationVal = 1;
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      auto inputSize = inputShape[kernelOffset + i];
-      if (inputSize < 0)
-        return op->emitError("Conv Pads defined as SAME_UPPER or SAME_LOWER "
-                             "requires compile time X sizes");
-      auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-      if (dilationsOpt.has_value())
-        dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-      auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-      // Output size is input size divided by stride. When stride is 1, then
-      // input and output are the same size, which is the usual case. When
-      // stride is greater than 1, take the ceil to be sure to have each input
-      // value used, as padding will be used to fill the gaps.
-      int64_t outputSize = ceil((1.0 * inputSize) / (1.0 * strideVal));
-      // Formula is from ONNX MaxPool, and can be explained as follows. Pads
-      // is the difference between the needed values for the computations,
-      // minus the input values. The needed values for the computation is the
-      // effective side of the kernel plus the number of times we jump to the
-      // next kernel. Number of time we jump is (outputSize - 1). That number
-      // is multiplied with the size of the jump, namely strideVal. Now for
-      // the effective kernel size. It is the kernelSize + the number of times
-      // we have dilation holes time the dilation. The number of dilation
-      // holes is (kernelSize -1). Thus the effective size is "kernelSize +
-      // (kernelSize-1)*dilation". This simplifies to "(kernelSize
-      // -1)*dilation + 1".
-      auto sumOfPad = (outputSize - 1) * strideVal +
-                      ((kernelSize - 1) * dilationVal + 1) - inputSize;
-      if (sumOfPad < 0)
-        sumOfPad = 0;
-      // Pad values are assumed equal on both size, at half the total value.
-      actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
-      // But if the total pad value is odd, we add 1 to begining or end
-      // depending on autoPad value.
-      if (sumOfPad % 2 != 0) {
-        if (autoPad == "SAME_UPPER") {
-          actualPads[kernelRank + i] += 1;
-        } else {
-          actualPads[i] += 1;
-        }
-      }
-    }
-  } else if (autoPad == "VALID") {
-    // No pad, default value was set to zero, we are all set.
-    updatedPad = true;
-  } else {
-    return op->emitError("auto_pad of unknown / unsupported value");
-  }
-  // Set pads values in attributes, if it is needed.
-  if (updatedPad) {
-    ArrayRef<int64_t> defaultRefs(actualPads);
-    op->padsAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  // In all cases now, the actual pad values are found in the pads attribute.
-  op->auto_padAttr(builder.getStringAttr("NOTSET"));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Support function computing default values for dilations, strides, and pads.
-//===----------------------------------------------------------------------===//
-template <class T>
-static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
-  // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
-  auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
-
-  // 2) Get kernel_shape attribute. They were previously computed. At this time,
-  // they are guranteed to be compile time constant.
-  auto kernelShape = op->kernel_shape();
-
-  // Dilation. It is compile time constants (filled to default 1 value if not
-  // explicitely given as input).
-  LogicalResult res = processConvDilationParam<T>(op, kernelShape);
-  if (failed(res))
-    return res;
-  auto dilationsOpt = op->dilations();
-
-  // Strides. It is compile time constants (filled to default 1 value if not
-  // explicitely given as input).
-  res = processConvStrideParam<T>(op, kernelShape);
-  if (failed(res))
-    return res;
-  auto stridesOpt = op->strides();
-
-  // Pads.
-  return processConvPadParam<T>(
-      op, inputShape, kernelShape, stridesOpt, dilationsOpt);
-}
-
-//===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //===----------------------------------------------------------------------===//
 static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
@@ -1917,30 +1730,6 @@ LogicalResult ONNXConvOp::inferShapes(
       (hasBias && !B().getType().isa<RankedTensorType>()))
     return success();
 
-  auto kernelShape = kernel_shape();
-  if (!kernelShape.has_value()) {
-    // Deduce shape from weight input.
-    auto xTy = X().getType().cast<RankedTensorType>();
-    auto xShape = xTy.getShape();
-    auto weightTy = W().getType().cast<RankedTensorType>();
-    auto weightShape = weightTy.getShape();
-    // Number of spatial dimensions.
-    auto spatialOffset = 2;
-    int32_t spatialRank = xShape.size() - spatialOffset;
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
-  }
-
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
-  assert(succeeded(res));
-
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
       ONNXConvOpAdaptor>(*this, elementType);
@@ -2043,20 +1832,10 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
   // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
+  LogicalResult res = processConvTypeParams<>(this, X(), W());
   assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
@@ -2162,20 +1941,10 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(kernelShape, i) < 1)
         return emitError("bad kernel_shape value");
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
   // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  LogicalResult res = processConvTypeParams<>(this, x(), w());
   assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
@@ -3309,20 +3078,10 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
   // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  LogicalResult res = processConvTypeParams<>(this, x(), w());
   assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
