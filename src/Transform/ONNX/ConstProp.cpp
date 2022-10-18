@@ -17,6 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -1234,6 +1235,13 @@ void ConstPropONNXToONNXPass::runOnOperation() {
       op->setAttr("value", denseAttr);
       op->removeAttr(BUFFER_ID_ATTR);
       free(arr);
+    } else if (auto elements =
+                   constOp.valueAttr().dyn_cast<DenseResourceElementsAttr>()) {
+      auto *r = elements.getRawHandle().getResource();
+      ArrayRef<char> a = r->getBlob()->getData();
+      constOp.valueAttr(
+          DenseElementsAttr::getFromRawBuffer(elements.getType(), a));
+      r->setBlob({}); // Free blob.
     }
   });
 
