@@ -31,14 +31,6 @@
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-class TosaTypeConverter : public TypeConverter {
-public:
-  using TypeConverter::TypeConverter;
-
-  TosaTypeConverter();
-};
-
-
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
@@ -54,10 +46,6 @@ inline bool isTOSASignedInt(Type type) {
 
 inline bool isTOSAFloat(Type type) {
   return type.isa<BFloat16Type, Float16Type, Float32Type>();
-}
-
-inline bool isTOSANone(Type type) {
-  return type.isa<mlir::NoneType>();
 }
 
 //===----------------------------------------------------------------------===//
@@ -79,9 +67,6 @@ void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXGemmOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-
-void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXConvOpToTOSAPattern(

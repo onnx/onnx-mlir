@@ -32,9 +32,6 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Tensor
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  // NN
-  populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
-      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -63,7 +60,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // We use the type converter to legalize types before any conversion patterns
   // are executed. This ensures that we do not need to trigger separate
   // conversion failures. Quantized types are not supported right now.
-  TosaTypeConverter typeConverter;
+  TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
     if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
       return type;
