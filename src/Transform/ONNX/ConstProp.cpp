@@ -462,16 +462,12 @@ struct ElementwiseUnary {
   template <typename DTy, typename... Ts>
   struct Compute {
     using S = typename DTy::type;
-    static S f(S v) {
-      return DTy::pack(ElementWiseUnaryOpImpl<OP, DTy>::impl(DTy::unpack(v)));
-    }
     static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
-      auto vs = castArrayRef<S>(src);
-      auto rs = castMutableArrayRef<S>(dst);
-      if (vs.size() == 1)
-        std::fill(rs.begin(), rs.end(), f(vs.front()));
-      else
-        std::transform(vs.begin(), vs.end(), rs.begin(), f);
+      fillOrTransform(
+          castArrayRef<S>(src), castMutableArrayRef<S>(dst), [](S v) {
+            return DTy::pack(
+                ElementWiseUnaryOpImpl<OP, DTy>::impl(DTy::unpack(v)));
+          });
     }
   };
 };
@@ -804,25 +800,19 @@ struct SrcDstCast {
   template <typename DstDTy, typename... InnerArgs>
   struct DstCast {
     using D = typename DstDTy::type;
-    static D f(S v) {
-      // TODO: check if BOOL needs to be special cased
-      return DstDTy::pack(
-          static_cast<typename DstDTy::unpacked_type>(SrcDTy::unpack(v)));
-    }
-    static void eval(ArrayRef<S> vs, MutableArrayRef<char> dst) {
-      auto rs = castMutableArrayRef<D>(dst);
-      if (vs.size() == 1)
-        std::fill(rs.begin(), rs.end(), f(vs.front()));
-      else
-        std::transform(vs.begin(), vs.end(), rs.begin(), f);
+    static void eval(ArrayRef<S> src, MutableArrayRef<char> dst) {
+      fillOrTransform(src, castMutableArrayRef<D>(dst), [](S v) {
+        // TODO: check if BOOL needs to be special cased
+        return DstDTy::pack(
+            static_cast<typename DstDTy::unpacked_type>(SrcDTy::unpack(v)));
+      });
     }
   };
 
   static void eval(
       Type dstType, ArrayRef<char> src, MutableArrayRef<char> dst) {
-    auto vs = castArrayRef<S>(src);
     dispatchFPOrInt<DstCast, void, ArrayRef<S>, MutableArrayRef<char>>::eval(
-        dstType, vs, dst);
+        dstType, castArrayRef<S>(src), dst);
   }
 };
 

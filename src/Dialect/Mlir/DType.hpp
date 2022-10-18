@@ -56,20 +56,9 @@ enum DataType : int {
 };
 }
 
+// Helper functions.
 float U16ToF32(uint16_t);
 uint16_t F32ToU16(float);
-
-template <typename T, typename U = char>
-llvm::ArrayRef<T> castArrayRef(llvm::ArrayRef<U> a) {
-  return llvm::makeArrayRef(reinterpret_cast<const T *>(a.data()),
-      (a.size() * sizeof(U)) / sizeof(T));
-}
-
-template <typename T, typename U = char>
-llvm::MutableArrayRef<T> castMutableArrayRef(llvm::MutableArrayRef<U> a) {
-  return llvm::makeMutableArrayRef(
-      reinterpret_cast<T *>(a.data()), (a.size() * sizeof(U)) / sizeof(T));
-}
 
 template <int TY>
 struct DType {
@@ -185,5 +174,28 @@ template <template <typename, typename...> class Action, typename Out,
     typename... Ts>
 using dispatchFPOrInt =
     dispatchFPOr<Action, dispatchInt<Action, Out, Ts...>, Out, Ts...>;
+
+// Helper functions frequently used together with dispatch classes.
+
+template <typename New, typename Old = char>
+llvm::ArrayRef<New> castArrayRef(llvm::ArrayRef<Old> a) {
+  return llvm::makeArrayRef(reinterpret_cast<const New *>(a.data()),
+      (a.size() * sizeof(Old)) / sizeof(New));
+}
+
+template <typename New, typename Old = char>
+llvm::MutableArrayRef<New> castMutableArrayRef(llvm::MutableArrayRef<Old> a) {
+  return llvm::makeMutableArrayRef(reinterpret_cast<New *>(a.data()),
+      (a.size() * sizeof(Old)) / sizeof(New));
+}
+
+template <typename Src, typename Dst, typename Fn>
+void fillOrTransform(
+    llvm::ArrayRef<Src> src, llvm::MutableArrayRef<Dst> dst, Fn fn) {
+  if (src.size() == 1)
+    std::fill(dst.begin(), dst.end(), fn(src.front()));
+  else
+    std::transform(src.begin(), src.end(), dst.begin(), fn);
+}
 
 } // namespace onnx_mlir
