@@ -26,6 +26,7 @@
 #include "onnx/onnx_pb.h"
 
 #include "src/Dialect/Mlir/AttributesHelper.hpp"
+#include "src/Dialect/Mlir/DType.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -85,12 +86,17 @@ const StringRef BUFFER_ID_ATTR = "buffer_id";
 SmallVector<char *, 4> bufferPtrs;
 
 ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(
-    ONNXConstantOp constOp, size_t sizeInBytes) {
+    ONNXConstantOp constOp, ShapedType type) {
   Attribute bufferIDAttr =
       constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
   if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
-    return {bufferPtrs[bufferId], sizeInBytes};
+    int64_t maxSize = getMaxSizeInBytes(type);
+    ArrayRef<char> a = llvm::makeArrayRef(bufferPtrs[bufferId], maxSize);
+    int64_t size = getSizeInBytes(type);
+    if (size == maxSize)
+      return a;
+    assert(false); // TODO: implement this case
   }
   ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
   return getDenseIntOrFPRawData(elements);
@@ -98,8 +104,7 @@ ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(
 
 ArrayRef<char> getDenseIntOrFPRawDataFromConstValue(Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
-  return getDenseIntOrFPRawDataFromConstOp(
-      constOp, getSizeInBytes(constValue.getType()));
+  return getDenseIntOrFPRawDataFromConstOp(constOp, constValue.getType());
 }
 
 using TP = onnx::TensorProto;
@@ -505,15 +510,18 @@ template <typename ElementwiseUnaryOp>
 struct ElementwiseUnary {
   template <typename Ty, typename... Ts>
   struct Compute {
+    using S = typename Ty::type;
+    static S f(S v) {
+      return Ty::pack(
+          ElementWiseUnaryOpImpl<ElementwiseUnaryOp, Ty>::impl(Ty::unpack(v)));
+    }
     static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
-      using S = typename Ty::type;
-      int64_t numElements = src.size() / sizeof(S);
-      auto *srcArr = reinterpret_cast<const S *>(src.data());
-      auto *dstArr = reinterpret_cast<S *>(dst.data());
-      std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
-        return Ty::pack(ElementWiseUnaryOpImpl<ElementwiseUnaryOp, Ty>::impl(
-            Ty::unpack(v)));
-      });
+      auto vs = castArrayRef<S>(src);
+      auto rs = castMutableArrayRef<S>(dst);
+      if (vs.size() == 1)
+        std::fill(rs.begin(), rs.end(), f(vs.front()));
+      else
+        std::transform(vs.begin(), vs.end(), rs.begin(), f);
     }
   };
 };
@@ -846,18 +854,20 @@ public:
 
 template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
+  using S = typename SrcTy::type;
+  using D = typename DstTy::type;
+  static D f(S v) {
+    // TODO: check if BOOL needs to be special cased
+    return DstTy::pack(
+        static_cast<typename DstTy::unpacked_type>(SrcTy::unpack(v)));
+  }
   static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
-    using S = typename SrcTy::type;
-    using D = typename DstTy::type;
-    int64_t numElements = src.size() / sizeof(S);
-    // Cannot use copyAndCastArr here because it's not defined for all types.
-    auto *srcArr = reinterpret_cast<const S *>(src.data());
-    auto *dstArr = reinterpret_cast<D *>(dst.data());
-    std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
-      // TODO: check if BOOL needs to be special cased
-      return DstTy::pack(
-          static_cast<typename DstTy::unpacked_type>(SrcTy::unpack(v)));
-    });
+    auto vs = castArrayRef<S>(src);
+    auto rs = castMutableArrayRef<D>(dst);
+    if (vs.size() == 1)
+      std::fill(rs.begin(), rs.end(), f(vs.front()));
+    else
+      std::transform(vs.begin(), vs.end(), rs.begin(), f);
   }
 };
 
