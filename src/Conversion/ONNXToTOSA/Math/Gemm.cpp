@@ -106,8 +106,8 @@ public:
     Value C = op.C();
     int64_t transA = adaptor.transA();
     int64_t transB = adaptor.transB();
-    //FloatAttr alpha = adaptor.alpha();
-    //FloatAttr beta = adaptor.beta();
+    FloatAttr alpha = adaptor.alphaAttr();
+    FloatAttr beta = adaptor.betaAttr();
     auto AType = A.getType().cast<RankedTensorType>();
     auto BType = B.getType().cast<RankedTensorType>();
     auto shapeA = A.getType().dyn_cast<ShapedType>();
@@ -115,13 +115,13 @@ public:
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     
     // C is optional, if it's not there, we need to be aware of it for later computations
-    bool isCOpt = C.getType().isa<TensorType>();
+    bool isCPresent = C.getType().isa<TensorType>();
 
     if (checkLegalTosaFCOp(op, adaptor)) {
       return rewriteToTosaFC(op, adaptor, rewriter);
     }
 
-    /*if (transA) {
+    if (transA) {
       Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
       Type outputType = UnrankedTensorType::get(AType.getElementType());
       A = rewriter.create<tosa::TransposeOp>(loc, outputType, A, targetTensor).getResult();
@@ -131,12 +131,47 @@ public:
       Type outputType = UnrankedTensorType::get(AType.getElementType());
       B = rewriter.create<tosa::TransposeOp>(loc, outputType, B, targetTensor).getResult();
     }
+    
+    Value alphaMulResult = NULL;
+    Value betaMulResult = NULL;
+    // If Alpha is present and not 1, we create a multiply operation for alpha * A
+    if (alpha && alpha.getValueAsDouble() != 1.) {
+      alphaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc, shapeA,
+            tosa::getTosaConstTensorSingleF32(rewriter, op, alpha.getValueAsDouble(), shapeA.cast<TensorType>().getShape()),
+            adaptor.A(), 0);
+    }
 
-    // Alpha * A
-    if (alpha && alpha.getValueAsDouble() != 1.)
+    // If C and Beta are set, and beta is different from 1, we also need to add a multiplication for beta * C
+    if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
+      auto shapeC = C.getType().dyn_cast<ShapedType>();
+      betaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc, shapeC, 
+            tosa::getTosaConstTensorSingleF32(rewriter, op, beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
+            adaptor.C(), 0);
+    }
 
-    rewriter.replaceOpWithNewOp<tosa::MatMulOp>(op, resultType, A, B);
-    */
+    Value matmulRes = NULL;
+    //A * B
+    if (alphaMulResult) {
+      matmulRes = rewriter.create<tosa::MatMulOp>(loc, resultType, alphaMulResult, B);
+    }
+    else {
+      matmulRes = rewriter.create<tosa::MatMulOp>(loc, resultType, A, B);
+    }
+
+    Value addRes = NULL;
+    //(A*B) + Beta * C or (A*B) + C
+    if (betaMulResult) {
+      addRes = rewriter.replaceOpWithNewOp<tosa::AddOp>(
+          op, resultType, matmulRes, betaMulResult);
+    }
+    else if (isCPresent) {
+      addRes = rewriter.replaceOpWithNewOp<tosa::AddOp>(
+          op, resultType, matmulRes, adaptor.C());
+    }
+    else {
+      rewriter.replaceOp(op, matmulRes);
+    }
+    
     return success();
   }
 };

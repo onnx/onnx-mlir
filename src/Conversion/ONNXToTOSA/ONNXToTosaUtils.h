@@ -43,7 +43,7 @@ bool isScale32(mlir::quant::UniformQuantizedType output_element_type);
 
 // Create a 32-bit float constant operator from a float
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
-                                  float val);
+                                  float val, llvm::ArrayRef<int64_t> shape={});
 
 // Templated function to create a constant op for given type and shape.
 // T: storage C type.

@@ -75,12 +75,6 @@ void FrontendToTosaLoweringPass::runOnOperation() {
     return llvm::None;
   });
 
-  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
-    if (type.isa<NoneType>())
-      return type;
-    return llvm::None;
-  });
-
   // Define legal dialects and operations
   target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
 

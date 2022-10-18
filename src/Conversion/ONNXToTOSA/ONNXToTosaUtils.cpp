@@ -11,6 +11,7 @@
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"       // from @llvm-project
 #include "mlir/Dialect/Tosa/Utils/QuantUtils.h" // from @llvm-project
 #include "torch-mlir/Conversion/TorchToTosa/TosaLegalizeCommon.h"
+#include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
 namespace tosa {
@@ -140,8 +141,8 @@ bool isScale32(mlir::quant::UniformQuantizedType output_element_type) {
 
 // Create a 32-bit float constant operator from a float
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
-                                  float val) {
-  auto const_type = RankedTensorType::get({}, rewriter.getF32Type());
+                                  float val, llvm::ArrayRef<int64_t> shape) {
+  auto const_type = RankedTensorType::get(shape, rewriter.getF32Type());
   auto const_attr = DenseElementsAttr::get(const_type, val);
 
   auto const_op =
