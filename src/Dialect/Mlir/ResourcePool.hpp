@@ -12,6 +12,7 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectInterface.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/SmallString.h"
 
 #include <unordered_set>

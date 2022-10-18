@@ -12,7 +12,6 @@
 
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/DialectResourceBlobManager.h"
 
 using namespace mlir;
 
