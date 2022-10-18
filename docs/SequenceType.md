@@ -92,13 +92,13 @@ control flow. Our current solution is based the existing deallocation pass.
 
 ### Store an element into a sequence
 To avoid the deallocation of the element, we can save a copy of the element into the
-sequence. To get a copy, we need to allocate a memref and then use memref.copy
-to copy the value. However, deallocation pass will again add deallocation to
+sequence. To generate this copy, we need first to allocate a memref and then use memref.copy
+to copy the value. However, deallocation pass may again add deallocation to
 the newly allocated memref. To avoid this issue, we should wrap all the operations of
 memref the allocation, copy and store into one krnl Op, krnlSeqStoreOp, which will be
 lowered AFTER the deallocation pass.
 
-Since the type of sequence element is a super type for all possible element, memref.cast may be
+Since the type of sequence element is a super type for all possible elements, memref.cast may be
 needed before the store. KrnlSeqStoreOp will be lowered to the code segment below.
 ```
 // The input op
