@@ -275,138 +275,126 @@ struct ElementWiseBinaryOpImpl {
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs + rhs); }
+  static T impl(T lhs, T rhs) { return lhs + rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs - rhs); }
+  static T impl(T lhs, T rhs) { return lhs - rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs * rhs); }
+  static T impl(T lhs, T rhs) { return lhs * rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
-  static T impl(T lhs, T rhs) { return (lhs / rhs); }
+  static T impl(T lhs, T rhs) { return lhs / rhs; }
 };
 
-template <typename OP, typename T>
-T ComputeConstPropElementwiseBinary(T lhs, T rhs) {
-  return ElementWiseBinaryOpImpl<OP, T>::impl(lhs, rhs);
+std::vector<int64_t> unbroadcast(
+    ArrayRef<int64_t> dstIndices, ArrayRef<int64_t> srcShape) {
+  assert(dstIndices.size() >= srcShape.size());
+  size_t offset = dstIndices.size() - srcShape.size();
+  std::vector<int64_t> srcIndices;
+  for (size_t i = 0; i < srcShape.size(); ++i) {
+    assert(srcShape[i] == 1 || dstIndices[i + offset] < srcShape[i]);
+    srcIndices.push_back(srcShape[i] == 1 ? 0 : dstIndices[i + offset]);
+  }
+  return srcIndices;
 }
 
-template <typename ElementwiseBinaryOp, typename T>
-void IterateConstPropElementwiseBinary(char *lhs, char *rhs,
-    ArrayRef<int64_t> lhsShape, ArrayRef<int64_t> rhsShape, char *res,
-    ArrayRef<int64_t> outputShape) {
-  // Rank info.
-  int lhsRank = lhsShape.size();
-  int rhsRank = rhsShape.size();
-  int outputRank = outputShape.size();
-  // Strides info.
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
-  std::vector<int64_t> lhsStrides = getStrides(lhsShape);
-  std::vector<int64_t> rhsStrides = getStrides(rhsShape);
-  // Data pointers.
-  T *lhsArray = reinterpret_cast<T *>(lhs);
-  T *rhsArray = reinterpret_cast<T *>(rhs);
-  T *resArray = reinterpret_cast<T *>(res);
-
-  // Check broadcasting.
-  bool broadcasting = false;
-  if (lhsRank != rhsRank)
-    broadcasting = true;
-  else
-    for (int i = 0; i < outputRank; ++i)
-      if (lhsShape[i] != rhsShape[i]) {
-        broadcasting = true;
-        break;
-      }
-
-  // Do computation.
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
-    // Compute indices to access the output.
-    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
-
-    // Compute indices to access inputs.
-    SmallVector<int64_t, 4> lhsIndices(lhsRank, 0);
-    SmallVector<int64_t, 4> rhsIndices(rhsRank, 0);
-    if (!broadcasting) {
-      for (int k = 0; k < outputRank; ++k) {
-        lhsIndices[k] = outputIndices[k];
-        rhsIndices[k] = outputIndices[k];
-      }
-    } else {
-      for (int k = 0; k < outputRank; ++k) {
-        // in the lhs index range.
-        if (k >= outputRank - lhsRank) {
-          int lhsIndex = k - outputRank + lhsRank;
-          if (lhsShape[lhsIndex] == 1)
-            // broadcast
-            lhsIndices[lhsIndex] = 0;
-          else
-            lhsIndices[lhsIndex] = outputIndices[k];
+template <typename OP>
+struct ElementwiseBinary {
+  template <typename DTy, typename... Ts>
+  struct Compute {
+    using S = typename DTy::type;
+    using U = typename DTy::unpacked_type;
+    static S fn(S x, S y) {
+      return DTy::pack(
+          ElementWiseBinaryOpImpl<OP, U>::impl(DTy::unpack(x), DTy::unpack(y)));
+    }
+    static void eval(ArrayRef<int64_t> lhsShape, ArrayRef<char> lhs,
+        ArrayRef<int64_t> rhsShape, ArrayRef<char> rhs,
+        ArrayRef<int64_t> dstShape, MutableArrayRef<char> dst) {
+      ArrayRef<S> xs = castArrayRef<S>(lhs);
+      ArrayRef<S> ys = castArrayRef<S>(rhs);
+      MutableArrayRef<S> zs = castMutableArrayRef<S>(dst);
+      std::vector<int64_t> lhsStrides;
+      bool lhsBroadcast = lhsShape != dstShape;
+      if (lhsBroadcast)
+        lhsStrides = getStrides(lhsShape);
+      std::vector<int64_t> rhsStrides;
+      bool rhsBroadcast = rhsShape != dstShape;
+      if (rhsBroadcast)
+        rhsStrides = getStrides(rhsShape);
+      std::vector<int64_t> dstStrides;
+      bool broadcast = lhsBroadcast || rhsBroadcast;
+      if (broadcast)
+        dstStrides = getStrides(dstShape);
+      for (size_t k = 0; k < zs.size(); ++k) {
+        size_t i = k;
+        size_t j = k;
+        if (broadcast) {
+          std::vector<int64_t> dstIndices = getAccessIndex(i, dstStrides);
+          if (lhsBroadcast) {
+            std::vector<int64_t> lhsIndices = unbroadcast(dstIndices, lhsShape);
+            i = getLinearAccessIndex(lhsIndices, lhsStrides);
+          }
+          if (rhsBroadcast) {
+            std::vector<int64_t> rhsIndices = unbroadcast(dstIndices, rhsShape);
+            j = getLinearAccessIndex(rhsIndices, rhsStrides);
+          }
         }
-        // in the rhs index range.
-        if (k >= outputRank - rhsRank) {
-          int rhsIndex = k - outputRank + rhsRank;
-          if (rhsShape[rhsIndex] == 1)
-            // broadcast
-            rhsIndices[rhsIndex] = 0;
-          else
-            rhsIndices[rhsIndex] = outputIndices[k];
-        }
+        zs[k] = fn(xs[i], ys[j]);
       }
     }
-
-    // Calculate element-wise binary result.
-    int64_t lhsOffset = getLinearAccessIndex(lhsIndices, lhsStrides);
-    int64_t rhsOffset = getLinearAccessIndex(rhsIndices, rhsStrides);
-
-    T lhsValue = *(lhsArray + lhsOffset);
-    T rhsValue = *(rhsArray + rhsOffset);
-    *(resArray + i) = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
-        lhsValue, rhsValue);
-  }
-}
+  };
+};
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseBinaryOp>
-Value ConstPropElementwiseBinary(
-    PatternRewriter &rewriter, Value replacingValue, Value lhs, Value rhs) {
-  Type elementType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
-  ArrayRef<int64_t> lhsShape = lhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> rhsShape = rhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> outputShape =
-      replacingValue.getType().cast<ShapedType>().getShape();
+Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
+    Value replacingValue, Value lhsValue, Value rhsValue) {
+  ShapedType lhsType = lhsValue.getType().cast<ShapedType>();
+  ShapedType rhsType = rhsValue.getType().cast<ShapedType>();
+  ShapedType type = replacingValue.getType().cast<ShapedType>();
+  size_t eltSizeInBytes = getEltSizeInBytes(type);
+  Type elementType = type.getElementType();
+  assert(
+      lhsType.getElementType() == elementType && "lhs element type mismatch");
+  assert(
+      rhsType.getElementType() == elementType && "rhs element type mismatch");
+  ArrayRef<int64_t> lhsShape = lhsType.getShape();
+  ArrayRef<int64_t> rhsShape = rhsType.getShape();
 
-  // Get lhs and rhs values.
-  char *lhsArray = getArrayFromAttributeOrBuffer(rewriter, lhs.getDefiningOp());
-  char *rhsArray = getArrayFromAttributeOrBuffer(rewriter, rhs.getDefiningOp());
+  ArrayRef<int64_t> splatShape = {};
+  ArrayRef<char> lhs = getDenseIntOrFPRawDataFromConstValue(lhsValue);
+  if (lhs.size() == eltSizeInBytes) {
+    lhsShape = splatShape;
+  }
+  ArrayRef<char> rhs = getDenseIntOrFPRawDataFromConstValue(rhsValue);
+  if (rhs.size() == eltSizeInBytes) {
+    rhsShape = splatShape;
+  }
 
-  // Do calculation.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else
-    llvm_unreachable("Unknown data type");
+  // TODO: make single element splat dst buffer if both lhs and rhs are splat
+
+  ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
+      type, [&](MutableArrayRef<char> dst) {
+        dispatchFPOrInt<
+            ElementwiseBinary<ElementwiseBinaryOp>::template Compute, void,
+            ArrayRef<int64_t>, ArrayRef<char>, ArrayRef<int64_t>,
+            ArrayRef<char>, ArrayRef<int64_t>,
+            MutableArrayRef<char>>::eval(elementType, lhsShape, lhs, rhsShape,
+            rhs, type.getShape(), dst);
+      });
 
   // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+  ONNXConstantOp res = createONNXConstantOpWithDenseAttr(
+      rewriter, replacingValue.getLoc(), elements);
 
   return res.getResult();
 }
@@ -424,7 +412,7 @@ template <typename U>
 using onlyFP = std::enable_if_t<std::is_floating_point_v<U>>;
 
 template <typename U>
-using onlyFPOrInt = std::enable_if_t<!std::is_same_v<U, bool>>;
+using onlyNumber = std::enable_if_t<!std::is_same_v<U, bool>>;
 
 template <typename U>
 struct ElementWiseUnaryOpImpl<ONNXSqrtOp, U, onlyFP<U>> {
@@ -432,12 +420,12 @@ struct ElementWiseUnaryOpImpl<ONNXSqrtOp, U, onlyFP<U>> {
 };
 
 template <typename U>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, U, onlyFPOrInt<U>> {
+struct ElementWiseUnaryOpImpl<ONNXNegOp, U, onlyNumber<U>> {
   static U impl(U val) { return -val; }
 };
 
 template <typename U>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, U, onlyFPOrInt<U>> {
+struct ElementWiseUnaryOpImpl<ONNXReluOp, U, onlyNumber<U>> {
   static U impl(U val) { return val < 0 ? 0 : val; }
 };
 
@@ -470,6 +458,8 @@ Value ConstPropElementwiseUnary(
   Type elementType = replacingType.getElementType();
 
   ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
+
+  // TODO: make single element splat dst buffer if src isSplat
 
   ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
       replacingType, [&](MutableArrayRef<char> dst) {
@@ -812,6 +802,8 @@ Value ConstPropCast(
   Type dstElemType = dstType.getElementType();
 
   ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
+
+  // TODO: make single element splat dst buffer if src isSplat
 
   ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
       dstType, [&](MutableArrayRef<char> dst) {
