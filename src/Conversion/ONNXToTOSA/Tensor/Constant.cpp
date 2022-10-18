@@ -38,11 +38,11 @@ public:
     }
     ::mlir::Attribute currentAttr = valueAttr.value();
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
-    if (currentAttr.isa<ElementsAttr>()) {
-      rewriter.replaceOpWithNewOp<tosa::ConstOp>(op, resultType, currentAttr);
-      return success();
+    if (!currentAttr.isa<ElementsAttr>()) {
+      return rewriter.notifyMatchFailure(op, "tosa.const does not support non-tensor types");
     }
-    return failure();
+    rewriter.replaceOpWithNewOp<tosa::ConstOp>(op, resultType, currentAttr);
+    return success();
   }
 };
 
