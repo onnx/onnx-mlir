@@ -39,7 +39,8 @@ size_t byteWidth(size_t bitWidth) {
 
 void splatterBlob(ShapedType type, AsmResourceBlob &blob) {
   bool isSplat;
-  bool isValid = DenseElementsAttr::isValidRawBuffer(type, blob.getData(), isSplat);
+  bool isValid =
+      DenseElementsAttr::isValidRawBuffer(type, blob.getData(), isSplat);
   assert(isValid && "invalid dense int or fps raw buffer");
   (void)isValid;
   // TODO: change to splat if isSplat
@@ -55,9 +56,11 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
          "data size must match type");
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
-    AsmResourceBlob blob = HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false);
+    AsmResourceBlob blob =
+        HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false);
     splatterBlob(type, blob);
-    DenseResourceElementsHandle r = resourcePool->createResource(std::move(blob));
+    DenseResourceElementsHandle r =
+        resourcePool->createResource(std::move(blob));
     return DenseResourceElementsAttr::get(type, r);
   } else {
     return DenseElementsAttr::getFromRawBuffer(type, bytes);
