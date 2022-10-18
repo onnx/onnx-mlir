@@ -33,4 +33,8 @@ mlir::ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
 
 llvm::ArrayRef<char> getDenseIntOrFPRawData(mlir::ElementsAttr elements);
 
+void readDenseInts(mlir::ElementsAttr elements, llvm::MutableArrayRef<int64_t> ints);
+
+void readDenseFPs(mlir::ElementsAttr elements, llvm::MutableArrayRef<double> fps);
+
 } // namespace onnx_mlir

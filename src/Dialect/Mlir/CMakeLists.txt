@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMMlirDialects
   AttributesHelper.cpp
   DialectBuilder.cpp
+  DType.cpp
   IndexExpr.cpp
   IndexExprDetail.cpp
   ResourcePool.cpp

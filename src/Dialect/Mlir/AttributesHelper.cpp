@@ -16,6 +16,7 @@
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 
+#include "src/Dialect/Mlir/DType.hpp"
 #include "src/Dialect/Mlir/ResourcePool.hpp"
 
 using namespace mlir;
@@ -35,6 +36,7 @@ size_t byteWidth(size_t bitWidth) {
       bitWidth % BYTE_BITWIDTH == 0 && "non-boolean types must fill out bytes");
   return bitWidth / BYTE_BITWIDTH;
 }
+
 } // namespace
 
 ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
@@ -77,6 +79,27 @@ ArrayRef<char> getDenseIntOrFPRawData(ElementsAttr elements) {
   if (auto x = elements.dyn_cast<DenseResourceElementsAttr>())
     return x.getRawHandle().getResource()->getBlob()->getData();
   llvm_unreachable("unexpected ElementsAttr instance");
+}
+
+template <typename DTy, typename D, typename... Args>
+struct ReadIntsOrFPs {
+  static void eval(D token, ArrayRef<char> src, MutableArrayRef<D> dst) {
+    using S = typename DTy::type;
+    ArrayRef<S> vs = castArrayRef<S>(src);
+    std::transform(vs.begin(), vs.end(), dst.begin(), [](S v) { return static_cast<D>(v); });
+  }
+};
+
+void readDenseInts(mlir::ElementsAttr elements, MutableArrayRef<int64_t> ints) {
+  ArrayRef<char> src = getDenseIntOrFPRawData(elements);
+  int64_t token = 0;
+  dispatchInt<ReadIntsOrFPs, void, int64_t, ArrayRef<char>, MutableArrayRef<int64_t>>::eval(elements.getElementType(), token, src, ints);
+}
+
+void readDenseFPs(mlir::ElementsAttr elements, MutableArrayRef<double> fps) {
+  ArrayRef<char> src = getDenseIntOrFPRawData(elements);
+  double token = 0.0;
+  dispatchFP<ReadIntsOrFPs, void, double, ArrayRef<char>, MutableArrayRef<double>>::eval(elements.getElementType(), token, src, fps);
 }
 
 } // namespace onnx_mlir
