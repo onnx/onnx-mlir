@@ -88,7 +88,6 @@ public:
   LogicalResult matchAndRewrite(ONNXPadOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
 
-    MLIRContext *context = op.getContext();
     Location loc = op.getLoc();
 
     Value data = adaptor.data();
@@ -126,8 +125,7 @@ public:
     dim_pads dimArray[intValues.size() / 2];
 
     llvm::SmallVector<int64_t, 8> translatePadsList;
-    auto intType = IntegerType::get(op.getContext(), 64);
-    if (intValues.size() != 0) {
+    if (!intValues.empty()) {
       unsigned int dimSize = intValues.size() / 2;
       unsigned int lastNonZero = 0;
       for (unsigned int i = 0; i < dimSize; i++) {
@@ -138,14 +136,9 @@ public:
       }
 
       // read the onnx pad values from array(dim_start values)
-      RankedTensorType type0 = RankedTensorType::get({}, rewriter.getI64Type());
-      for (unsigned int i = 0; i < lastNonZero + 1; i++) {
-        // auto f0 = DenseElementsAttr::get(type0, (dimArray[i].dim_start));
-        // Value p0v = rewriter.create<tosa::ConstOp>(loc, type0, f0);
-        translatePadsList.push_back(dimArray[i].dim_start);
 
-        // auto f1 = DenseElementsAttr::get(intType, (dimArray[i].dim_end));
-        // Value p1v = rewriter.create<tosa::ConstOp>(loc, type0, f1);
+      for (unsigned int i = 0; i < lastNonZero + 1; i++) {
+        translatePadsList.push_back(dimArray[i].dim_start);
         translatePadsList.push_back(dimArray[i].dim_end);
       }
     }
@@ -155,29 +148,32 @@ public:
             .getValue()
             .dyn_cast<DenseElementsAttr>();
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-    double valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
-    FloatAttr floatVal =
-        FloatAttr::get(mlir::FloatType::getF32(context), valueFloat);
+    // Need float for F32 Type
+    float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-    auto constAttr = DenseElementsAttr::get(constType, static_cast<float>(valueFloat));
-    Value constTosaTensor =
-        rewriter.replaceOpWithNewOp<tosa::ConstOp>(constValue.getDefiningOp(), constType, constAttr);
+    auto constAttr = DenseElementsAttr::get(constType, valueFloat);
+    Value constTosaTensor = rewriter.replaceOpWithNewOp<tosa::ConstOp>(
+        constValue.getDefiningOp(), constType, constAttr);
 
     const unsigned int numberOfDims = intValues.size() / 2;
-    DenseElementsAttr PaddingAttr = DenseIntElementsAttr::get(
+    DenseElementsAttr paddingAttr = DenseIntElementsAttr::get(
         RankedTensorType::get({numberOfDims, 2}, rewriter.getI64Type()),
         translatePadsList);
 
     Value padsList1 =
-        rewriter.create<tosa::ConstOp>(loc, PaddingAttr.getType(), PaddingAttr);
+        rewriter.create<tosa::ConstOp>(loc, paddingAttr.getType(), paddingAttr);
 
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
     rewriter.eraseOp(pads.getDefiningOp());
 
-    rewriter.replaceOpWithNewOp<tosa::PadOp>(
-        op, resultType, data, padsList1, constTosaTensor);
+    if (constTosaTensor) {
+      rewriter.replaceOpWithNewOp<tosa::PadOp>(
+          op, resultType, data, padsList1, constTosaTensor);
+    } else {
+      rewriter.replaceOpWithNewOp<tosa::PadOp>(op, resultType, data, padsList1);
+    }
 
     return success();
   }
