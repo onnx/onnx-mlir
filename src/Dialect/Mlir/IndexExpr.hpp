@@ -84,7 +84,7 @@ actually used to represent that compile time value.
 * AffineIndexExpr: expression that the compiler is able to determine as an MLIR
 affine expression. See affine dialect for more info about which expressions can
 be represented as affine function. In general, though, affine computations
-consits of Dim, Symbol, and literals.
+consist of Dim, Symbol, and literals.
 
 * DimIndexExpr: Dim expressions represent "variable" in the affine dialects. In
 our case, typical variables are runtime dimensions of memrefs/tensors during
@@ -105,7 +105,7 @@ constant in a given scope. See affine dialect for more info.
 
 Each IndexExpr must be part of a single scope which holds all of the symbols
 and Dim associated with them. Symbols are variables that are guaranteed to be
-constant during the scope of the IndexExprex. Dim are typically runtime
+constant during the scope of the IndexExpr. Dim are typically runtime
 dimensions of memrefs/tensors during computations to determine the shape of a
 memref/tensor; or dims are typically the dynamic loop indices inside loop
 structures.
@@ -133,7 +133,7 @@ enclosing scopes as well.
 
 Note that the current scope is kept in a thread private variable and does not
 need to be explicitly passed. It will be retrieved from the environment. Which
-also means that one can only geneate code in one index scope at a time.
+also means that one can only generate code in one index scope at a time.
 
 
 3) Code Sample
@@ -147,7 +147,7 @@ also means that one can only geneate code in one index scope at a time.
 
     // During lowering.
 
-    IndexExprScope outerloopContex(&rewriter, sliceOp.getLoc());
+    IndexExprScope outerLoopContext(&rewriter, sliceOp.getLoc());
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
@@ -165,7 +165,7 @@ constant, it will result in a literal. Otherwise it will result in a new Symbol
 variable.
 
     // Get a dimension from a memref.
-    MemRefBoundIndexCapture dataBounds(data);
+    MemRefBoundsIndexCapture dataBounds(data);
     DimIndexExpr dimInput(dataBounds.getDim(ii));
 
 In the code above, we first capture the (hopefully constant) bounds of hte
@@ -212,7 +212,7 @@ compile time sizes, -1 for runtime sizes).
 
     // Create a sub-scope for computations inside the loop iteration.
 
-    IndexExprScope childContext(outerloopContex);
+    IndexExprScope childContext(outerLoopContext);
 
     // Create indices with computations for a load.
 
@@ -248,11 +248,11 @@ compile time sizes, -1 for runtime sizes).
    ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
 of them expressions that are either literals or runtime values (symbols).
 
-   MemRefBoundIndexCapture allows us to read memref or tensor 1D descriptors and
-generate out of them expressions that are either literals or runtime values
+   MemRefBoundsIndexCapture allows us to read memref or tensor 1D descriptors
+and generate out of them expressions that are either literals or runtime values
 (dims).
 
-Note that in both case, runtime values may be "questionmarks" during the shape
+Note that in both case, runtime values may be "question marks" during the shape
 inference part as no code may be generated during such phases.
 */
 
@@ -319,7 +319,7 @@ class IndexExprScope {
 
 public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
-  // null if we cannot geneate code at this time) and location.
+  // null if we cannot generate code at this time) and location.
   IndexExprScope(mlir::OpBuilder *rewriter, mlir::Location loc);
   IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
@@ -440,7 +440,7 @@ public:
   bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
   bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
-  // All element in list are literals.
+  // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
@@ -448,14 +448,18 @@ public:
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
 
-  // Helpers for list of IndexExpressions
+  // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
+  // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
+  // of) IndexExpr.
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
-      llvm::SmallVectorImpl<int64_t> &intDimList);
+      llvm::SmallVectorImpl<int64_t> &intDimList,
+      bool uniqueQuestionMark = false);
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(
@@ -567,7 +571,7 @@ protected:
 // IndexExpr Subclasses for constructing specific IndexExpr kinds.
 //===----------------------------------------------------------------------===//
 
-// Subclass to explicitely create undefined index expressions, typically used to
+// Subclass to explicitly create undefined index expressions, typically used to
 // return invalid values.
 class UndefinedIndexExpr : public IndexExpr {
 public:

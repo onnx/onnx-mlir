@@ -173,7 +173,7 @@ void IndexExprScope::debugPrint(const std::string &msg) const {
 IndexExpr IndexExpr::deepCopy() const {
   // Create new implementation and set scope to current scope (don't copy it).
   IndexExprImpl *newImplObj = new IndexExprImpl();
-  assert(newImplObj && "failed to allocate IndexExpr implemtation");
+  assert(newImplObj && "failed to allocate IndexExpr implementation");
   // Copy all of hte other fields (preserving current scope).
   newImplObj->copy(getObjPtr());
   return IndexExpr(newImplObj);
@@ -280,7 +280,7 @@ bool IndexExpr::canBeUsedInScope() const {
   switch (getKind()) {
   case IndexExprKind::NonAffine:
   case IndexExprKind::Predicate:
-    // Its ok to use a nonafine index expressions from enclosing scopes.
+    // Its ok to use a nonaffine index expressions from enclosing scopes.
     assert(hasValue() && "must have value to be used from enclosing scopes");
     return getScope().isEnclosingScope();
     break;
@@ -295,7 +295,7 @@ bool IndexExpr::canBeUsedInScope() const {
     // out of current scope.
     return false;
   }
-  llvm_unreachable("unkown kind");
+  llvm_unreachable("unknown kind");
 }
 
 //===----------------------------------------------------------------------===//
@@ -303,6 +303,10 @@ bool IndexExpr::canBeUsedInScope() const {
 //===----------------------------------------------------------------------===//
 
 int64_t IndexExpr::getLiteral() const { return getObj().getLiteral(); }
+
+int64_t IndexExpr::getQuestionmark() const {
+  return getObj().getQuestionmark();
+}
 
 AffineExpr IndexExpr::getAffineExpr() const { return getObj().getAffineExpr(); }
 
@@ -399,15 +403,19 @@ void IndexExpr::debugPrint(
 //===----------------------------------------------------------------------===//
 
 /*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-    SmallVectorImpl<int64_t> &intDimList) {
+    SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
   for (IndexExpr &expr : indexExprList) {
     if (expr.isLiteral()) {
       int64_t val = expr.getLiteral();
       assert(val >= 0 && "expected positive values only");
       intDimList.emplace_back(val);
-    } else
-      intDimList.emplace_back(-1);
+    } else {
+      if (uniqueQuestionMark)
+        intDimList.emplace_back(expr.getQuestionmark());
+      else
+        intDimList.emplace_back(-1);
+    }
   }
 }
 
@@ -739,7 +747,7 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
 }
 
 IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
-  // Functions below uncoditionally override rr with the clipped value of val.
+  // Functions below unconditionally override rr with the clipped value of val.
   F3 litFct = [](IndexExpr const val, IndexExpr const min,
                   IndexExpr const max) -> IndexExpr {
     // assume signed compares
@@ -1081,7 +1089,7 @@ LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) : IndexExpr() {
 
 NonAffineIndexExpr::NonAffineIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsKind(value, IndexExprKind::NonAffine);
 }
 
@@ -1153,11 +1161,11 @@ NonAffineIndexExpr::NonAffineIndexExpr(SymbolIndexExpr const &o)
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsQuestionmark();
 }
 
-// Don't care about otherIndexExpr as questionmarks have no real data.
+// Don't care about otherIndexExpr as question marks have no real data.
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
     : QuestionmarkIndexExpr() {}
@@ -1190,7 +1198,7 @@ PredicateIndexExpr::PredicateIndexExpr(bool const value) : IndexExpr() {
 
 PredicateIndexExpr::PredicateIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsKind(value, IndexExprKind::Predicate);
 }
 
@@ -1238,7 +1246,7 @@ PredicateIndexExpr::PredicateIndexExpr(SymbolIndexExpr const &o)
 
 AffineIndexExpr::AffineIndexExpr(AffineExpr const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsAffineExpr(value);
 }
 
@@ -1311,7 +1319,7 @@ AffineIndexExpr::AffineIndexExpr(SymbolIndexExpr const &o)
 
 DimIndexExpr::DimIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsKind(value, IndexExprKind::Dim);
 }
 
@@ -1384,7 +1392,7 @@ DimIndexExpr::DimIndexExpr(SymbolIndexExpr const &o)
 
 SymbolIndexExpr::SymbolIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsKind(value, IndexExprKind::Symbol);
 }
 

@@ -147,7 +147,7 @@ public:
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
       newAlloc = (allocOp.alignment().has_value())
                      ? create.mem.alignedAlloc(memPoolMemRefType,
-                           dyanmicTotalSize, allocOp.alignment().getValue())
+                           dyanmicTotalSize, allocOp.alignment().value())
                      : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 

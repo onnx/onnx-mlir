@@ -16,12 +16,7 @@ COPY . onnx-mlir
 # Setup onnx
 # Install into lib instead of lib64 since everything else is in lib
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && INSTALL_LIB=$(python3 -c "import re; import site; \
-         print(list(filter(lambda site: not re.search('lib64', site), \
-                           site.getsitepackages()))[0])") \
-    && cd ${ONNX_ROOT} \
-    && python3 setup.py -q install --install-lib=${INSTALL_LIB} \
-    && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
+    && cd ${ONNX_ROOT} && python3 -m pip install .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -53,16 +48,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
-            -j${NPROC} -f CMakeFiles/Makefile2 \
-            check-onnx-backend \
-            check-onnx-backend-dynamic \
-            check-onnx-backend-constant \
-            check-onnx-backend-signature \
-            check-onnx-backend-jni \
-            check-onnx-backend-dynamic-jni \
-            check-onnx-backend-constant-jni \
-            check-onnx-backend-input-verification\
-            check-onnx-numerical \
+            -j${NPROC} \
+            check-onnx-backend-numerical \
     && make check-docs \
     && make -j${NPROC} install \
     && echo -e "/usr/local/lib" > \

@@ -25,10 +25,12 @@ LogicalResult ONNXGatherElementsOpShapeHelper::computeShape(
   indicesBounds.getDimList(indicesDims);
 
   // Output has the shape of indices.
+  DimsExpr outputDims;
   int64_t indicesRank = indicesDims.size();
   for (int i = 0; i < indicesRank; ++i)
-    dimsForOutput().emplace_back(indicesDims[i]);
+    outputDims.emplace_back(indicesDims[i]);
 
+  setOutputDims(outputDims);
   return success();
 }
 

@@ -50,7 +50,8 @@ func.func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
   // CHECK-NEXT: [[REDUCE_SUM:%.+]] = "onnx.ReduceSum"([[EXP]], [[CST]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32> 
   // CHECK-NEXT: [[LOG:%.+]] = "onnx.Log"([[REDUCE_SUM]]) : (tensor<*xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: [[SQUEEZE:%.+]] = "onnx.SqueezeV11"([[REDUCE_MAX]]) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK-NEXT: [[AXES:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  // CHECK-NEXT: [[SQUEEZE:%.+]] = "onnx.Squeeze"([[REDUCE_MAX]], [[AXES]]) : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
   // CHECK-NEXT: [[RES:%.+]] = "onnx.Add"([[LOG]], [[SQUEEZE]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
   // CHECK-NEXT: return [[RES]] : tensor<*xf32>
 }
@@ -305,11 +306,23 @@ func.func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) 
 
   // CHECK-LABEL:  func @test_seqence_construct_1
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
-  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
   // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
   // CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
   // CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
+}
+
+func.func @test_seqence_construct_2(%arg0: tensor<*xi16>) -> !onnx.Seq<tensor<*xi16>> {
+  %0 = "onnx.SequenceConstruct"(%arg0) : (tensor<*xi16>) -> !onnx.Seq<tensor<*xi16>>
+  return %0 : !onnx.Seq<tensor<*xi16>>
+
+  // CHECK-LABEL:  func @test_seqence_construct_2
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xi16>) -> !onnx.Seq<tensor<*xi16>> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 5 : si64} : () -> !onnx.Seq<tensor<*xi16>>
+  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xi16>>, tensor<*xi16>, none) -> !onnx.Seq<tensor<*xi16>>
+  // CHECK:           return [[VAR_1_]] : !onnx.Seq<tensor<*xi16>>
 }
 
 // -----
@@ -323,6 +336,67 @@ func.func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
   // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<6.000000e+00> : tensor<f32>} : () -> tensor<f32>
   // CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) : (tensor<*xf32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
+func.func @test_splitV11(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [1]} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_splitV11
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
+func.func @test_splitV11_no_split(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_splitV11_no_split
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, none) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+
+// -----
+
+func.func @test_squeezeV11(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.SqueezeV11"(%arg0) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_squeezeV11
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Squeeze"(%arg0, %0) : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
+func.func @test_squeezeV11_no_axes(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.SqueezeV11"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_squeezeV11_no_axes
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Squeeze"(%arg0, %0) : (tensor<*xf32>, none) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
+func.func @test_unsqueezeV11(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_unsqueezeV11
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"(%arg0, %0) : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
   // CHECK:           return
 }
 

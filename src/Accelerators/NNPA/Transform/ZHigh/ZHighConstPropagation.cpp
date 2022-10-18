@@ -116,7 +116,8 @@ ZHighStickifiedConstantOp emitZHighStickifiedConstant(PatternRewriter &rewriter,
           ->getDialect()
           ->getNamespace(), // use the dialect as the blob "hint"
       HeapAsmResourceBlob::allocateAndCopy(
-          ArrayRef((char *)ztensor->buffer, sizeInBytes), alignof(char)));
+          llvm::makeArrayRef((char *)ztensor->buffer, sizeInBytes),
+          alignof(char)));
 
   stickifiedConstant.valueAttr(valueAttr);
 
@@ -146,6 +147,9 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
   // pre-transformed desc.
   zdnn_data_layouts zDNNLayout =
       convertLayoutAttrToZDNNDataLayout(rank, layout);
+  // If zDNNLayout is NHWC, we stickify directly from NCHW.
+  if (zDNNLayout == ZDNN_NHWC)
+    zDNNLayout = ZDNN_NCHW;
   zdnn_data_types zDNNType = mlirTypeToZDNNType(elementType);
   set_info_pre_transformed_desc(&pre_tfrmd_desc, zDNNLayout, zDNNType, shape);
   // transformed desc.

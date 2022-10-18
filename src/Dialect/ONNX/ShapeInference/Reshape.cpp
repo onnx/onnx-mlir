@@ -74,7 +74,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
         outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
 
   // Save the final result.
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
 
   return success();
 }

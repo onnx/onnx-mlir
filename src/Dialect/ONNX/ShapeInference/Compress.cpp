@@ -35,10 +35,9 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
-  assert(
-      (!optionalAxis.hasValue() || (-inputRank <= optionalAxis.getValue() &&
-                                       optionalAxis.getValue() < inputRank)) &&
-      "axis out of range");
+  assert((!optionalAxis.has_value() || (-inputRank <= optionalAxis.value() &&
+                                           optionalAxis.value() < inputRank)) &&
+         "axis out of range");
 
   // Get the dimension derived from the condition. Assume in shape helper that
   // it is only going to be a question mark. ONNX to Krnl lowering will compute
@@ -52,7 +51,7 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
 
   // Compute dims for output.
   DimsExpr outputDims;
-  if (!optionalAxis.hasValue())
+  if (!optionalAxis.has_value())
     // Reduced to a single dimensional array, of dynamic size.
     outputDims.emplace_back(dynDim);
   else {
@@ -63,14 +62,14 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
 
     // Negative axis means values are counted from the opposite side.
     // TODO: should be in normalization pass
-    int64_t axisValue = optionalAxis.getValue();
+    int64_t axisValue = optionalAxis.value();
     if (axisValue < 0)
       axisValue += inputRank;
 
     outputDims[axisValue] = dynDim;
   }
 
-  dimsForOutput() = outputDims;
+  setOutputDims(outputDims);
   return success();
 }
 

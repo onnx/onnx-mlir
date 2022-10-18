@@ -25,10 +25,12 @@ namespace onnx_mlir {
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
-    int threshold, bool report);
+    int threshold, bool report, bool targetCPU);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
+
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
@@ -47,17 +49,18 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
+/// Pass for simplifying shape-related ONNX operations.
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling);
-
-// /// Add pass for lowering to Mhlo IR.
-// std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+    int optLevel, bool enableParallel);
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
+    bool emitDealloc, bool enableTiling, bool enableParallel);
 
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<mlir::Pass> createLowerToTorchPass();
@@ -65,6 +68,11 @@ std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
 
 /// Pass for ONNX to Aten Types Transform
 std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
+
+#ifdef ONNX_MLIR_ENABLE_MHLO
+/// Add pass for lowering to Mhlo IR.
+std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+#endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();

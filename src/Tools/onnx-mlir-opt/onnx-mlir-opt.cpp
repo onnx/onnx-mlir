@@ -17,6 +17,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
@@ -39,44 +40,49 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 
-// #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-
 using namespace mlir;
 using namespace onnx_mlir;
 
-static llvm::cl::opt<std::string> input_filename(
-    llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"));
+// Options for onnx-mlir-opt only.
+static llvm::cl::OptionCategory OnnxMlirOptOptions(
+    "ONNX-MLIR-OPT Options", "These are opt frontend options.");
+
+static llvm::cl::opt<std::string> input_filename(llvm::cl::Positional,
+    llvm::cl::desc("<input file>"), llvm::cl::init("-"),
+    llvm::cl::cat(OnnxMlirOptOptions));
 
 static llvm::cl::opt<std::string> output_filename("o",
     llvm::cl::desc("Output filename"), llvm::cl::value_desc("filename"),
-    llvm::cl::init("-"));
+    llvm::cl::init("-"), llvm::cl::cat(OnnxMlirOptOptions));
 
 static llvm::cl::opt<bool> split_input_file("split-input-file",
     llvm::cl::desc("Split the input file into pieces and process each "
                    "chunk independently"),
-    llvm::cl::init(false));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
 
 static llvm::cl::opt<bool> verify_diagnostics("verify-diagnostics",
     llvm::cl::desc("Check that emitted diagnostics match "
                    "expected-* lines on the corresponding line"),
-    llvm::cl::init(false));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
 
 static llvm::cl::opt<bool> verify_passes("verify-each",
     llvm::cl::desc("Run the verifier after each transformation pass"),
-    llvm::cl::init(true));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptOptions));
 
 static llvm::cl::opt<bool> allowUnregisteredDialects(
     "allow-unregistered-dialect",
     llvm::cl::desc("Allow operation with no registered dialects"),
-    llvm::cl::init(false));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
 
 void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("-O") != 0)
-      continue;
-    int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+    int num = -1;
+    if (currStr.find("--O") == 0)
+      num = atoi(&argv[i][3]); // Get the number starting 3 char down.
+    else if (currStr.find("-O") == 0)
+      num = atoi(&argv[i][2]); // Get the number starting 2 char down.
     // Silently ignore out of bound opt levels.
     if (num >= 0 && num <= 3) {
       OptimizationLevel = (onnx_mlir::OptLevel)num;
@@ -89,22 +95,33 @@ void scanAndSetMAccel(int argc, char **argv) {
   // Scan accelerators and add them to the maccel option.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("--maccel=") != 0)
-      continue;
-    std::string accelKind(&argv[i][9]); // Get the string starting 9 chars down.
-    setTargetAccel(accelKind);
+    if (currStr.find("--maccel=") == 0) {
+      std::string accelKind(
+          &argv[i][9]); // Get the string starting 9 chars down.
+      setTargetAccel(accelKind);
+      break;
+    }
+    if (currStr.find("-maccel=") == 0) {
+      std::string accelKind(
+          &argv[i][8]); // Get the string starting 8 chars down.
+      setTargetAccel(accelKind);
+      break;
+    }
   }
 }
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
-  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
+  // Scan Opt Level manually now as it is needed for initializing the OM
+  // Passes.
   scanAndSetOptLevel(argc, argv);
   // Scan maccel manually now as it is needed for initializing the OM Passes.
   scanAndSetMAccel(argc, argv);
 
-  // Hide unrelated options except common ones.
-  llvm::cl::HideUnrelatedOptions({&onnx_mlir::OnnxMlirCommonOptions});
+  // Hide unrelated options except common ones and the onnx-mlir-opt options
+  // defined above.
+  llvm::cl::HideUnrelatedOptions(
+      {&onnx_mlir::OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
@@ -119,7 +136,6 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
   registry.insert<mlir::tosa::TosaDialect>();
-  // registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::torch::Torch::TorchDialect>();
   registry.insert<mlir::torch::TorchConversion::TorchConversionDialect>();
 
@@ -136,6 +152,7 @@ int main(int argc, char **argv) {
   registerLinalgPasses();
   memref::registerMemRefPasses();
   registerSCFPasses();
+  bufferization::registerBufferizationPasses();
 
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();
@@ -151,20 +168,26 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
-  llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr, "ONNX_MLIR_OPT_FLAGS");
+
+  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(argc, argv,
+          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          customEnvFlags.c_str())) {
+    llvm::errs() << "Failed to parse options\n";
+    return 1;
+  }
 
   // Set up the input file.
   std::string error_message;
   auto file = mlir::openInputFile(input_filename, &error_message);
   if (!error_message.empty()) {
-    fprintf(stderr, "%s\n", error_message.c_str());
+    llvm::errs() << "Failure to open file; " << error_message << "\n";
     return failed(LogicalResult::failure());
   }
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
   if (!error_message.empty()) {
-    fprintf(stderr, "%s\n", error_message.c_str());
+    llvm::errs() << "Failure to compile file; " << error_message << "\n";
     return failed(LogicalResult::failure());
   }
 

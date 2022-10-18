@@ -28,7 +28,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     Location loc = ONNXLoc<ONNXConstantOp>(op);
     auto constantOp = cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().hasValue())
+    if (constantOp.sparse_value().has_value())
       return emitError(loc, "Only support dense values at this time");
 
     // Convert the output type to MemRefType.
@@ -40,7 +40,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     Value constantGlobal = create.krnl.constant(
-        memRefType, "constant_", constantOp.value().getValue());
+        memRefType, "constant_", constantOp.value().value());
 
     // Replace this operation with the generated krnl.global.
     rewriter.replaceOp(op, constantGlobal);
