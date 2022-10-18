@@ -437,17 +437,13 @@ struct ElementWiseUnaryOpImpl<ONNXSqrtOp, DTy, onlyFP<DTy>> {
 template <typename DTy>
 struct ElementWiseUnaryOpImpl<ONNXNegOp, DTy, onlyFPOrInt<DTy>> {
   using S = typename DTy::unpacked_type;
-  static S impl(S val) { return (-val); }
+  static S impl(S val) { return -val; }
 };
 
 template <typename DTy>
 struct ElementWiseUnaryOpImpl<ONNXReluOp, DTy, onlyFPOrInt<DTy>> {
   using S = typename DTy::unpacked_type;
-  static S impl(S val) {
-    if (val < 0)
-      return 0;
-    return val;
-  }
+  static S impl(S val) { return val < 0 ? 0 : val; }
 };
 
 template <typename OP>
