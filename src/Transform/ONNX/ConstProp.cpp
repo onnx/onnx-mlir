@@ -476,13 +476,6 @@ struct ElementwiseUnary {
   };
 };
 
-template <typename ElementwiseUnaryOp>
-void doConstPropElementwiseUnary(
-    Type type, ArrayRef<char> src, MutableArrayRef<char> dst) {
-  dispatchFPOrInt<ElementwiseUnary<ElementwiseUnaryOp>::template Compute, void,
-      ArrayRef<char>, MutableArrayRef<char>>::eval(type, src, dst);
-}
-
 /// Do element-wise unary calculation of 'input' value and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseUnaryOp>
@@ -499,7 +492,9 @@ Value ConstPropElementwiseUnary(
 
   ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
       replacingType, [&](MutableArrayRef<char> dst) {
-        doConstPropElementwiseUnary<ElementwiseUnaryOp>(elementType, src, dst);
+        dispatchFPOrInt<ElementwiseUnary<ElementwiseUnaryOp>::template Compute,
+            void, ArrayRef<char>, MutableArrayRef<char>>::eval(elementType, src,
+            dst);
       });
 
   // Construct a new ONNXConstantOp.
