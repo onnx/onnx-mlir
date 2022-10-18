@@ -415,40 +415,33 @@ Value ConstPropElementwiseBinary(
 //// Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
 
-template <typename Ty>
-std::enable_if_t<std::is_floating_point_v<typename Ty::unpacked_type>,
-    typename Ty::unpacked_type>
-sqrtImpl(typename Ty::unpacked_type val) {
-  return sqrt(val);
-}
-
-template <typename DTy>
-std::enable_if_t<!std::is_floating_point_v<typename DTy::unpacked_type>,
-    typename DTy::unpacked_type>
-sqrtImpl(typename DTy::unpacked_type x) {
-  llvm_unreachable("sqrt is unsupported for ints");
-}
-
-template <typename OP, typename DTy>
+template <typename OP, typename DTy, class Enable = void>
 struct ElementWiseUnaryOpImpl {
   using S = typename DTy::unpacked_type;
   static S impl(S val) { llvm_unreachable("unknown operation"); }
 };
 
 template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, DTy> {
+using onlyFP =
+    std::enable_if_t<std::is_floating_point_v<typename DTy::unpacked_type>>;
+
+template <typename DTy>
+using onlyFPOrInt = std::enable_if_t<!std::is_same_v<typename DTy::type, bool>>;
+
+template <typename DTy>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, DTy, onlyFP<DTy>> {
   using S = typename DTy::unpacked_type;
-  static S impl(S val) { return sqrtImpl<DTy>(val); }
+  static S impl(S val) { return sqrt(val); }
 };
 
 template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, DTy> {
+struct ElementWiseUnaryOpImpl<ONNXNegOp, DTy, onlyFPOrInt<DTy>> {
   using S = typename DTy::unpacked_type;
   static S impl(S val) { return (-val); }
 };
 
 template <typename DTy>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, DTy> {
+struct ElementWiseUnaryOpImpl<ONNXReluOp, DTy, onlyFPOrInt<DTy>> {
   using S = typename DTy::unpacked_type;
   static S impl(S val) {
     if (val < 0)
