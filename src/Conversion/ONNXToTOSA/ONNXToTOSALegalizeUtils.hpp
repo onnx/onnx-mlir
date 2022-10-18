@@ -31,6 +31,7 @@ namespace tosa {
 
 // Create a 32-bit float constant operator from a float
 // Diverged from Tensorflow to a tensor of any rank
+// Added the shape argument for that
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape = {});
 
