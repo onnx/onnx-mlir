@@ -268,29 +268,29 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
 // type as well as the two element attributes for the operation, and return the
 // result of the operation.
 
-template <typename OP, typename T>
+template <typename OP, typename U, class Enable = void>
 struct ElementWiseBinaryOpImpl {
-  static T impl(T lhs, T rhs) { llvm_unreachable("unknown operation"); }
+  static U impl(U lhs, U rhs) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
-  static T impl(T lhs, T rhs) { return lhs + rhs; }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXAddOp, U, onlyNumber<U>> {
+  static U impl(U lhs, U rhs) { return lhs + rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
-  static T impl(T lhs, T rhs) { return lhs - rhs; }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXSubOp, U, onlyNumber<U>> {
+  static U impl(U lhs, U rhs) { return lhs - rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
-  static T impl(T lhs, T rhs) { return lhs * rhs; }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXMulOp, U, onlyNumber<U>> {
+  static U impl(U lhs, U rhs) { return lhs * rhs; }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
-  static T impl(T lhs, T rhs) { return lhs / rhs; }
+template <typename U>
+struct ElementWiseBinaryOpImpl<ONNXDivOp, U, onlyNumber<U>> {
+  static U impl(U lhs, U rhs) { return lhs / rhs; }
 };
 
 std::vector<int64_t> unbroadcast(
@@ -407,12 +407,6 @@ template <typename OP, typename U, class Enable = void>
 struct ElementWiseUnaryOpImpl {
   static U impl(U val) { llvm_unreachable("unknown operation"); }
 };
-
-template <typename U>
-using onlyFP = std::enable_if_t<std::is_floating_point_v<U>>;
-
-template <typename U>
-using onlyNumber = std::enable_if_t<!std::is_same_v<U, bool>>;
 
 template <typename U>
 struct ElementWiseUnaryOpImpl<ONNXSqrtOp, U, onlyFP<U>> {

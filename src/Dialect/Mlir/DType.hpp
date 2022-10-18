@@ -198,4 +198,10 @@ void fillOrTransform(
     std::transform(src.begin(), src.end(), dst.begin(), fn);
 }
 
+template <typename U>
+using onlyFP = std::enable_if_t<std::is_floating_point_v<U>>;
+
+template <typename U>
+using onlyNumber = std::enable_if_t<!std::is_same_v<U, bool>>;
+
 } // namespace onnx_mlir
