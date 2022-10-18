@@ -85,6 +85,7 @@ public:
   }
 };
 
+// Support for prelu/leakyrelu adapted from tensorflow to tosa implementation
 static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
     PatternRewriter &rewriter, Value input, float alpha,
     TensorType outputType) {
