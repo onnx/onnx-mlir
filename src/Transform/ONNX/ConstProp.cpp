@@ -85,6 +85,21 @@ const StringRef BUFFER_ID_ATTR = "buffer_id";
 /// Buffer pool to store buffer pointers.
 SmallVector<char *, 4> bufferPtrs;
 
+template <typename S>
+struct CastIntsOrFPs {
+  template <typename DstDTy, typename... Args>
+  struct Cast {
+    using D = typename DstDTy::type;
+    static void eval(ArrayRef<char> src, char *dst) {
+      D *rs = reinterpret_cast<D *>(dst);
+      ArrayRef<S> vs = castArrayRef<S>(src);
+      std::transform(vs.begin(), vs.end(), rs, [](S v) {
+        return DstDTy::pack(static_cast<typename DstDTy::unpacked_type>(v));
+      });
+    }
+  };
+};
+
 ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(
     ONNXConstantOp constOp, ShapedType type) {
   Attribute bufferIDAttr =
@@ -92,11 +107,24 @@ ArrayRef<char> getDenseIntOrFPRawDataFromConstOp(
   if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     int64_t maxSize = getMaxSizeInBytes(type);
-    ArrayRef<char> a = llvm::makeArrayRef(bufferPtrs[bufferId], maxSize);
+    ArrayRef<char> src = llvm::makeArrayRef(bufferPtrs[bufferId], maxSize);
     int64_t size = getSizeInBytes(type);
     if (size == maxSize)
-      return a;
-    assert(false); // TODO: implement this case
+      return src;
+    // TODO: redo all the following
+    char *res = allocateBufferFor(type, /*useMaxSize=*/false);
+    bufferPtrs.push_back(res);
+    Type elementType = type.getElementType();
+    if (elementType.isa<FloatType>()) {
+      dispatchFP<CastIntsOrFPs<double>::template Cast, void, ArrayRef<char>,
+          char *>::eval(elementType, src, res);
+    } else if (elementType.isa<IntegerType>()) {
+      dispatchInt<CastIntsOrFPs<int64_t>::template Cast, void, ArrayRef<char>,
+          char *>::eval(elementType, src, res);
+    } else {
+      llvm_unreachable("Unknown data type");
+    }
+    return llvm::makeArrayRef(res, size);
   }
   ElementsAttr elements = constOp.valueAttr().cast<ElementsAttr>();
   return getDenseIntOrFPRawData(elements);
