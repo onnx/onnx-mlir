@@ -6,7 +6,41 @@ func.func @test_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<24x22x52x42xf32> 
     %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<24x22x52x42xf32> 
     return %2 :   tensor<24x22x52x42xf32> 
 // CHECK-LABEL: test_pad
-// CHECK: %[[VAR0:.*]] = "tosa.const"() {value = dense<4.500000e+00> : tensor<f32>} : () -> tensor<f32>
-// CHECK: %[[VAR1:.*]] = "tosa.const"() {value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>} : () -> tensor<4x2xi64>
-// CHECK: %[[VAR2:.*]] = "tosa.pad"(%arg0, %[[VAR1]], %[[VAR0]])
+// CHECK: %[[VAR0:.*]] = "tosa.const"() {value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>} : () -> tensor<4x2xi64>
+// CHECK: %[[VAR1:.*]] = "tosa.const"() {value = dense<4.500000e+00> : tensor<f32>} : () -> tensor<f32>
+// CHECK: %[[VAR2:.*]] = "tosa.pad"(%arg0, %[[VAR0]], %[[VAR1]])
 }
+
+// -----
+func.func @test_no_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x44x32xf32>     {
+    %0 = "onnx.Constant"() {value = dense<[0, 0, 0, 0, 0, 0, 0, 0]> : tensor<8xi64>} : () -> tensor<8xi64> 
+    %1 = "onnx.Constant"() {value = dense<[4.5000]> : tensor<1xf32>} : () -> tensor<1xf32> 
+    %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<20x16x44x32xf32> 
+    return %2 :   tensor<20x16x44x32xf32> 
+// CHECK-LABEL: test_no_pad
+// CHECK-NOT: "tosa.const"
+// CHECK-NOT: "tosa.pad"
+}
+
+// -----
+func.func @test_novalue_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x45x33xf32>     {
+    %0 = "onnx.Constant"() {value = dense<[0, 0, 1, 1, 0, 0, 0, 0]> : tensor<8xi64>} : () -> tensor<8xi64> 
+    %1 = "onnx.NoValue"() {value} : () -> none
+    %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none) -> tensor<20x16x45x33xf32> 
+    return %2 :   tensor<20x16x45x33xf32> 
+// CHECK-LABEL: test_novalue_pad
+// CHECK: %[[VAR0:.*]] = "tosa.const"() {value = dense<[{{\[}}0, 0], [0, 0], [1, 0], [1, 0]]> : tensor<4x2xi64>} : () -> tensor<4x2xi64>
+// CHECK: %[[VAR1:.*]] = "tosa.pad"(%arg0, %[[VAR0]])
+}
+
+// -----
+func.func @test_novalue_no_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x44x32xf32>     {
+    %0 = "onnx.Constant"() {value = dense<[0, 0, 0, 0, 0, 0, 0, 0]> : tensor<8xi64>} : () -> tensor<8xi64> 
+    %1 = "onnx.NoValue"() {value} : () -> none
+    %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none) -> tensor<20x16x44x32xf32> 
+    return %2 :   tensor<20x16x44x32xf32> 
+// CHECK-LABEL: test_novalue_no_pad
+// CHECK-NOT: "tosa.const"
+// CHECK-NOT: "tosa.pad"
+}
+

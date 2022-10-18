@@ -18,6 +18,8 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 
 #ifdef _WIN32
@@ -76,11 +78,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-typedef struct dim_pads {
-  int dim_start;
-  int dim_end;
-} dim_pads;
-
 class ONNXPadOpLoweringToTOSA : public OpConversionPattern<ONNXPadOp> {
 public:
   using OpConversionPattern<ONNXPadOp>::OpConversionPattern;
@@ -106,7 +103,7 @@ public:
             .dyn_cast<DenseElementsAttr>();
 
     // Reading the ONNX side pads values and store in the array.
-    std::vector<APInt> intValues;
+    llvm::SmallVector<APInt, 8> intValues;
     bool paddingNeeded = false;
     for (auto n : denseAttr.getValues<APInt>()) {
       intValues.push_back(n);
@@ -115,6 +112,8 @@ public:
     }
     if (!paddingNeeded) {
       // We do not need to represent the no-op pad in the resulting MLIR
+      rewriter.eraseOp(pads.getDefiningOp());
+      rewriter.eraseOp(constValue.getDefiningOp());
       rewriter.replaceOp(op, {data});
       return success();
     }
@@ -122,38 +121,14 @@ public:
     // Rearrange the pad values.
     // ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
     // TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
-    dim_pads dimArray[intValues.size() / 2];
-
     llvm::SmallVector<int64_t, 8> translatePadsList;
     if (!intValues.empty()) {
-      unsigned int dimSize = intValues.size() / 2;
-      unsigned int lastNonZero = 0;
+      const unsigned int dimSize = intValues.size() / 2;
       for (unsigned int i = 0; i < dimSize; i++) {
-        dimArray[i].dim_start = intValues[i].getZExtValue();
-        dimArray[i].dim_end = intValues[i + dimSize].getZExtValue();
-        if (dimArray[i].dim_start != 0 || dimArray[i].dim_end != 0)
-          lastNonZero = i;
-      }
-
-      // read the onnx pad values from array(dim_start values)
-
-      for (unsigned int i = 0; i < lastNonZero + 1; i++) {
-        translatePadsList.push_back(dimArray[i].dim_start);
-        translatePadsList.push_back(dimArray[i].dim_end);
+        translatePadsList.push_back(intValues[i].getZExtValue());
+        translatePadsList.push_back(intValues[i + dimSize].getZExtValue());
       }
     }
-
-    DenseElementsAttr valueAttr =
-        llvm::dyn_cast_or_null<tosa::ConstOp>(constValue.getDefiningOp())
-            .getValue()
-            .dyn_cast<DenseElementsAttr>();
-    auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-    // Need float for F32 Type
-    float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
-    auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-    auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-    Value constTosaTensor = rewriter.replaceOpWithNewOp<tosa::ConstOp>(
-        constValue.getDefiningOp(), constType, constAttr);
 
     const unsigned int numberOfDims = intValues.size() / 2;
     DenseElementsAttr paddingAttr = DenseIntElementsAttr::get(
@@ -168,10 +143,23 @@ public:
 
     rewriter.eraseOp(pads.getDefiningOp());
 
-    if (constTosaTensor) {
+    if (!constValue.getType().dyn_cast<NoneType>()) {
+      DenseElementsAttr valueAttr =
+          llvm::dyn_cast_or_null<tosa::ConstOp>(constValue.getDefiningOp())
+              .getValue()
+              .dyn_cast<DenseElementsAttr>();
+      auto valueIt = valueAttr.getValues<FloatAttr>().begin();
+      // Need float for F32 Type
+      float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
+      auto constType = RankedTensorType::get({}, rewriter.getF32Type());
+      auto constAttr = DenseElementsAttr::get(constType, valueFloat);
+      Value constTosaTensor = rewriter.replaceOpWithNewOp<tosa::ConstOp>(
+          constValue.getDefiningOp(), constType, constAttr);
+
       rewriter.replaceOpWithNewOp<tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
+      rewriter.eraseOp(constValue.getDefiningOp());
       rewriter.replaceOpWithNewOp<tosa::PadOp>(op, resultType, data, padsList1);
     }
 
