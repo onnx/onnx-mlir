@@ -458,42 +458,65 @@ struct ElementWiseUnaryOpImpl {
   static T impl(T val) { llvm_unreachable("unknown operation"); }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, T> {
-  static T impl(T val) { return (-val); }
+template <typename Ty>
+std::enable_if_t<std::is_floating_point_v<typename Ty::unpacked_type>,
+    typename Ty::unpacked_type>
+sqrtImpl(typename Ty::unpacked_type val) {
+  return sqrt(val);
+}
+
+template <typename Ty>
+std::enable_if_t<!std::is_floating_point_v<typename Ty::unpacked_type>,
+    typename Ty::unpacked_type>
+sqrtImpl(typename Ty::unpacked_type x) {
+  llvm_unreachable("sqrt is unsupported for ints");
+}
+
+template <typename Ty>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, Ty> {
+  using S = typename Ty::unpacked_type;
+  static S impl(S val) { return sqrtImpl<Ty>(val); }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T> {
-  static T impl(T val) { return sqrt(val); }
+template <typename Ty>
+struct ElementWiseUnaryOpImpl<ONNXNegOp, Ty> {
+  using S = typename Ty::unpacked_type;
+  static S impl(S val) { return (-val); }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, T> {
-  static T impl(T val) {
+template <typename Ty>
+struct ElementWiseUnaryOpImpl<ONNXReluOp, Ty> {
+  using S = typename Ty::unpacked_type;
+  static S impl(S val) {
     if (val < 0)
       return 0;
     return val;
   }
 };
 
-template <typename OP, typename T>
-T ComputeConstPropElementwiseUnary(T val) {
-  return ElementWiseUnaryOpImpl<OP, T>::impl(val);
-}
+template <typename ElementwiseUnaryOp>
+struct ElementwiseUnary {
+  template <typename Ty, typename... Ts>
+  struct Compute {
+    static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
+      using S = typename Ty::type;
+      int64_t numElements = src.size() / sizeof(S);
+      // Cannot use copyAndCastArr here because it's not defined for all types.
+      auto *srcArr = reinterpret_cast<const S *>(src.data());
+      auto *dstArr = reinterpret_cast<S *>(dst.data());
+      std::transform(srcArr, srcArr + numElements, dstArr, [](S v) {
+        return Ty::pack(ElementWiseUnaryOpImpl<ElementwiseUnaryOp, Ty>::impl(
+            Ty::unpack(v)));
+      });
+    }
+  };
+};
 
-template <typename ElementwiseUnaryOp, typename T>
-void IterateConstPropElementwiseUnary(
-    char *input, char *res, ArrayRef<int64_t> outputShape) {
-  // Data pointers.
-  T *inputArray = reinterpret_cast<T *>(input);
-  T *resArray = reinterpret_cast<T *>(res);
-
-  // Calculate element-wise unary result.
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
-    *(resArray + i) = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(
-        *(inputArray + i));
-  }
+template <typename ElementwiseUnaryOp>
+void doConstPropElementwiseUnary(
+    Type type, ArrayRef<char> src, MutableArrayRef<char> dst) {
+  dispatchIntOrFP<void, ElementwiseUnary<ElementwiseUnaryOp>::template Compute,
+      ArrayRef<char>, MutableArrayRef<char>>::eval(type, src, dst);
 }
 
 /// Do element-wise unary calculation of 'input' value and create an
@@ -501,32 +524,23 @@ void IterateConstPropElementwiseUnary(
 template <typename ElementwiseUnaryOp>
 Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ShapedType srcType = constValue.getType().cast<ShapedType>();
   ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
-  ArrayRef<int64_t> replacingShape = replacingType.getShape();
+  assert(srcType.getNumElements() == replacingType.getNumElements() &&
+         "types must have the equally many elements");
+
   Type elementType = replacingType.getElementType();
 
-  // Get the const value.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
+  ArrayRef<char> src = getDenseIntOrFPRawDataFromConstValue(constValue);
 
-  // Do calculation.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
-        constArray, resArray, replacingShape);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
-        constArray, resArray, replacingShape);
-  } else
-    llvm_unreachable("Unknown data type");
+  ElementsAttr elements = makeDenseIntOrFPElementsAttrWithRawBuffer(
+      replacingType, [&](MutableArrayRef<char> dst) {
+        doConstPropElementwiseUnary<ElementwiseUnaryOp>(elementType, src, dst);
+      });
 
   // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+  ONNXConstantOp res = createONNXConstantOpWithDenseAttr(
+      rewriter, replacingValue.getLoc(), elements);
 
   return res.getResult();
 }
@@ -826,8 +840,7 @@ public:
 
 template <typename SrcTy, typename DstTy, typename... Ts>
 struct SrcDstCast {
-  static void eval(ArrayRef<char> src,
-      MutableArrayRef<char> dst) {
+  static void eval(ArrayRef<char> src, MutableArrayRef<char> dst) {
     using S = typename SrcTy::type;
     using D = typename DstTy::type;
     int64_t numElements = src.size() / sizeof(S);
@@ -843,14 +856,14 @@ struct SrcDstCast {
 
 template <typename DstTy>
 struct SrcCast {
-  template <typename SrcTy, typename ...Ts>
+  template <typename SrcTy, typename... Ts>
   using Cast = SrcDstCast<SrcTy, DstTy, Ts...>;
 };
 
 template <typename DstTy, typename... Ts>
 struct DstCast {
-  static void eval(Type srcType, MutableArrayRef<char> dst,
-      ArrayRef<char> src) {
+  static void eval(
+      Type srcType, MutableArrayRef<char> dst, ArrayRef<char> src) {
     dispatchIntOrFP<void, SrcCast<DstTy>::template Cast, ArrayRef<char>,
         MutableArrayRef<char>>::eval(srcType, src, dst);
   }
