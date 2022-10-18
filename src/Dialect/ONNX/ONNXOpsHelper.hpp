@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
@@ -45,7 +47,7 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.
 mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    mlir::OpBuilder &builder, const mlir::Type inputType,
+    mlir::Builder &builder, const mlir::Type inputType,
     mlir::StringAttr layoutAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).

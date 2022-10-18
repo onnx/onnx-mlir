@@ -126,7 +126,7 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
 
 // Add ONNX tensor encoding to rank & shaped types. Assert otherwise.
 Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    OpBuilder &builder, const Type inputType, StringAttr layoutAttr) {
+    Builder &builder, const Type inputType, StringAttr layoutAttr) {
   Type resType = builder.getNoneType();
   if (!inputType.isa<NoneType>()) {
     ShapedType shapedType = inputType.cast<ShapedType>();

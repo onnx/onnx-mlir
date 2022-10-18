@@ -117,12 +117,13 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
         return {};
       }
       if (!convertStringToONNXCustomTensorDataLayout(
-              layoutAttr, dataLayout, xFactor, yFactor))
+              layoutAttr, dataLayout, xFactor, yFactor)) {
         parser.emitError(
             parser.getNameLoc(), "unexpected data layout attribute value: ")
             << layoutAttr.getValue();
-      return {};
-    } else {
+        return {};
+      }
+    } else { // Attribute different than "dataLayout".
       parser.emitError(parser.getNameLoc(), "unexpected key: ")
           << attr.getName().str();
       return {};
@@ -4458,7 +4459,10 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
   if (!hasShapeAndRank(operandAdaptor.data()))
     return success();
 
-  getResult().setType(data().getType());
+  auto builder = mlir::Builder(getContext());
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, data().getType(), target_layoutAttr());
+  getResult().setType(resType);
   return success();
 }
 

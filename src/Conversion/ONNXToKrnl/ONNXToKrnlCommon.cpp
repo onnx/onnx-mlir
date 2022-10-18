@@ -621,7 +621,7 @@ MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
   // corresponding to the data layout.
   SmallVector<AffineExpr, 6> dimExpr;
   OpBuilder b(type.getContext());
-  MLIRContext context(b.getContext());
+  MLIRContext *context = b.getContext();
   if (encoding.getDataLayout() == ONNXTensorEncodingAttr::DataLayout::NCHWxC) {
     // perform the map for (N, C, H, W) -> (N, C/x, H, W, C%x) with C=Cin tiled
     // by x.

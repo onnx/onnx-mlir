@@ -204,7 +204,6 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
-    fprintf(stderr, "  hi alex: success in converting conv to matmul\n");
     return success();
   }
 };
@@ -239,9 +238,6 @@ struct ConvOptONNXToONNXPass
 void ConvOptONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
-
-  // hi alex
-  // this->enableSimdLayoutOpt = false;
 
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
