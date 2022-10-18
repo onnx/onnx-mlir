@@ -6757,6 +6757,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUpsampleV9Op:ONNX_Op<"UpsampleV9",
