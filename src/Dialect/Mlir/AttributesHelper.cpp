@@ -37,6 +37,14 @@ size_t byteWidth(size_t bitWidth) {
   return bitWidth / BYTE_BITWIDTH;
 }
 
+void splatterBlob(ShapedType type, AsmResourceBlob &blob) {
+  bool isSplat;
+  bool isValid = DenseElementsAttr::isValidRawBuffer(type, blob.getData(), isSplat);
+  assert(isValid && "invalid dense int or fps raw buffer");
+  (void)isValid;
+  // TODO: change to splat if isSplat
+}
+
 } // namespace
 
 ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
@@ -47,8 +55,9 @@ ElementsAttr makeDenseIntOrFPElementsAttrFromRawBuffer(
          "data size must match type");
   if (ResourcePool *resourcePool = ResourcePool::get(type.getContext());
       resourcePool && resourcePool->isActive()) {
-    DenseResourceElementsHandle r = resourcePool->createResource(
-        HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false));
+    AsmResourceBlob blob = HeapAsmResourceBlob::allocateAndCopy(bytes, ALIGN, false);
+    splatterBlob(type, blob);
+    DenseResourceElementsHandle r = resourcePool->createResource(std::move(blob));
     return DenseResourceElementsAttr::get(type, r);
   } else {
     return DenseElementsAttr::getFromRawBuffer(type, bytes);
@@ -63,6 +72,7 @@ ElementsAttr makeDenseIntOrFPElementsAttrWithRawBuffer(
       resourcePool && resourcePool->isActive()) {
     AsmResourceBlob blob = HeapAsmResourceBlob::allocate(size, ALIGN);
     fill(blob.getMutableData());
+    splatterBlob(type, blob);
     DenseResourceElementsHandle r =
         resourcePool->createResource(std::move(blob));
     return DenseResourceElementsAttr::get(type, r);
@@ -79,7 +89,11 @@ ArrayRef<char> getDenseIntOrFPRawData(ElementsAttr elements) {
     // raw is either a single splat value or a whole array.
     ShapedType type = elements.getType();
     size_t w = byteWidth(type.getElementType().getIntOrFloatBitWidth());
-    assert(raw.size() == w || raw.size() == type.getNumElements() * w);
+    if (dense.isSplat()) {
+      assert(raw.size() == w);
+    } else {
+      assert(raw.size() == type.getNumElements() * w);
+    }
     return raw;
   }
   if (auto x = elements.dyn_cast<DenseResourceElementsAttr>())
