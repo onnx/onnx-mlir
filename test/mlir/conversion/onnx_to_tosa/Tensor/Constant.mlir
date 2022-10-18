@@ -37,15 +37,6 @@ func.func @test_splat_nonsplat_attrs() -> tensor<3xf32> {
 }
 
 
-func.func @test_sparse_value_attr() -> tensor<3xf32> {
-  %0 = "onnx.Constant"() {sparse_value = sparse<0, 1.000000e+00> : tensor<3xf32>} : () -> tensor<3xf32>
-  %1 = "onnx.Constant"() {sparse_value = sparse<[[0, 1]], 2.000000e+00> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
-  "func.return"(%0) : (tensor<3xf32>) -> ()
-// CHECK-LABEL: @test_sparse_value_attr() -> tensor<3xf32>
-// CHECK-DAG: "tosa.const"() {value = sparse<0, 1.000000e+00> : tensor<3xf32>} : () -> tensor<3xf32>
-// CHECK-DAG: "tosa.const"() {value = sparse<{{\[}}[0, 1{{\]}}], 2.000000e+00> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
-}
-
 func.func @test_int_attr() -> tensor<i64> {
   %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
   %1 = "onnx.Constant"() {value = dense<3> : tensor<4xi32>} : () -> tensor<4xi32>
