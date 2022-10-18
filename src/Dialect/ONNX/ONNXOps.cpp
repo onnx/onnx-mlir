@@ -1834,9 +1834,11 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       }
   }
 
-  // Process strides, dilations, and pads.
+  // Process strides, dilations, kernel_shape and pads.
   LogicalResult res = processConvTypeParams<>(this, X(), W());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1943,9 +1945,11 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
         return emitError("bad kernel_shape value");
   }
 
-  // Process strides, dilations, and pads.
+  // Process strides, dilations, kernel_shape and pads.
   LogicalResult res = processConvTypeParams<>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -3080,9 +3084,11 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       }
   }
 
-  // Process strides, dilations, and pads.
+  // Process strides, dilations, kernel_shape and pads.
   LogicalResult res = processConvTypeParams<>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
