@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include "llvm/Support/ErrorHandling.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace onnx_mlir {
 
@@ -61,12 +61,14 @@ uint16_t F32ToU16(float);
 
 template <typename T, typename U = char>
 llvm::ArrayRef<T> castArrayRef(llvm::ArrayRef<U> a) {
-  return llvm::makeArrayRef(reinterpret_cast<const T*>(a.data()), (a.size() * sizeof(U)) / sizeof(T));
+  return llvm::makeArrayRef(reinterpret_cast<const T *>(a.data()),
+      (a.size() * sizeof(U)) / sizeof(T));
 }
 
 template <typename T, typename U = char>
 llvm::MutableArrayRef<T> castMutableArrayRef(llvm::MutableArrayRef<U> a) {
-  return llvm::makeMutableArrayRef(reinterpret_cast<T*>(a.data()), (a.size() * sizeof(U)) / sizeof(T));
+  return llvm::makeMutableArrayRef(
+      reinterpret_cast<T *>(a.data()), (a.size() * sizeof(U)) / sizeof(T));
 }
 
 template <int TY>
@@ -100,10 +102,11 @@ DEFINE_DType(INT32, int32_t);
 DEFINE_DType(UINT32, uint32_t);
 DEFINE_DType(INT64, int64_t);
 DEFINE_DType(UINT64, uint64_t);
-DEFINE_DType_X(FLOAT16, uint16_t, using unpacked_type = float;                                   \
-      static type pack(unpacked_type unpacked) {                               \
-        return F32ToU16(unpacked);                                                       \
-      } static unpacked_type unpack(type packed) { return U16ToF32(packed); });
+DEFINE_DType_X(
+    FLOAT16, uint16_t, using unpacked_type = float;
+    static type pack(unpacked_type unpacked) {
+      return F32ToU16(unpacked);
+    } static unpacked_type unpack(type packed) { return U16ToF32(packed); });
 
 #if 0
 template <template <typename, typename...> class Action,
@@ -131,8 +134,8 @@ struct dispatchIntOrFP {
 };
 #endif
 
-template <template <typename, typename...> class Action,
-    typename Out, typename... Ts>
+template <template <typename, typename...> class Action, typename Out,
+    typename... Ts>
 struct dispatchInt {
   static Out eval(mlir::Type type, Ts... xs) {
 #define ACT(TY) (Action<DType<DTYPE::TY>, Ts...>::eval(xs...))
@@ -151,8 +154,8 @@ struct dispatchInt {
   }
 };
 
-template <template <typename, typename...> class Action,
-    typename Alt, typename Out, typename... Ts>
+template <template <typename, typename...> class Action, typename Alt,
+    typename Out, typename... Ts>
 struct dispatchFPOr {
   static Out eval(mlir::Type type, Ts... xs) {
 #define ACT(TY) (Action<DType<DTYPE::TY>, Ts...>::eval(xs...))
@@ -169,18 +172,17 @@ struct dispatchFPOr {
 
 template <typename Out, typename... Ts>
 struct dispatchFail {
-    static Out eval(mlir::Type type, Ts... xs) {
-        llvm_unreachable("unsupported type");
-    }
+  static Out eval(mlir::Type type, Ts... xs) {
+    llvm_unreachable("unsupported type");
+  }
 };
 
-template <template <typename, typename...> class Action,
-    typename Out, typename... Ts>
-using dispatchFP =
-    dispatchFPOr<Action, dispatchFail<Out, Ts...>, Out, Ts...>;
+template <template <typename, typename...> class Action, typename Out,
+    typename... Ts>
+using dispatchFP = dispatchFPOr<Action, dispatchFail<Out, Ts...>, Out, Ts...>;
 
-template <template <typename, typename...> class Action,
-    typename Out, typename... Ts>
+template <template <typename, typename...> class Action, typename Out,
+    typename... Ts>
 using dispatchFPOrInt =
     dispatchFPOr<Action, dispatchInt<Action, Out, Ts...>, Out, Ts...>;
 

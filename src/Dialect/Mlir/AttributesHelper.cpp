@@ -86,20 +86,25 @@ struct ReadIntsOrFPs {
   static void eval(D token, ArrayRef<char> src, MutableArrayRef<D> dst) {
     using S = typename DTy::type;
     ArrayRef<S> vs = castArrayRef<S>(src);
-    std::transform(vs.begin(), vs.end(), dst.begin(), [](S v) { return static_cast<D>(v); });
+    std::transform(vs.begin(), vs.end(), dst.begin(),
+        [](S v) { return static_cast<D>(v); });
   }
 };
 
 void readDenseInts(mlir::ElementsAttr elements, MutableArrayRef<int64_t> ints) {
   ArrayRef<char> src = getDenseIntOrFPRawData(elements);
   int64_t token = 0;
-  dispatchInt<ReadIntsOrFPs, void, int64_t, ArrayRef<char>, MutableArrayRef<int64_t>>::eval(elements.getElementType(), token, src, ints);
+  dispatchInt<ReadIntsOrFPs, void, int64_t, ArrayRef<char>,
+      MutableArrayRef<int64_t>>::eval(elements.getElementType(), token, src,
+      ints);
 }
 
 void readDenseFPs(mlir::ElementsAttr elements, MutableArrayRef<double> fps) {
   ArrayRef<char> src = getDenseIntOrFPRawData(elements);
   double token = 0.0;
-  dispatchFP<ReadIntsOrFPs, void, double, ArrayRef<char>, MutableArrayRef<double>>::eval(elements.getElementType(), token, src, fps);
+  dispatchFP<ReadIntsOrFPs, void, double, ArrayRef<char>,
+      MutableArrayRef<double>>::eval(elements.getElementType(), token, src,
+      fps);
 }
 
 } // namespace onnx_mlir
