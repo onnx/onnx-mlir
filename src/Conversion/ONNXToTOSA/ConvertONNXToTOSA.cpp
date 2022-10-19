@@ -28,6 +28,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Tensor
   populateLoweringONNXReshapeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXConstOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
