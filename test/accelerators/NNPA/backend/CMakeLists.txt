@@ -170,6 +170,13 @@ set(NNPA_TEST_LIST
     # test_gru_seq_length_cpu
     # test_gru_with_initial_bias_cpu
 
+    # ==OP== LeakyRelu
+    # ==LIM== The operations immediately before and after the LeakyRelu operation must be executed on the NNPA. Otherwise, LeakyRelu is executed on the CPU. This limitation is set to avoid performance degradation.
+    # Leakyrelu op in following test cases doesn't run on NNPA because single LeakyRelu op is included.
+    # test_leakyrelu_cpu
+    # test_leakyrelu_default_cpu
+    # test_leakyrelu_example_cpu
+
     # ==OP== Log
     # ==LIM== Input tensor must have 4 dimensions.
     test_log_example_cpu,zdnn_log

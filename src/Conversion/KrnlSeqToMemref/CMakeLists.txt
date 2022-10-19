@@ -2,8 +2,9 @@
 
 add_onnx_mlir_library(OMSeqToMemref
   ConvertSeqToMemref.cpp
+  KrnlSeqAlloc.cpp
+  KrnlSeqDealloc.cpp
   KrnlSeqExtract.cpp
-  KrnlSeqInsert.cpp
   KrnlSeqStore.cpp
 
   LINK_LIBS PUBLIC

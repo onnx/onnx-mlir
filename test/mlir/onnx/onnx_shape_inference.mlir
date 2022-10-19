@@ -825,6 +825,19 @@ func.func @test_concat_3(%arg0 : tensor<5x1x32xf32>, %arg1 : tensor<5x3x32xf32>,
 
 // -----
 
+func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, %arg2 : tensor<?x5x?xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -2 : si64} : (tensor<?x1x?xf32>, tensor<?x3x32xf32>, tensor<?x5x?xf32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  func.func @test_concat_4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x?xf32>, [[PARAM_1_:%.+]]: tensor<?x3x32xf32>, [[PARAM_2_:%.+]]: tensor<?x5x?xf32>) -> tensor<?x9x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = 1 : si64} : (tensor<?x1x?xf32>, tensor<?x3x32xf32>, tensor<?x5x?xf32>) -> tensor<?x9x32xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x9x32xf32>
+// CHECK:         }
+}
+
+
+// -----
+
 func.func @test_rnn_all_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<*xf32>, tensor<*xf32>)
@@ -1548,6 +1561,15 @@ func.func @test_dequantize_linear_1(%arg0 : tensor<5x2x3x4xi8>, %arg1 : tensor<f
 
   // CHECK-LABEL: test_dequantize_linear_1
   // CHECK: [[RES:%.+]] = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) : (tensor<5x2x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<5x2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<5x2x3x4xf32>
+}
+
+func.func @test_dequantize_linear_2(%arg0 : tensor<5x?x3x4xi8>, %arg1 : tensor<*xf32>, %arg2 : tensor<2xi8>) -> tensor<*xf32> {
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x?x3x4xi8>, tensor<*xf32>, tensor<2xi8>) -> tensor<*xf32>
+  "func.return"(%1) {} : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_dequantize_linear_2
+  // CHECK: [[RES:%.+]] = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) : (tensor<5x?x3x4xi8>, tensor<*xf32>, tensor<2xi8>) -> tensor<5x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<5x2x3x4xf32>
 }
 
@@ -2339,6 +2361,32 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
 }
 
 //===----------------------------------------------------------------------===//
+/// Test the upsample op inference.
+//===----------------------------------------------------------------------===//
+
+func.func @test_upsample_cst(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
+%0 = "onnx.Constant"() {value = dense<[1.0, 1.0, 2.0, 3.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+%1 = "onnx.Upsample"(%arg0, %0) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
+return %1 : tensor<*xf32>
+
+// CHECK-LABEL: test_upsample_cst
+// CHECK: [[CSTPOS:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
+// CHECK: [[RES:%.+]] = "onnx.Upsample"(%arg0, %0) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
+// CHECK: return [[RES]] : tensor<1x1x4x6xf32>
+
+}
+
+// -----
+
+func.func @test_upsample_dyn(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
+%1 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
+return %1 : tensor<*xf32>
+
+// CHECK-LABEL: test_upsample_dyn
+// CHECK: [[RES:%.+]] = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
+// CHECK: return [[RES]] : tensor<*xf32>
+
+}
 
 // -----
 

@@ -26,8 +26,8 @@
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
 
+#include "src/Conversion/KrnlSeqToMemref/ConvertSeqToMemref.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Conversion/SeqToMemref/ConvertSeqToMemref.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
@@ -58,8 +58,9 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   // final target for this lowering.
   ConversionTarget target(getContext());
 
+  target.addIllegalOp<KrnlSeqAllocOp>();
+  target.addIllegalOp<KrnlSeqDeallocOp>();
   target.addIllegalOp<KrnlSeqExtractOp>();
-  target.addIllegalOp<KrnlSeqInsertOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
@@ -71,8 +72,9 @@ void ConvertSeqToMemrefPass::runOnOperation() {
 
   // Define patterns.
   KrnlTypeConverter typeConverter;
+  populateLoweringKrnlSeqAllocOpPattern(typeConverter, patterns, ctx);
+  populateLoweringKrnlSeqDeallocOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqExtractOpPattern(typeConverter, patterns, ctx);
-  populateLoweringKrnlSeqInsertOpPattern(typeConverter, patterns, ctx);
   populateLoweringKrnlSeqStoreOpPattern(typeConverter, patterns, ctx);
 
   if (failed(applyPartialConversion(

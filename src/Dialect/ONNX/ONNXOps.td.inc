@@ -545,7 +545,6 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      // ae auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
       return resultTypes;
     }
@@ -6757,6 +6756,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXUpsampleV9Op:ONNX_Op<"UpsampleV9",
