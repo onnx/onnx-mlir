@@ -37,7 +37,7 @@ ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
 
   _sharedLibraryHandle =
-      llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
+      llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
 
@@ -147,12 +147,11 @@ const std::string ExecutionSession::outputSignature() const {
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 
-void ExecutionSession::close() {
-  if (_sharedLibraryHandle.isValid())
-    llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
+ExecutionSession::~ExecutionSession() {
+  // Call llvm_shutdown which will take care of cleaning up our shared library
+  // handles
+  llvm::llvm_shutdown();
 }
-
-ExecutionSession::~ExecutionSession() { close(); }
 
 std::string ExecutionSession::reportLibraryOpeningError(
     const std::string &libraryName) const {

@@ -180,8 +180,6 @@ std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
   return outputPyArrays;
 }
 
-void PyExecutionSession::pyClose() { close(); }
-
 std::string PyExecutionSession::pyInputSignature() {
   assert(_inputSignatureFunc && "Input signature entry point not loaded.");
   return inputSignature();
