@@ -284,8 +284,9 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
-  if (tensor->_owning)
+  if (tensor->_owning) {
     free(tensor->_allocatedPtr);
+  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
@@ -422,21 +423,21 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   bool signatureInfo = false;
   bool typeInfo = false;
   bool dataInfo = false;
+  bool hadFormat = false;
   while (strlen(msg) >= 2 && msg[0] == '%') {
     if (msg[1] == 's') // S for signature.
-      signatureInfo = true;
+      hadFormat = signatureInfo = true;
     else if (msg[1] == 't') // T for type only
-      typeInfo = true;
+      hadFormat = typeInfo = true;
     else if (msg[1] == 'd')
-      dataInfo = true;
-    else {
-      printf(
-          "warning: unknown format `%c`, print signature and data\n", msg[1]);
-      signatureInfo = dataInfo = true;
-    }
+      hadFormat = dataInfo = true;
+    else
+      printf("warning: unknown format `%c`\n", msg[1]);
     // Skip the format when printing message.
     msg += 2;
   }
+  if (!hadFormat)
+    signatureInfo = dataInfo = true;
 
   // Print message.
   if (msg)
@@ -674,10 +675,11 @@ inline bool omTensorAreTwoOmtsClose(
   auto aShape = std::vector<int64_t>(a->_shape, a->_shape + a->_rank);
   auto bShape = std::vector<int64_t>(b->_shape, b->_shape + b->_rank);
   if (aShape != bShape) {
-    std::cerr << "Shape mismatch ";
+    std::cerr << "Shape mismatch in omTensorAreTwoOmtsClose a: ";
     printVector(aShape, ",", std::cerr);
-    std::cerr << " != ";
+    std::cerr << " != b: ";
     printVector(bShape, ",", std::cerr);
+    std::cerr << std::endl;
     return false;
   }
 
@@ -711,6 +713,7 @@ inline bool omTensorAreTwoOmtsClose(
   if (!satisfied) {
     // Figure out where and what went wrong, this can be slow; but hopefully
     // we don't need this often.
+    std::cerr << "result mismatch in omTensorAreTwoOmtsClose" << std::endl;
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);

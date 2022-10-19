@@ -17,7 +17,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
-#include "src/Conversion/ONNXToTOSA/ONNXToTosaUtils.h"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include <cstdint>
 
 using namespace mlir;

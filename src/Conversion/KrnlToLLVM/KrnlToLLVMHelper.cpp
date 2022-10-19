@@ -15,6 +15,8 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -115,59 +117,8 @@ int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 }
 
 // Convert an MLIR type to the correspoding ONNX type.
-onnx::TensorProto::DataType mlirTypeToOnnxType(Type elemType) {
-  onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
-
-  TypeSwitch<Type>(elemType)
-      .Case<BFloat16Type>(
-          [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
-      .Case<ComplexType>([&](ComplexType type) {
-        if (type.getElementType().isa<Float32Type>())
-          onnxType = onnx::TensorProto::COMPLEX64;
-        else if (type.getElementType().isa<Float64Type>())
-          onnxType = onnx::TensorProto::COMPLEX128;
-      })
-      .Case<Float16Type>(
-          [&](Float16Type) { onnxType = onnx::TensorProto::FLOAT16; })
-      .Case<Float32Type>(
-          [&](Float32Type) { onnxType = onnx::TensorProto::FLOAT; })
-      .Case<Float64Type>(
-          [&](Float64Type) { onnxType = onnx::TensorProto::DOUBLE; })
-      .Case<IntegerType>([&](IntegerType type) {
-        switch (type.getWidth()) {
-        case 1:
-          // only a signless type can be a bool.
-          onnxType = (type.isSigned() || type.isUnsigned())
-                         ? onnx::TensorProto::UNDEFINED
-                         : onnx::TensorProto::BOOL;
-          break;
-        case 8:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
-                                       : onnx::TensorProto::INT8;
-          break;
-        case 16:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT16
-                                       : onnx::TensorProto::INT16;
-          break;
-        case 32:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT32
-                                       : onnx::TensorProto::INT32;
-          break;
-        case 64:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT64
-                                       : onnx::TensorProto::INT64;
-          break;
-        }
-      })
-      .Case<LLVM::LLVMStructType>(
-          [&](LLVM::LLVMStructType) { onnxType = onnx::TensorProto::STRING; });
-
-  if (onnxType == onnx::TensorProto::UNDEFINED) {
-    elemType.dump();
-    llvm_unreachable("MLIR type cannot be converted to ONNX type");
-  }
-
-  return onnxType;
+int64_t mlirTypeToOnnxType(Type elemType) {
+  return onnx_mlir::mlirTypeToOnnxType(elemType);
 }
 
 void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
@@ -198,8 +149,8 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   Type elemTy =
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
-  onnx::TensorProto::DataType onnxTy = krnl::mlirTypeToOnnxType(elemTy);
-  Value onnxTyVal = create.llvm.constant(int64Ty, (int64_t)onnxTy);
+  int64_t onnxTy = krnl::mlirTypeToOnnxType(elemTy);
+  Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
 

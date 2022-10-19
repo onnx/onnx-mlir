@@ -38,7 +38,7 @@ static constexpr int BUFFER_ALIGN = 64;
 extern UnrollAndJamMap unrollAndJamMap;
 extern std::mutex unrollAndJamMutex;
 
-// Affine expressions compared to >= 0
+// Affine expressions compared to >= 0.
 static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   // Determine if the current tile is full. It is full if the beginning of
   // the tile (nGI) is smaller or equal to UB - bloc, namely
@@ -48,7 +48,8 @@ static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
     // Last tile is guaranteed to be full because UB is divisible by block.
     return LiteralIndexExpr(1); // 1 >= 0 is true
   }
-  // true if GI <= (UB - block), namely UB - block - GI >= 0
+  // True if GI <= (UB - block), namely UB - block - GI >= 0.
+  // Affine expressions compared to >= 0
   IndexExpr res = UB - block - GI;
   return res;
 }
