@@ -6,6 +6,7 @@ add_onnx_mlir_library(OMONNXToTOSA
 
   Math/Elementwise.cpp
   Math/Softmax.cpp
+  Tensor/Constant.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
