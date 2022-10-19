@@ -224,9 +224,22 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   ONNXConvOpShapeHelper shapeHelper(&op);
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
-  return (shapeHelper.pads.size() == 4) &&
-         (llvm::all_of(
-             shapeHelper.pads, [](IndexExpr val) { return val.isLiteral(); }));
+  RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  // dimension of inferenced pads should be 4D
+  if (shapeHelper.pads.size() != 4)
+    return false;
+  // all dimensions of pad should be literal
+  if (llvm::any_of(
+          shapeHelper.pads, [](IndexExpr val) { return !val.isLiteral(); }))
+    return false;
+  // auto_pad should not be "VALID"
+  if (op.auto_pad().equals_insensitive("VALID"))
+    return false;
+  // image dimensions of input shape should be static
+  if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
+    return false;
+  return true;
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
