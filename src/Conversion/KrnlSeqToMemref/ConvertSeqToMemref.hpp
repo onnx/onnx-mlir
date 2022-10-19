@@ -21,10 +21,13 @@
 namespace onnx_mlir {
 namespace krnl {
 
-void populateLoweringKrnlSeqExtractOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlSeqAllocOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlSeqInsertOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlSeqDeallocOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+
+void populateLoweringKrnlSeqExtractOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlSeqStoreOpPattern(mlir::TypeConverter &typeConverter,
