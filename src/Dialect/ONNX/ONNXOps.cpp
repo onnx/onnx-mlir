@@ -262,8 +262,7 @@ static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 // Support function that computes default values for dilations.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvDilationParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -292,8 +291,7 @@ static LogicalResult processConvDilationParam(
 // Support function that computes default values for strides.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvStrideParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -320,7 +318,7 @@ static LogicalResult processConvStrideParam(
 // Support function that computes default values for pads.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
+LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
@@ -384,6 +382,12 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
+
+      // If filter size for dimension is 1, and dilation for dimension is 1,
+      // the above pattern can be negative, in which case the padding should
+      // be zero.
+      if (sumOfPad < 0)
+        sumOfPad = 0;
       // Pad values are assumed equal on both size, at half the total value.
       actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
       // But if the total pad value is odd, we add 1 to begining or end
@@ -413,12 +417,45 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 }
 
 //===----------------------------------------------------------------------===//
-// Support function computing default values for dilations, strides, and pads.
+// Support function that computes default values for kernel_shape.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
+LogicalResult processConvKernelParam(
+    T *op, ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
+  // Deduce shape from weight input.
+  // Number of spatial dimensions.
+  if (!op->kernel_shape().has_value()) {
+    auto spatialOffset = 2;
+    int32_t spatialRank = inputShape.size() - spatialOffset;
+
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(op->getContext());
+    op->kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+  }
+  return success();
+}
+
+namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Support function computing default values for dilations, strides,
+// kernel_shape and pads.
+//===----------------------------------------------------------------------===//
+template <class T>
+LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
   // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
+  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+
+  // If kernel_shape isn't provided, add kernel_shape to the the op based on the
+  // shape of the input and weights.
+  LogicalResult res = processConvKernelParam<T>(op, inputShape, wShape);
+  if (failed(res))
+    return res;
 
   // 2) Get kernel_shape attribute. They were previously computed. At this time,
   // they are guranteed to be compile time constant.
@@ -426,7 +463,7 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
 
   // Dilation. It is compile time constants (filled to default 1 value if not
   // explicitely given as input).
-  LogicalResult res = processConvDilationParam<T>(op, kernelShape);
+  res = processConvDilationParam<T>(op, kernelShape);
   if (failed(res))
     return res;
   auto dilationsOpt = op->dilations();
@@ -442,6 +479,17 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
   return processConvPadParam<T>(
       op, inputShape, kernelShape, stridesOpt, dilationsOpt);
 }
+
+template LogicalResult processConvTypeParams<ONNXConvOp>(
+    ONNXConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXQLinearConvOp>(
+    ONNXQLinearConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvIntegerOp>(
+    ONNXConvIntegerOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvTransposeOp>(
+    ONNXConvTransposeOp *op, Value inputOperand, Value W);
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
@@ -2017,21 +2065,14 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res =
+      processConvTypeParams<ONNXConvTransposeOp>(this, X(), W());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2136,21 +2177,13 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(kernelShape, i) < 1)
         return emitError("bad kernel_shape value");
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXQLinearConvOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -3354,21 +3387,13 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
