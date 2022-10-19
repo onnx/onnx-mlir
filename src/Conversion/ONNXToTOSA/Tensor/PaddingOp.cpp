@@ -5,6 +5,7 @@
 //===------- PaddingOp.cpp ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
+// Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // ========================================================================
 //
@@ -67,14 +68,6 @@ using namespace mlir;
 //         32-bit/64-bit float elements values or memref of any type values
 //         or none type.
 //
-//  Validation
-//  ----------
-//  ./scripts/docker/build_with_docker.py --external-build --build-dir build
-// --command
-// "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
-// --EmitONNXIR --debug --run-torch-pass
-//  /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/
-//  backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
 
 namespace onnx_mlir {
 

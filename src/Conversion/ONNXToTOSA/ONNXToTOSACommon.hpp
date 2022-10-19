@@ -61,9 +61,9 @@ template <typename Op>
 using TOSAOp = typename TOSADialectOp<Op>::Op;
 
 // `Math` directory methods:
-void populateLoweringONNXElementwiseOpToTOSAPattern(mlir::ConversionTarget &,
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-
+void populateLoweringONNXElementwiseOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+// `Tensor` directory methods:
 void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadOpToTOSAPattern(
