@@ -52,6 +52,8 @@
 
 namespace onnx_mlir {
 
+std::string getVendorName();
+
 llvm::Optional<std::string> getEnvVar(std::string name);
 
 struct Command {

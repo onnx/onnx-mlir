@@ -22,11 +22,10 @@
 
 namespace onnx_mlir {
 // Options for onnx-mlir only.
-llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX-MLIR Options", "These are frontend options.");
+llvm::cl::OptionCategory OnnxMlirOptions("Frontend Options", "");
 
 // Common options shared between onnx-mlir and onnx-mlir-opt.
-llvm::cl::OptionCategory OnnxMlirCommonOptions("ONNX-MLIR Common Options", "");
+llvm::cl::OptionCategory OnnxMlirCommonOptions("Optimization Options", "");
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -127,8 +126,7 @@ llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
 
-llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
+llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
         clEnumVal(O1, "Optimization level 1,"),
         clEnumVal(O2, "Optimization level 2,"),
@@ -196,7 +194,7 @@ llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> allowSorting("allowSorting",
-    llvm::cl::desc("Allow onnx-mlir to perform topological sort on onnx graph"),
+    llvm::cl::desc("Perform topological sort on onnx graph"),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.
