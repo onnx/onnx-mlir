@@ -28,6 +28,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
 
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+
+  populateLoweringONNXConvOpToTOSAPattern(target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect

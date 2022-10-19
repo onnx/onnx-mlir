@@ -59,9 +59,11 @@ template <typename Op>
 using TOSAOp = typename TOSADialectOp<Op>::Op;
 
 // `Math` directory methods:
-void populateLoweringONNXElementwiseOpToTOSAPattern(
-    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir:: MLIRContext *);
+void populateLoweringONNXElementwiseOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
-void populateLoweringONNXConstOpToTOSAPattern(
-    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConstOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConvOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir
