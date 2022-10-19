@@ -32,6 +32,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
@@ -106,14 +107,6 @@ void scanAndSetMAccel(int argc, char **argv) {
       break;
     }
   }
-}
-
-std::string getVendorName() {
-#if defined(ONNX_MLIR_VENDOR)
-  return ONNX_MLIR_VENDOR;
-#else
-  return "ONNX-MLIR";
-#endif
 }
 
 int main(int argc, char **argv) {
