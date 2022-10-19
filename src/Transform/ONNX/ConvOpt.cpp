@@ -199,9 +199,13 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     for (int i = 0; i < rank; ++i)
       outputDims.emplace_back(xShape[i]);
     outputDims[1] = Cout;
-    Type outputType = RankedTensorType::get(outputDims, elementType);
+#if 0 // Test if that pattern below works better.
+    // Type outputType = RankedTensorType::get(outputDims, elementType);
     // Reshape results from matrix multiply MM.
-    Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
+    // Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
+#else
+    Value res = create.onnx.reshape(convOp.Y().getType(), MM, outputShapeVals);
+#endif
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
     return success();
