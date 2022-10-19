@@ -13,6 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -510,12 +514,12 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   // getName() result is "onnx.opName"
   // Put only the opName part in the opID within its size
   strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
-  IntegerAttr attr = builder.getI64IntegerAttr(opID);
-  auto tagAttr = builder.getI64IntegerAttr(tag);
-  StringAttr nameAttr = builder.getStringAttr(StringRef(opName));
-  state.addAttribute("opName", nameAttr);
-  state.addAttribute("opID", attr);
-  state.addAttribute("tag", tagAttr);
+  StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
+  IntegerAttr opIDAttr = builder.getI64IntegerAttr(opID);
+  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
+  StringAttr nodeNameAttr =
+      op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
+  build(builder, state, opNameAttr, opIDAttr, tagAttr, nodeNameAttr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -885,6 +889,31 @@ Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
 }
 
 Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
+}
+
+void KrnlSeqAllocOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  for (auto v : length()) {
+    effects.emplace_back(
+        MemoryEffects::Read::get(), v, SideEffects::DefaultResource::get());
+  }
+  effects.emplace_back(MemoryEffects::Write::get(), output(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+      SideEffects::DefaultResource::get());
+}
+
+Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
+  auto loc = alloc.getLoc();
+  // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
+  return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
+}
+
+Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

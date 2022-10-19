@@ -176,7 +176,7 @@ void OMInstrumentInit() {
   }
 }
 
-void OMInstrumentPoint(int64_t id, int64_t tag) {
+void OMInstrumentPoint(int64_t id, int64_t tag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
@@ -197,5 +197,7 @@ void OMInstrumentPoint(int64_t id, int64_t tag) {
   if (localReportMemory) {
     ReportMemory();
   }
+  if (strncmp(nodeName, "NOTSET", 6) != 0)
+    printf(" (%s)", nodeName);
   printf("\n");
 }

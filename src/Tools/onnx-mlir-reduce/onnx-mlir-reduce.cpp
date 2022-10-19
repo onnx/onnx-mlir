@@ -16,8 +16,6 @@
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-reduce/MlirReduceMain.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -26,16 +24,6 @@
 using namespace mlir;
 
 static void registerDialects(DialectRegistry &registry) {
-  registry.insert<mlir::linalg::LinalgDialect>();
-  registry.insert<mlir::AffineDialect>();
-  registry.insert<mlir::LLVM::LLVMDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::func::FuncDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::shape::ShapeDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
-
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
 
