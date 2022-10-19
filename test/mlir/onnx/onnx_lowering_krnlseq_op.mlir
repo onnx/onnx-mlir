@@ -42,3 +42,23 @@ func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> me
 // CHECK:           return [[RES_]] : memref<?x3xf32>
 // CHECK:         }
 }
+
+// -----
+func.func @test_seqdealloc(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> index  {
+    // Just for test. The input argument should not be freed
+    "krnl.seqdealloc"(%arg1) : (memref<?xmemref<?x3xf32>>) -> ()
+    return %arg2 : index
+// CHECK-LABEL:  func.func @test_seqdealloc
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xmemref<?x3xf32>>, [[PARAM_1_:%.+]]: index) -> index {
+// CHECK:           [[VAR_c0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?xmemref<?x3xf32>>
+// CHECK-DAG:       [[VAR_c0_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
+// CHECK:           scf.for [[I_0_:%.+]] = [[VAR_c0_0_]] to [[VAR_0_]] step [[VAR_c1_]] {
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = memref.load [[PARAM_0_]]{{.}}[[I_0_]]{{.}} : memref<?xmemref<?x3xf32>>
+// CHECK:             memref.dealloc [[LOAD_PARAM_0_MEM_]] : memref<?x3xf32>
+// CHECK:           }
+// CHECK:           memref.dealloc [[PARAM_0_]] : memref<?xmemref<?x3xf32>>
+// CHECK:           return [[PARAM_1_]] : index
+// CHECK:         }
+}
