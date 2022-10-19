@@ -9,3 +9,14 @@ func.func @test_softmax(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
 // CHECK-DAG: %[[VAR2:.*]] = "tosa.reciprocal"(%[[VAR1]])
 // CHECK: %[[VAR3:.*]] = "tosa.mul"(%[[VAR0]], %[[VAR2]]) {shift = 0 : i32}
 }
+
+// -----
+func.func @test_axis_zero_softmax(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %2 = "onnx.Softmax"(%arg0) {axis = 1 : si64} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %2 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_axis_zero_softmax
+// CHECK-DAG: %[[VAR0:.*]] = "tosa.exp"(%arg0)
+// CHECK-DAG: %[[VAR1:.*]] = "tosa.reduce_sum"(%[[VAR0]]) {axis = 1 : i64} : (tensor<13x21x3xf32>) -> tensor<13x?x?xf32>
+// CHECK-DAG: %[[VAR2:.*]] = "tosa.reciprocal"(%[[VAR1]])
+// CHECK: %[[VAR3:.*]] = "tosa.mul"(%[[VAR0]], %[[VAR2]]) {shift = 0 : i32}
+}

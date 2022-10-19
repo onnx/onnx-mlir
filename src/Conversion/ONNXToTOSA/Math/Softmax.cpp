@@ -36,6 +36,7 @@ public:
         op.getResult().getType().dyn_cast<RankedTensorType>();
     RankedTensorType inputType =
         adaptor.input().getType().dyn_cast<RankedTensorType>();
+    IntegerAttr axisAttr = adaptor.axisAttr();
 
     // Not a ranked tensor input/output
     if (!outputType || !inputType) {
@@ -51,7 +52,7 @@ public:
     rsumShapeV[inputRank - 1] = 1;
     ArrayRef<int64_t> rsumShape(rsumShapeV);
 
-    // Floating-point loewring is more direct:
+    // Floating-point lowering is more direct:
     //
     // op1 = exp(logits)
     // op2 = reduce_sum(op1, -1)
@@ -62,10 +63,16 @@ public:
     RankedTensorType rsumType =
         RankedTensorType::get(rsumShape, outputType.getElementType());
 
+    // Get ONNX softmax axis
+    int axis = axisAttr.getSInt();
+    // Tosa only supports positive values
+    if (axis < 0) {
+      axis += inputRank;
+    }
     // Keep dims so we don't need to reshape later
-    auto op2ReducesumOp1 = tosa::CreateOpAndInfer<tosa::ReduceSumOp>(rewriter,
-        op->getLoc(), rsumType, op1ExpIn.getResult(),
-        rewriter.getI64IntegerAttr(inputRank - 1));
+    auto op2ReducesumOp1 =
+        tosa::CreateOpAndInfer<tosa::ReduceSumOp>(rewriter, op->getLoc(),
+            rsumType, op1ExpIn.getResult(), rewriter.getI64IntegerAttr(axis));
     auto op3ReciprocalOp2 = tosa::CreateOpAndInfer<tosa::ReciprocalOp>(rewriter,
         op->getLoc(), op2ReducesumOp1.getType(), op2ReducesumOp1.getResult());
 
@@ -74,7 +81,7 @@ public:
             op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0)
             .getResult();
     if (!result)
-      return failure();
+      return rewriter.notifyMatchFailure(op, "Legalization was not possible");
 
     rewriter.replaceOp(op, {result.value()});
 
