@@ -32,6 +32,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
-          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
