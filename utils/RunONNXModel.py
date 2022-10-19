@@ -91,7 +91,7 @@ parser.add_argument('--atol',
                     type=str,
                     default="0.01",
                     help="Absolute tolerance for verification")
-parser.add_argument('--only-compile-model',
+parser.add_argument('--compile-only',
                     action='store_true',
                     help="Only compile the input model")
 args = parser.parse_args()
@@ -350,8 +350,8 @@ def main():
                 print("Saving the shared library to", args.save_so, "\n")
                 execute_commands(['rsync', '-ar', shared_lib_path, args.save_so])
 
-            # Exit if only compling the model.
-            if (args.only_compile_model):
+            # Exit if only compiling the model.
+            if (args.compile_only):
                 exit(0);
 
         # Use the generated shared library to create an execution session.
