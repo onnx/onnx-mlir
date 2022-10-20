@@ -127,6 +127,10 @@ void defineLoops(mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
 mlir::Value getDimOrConstant(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value operand, int64_t axis, mlir::Type type);
 
+//===----------------------------------------------------------------------===//
+// Fold and emit support.
+//===----------------------------------------------------------------------===//
+
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
 mlir::Value foldOrEmitONNXSqueezeV11Op(
@@ -393,6 +397,8 @@ void populateLoweringONNXCompressOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXLayoutTransformOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 
@@ -425,5 +431,11 @@ mlir::Location ONNXLoc(mlir::Operation *op) {
 mlir::Value getOptionalScalarValue(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value optionalScalar, mlir::Type elementType,
     double defaultValue);
+
+//===----------------------------------------------------------------------===//
+// Support functions for help with custom layout.
+//===----------------------------------------------------------------------===//
+
+mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
 
 } // namespace onnx_mlir
