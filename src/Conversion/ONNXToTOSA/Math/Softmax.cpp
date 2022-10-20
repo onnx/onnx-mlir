@@ -84,7 +84,6 @@ public:
     tosa::CreateReplaceOpAndInfer<tosa::MulOp>(rewriter, op, outputType,
         op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
 
-    // rewriter.replaceOp(op, {result});
 
     return success();
   }
