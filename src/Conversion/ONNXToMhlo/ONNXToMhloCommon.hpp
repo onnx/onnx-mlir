@@ -4,7 +4,7 @@
 
 //====------ ONNXToMhloCommon.hpp - ONNX dialects to Mhlo lowering --------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -33,6 +33,8 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
+using namespace mlir;
+
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
@@ -54,51 +56,109 @@ using MhloOp = typename MhloDialectOp<ONNXOp>::Op;
 // Common functions used when lowering the ONNX frontend dialect to MHLO.
 //===----------------------------------------------------------------------===//
 
-// Get shaped constant zero for the given input mlir::Type. If the input type
+// Get shaped constant zero for the given input Type. If the input type
 // doesn't have static shape, then add dynamic broadcast.
-mlir::Value getShapedZero(mlir::Location loc,
-    mlir::ConversionPatternRewriter &rewriter, const mlir::ShapedType &inpType,
-    mlir::Value &inp, const mlir::Type &resultType);
+Value getShapedZero(
+    Location loc, ConversionPatternRewriter &rewriter, Value &inp);
 
-// Get shaped constant for the given input mlir::Type and float value. If the
+// Get shaped constant for the given input Type and float value. If the
 // input type doesn't have static shape, then add dynamic broadcast.
 template <typename T>
-mlir::Value getShapedFloat(mlir::Location loc,
-    mlir::ConversionPatternRewriter &rewriter, const mlir::ShapedType &inpType,
-    const T &value, mlir::Value &inp, const mlir::Type &resultType) {
-  mlir::Value broadcastedValue;
+Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
+    const T &value, Value &inp) {
+  Value broadcastedValue;
+  ShapedType inpType = inp.getType().cast<ShapedType>();
   if (inpType.hasStaticShape())
-    broadcastedValue = rewriter.create<mlir::mhlo::ConstantOp>(
-        loc, mlir::DenseElementsAttr::get(inpType,
+    broadcastedValue = rewriter.create<mhlo::ConstantOp>(
+        loc, DenseElementsAttr::get(inpType,
                  rewriter.getFloatAttr(inpType.getElementType(), value)));
   else {
-    mlir::Type elemType = inpType.getElementType();
-    mlir::Value floatValue = rewriter.create<mlir::mhlo::ConstantOp>(
+    Type elemType = inpType.getElementType();
+    Value floatValue = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(elemType, value));
-    mlir::Value shape = rewriter.create<mlir::shape::ShapeOfOp>(loc, inp);
-    broadcastedValue = rewriter.create<mlir::mhlo::DynamicBroadcastInDimOp>(
-        loc, resultType, floatValue, shape, rewriter.getI64TensorAttr({}));
+    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
+    broadcastedValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, inpType, floatValue, shape, rewriter.getI64TensorAttr({}));
   }
   return broadcastedValue;
 }
 
+// Get shaped constant for the given input Type and int value. If the input
+// type doesn't have static shape, then add dynamic broadcast.
+template <typename T>
+Value getShapedInt(Location loc, ConversionPatternRewriter &rewriter,
+    const T &value, Value &inp) {
+  Value broadcastedValue;
+  ShapedType inpType = inp.getType().cast<ShapedType>();
+  if (inpType.hasStaticShape())
+    broadcastedValue = rewriter.create<mhlo::ConstantOp>(
+        loc, DenseElementsAttr::get(inpType,
+                 rewriter.getIntegerAttr(inpType.getElementType(), value)));
+  else {
+    Type elemType = inpType.getElementType();
+    Value intValue = rewriter.create<mhlo::ConstantOp>(
+        loc, rewriter.getIntegerAttr(elemType, value));
+    Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
+    broadcastedValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, inpType, intValue, shape, rewriter.getI64TensorAttr({}));
+  }
+  return broadcastedValue;
+}
+
+llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
+    ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
+
+llvm::SmallVector<Value, 4> getBroadcastedOperands(
+    llvm::SmallVector<Value, 4> &operands, Type outputType,
+    ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
+
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGemmOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXMatMulOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReductionOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 // `NN` directory methods:
+void populateLoweringONNXConvOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXNormalizationOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXPoolingOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 // `Tensor` directory methods:
+void populateLoweringONNXArgMaxOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConcatOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConstantOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToMhloPattern(
-    mlir::RewritePatternSet &, mlir::MLIRContext *);
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXExpandOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXFlattenOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXGatherOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXIdentityOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXReshapeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXShapeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXSliceOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXSplitOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXSqueezeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXTileOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXTransposeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXUnsqueezeOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 } // namespace onnx_mlir
