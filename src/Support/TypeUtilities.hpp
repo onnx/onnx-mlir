@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/BuiltinTypes.h"
 
 namespace onnx_mlir {
