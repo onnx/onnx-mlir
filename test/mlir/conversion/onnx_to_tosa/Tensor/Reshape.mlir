@@ -8,7 +8,7 @@ func.func @test_reshape(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
 }
 
 // -----
-func.func @test_reshape(%arg0: tensor<32x512x1x1xf32>, %arg1: tensor<2xi64>) -> tensor<32x512xf32> {
+func.func @test_no_reshape(%arg0: tensor<32x512x1x1xf32>, %arg1: tensor<2xi64>) -> tensor<32x512xf32> {
   %1 = "onnx.Reshape"(%arg0, %arg1) : (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
   return %1 : tensor<32x512xf32>
   //CHECK:  "onnx.Reshape"
