@@ -144,16 +144,16 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 const StringRef BUFFER_ID_ATTR = "buffer_id";
 
-Operation *ONNXDialect::materializeConstant(OpBuilder &builder, Attribute value,
-                                          Type type, Location loc) {
+Operation *ONNXDialect::materializeConstant(
+    OpBuilder &builder, Attribute value, Type type, Location loc) {
   if (value.isa<DenseElementsAttr>()) {
     Value result = createONNXConstantOpWithDenseAttr(builder, loc, value);
     return result.getDefiningOp();
   } else {
     // BUFFER_ID_ATTR is used for the constant
-    ONNXConstantOp constOp = builder.create<ONNXConstantOp>(loc,
-        type, Attribute(), Attribute(), FloatAttr(),
-        ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    ONNXConstantOp constOp = builder.create<ONNXConstantOp>(loc, type,
+        Attribute(), Attribute(), FloatAttr(), ArrayAttr(), IntegerAttr(),
+        ArrayAttr(), StringAttr(), ArrayAttr());
     constOp.getOperation()->setAttr(BUFFER_ID_ATTR, value);
     return constOp;
   }
@@ -2790,13 +2790,13 @@ LogicalResult ONNXConstantOp::inferShapes(
 }
 
 OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
-  Attribute  bufferIDAttr = getOperation()->getAttr(BUFFER_ID_ATTR);
+  Attribute bufferIDAttr = getOperation()->getAttr(BUFFER_ID_ATTR);
   // Assume buffer_id attribute has higher priority
   if (bufferIDAttr) {
     return bufferIDAttr;
   } else {
     // ONNXConstantOp should have either "value" or BUFFER_ID_ATTR
-    assert(value().has_value()  && "can not fold constant");
+    assert(value().has_value() && "can not fold constant");
     return valueAttr();
   }
 }
