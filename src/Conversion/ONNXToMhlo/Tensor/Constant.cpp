@@ -4,7 +4,7 @@
 
 //===---------------- Constant.cpp - Lowering Constant Op -----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -26,9 +26,7 @@ struct ONNXConstantOpLoweringToMhlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    mlir::ONNXConstantOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
     ONNXConstantOp constantOp = cast<ONNXConstantOp>(op);
 
     if (constantOp.sparse_value().has_value())
