@@ -26,7 +26,8 @@
 #include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
-#define DEBUG 0
+// hi alex, reset to 0
+#define DEBUG 1
 
 using namespace mlir;
 
@@ -138,7 +139,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     if (!onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG))
       return failure();
     if (DEBUG)
-      printf("ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
+      fprintf(
+          stderr, "ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
     // All conditions satisfied, get info.
     Value X = convOp.X();
     Value W = convOp.W();
@@ -202,7 +204,6 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value res = create.onnx.reshape(convOp.Y().getType(), MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
-    fprintf(stderr, "  hi alex: success in converting conv to matmul\n");
     return success();
   }
 };
@@ -238,9 +239,6 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
-  // hi alex
-  // this->enableSimdLayoutOpt = false;
-
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
       func::FuncDialect>();
@@ -253,6 +251,9 @@ void ConvOptONNXToONNXPass::runOnOperation() {
     // Conv op has optimized layout
     bool hasOptLayout =
         onnx_mlir::hasConvONNXTensorDataLayout(op.X().getType());
+    if (DEBUG)
+      fprintf(stderr,
+          "ConvOps match&rewrite: went for the data simd layout opt.\n");
     if (hasOptLayout)
       assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
              "custom layout for both X and W");
@@ -263,11 +264,14 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   });
 
   RewritePatternSet patterns(context);
-  // Add patterns from Declarative Rewrite framework. They are added
-  // unconditionally but the condition under which the operation is legal or not
-  // is conditional. So we are all good here.
-  populateWithGenerated(patterns);
-  patterns.insert<Conv1x1ToMatmulPattern>(context);
+
+  // TODO: if enable simd layout opt, we still need to determine how 1x1 and
+  // simd layout interact. Right now, only enable the one or the other. Will
+  // need to refine this later.
+  if (enableSimdLayoutOpt)
+    populateWithGenerated(patterns);
+  else
+    patterns.insert<Conv1x1ToMatmulPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
