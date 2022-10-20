@@ -359,8 +359,13 @@ def publish_modelzoo_report(badge) {
     lock(resource: 'modelzoo-publish-lock') {
         try {
             /* For regular PRs not running the model zoo test, or for merging PR
-             * failing to run the model zoo test, the report is copied from the
-             * already published report and then published again.
+             * failing to run the model zoo test (including being aborted by
+             * another merging PR), the report is copied from the already published
+             * report and then published again.
+             *
+             * Note that if a merging PR was aborted, its model zoo check won't
+             * appear in the history regardless of whether the check actually
+             * has finished or not before it was aborted.
              */
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
                 "${GITHUB_PR_PHRASE}" != 'publish' ||

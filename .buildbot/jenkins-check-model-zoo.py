@@ -47,11 +47,10 @@ jenkins_home               = os.getenv('JENKINS_HOME')
 job_name                   = os.getenv('JOB_NAME')
 workspace_dir              = os.getenv('WORKSPACE')
 
-modelzoo_workdir           = os.getenv('MODELZOO_WORKDIR')
 modelzoo_reportdir         = os.getenv('MODELZOO_REPORTDIR')
+modelzoo_workdir           = os.getenv('MODELZOO_WORKDIR')
 modelzoo_html              = os.getenv('MODELZOO_HTML')
 modelzoo_stdout            = os.getenv('MODELZOO_STDOUT')
-modelzoo_publishdir        = os.getenv('MODELZOO_PUBLISHDIR')
 
 docker_dev_image_name      = (github_repo_name + '-dev' +
                               ('.' + github_pr_baseref2
@@ -63,21 +62,21 @@ docker_dev_image_full      = ((docker_registry_host_name +
                                '/' if docker_registry_user_name else '') +
                               docker_dev_image_name + ':' + docker_dev_image_tag)
 
-workspace_workdir          = os.path.join(workspace_dir, modelzoo_workdir)
-container_workdir          = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)
+# History directory is just the job directory
+workspace_historydir       = os.path.join(jenkins_home, 'jobs', job_name)
+container_historydir       = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, job_name)
 
 workspace_reportdir        = os.path.join(workspace_dir, modelzoo_reportdir)
 container_reportdir        = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_reportdir)
+
+workspace_workdir          = os.path.join(workspace_dir, modelzoo_workdir)
+container_workdir          = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, modelzoo_workdir)
 
 workspace_model_py         = os.path.join(workspace_dir, 'utils', RUN_ONNX_MODEL_PY)
 container_model_py         = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODEL_PY)
 
 workspace_modelzoo_py      = os.path.join(workspace_dir, 'utils', RUN_ONNX_MODELZOO_PY)
 container_modelzoo_py      = os.path.join(DOCKER_DEV_IMAGE_WORKDIR, RUN_ONNX_MODELZOO_PY)
-
-workspace_publishdir       = modelzoo_publishdir
-container_publishdir       = os.path.join(DOCKER_DEV_IMAGE_WORKDIR,
-                                          os.path.split(modelzoo_publishdir)[1])
 
 
 def urlretrieve(remote_url, local_file):
@@ -100,17 +99,17 @@ def main():
             '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH='   + head_commit_hash,
             '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR=' + head_commit_author,
             '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE='   + head_commit_date,
-            '-v', workspace_workdir     + ':' + container_workdir,
+            '-v', workspace_historydir  + ':' + container_historydir,
             '-v', workspace_reportdir   + ':' + container_reportdir,
+            '-v', workspace_workdir     + ':' + container_workdir,
             '-v', workspace_model_py    + ':' + container_model_py,
             '-v', workspace_modelzoo_py + ':' + container_modelzoo_py,
-            '-v', workspace_publishdir  + ':' + container_publishdir + ':ro',
             docker_dev_image_full,
             container_modelzoo_py,
             '-H', modelzoo_html,
             '-j', NPROC,
             '-l', 'info',
-            '-q', container_publishdir,
+            '-q', container_historydir,
             '-r', container_reportdir,
             '-w', container_workdir ]
 
