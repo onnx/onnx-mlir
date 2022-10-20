@@ -66,6 +66,23 @@ void ONNXDialect::initialize() {
       >();
 }
 
+const StringRef BUFFER_ID_ATTR = "buffer_id";
+
+Operation *ONNXDialect::materializeConstant(OpBuilder &builder, Attribute value,
+                                          Type type, Location loc) {
+  if (value.isa<DenseElementsAttr>()) {
+    Value result = createONNXConstantOpWithDenseAttr(builder, loc, value);
+    return result.getDefiningOp();
+  } else {
+    // BUFFER_ID_ATTR is used for the constant
+    ONNXConstantOp constOp = builder.create<ONNXConstantOp>(loc,
+        type, Attribute(), Attribute(), FloatAttr(),
+        ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    constOp.getOperation()->setAttr(BUFFER_ID_ATTR, value);
+    return constOp;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
@@ -2694,6 +2711,17 @@ LogicalResult ONNXConstantOp::inferShapes(
     valAttr = valueAttr().cast<DenseElementsAttr>();
   getResult().setType(valAttr.getType());
   return success();
+}
+
+OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
+  if (value().has_value()) {
+    return valueAttr();
+  } else {
+    Attribute  bufferIDAttr = getOperation()->getAttr(BUFFER_ID_ATTR);
+    // ONNXConstantOp should have either "value" or BUFFER_ID_ATTR
+    assert(bufferIDAttr  && "fold constant");
+    return bufferIDAttr;
+  }
 }
 
 //===----------------------------------------------------------------------===//
