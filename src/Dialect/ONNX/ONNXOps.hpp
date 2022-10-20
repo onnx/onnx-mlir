@@ -37,5 +37,10 @@ static constexpr int CURRENT_ONNX_OPSET = 13;
 
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
+#include "src/Dialect/ONNX/ONNXDialect.hpp" // includes ONNXDialect.hpp.inc
+
+#define GET_ATTRDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXAttributes.hpp.inc"
+
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"

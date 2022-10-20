@@ -253,11 +253,11 @@ void ZHighStickOp::build(
       rank = inputType.getRank();
       ZTensorEncodingAttr::DataLayout dataLayout;
       if (layout)
-        dataLayout = convertStringAttrToDataLayout(layout);
+        dataLayout = convertStringAttrToZTensorDataLayout(layout);
       else {
-        dataLayout = getDataLayoutByRank(rank);
+        dataLayout = getZTensorDataLayoutByRank(rank);
         // Create a layout attribute.
-        layout = convertDataLayoutToStringAttr(builder, dataLayout);
+        layout = convertZTensorDataLayoutToStringAttr(builder, dataLayout);
       }
       // Compute shape.
       ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -300,9 +300,9 @@ LogicalResult ZHighStickOp::inferShapes(
   StringAttr layout = layoutAttr();
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
-    dataLayout = convertStringAttrToDataLayout(layout);
+    dataLayout = convertStringAttrToZTensorDataLayout(layout);
   else
-    dataLayout = getDataLayoutByRank(inputShape.size());
+    dataLayout = getZTensorDataLayoutByRank(inputShape.size());
 
   updateType(getResult(), outputDims, inputType.getElementType(),
       ZTensorEncodingAttr::get(this->getContext(), dataLayout));
@@ -369,7 +369,7 @@ void ZHighUnstickOp::build(
     ArrayRef<int64_t> inputShape = inputType.getShape();
     SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
     // Direct unstickify from NHWC to NCHW.
-    StringAttr layout = convertDataLayoutToStringAttr(
+    StringAttr layout = convertZTensorDataLayoutToStringAttr(
         builder, getZTensorLayout(input.getType()));
     if (isNHWCLayout(layout)) {
       assert((inputShape.size() == 4) && "Input must have rank 4");
@@ -393,7 +393,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
   OpBuilder b(this->getContext());
 
   StringAttr layout =
-      convertDataLayoutToStringAttr(b, getZTensorLayout(In().getType()));
+      convertZTensorDataLayoutToStringAttr(b, getZTensorLayout(In().getType()));
 
   ZHighUnstickOpAdaptor operandAdaptor(*this);
   ZHighUnstickOpShapeHelper shapeHelper(this, layout);

@@ -24,8 +24,8 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 
 def ZHigh_Dialect : Dialect {
   let name = "zhigh";
+  let summary = "A high-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zhigh";
-
   let useDefaultAttributePrinterParser = 1;
 }
 
@@ -57,7 +57,6 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
     #ZAIU_NHWC= #zhigh.encoding<{
       dataLayout = "nhwc"
     }>
-
 
     ... tensor<8x8xf64, #ZAIU_NHWC> ...
     ```
