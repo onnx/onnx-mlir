@@ -69,5 +69,9 @@ PYBIND11_MODULE(PyCompileAndRuntime, m) {
           &onnx_mlir::PyOMCompileExecutionSession::pySetEntryPoint,
           py::arg("name"))
       .def("run", &onnx_mlir::PyOMCompileExecutionSession::pyRun,
-          py::arg("input"));
+          py::arg("input"))
+      .def("input_signature",
+          &onnx_mlir::PyOMCompileExecutionSession::pyInputSignature)
+      .def("output_signature",
+          &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature);
 }
