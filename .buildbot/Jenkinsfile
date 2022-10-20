@@ -364,7 +364,7 @@ def publish_modelzoo_report(badge) {
              * report and then published again.
              *
              * Note that if a merging PR was aborted, its model zoo check won't
-             * appear in the history regardless of whether the check actaully
+             * appear in the history regardless of whether the check actually
              * has finished or not before it was aborted.
              */
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
