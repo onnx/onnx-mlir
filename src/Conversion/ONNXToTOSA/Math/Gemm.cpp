@@ -32,7 +32,6 @@ namespace {
 class ONNXGemmOpLoweringToTOSA : public OpConversionPattern<ONNXGemmOp> {
 public:
   using OpConversionPattern<ONNXGemmOp>::OpConversionPattern;
-  //using OpAdaptor = typename ONNXGemmOp::Adaptor;
   LogicalResult rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
     Value A = adaptor.A();
@@ -77,8 +76,6 @@ public:
       return false;
     }
     // Input tensor must be of rank 2
-    // onnx-mlir lowering to host only supports rank of 2
-    // torch-mlir supports 2 and 3
     // Weights must also be of rank 2
     if (AType.getRank() != 2 || BType.getRank() != 2) {
       return false;
@@ -110,11 +107,18 @@ public:
     auto shapeB = B.getType().dyn_cast<ShapedType>().getShape();
     auto resultType = getTypeConverter()->convertType(op.getResult().getType()).cast<TensorType>();
     
+    // C is optional, if it's not there, we need to be aware of it for later computations
+    bool isCPresent = C.getType().isa<TensorType>();
+    // If it's not present, ONNX creates a NoValue operator. Remove it.
+    if (!isCPresent) {
+      rewriter.eraseOp(C.getDefiningOp());
+    }
+
     // If legal, create a FullyConnected operator instead
     if (checkLegalTosaFCOp(op, adaptor)) {
       return rewriteToTosaFC(op, adaptor, rewriter);
     }
-
+    
     // ONNX gives 2d matrix as input and expect a 2d output. TOSA expects everything to be 3D. As such, there
     // is a need to add reshapes operators before and after we do any computation. We set the batch as 1 as it
     // is unknown.
@@ -133,9 +137,8 @@ public:
         rewriter.getI64ArrayAttr(newShapeB)).getResult();
 
     auto tosaResult = UnrankedTensorType::get(resultType.getElementType());
-    // C is optional, if it's not there, we need to be aware of it for later computations
-    bool isCPresent = C.getType().isa<TensorType>();
 
+    // If transA or transB are present, create Transpose operators.
     if (transA) {
       Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
       Type outputType = UnrankedTensorType::get(AType.getElementType());
@@ -168,11 +171,9 @@ public:
     Value matmulRes = NULL;
     //A * B
     if (alphaMulResult) {
-      //matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, tosaResult, alphaMulResult, B).getResult();
       matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, UnrankedTensorType::get(resultType.getElementType()), alphaMulResult, B).getResult();
     }
     else {
-      //matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, tosaResult, A, B).getResult();
       matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, UnrankedTensorType::get(resultType.getElementType()), A, B).getResult();
     }
 
