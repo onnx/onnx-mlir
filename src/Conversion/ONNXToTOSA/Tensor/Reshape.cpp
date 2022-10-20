@@ -40,15 +40,16 @@ public:
     if (!outputType) {
       return rewriter.notifyMatchFailure(op, "Not a ranked tensor");
     }
+    if (!adaptor.shape().getDefiningOp<tosa::ConstOp>()) {
+      return rewriter.notifyMatchFailure(
+          op, "Only tosa.const operands are supported");
+    }
 
     llvm::SmallVector<int64_t> shapeValues;
     for (int i = 0; i < outputType.getShape().size(); i++) {
       shapeValues.push_back(outputType.getShape()[i]);
     }
     ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(shapeValues);
-
-    auto inputOp = adaptor.shape().getDefiningOp();
-    rewriter.eraseOp(inputOp);
 
     tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(
         rewriter, op, outputType, adaptor.data(), shapeAttr);
