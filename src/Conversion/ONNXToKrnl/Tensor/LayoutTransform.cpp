@@ -40,7 +40,6 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
     assert(inConvertedType && inConvertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType inMemRefType = inConvertedType.cast<MemRefType>();
-    uint64_t rank = inMemRefType.getShape().size();
     // Convert the output type to MemRefType.
     Type outConvertedType =
         typeConverter->convertType(*op->result_type_begin());
@@ -48,8 +47,16 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
 
+    // Note that by definition the input and output of LayoutTransformOp have
+    // the same logical rank. The only difference between them should be their
+    // layout. Currently defined layout may increase the dimensionality of the
+    // mapped data by 1 or 2 dimensions compared to the original layout. Note
+    // that these higher dimensionality will only manifest themselves once the
+    // memref are normalized.
+    uint64_t rank = inMemRefType.getShape().size();
+
     // Transform simply copy the input data to the output data. Both must have
-    // the same logical size.
+    // the same logical size so use the input ones (arbitrary).
     KrnlBuilder createKrnl(rewriter, loc);
     IndexExprScope outerScope(createKrnl);
     MemRefBoundsIndexCapture dataBounds(data);
