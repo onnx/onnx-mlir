@@ -186,7 +186,7 @@ llvm::cl::opt<bool> enableParallel("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> enableSimdOpt("simd-opt",
+llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
     llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
                    "Set to 'true' if you want to enable SIMD optimizations."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));

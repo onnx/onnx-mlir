@@ -26,8 +26,7 @@
 #include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
-// hi alex, reset to 0
-#define DEBUG 1
+#define DEBUG 0
 
 using namespace mlir;
 
@@ -216,8 +215,8 @@ struct ConvOptONNXToONNXPass
   ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass)
       : mlir::PassWrapper<ConvOptONNXToONNXPass,
             OperationPass<func::FuncOp>>() {}
-  ConvOptONNXToONNXPass(bool enableSimdOpt) {
-    this->enableSimdLayoutOpt = enableSimdOpt;
+  ConvOptONNXToONNXPass(bool enableSimdDataLayout) {
+    this->enableSimdDataLayoutOpt = enableSimdDataLayout;
   };
 
   StringRef getArgument() const override { return "conv-opt-onnx"; }
@@ -227,9 +226,9 @@ struct ConvOptONNXToONNXPass
            "convolutions.";
   }
 
-  // Usage: onnx-mlir-opt --conv-opt-onnx='enable-simd-layout-opt'
-  Option<bool> enableSimdLayoutOpt{*this, "enable-simd-layout-opt",
-      llvm::cl::desc("Enable SIMD layout optimizations"),
+  // Usage: onnx-mlir-opt --conv-opt-onnx='simd-data-layout'
+  Option<bool> enableSimdDataLayoutOpt{*this, "simd-data-layout",
+      llvm::cl::desc("Enable SIMD data layout optimizations"),
       ::llvm::cl::init(false)};
 
   void runOnOperation() final;
@@ -258,7 +257,7 @@ void ConvOptONNXToONNXPass::runOnOperation() {
       assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
              "custom layout for both X and W");
     bool canBeOptimized =
-        canBeAMatmul || (enableSimdLayoutOpt && !hasOptLayout);
+        canBeAMatmul || (enableSimdDataLayoutOpt && !hasOptLayout);
     // Conv op is legal if it cannot be further optimized.
     return !canBeOptimized;
   });
@@ -268,7 +267,7 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   // TODO: if enable simd layout opt, we still need to determine how 1x1 and
   // simd layout interact. Right now, only enable the one or the other. Will
   // need to refine this later.
-  if (enableSimdLayoutOpt)
+  if (enableSimdDataLayoutOpt)
     populateWithGenerated(patterns);
   else
     patterns.insert<Conv1x1ToMatmulPattern>(context);
@@ -285,8 +284,8 @@ namespace onnx_mlir {
  * Create a DecomposeONNX pass.
  */
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
-    bool enableSimdLayoutOpt) {
-  return std::make_unique<ConvOptONNXToONNXPass>(enableSimdLayoutOpt);
+    bool enableSimdDataLayoutOpt) {
+  return std::make_unique<ConvOptONNXToONNXPass>(enableSimdDataLayoutOpt);
 }
 
 } // namespace onnx_mlir

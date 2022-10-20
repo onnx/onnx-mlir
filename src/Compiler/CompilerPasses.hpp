@@ -17,7 +17,7 @@
 
 namespace onnx_mlir {
 void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
-    bool transformReport, bool targetCPU, bool enableSimdLayoutOpt);
+    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
