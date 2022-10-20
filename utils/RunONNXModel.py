@@ -16,6 +16,7 @@ import sys
 import argparse
 import onnx
 import time
+import signal
 import subprocess
 import numpy as np
 import tempfile
@@ -90,6 +91,9 @@ parser.add_argument('--atol',
                     type=str,
                     default="0.01",
                     help="Absolute tolerance for verification")
+parser.add_argument('--compile-only',
+                    action='store_true',
+                    help="Only compile the input model")
 args = parser.parse_args()
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -132,8 +136,15 @@ def ordinal(n):
 def execute_commands(cmds):
     if (VERBOSE):
         print(cmds)
-    subprocess.call(cmds, shell=True)
-
+    out = subprocess.Popen(cmds,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = out.communicate()
+    if out.returncode == -signal.SIGSEGV:
+        return (False, "Segfault")
+    if out.returncode != 0:
+        return (False, stderr.decode("utf-8") + stdout.decode("utf-8"))
+    return (True, stdout.decode("utf-8"))
 
 def extend_model_output(model, intermediate_outputs):
     while (len(model.graph.output)):
@@ -308,9 +319,9 @@ def main():
             onnx.save(model, temp_model_path)
 
             # Prepare compiler arguments.
-            command_str = ONNX_MLIR
+            command_str = [ONNX_MLIR]
             if args.compile_args:
-                command_str += " " + args.compile_args
+                command_str += args.compile_args.split(' ')
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
                 assert args.data_folder, "No data folder given"
@@ -320,21 +331,28 @@ def main():
                     shape_info += str(i) + ":" + 'x'.join(
                         [str(d) for d in inputs[i].shape]) + ","
                 shape_info = shape_info[:-1]
-                command_str += " " + shape_info
+                command_str += [shape_info]
                 warning("the shapes of the model's inputs will be " \
                     "changed to the shapes of the inputs in the data folder")
-            command_str += " " + temp_model_path
+            command_str += [temp_model_path]
 
+            # Compile the model.
             start = time.perf_counter()
-            execute_commands(command_str)
+            ok, msg = execute_commands(command_str)
+            if not ok:
+                print(msg)
+                exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
 
             # Save the generated .so file of the model if required.
             if (args.save_so):
                 print("Saving the shared library to", args.save_so, "\n")
-                execute_commands('rsync -ar {} {}'.format(
-                    shared_lib_path, args.save_so))
+                execute_commands(['rsync', '-ar', shared_lib_path, args.save_so])
+
+            # Exit if only compiling the model.
+            if (args.compile_only):
+                exit(0);
 
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
