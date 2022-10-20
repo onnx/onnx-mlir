@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToMhlo.cpp - ONNX dialects to Mhlo lowering -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -24,14 +24,28 @@ void populateONNXToMhloConversionPattern(
   // Math
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXMatMulOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReductionOpToMhloPattern(patterns, ctx);
   // Neural network
+  populateLoweringONNXConvOpToMhloPattern(patterns, ctx);
   populateLoweringONNXNormalizationOpToMhloPattern(patterns, ctx);
   populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
   // Tensor
+  populateLoweringONNXArgMaxOpToMhloPattern(patterns, ctx);
   populateLoweringONNXConcatOpToMhloPattern(patterns, ctx);
   populateLoweringONNXConstantOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXExpandOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXFlattenOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXGatherOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXIdentityOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReshapeOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXShapeOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXSliceOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXSplitOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXSqueezeOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXTileOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXTransposeOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXUnsqueezeOpToMhloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -69,7 +83,7 @@ void FrontendToMhloLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<mhlo::MhloDialect, func::FuncDialect,
-      shape::ShapeDialect>();
+      arith::ArithmeticDialect, shape::ShapeDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
