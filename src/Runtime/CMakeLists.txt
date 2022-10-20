@@ -97,12 +97,18 @@ set_target_properties(ExecutionSession
 # target_include_directories.
 pybind11_add_module(PyRuntime PyExecutionSession.cpp)
 add_dependencies(PyRuntime onnx_proto)
+target_compile_options(PyRuntime
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
 target_compile_definitions(PyRuntime
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
   )
 target_include_directories(PyRuntime
   PRIVATE
+  ${ONNX_MLIR_SRC_ROOT}/include
   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 target_link_libraries(PyRuntime
@@ -117,6 +123,11 @@ install(TARGETS PyRuntime
 
 pybind11_add_module(PyCompileAndRuntime PyOMCompileExecutionSession.cpp)
 add_dependencies(PyCompileAndRuntime onnx_proto)
+target_compile_options(PyCompileAndRuntime
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
 target_compile_definitions(PyCompileAndRuntime
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>

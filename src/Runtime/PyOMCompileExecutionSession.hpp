@@ -19,15 +19,16 @@
 
 namespace py = pybind11;
 
+#include "../Compiler/PyOMCompileSession.hpp"
 #include "ExecutionSession.hpp"
 #include "OnnxMlirCompiler.h"
+#include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
 
-class PyOMCompileExecutionSession : public onnx_mlir::ExecutionSession {
+class PyOMCompileExecutionSession {
 public:
-  PyOMCompileExecutionSession(std::string inputFileName,
-      std::string sharedLibPath, std::string flags,
+  PyOMCompileExecutionSession(std::string inputFileName, std::string flags,
       bool defaultEntryPoint = true);
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage();
@@ -42,6 +43,8 @@ private:
   std::string inputFileName;
   std::string sharedLibPath;
   std::string errorMessage;
+  onnx_mlir::PyExecutionSession *executionSession;
+  onnx_mlir::PyOMCompileSession *pyOMCompileSession;
   int64_t rc;
 };
 } // namespace onnx_mlir
@@ -49,14 +52,11 @@ private:
 PYBIND11_MODULE(PyCompileAndRuntime, m) {
   py::class_<onnx_mlir::PyOMCompileExecutionSession>(
       m, "PyOMCompileExecutionSession")
-      .def(py::init<const std::string &, const std::string &,
-               const std::string &>(),
-          py::arg("input_model_path"), py::arg("compiled_file_path"),
-          py::arg("flags"))
-      .def(py::init<const std::string &, const std::string &,
-               const std::string &, const bool>(),
-          py::arg("input_model_path"), py::arg("compiled_file_path"),
-          py::arg("flags"), py::arg("use_default_entry_point"))
+      .def(py::init<const std::string &, const std::string &>(),
+          py::arg("input_model_path"), py::arg("flags"))
+      .def(py::init<const std::string &, const std::string &, const bool>(),
+          py::arg("input_model_path"), py::arg("flags"),
+          py::arg("use_default_entry_point"))
       .def("get_compiled_result",
           &onnx_mlir::PyOMCompileExecutionSession::pyGetCompiledResult)
       .def("get_compiled_file_name",
@@ -69,9 +69,5 @@ PYBIND11_MODULE(PyCompileAndRuntime, m) {
           &onnx_mlir::PyOMCompileExecutionSession::pySetEntryPoint,
           py::arg("name"))
       .def("run", &onnx_mlir::PyOMCompileExecutionSession::pyRun,
-          py::arg("input"))
-      .def("input_signature",
-          &onnx_mlir::PyOMCompileExecutionSession::pyInputSignature)
-      .def("output_signature",
-          &onnx_mlir::PyOMCompileExecutionSession::pyOutputSignature);
+          py::arg("input"));
 }

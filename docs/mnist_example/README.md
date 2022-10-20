@@ -11,7 +11,7 @@ Table of Contents
       * [Write a Python Driver Code](#write-a-Python-driver-code)
       * [Write a Java Driver Code](#write-a-java-driver-code)
 
-#Train Model in PyTorch, Compile using ONNX - MLIR
+# Train Model in PyTorch, Compile using ONNX-MLIR
 
 In this example, we will demonstrate training a mnist model in PyTorch and compile, run it using only C++.
 
@@ -74,17 +74,17 @@ Upon inspection, it should look like:
 Now we are ready to compile the model! To make it easier to invoke commands and include header files, I updated my environment variables as such:
 
 ```bash
-#ONNX_MLIR_ROOT points to the root of the onnx - mlir,
+#ONNX_MLIR_ROOT points to the root of the onnx-mlir,
 #under which the include and the build directory lies.
 export ONNX_MLIR_ROOT=$(pwd)/../..
-#Define the bin directory where onnx - mlir binary resides.Change only if you
+#Define the bin directory where onnx-mlir binary resides.Change only if you
 #have a non - standard install.
 export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
-#Define the include directory where onnx - mlir runtime include files resides.
+#Define the include directory where onnx-mlir runtime include files resides.
 #Change only if you have a non - standard install.
 export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 
-#Include ONNX - MLIR executable directories part of $PATH.
+#Include ONNX-MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
 
 #Compiler needs to know where to find its                                      \
@@ -260,7 +260,7 @@ from PyRuntime import ExecutionSession
 The runtime use an `ExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
 
 ``` Python
-#Load the model mnist.so compiled with onnx - mlir.
+#Load the model mnist.so compiled with onnx-mlir.
 model = 'mnist.so'
 session = ExecutionSession(model)
 #Print the models input / output signature, for display.

@@ -29,8 +29,12 @@ SUPPRESS_WARNINGS_POP
 #include "PyOMCompileSession.hpp"
 
 namespace onnx_mlir {
-
 int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
+  if (this->inputFileName.empty()) {
+    errorMessage =
+        "No PyOMCompileSession was created with the input file name specified.";
+    return -1;
+  }
   const char *outputName, *errorMsg;
   int64_t rc;
   rc = omCompileFromFile(
@@ -51,6 +55,11 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
 
 int64_t PyOMCompileSession::pyCompileFromArray(
     std::string outputBaseName, EmissionTargetType emissionTarget) {
+  if (this->inputBuffer == nullptr) {
+    errorMessage =
+        "No PyOMCompileSession was created with the input buffer specified.";
+    return -1;
+  }
   const char *outputName, *errorMsg;
   int64_t rc;
   rc = omCompileFromArray(inputBuffer, inputBufferSize, outputBaseName.c_str(),
