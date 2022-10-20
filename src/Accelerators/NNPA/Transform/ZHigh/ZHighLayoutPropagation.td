@@ -50,7 +50,7 @@ def IsPermToNCHW:
                  "Permutation is [0, 3, 1, 2]">;
 
 def GetLayout : NativeCodeCall<
-  "convertDataLayoutToStringAttr($_builder, ::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
+  "convertZTensorDataLayoutToStringAttr($_builder, ::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
 def IsNHWC: Constraint<

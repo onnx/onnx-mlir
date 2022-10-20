@@ -128,7 +128,8 @@ protected:
   mlir::ONNXConstantOp buildONNXConstantOp(
       const OMTensor *omt, const mlir::RankedTensorType resultType);
   // Compare results as float.
-  bool areCloseFloat(const OMTensor *res, const OMTensor *ref) const;
+  bool areCloseFloat(const OMTensor *res, const OMTensor *ref,
+      float defaultRtol = 1e-5, float defaultAtol = 1e-5) const;
   // Print indices rank and values, for debugging.
   void printIndices(
       const std::string message, const std::vector<int64_t> &indices) const;

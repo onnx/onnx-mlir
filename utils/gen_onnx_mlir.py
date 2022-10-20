@@ -4,6 +4,9 @@
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
 
+# After changes that impact the documentation of the ops, run
+# "make onnx-mlir-docs".
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -648,7 +651,7 @@ def dec_indent(indent):
 def join_args(args):
     return ", ".join(args)
 
-def get_operands_or_results(schema, type_str_dict,  is_input):
+def get_operands_or_results(schema, type_str_dict, op_name, is_input):
     value_list = schema.inputs if is_input else schema.outputs
     if not value_list:
         return OrderedDict()
@@ -860,9 +863,9 @@ def parse_type_str(allowedType):
         'map' : 'TupleOf',
         'bool': 'I1',
         #'uint8' : 'AnyI8',
-        #uint16' : 'AnyI16',
-        #uint32' : 'AnyI32',
-        #uint64' : 'AnyI64',
+        #'uint16' : 'AnyI16',
+        #'uint32' : 'AnyI32',
+        #'uint64' : 'AnyI64',
         'uint8' : 'UI8',
         'uint16' : 'UI16',
         'uint32' : 'UI32',
@@ -926,6 +929,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
+# Generate entry for a given operation given by opName (from schema).
 def gen_op_def(schema, with_version = False):
     indent = inc_indent()
     if with_version :
@@ -981,7 +985,7 @@ def gen_op_def(schema, with_version = False):
     type_str_dict =  parse_type_constraints(schema)
 
     # Generate ins (consisting of operands and attributes).
-    ins = get_operands_or_results(schema, type_str_dict, is_input=True)
+    ins = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
     ins.update(get_attrs(schema))
 
     ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
@@ -989,7 +993,7 @@ def gen_op_def(schema, with_version = False):
         (',\n' + inc_indent(indent)).join(ins_strs))
 
     # Generate outs (operation results).
-    outs = get_operands_or_results(schema, type_str_dict, is_input=False)
+    outs = get_operands_or_results(schema, type_str_dict, opName, is_input=False)
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
@@ -1038,7 +1042,7 @@ def gen_op_def(schema, with_version = False):
         # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
         indent = inc_indent(indent)
         s += indent + 'OpBuilder<(ins '
-        operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+        operands_dict = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
         attrs_dict = get_attrs(schema)
         s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
                                     name) for name, ty in operands_dict.items())
