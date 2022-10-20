@@ -2,72 +2,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- PaddingOp.cpp ------------------===//
+//===---------------- Constant.cpp - Const Op --------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
-// ========================================================================
+// =============================================================================
 //
-// This file implements a combined pass that dynamically invoke several
-// transformation on ONNX ops.
+// This file lowers ONNX padding operator to TOSA dialect.
 //
-//===-----------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 
-#ifdef _WIN32
-#include <io.h>
-#endif
-
 using namespace mlir;
-
-//  ONNX Pad operation
-//    “Given a tensor containing the data to be padded (data),
-//    a tensor containing the number of start and end pad values for
-//    axis (pads), (optionally) a mode, and (optionally) constant_value,
-//    ” “a padded tensor (output) is generated.
-//
-//  Attributes:
-//    mode	::mlir::StringAttr	string attribute
-//
-//  Operands:
-//  data	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values
-//  or 	  tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-//  tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit 	  float
-//  values or tensor of string type values or tensor of 1-bit 	  signless
-//  integer values or tensor of complex type with 	  32-bit/64-bit float
-//  elements values or memref of any type values.
-//
-//  pads   tensor of 64-bit signless integer values or memref of
-//  	  any type values.
-//
-//  constant_value
-//  	  tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
-//         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-//         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
-//         float values or tensor of string type values or tensor of 1-bit
-//         signless integer values or tensor of complex type with
-//         32-bit/64-bit float elements values or memref of any type values
-//         or none type.
-//
-// Results:
-//  output
-//         tensor of 8-bit/16-bit/32-bit/64-bit unsigned integer values or
-//         tensor of 8-bit/16-bit/32-bit/64-bit signless integer values or
-//         tensor of bfloat16 type values or tensor of 16-bit/32-bit/64-bit
-//         float values or tensor of string type values or tensor of 1-bit
-//         signless integer values or tensor of complex type with
-//         32-bit/64-bit float elements values or memref of any type values
-//         or none type.
-//
 
 namespace onnx_mlir {
 
@@ -89,11 +47,12 @@ public:
           op, "Only 'constant' mode is supported");
     }
 
+    if (!pads.getDefiningOp<tosa::ConstOp>() || !(constValue.getDefiningOp<tosa::ConstOp>() || constValue.getDefiningOp<ONNXNoneOp>())) {
+      return rewriter.notifyMatchFailure(
+          op, "Only tosa.const operands are supported");
+    }
     // creating the DenseElementsAttr using pads values.
-    DenseElementsAttr denseAttr =
-        llvm::dyn_cast_or_null<tosa::ConstOp>(pads.getDefiningOp())
-            .getValue()
-            .dyn_cast<DenseElementsAttr>();
+    ElementsAttr denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
 
     // Reading the ONNX side pads values and store in the array.
     llvm::SmallVector<APInt, 8> intValues;
@@ -105,22 +64,19 @@ public:
     }
     if (!paddingNeeded) {
       // We do not need to represent the no-op pad in the resulting MLIR
-      rewriter.eraseOp(pads.getDefiningOp());
-      rewriter.eraseOp(constValue.getDefiningOp());
       rewriter.replaceOp(op, {data});
       return success();
     }
 
-    // Rearrange the pad values.
+    // Create a new pad vec in the right format
     // ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
     // TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
     llvm::SmallVector<int64_t, 8> translatePadsList;
-    if (!intValues.empty()) {
-      const unsigned int dimSize = intValues.size() / 2;
-      for (unsigned int i = 0; i < dimSize; i++) {
-        translatePadsList.push_back(intValues[i].getZExtValue());
-        translatePadsList.push_back(intValues[i + dimSize].getZExtValue());
-      }
+
+    const unsigned int dimSize = intValues.size() / 2;
+    for (unsigned int i = 0; i < dimSize; i++) {
+      translatePadsList.push_back(intValues[i].getZExtValue());
+      translatePadsList.push_back(intValues[i + dimSize].getZExtValue());
     }
 
     const unsigned int numberOfDims = intValues.size() / 2;
@@ -134,25 +90,20 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
-    rewriter.eraseOp(pads.getDefiningOp());
-
     if (!constValue.getType().dyn_cast<NoneType>()) {
       DenseElementsAttr valueAttr =
-          llvm::dyn_cast_or_null<tosa::ConstOp>(constValue.getDefiningOp())
-              .getValue()
-              .dyn_cast<DenseElementsAttr>();
+          tosa::getValueFromTosaConst<DenseElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
       auto constType = RankedTensorType::get({}, rewriter.getF32Type());
       auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor = rewriter.replaceOpWithNewOp<tosa::ConstOp>(
-          constValue.getDefiningOp(), constType, constAttr);
+      Value constTosaTensor =
+          rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
 
       rewriter.replaceOpWithNewOp<tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
-      rewriter.eraseOp(constValue.getDefiningOp());
       rewriter.replaceOpWithNewOp<tosa::PadOp>(op, resultType, data, padsList1);
     }
 

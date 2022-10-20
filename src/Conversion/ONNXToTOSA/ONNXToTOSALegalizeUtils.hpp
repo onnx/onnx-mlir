@@ -35,6 +35,11 @@ namespace tosa {
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape = {});
 
+template <typename T>
+T getValueFromTosaConst(Value &val) {
+  return val.getDefiningOp<tosa::ConstOp>().getValue().cast<T>();
+}
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>

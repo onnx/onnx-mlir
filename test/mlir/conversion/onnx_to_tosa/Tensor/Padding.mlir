@@ -18,8 +18,7 @@ func.func @test_no_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x44x32xf3
     %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<20x16x44x32xf32> 
     return %2 :   tensor<20x16x44x32xf32> 
 // CHECK-LABEL: test_no_pad
-// CHECK-NOT: "tosa.const"
-// CHECK-NOT: "tosa.pad"
+// CHECK: return %arg0
 }
 
 // -----
@@ -40,7 +39,13 @@ func.func @test_novalue_no_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x
     %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none) -> tensor<20x16x44x32xf32> 
     return %2 :   tensor<20x16x44x32xf32> 
 // CHECK-LABEL: test_novalue_no_pad
-// CHECK-NOT: "tosa.const"
-// CHECK-NOT: "tosa.pad"
+// CHECK: return %arg0
 }
 
+// -----
+func.func @test_no_const_pad(%arg0: tensor<20x16x44x32xf32>, %arg1: tensor<8xi64>, %arg2: tensor<1xf32>) ->  tensor<20x16x44x32xf32>     {
+    %2 = "onnx.Pad"(%arg0, %arg1, %arg2) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<20x16x44x32xf32> 
+    return %2 :   tensor<20x16x44x32xf32> 
+// CHECK-LABEL: test_no_const_pad
+// CHECK: "onnx.Pad"
+}
