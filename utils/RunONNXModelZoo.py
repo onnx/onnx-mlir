@@ -121,9 +121,9 @@ def get_args():
                         action='store_true',
                         help="Only print model paths in the model zoo.")
     parser.add_argument('-q',
-                        '--publishdir',
+                        '--historydir',
                         default='',
-                        help="Publish dir for previously published results, no default.")
+                        help="History dir for previously published results, no default.")
     parser.add_argument('-r',
                         '--reportdir',
                         default=os.getcwd(),
@@ -375,18 +375,31 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
     return state, model_name
 
 
-def output_report(publish_dir, report_dir, skipped_models, tested_models,
+def output_report(history_dir, report_dir, skipped_models, tested_models,
                   passed_models, failed_models, total_models):
 
     # Ignore path in args.Html
-    html_file      = os.path.basename(args.Html)              # foo.html
-    json_file      = os.path.splitext(html_file)[0] + '.json' # foo.json
-    hist_file      = json_file + '.html'                      # foo.json.html
-    prev_json_file = os.path.join(publish_dir, json_file)
-    curr_json_file = os.path.join(report_dir, json_file)
+    html_file = os.path.basename(args.Html)              # foo.html
+    json_file = os.path.splitext(html_file)[0] + '.json' # foo.json
+    hist_file = json_file + '.html'                      # foo.json.html
+
+    # We used to save the history json in the publish directory but that
+    # has problem with concurrent builds. After the publish directory is
+    # mounted into the model zoo check container and before we come here
+    # to read the json file, another non-merging build could finish and
+    # do its publishing (actually just copy and re-publish). This causes
+    # the publish directory to be deleted and recreated. So we lost the
+    # json file and our history gets reset.
+    #
+    # So now we save the history json in the job directory so it won't be
+    # affected by concurrent builds. Note that reading/writing the json
+    # file is not protected since non-merging builds don't touch it. Other
+    # merging builds won't be a problem either since only one merging build
+    # can run (previously running one gets aborted).
+    json_path = os.path.join(history_dir, json_file)
 
     try:
-        with open(prev_json_file, 'r') as jf:
+        with open(json_path, 'r') as jf:
             hist = json.load(jf)
         prev = hist[0]
     except:
@@ -432,7 +445,7 @@ def output_report(publish_dir, report_dir, skipped_models, tested_models,
     # Write history json. Keep last 100 commits
     HIST_MAX  = 100
     hist_json = [ curr ] + hist[:HIST_MAX-1]
-    with open(curr_json_file, 'w') as jf:
+    with open(json_path, 'w') as jf:
         json.dump(hist_json, jf)
 
     # Write history html
@@ -554,8 +567,8 @@ def main():
 
     if args.Html:
         # Output report files
-        publish_dir = os.path.realpath(args.publishdir)
-        output_report(publish_dir, report_dir, skipped_models, tested_models,
+        history_dir = os.path.realpath(args.historydir)
+        output_report(history_dir, report_dir, skipped_models, tested_models,
                       passed_models, failed_models, total_models)
 
         # Output summary to stdout for the badge text
