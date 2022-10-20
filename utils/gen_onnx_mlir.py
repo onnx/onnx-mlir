@@ -358,6 +358,16 @@ OpsWithVerifier = [
     'Upsample'
 ]
 
+# Op with fold function
+OpsWithFolder = [
+     'Constant'
+]
+
+# Op with ConstantLike trait
+OpsWithConstantLike = [
+     'Constant'
+]
+
 # Op with Helper functions
 # Here the functions are for data flow analysis. 
 OpsWithHelpers = {
@@ -945,6 +955,11 @@ def gen_op_def(schema, with_version = False):
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
+
+    # Generate ConstantLike traits.
+    if opName in OpsWithConstantLike:
+      traits.append("ConstantLike")
+
     # OpsWithShapeInference:
     # Now the ShapeInference traits are added to all operation.
     # Dummy implementations are added to ONNXOps.cpp.
@@ -1103,6 +1118,9 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
+
+    if opName in OpsWithFolder:
+        s += indent + 'let hasFolder = 1;\n'
 
     s += '}\n\n'
     return s
