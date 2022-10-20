@@ -27,6 +27,7 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -55,15 +56,90 @@ using namespace onnx_mlir;
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 void ONNXDialect::initialize() {
-  addOperations<
-#define GET_OP_LIST
-#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-      >();
-
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
       >();
+
+  addAttributes<
+#define GET_ATTRDEF_LIST
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
+      >();
+
+  addOperations<
+#define GET_OP_LIST
+#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+      >();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Attribute
+//===----------------------------------------------------------------------===//
+
+/*
+  For the moment, the x and y factor are explicitly encoded in the
+  ONNXLayoutHelper.hpp LAYOUT strings. These strings are used to recognize which
+  layout is used. But once the pattern is recognized, we use the encoding's
+  layout to represent the high level type of encoding, and the encoding's x and
+  y factor integer to represent the unroll factors. That way, the code that use
+  these encoding does not need to be specialized for a specific value of x or y
+  factor, it just looks at the embedding x and y factor integers to perform the
+  proper unrolling.
+
+  In other words, the string to encoding is manually encoded by fixed string
+  that needs to be customized for each x and y factor that are accepted. But
+  once that is done, the code is fully parametric in terms of the encoding
+  attribute xFactor and yFactor.
+*/
+
+Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
+  if (failed(parser.parseLess()))
+    return {};
+  // Parse the data as a dictionary.
+  DictionaryAttr dict;
+  if (failed(parser.parseAttribute(dict)))
+    return {};
+  if (failed(parser.parseGreater()))
+    return {};
+
+  ONNXTensorEncodingAttr::DataLayout dataLayout =
+      ONNXTensorEncodingAttr::DataLayout::STANDARD;
+  int64_t xFactor = 0;
+  int64_t yFactor = 0;
+
+  // Process the data from the parsed dictionary value into struct-like data.
+  for (const NamedAttribute &attr : dict) {
+    if (attr.getName() == "dataLayout") {
+      StringAttr layoutAttr = attr.getValue().dyn_cast<StringAttr>();
+      if (!layoutAttr) {
+        parser.emitError(
+            parser.getNameLoc(), "expected a string value for data layout");
+        return {};
+      }
+      if (!convertStringToONNXCustomTensorDataLayout(
+              layoutAttr, dataLayout, xFactor, yFactor))
+        parser.emitError(
+            parser.getNameLoc(), "unexpected data layout attribute value: ")
+            << layoutAttr.getValue();
+      return {};
+    } else {
+      parser.emitError(parser.getNameLoc(), "unexpected key: ")
+          << attr.getName().str();
+      return {};
+    }
+  }
+  // Construct struct-like storage for attribute.
+  return parser.getChecked<ONNXTensorEncodingAttr>(
+      parser.getContext(), dataLayout, xFactor, yFactor);
+}
+
+void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
+  // Print the struct-like storage in dictionary fashion.
+  printer << "<{dataLayout = ";
+  StringRef layoutStr = convertONNXTensorDataLayoutToString(
+      getDataLayout(), getXFactor(), getYFactor());
+  printer << "\"" << layoutStr.str() << "\"";
+  printer << "}>";
 }
 
 //===----------------------------------------------------------------------===//
@@ -262,8 +338,7 @@ static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 // Support function that computes default values for dilations.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvDilationParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -292,8 +367,7 @@ static LogicalResult processConvDilationParam(
 // Support function that computes default values for strides.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvStrideParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -320,7 +394,7 @@ static LogicalResult processConvStrideParam(
 // Support function that computes default values for pads.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
+LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
@@ -384,6 +458,12 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
+
+      // If filter size for dimension is 1, and dilation for dimension is 1,
+      // the above pattern can be negative, in which case the padding should
+      // be zero.
+      if (sumOfPad < 0)
+        sumOfPad = 0;
       // Pad values are assumed equal on both size, at half the total value.
       actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
       // But if the total pad value is odd, we add 1 to begining or end
@@ -413,12 +493,45 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 }
 
 //===----------------------------------------------------------------------===//
-// Support function computing default values for dilations, strides, and pads.
+// Support function that computes default values for kernel_shape.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
+LogicalResult processConvKernelParam(
+    T *op, ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
+  // Deduce shape from weight input.
+  // Number of spatial dimensions.
+  if (!op->kernel_shape().has_value()) {
+    auto spatialOffset = 2;
+    int32_t spatialRank = inputShape.size() - spatialOffset;
+
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(op->getContext());
+    op->kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+  }
+  return success();
+}
+
+namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Support function computing default values for dilations, strides,
+// kernel_shape and pads.
+//===----------------------------------------------------------------------===//
+template <class T>
+LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
   // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
+  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+
+  // If kernel_shape isn't provided, add kernel_shape to the the op based on the
+  // shape of the input and weights.
+  LogicalResult res = processConvKernelParam<T>(op, inputShape, wShape);
+  if (failed(res))
+    return res;
 
   // 2) Get kernel_shape attribute. They were previously computed. At this time,
   // they are guranteed to be compile time constant.
@@ -426,7 +539,7 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
 
   // Dilation. It is compile time constants (filled to default 1 value if not
   // explicitely given as input).
-  LogicalResult res = processConvDilationParam<T>(op, kernelShape);
+  res = processConvDilationParam<T>(op, kernelShape);
   if (failed(res))
     return res;
   auto dilationsOpt = op->dilations();
@@ -442,6 +555,17 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
   return processConvPadParam<T>(
       op, inputShape, kernelShape, stridesOpt, dilationsOpt);
 }
+
+template LogicalResult processConvTypeParams<ONNXConvOp>(
+    ONNXConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXQLinearConvOp>(
+    ONNXQLinearConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvIntegerOp>(
+    ONNXConvIntegerOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvTransposeOp>(
+    ONNXConvTransposeOp *op, Value inputOperand, Value W);
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
@@ -2017,21 +2141,14 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res =
+      processConvTypeParams<ONNXConvTransposeOp>(this, X(), W());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2136,21 +2253,13 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(kernelShape, i) < 1)
         return emitError("bad kernel_shape value");
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXQLinearConvOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -3354,21 +3463,13 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -4434,6 +4535,27 @@ LogicalResult ONNXIfOp::inferShapes(
 LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+//===------------------------------------------------------------------------===//
+// LayoutTransform
+//===------------------------------------------------------------------------===//
+
+void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
+    Value input, StringAttr targetLayoutAttr) {
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, input.getType(), targetLayoutAttr);
+  build(builder, state, resType, input, targetLayoutAttr);
+}
+
+LogicalResult ONNXLayoutTransformOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  ONNXLayoutTransformOp operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.In()))
+    return success();
+
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 //===------------------------------------------------------------------------===//
@@ -5691,6 +5813,7 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
 //===----------------------------------------------------------------------===//
 // Loop
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXLoopOp.
 LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -5779,6 +5902,7 @@ mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
 //===----------------------------------------------------------------------===//
 // CustomOp
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXCustomOp. This method is required by
 /// the shape inference interface.
 LogicalResult ONNXCustomOp::inferShapes(
@@ -5786,6 +5910,10 @@ LogicalResult ONNXCustomOp::inferShapes(
   // getResult().setType(getOperand().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// CallOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   // Check that the callee attribute was specified.
@@ -5875,3 +6003,6 @@ LogicalResult ONNXDimOp::inferShapes(
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+#define GET_ATTRDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"

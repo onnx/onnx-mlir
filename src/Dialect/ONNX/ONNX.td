@@ -10,6 +10,10 @@
 //
 // When adding non-standard ONNX ops, please add them in AdditionalONNXOps.td.
 //
+// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact the documentation of the ops, run
+// "make onnx-mlir-docs".
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_OPS
@@ -24,7 +28,7 @@ include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 //===----------------------------------------------------------------------===//
-// Definition of the dialect.
+// Definition of the ONNX dialect.
 //===----------------------------------------------------------------------===//
 
 def ONNX_Dialect : Dialect {
@@ -32,8 +36,102 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let useDefaultAttributePrinterParser = 1;
   let dependentDialects = ["func::FuncDialect"];
 }
+
+//===----------------------------------------------------------------------===//
+// Definition of the ONNX dialect attributes for layout encoding.
+//===----------------------------------------------------------------------===//
+
+// Attribute for Tensors that have a different data layout than normal ONNX tensors.
+class ONNX_Attr<string name, list<Trait> traits = []>
+	: AttrDef<ONNX_Dialect, name, traits>;
+
+// ONNX tensor encoding attribute.
+def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
+  let mnemonic = "encoding";
+  let hasCustomAssemblyFormat = 1;
+  let description = [{
+    An attribute to encode information on properties of ONNX tensors. A tensor with
+    this encoding attribute indicates that it is a tensor whose type is
+    the original type of the pre-transformed custom-layout data.
+
+    `dataLayout` indicates the data layout of the pre-transformed data.
+
+    `x` indicates the tiling factor for the first tiled dimension. Typical values
+    are multiples of the SIMD vector length of the target machine.
+
+    `y` indicates the tiling factor for the first tiled dimension. Typical values
+    are multiples of the SIMD vector length of the target machine. For layout
+    with only one tiling dimension, `y` should be zero.
+
+    Example:
+
+    ```mlir
+    #ONNX_NCHWxC= #onnx.encoding<{
+      dataLayout = "NCHWxC",
+      xFactor = 4,
+      yFactor = 0
+    }>
+
+    ... tensor<8x8x128x128xf32, #ONNX_NCHWxC> ...
+    ```
+  }];
+
+  // Data in ONNX tensor encoding.
+  let parameters = (ins
+    // A original data layout of the pre-transformed custom-layout data.
+    "ONNXTensorEncodingAttr::DataLayout":$dataLayout,
+    "int64_t":$xFactor, // typical is vector length (VL).
+    "int64_t":$yFactor  // typical is VL when used, 0 otherwise.
+  );
+
+  let extraClassDeclaration = [{
+    enum class DataLayout {
+      STANDARD, // Standard ONNX layout as defined by the specs.
+      NCHWxC,   // Layout for conv image, with C=Cin tiled by x.
+      KCNMxCyK  // Layout for conv weights, with C=Cin & K=Cout tiled by x & y.
+    };
+  }];
+
+  let cppNamespace = "::mlir";
+}
+
+// Whether a ONNX Tensor type has the specified layout.
+
+class ONNXCustomDataLayoutAndFactorsOfPred<
+  string layout, int xFactor, int yFactor> :
+ And<[
+  CPred<"($_self.cast<::mlir::RankedTensorType>()) &&"
+        "($_self.cast<::mlir::RankedTensorType>()."
+        "getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>()) &&"
+        "($_self.cast<::mlir::RankedTensorType>()."
+        "getEncoding().cast<ONNXTensorEncodingAttr>().getDataLayout()"
+        " == ONNXTensorEncodingAttr::DataLayout::" # layout # ") &&"
+        "($_self.cast<::mlir::RankedTensorType>()."
+        "getEncoding().cast<ONNXTensorEncodingAttr>().getXFactor()"
+        " == " # xFactor # ")  &&"
+        "($_self.cast<::mlir::RankedTensorType>()."
+        "getEncoding().cast<ONNXTensorEncodingAttr>().getYFactor()"
+        " == " # yFactor # ")">
+]>;
+
+// So far ONNX Tensor supports only F32 for pre-tranformed custom-layout data.
+class ONNXCustomTensorOf<string layout, int xFactor, int yFactor> :
+    Type<And<[TensorOf<[F32]>.predicate,
+              ONNXCustomDataLayoutAndFactorsOfPred<layout, xFactor, yFactor>]>,
+         TensorOf<[F32]>.summary # " with layout " # layout #
+         " and factors " # xFactor # ", " # yFactor,
+         "::mlir::TensorType">;
+
+def ONNXCustomTensor_unranked : UnrankedTensorOf<[F32]>;
+
+// Definition of types for tiling factor of 4.
+def ONNXTensor_NCHW4C: AnyTypeOf<[ONNXCustomTensor_unranked,
+    ONNXCustomTensorOf<"NCHWxC", 4, 0>]>;
+def ONNXTensor_KCMN4C4K: AnyTypeOf<[ONNXCustomTensor_unranked,
+    ONNXCustomTensorOf<"KCNMxCyK", 4, 4>]>;
 
 //===----------------------------------------------------------------------===//
 // Definition of types
@@ -112,7 +210,6 @@ def createNoneIntegerConstant : NativeCodeCall<
 
 def createNoneFloatConstant : NativeCodeCall<
   "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations

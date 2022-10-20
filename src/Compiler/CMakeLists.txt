@@ -24,6 +24,11 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
+if (ONNX_MLIR_VENDOR)
+  list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
+endif()
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
+
 add_onnx_mlir_library(CompilerOptions
   CompilerOptions.cpp
 
