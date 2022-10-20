@@ -50,6 +50,7 @@ extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
 extern llvm::cl::opt<bool> allowSorting;
 
+extern llvm::cl::opt<std::string> instrumentDialects;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
 extern llvm::cl::opt<bool> instrumentONNXSignature;

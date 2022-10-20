@@ -44,7 +44,7 @@ std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 /// Pass for instrument the Onnx ops.
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
 std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
-    llvm::StringRef ops, unsigned actions);
+    llvm::StringRef dialects, llvm::StringRef ops, unsigned actions);
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.

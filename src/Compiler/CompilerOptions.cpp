@@ -133,6 +133,13 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<std::string> instrumentDialects("instrument-dialects",
+    llvm::cl::desc("Specify dialect to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"
+                   "\"ALL\" for all dialects. \n"
+                   "\"dialect1 dialect2 ...\" for the specified dialect."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
     llvm::cl::desc("Specify onnx ops to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
