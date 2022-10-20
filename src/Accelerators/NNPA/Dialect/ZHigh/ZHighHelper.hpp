@@ -23,14 +23,14 @@ namespace zhigh {
 bool hasRankedType(mlir::Value val);
 
 /// Get a ztensor data layout by StringAttr.
-ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
+ZTensorEncodingAttr::DataLayout convertStringAttrToZTensorDataLayout(
     mlir::StringAttr layoutAttr);
 
 /// Get a ztensor data layout by rank.
-ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank);
+ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank);
 
 /// Convert a data layout to StringAttr.
-mlir::StringAttr convertDataLayoutToStringAttr(
+mlir::StringAttr convertZTensorDataLayoutToStringAttr(
     mlir::OpBuilder &builder, ZTensorEncodingAttr::DataLayout layout);
 
 //===----------------------------------------------------------------------===//

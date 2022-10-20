@@ -19,9 +19,11 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
 #define DEBUG 0
@@ -100,6 +102,9 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
 
 namespace {
 
+/// Include the patterns defined in the Declarative Rewrite framework.
+#include "src/Transform/ONNX/ONNXConvOpt.inc"
+
 /*
    Pattern: when we have a convolution with filter of 1x1, stride 1, dilation of
    1, group of 1, and no padding; then we can perform the following
@@ -130,8 +135,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     ONNXConvOp convOp = ::llvm::dyn_cast<ONNXConvOp>(op);
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
-    assert(onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG) &&
-           "should I expect to pass test");
+    if (!onnx_mlir::ExpressONNXConvOpAsMatmul(convOp, DEBUG))
+      return failure();
     if (DEBUG)
       printf("ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
     // All conditions satisfied, get info.
@@ -194,11 +199,10 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     for (int i = 0; i < rank; ++i)
       outputDims.emplace_back(xShape[i]);
     outputDims[1] = Cout;
-    Type outputType = RankedTensorType::get(outputDims, elementType);
-    // Reshape results from matrix multiply MM.
-    Value res = create.onnx.reshape(outputType, MM, outputShapeVals);
+    Value res = create.onnx.reshape(convOp.Y().getType(), MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
+    fprintf(stderr, "  hi alex: success in converting conv to matmul\n");
     return success();
   }
 };
@@ -211,17 +215,21 @@ struct ConvOptONNXToONNXPass
   ConvOptONNXToONNXPass(const ConvOptONNXToONNXPass &pass)
       : mlir::PassWrapper<ConvOptONNXToONNXPass,
             OperationPass<func::FuncOp>>() {}
+  ConvOptONNXToONNXPass(bool enableSimdOpt) {
+    this->enableSimdLayoutOpt = enableSimdOpt;
+  };
 
-  StringRef getArgument() const override { return "convopt-onnx"; }
+  StringRef getArgument() const override { return "conv-opt-onnx"; }
 
   StringRef getDescription() const override {
     return "Perform ONNX to ONNX optimizations for optimized CPU execution of "
            "convolutions.";
   }
 
-  // Option<std::string> target{*this, "target",
-  //    llvm::cl::desc("Target Dialect to decompose into"),
-  //    ::llvm::cl::init("")};
+  // Usage: onnx-mlir-opt --conv-opt-onnx='enable-simd-layout-opt'
+  Option<bool> enableSimdLayoutOpt{*this, "enable-simd-layout-opt",
+      llvm::cl::desc("Enable SIMD layout optimizations"),
+      ::llvm::cl::init(false)};
 
   void runOnOperation() final;
 };
@@ -230,6 +238,9 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
+  // hi alex
+  // this->enableSimdLayoutOpt = false;
+
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
       func::FuncDialect>();
@@ -237,11 +248,25 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
   target.addDynamicallyLegalOp<ONNXConvOp>([&](ONNXConvOp op) {
-    // Conv op is legal if it cannot be transformed to an equivalent matmul.
-    return !onnx_mlir::ExpressONNXConvOpAsMatmul(op);
+    // Conv op can be converted to a matmul
+    bool canBeAMatmul = onnx_mlir::ExpressONNXConvOpAsMatmul(op);
+    // Conv op has optimized layout
+    bool hasOptLayout =
+        onnx_mlir::hasConvONNXTensorDataLayout(op.X().getType());
+    if (hasOptLayout)
+      assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
+             "custom layout for both X and W");
+    bool canBeOptimized =
+        canBeAMatmul || (enableSimdLayoutOpt && !hasOptLayout);
+    // Conv op is legal if it cannot be further optimized.
+    return !canBeOptimized;
   });
 
   RewritePatternSet patterns(context);
+  // Add patterns from Declarative Rewrite framework. They are added
+  // unconditionally but the condition under which the operation is legal or not
+  // is conditional. So we are all good here.
+  populateWithGenerated(patterns);
   patterns.insert<Conv1x1ToMatmulPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
@@ -255,8 +280,9 @@ namespace onnx_mlir {
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass() {
-  return std::make_unique<ConvOptONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
+    bool enableSimdLayoutOpt) {
+  return std::make_unique<ConvOptONNXToONNXPass>(enableSimdLayoutOpt);
 }
 
 } // namespace onnx_mlir

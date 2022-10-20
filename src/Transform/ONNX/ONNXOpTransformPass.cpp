@@ -53,15 +53,21 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::init(false)};
   Option<bool> onnxOpTransformTargetCPU{*this, "onnx-op-transform-target-cpu",
       llvm::cl::desc("Target CPU op transform passes."), llvm::cl::init(true)};
+  Option<bool> onnxOpTransformEnableSimdLayoutOpt{*this,
+      "onnx-op-transform-simd-layout-opt",
+      llvm::cl::desc("Enable SIMD layout opt in op transform passes."),
+      llvm::cl::init(false)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold, bool report, bool targetCPU) {
+  ONNXOpTransformPass(
+      int threshold, bool report, bool targetCPU, bool enableSimdLayoutOpt) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
+    this->onnxOpTransformEnableSimdLayoutOpt = enableSimdLayoutOpt;
   }
 
   void runOnOperation() final;
@@ -144,7 +150,8 @@ void ONNXOpTransformPass::runOnOperation() {
     // Convolution Optimization currently only for CPU.
     if (targetCPU) {
       dynamicPM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConvOptONNXToONNXPass());
+          onnx_mlir::createConvOptONNXToONNXPass(
+              onnxOpTransformEnableSimdLayoutOpt));
       dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     }
     dynamicPM.addNestedPass<func::FuncOp>(
@@ -177,6 +184,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU) {
-  return std::make_unique<ONNXOpTransformPass>(threshold, report, targetCPU);
+    int threshold, bool report, bool targetCPU, bool enableSimdLayoutOpt) {
+  return std::make_unique<ONNXOpTransformPass>(
+      threshold, report, targetCPU, enableSimdLayoutOpt);
 }
