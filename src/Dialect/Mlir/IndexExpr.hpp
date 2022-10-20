@@ -631,6 +631,7 @@ private:
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
+  QuestionmarkIndexExpr(mlir::Value val, int64_t axis);
   QuestionmarkIndexExpr(IndexExpr const &o);
   QuestionmarkIndexExpr(UndefinedIndexExpr const &o);
   QuestionmarkIndexExpr(LiteralIndexExpr const &o);

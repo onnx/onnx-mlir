@@ -18,8 +18,6 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
-extern int64_t IndexExpr_gQuestionMarkCounter;
-
 namespace onnx_mlir {
 
 // Implementation of the IndexExpr. In nearly all cases, the value described by
@@ -36,6 +34,7 @@ public:
   // Basic initialization calls.
   void initAsUndefined();
   void initAsQuestionmark();
+  void initAsQuestionmark(mlir::Value val, int64_t axis);
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);

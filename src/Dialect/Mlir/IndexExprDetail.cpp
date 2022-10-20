@@ -26,14 +26,9 @@
 
 #include <mutex>
 
-int64_t IndexExpr_gQuestionMarkCounter = -2;
-
 using namespace mlir;
 
 namespace onnx_mlir {
-
-// A lock to protect access to IndexExpr_gQuestionMarkCounter.
-std::mutex indexExprQuestionMarkMutex;
 
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
@@ -55,9 +50,18 @@ void IndexExprImpl::initAsUndefined() {
 }
 
 void IndexExprImpl::initAsQuestionmark() {
-  const std::lock_guard<std::mutex> lock(indexExprQuestionMarkMutex);
+  // Question mark has value of -1 by default.
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, -1,
+      AffineExpr(nullptr), Value(nullptr));
+}
+
+void IndexExprImpl::initAsQuestionmark(Value val, int64_t axis) {
+  // Each question mark is assigned a unique integer that is obtained
+  // by hashing the tensor value and the target axis/dimension.
+  llvm::hash_code questionValue =
+      llvm::hash_combine(mlir::hash_value(val), llvm::hash_value(axis));
   init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
-      IndexExpr_gQuestionMarkCounter--, AffineExpr(nullptr), Value(nullptr));
+      questionValue, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
