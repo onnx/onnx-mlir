@@ -13,14 +13,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallVector.h"
 
 using namespace mlir;
@@ -54,8 +57,11 @@ public:
     ArrayAttr pads = adaptor.padsAttr();
     ArrayAttr strides = adaptor.stridesAttr();
 
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+
     if (group.getSInt() != 1) {
-      rewriter.notifyMatchFailure(op, "ONNX Conv grouping not supported");
+      return rewriter.notifyMatchFailure(
+          op, "ONNX Conv grouping not supported");
     }
 
     // NOTE: we would like if inferShapes() had filled in explicit padding
@@ -81,7 +87,7 @@ public:
         RankedTensorType::get(newInputShape, inputType.getElementType());
 
     // create transpose for input
-    rewriter.create<tosa::TransposeOp>(
+    Value newInput = rewriter.create<tosa::TransposeOp>(
         op->getLoc(), newInputTy, input, permList);
 
     // Convert weights [M,C,H,W] -> [M,H,W,C]
@@ -93,7 +99,7 @@ public:
         op->getLoc(), permWeightAttr.getType(), permWeightAttr);
 
     // calculate new shape
-    SmallVector<int64_t> newWeightShape{
+    SmallVector<int64_t, 4> newWeightShape{
         weightShape[0], weightShape[2], weightShape[3], weightShape[1]};
 
     // get new weight type
@@ -101,8 +107,50 @@ public:
         RankedTensorType::get(newWeightShape, weightType.getElementType());
 
     // create transpose for weight
-    rewriter.replaceOpWithNewOp<tosa::TransposeOp>(
-        op, newWeightTy, weights, permWeightList);
+    Value newWeight = rewriter.create<tosa::TransposeOp>(
+        op->getLoc(), newWeightTy, weights, permWeightList);
+
+    Value newBias = NULL;
+    if (bias.getType().isa<NoneType>()) {
+      DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
+          RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
+          {0.0F});
+      newBias = rewriter.create<tosa::ConstOp>(
+          op->getLoc(), newBiasAttr.getType(), newBiasAttr);
+    } else {
+      newBias = bias;
+    }
+
+    ArrayAttr newDilations = NULL;
+    if (!dilations) {
+      newDilations = rewriter.getI64ArrayAttr({1, 1});
+    } else {
+      newDilations = dilations;
+    }
+
+    ArrayAttr newStrides = NULL;
+    if (!dilations) {
+      newStrides = rewriter.getI64ArrayAttr({1, 1});
+    } else {
+      newStrides = strides;
+    }
+    ArrayAttr newPads = NULL;
+    if (!pads) {
+      newPads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+    } else {
+      llvm::SmallVector<int64_t, 4> newPadVec = extractFromI64ArrayAttr(pads);
+      newPads = rewriter.getI64ArrayAttr(
+          {newPadVec[0], newPadVec[2], newPadVec[3], newPadVec[1]});
+    }
+
+    auto oldOutputShape = resultType.cast<ShapedType>().getShape();
+    SmallVector<int64_t, 4> newOutputShape{oldOutputShape[0], oldOutputShape[2],
+        oldOutputShape[3], oldOutputShape[1]};
+    Type newOutputType = RankedTensorType::get(
+        newOutputShape, resultType.cast<ShapedType>().getElementType());
+
+    tosa::CreateReplaceOpAndInfer<tosa::Conv2DOp>(rewriter, op, newOutputType, newInput,
+        newWeight, newBias, newPads, newStrides, newDilations);
 
     return success();
   }
