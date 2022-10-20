@@ -65,7 +65,7 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
-/// Create an Scalar DenseElementsAttr from FloatAttr or IntergerAttr.
+/// Create an Scalar DenseElementsAttr from FloatAttr or IntegerAttr.
 /// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {

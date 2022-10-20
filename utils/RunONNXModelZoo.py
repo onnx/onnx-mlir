@@ -79,6 +79,10 @@ def get_args():
     parser.add_argument('-c',
                         '--compile-args',
                         help="Options passing to onnx-mlir to compile a model.")
+    parser.add_argument('-C',
+                        '--compile-only',
+                        action='store_true',
+                        help="Only compile models.")
     parser.add_argument('-f',
                         '--force-clean',
                         action='store_true',
@@ -322,6 +326,8 @@ def check_model(model_path, model_name, compile_args, report_dir):
             options += ['--data-folder={}'.format(data_set)]
         if model_name in RunONNXModel_additional_options:
             options += RunONNXModel_additional_options[model_name]
+        if (args.compile_only):
+            options += ['--compile-only']
         ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + [onnx_file] + options)
         state = TEST_PASSED if ok else TEST_FAILED
         logger.debug("[{}] {}".format(model_name, msg))

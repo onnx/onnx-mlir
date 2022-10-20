@@ -37,6 +37,8 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
+// Mapping to remember what the original tensor was.
+
 /// A list of layouts associated with newly allocated MemRefs.
 /// When lowering an operation, its output Tensor (e.g.
 /// `tensor<1x3x5x7xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>`) will be
@@ -487,7 +489,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
       MemRefType outType = MemRefType::get(shape, b.getF16Type());
       resZMemRefType.value =
           MemRefType::Builder(outType).setLayout(AffineMapAttr::get(smap));
-      resZMemRefType.layout = convertDataLayoutToStringAttr(b, layout);
+      resZMemRefType.layout = convertZTensorDataLayoutToStringAttr(b, layout);
     } else {
       resZMemRefType.value = MemRefType::get(shape, elementType);
     }
