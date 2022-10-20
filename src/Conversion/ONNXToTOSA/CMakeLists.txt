@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
+  Math/Softmax.cpp
   Tensor/Constant.cpp
 
   LINK_LIBS PUBLIC

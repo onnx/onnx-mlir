@@ -29,7 +29,7 @@
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
-
+using namespace mlir;
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
@@ -60,8 +60,9 @@ using TOSAOp = typename TOSADialectOp<Op>::Op;
 
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToTOSAPattern(
-    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir:: MLIRContext *);
-
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSoftmaxOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXConstOpToTOSAPattern(
-    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 } // namespace onnx_mlir
