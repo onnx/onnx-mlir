@@ -2714,13 +2714,14 @@ LogicalResult ONNXConstantOp::inferShapes(
 }
 
 OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
-  if (value().has_value()) {
-    return valueAttr();
-  } else {
-    Attribute  bufferIDAttr = getOperation()->getAttr(BUFFER_ID_ATTR);
-    // ONNXConstantOp should have either "value" or BUFFER_ID_ATTR
-    assert(bufferIDAttr  && "fold constant");
+  Attribute  bufferIDAttr = getOperation()->getAttr(BUFFER_ID_ATTR);
+  // Assume buffer_id attribute has higher priority
+  if (bufferIDAttr) {
     return bufferIDAttr;
+  } else {
+    // ONNXConstantOp should have either "value" or BUFFER_ID_ATTR
+    assert(value().has_value()  && "can not fold constant");
+    return valueAttr();
   }
 }
 
