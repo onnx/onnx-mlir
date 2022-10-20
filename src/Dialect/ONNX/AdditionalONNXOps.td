@@ -18,6 +18,10 @@
 //   of original ONNX ops. These ops may possibly be removed in the future.
 //   Example are ONNXBatchNormalizationInferenceModeOp, ...
 //
+// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact the documentation of the ops, run
+// "make onnx-mlir-docs".
+//
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
@@ -173,6 +177,33 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 
     static StringRef getEntryPointFuncAttrName() { return "func"; }
   }];
+}
+
+//===----------------------------------------------------------------------===//
+// LayoutTransform.
+def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "An operation that transforms data between different layout formats";
+  let description = [{
+    An operation that transforms data between different ONNX layout format.
+    Currently, it supports transformations from standard format to a
+    NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
+
+    Operations that transforms data from the same ONNX layout format are
+    considered as a no operation and will be removed.
+
+    This operation is not part of the standard and was added to assit onnx-mlir.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
+      ONNXTensor_KCMN4C4K]>:$In,
+      DefaultValuedStrAttr<StrAttr, "STANDARD">:$target_layout
+      );
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
+      ONNXTensor_KCMN4C4K]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$target_layout)>, // Defined layouts.
+  ];
+  let hasCanonicalizer = 1;
 }
 
 //===----------------------------------------------------------------------===//

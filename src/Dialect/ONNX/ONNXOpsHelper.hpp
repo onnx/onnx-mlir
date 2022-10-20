@@ -26,16 +26,66 @@
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// ONNX Tensor support.
+
+/// Get a ONNX Custom Tensor data layout by StringRef. If layout string is a
+/// standard layout or any other unrecognized string, just return false.
+bool convertStringToONNXCustomTensorDataLayout(mlir::StringAttr layoutAttr,
+    mlir::ONNXTensorEncodingAttr::DataLayout &layout, int64_t &xFactor,
+    int64_t &yFactor);
+
+/// Convert a data layout to StringRef, assert on error. Default yFactor value
+/// is undef, namely 0.
+llvm::StringRef convertONNXTensorDataLayoutToString(
+    mlir::ONNXTensorEncodingAttr::DataLayout layout, int64_t xFactor,
+    int64_t yFactor = 0);
+
+// Add ONNX tensor encoding to ranked & shaped types. Return type only has the
+// encoding if the layout is custom, Currently assert for non ranked/shaped
+// type.
+mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+    mlir::OpBuilder &builder, const mlir::Type inputType,
+    mlir::StringAttr layoutAttr);
+
+/// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
+bool isONNXTensor(const mlir::Type type);
+
+/// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
+/// any type without an encoding.
+mlir::ONNXTensorEncodingAttr getONNXTensorEncoding(mlir::Type type);
+
+/// Get the layout of a ONNX tensor.
+mlir::ONNXTensorEncodingAttr::DataLayout getONNXTensorLayout(mlir::Type type);
+
+// Return true if both types have the same ONNX Tensor Data Layout (does not
+// check for dimensions, elementary types...).
+bool identicalONNXTensorDataLayout(
+    const mlir::Type type1, const mlir::Type type2);
+
+// Return true if the type has a layout associated with convolution
+// optimizations.
+bool hasConvONNXTensorDataLayout(const mlir::Type type);
+
+// Return true if the type has a layout, and that layout is not STANDARD.
+bool hasCustomONNXTensorDataLayout(const mlir::Type type);
+
+//===----------------------------------------------------------------------===//
+// Identity map
+
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
 mlir::AffineMap getIdentityDimMap(mlir::Builder &builder);
 
+//===----------------------------------------------------------------------===//
+// Support for pool/convolutions
+
 // Pool/conv affine map:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]
-//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) floordiv s2 + 1>
+//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) floorDiv s2 + 1>
 // In the case of `ceilMode = true`:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]
-//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) ceildiv s2 + 1>
+//                    -> (d0 + s1 - (s0 - 1) * s3 - 1) ceilDiv s2 + 1>
 // where:
 // - d0: input dim
 // - s0: kernel

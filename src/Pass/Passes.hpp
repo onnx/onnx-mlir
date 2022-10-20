@@ -25,12 +25,13 @@ namespace onnx_mlir {
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU);
+    int threshold, bool report, bool targetCPU, bool enableSimdLayoutOpt);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
 
-std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
+    bool enableSimdLayoutOpt = false);
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);

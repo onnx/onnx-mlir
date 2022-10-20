@@ -18,6 +18,7 @@ include "mlir/IR/OpBase.td"
 
 def ZLow_Dialect : Dialect {
   let name = "zlow";
+  let summary = "A low-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zlow";
 }
 
