@@ -71,24 +71,24 @@ public:
 
     A = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
         rewriter, op->getLoc(),
-        UnrankedTensorType::get(AType.getElementType()), A,
+        RankedTensorType::get({-1, -1, -1}, AType.getElementType()), A,
         rewriter.getI64ArrayAttr(newShapeA)).getResult();
     B = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
         rewriter, op->getLoc(),
-        UnrankedTensorType::get(BType.getElementType()), B,
+        RankedTensorType::get({-1, -1, -1}, BType.getElementType()), B,
         rewriter.getI64ArrayAttr(newShapeB)).getResult();
 
-    auto tosaResult = UnrankedTensorType::get(resultType.getElementType());
+    auto tosaResult = RankedTensorType::get({-1, -1, -1}, resultType.getElementType());
 
     // If transA or transB are present, create Transpose operators.
     if (transA) {
       Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = UnrankedTensorType::get(AType.getElementType());
+      Type outputType = RankedTensorType::get({-1, -1, -1}, AType.getElementType());
       A = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, A, targetTensor).getResult();
     }
     if (transB) {
       Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = UnrankedTensorType::get(AType.getElementType());
+      Type outputType = RankedTensorType::get({-1, -1, -1}, BType.getElementType());
       B = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, B, targetTensor).getResult();
     }
     
@@ -111,7 +111,8 @@ public:
     }
 
     //A * B
-    Value matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, UnrankedTensorType::get(resultType.getElementType()), alphaMulResult, B).getResult();
+    Value matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, 
+                  RankedTensorType::get({-1, -1, -1}, resultType.getElementType()), alphaMulResult, B).getResult();
 
     Value addRes = NULL;
     //(A*B) + Beta * C or (A*B) + C
