@@ -25,7 +25,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-
+  populateLoweringONNXSoftmaxOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXPadOpToTOSAPattern(target, patterns, typeConverter, ctx);
