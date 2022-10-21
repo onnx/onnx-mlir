@@ -854,7 +854,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(X);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    // Insert an allocation and deallocation for the result of this operation.
+    // Insert an allocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
