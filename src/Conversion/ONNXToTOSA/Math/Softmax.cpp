@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Elementwise.cpp - Elementwise Op --------------------===//
+//===---------------- Softmax.cpp - Softmax Op --------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
-// This file lowers ONNX element-wise operators to TOSA dialect.
+// This file lowers ONNX softmax operator to TOSA dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -83,7 +83,6 @@ public:
 
     tosa::CreateReplaceOpAndInfer<tosa::MulOp>(rewriter, op, outputType,
         op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
-
 
     return success();
   }
