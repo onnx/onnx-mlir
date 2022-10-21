@@ -176,13 +176,15 @@ void OMInstrumentInit() {
   }
 }
 
-void OMInstrumentPoint(int64_t id, int64_t tag, const char *nodeName) {
+void OMInstrumentPoint(
+    int64_t dialectId, int64_t opId, int64_t tag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
   // Print header
-  printf("#%3d) %s op=%8s", instrumentCounter,
-      tag & (1 << (int)InstrumentBeforeOp) ? "before" : "after ", (char *)&id);
+  printf("#%3d) %s %8s %8s", instrumentCounter,
+      tag & (1 << (int)InstrumentBeforeOp) ? "before" : "after ",
+      (char *)&dialectId, (char *)&opId);
   instrumentCounter++;
 
   bool localReportTime =
