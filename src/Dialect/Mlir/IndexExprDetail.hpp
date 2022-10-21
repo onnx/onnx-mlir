@@ -18,8 +18,6 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
-extern int64_t IndexExpr_gQuestionMarkCounter;
-
 namespace onnx_mlir {
 
 // Implementation of the IndexExpr. In nearly all cases, the value described by
@@ -35,7 +33,13 @@ public:
 
   // Basic initialization calls.
   void initAsUndefined();
+  // Initialize a question mark with the default value of -1.
   void initAsQuestionmark();
+  // Initialize a question mark for an unknown dimension in a Tensor/Memref.
+  // This initialization is needed for symbolic shape analysis where each
+  // question mark is assigned to a unique value hashed from the given
+  // tensorOrMemref and dimension index.
+  void initAsQuestionmark(mlir::Value tensorOrMemref, int64_t index);
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);
