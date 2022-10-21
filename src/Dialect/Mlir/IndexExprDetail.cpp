@@ -55,11 +55,14 @@ void IndexExprImpl::initAsQuestionmark() {
       AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsQuestionmark(Value val, int64_t axis) {
+void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
-  // by hashing the tensor value and the target axis/dimension.
-  llvm::hash_code questionValue =
-      llvm::hash_combine(mlir::hash_value(val), llvm::hash_value(axis));
+  // by hashing the tensor/memref value and the target dimension index.
+  // According to `llvm/ADT/hashing.h`, a hash value is per execution of the
+  // program. Thus, it should not be trusted to be stable or predictable across
+  // processes or executions.
+  llvm::hash_code questionValue = llvm::hash_combine(
+      mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
   init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
       questionValue, AffineExpr(nullptr), Value(nullptr));
 }
