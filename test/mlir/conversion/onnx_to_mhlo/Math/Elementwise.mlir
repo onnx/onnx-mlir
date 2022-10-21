@@ -163,3 +163,27 @@ func.func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x
 // CHECK: %4 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK: %5 = mhlo.compare LT, %3, %4, NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 }
+
+func.func @test_pow_verifier_1(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<1x2x3x4xf32> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<1x2x3x4xf32>
+  "func.return"(%0) : (tensor<1x2x3x4xf32>) -> ()
+// CHECK-LABEL: func @test_pow_verifier_1
+// CHECK: %0 = "mhlo.broadcast_in_dim"(%arg1) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>) -> tensor<1x2x3x4xf32>
+// CHECK: %1 = mhlo.power %arg0, %0 : tensor<1x2x3x4xf32>
+}
+
+func.func @test_mul_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x?xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL: func @test_mul_unknown_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x?xf32>) -> tensor<10x10xf32> {
+// CHECK: %3 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<10x?xf32>, tensor<2xindex>) -> tensor<10x10xf32>
+// CHECK: %4 = mhlo.multiply %arg0, %3 : tensor<10x10xf32>
+}
+
+func.func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
+  "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL: func @test_sqrt
+// CHECK: %0 = mhlo.sqrt %arg0 : tensor<?x10xf32>
+}

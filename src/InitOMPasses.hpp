@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/Pass/Pass.h"
 #include "src/Pass/Passes.hpp"
 
