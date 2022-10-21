@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Elementwise.cpp - Elementwise Op --------------------===//
+//===---------------- Reshape.cpp - Reshape Op --------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
