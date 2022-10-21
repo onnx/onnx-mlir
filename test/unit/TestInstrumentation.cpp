@@ -7,11 +7,11 @@
 #include <thread>
 
 int main(int argc, char *argv[]) {
-  const char dstart[8] = "TDialectStar";
-  const char d2[8] = "TDialect2";
-  const char d3[8] = "TDialect3";
-  const char d4[8] = "TDialect4";
-  const char dfinal[8] = "TDialectFin";
+  const char dialectStart[8] = "TDStar";
+  const char dialect2[8] = "TD2";
+  const char dialect3[8] = "TD3";
+  const char dialect4[8] = "TD4";
+  const char dialectFinal[8] = "TDFin";
   const char opstart[8] = "TOpStar";
   const char op2[8] = "TOp2";
   const char op3[8] = "TOp3";
@@ -24,12 +24,15 @@ int main(int argc, char *argv[]) {
   const char nodeOpfinal[8] = "NodeFin";
   OMInstrumentInit();
   OMInstrumentPoint(
-      *(const int64_t *)dstart, *(const int64_t *)opstart, 13, nodeStart);
-  OMInstrumentPoint(*(const int64_t *)d2, *(const int64_t *)op2, 1, nodeOp2);
-  OMInstrumentPoint(*(const int64_t *)d3, *(const int64_t *)op3, 4, nodeOp3);
-  OMInstrumentPoint(*(const int64_t *)d4, *(const int64_t *)op4, 9, nodeOp4);
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+      *(const int64_t *)dialectStart, *(const int64_t *)opstart, 13, nodeStart);
   OMInstrumentPoint(
-      *(const int64_t *)dfinal, *(const int64_t *)opfinal, 12, nodeOpfinal);
+      *(const int64_t *)dialect2, *(const int64_t *)op2, 1, nodeOp2);
+  OMInstrumentPoint(
+      *(const int64_t *)dialect3, *(const int64_t *)op3, 4, nodeOp3);
+  OMInstrumentPoint(
+      *(const int64_t *)dialect4, *(const int64_t *)op4, 9, nodeOp4);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  OMInstrumentPoint(*(const int64_t *)dialectFinal, *(const int64_t *)opfinal,
+      12, nodeOpfinal);
   return 0;
 }
