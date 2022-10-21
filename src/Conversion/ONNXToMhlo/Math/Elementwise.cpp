@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "stablehlo/dialect/BroadcastUtils.h"
 
 using namespace mlir;
 

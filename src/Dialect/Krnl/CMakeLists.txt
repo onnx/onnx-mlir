@@ -23,7 +23,7 @@ add_onnx_mlir_library(OMKrnlOps
   OMONNXOps
   MLIRLLVMCommonConversion
   MLIRAffineDialect
-  MLIRArithmeticDialect
+  MLIRArithDialect
   MLIRFuncDialect
   MLIRLinalgDialect
   MLIRMathDialect

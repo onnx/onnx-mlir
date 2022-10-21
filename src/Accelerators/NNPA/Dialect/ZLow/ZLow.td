@@ -20,6 +20,7 @@ def ZLow_Dialect : Dialect {
   let name = "zlow";
   let summary = "A low-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zlow";
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
 }
 
 // Base class for ZLow dialect operations. This operation inherits from the

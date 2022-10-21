@@ -9,7 +9,7 @@ func.func @test_lower_both_zlow_and_krnl() -> () {
   "zlow.stick"(%0, %1) : (memref<10x10xf32>, memref<1x1x32x64xf32>) -> ()
   return
 
-  // CHECK-DAG: llvm.mlir.global internal constant @{{.*}}(dense<{{\[}}[0.000000e+00, 1.000000e+00]{{\]}}> : tensor<1x2xf32>) {alignment = 16 : i64} : !llvm.array<1 x array<2 x f32>>
+  // CHECK-DAG: llvm.mlir.global internal constant @{{.*}}(dense<{{\[}}[0.000000e+00, 1.000000e+00]{{\]}}> : tensor<1x2xf32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<1 x array<2 x f32>>
 }
 
 // -----

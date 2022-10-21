@@ -108,22 +108,6 @@ func.func @test_lstm_wrong_direction(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x1
 /// Unsupported configurations for ONNXCategoryMapperOp.
 //===----------------------------------------------------------------------===//
 
-func.func @unsupport_category_mapper_default_int64_missing(%arg0: tensor<20x1x!onnx.String>) -> tensor<*xi64> {
-  // expected-error @+1 {{'default_int64' attribute is missing.}}    
-  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["cat", "dog"], default_string = "abc" : si64} : (tensor<20x1x!onnx.String>) -> tensor<*xi64>
-  "func.return"(%0) : (tensor<*xi64>) -> ()
-}
-
-// -----
-
-func.func @unsupport_category_mapper_default_string_missing (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
-  // expected-error @+1 {{'default_string' attribute is missing.}}      
-  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["cat", "dog"], default_int64 = 1 : si64} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
-  "func.return"(%0) : (tensor<*x!onnx.String>) -> ()
-}
-
-// -----
-
 func.func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
   // expected-error @+1 {{cats_int64 and cats_strings should have the same size}}      
   %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["dog"]} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
