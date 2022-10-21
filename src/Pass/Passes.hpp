@@ -42,9 +42,9 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 
-/// Pass for instrument the Onnx ops.
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
+/// Pass for instrument the ops in specific dialect.
+std::unique_ptr<mlir::Pass> createInstrumentPass();
+std::unique_ptr<mlir::Pass> createInstrumentPass(
     llvm::StringRef dialects, llvm::StringRef ops, unsigned actions);
 
 /// Passes for instrumenting the ONNX ops to print their operand type

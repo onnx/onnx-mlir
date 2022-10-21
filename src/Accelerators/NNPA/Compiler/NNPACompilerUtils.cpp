@@ -78,9 +78,8 @@ void addONNXToZHighPasses(
   }
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentONNXPass(instrumentDialects,
-            instrumentONNXOps, instrumentControlBits.getBits()));
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentDialects, instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were

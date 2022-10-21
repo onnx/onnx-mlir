@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- InstrumentONNXPass.cpp - Instrumentation ---------------------===//
+//===------- InstrumentPass.cpp - Instrumentation ---------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a Function level pass that inserts instrumentation
-// for ONNX ops.
+// This file implements a Function level pass that inserts instrumentation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,7 +24,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
+// #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -34,14 +33,15 @@ using namespace mlir;
 namespace {
 
 /*!
- * This pass insert KrnlInstrumentOp before and after each ONNX ops
+ * This pass insert KrnlInstrumentOp before and after each ops in specified
+ * dialect
  */
 
-class InstrumentONNXPass : public mlir::PassWrapper<InstrumentONNXPass,
-                               OperationPass<func::FuncOp>> {
+class InstrumentPass
+    : public mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>> {
 
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentONNXPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
   Option<std::string> instrumentDialects{*this, "instrument-dialects",
       llvm::cl::desc("Specify dialect to be instrumented\n"
@@ -50,8 +50,8 @@ public:
                      "\"dialect1 dialect2 ...\" for the specified dialect."),
       llvm::cl::init("")};
 
-  Option<std::string> instrumentONNXOps{*this, "instrument-onnx-ops",
-      llvm::cl::desc("Specify onnx ops to be instrumented\n"
+  Option<std::string> instrumentOps{*this, "instrument-ops",
+      llvm::cl::desc("Specify ops to be instrumented\n"
                      "\"NONE\" or \"\" for no instrument\n"
                      "\"ALL\" for all ops. \n"
                      "\"op1 op2 ...\" for the specified ops."),
@@ -71,12 +71,12 @@ public:
       llvm::cl::desc("instrument runtime reports memory usage"),
       llvm::cl::init(false)};
 
-  InstrumentONNXPass() = default;
-  InstrumentONNXPass(const InstrumentONNXPass &pass)
-      : mlir::PassWrapper<InstrumentONNXPass, OperationPass<func::FuncOp>>() {}
-  InstrumentONNXPass(StringRef dialects, StringRef ops, unsigned actions) {
+  InstrumentPass() = default;
+  InstrumentPass(const InstrumentPass &pass)
+      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
+  InstrumentPass(StringRef dialects, StringRef ops, unsigned actions) {
     this->instrumentDialects = dialects.str();
-    this->instrumentONNXOps = ops.str();
+    this->instrumentOps = ops.str();
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
     this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
@@ -88,10 +88,10 @@ private:
   std::set<std::string> allowedOps;
 
 public:
-  StringRef getArgument() const override { return "instrument-onnx"; }
+  StringRef getArgument() const override { return "instrument-ops"; }
 
   StringRef getDescription() const override {
-    return "instrument on onnx ops.";
+    return "instrument on ops of specific dialect.";
   }
 
   void init(std::string allowedOps_) {
@@ -129,9 +129,9 @@ public:
   }
 
   void runOnOperation() override {
-    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
+    if (instrumentOps == "" || instrumentOps == "NONE")
       return;
-    init(instrumentONNXOps);
+    init(instrumentOps);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
@@ -162,11 +162,11 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass() {
-  return std::make_unique<InstrumentONNXPass>();
+std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
+  return std::make_unique<InstrumentPass>();
 }
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass(
+std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
     StringRef dialects, StringRef ops, unsigned actions) {
-  return std::make_unique<InstrumentONNXPass>(dialects, ops, actions);
+  return std::make_unique<InstrumentPass>(dialects, ops, actions);
 }

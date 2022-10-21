@@ -140,8 +140,8 @@ llvm::cl::opt<std::string> instrumentDialects("instrument-dialects",
                    "\"dialect1 dialect2 ...\" for the specified dialect."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("Specify onnx ops to be instrumented:\n"
+llvm::cl::opt<std::string> instrumentOps("instrument-ops",
+    llvm::cl::desc("Specify ops to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
                    "\"ALL\" for all ops, \n"
                    "\"op1 op2 ...\" for the specified ops."),
