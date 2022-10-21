@@ -16,7 +16,7 @@
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -62,7 +62,7 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   target.addIllegalOp<KrnlSeqDeallocOp>();
   target.addIllegalOp<KrnlSeqExtractOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
+  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect, mlir::scf::SCFDialect>();
 

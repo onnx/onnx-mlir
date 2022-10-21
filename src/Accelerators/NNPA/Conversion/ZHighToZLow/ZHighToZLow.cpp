@@ -203,9 +203,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         RankedTensorType::get(shape, rewriter.getF32Type(),
             ZTensorEncodingAttr::get(op->getContext(), layout));
     ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
-    MemRefType resType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType resType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
 
     // Create a ZHighStickifiedConstantOp.
     ZHighStickifiedConstantOp stickifiedConstant =
@@ -683,9 +682,8 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // Normalize MemRefType to get a static shape.
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
            "MemRefType has dynamic dimensions");
-    MemRefType normalizedType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType normalizedType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Get dense resource attribute.

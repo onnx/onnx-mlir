@@ -133,9 +133,9 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = (allocOp.alignment().has_value())
+      newAlloc = (allocOp.getAlignment().has_value())
                      ? create.mem.alignedAlloc(
-                           memPoolMemRefType, allocOp.alignment().value())
+                           memPoolMemRefType, allocOp.getAlignment().value())
                      : create.mem.alloc(memPoolMemRefType);
 
     } else {
@@ -145,9 +145,9 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = (allocOp.alignment().has_value())
+      newAlloc = (allocOp.getAlignment().has_value())
                      ? create.mem.alignedAlloc(memPoolMemRefType,
-                           dyanmicTotalSize, allocOp.alignment().value())
+                           dyanmicTotalSize, allocOp.getAlignment().value())
                      : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 

@@ -326,7 +326,7 @@ func.func @softmax(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}
 
 // CHECK-LABEL:  func @softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>> {
-// CHECK:           [[VAR_0_:%.+]] = "zhigh.Softmax"([[PARAM_0_]]) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Softmax"([[PARAM_0_]]) {act_func = "ACT_NONE"} : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
 // CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
 // CHECK:         }
 }
@@ -339,7 +339,7 @@ func.func @softmax_unknown_dims(%arg0: tensor<?x?x?xf32, #zhigh.encoding<{dataLa
 
 // CHECK-LABEL:  func @softmax_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>> {
-// CHECK:           [[VAR_0_:%.+]] = "zhigh.Softmax"([[PARAM_0_]]) : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Softmax"([[PARAM_0_]]) {act_func = "ACT_NONE"} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
 // CHECK:           return [[VAR_0_]] : tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
 // CHECK:         }
 }
