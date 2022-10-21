@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -40,9 +41,22 @@ public:
     if (!outputType) {
       return rewriter.notifyMatchFailure(op, "Not a ranked tensor");
     }
+
+    if (adaptor.allowzero() != 0) {
+      return rewriter.notifyMatchFailure(op, "Only allowZero = 0 is supported");
+    }
+
     if (!adaptor.shape().getDefiningOp<tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
           op, "Only tosa.const operands are supported");
+    }
+    Value shapeConst = adaptor.shape().getDefiningOp<tosa::ConstOp>();
+    ElementsAttr shapeConstAttr =
+        tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
+    for (APInt i : shapeConstAttr.getValues<APInt>()) {
+      if (i.getZExtValue() == 0) {
+        return rewriter.notifyMatchFailure(op, "Zero shape not allowed");
+      }
     }
 
     llvm::SmallVector<int64_t> shapeValues;
