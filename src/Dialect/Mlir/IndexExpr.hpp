@@ -258,7 +258,7 @@ inference part as no code may be generated during such phases.
 
 #pragma once
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/AffineExpr.h"
@@ -631,6 +631,11 @@ private:
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
+  // Constuct a question mark for an unknown dimension in a Tensor/Memref.
+  // This constructor is needed for symbolic shape analysis where each
+  // question mark is assigned to a unique value hashed from the given
+  // tensorOrMemref and dimension index.
+  QuestionmarkIndexExpr(mlir::Value tensorOrMemref, int64_t index);
   QuestionmarkIndexExpr(IndexExpr const &o);
   QuestionmarkIndexExpr(UndefinedIndexExpr const &o);
   QuestionmarkIndexExpr(LiteralIndexExpr const &o);

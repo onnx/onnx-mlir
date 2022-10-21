@@ -137,5 +137,5 @@ func.func @test_return_cast(%arg0: memref<2x1xf32>) -> memref<1x2xf32> {
 
   // CHECK-LABEL: func @test_return_cast
   // CHECK: [[VAR_0_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x1xf32>
-  // CHECK-NOT: memref.dealloc [[VAR_0_]]
+  // CHECK-NOT: memref.dealloc [[VAR_0_]] :
 }

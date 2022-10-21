@@ -219,7 +219,7 @@ func.func @test_maxpool_2d_padtype_not_computed_dyn(%arg0: tensor<?x?x?x?xf32>) 
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
   return %0 : tensor<?x?x?x?xf32>
 
-  // CHECK:           [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.MaxPoolSingleOut"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
   // CHECK:           return [[VAR_0_]] : tensor<?x?x?x?xf32>
 }
 
@@ -262,7 +262,7 @@ func.func @test_averagepool_2d_padtype_not_computed_dyn(%arg0: tensor<?x?x?x?xf3
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
   return %0 : tensor<?x?x?x?xf32>
 
-  // CHECK:           [[VAR_0_:%.+]] = "onnx.AveragePool"([[PARAM_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.AveragePool"([[PARAM_0_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, count_include_pad = 0 : si64, dilations = [1, 1], kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
   // CHECK:           return [[VAR_0_]] : tensor<?x?x?x?xf32>
 }
 

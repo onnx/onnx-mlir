@@ -63,7 +63,7 @@ OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
  *
  */
 OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(
-    int64_t id, int64_t tag, const char* nodeName);
+    int64_t id, int64_t tag, const char *nodeName);
 
 #ifdef __cplusplus
 }

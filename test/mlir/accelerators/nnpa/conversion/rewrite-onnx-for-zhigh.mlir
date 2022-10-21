@@ -408,7 +408,7 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
 
 // CONSTPROP-LABEL:  func.func @test_matmul_broadcast_dyn_dims
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32> {
-// CONSTPROP-DAG:       [[VAR_0_:%.+]] = "onnx.Shape"([[PARAM_1_]]) : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
+// CONSTPROP-DAG:       [[VAR_0_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
 // CONSTPROP-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
 // CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
 // CONSTPROP-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
@@ -418,8 +418,8 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
 // CONSTPROP:           [[VAR_7_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_6_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
 // CONSTPROP:           [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
 // CONSTPROP-DAG:       [[VAR_9_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_8_]]) : (tensor<256x?xf32>, tensor<?x?x?xf32>) -> tensor<?x256x?xf32>
-// CONSTPROP-DAG:       [[VAR_10_:%.+]] = "onnx.Shape"([[PARAM_0_]]) : (tensor<256x?xf32>) -> tensor<2xi64>
-// CONSTPROP-DAG:       [[VAR_11_:%.+]] = "onnx.Shape"([[PARAM_1_]]) : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
+// CONSTPROP-DAG:       [[VAR_10_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<256x?xf32>) -> tensor<2xi64>
+// CONSTPROP-DAG:       [[VAR_11_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
 // CONSTPROP-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
 // CONSTPROP-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
 // CONSTPROP-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
