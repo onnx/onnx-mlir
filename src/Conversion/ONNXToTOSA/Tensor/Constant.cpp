@@ -46,6 +46,7 @@ public:
   }
 };
 
+
 } // namespace
 
 void populateLoweringONNXConstOpToTOSAPattern(ConversionTarget &target,

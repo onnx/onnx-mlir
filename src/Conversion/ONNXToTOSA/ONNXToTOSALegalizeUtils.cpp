@@ -45,7 +45,5 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
   auto constOp = rewriter.create<ConstOp>(op->getLoc(), constType, constAttr);
   return constOp.getResult();
 }
-
-
 } // namespace tosa
 } // namespace mlir
