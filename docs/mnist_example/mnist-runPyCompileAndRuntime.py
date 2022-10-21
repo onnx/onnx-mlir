@@ -5,13 +5,15 @@ from PyCompileAndRuntime import PyOMCompileExecutionSession
 
 # Load onnx model and create CompileExecutionSession object.
 inputFileName = './mnist.onnx'
+# Set the full name of compiled model
+sharedLibPath = './mnist.so'
 # Set the compile option as "-O3"
-session = PyOMCompileExecutionSession(inputFileName,"-O3")
+session = PyOMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
 
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
-session.print_input_signature()
-session.print_output_signature()
+print("input signature in json", session.input_signature())
+print("output signature in json",session.output_signature())
 
 # Create an input arbitrarily filled of 1.0 values.
 input = np.array([-0.4242129623889923, -0.4242129623889923,

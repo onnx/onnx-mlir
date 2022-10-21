@@ -237,8 +237,10 @@ from PyCompileAndRuntime import PyOMCompileExecutionSession
 
 # Load onnx model and create CompileExecutionSession object.
 inputFileName = './mnist.onnx'
+# Set the full name of compiled model
+sharedLibPath = './mnist.so'
 # Set the compile option as "-O3"
-session = PyOMCompileExecutionSession(inputFileName, "-O3")
+session = PyOMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
 
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
@@ -258,11 +260,12 @@ for output in outputs:
 The PyCompileAndRuntime is a new class, which combines compile and execution. Its constructor takes the `.onnx` input file and compile the model with the options given by the user and then run the model with an input.
 
 ```python
-def __init__(self, input_model_path: str, flags: str, use_default_entry_point: bool):
+def __init__(self, input_model_path: str, compiled_file_path: str, flags: str, use_default_entry_point: bool):
     """
     Constructor for an ONNX model contained in a file.
     Args:
         input_model_path: relative or absolute path to your ONNX model.
+        compiled_file_path: relative or absolute path to your compiled file.
         flags: all the options users would like to set.
         use_default_entry_point: use the default entry point that is `run_main_graph` or not. Set to True by default.
     """

@@ -67,7 +67,7 @@ set_target_properties(ExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
-
+  
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
 #
@@ -108,7 +108,6 @@ target_compile_definitions(PyRuntime
   )
 target_include_directories(PyRuntime
   PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/include
   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 target_link_libraries(PyRuntime
