@@ -1165,11 +1165,12 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
   indexExprObj->initAsQuestionmark();
 }
 
-QuestionmarkIndexExpr::QuestionmarkIndexExpr(Value val, int64_t axis)
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(
+    Value tensorOrMemref, int64_t index)
     : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsQuestionmark(val, axis);
+  indexExprObj->initAsQuestionmark(tensorOrMemref, index);
 }
 // Don't care about otherIndexExpr as question marks have no real data.
 
