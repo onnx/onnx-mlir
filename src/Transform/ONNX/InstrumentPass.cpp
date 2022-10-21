@@ -88,7 +88,7 @@ private:
   std::set<std::string> allowedOps;
 
 public:
-  StringRef getArgument() const override { return "instrument-ops"; }
+  StringRef getArgument() const override { return "instrument"; }
 
   StringRef getDescription() const override {
     return "instrument on ops of specific dialect.";
