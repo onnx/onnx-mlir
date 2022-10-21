@@ -67,4 +67,7 @@ void populateLoweringONNXConstOpToTOSAPattern(
 
 void populateLoweringONNXGemmOpToTOSAPattern(
     mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
+void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
+    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir

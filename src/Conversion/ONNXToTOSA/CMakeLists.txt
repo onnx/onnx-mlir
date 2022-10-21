@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Elementwise.cpp
   Tensor/Constant.cpp
   Math/Gemm.cpp
+  NN/MaxPoolSingleOut.cpp
 
 
   LINK_LIBS PUBLIC
