@@ -5,8 +5,10 @@ add_onnx_mlir_library(OMONNXToTOSA
   ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
+  Math/Softmax.cpp
   Tensor/Reshape.cpp
   Tensor/Constant.cpp
+  Tensor/PaddingOp.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
