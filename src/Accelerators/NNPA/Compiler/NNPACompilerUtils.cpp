@@ -33,7 +33,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -76,10 +75,9 @@ void addONNXToZHighPasses(
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
-  // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
-  if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        instrumentDialects, instrumentOps, instrumentControlBits.getBits()));
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+      instrumentDialects, instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -132,7 +130,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     else {
       pm.addPass(mlir::createCanonicalizerPass());
       // Add instrumentation for ZHigh Ops
-      pm.addNestedPass<func::FuncOp>(zhigh::createInstrumentZHighPass());
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          instrumentDialects, instrumentOps, instrumentControlBits.getBits()));
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
