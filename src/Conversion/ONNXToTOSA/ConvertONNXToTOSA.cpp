@@ -28,6 +28,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXGemmOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXSoftmaxOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
