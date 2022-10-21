@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Constant.cpp - Const Op --------------------===//
+//===---------------- Padding.cpp - Padding Op --------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
@@ -47,7 +47,9 @@ public:
           op, "Only 'constant' mode is supported");
     }
 
-    if (!pads.getDefiningOp<tosa::ConstOp>() || !(constValue.getDefiningOp<tosa::ConstOp>() || constValue.getDefiningOp<ONNXNoneOp>())) {
+    if (!pads.getDefiningOp<tosa::ConstOp>() ||
+        !(constValue.getDefiningOp<tosa::ConstOp>() ||
+            constValue.getDefiningOp<ONNXNoneOp>())) {
       return rewriter.notifyMatchFailure(
           op, "Only tosa.const operands are supported");
     }
@@ -55,10 +57,10 @@ public:
     ElementsAttr denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
 
     // Reading the ONNX side pads values and store in the array.
-    llvm::SmallVector<APInt, 8> intValues;
+    llvm::SmallVector<int64_t, 8> intValues;
     bool paddingNeeded = false;
     for (auto n : denseAttr.getValues<APInt>()) {
-      intValues.push_back(n);
+      intValues.push_back(n.getZExtValue());
       if (!n.isZero())
         paddingNeeded = true;
     }
@@ -75,8 +77,8 @@ public:
 
     const unsigned int dimSize = intValues.size() / 2;
     for (unsigned int i = 0; i < dimSize; i++) {
-      translatePadsList.push_back(intValues[i].getZExtValue());
-      translatePadsList.push_back(intValues[i + dimSize].getZExtValue());
+      translatePadsList.push_back(intValues[i]);
+      translatePadsList.push_back(intValues[i + dimSize]);
     }
 
     const unsigned int numberOfDims = intValues.size() / 2;
@@ -91,8 +93,8 @@ public:
         getTypeConverter()->convertType(op.getResult().getType());
 
     if (!constValue.getType().dyn_cast<NoneType>()) {
-      DenseElementsAttr valueAttr =
-          tosa::getValueFromTosaConst<DenseElementsAttr>(constValue);
+      ElementsAttr valueAttr =
+          tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
