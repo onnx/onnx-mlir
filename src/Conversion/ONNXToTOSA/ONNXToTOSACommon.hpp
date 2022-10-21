@@ -63,8 +63,12 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSoftmaxOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXGemmOpToTOSAPattern(
+    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+// `Tensor` directory methods:
 void populateLoweringONNXConstOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-void populateLoweringONNXGemmOpToTOSAPattern(
+void populateLoweringONNXPadOpToTOSAPattern(
     ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
 } // namespace onnx_mlir
