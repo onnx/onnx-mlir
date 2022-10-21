@@ -32,37 +32,112 @@ namespace {
 class ONNXGemmOpLoweringToTOSA : public OpConversionPattern<ONNXGemmOp> {
 public:
   using OpConversionPattern<ONNXGemmOp>::OpConversionPattern;
-  LogicalResult rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
+
+
+  LogicalResult matchAndRewrite(ONNXGemmOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    // If legal, create a FullyConnected operator instead
+    if (rewriteToTosaFC(op, adaptor, rewriter)) {
+      return success();
+    }
+    return rewriteToTosaMatMul(op, adaptor, rewriter);
+  }
+    
+  LogicalResult rewriteToTosaMatMul(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
-    Value A = adaptor.A();
-    Value B = adaptor.B();
-    Value C = adaptor.C();
+    Location loc = op->getLoc();
+    Value A = op.A();
+    Value B = op.B();
+    Value C = op.C();
+    int64_t transA = adaptor.transA();
+    int64_t transB = adaptor.transB();
+    FloatAttr alpha = adaptor.alphaAttr();
+    FloatAttr beta = adaptor.betaAttr();
+    auto AType = A.getType().cast<RankedTensorType>();
+    auto BType = B.getType().cast<RankedTensorType>();
+    auto shapeA = AType.getShape();
+    auto shapeB = BType.getShape();
+    auto resultType = getTypeConverter()->convertType(op.getResult().getType()).cast<TensorType>();
+    
+    // C is optional, if it's not there, we need to be aware of it for later computations
+    bool isCPresent = C.getType().isa<TensorType>();
+    // ONNX uses HW matrix as input and output as it runs a matrix multiplication. TOSA implements it
+    // as a batch matrix multiplication, meaning the input and output are NHW. As such, there
+    // is a need to add reshapes operators before and after we do any computation to add a batch
+    // of 1.
+    llvm::SmallVector<int64_t> newShapeA{1, shapeA[0], shapeA[1]};
+    llvm::SmallVector<int64_t> newShapeB{1, shapeB[0], shapeB[1]};
 
-    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    A = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
+        rewriter, op->getLoc(),
+        RankedTensorType::get({-1, -1, -1}, AType.getElementType()), A,
+        rewriter.getI64ArrayAttr(newShapeA)).getResult();
+    B = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
+        rewriter, op->getLoc(),
+        RankedTensorType::get({-1, -1, -1}, BType.getElementType()), B,
+        rewriter.getI64ArrayAttr(newShapeB)).getResult();
 
-    // If no bias is given to the GEMM operator, we create a 1D bias with all
-    // zeroes
-    if (C.getType().isa<mlir::NoneType>()) {
-      // B is supposed to have 
-      ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[1]);
-      std::vector<float> elements = {};
-      for (int i = 0; i < cformat[0]; ++i)
-        elements.push_back(0.0F);
-      C = mlir::tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+    auto tosaResult = RankedTensorType::get({-1, -1, -1}, resultType.getElementType());
+
+    // If transA or transB are present, create Transpose operators.
+    if (transA) {
+      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
+      Type outputType = RankedTensorType::get({-1, -1, -1}, AType.getElementType());
+      A = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, A, targetTensor).getResult();
+    }
+    if (transB) {
+      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
+      Type outputType = RankedTensorType::get({-1, -1, -1}, BType.getElementType());
+      B = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, B, targetTensor).getResult();
+    }
+    
+    Value alphaMulResult = A;
+    Value betaMulResult = C;
+    // If Alpha is present and not 1, we create a multiply operation for alpha * A
+    if (alpha && alpha.getValueAsDouble() != 1.) {
+      alphaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc,
+            tosaResult,
+            tosa::getTosaConstTensorSingleF32(rewriter, op, alpha.getValueAsDouble(), newShapeA),
+            A, 0).getResult();
     }
 
-    rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(op, resultType, A, B, C);
+    // If C and Beta are set, and beta is different from 1, we also need to add a multiplication for beta * C
+    if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
+      auto shapeC = C.getType().dyn_cast<ShapedType>();
+      betaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc, shapeC, 
+            tosa::getTosaConstTensorSingleF32(rewriter, op, beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
+            C, 0).getResult();
+    }
+
+    //A * B
+    Value matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, 
+                  RankedTensorType::get({-1, -1, -1}, resultType.getElementType()), alphaMulResult, B).getResult();
+
+    Value addRes = NULL;
+    //(A*B) + Beta * C or (A*B) + C
+    if (isCPresent) {
+      addRes = tosa::CreateOpAndInfer<tosa::AddOp>(rewriter, loc, tosaResult, matmulRes, betaMulResult).getResult();
+    }
+    else {
+      addRes = matmulRes;
+    }
+
+    // Add reshape to go back to the original shape
+    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(rewriter, op, resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
+
     return success();
   }
+
 
   /// The GEMM can be described as a FullyConnected operator
   /// Y = AB^T + C if we perform a transpose on B only with
   /// alpha and beta factors set to 1.
-  /// The constraints on rank were taken from the torch implementation check
   /// Input A must be of rank 2 (input)
   /// Input B must be of rank 2 (weights)
   /// Input C must be of rank 1 (bias)
-  static bool checkLegalTosaFCOp(ONNXGemmOp op, OpAdaptor adaptor) {
+  bool rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const {
     Value A = op.A();
     Value B = op.B();
     Value C = op.C();
@@ -89,110 +164,23 @@ public:
     if (adaptor.transA() != 0 || adaptor.transB() != 1) {
       return false;
     }
+
+    // If all check passed, we replace the GEMM by a FC operator    
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+
+    // If no bias is given to the GEMM operator, we create a 1D bias with all
+    // zeroes
+    if (C.getType().isa<mlir::NoneType>()) {
+      // Base C format on B[0] format
+      ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[0]);
+      std::vector<float> elements = {};
+      for (int i = 0; i < cformat[0]; ++i)
+        elements.push_back(0.0F);
+      C = mlir::tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+    }
+
+    rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(op, resultType, A, B, C);
     return true;
-  }
-  LogicalResult matchAndRewrite(ONNXGemmOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
-    Location loc = op->getLoc();
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
-    int64_t transA = adaptor.transA();
-    int64_t transB = adaptor.transB();
-    FloatAttr alpha = adaptor.alphaAttr();
-    FloatAttr beta = adaptor.betaAttr();
-    auto AType = A.getType().cast<RankedTensorType>();
-    auto BType = B.getType().cast<RankedTensorType>();
-    auto shapeA = A.getType().dyn_cast<ShapedType>().getShape();
-    auto shapeB = B.getType().dyn_cast<ShapedType>().getShape();
-    auto resultType = getTypeConverter()->convertType(op.getResult().getType()).cast<TensorType>();
-    
-    // C is optional, if it's not there, we need to be aware of it for later computations
-    bool isCPresent = C.getType().isa<TensorType>();
-    // If it's not present, ONNX creates a NoValue operator. Remove it.
-    if (!isCPresent) {
-      rewriter.eraseOp(C.getDefiningOp());
-    }
-
-    // If legal, create a FullyConnected operator instead
-    if (checkLegalTosaFCOp(op, adaptor)) {
-      return rewriteToTosaFC(op, adaptor, rewriter);
-    }
-    
-    // ONNX gives 2d matrix as input and expect a 2d output. TOSA expects everything to be 3D. As such, there
-    // is a need to add reshapes operators before and after we do any computation. We set the batch as 1 as it
-    // is unknown.
-    llvm::SmallVector<int64_t> newShapeA{1};
-    llvm::SmallVector<int64_t> newShapeB{1};
-    newShapeA.append({shapeA[0], shapeA[1]});
-    newShapeB.append({shapeB[0], shapeB[1]});
-
-    A = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
-        rewriter, op->getLoc(),
-        UnrankedTensorType::get(AType.getElementType()), A,
-        rewriter.getI64ArrayAttr(newShapeA)).getResult();
-    B = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
-        rewriter, op->getLoc(),
-        UnrankedTensorType::get(BType.getElementType()), B,
-        rewriter.getI64ArrayAttr(newShapeB)).getResult();
-
-    auto tosaResult = UnrankedTensorType::get(resultType.getElementType());
-
-    // If transA or transB are present, create Transpose operators.
-    if (transA) {
-      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = UnrankedTensorType::get(AType.getElementType());
-      A = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, A, targetTensor).getResult();
-    }
-    if (transB) {
-      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = UnrankedTensorType::get(AType.getElementType());
-      B = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, B, targetTensor).getResult();
-    }
-    
-    Value alphaMulResult = NULL;
-    Value betaMulResult = NULL;
-    // If Alpha is present and not 1, we create a multiply operation for alpha * A
-    if (alpha && alpha.getValueAsDouble() != 1.) {
-      alphaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc,
-            tosaResult,
-            tosa::getTosaConstTensorSingleF32(rewriter, op, alpha.getValueAsDouble(), newShapeA),
-            A, 0).getResult();
-    }
-
-    // If C and Beta are set, and beta is different from 1, we also need to add a multiplication for beta * C
-    if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
-      auto shapeC = C.getType().dyn_cast<ShapedType>();
-      betaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc, shapeC, 
-            tosa::getTosaConstTensorSingleF32(rewriter, op, beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
-            C, 0).getResult();
-    }
-
-    Value matmulRes = NULL;
-    //A * B
-    if (alphaMulResult) {
-      matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, UnrankedTensorType::get(resultType.getElementType()), alphaMulResult, B).getResult();
-    }
-    else {
-      matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, UnrankedTensorType::get(resultType.getElementType()), A, B).getResult();
-    }
-
-    Value addRes = NULL;
-    //(A*B) + Beta * C or (A*B) + C
-    if (betaMulResult) {
-      addRes = tosa::CreateOpAndInfer<tosa::AddOp>(rewriter, loc, tosaResult, matmulRes, betaMulResult).getResult();
-    }
-    else if (isCPresent) {
-      addRes = tosa::CreateOpAndInfer<tosa::AddOp>(rewriter, loc, tosaResult, matmulRes, adaptor.C()).getResult();
-    }
-    else {
-      addRes = matmulRes;
-    }
-
-    // Add reshape to go back to the original size
-    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(rewriter, op, resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
-
-    return success();
   }
 };
 
