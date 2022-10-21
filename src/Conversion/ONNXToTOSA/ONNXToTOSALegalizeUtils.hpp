@@ -35,6 +35,14 @@ namespace tosa {
 Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
     float val, llvm::ArrayRef<int64_t> shape = {});
 
+// Templated function to create a constant op for given type and shape.
+// T: storage C type.
+// Default template creates a constant tensor in T.
+// To create INT48 TOSA constant, need to pass in llvm::APInt instead.
+template <typename T>
+llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
+                                     ArrayRef<T> vec, ArrayRef<int64_t> shape);
+
 template <typename T>
 T getValueFromTosaConst(Value &val) {
   return val.getDefiningOp<tosa::ConstOp>().getValue().cast<T>();
