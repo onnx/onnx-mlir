@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --conv-opt-onnx='enable-simd-layout-opt' %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --conv-opt-onnx='simd-data-layout' %s -split-input-file | FileCheck %s
 
 // Simple intro of layout transform
 module {

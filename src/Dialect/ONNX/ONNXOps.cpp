@@ -117,12 +117,13 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
         return {};
       }
       if (!convertStringToONNXCustomTensorDataLayout(
-              layoutAttr, dataLayout, xFactor, yFactor))
+              layoutAttr, dataLayout, xFactor, yFactor)) {
         parser.emitError(
             parser.getNameLoc(), "unexpected data layout attribute value: ")
             << layoutAttr.getValue();
-      return {};
-    } else {
+        return {};
+      }
+    } else { // Attribute different than "dataLayout".
       parser.emitError(parser.getNameLoc(), "unexpected key: ")
           << attr.getName().str();
       return {};
@@ -4542,19 +4543,22 @@ LogicalResult ONNXIsInfOp::inferShapes(
 //===------------------------------------------------------------------------===//
 
 void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
-    Value input, StringAttr targetLayoutAttr) {
+    Value data, StringAttr targetLayoutAttr) {
   Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-      builder, input.getType(), targetLayoutAttr);
-  build(builder, state, resType, input, targetLayoutAttr);
+      builder, data.getType(), targetLayoutAttr);
+  build(builder, state, resType, data, targetLayoutAttr);
 }
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ONNXLayoutTransformOp operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.In()))
+  if (!hasShapeAndRank(operandAdaptor.data()))
     return success();
 
-  getResult().setType(getOperand().getType());
+  auto builder = mlir::Builder(getContext());
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, data().getType(), target_layoutAttr());
+  getResult().setType(resType);
   return success();
 }
 
