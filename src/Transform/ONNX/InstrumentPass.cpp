@@ -84,8 +84,9 @@ public:
   }
 
 private:
-  bool allOpsAllowed;
+  bool allOpsAllowed, allDialectsAllowed;
   std::set<std::string> allowedOps;
+  std::set<std::string> allowedDialects;
 
 public:
   StringRef getArgument() const override { return "instrument"; }
@@ -94,7 +95,7 @@ public:
     return "instrument on ops of specific dialect.";
   }
 
-  void init(std::string allowedOps_) {
+  void init(std::string allowedOps_, std::string allowedDialects_) {
     if (allowedOps_ == "ALL") {
       allOpsAllowed = true;
     } else {
@@ -103,6 +104,15 @@ public:
       std::istream_iterator<std::string> begin(ss);
       std::istream_iterator<std::string> end;
       allowedOps = std::set<std::string>(begin, end);
+    }
+    if (allowedDialects_ == "ALL") {
+      allDialectsAllowed = true;
+    } else {
+      allDialectsAllowed = false;
+      std::stringstream ss(allowedDialects_);
+      std::istream_iterator<std::string> begin(ss);
+      std::istream_iterator<std::string> end;
+      allowedDialects = std::set<std::string>(begin, end);
     }
   }
 
@@ -131,12 +141,15 @@ public:
   void runOnOperation() override {
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
-    init(instrumentOps);
+    if (instrumentDialects == "" || instrumentDialects == "NONE")
+      return;
+    init(instrumentOps, instrumentDialects);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
-      if (StringRef(instrumentDialects)
-              .equals_insensitive(op->getDialect()->getNamespace())) {
+      const char *dialectName = op->getDialect()->getNamespace().data();
+      if (allDialectsAllowed ||
+          allowedDialects.find(dialectName) != allowedDialects.end()) {
         // Skip the dialect name
         const char *opName =
             op->getName().getStringRef().data() + instrumentDialects.size();
