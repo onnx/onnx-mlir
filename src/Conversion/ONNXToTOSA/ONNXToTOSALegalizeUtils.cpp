@@ -30,6 +30,25 @@
 namespace mlir {
 namespace tosa {
 
+Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
+    Value &value, llvm::ArrayRef<int64_t> perm) {
+  // Create Permutation Attr
+  DenseElementsAttr permAttr = DenseIntElementsAttr::get(
+      RankedTensorType::get({value.getType().cast<TensorType>().getRank()},
+          rewriter.getI64Type()),
+      perm);
+  // Create Permutation Const
+  Value permList = tosa::CreateOpAndInfer<tosa::ConstOp>(
+      rewriter, op->getLoc(), permAttr.getType(), permAttr);
+  // get new value type
+  Type newValueTy = RankedTensorType::get(
+      {-1, -1, -1, -1}, value.getType().cast<ShapedType>().getElementType());
+  // create transpose for value
+  Value newValue = tosa::CreateOpAndInfer<tosa::TransposeOp>(
+      rewriter, op->getLoc(), newValueTy, value, permList);
+  return newValue;
+}
+
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {}) {
   return mlir::RankedTensorType::get(
