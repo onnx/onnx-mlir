@@ -80,7 +80,6 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
 */
 
 using namespace mlir;
-using namespace onnx_mlir;
 
 Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   if (failed(parser.parseLess()))
@@ -106,7 +105,7 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
             parser.getNameLoc(), "expected a string value for data layout");
         return {};
       }
-      if (!convertStringToONNXCustomTensorDataLayout(
+      if (!onnx_mlir::convertStringToONNXCustomTensorDataLayout(
               layoutAttr, dataLayout, xFactor, yFactor)) {
         parser.emitError(
             parser.getNameLoc(), "unexpected data layout attribute value: ")
@@ -127,7 +126,7 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
 void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
   // Print the struct-like storage in dictionary fashion.
   printer << "<{dataLayout = ";
-  StringRef layoutStr = convertONNXTensorDataLayoutToString(
+  StringRef layoutStr = onnx_mlir::convertONNXTensorDataLayoutToString(
       getDataLayout(), getXFactor(), getYFactor());
   printer << "\"" << layoutStr.str() << "\"";
   printer << "}>";
