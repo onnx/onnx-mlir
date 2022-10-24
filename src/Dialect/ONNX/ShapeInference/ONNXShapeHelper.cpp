@@ -151,7 +151,7 @@ LogicalResult ONNXGenericOpUnaryElementwiseShapeHelper::computeShape(
   // Output and input have the same shape. Just pass the input shape to the
   // output.
   MemRefBoundsIndexCapture bounds(operand);
-  for (int64_t i = 0; i < bounds.getRank(); ++i)
+  for (uint64_t i = 0; i < bounds.getRank(); ++i)
     outputDims.emplace_back(bounds.getDim(i));
 
   setOutputDims(outputDims);
