@@ -18,7 +18,6 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/ShapeHelper.cpp  
-  ONNXTypes.cpp
   Rewrite.cpp
   
   # Support for shape inference and verifiers
