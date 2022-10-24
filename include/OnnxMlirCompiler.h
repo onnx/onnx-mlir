@@ -94,7 +94,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  * responsible for freeing the string.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
-    int bufferSize, const char *outputBaseName,
+    int64_t bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, const char **outputFilename,
     const char **errorMessage);
 

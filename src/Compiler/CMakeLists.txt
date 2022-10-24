@@ -173,6 +173,9 @@ add_onnx_mlir_library(OnnxMlirCompiler
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PRIVATE
@@ -182,3 +185,27 @@ add_onnx_mlir_library(OnnxMlirCompiler
 if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
+
+pybind11_add_module(PyCompile PyOMCompileSession.cpp)
+add_dependencies(PyCompile onnx_proto)
+target_compile_options(PyCompile
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
+target_compile_definitions(PyCompile
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(PyCompile
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  )
+target_link_libraries(PyCompile
+  PRIVATE
+  OnnxMlirCompiler
+  )
+
+install(TARGETS PyCompile
+  DESTINATION lib
+  )
