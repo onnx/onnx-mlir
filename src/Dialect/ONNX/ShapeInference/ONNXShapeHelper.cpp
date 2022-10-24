@@ -129,6 +129,36 @@ void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Op Shape Helper for Generic Unary Elementwise Operations
+//===----------------------------------------------------------------------===//
+
+ONNXGenericOpUnaryElementwiseShapeHelper::
+    ONNXGenericOpUnaryElementwiseShapeHelper(
+        Operation *newOp, IndexExprScope *inScope)
+    : ONNXOpShapeHelper<Operation>(newOp, 1, inScope) {}
+
+ONNXGenericOpUnaryElementwiseShapeHelper::
+    ONNXGenericOpUnaryElementwiseShapeHelper(Operation *newOp,
+        mlir::OpBuilder *rewriter,
+        ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+        ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
+    : ONNXOpShapeHelper<Operation>(
+          newOp, 1, rewriter, fGetDenseVal, fLoadVal, inScope) {}
+
+LogicalResult ONNXGenericOpUnaryElementwiseShapeHelper::computeShape(
+    Value operand) {
+  DimsExpr outputDims;
+  // Output and input have the same shape. Just pass the input shape to the
+  // output.
+  MemRefBoundsIndexCapture bounds(operand);
+  for (uint64_t i = 0; i < bounds.getRank(); ++i)
+    outputDims.emplace_back(bounds.getDim(i));
+
+  setOutputDims(outputDims);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Broadcasting
 //===----------------------------------------------------------------------===//
 
@@ -471,10 +501,16 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
   if (!hasShapeAndRank(input))
     return success();
 
+  ONNXGenericOpUnaryElementwiseShapeHelper shapeHelper(op);
+  if (failed(shapeHelper.computeShape(input)))
+    return op->emitError("Failed to scan parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+
   // Inferred shape is getting from the input's shape.
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  updateType(output, inputType.getShape(), inputType.getElementType(),
-      inputType.getEncoding());
+  updateType(
+      output, outputDims, inputType.getElementType(), inputType.getEncoding());
   return success();
 }
 

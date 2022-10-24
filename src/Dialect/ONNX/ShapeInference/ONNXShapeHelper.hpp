@@ -114,6 +114,25 @@ private:
   bool ownScope;
 };
 
+/// Compute an output shape for a unary element-wise operation. The output and
+/// input of an unary element-wise operation have the same shape.
+struct ONNXGenericOpUnaryElementwiseShapeHelper
+    : public ONNXOpShapeHelper<mlir::Operation> {
+  ONNXGenericOpUnaryElementwiseShapeHelper(
+      mlir::Operation *newOp, IndexExprScope *inScope = nullptr);
+
+  ONNXGenericOpUnaryElementwiseShapeHelper(mlir::Operation *newOp,
+      mlir::OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr);
+
+  // Compute a vector of IndexExprs to represent the output shape. Results
+  // are stored in 'outputDims'. Used in shape inference and memory allocation
+  // for the output.
+  mlir::LogicalResult computeShape(mlir::Value operand);
+};
+
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
 template <class OP>
