@@ -13,13 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Dialect/ONNX/ONNXTypes.hpp"
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXTypes.hpp"
 
-#include "llvm/ADT/TypeSwitch.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 // Tablegen ONNX types and attributes are implemented here (by including the
 // generated .cpp.inc code files) in the same source file as dialect
