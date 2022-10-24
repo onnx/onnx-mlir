@@ -27,6 +27,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallVector.h"
+#include <cstdint>
 
 using namespace mlir;
 
@@ -96,12 +97,42 @@ public:
           {newPadVec[0], newPadVec[2], newPadVec[1], newPadVec[3]});
     }
 
-    Type newConvOutputType = RankedTensorType::get(
-        {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
+    Value conv2D = NULL;
+    if (group.getSInt() == 1) {
+      Type newConvOutputType = RankedTensorType::get(
+          {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
 
-    Value conv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter,
-        op->getLoc(), newConvOutputType, newInput, newWeight, bias, pads,
-        strides, dilations);
+      conv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter, op->getLoc(),
+          newConvOutputType, newInput, newWeight, bias, pads, strides,
+          dilations);
+    } else {
+      const int64_t groups = group.getSInt();
+      auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
+      const int sizeOfSlice = newInputShape[3] / weightShape[1];
+      ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(
+          {newInputShape[0], newInputShape[1], newInputShape[2], sizeOfSlice});
+      llvm::SmallVector<Value> sliceValues;
+      for (int64_t slice = 0; slice < newInputShape[3]; slice += sizeOfSlice) {
+        ArrayAttr startAttr = rewriter.getI64ArrayAttr({0, 0, 0, slice});
+        Value newSliceInput =
+            tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
+                RankedTensorType::get({-1, -1, -1, -1},
+                    newInput.getType().cast<ShapedType>().getElementType()),
+                startAttr, sizeAttr);
+
+        Type newConvOutputType = RankedTensorType::get(
+            {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
+
+        conv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter, op->getLoc(),
+            newConvOutputType, newSliceInput, newWeight, bias, pads, strides,
+            dilations);
+        sliceValues.push_back(conv2D);
+      }
+      Type newConcatOutputType = RankedTensorType::get(
+          {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
+      conv2D = tosa::CreateOpAndInfer<tosa::ConcatOp>(
+          rewriter, op->getLoc(), newConcatOutputType, sliceValues, 3);
+    }
 
     // Convert output [N,H,W,M] -> [N,M,H,W]
     Value newOutput =
