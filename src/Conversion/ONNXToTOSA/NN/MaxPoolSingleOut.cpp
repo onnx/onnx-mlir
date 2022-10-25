@@ -2,22 +2,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Maxpool.cpp - Maxpool Op --------------------===//
+//===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op --------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
-// This file lowers ONNX Maxpool operator to TOSA dialect.
+// This file lowers ONNX MaxpoolSingleOut operator to TOSA dialect.
 //
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Value.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -38,15 +35,14 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
-    MLIRContext *ctx = op->getContext();
 
     Value Input = adaptor.X();
     // - The attribute Ceil_mode is ignored because its effect is already impacting the return
     // type of the operator
     // - The attribute auto_pad is ignored because it is marked as deprecated for ONNX
+    // - The attributes storage_order and dilations is also unsupported
     mlir::StringAttr autoPad = adaptor.auto_padAttr();
     
-    mlir::IntegerAttr storage = adaptor.storage_orderAttr();
     mlir::ArrayAttr dilations = adaptor.dilationsAttr();
     mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
     mlir::ArrayAttr pads = adaptor.padsAttr();
@@ -62,6 +58,9 @@ public:
     if (autoPad != "NOTSET") {
       llvm::errs() << "auto_pad attribute is deprecated and its value will be ignored.";
     }
+    if (dilations) {
+      llvm::errs() << "dilations attribute is unsupported by TOSA and its value will be ignored.";
+    }
     
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a transpose
     // to change the format
@@ -69,7 +68,6 @@ public:
     Type outputType = RankedTensorType::get({-1, -1, -1, -1}, InputType.getElementType());
     Input = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, Input, targetTensor).getResult();
 
-    // Create necessary constants for attributes
     // Pads and Strides are optionals for ONNX but mandatory for TOSA
     if (!pads) {
       pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
