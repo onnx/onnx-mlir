@@ -30,6 +30,7 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXSoftmaxOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXConvOpToTOSAPattern(target, patterns, typeConverter, ctx);
+  populateLoweringONNXReduceMeanOpToTOSAPattern(target, patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXReshapeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
