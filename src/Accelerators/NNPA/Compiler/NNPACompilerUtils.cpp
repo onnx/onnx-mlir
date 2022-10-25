@@ -77,8 +77,7 @@ void addONNXToZHighPasses(
   }
   // Add instrumentation for onnx level profiling to get profile before lowering
   // to zhigh
-  bool enableNNPAOnnxLevelProfiling = true;
-  if (enableNNPAOnnxLevelProfiling) {
+  if (enableNNPAOnnxLevelProfile) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
         getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
         instrumentControlBits.getBits()));

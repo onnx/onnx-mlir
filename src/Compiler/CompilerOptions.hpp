@@ -54,6 +54,7 @@ extern llvm::cl::opt<bool> allowSorting;
 extern llvm::cl::opt<std::string> instrumentDialects;
 extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
+extern llvm::cl::opt<bool> enableNNPAOnnxLevelProfile;
 extern llvm::cl::opt<bool> instrumentONNXSignature;
 extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;

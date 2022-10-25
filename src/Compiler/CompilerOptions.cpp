@@ -158,6 +158,10 @@ llvm::cl::bits<InstrumentActions> instrumentControlBits(
             "instrument runtime reports memory usage.")),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableNNPAOnnxLevelProfile("enable-nnpa-onnx-profile",
+    llvm::cl::desc("Enable onnx level profiling for NNPA\n"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
     llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
