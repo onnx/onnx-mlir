@@ -20,7 +20,7 @@ func.func @should_not_lower_noaxes(%arg0 : tensor<1x3x5x7xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL: should_not_lower_noaxes
-// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) : (tensor<1x3x5x7xf32>) -> tensor<1x1x1x1xf32>
+// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) {keepdims = 1 : si64} : (tensor<1x3x5x7xf32>) -> tensor<1x1x1x1xf32>
 // CHECK: return [[RES0]] : tensor<1x1x1x1xf32>
 }
 
@@ -42,7 +42,7 @@ func.func @should_not_lower_too_large_data(%arg0 : tensor<1x3x5x2048xf32>) -> te
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL: should_not_lower_too_large_data
-// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x2048xf32>) -> tensor<1x3x1x1xf32>
+// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x2048xf32>) -> tensor<1x3x1x1xf32>
 // CHECK: return [[RES0]] : tensor<1x3x1x1xf32>
 }
 
@@ -53,7 +53,7 @@ func.func @should_not_lower_5D(%arg0 : tensor<1x3x5x7x9xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL: should_not_lower_5D
-// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x7x9xf32>) -> tensor<1x3x1x1x9xf32>
+// CHECK: [[RES0:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x7x9xf32>) -> tensor<1x3x1x1x9xf32>
 // CHECK: return [[RES0]] : tensor<1x3x1x1x9xf32>
 }
 

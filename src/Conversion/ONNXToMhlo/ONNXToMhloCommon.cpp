@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "mlir-hlo/utils/broadcast_utils.h"
+#include "stablehlo/dialect/BroadcastUtils.h"
 
 using namespace mlir;
 

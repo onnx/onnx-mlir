@@ -137,8 +137,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // the default value and does appear in the Attribute dictionry.
     // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
-      assert(op->getAttrs().size() == 1 &&
-             "ResizeOp: runtime lib is not supported for this case");
       if (!isFromNone(resizeOp.scales())) {
         rewriter.create<KrnlCallOp>(
             loc, "Resize_Scales", alloc, op, operands, true);

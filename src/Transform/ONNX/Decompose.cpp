@@ -231,8 +231,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
-      func::FuncDialect>();
+  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.

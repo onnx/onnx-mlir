@@ -71,8 +71,6 @@ StringRef convertONNXTensorDataLayoutToString(
     if (xFactor == 0 && yFactor == 0)
       return StringRef(LAYOUT_STANDARD);
     llvm_unreachable("Standard with unsupported x or y factors");
-  default:
-    break;
   }
   llvm_unreachable("unsupported ONNX Layout");
 }

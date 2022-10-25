@@ -336,7 +336,7 @@ func.func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: @test_shape2
-  // CHECK-NEXT: %0 = "onnx.Shape"(%arg0) : (tensor<?x4x8x16xf32>) -> tensor<*xi64>
+  // CHECK-NEXT: %0 = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<?x4x8x16xf32>) -> tensor<*xi64>
   // CHECK-NEXT: return %0 : tensor<*xi64>
 }
 
@@ -370,7 +370,7 @@ func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_average_pool
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
 }
 
@@ -381,7 +381,7 @@ func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tens
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   return %0 : tensor<1x?x?x1xf32>
   // CHECK-LABEL: test_global_average_pool_dyn_dims
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
 }
 
@@ -392,7 +392,7 @@ func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_average_pool
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
 }
 
@@ -403,7 +403,7 @@ func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tens
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   return %0 : tensor<1x?x?x1xf32>
   // CHECK-LABEL: test_global_average_pool_dyn_dims
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3]} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
 }
 
@@ -866,7 +866,7 @@ func.func @test_rnn_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x3x2xf32>, 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
-// CHECK:           %Y, %Y_h = "onnx.RNN"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<1x5x3xf32>) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK:           %Y, %Y_h = "onnx.RNN"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, tensor<1x5x3xf32>) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
 // CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
 // CHECK:         }
@@ -882,7 +882,7 @@ func.func @test_gru_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x9x2xf32>, 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x4x2xf32>, [[PARAM_1_:%.+]]: tensor<1x9x2xf32>, [[PARAM_2_:%.+]]: tensor<1x9x3xf32>) -> (tensor<5x4x1x3xf32>, tensor<5x1x3xf32>) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
-// CHECK:           %Y, %Y_h = "onnx.GRU"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
+// CHECK:           %Y, %Y_h = "onnx.GRU"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) {direction = "forward", hidden_size = 3 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<4x1x5x3xf32>, tensor<1x5x3xf32>)
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"(%Y) {perm = [2, 0, 1, 3]} : (tensor<4x1x5x3xf32>) -> tensor<5x4x1x3xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_h) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
 // CHECK:           return [[VAR_2_]], [[VAR_3_]] : tensor<5x4x1x3xf32>, tensor<5x1x3xf32>
@@ -900,7 +900,7 @@ func.func @test_lstm_layout1(%arg0: tensor<5x4x2xf32>, %arg1: tensor<1x12x2xf32>
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [1, 0, 2]} : (tensor<5x4x2xf32>) -> tensor<4x5x2xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_3_]]) {perm = [1, 0, 2]} : (tensor<5x1x3xf32>) -> tensor<1x5x3xf32>
-// CHECK:           %Y, %Y_h, %Y_c = "onnx.LSTM"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]], [[VAR_0_]]) {hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<1x5x3xf32>, none) -> (tensor<4x1x5x3xf32>, none, tensor<1x5x3xf32>)
+// CHECK:           %Y, %Y_h, %Y_c = "onnx.LSTM"([[VAR_1_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]], [[VAR_2_]], [[VAR_0_]]) {direction = "forward", hidden_size = 3 : si64, input_forget = 0 : si64, layout = 0 : si64} : (tensor<4x5x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, tensor<1x5x3xf32>, none) -> (tensor<4x1x5x3xf32>, none, tensor<1x5x3xf32>)
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Transpose"(%Y_c) {perm = [1, 0, 2]} : (tensor<1x5x3xf32>) -> tensor<5x1x3xf32>
 // CHECK:           return [[VAR_3_]] : tensor<5x1x3xf32>
 // CHECK:         }

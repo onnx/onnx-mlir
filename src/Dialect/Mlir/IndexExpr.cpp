@@ -1165,6 +1165,13 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
   indexExprObj->initAsQuestionmark();
 }
 
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(
+    Value tensorOrMemref, int64_t index)
+    : IndexExpr() {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  indexExprObj->initAsQuestionmark(tensorOrMemref, index);
+}
 // Don't care about otherIndexExpr as question marks have no real data.
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
@@ -1666,7 +1673,8 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
   IndexExprScope &scope = IndexExprScope::getCurrentScope();
   if (scope.isShapeInferencePass()) {
     // Not a constant; don't add code.
-    return QuestionmarkIndexExpr();
+    // Create a unique question mark for dimension i of tensorOrMemref.
+    return QuestionmarkIndexExpr(tensorOrMemref, i);
   }
 
   MemRefBuilder createMemRef(scope.getRewriter(), scope.getLoc());

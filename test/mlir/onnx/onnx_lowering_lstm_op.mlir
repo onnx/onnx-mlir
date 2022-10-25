@@ -175,7 +175,7 @@ func.func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){
 // CHECK:             [[VAR_18_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_c0_]], [[VAR_18_]]#0, [[VAR_18_]]#1] : memref<1x2x4xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[RES_1_]]{{.}}[[RES_1_]]8#0, [[RES_1_]]8#1] : memref<2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[RES_1_]]{{.}}[[VAR_18_]]#0, [[VAR_18_]]#1] : memref<2x4xf32>
 // CHECK:             [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_c0_]], [[VAR_18_]]#0, [[VAR_18_]]#1] : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_2_MEM_]], [[RES_2_]]{{.}}[[VAR_18_]]#0, [[VAR_18_]]#1] : memref<2x4xf32>
 // CHECK:           }
@@ -470,7 +470,7 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){
 // CHECK:             [[VAR_55_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[VAR_c0_]], [[VAR_55_]]#0, [[VAR_55_]]#1] : memref<2x2x4xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[RES_1_]]{{.}}[[RES_1_]]5#0, [[RES_1_]]5#1] : memref<2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[RES_1_]]{{.}}[[VAR_55_]]#0, [[VAR_55_]]#1] : memref<2x4xf32>
 // CHECK:             [[LOAD_PARAM_5_MEM_:%.+]] = krnl.load [[PARAM_5_]]{{.}}[[VAR_c0_]], [[VAR_55_]]#0, [[VAR_55_]]#1] : memref<2x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_5_MEM_]], [[RES_2_]]{{.}}[[VAR_55_]]#0, [[VAR_55_]]#1] : memref<2x4xf32>
 // CHECK:             [[LOAD_PARAM_4_MEM_1_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[VAR_c1_]], [[VAR_55_]]#0, [[VAR_55_]]#1] : memref<2x2x4xf32>
@@ -545,7 +545,7 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_65_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[RES_2_]]5#0, [[RES_2_]]5#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_65_1_]]#0, [[VAR_65_1_]]#1] : memref<2x4xf32>
 // CHECK-DAG:           [[LOAD_VAR_60_MEM_:%.+]] = krnl.load [[VAR_60_]]{{.}}[[VAR_65_1_]]#0, [[VAR_65_1_]]#1] : memref<2x16xf32>
 // CHECK-DAG:           [[LOAD_VAR_63_MEM_:%.+]] = krnl.load [[VAR_63_]]{{.}}[[VAR_65_1_]]#0, [[VAR_65_1_]]#1] : memref<2x16xf32>
 // CHECK-NOT: separator of consecutive DAGs
@@ -611,7 +611,7 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK-DAG:           [[VAR_125_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_124_]] : f32
 // CHECK-DAG:           [[VAR_126_:%.+]] = math.tanh [[VAR_109_]] : f32
 // CHECK:               [[VAR_127_:%.+]] = arith.mulf [[VAR_125_]], [[VAR_126_]] : f32
-// CHECK:               krnl.store [[VAR_109_]], [[RES_2_]]{{.}}[[RES_2_]]5#0, [[RES_2_]]5#1] : memref<2x4xf32>
+// CHECK:               krnl.store [[VAR_109_]], [[RES_2_]]{{.}}[[VAR_65_1_]]#0, [[VAR_65_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_127_]], [[RES_1_]]{{.}}[[VAR_65_1_]]#0, [[VAR_65_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
 // CHECK:           }
@@ -708,7 +708,7 @@ func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1:
 // CHECK:           [[LOOP_7_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_7_]]#0, [[LOOP_7_]]#1) with ([[LOOP_7_]]#0 -> [[I_12_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_7_]]#1 -> [[I_13_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:             [[VAR_55_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_7_]]#0, [[LOOP_7_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[RES_5_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[RES_1_]]5#0, [[RES_1_]]5#1] : memref<2x4xf32>
+// CHECK:             [[RES_5_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_55_3_]]#0, [[VAR_55_3_]]#1] : memref<2x4xf32>
 // CHECK:             krnl.store [[RES_5_1_]], [[RES_]]{{.}}[[VAR_c0_]], [[VAR_55_3_]]#0, [[VAR_55_3_]]#1] : memref<2x2x4xf32>
 // CHECK:             [[RES_6_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_55_3_]]#0, [[VAR_55_3_]]#1] : memref<2x4xf32>
 // CHECK:             krnl.store [[RES_6_]], [[RES_]]{{.}}[[VAR_c1_]], [[VAR_55_3_]]#0, [[VAR_55_3_]]#1] : memref<2x2x4xf32>

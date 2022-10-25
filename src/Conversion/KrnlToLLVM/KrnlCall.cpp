@@ -137,7 +137,8 @@ private:
         })
         .Case<FloatAttr>([&](FloatAttr floatAttr) {
           auto f64Ty = rewriter.getF64Type();
-          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty, floatAttr);
+          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty,
+              rewriter.getFloatAttr(f64Ty, floatAttr.getValueAsDouble()));
           parameterTypeList.emplace_back(f64Ty);
           parameterList.emplace_back(cst);
         })

@@ -434,6 +434,13 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for Verbose Option
+void setVerboseOption() { VerboseOutput = true; }
+void clearVerboseOption() { VerboseOutput = false; }
+std::string getVerboseOption() {
+  return VerboseOutput ? std::string("-v") : std::string();
+}
+
 // =============================================================================
 // Methods for OMCompilerOptions
 
@@ -467,6 +474,9 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::Verbose:
+    setVerboseOption();
+    break;
     // Ignore options that were added but are unknown.
   }
   return CompilerSuccess;
@@ -498,6 +508,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     clearLLVMOption();
     break;
+  case OptionKind::Verbose:
+    clearVerboseOption();
+    break;
     // Ignore options that were added but are unknown.
   }
 }
@@ -528,6 +541,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::Verbose:
+    return getVerboseOption();
   }
   return std::string();
 }
