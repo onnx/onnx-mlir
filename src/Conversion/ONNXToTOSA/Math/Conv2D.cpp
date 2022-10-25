@@ -108,17 +108,17 @@ public:
     } else {
       const int64_t groups = group.getSInt();
       auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
-      const int sizeOfSlice = newInputShape[3] / weightShape[1];
+      const int sizeOfSlice = weightShape[1];
       ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(
           {newInputShape[0], newInputShape[1], newInputShape[2], sizeOfSlice});
       llvm::SmallVector<Value> sliceValues;
-      for (int64_t slice = 0; slice < newInputShape[3]; slice += sizeOfSlice) {
-        ArrayAttr startAttr = rewriter.getI64ArrayAttr({0, 0, 0, slice});
+      for (int64_t slice = 1; slice <= newInputShape[3]; slice += sizeOfSlice) {
+        ArrayAttr startAttr = rewriter.getI64ArrayAttr({1, 1, 1, slice});
         Value newSliceInput =
             tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
                 RankedTensorType::get({-1, -1, -1, -1},
                     newInput.getType().cast<ShapedType>().getElementType()),
-                startAttr, sizeAttr);
+                newInput, startAttr, sizeAttr);
 
         Type newConvOutputType = RankedTensorType::get(
             {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
