@@ -12,14 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/TypeUtilities.h"
+#include "mlir/IR/Value.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include "llvm/ADT/ArrayRef.h"
 
 using namespace mlir;
 
@@ -38,27 +41,56 @@ public:
     MLIRContext *ctx = op->getContext();
 
     Value Input = adaptor.X();
+    // - The attribute Ceil_mode is ignored because its effect is already impacting the return
+    // type of the operator
+    // - The attribute auto_pad is ignored because it is marked as deprecated for ONNX
     mlir::StringAttr autoPad = adaptor.auto_padAttr();
-    //mlir::IntegerAttr ceilMode = adaptor.ceil_modeAttr();
-    //mlir::IntegerAttr storage = adaptor.storage_orderAttr();
-    //mlir::ArrayAttr dilations = adaptor.dilationsAttr();
+    
+    mlir::IntegerAttr storage = adaptor.storage_orderAttr();
+    mlir::ArrayAttr dilations = adaptor.dilationsAttr();
     mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
     mlir::ArrayAttr pads = adaptor.padsAttr();
     mlir::ArrayAttr strides = adaptor.stridesAttr();
 
     auto InputType = Input.getType().cast<RankedTensorType>();
     auto resultType = op.getResult().getType();
+    auto resultShape = resultType.cast<RankedTensorType>().getShape();
+    // Construct the transposed type for the new MaxPool OP
+    Type newResultType = RankedTensorType::get(
+      {resultShape[0], resultShape[2], resultShape[3], resultShape[1]}, InputType.getElementType());
 
     if (autoPad != "NOTSET") {
-      // LOG unsupported because deprecated? 
+      llvm::errs() << "auto_pad attribute is deprecated and its value will be ignored.";
     }
+    
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a transpose
     // to change the format
-    Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 3, 1}, {3}).value();
+    Value targetTensor = tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 3, 1}, {4}).value();
     Type outputType = RankedTensorType::get({-1, -1, -1, -1}, InputType.getElementType());
     Input = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, Input, targetTensor).getResult();
 
-    tosa::CreateReplaceOpAndInfer<tosa::MaxPool2dOp>(rewriter, op, resultType, Input, kernelShape, strides, pads);
+    // Create necessary constants for attributes
+    // Pads and Strides are optionals for ONNX but mandatory for TOSA
+    if (!pads) {
+      pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+    }
+    else {
+      llvm::SmallVector<int64_t, 4> transposedPads = extractFromI64ArrayAttr(pads);
+      pads = rewriter.getI64ArrayAttr(
+          {transposedPads[0], transposedPads[2], transposedPads[3], transposedPads[1]});
+    }
+    if (!strides) {
+      strides = rewriter.getI64ArrayAttr({1,1});
+    }
+
+    Input = rewriter.create<tosa::MaxPool2dOp>(loc, newResultType, Input, kernelShape, strides, pads).getResult();
+    // Revert to original shape (NCHW)
+    // Construct the old result shape out of the new one
+    auto newInputType = Input.getType().cast<RankedTensorType>().getShape();
+    Value sourceTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 3, 1, 2}, {4}).value();
+    Type transposedResultType = RankedTensorType::get(
+      {newInputType[0], newInputType[3], newInputType[1], newInputType[2]}, InputType.getElementType());
+    tosa::CreateReplaceOpAndInfer<tosa::TransposeOp>(rewriter, op, transposedResultType, Input, sourceTensor);
     return success();
   }
 };
