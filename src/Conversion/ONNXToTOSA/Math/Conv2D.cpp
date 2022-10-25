@@ -57,10 +57,10 @@ public:
 
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
-    if (group.getSInt() != 1) {
-      return rewriter.notifyMatchFailure(
-          op, "ONNX Conv grouping not supported");
-    }
+    // if (group.getSInt() != 1) {
+    //   return rewriter.notifyMatchFailure(
+    //       op, "ONNX Conv grouping not supported");
+    // }
 
     // NOTE: we would like if inferShapes() had filled in explicit padding
     // but currently inferShapes() does not do this for ConvOp (it does for
@@ -109,23 +109,36 @@ public:
       const int64_t groups = group.getSInt();
       auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
       const int sizeOfSlice = weightShape[1];
+      const int64_t kernelSize = weightShape[0] / groups;
       ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(
           {newInputShape[0], newInputShape[1], newInputShape[2], sizeOfSlice});
+      ArrayAttr kernelSizeAttr = rewriter.getI64ArrayAttr(
+          {kernelSize, weightShape[2], weightShape[3], weightShape[1]});
       llvm::SmallVector<Value> sliceValues;
-      for (int64_t slice = 1; slice <= newInputShape[3]; slice += sizeOfSlice) {
-        ArrayAttr startAttr = rewriter.getI64ArrayAttr({1, 1, 1, slice});
+      for (int64_t i = 0; i < groups; i++) {
+        ArrayAttr startAttr =
+            rewriter.getI64ArrayAttr({0, 0, 0, i * sizeOfSlice });
         Value newSliceInput =
             tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
                 RankedTensorType::get({-1, -1, -1, -1},
                     newInput.getType().cast<ShapedType>().getElementType()),
                 newInput, startAttr, sizeAttr);
 
+        ArrayAttr startKernelAttr =
+            rewriter.getI64ArrayAttr({0, 0, 0, i * kernelSize });
+
+        Value newSliceWeight =
+            tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
+                RankedTensorType::get({-1, -1, -1, -1},
+                    newInput.getType().cast<ShapedType>().getElementType()),
+                newWeight, startKernelAttr, kernelSizeAttr);
+
         Type newConvOutputType = RankedTensorType::get(
             {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
 
         conv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter, op->getLoc(),
-            newConvOutputType, newSliceInput, newWeight, bias, pads, strides,
-            dilations);
+            newConvOutputType, newSliceInput, newSliceWeight, bias, pads,
+            strides, dilations);
         sliceValues.push_back(conv2D);
       }
       Type newConcatOutputType = RankedTensorType::get(

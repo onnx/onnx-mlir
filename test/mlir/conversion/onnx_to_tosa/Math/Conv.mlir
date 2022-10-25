@@ -57,3 +57,13 @@ func.func @test_onnx_conv2d_no_dilation_pad_stride(%arg0: tensor<5x3x1024x1050xf
 // CHECK: [[VAR5:%.+]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi64>} : () -> tensor<4xi64>
 // CHECK: [[VAR6:%.+]] = "tosa.transpose"([[VAR4]], [[VAR5]]) : (tensor<5x965x987x2xf32>, tensor<4xi64>) -> tensor<5x2x965x987xf32>
 }
+
+
+func.func @test_onnx_conv2d_no_group(%arg0: tensor<5x64x1024x1024xf32>, %arg1 : tensor<12x64x45x45xf32>, %arg2: tensor<12xf32>) ->  tensor<?x?x?x?xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x64x1024x1024xf32>, tensor<12x64x45x45xf32>, tensor<12xf32>) ->  tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+func.func @test_onnx_conv2d_group(%arg0: tensor<5x64x1024x1024xf32>, %arg1 : tensor<12x16x45x45xf32>, %arg2: tensor<12xf32>) ->  tensor<?x?x?x?xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13], group = 4 : si64} : (tensor<5x64x1024x1024xf32>, tensor<12x16x45x45xf32>, tensor<12xf32>) ->  tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
