@@ -113,7 +113,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   }
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-      instrumentDialects, instrumentOps, instrumentControlBits.getBits()));
+      getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
+      instrumentControlBits.getBits()));
+  currentInstrumentDialects.erase("onnx");
+
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
@@ -196,6 +199,9 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
 void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
+
+  // Get instrumentation options
+  currentInstrumentDialects = getInstrumentDialectsSet(instrumentDialects);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,

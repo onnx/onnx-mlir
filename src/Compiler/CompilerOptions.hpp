@@ -17,6 +17,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -108,6 +109,7 @@ using CompilerOptionList =
 
 #define CCM_SHARED_LIB_DEPS "sharedLibDeps"
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+extern std::set<std::string> currentInstrumentDialects;
 
 // Return 0 on success. These functions are not thread-safe and should be called
 // by a single program thread.
@@ -121,5 +123,8 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 std::vector<std::string> getCompilerConfig(std::string k);
 void addCompilerConfig(std::string k, std::vector<std::string> v);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
+
+std::set<std::string> getInstrumentDialectsSet(std::string instrumentDialects_);
+std::string getInstrumentDialectsStr(std::set<std::string> instrumentDialects_);
 
 } // namespace onnx_mlir

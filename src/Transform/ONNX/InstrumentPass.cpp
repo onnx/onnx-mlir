@@ -24,7 +24,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-// #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 

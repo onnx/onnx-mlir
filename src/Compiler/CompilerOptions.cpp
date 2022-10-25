@@ -217,6 +217,12 @@ llvm::cl::opt<bool> allowSorting("allowSorting",
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
+// String set for current dialect names to be instrumented.
+// Initialized with the dialect name specified by a compiler option
+// '--instrumentDialects' and the dialect name is erased each time an
+// instrumentation for the dialect name is inserted.
+std::set<std::string> currentInstrumentDialects;
+
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
@@ -555,6 +561,27 @@ void delCompilerConfig(std::string k, std::vector<std::string> v) {
               [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
       end(u));
   CompilerConfigMap[k] = u;
+}
+
+// Convert string to set for instrument dialect
+std::set<std::string> getInstrumentDialectsSet(
+    std::string instrumentDialects_) {
+  std::stringstream ss(instrumentDialects_);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  return std::set<std::string>(begin, end);
+}
+
+// Convert set to string for instrument dialect
+std::string getInstrumentDialectsStr(
+    std::set<std::string> instrumentDialects_) {
+  std::string instrumentDialects;
+  for (auto itr = instrumentDialects_.begin(); itr != instrumentDialects_.end();
+       ++itr) {
+    instrumentDialects.append(*itr);
+    instrumentDialects.append(" ");
+  }
+  return instrumentDialects;
 }
 
 } // namespace onnx_mlir
