@@ -143,7 +143,7 @@ llvm::cl::opt<std::string> instrumentOps("instrument-ops",
     llvm::cl::desc("Specify ops to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
                    "\"ALL\" for all ops, \n"
-                   "\"op1 op2 ...\" for the specified ops."),
+                   "\"op1,op2, ...\" for the specified ops."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(

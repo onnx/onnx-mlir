@@ -98,6 +98,7 @@ public:
       allOpsAllowed = true;
     } else {
       allOpsAllowed = false;
+      std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
       std::stringstream ss(allowedOps_);
       std::istream_iterator<std::string> begin(ss);
       std::istream_iterator<std::string> end;
@@ -107,6 +108,7 @@ public:
       allDialectsAllowed = true;
     } else {
       allDialectsAllowed = false;
+      std::replace(allowedDialects_.begin(), allowedDialects_.end(), ',', ' ');
       std::stringstream ss(allowedDialects_);
       std::istream_iterator<std::string> begin(ss);
       std::istream_iterator<std::string> end;
