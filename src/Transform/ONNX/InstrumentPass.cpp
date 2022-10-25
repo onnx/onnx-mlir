@@ -45,8 +45,7 @@ public:
   Option<std::string> instrumentDialects{*this, "instrument-dialects",
       llvm::cl::desc("Specify dialect to be instrumented\n"
                      "\"NONE\" or \"\" for no instrument\n"
-                     "\"ALL\" for all dialects. \n"
-                     "\"dialect1 dialect2 ...\" for the specified dialect."),
+                     "\"dialect1,dialect2, ...\" for the specified dialect."),
       llvm::cl::init("")};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",

@@ -136,8 +136,7 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
 llvm::cl::opt<std::string> instrumentDialects("instrument-dialects",
     llvm::cl::desc("Specify dialect to be instrumented\n"
                    "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all dialects. \n"
-                   "\"dialect1 dialect2 ...\" for the specified dialect."),
+                   "\"dialect1,dialect2, ...\" for the specified dialect."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
@@ -570,6 +569,8 @@ void delCompilerConfig(std::string k, std::vector<std::string> v) {
 // Convert string to set for instrument dialect
 std::set<std::string> getInstrumentDialectsSet(
     std::string instrumentDialects_) {
+  std::replace(
+      instrumentDialects_.begin(), instrumentDialects_.end(), ',', ' ');
   std::stringstream ss(instrumentDialects_);
   std::istream_iterator<std::string> begin(ss);
   std::istream_iterator<std::string> end;
