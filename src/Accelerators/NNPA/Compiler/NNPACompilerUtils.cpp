@@ -75,7 +75,8 @@ void addONNXToZHighPasses(
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
-  // Add instrumentation for Onnx Ops
+  // Add instrumentation for onnx level profiling to get profile before lowering
+  // to zhigh
   bool enableNNPAOnnxLevelProfiling = true;
   if (enableNNPAOnnxLevelProfiling) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
@@ -137,10 +138,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Add instrumentation for ZHigh Ops
-      for (auto itr = currentInstrumentDialects.begin();
-           itr != currentInstrumentDialects.end(); ++itr)
-        printf("DEBUG before lowering to zlow %s\n", (*itr).c_str());
+      // Insert instrumentations for zhigh ops
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
           getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
           instrumentControlBits.getBits()));
@@ -178,9 +176,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
-      for (auto itr = currentInstrumentDialects.begin();
-           itr != currentInstrumentDialects.end(); ++itr)
-        printf("DEBUG before lowering to llvm %s\n", (*itr).c_str());
+      // Insert instrumentations for zlow ops
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
           getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
           instrumentControlBits.getBits()));
