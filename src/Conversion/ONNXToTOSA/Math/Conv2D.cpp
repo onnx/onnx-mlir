@@ -13,21 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/Dialect/Utils/StaticValueUtils.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinAttributeInterfaces.h"
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinTypeInterfaces.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/TypeUtilities.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/SmallVector.h"
-#include <cstdint>
 
 using namespace mlir;
 
@@ -107,17 +95,18 @@ public:
           dilations);
     } else {
       const int64_t groups = group.getSInt();
-      auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
-      const int sizeOfSlice = weightShape[1];
+      const int64_t sizeOfSlice = weightShape[1];
       const int64_t kernelSize = weightShape[0] / groups;
+      auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
       ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(
           {newInputShape[0], newInputShape[1], newInputShape[2], sizeOfSlice});
       ArrayAttr kernelSizeAttr = rewriter.getI64ArrayAttr(
           {kernelSize, weightShape[2], weightShape[3], weightShape[1]});
+
       llvm::SmallVector<Value> sliceValues;
       for (int64_t i = 0; i < groups; i++) {
         ArrayAttr startAttr =
-            rewriter.getI64ArrayAttr({0, 0, 0, i * sizeOfSlice });
+            rewriter.getI64ArrayAttr({0, 0, 0, i * sizeOfSlice});
         Value newSliceInput =
             tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
                 RankedTensorType::get({-1, -1, -1, -1},
@@ -125,7 +114,7 @@ public:
                 newInput, startAttr, sizeAttr);
 
         ArrayAttr startKernelAttr =
-            rewriter.getI64ArrayAttr({0, 0, 0, i * kernelSize });
+            rewriter.getI64ArrayAttr({i * kernelSize, 0, 0, 0});
 
         Value newSliceWeight =
             tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
