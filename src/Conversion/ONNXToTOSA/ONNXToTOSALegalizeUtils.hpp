@@ -29,6 +29,10 @@
 namespace mlir {
 namespace tosa {
 
+// Transpose a given TOSA Tensor
+Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
+    Value &value, llvm::ArrayRef<int64_t> perm);
+
 // Create a 32-bit float constant operator from a float
 // The tensor will have the same rank as shape but with axis 1 (differs from
 // tensorflow impl.)
