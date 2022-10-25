@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Elementwise.cpp
   Math/Softmax.cpp
   Math/Gemm.cpp
+  Tensor/Reshape.cpp
   Tensor/Constant.cpp
   Tensor/PaddingOp.cpp
   NN/MaxPoolSingleOut.cpp

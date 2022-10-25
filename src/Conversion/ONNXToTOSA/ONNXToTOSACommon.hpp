@@ -29,7 +29,7 @@
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
-using namespace mlir;
+
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
@@ -59,20 +59,20 @@ template <typename Op>
 using TOSAOp = typename TOSADialectOp<Op>::Op;
 
 // `Math` directory methods:
-void populateLoweringONNXElementwiseOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-void populateLoweringONNXSoftmaxOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-void populateLoweringONNXGemmOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-
+void populateLoweringONNXElementwiseOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXSoftmaxOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGemmOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // `NN` directory methods:
 void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-
+    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // `Tensor` directory methods:
-void populateLoweringONNXConstOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
-void populateLoweringONNXPadOpToTOSAPattern(
-    ConversionTarget &, RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXReshapeOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConstOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXPadOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir
