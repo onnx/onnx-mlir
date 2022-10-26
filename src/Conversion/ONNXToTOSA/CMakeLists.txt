@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
+  Math/Conv2D.cpp
   Math/Softmax.cpp
   Math/Gemm.cpp
   Tensor/Reshape.cpp

@@ -30,6 +30,21 @@
 namespace mlir {
 namespace tosa {
 
+Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
+    Value &value, llvm::ArrayRef<int64_t> perm) {
+  // Create Permutation Const
+  Value permList = getConstTensor(
+      rewriter, op, perm, {value.getType().cast<TensorType>().getRank()})
+                       .value();
+  // get new value type
+  Type newValueTy = RankedTensorType::get(
+      {-1, -1, -1, -1}, value.getType().cast<ShapedType>().getElementType());
+  // create transpose for value
+  Value newValue = tosa::CreateOpAndInfer<tosa::TransposeOp>(
+      rewriter, op->getLoc(), newValueTy, value, permList);
+  return newValue;
+}
+
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {}) {
   return mlir::RankedTensorType::get(
@@ -51,7 +66,7 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
 // Default template creates a constant tensor in T.
 template <typename T>
 llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
-                                     ArrayRef<T> vec, ArrayRef<int64_t> shape) {
+    ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t num_total_elements = 1;
   for (int64_t a : shape) {
     num_total_elements *= a;
@@ -74,8 +89,7 @@ llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
 // Template specialization for float
 template <>
 llvm::Optional<Value> getConstTensor<float>(PatternRewriter &rewriter,
-                                            Operation *op, ArrayRef<float> vec,
-                                            ArrayRef<int64_t> shape) {
+    Operation *op, ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   uint64_t num_total_elements = 1;
   for (int64_t a : shape) {
     num_total_elements *= a;
@@ -96,14 +110,10 @@ llvm::Optional<Value> getConstTensor<float>(PatternRewriter &rewriter,
 
 // Template instantiation
 template llvm::Optional<Value> getConstTensor<int32_t>(PatternRewriter &,
-                                                       Operation *,
-                                                       ArrayRef<int32_t> vec,
-                                                       ArrayRef<int64_t> shape);
+    Operation *, ArrayRef<int32_t> vec, ArrayRef<int64_t> shape);
 
 template llvm::Optional<Value> getConstTensor<int64_t>(PatternRewriter &,
-                                                       Operation *,
-                                                       ArrayRef<int64_t> vec,
-                                                       ArrayRef<int64_t> shape);
+    Operation *, ArrayRef<int64_t> vec, ArrayRef<int64_t> shape);
 
 } // namespace tosa
 } // namespace mlir

@@ -68,9 +68,7 @@ public:
     
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a transpose
     // to change the format
-    Value targetTensor = tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 3, 1}, {4}).value();
-    Type outputType = RankedTensorType::get({-1, -1, -1, -1}, InputType.getElementType());
-    Input = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, Input, targetTensor).getResult();
+    Input = tosa::createTosaTransposedTensor(rewriter, op, Input, {0, 2, 3, 1});
 
     // Pads and Strides are optionals for ONNX but mandatory for TOSA
     if (!pads) {
@@ -79,7 +77,7 @@ public:
     else {
       llvm::SmallVector<int64_t, 4> transposedPads = extractFromI64ArrayAttr(pads);
       pads = rewriter.getI64ArrayAttr(
-          {transposedPads[0], transposedPads[2], transposedPads[3], transposedPads[1]});
+          {transposedPads[0], transposedPads[2], transposedPads[1], transposedPads[3]});
     }
     if (!strides) {
       strides = rewriter.getI64ArrayAttr({1,1});
