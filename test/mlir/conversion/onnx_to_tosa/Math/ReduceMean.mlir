@@ -1,6 +1,5 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
-
 func.func @reduce_mean(%arg0: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
 %0 = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32>
 return %0 : tensor<2x5x1x1xf32>
