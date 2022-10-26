@@ -45,7 +45,7 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
 // To create INT48 TOSA constant, need to pass in llvm::APInt instead.
 template <typename T>
 llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
-                                     ArrayRef<T> vec, ArrayRef<int64_t> shape);
+    ArrayRef<T> vec, ArrayRef<int64_t> shape);
 
 template <typename T>
 T getValueFromTosaConst(Value &val) {
@@ -104,6 +104,16 @@ void CreateReplaceOpAndInfer(
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
 }
+
+// Create a TOSA rescale op from input framework scaling, zero points and
+// rounding mode
+Value buildRescale(PatternRewriter &rewriter, Operation *op,
+    ShapedType output_type, Value input_val, double scale, int64_t input_zp,
+    int64_t output_zp, bool double_round, bool scale32);
+
+// Creates TOSA rescale op with int32 output
+Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
+    Value input_val, double input_scale, int64_t input_zp);
 
 } // namespace tosa
 } // namespace mlir
