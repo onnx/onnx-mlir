@@ -12,6 +12,8 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/Constant.cpp
   Tensor/PaddingOp.cpp
   Tensor/Flatten.cpp
+  NN/MaxPoolSingleOut.cpp
+
 
   LINK_LIBS PUBLIC
   OMONNXOps
