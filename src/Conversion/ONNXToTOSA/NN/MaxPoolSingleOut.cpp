@@ -14,9 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/TypeUtilities.h"
-#include "mlir/IR/Value.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "llvm/ADT/ArrayRef.h"
@@ -42,12 +40,15 @@ public:
     // - The attribute auto_pad is ignored because it is marked as deprecated for ONNX
     // - The attributes storage_order and dilations is also unsupported
     mlir::StringAttr autoPad = adaptor.auto_padAttr();
-    
+    mlir::IntegerAttr storageOrder = adaptor.storage_orderAttr();
     mlir::ArrayAttr dilations = adaptor.dilationsAttr();
     mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
     mlir::ArrayAttr pads = adaptor.padsAttr();
     mlir::ArrayAttr strides = adaptor.stridesAttr();
 
+    if (Input.getType().isa<MemRefType>()) {
+      return rewriter.notifyMatchFailure(op, "Memrefs as inputs are unsupported by TOSA");
+    }
     auto InputType = Input.getType().cast<RankedTensorType>();
     auto resultType = op.getResult().getType();
     auto resultShape = resultType.cast<RankedTensorType>().getShape();
@@ -56,10 +57,13 @@ public:
       {resultShape[0], resultShape[2], resultShape[3], resultShape[1]}, InputType.getElementType());
 
     if (autoPad != "NOTSET") {
-      llvm::errs() << "auto_pad attribute is deprecated and its value will be ignored.";
+      op.emitWarning("auto_pad attribute is deprecated and its value will be ignored.");
     }
     if (dilations) {
-      llvm::errs() << "dilations attribute is unsupported by TOSA and its value will be ignored.";
+      op.emitWarning("dilations attribute is unsupported by TOSA and its value will be ignored.");
+    }
+    if (storageOrder && storageOrder.getSInt() != 0) {
+      op.emitWarning("storage_order attribute is unsupported by TOSA and its value will be ignored.");
     }
     
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a transpose
