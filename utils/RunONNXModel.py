@@ -321,7 +321,7 @@ def main():
             # Prepare compiler arguments.
             command_str = [ONNX_MLIR]
             if args.compile_args:
-                command_str += args.compile_args.split(' ')
+                command_str += args.compile_args.split()
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
                 assert args.data_folder, "No data folder given"
