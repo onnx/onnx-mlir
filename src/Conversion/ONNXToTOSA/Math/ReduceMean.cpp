@@ -47,13 +47,15 @@ public:
                           ->convertType(op.getResult().getType())
                           .cast<RankedTensorType>();
 
+    // axes is mandatoy for tosa
     if (!axes) {
+      // if not present all axes are reduced
       const int64_t numberOfAxes = input.getType().cast<ShapedType>().getRank();
       std::vector<int64_t> allDims(numberOfAxes);
       std::iota(std::begin(allDims), std::end(allDims), 0);
       axes = rewriter.getI64ArrayAttr(allDims);
     }
-
+    // Tosa needs a DenseElementsAttr
     auto vecValues = extractFromI64ArrayAttr(axes.value());
     const int64_t vecValuesSize = vecValues.size();
     DenseElementsAttr newAxesAttr = DenseIntElementsAttr::get(
@@ -66,6 +68,7 @@ public:
     if (!output) {
       return rewriter.notifyMatchFailure(op, "Could not be converted");
     }
+    // Shape inference is handled by the helper functions
     rewriter.replaceOp(op, {output.value()});
     return success();
   }
