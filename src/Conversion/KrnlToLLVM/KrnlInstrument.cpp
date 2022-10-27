@@ -50,10 +50,12 @@ public:
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value dialectName = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)instrumentOp.dialectID());
-    Value opName = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)instrumentOp.opID());
+    StringRef opNameStr = instrumentOp.opName();
+    LLVM::GlobalOp globalOpNameStr =
+        krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
+            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    Value opNamePtr =
+        krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
     StringRef nodeName;
@@ -65,8 +67,7 @@ public:
         krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
             static_cast<LLVMTypeConverter *>(getTypeConverter()));
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
-    create.llvm.call(
-        {}, instrumentRef, {dialectName, opName, tag, nodeNamePtr});
+    create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
     rewriter.eraseOp(op);
     return success();
@@ -74,7 +75,7 @@ public:
 
 private:
   // Create a function declaration for OMInstrumentPoint, the signature is:
-  //   `void (i64, i64, i64, ptr)`
+  //   `void (ptr, i64, ptr)`
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
     MLIRContext *context = module.getContext();
@@ -85,7 +86,7 @@ private:
     Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
-        {llvmI64Ty, llvmI64Ty, llvmI64Ty, opaquePtrTy});
+        {opaquePtrTy, llvmI64Ty, opaquePtrTy});
   }
 };
 

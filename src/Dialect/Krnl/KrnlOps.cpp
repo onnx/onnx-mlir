@@ -512,20 +512,11 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
   StringRef dialectNameStr = op->getDialect()->getNamespace();
   const char *dialectName = dialectNameStr.data();
   const char *opName = op->getName().getStringRef().data();
-  int64_t opID = 0, dialectID = 0;
-  // getName() result is "onnx.opName"
-  // Put only the opName part in the opID within its size
-  strncpy((char *)&opID, opName + dialectNameStr.size() + 1,
-      sizeof(decltype(opID)) - 1);
-  strncpy((char *)&dialectID, dialectName, sizeof(decltype(dialectID)) - 1);
   StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
-  IntegerAttr dialectIDAttr = builder.getI64IntegerAttr(dialectID);
-  IntegerAttr opIDAttr = builder.getI64IntegerAttr(opID);
   IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
   StringAttr nodeNameAttr =
       op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
-  build(builder, state, opNameAttr, dialectIDAttr, opIDAttr, tagAttr,
-      nodeNameAttr);
+  build(builder, state, opNameAttr, tagAttr, nodeNameAttr);
 }
 
 //===----------------------------------------------------------------------===//

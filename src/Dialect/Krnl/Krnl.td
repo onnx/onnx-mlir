@@ -1141,8 +1141,6 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
   }];
 
   let arguments = (ins StrAttr:$opName,
-                       I64Attr:$dialectID,
-                       I64Attr:$opID,
                        I64Attr:$tag,
                        OptionalAttr<StrAttr>:$nodeName);
 
