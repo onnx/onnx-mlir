@@ -28,10 +28,12 @@ class ONNXEntryPointLoweringToTOSA
 public:
   using OpConversionPattern::OpConversionPattern;
   using OpAdaptor = typename ONNXEntryPointOp::Adaptor;
+  // This function if from the typesTransformsToTorchPass.cpp
   LogicalResult matchAndRewrite(ONNXEntryPointOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
     auto functionName = op.func().getRootReference().getValue();
+    // Differs from origin to get module
     auto module = op->getParentOfType<ModuleOp>();
     if (!module)
       return failure();
