@@ -92,4 +92,7 @@ void populateLoweringONNXPadOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXFlattenOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// 'Flow' directory methods:
+void populateLoweringONNXEntryPointOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir
