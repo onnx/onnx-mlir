@@ -13,6 +13,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/Reshape.cpp
   Tensor/Constant.cpp
   Tensor/PaddingOp.cpp
+  Tensor/Flatten.cpp
   NN/MaxPoolSingleOut.cpp
 
 
