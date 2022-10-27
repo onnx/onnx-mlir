@@ -38,20 +38,21 @@ public:
 
     auto resultType = op.getResult().getType();
 
+    // onnx allows values beetween [-r, r-1] where r is the rank
     if (axis < 0) {
       axis += inputType.getRank();
     }
 
     llvm::SmallVector<int64_t> newShape;
+    auto inputShape = inputType.getShape();
     if (axis == 0) {
       newShape.push_back(1);
       int64_t lastShape = 1;
-      for (const auto &axis : inputType.getShape()) {
+      for (const int64_t axis : inputShape) {
         lastShape *= axis;
       }
       newShape.push_back(lastShape);
     } else {
-      auto inputShape = inputType.getShape();
       int64_t firstShape = 1;
       for (int i = 0; i < axis; i++) {
         firstShape *= inputShape[i];
