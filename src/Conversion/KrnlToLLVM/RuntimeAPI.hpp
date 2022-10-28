@@ -82,6 +82,7 @@ class RuntimeAPIRegistry final {
 public:
   using ApiRegistry = std::map<RuntimeAPI::API, RuntimeAPI>;
 
+  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
   ~RuntimeAPIRegistry();
 
   static const RuntimeAPIRegistry build(
@@ -94,9 +95,5 @@ public:
   }
 
 private:
-  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
-
-  static RuntimeAPIRegistry *instance;
-
   ApiRegistry registry;
 };
