@@ -28,7 +28,7 @@ class ONNXEntryPointLoweringToTOSA
 public:
   using OpConversionPattern::OpConversionPattern;
   using OpAdaptor = typename ONNXEntryPointOp::Adaptor;
-  // This function if from the typesTransformsToTorchPass.cpp
+  // This function is from typesTransformsToTorchPass.cpp
   LogicalResult matchAndRewrite(ONNXEntryPointOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
