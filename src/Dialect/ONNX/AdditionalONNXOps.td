@@ -352,3 +352,23 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     static std::vector<int> getTypeMap() { return {20}; }
   }];
 }
+
+//===----------------------------------------------------------------------===//
+// ConcatShapeTransposeOp
+def ONNXConcatShapeTransposeOpOp: ONNX_Op<"ConcatShapeTranspose", [NoSideEffect]> {
+  let summary = "ONNX merged operation";
+  let description = [{
+    Merge the following sequence of ops into one op
+    v1 = onnx.concat
+    v2 = onnx.shape(v1)
+    v3 = onnx.transpose(v1)
+  }];
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$inputs,
+  SI64Attr:$axis,
+  OptionalAttr<SI64Attr>:$end,
+  DefaultValuedAttr<SI64Attr, "0">:$start,
+  OptionalAttr<I64ArrayAttr>:$perm);
+  let results = (outs TensorOf<[I64]>:$shape,
+     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$transposed);
+}
+    
