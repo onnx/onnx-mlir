@@ -2894,6 +2894,15 @@ LogicalResult ONNXConcatFromSequenceOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ConcatShapeTranspose
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Will add code later
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // RNN
 //===----------------------------------------------------------------------===//
 
