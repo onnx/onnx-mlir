@@ -70,7 +70,7 @@ public:
 
     if (!resultElementType.isIntOrFloat()) {
       return rewriter.notifyMatchFailure(
-          op, "Only Int and Float are supported");
+          op, "only int and float are supported");
     }
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
@@ -148,10 +148,10 @@ public:
   LogicalResult matchAndRewrite(ONNXLeakyReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    TensorType outputType = op.getResult().getType().cast<TensorType>();
+    auto outputType = op.getResult().getType().cast<TensorType>();
 
     if (!outputType.getElementType().isF32()) {
-      return rewriter.notifyMatchFailure(op, "Only float is supported");
+      return rewriter.notifyMatchFailure(op, "only float is supported");
     }
 
     // ONNX docs: alpha : float (default 0.01)

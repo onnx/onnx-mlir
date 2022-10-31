@@ -47,23 +47,23 @@ public:
     mlir::ArrayAttr strides = adaptor.stridesAttr();
 
     if (Input.getType().isa<MemRefType>()) {
-      return rewriter.notifyMatchFailure(op, "Memrefs as inputs are unsupported by TOSA");
+      return rewriter.notifyMatchFailure(op, "memrefs as inputs are unsupported by TOSA");
     }
-    auto InputType = Input.getType().cast<RankedTensorType>();
+    auto InputType = Input.getType().cast<TensorType>();
     auto resultType = op.getResult().getType();
-    auto resultShape = resultType.cast<RankedTensorType>().getShape();
+    auto resultShape = resultType.cast<TensorType>().getShape();
     // Construct the transposed type for the new MaxPool OP
     Type newResultType = RankedTensorType::get(
       {resultShape[0], resultShape[2], resultShape[3], resultShape[1]}, InputType.getElementType());
 
     if (autoPad != "NOTSET") {
-      op.emitWarning("auto_pad attribute is deprecated and its value will be ignored.");
+      op.emitWarning("auto_pad attribute is deprecated and its value will be ignored");
     }
     if (dilations) {
-      op.emitWarning("dilations attribute is unsupported by TOSA and its value will be ignored.");
+      op.emitWarning("dilations attribute is unsupported by TOSA and its value will be ignored");
     }
     if (storageOrder && storageOrder.getSInt() != 0) {
-      op.emitWarning("storage_order attribute is unsupported by TOSA and its value will be ignored.");
+      op.emitWarning("storage_order attribute is unsupported by TOSA and its value will be ignored");
     }
     
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a transpose

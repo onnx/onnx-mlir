@@ -35,27 +35,27 @@ public:
   LogicalResult matchAndRewrite(ONNXReshapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    RankedTensorType outputType =
-        op.getResult().getType().dyn_cast<RankedTensorType>();
+    auto outputType =
+        op.getResult().getType().dyn_cast<TensorType>();
 
     if (!outputType) {
-      return rewriter.notifyMatchFailure(op, "Not a ranked tensor");
+      return rewriter.notifyMatchFailure(op, "not a ranked tensor");
     }
 
     if (adaptor.allowzero() != 0) {
-      return rewriter.notifyMatchFailure(op, "Only allowZero = 0 is supported");
+      return rewriter.notifyMatchFailure(op, "only allowZero = 0 is supported");
     }
 
     if (!adaptor.shape().getDefiningOp<tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
-          op, "Only tosa.const operands are supported");
+          op, "only tosa.const operands are supported");
     }
     Value shapeConst = adaptor.shape().getDefiningOp<tosa::ConstOp>();
-    ElementsAttr shapeConstAttr =
+    auto shapeConstAttr =
         tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
     for (APInt i : shapeConstAttr.getValues<APInt>()) {
       if (i.getZExtValue() == 0) {
-        return rewriter.notifyMatchFailure(op, "Zero shape not allowed");
+        return rewriter.notifyMatchFailure(op, "zero shape not allowed");
       }
     }
 
