@@ -1281,10 +1281,12 @@ LogicalResult ONNXPReluOp::verify() {
   ArrayRef<int64_t> slopeShape =
       slope().getType().cast<ShapedType>().getShape();
 
-  // PRelu supports unidirectional broadcasting, that is slope should be
-  // unidirectional broadcastable to input X.
-  if (slopeShape.size() > xShape.size())
-    return emitError("Slope tensor has a wrong shape");
+  if (xShape.hasRank() && slopeShape.hasRank()) {
+    // PRelu supports unidirectional broadcasting, that is slope should be
+    // unidirectional broadcastable to input X.
+    if (slopeShape.size() > xShape.size())
+      return emitError("Slope tensor has a wrong shape");
+  }
   return success();
 }
 
