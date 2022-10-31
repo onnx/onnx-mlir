@@ -1277,16 +1277,22 @@ LogicalResult ONNXPReluOp::inferShapes(
 }
 
 LogicalResult ONNXPReluOp::verify() {
+  if (!hasShapeAndRank(X())) {
+    return success();
+  }
+  if (!hasShapeAndRank(slope())) {
+    return success();
+  }
+
   ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
   ArrayRef<int64_t> slopeShape =
       slope().getType().cast<ShapedType>().getShape();
 
-  if (xShape.hasRank() && slopeShape.hasRank()) {
-    // PRelu supports unidirectional broadcasting, that is slope should be
-    // unidirectional broadcastable to input X.
-    if (slopeShape.size() > xShape.size())
-      return emitError("Slope tensor has a wrong shape");
-  }
+  // PRelu supports unidirectional broadcasting, that is slope should be
+  // unidirectional broadcastable to input X.
+  if (slopeShape.size() > xShape.size())
+    return emitError("Slope tensor has a wrong shape");
+
   return success();
 }
 
