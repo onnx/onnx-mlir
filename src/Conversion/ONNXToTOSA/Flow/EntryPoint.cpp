@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file lowers ONNX EnryPoint to TOSA dialect.
+// This file removes the "onnx.EntryPoint" and renames the func.func to @forward
 //
 //===----------------------------------------------------------------------===//
 
