@@ -22,15 +22,17 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
-  ONNXConcatShapeTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConcatShapeTransposeOp::getOperationName(), 1, ctx) {}
+  ONNXConcatShapeTransposeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            mlir::ONNXConcatShapeTransposeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
-    ONNXConcatShapeTransposeOpAdaptor operandAdaptor(operands,op->getAttrDictionary());
+    ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
+        operands, op->getAttrDictionary());
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
     // Compute concat output shape.
@@ -38,13 +40,14 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     Value firstInput = operandAdaptor.inputs().front();
     ArrayRef<int64_t> commonShape =
         firstInput.getType().cast<ShapedType>().getShape();
-    //Type dataElementType = firstInput.getType().cast<ShapedType>().getElementType();
+    // Type dataElementType =
+    // firstInput.getType().cast<ShapedType>().getElementType();
     uint64_t commonRank = commonShape.size();
     int64_t axisIndex = operandAdaptor.axis();
 
     // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
-    //assert(-commonRank <= axisIndex && axisIndex < commonRank &&
-     //      "axis out of range");
+    // assert(-commonRank <= axisIndex && axisIndex < commonRank &&
+    //      "axis out of range");
 
     // Negative axis means values are counted from the opposite side.
     // TOFIX should be in normalization pass
@@ -85,25 +88,29 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
       end = operandAdaptor.end().value();
     }
 
-    //SmallVector<int64_t, 4> outputDims;
-    //outputDims.emplace_back(end-start);
-    //auto outputShapeType = RankedTensorType::get(outputDims, rewriter.getIntegerType(64));
+    // SmallVector<int64_t, 4> outputDims;
+    // outputDims.emplace_back(end-start);
+    // auto outputShapeType = RankedTensorType::get(outputDims,
+    // rewriter.getIntegerType(64));
     auto outputShapeType = op->getResultTypes()[0];
 
     // Alloc and set value for ShapeOp output
-    auto convertedShapeType = typeConverter->convertType(outputShapeType).cast<MemRefType>();
+    auto convertedShapeType =
+        typeConverter->convertType(outputShapeType).cast<MemRefType>();
     Type elementType = convertedShapeType.getElementType();
-    Value shapeAlloc = insertAllocAndDealloc(convertedShapeType, loc, rewriter, false); 
-    for(uint64_t i = start; i < end; i++) {
-      Value intVal = create.math.cast(elementType, outputConcatDims[i].getValue());
-      create.krnl.store(intVal, shapeAlloc, create.math.constantIndex(i-start));
+    Value shapeAlloc =
+        insertAllocAndDealloc(convertedShapeType, loc, rewriter, false);
+    for (uint64_t i = start; i < end; i++) {
+      Value intVal =
+          create.math.cast(elementType, outputConcatDims[i].getValue());
+      create.krnl.store(
+          intVal, shapeAlloc, create.math.constantIndex(i - start));
     }
-
 
     // Convert the output type to MemRefType.
     DimsExpr outputTransposeDims(commonRank);
     auto permAttr = operandAdaptor.perm();
-    for (uint64_t i = 0; i < commonRank; i ++) {
+    for (uint64_t i = 0; i < commonRank; i++) {
       auto current = outputConcatDims[ArrayAttrIntVal(permAttr, i)];
       outputTransposeDims[i] = current;
     }
@@ -112,7 +119,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputTransposeType, loc, outputTransposeDims);
     unsigned int rank = commonRank;
-    
+
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
     // axis), we will try to make the loop upper bound the same for futher
@@ -155,8 +162,9 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
             // Insert copy.
             Value loadData = createKrnl.load(operands[i], loopInd);
             SmallVector<Value, 4> transposedWriteIndices(rank);
-            for(uint64_t i = 0; i < rank; i++) {
-              transposedWriteIndices[i] = writeIndices[ArrayAttrIntVal(permAttr, i)];
+            for (uint64_t i = 0; i < rank; i++) {
+              transposedWriteIndices[i] =
+                  writeIndices[ArrayAttrIntVal(permAttr, i)];
             }
             createKrnl.store(loadData, alloc, transposedWriteIndices);
           });
@@ -169,8 +177,9 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXConcatShapeTransposeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+void populateLoweringONNXConcatShapeTransposeOpPattern(
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
   patterns.insert<ONNXConcatShapeTransposeOpLowering>(typeConverter, ctx);
 }
 
