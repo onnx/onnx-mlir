@@ -133,10 +133,9 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> instrumentDialects("instrument-dialects",
-    llvm::cl::desc("Specify dialect to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"dialect1,dialect2, ...\" for the specified dialect."),
+llvm::cl::opt<std::string> instrumentStage("instrument-stage",
+    llvm::cl::desc("Specify stage to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
@@ -156,10 +155,6 @@ llvm::cl::bits<InstrumentActions> instrumentControlBits(
         clEnumVal(InstrumentReportMemory,
             "instrument runtime reports memory usage.")),
     llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<bool> enableNNPAOnnxLevelProfile("enable-nnpa-onnx-profile",
-    llvm::cl::desc("Enable onnx level profiling for NNPA\n"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
     llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
@@ -219,12 +214,6 @@ llvm::cl::opt<bool> allowSorting("allowSorting",
 // If it gets more complicated in the future, it can be
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
-
-// String set for current dialect names to be instrumented.
-// Initialized with the dialect name specified by a compiler option
-// '--instrumentDialects' and the dialect name is erased each time an
-// instrumentation for the dialect name is inserted.
-std::set<std::string> currentInstrumentDialects;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
@@ -441,6 +430,8 @@ std::string getVerboseOption() {
   return VerboseOutput ? std::string("-v") : std::string();
 }
 
+std::string getInstrumentStageOption() { return instrumentStage; }
+
 // =============================================================================
 // Methods for OMCompilerOptions
 
@@ -579,29 +570,6 @@ void delCompilerConfig(std::string k, std::vector<std::string> v) {
               [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
       end(u));
   CompilerConfigMap[k] = u;
-}
-
-// Convert string to set for instrument dialect
-std::set<std::string> getInstrumentDialectsSet(
-    std::string instrumentDialects_) {
-  std::replace(
-      instrumentDialects_.begin(), instrumentDialects_.end(), ',', ' ');
-  std::stringstream ss(instrumentDialects_);
-  std::istream_iterator<std::string> begin(ss);
-  std::istream_iterator<std::string> end;
-  return std::set<std::string>(begin, end);
-}
-
-// Convert set to string for instrument dialect
-std::string getInstrumentDialectsStr(
-    std::set<std::string> instrumentDialects_) {
-  std::string instrumentDialects;
-  for (auto itr = instrumentDialects_.begin(); itr != instrumentDialects_.end();
-       ++itr) {
-    instrumentDialects.append(*itr);
-    instrumentDialects.append(" ");
-  }
-  return instrumentDialects;
 }
 
 } // namespace onnx_mlir

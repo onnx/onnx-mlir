@@ -77,12 +77,9 @@ void addONNXToZHighPasses(
   }
   // Add instrumentation for onnx level profiling to get profile before lowering
   // to zhigh
-  if (enableNNPAOnnxLevelProfile) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
-        instrumentControlBits.getBits()));
-    currentInstrumentDialects.erase("onnx");
-  }
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-zhigh",
+          instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -121,9 +118,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  // Get instrumentation options
-  currentInstrumentDialects = getInstrumentDialectsSet(instrumentDialects);
-
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
@@ -138,11 +132,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     else {
       pm.addPass(mlir::createCanonicalizerPass());
       // Insert instrumentations for zhigh ops
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-          getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
-          instrumentControlBits.getBits()));
-      currentInstrumentDialects.erase("onnx");
-      currentInstrumentDialects.erase("zhigh");
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-krnl",
+              instrumentOps, instrumentControlBits.getBits()));
 
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
@@ -176,10 +168,10 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
       // Insert instrumentations for zlow ops
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-          getInstrumentDialectsStr(currentInstrumentDialects), instrumentOps,
-          instrumentControlBits.getBits()));
-      currentInstrumentDialects.erase("zlow");
+      // "before-krnl-to-llvm" zlow.* both
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createInstrumentPass("nnpa-before-krnl-to-llvm",
+              instrumentOps, instrumentControlBits.getBits()));
     }
   }
 

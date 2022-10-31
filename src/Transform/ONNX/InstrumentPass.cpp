@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <regex>
 #include <set>
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
@@ -23,7 +24,9 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp" // Will be deleted
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -42,17 +45,16 @@ class InstrumentPass
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
-  Option<std::string> instrumentDialects{*this, "instrument-dialects",
-      llvm::cl::desc("Specify dialect to be instrumented\n"
-                     "\"NONE\" or \"\" for no instrument\n"
-                     "\"dialect1,dialect2, ...\" for the specified dialect."),
+  Option<std::string> instrumentStage{*this, "instrument-stage",
+      llvm::cl::desc("Specify stage to be instrumented\n"
+                     "\"NONE\" or \"\" for no instrument\n"),
       llvm::cl::init("")};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
       llvm::cl::desc("Specify ops to be instrumented\n"
                      "\"NONE\" or \"\" for no instrument\n"
                      "\"ALL\" for all ops. \n"
-                     "\"op1 op2 ...\" for the specified ops."),
+                     "\"op1,op2 ...\" for the specified ops."),
       llvm::cl::init("")};
 
   Option<bool> instrumentBefore{*this, "instrument-before",
@@ -72,8 +74,8 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(StringRef dialects, StringRef ops, unsigned actions) {
-    this->instrumentDialects = dialects.str();
+  InstrumentPass(StringRef stage, StringRef ops, unsigned actions) {
+    this->instrumentStage = stage.str();
     this->instrumentOps = ops.str();
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
@@ -82,38 +84,21 @@ public:
   }
 
 private:
-  bool allOpsAllowed, allDialectsAllowed;
   std::set<std::string> allowedOps;
-  std::set<std::string> allowedDialects;
 
 public:
   StringRef getArgument() const override { return "instrument"; }
 
   StringRef getDescription() const override {
-    return "instrument on ops of specific dialect.";
+    return "instrument on ops in a specific stage.";
   }
 
-  void init(std::string allowedOps_, std::string allowedDialects_) {
-    if (allowedOps_ == "ALL") {
-      allOpsAllowed = true;
-    } else {
-      allOpsAllowed = false;
-      std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
-      std::stringstream ss(allowedOps_);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      allowedOps = std::set<std::string>(begin, end);
-    }
-    if (allowedDialects_ == "ALL") {
-      allDialectsAllowed = true;
-    } else {
-      allDialectsAllowed = false;
-      std::replace(allowedDialects_.begin(), allowedDialects_.end(), ',', ' ');
-      std::stringstream ss(allowedDialects_);
-      std::istream_iterator<std::string> begin(ss);
-      std::istream_iterator<std::string> end;
-      allowedDialects = std::set<std::string>(begin, end);
-    }
+  void init(std::string allowedOps_) {
+    std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
+    std::stringstream ss(allowedOps_);
+    std::istream_iterator<std::string> begin(ss);
+    std::istream_iterator<std::string> end;
+    allowedOps = std::set<std::string>(begin, end);
   }
 
   // merge all action options into a bitset
@@ -139,32 +124,31 @@ public:
   }
 
   void runOnOperation() override {
+    // printf("abc %s, %s\n", instrumentStage.c_str(),
+    //    onnx_mlir::instrumentStage.c_str());
+    if (instrumentStage != onnx_mlir::instrumentStage)
+      return;
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
-    if (instrumentDialects == "" || instrumentDialects == "NONE")
-      return;
-    init(instrumentOps, instrumentDialects);
+    init(instrumentOps);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
-      const char *dialectName = op->getDialect()->getNamespace().data();
-      if (allDialectsAllowed ||
-          allowedDialects.find(dialectName) != allowedDialects.end()) {
-        // Skip the dialect name
-        const char *opName =
-            op->getName().getStringRef().data() + instrumentDialects.size();
-        if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
-          return;
+      std::string opName = op->getName().getStringRef().str();
+      for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
+        // printf("opName = %s allowedOp %s\n", opName.c_str(), (*itr).c_str());
+        std::regex re(*itr);
+        if (std::regex_search(opName, re)) {
+          Location loc = op->getLoc();
+          OpBuilder opBuilder(op);
+          if (instrumentBefore)
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
 
-        Location loc = op->getLoc();
-        OpBuilder opBuilder(op);
-        if (instrumentBefore)
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
-
-        // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
-        if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
-          opBuilder.setInsertionPointAfter(op);
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());
+          // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
+          if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
+            opBuilder.setInsertionPointAfter(op);
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());
+          }
         }
       }
     });
@@ -180,6 +164,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    StringRef dialects, StringRef ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(dialects, ops, actions);
+    StringRef stage, StringRef ops, unsigned actions) {
+  return std::make_unique<InstrumentPass>(stage, ops, actions);
 }

@@ -51,10 +51,9 @@ extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
 extern llvm::cl::opt<bool> allowSorting;
 
-extern llvm::cl::opt<std::string> instrumentDialects;
+extern llvm::cl::opt<std::string> instrumentStage;
 extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
-extern llvm::cl::opt<bool> enableNNPAOnnxLevelProfile;
 extern llvm::cl::opt<bool> instrumentONNXSignature;
 extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
@@ -104,13 +103,13 @@ void setLLVMOption(const std::string &flag);
 void clearLLVMOption();
 std::string getLLVMOption();
 
+std::string getInstrumentStageOption();
 // Options support for OMCompilerOptions.
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
 #define CCM_SHARED_LIB_DEPS "sharedLibDeps"
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
-extern std::set<std::string> currentInstrumentDialects;
 
 // Return 0 on success. These functions are not thread-safe and should be called
 // by a single program thread.
@@ -124,8 +123,5 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 std::vector<std::string> getCompilerConfig(std::string k);
 void addCompilerConfig(std::string k, std::vector<std::string> v);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
-
-std::set<std::string> getInstrumentDialectsSet(std::string instrumentDialects_);
-std::string getInstrumentDialectsStr(std::set<std::string> instrumentDialects_);
 
 } // namespace onnx_mlir
