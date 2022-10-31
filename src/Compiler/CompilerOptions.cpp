@@ -134,15 +134,21 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentStage("instrument-stage",
-    llvm::cl::desc("Specify stage to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"),
+    llvm::cl::desc(
+        "Specify stage to be instrumented\n"
+        "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
+        "krnl)\n"
+        "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
+        "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh ops\n"
+        "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
-    llvm::cl::desc("Specify ops to be instrumented:\n"
+    llvm::cl::desc("Specify regex for ops to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
-                   "\"ALL\" for all ops, \n"
-                   "\"op1,op2, ...\" for the specified ops."),
+                   "\"regex1,regex2, ...\" for the specified ops.\n"
+                   "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
+                   "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
@@ -429,8 +435,6 @@ void clearVerboseOption() { VerboseOutput = false; }
 std::string getVerboseOption() {
   return VerboseOutput ? std::string("-v") : std::string();
 }
-
-std::string getInstrumentStageOption() { return instrumentStage; }
 
 // =============================================================================
 // Methods for OMCompilerOptions

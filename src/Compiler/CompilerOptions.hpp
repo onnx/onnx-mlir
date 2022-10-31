@@ -103,7 +103,6 @@ void setLLVMOption(const std::string &flag);
 void clearLLVMOption();
 std::string getLLVMOption();
 
-std::string getInstrumentStageOption();
 // Options support for OMCompilerOptions.
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;

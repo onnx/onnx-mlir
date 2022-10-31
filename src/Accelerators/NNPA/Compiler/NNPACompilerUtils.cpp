@@ -75,8 +75,8 @@ void addONNXToZHighPasses(
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
-  // Add instrumentation for onnx level profiling to get profile before lowering
-  // to zhigh
+  // Insert an instrumentation before lowering onnx to zhigh to get onnx level
+  // profiling.
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-zhigh",
           instrumentOps, instrumentControlBits.getBits()));
@@ -131,7 +131,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Insert instrumentations for zhigh ops
+      // Insert an instrumentation before lowering onnx to krnl to get profiling
+      // for onnx and zhigh ops.
       pm.addNestedPass<func::FuncOp>(
           onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-krnl",
               instrumentOps, instrumentControlBits.getBits()));
@@ -167,8 +168,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
-      // Insert instrumentations for zlow ops
-      // "before-krnl-to-llvm" zlow.* both
+      // Insert an instrumentation before lowering krnl to llvm to get profiling
+      // for zlow ops
       pm.addNestedPass<func::FuncOp>(
           onnx_mlir::createInstrumentPass("nnpa-before-krnl-to-llvm",
               instrumentOps, instrumentControlBits.getBits()));

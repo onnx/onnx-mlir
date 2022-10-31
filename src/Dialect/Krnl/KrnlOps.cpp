@@ -509,8 +509,6 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 
 void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
     Operation *op, int tag = 0) {
-  StringRef dialectNameStr = op->getDialect()->getNamespace();
-  const char *dialectName = dialectNameStr.data();
   const char *opName = op->getName().getStringRef().data();
   StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
   IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);

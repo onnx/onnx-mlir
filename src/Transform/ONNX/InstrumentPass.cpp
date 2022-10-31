@@ -26,7 +26,6 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp" // Will be deleted
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -36,7 +35,7 @@ namespace {
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops in specified
- * dialect
+ * stage
  */
 
 class InstrumentPass
@@ -46,15 +45,22 @@ public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
   Option<std::string> instrumentStage{*this, "instrument-stage",
-      llvm::cl::desc("Specify stage to be instrumented\n"
-                     "\"NONE\" or \"\" for no instrument\n"),
+      llvm::cl::desc(
+          "Specify stage to be instrumented\n"
+          "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
+          "krnl)\n"
+          "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
+          "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh "
+          "ops\n"
+          "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
       llvm::cl::init("")};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
-      llvm::cl::desc("Specify ops to be instrumented\n"
-                     "\"NONE\" or \"\" for no instrument\n"
-                     "\"ALL\" for all ops. \n"
-                     "\"op1,op2 ...\" for the specified ops."),
+      llvm::cl::desc("Specify regex for ops to be instrumented:\n"
+                     "\"NONE\" or \"\" for no instrument,\n"
+                     "\"regex1,regex2, ...\" for the specified ops.\n"
+                     "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
+                     "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
       llvm::cl::init("")};
 
   Option<bool> instrumentBefore{*this, "instrument-before",
@@ -124,8 +130,6 @@ public:
   }
 
   void runOnOperation() override {
-    // printf("abc %s, %s\n", instrumentStage.c_str(),
-    //    onnx_mlir::instrumentStage.c_str());
     if (instrumentStage != onnx_mlir::instrumentStage)
       return;
     if (instrumentOps == "" || instrumentOps == "NONE")
@@ -136,7 +140,6 @@ public:
     getOperation().walk([&](mlir::Operation *op) {
       std::string opName = op->getName().getStringRef().str();
       for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
-        // printf("opName = %s allowedOp %s\n", opName.c_str(), (*itr).c_str());
         std::regex re(*itr);
         if (std::regex_search(opName, re)) {
           Location loc = op->getLoc();
