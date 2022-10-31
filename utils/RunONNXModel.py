@@ -155,7 +155,7 @@ def extend_model_output(model, intermediate_outputs):
     graph_inputs = {vi.name: vi for vi in model.graph.input}
     graph_outputs = {vi.name: vi for vi in model.graph.output}
 
-    # Retrieven tensor value info for each intermediate output
+    # Retrieve tensor value info for each intermediate output
     new_outputs = []
     for name in intermediate_outputs:
         if name in value_infos:
@@ -290,7 +290,7 @@ def main():
     model = onnx.load(args.model_path)
 
     # Get names of all intermediate tensors and modify model such that each of
-    # them will is an output of the model. If using onnxruntime for
+    # them will be an output of the model. If using onnxruntime for
     # verification, we can then verify every operation output.
     output_names = [o.name for o in model.graph.output]
     output_names = list(OrderedDict.fromkeys(output_names))
