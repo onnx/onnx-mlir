@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMMlirDialects
   MLIRMathDialect
   MLIRAffineDialect
   MLIRSCFDialect
+  MLIRShapeDialect
   MLIRVectorDialect
   MLIRLLVMIRTransforms
   )

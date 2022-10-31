@@ -29,7 +29,6 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
   // Get info about input operand.
   Value input = operandAdaptor.input();
   auto inputType = input.getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
   int64_t axis = op->axis();
   assert(axis >= -inputRank && axis < inputRank && "Invalid inputRank");
@@ -40,20 +39,13 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
 
   // Compute outputDims.
   DimsExpr outputDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
+  MemRefBoundsIndexCapture dataBounds(input);
   for (int64_t i = 0; i < axis; ++i) {
-    if (ShapedType::isDynamic(inputShape[i])) {
-      outputDims[0] = QuestionmarkIndexExpr();
-      break;
-    }
-    outputDims[0] = outputDims[0] * LiteralIndexExpr(inputShape[i]);
+    outputDims[0] = outputDims[0] * dataBounds.getDim(i);
   }
 
   for (int64_t i = axis; i < inputRank; ++i) {
-    if (ShapedType::isDynamic(inputShape[i])) {
-      outputDims[1] = QuestionmarkIndexExpr();
-      break;
-    }
-    outputDims[1] = outputDims[1] * LiteralIndexExpr(inputShape[i]);
+    outputDims[1] = outputDims[1] * dataBounds.getDim(i);
   }
 
   setOutputDims(outputDims);

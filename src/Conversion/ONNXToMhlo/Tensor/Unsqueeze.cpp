@@ -33,47 +33,18 @@ struct ONNXUnsqueezeOpLoweringToMhlo : public ConversionPattern {
     ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
     Location loc = op->getLoc();
     Value data = unsqueezeOp.data();
-    Value axes = unsqueezeOp.axes();
-    assert(isRankedShapedType(data.getType()) &&
-           "data must be ranked Shaped Type");
-    ShapedType dataType = data.getType().cast<ShapedType>();
-    int64_t rank = dataType.getRank();
 
-    ONNXUnsqueezeOpShapeHelper shapeHelper(&unsqueezeOp);
+    IndexExprScope scope(&rewriter, loc);
+    ONNXUnsqueezeOpShapeHelper shapeHelper(&unsqueezeOp, &scope);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    SmallVector<int64_t, 4> axesList;
-    if (DenseElementsAttr axesAttr =
-            getDenseElementAttributeFromONNXValue(axes)) {
-      for (IntegerAttr value : axesAttr.getValues<IntegerAttr>()) {
-        int64_t axis = value.cast<IntegerAttr>().getInt();
-        if (axis < 0)
-          axis += rank;
-        axesList.push_back(axis);
-      }
-    }
+    SmallVector<Value, 4> dims;
+    IndexExpr::getValues(shapeHelper.dimsForOutput(), dims);
 
-    int64_t newRank = rank + axesList.size();
-    SmallVector<Value, 4> newShape;
-    SmallVector<bool, 4> isUnsqueezeDim(newRank, false);
-    Value dataShape = rewriter.create<shape::ShapeOfOp>(loc, data);
-    for (int64_t axis : axesList) {
-      isUnsqueezeDim[axis] = true;
-    }
-    for (int64_t i = 0, j = 0; i < newRank; i++) {
-      if (isUnsqueezeDim[i]) {
-        Value indexValue = rewriter.create<arith::ConstantIndexOp>(loc, 1);
-        newShape.push_back(indexValue);
-      } else {
-        Value dim = rewriter.create<shape::GetExtentOp>(loc, dataShape, j);
-        newShape.push_back(dim);
-        j++;
-      }
-    }
     Type outputShapeType =
-        RankedTensorType::get({newRank}, rewriter.getIndexType());
-    Value newShapeValue = rewriter.create<shape::FromExtentsOp>(loc, newShape);
+        RankedTensorType::get({(int64_t)dims.size()}, rewriter.getIndexType());
+    Value newShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
     newShapeValue = rewriter.create<shape::ToExtentTensorOp>(
         loc, outputShapeType, newShapeValue);
     Type outputType = *op->result_type_begin();

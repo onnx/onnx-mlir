@@ -184,6 +184,18 @@ struct MemRefBuilder final : DialectBuilder {
 static constexpr int64_t gDefaultAllocAlign = 16;
 
 //===----------------------------------------------------------------------===//
+// Shape Dialect Builder
+//===----------------------------------------------------------------------===//
+
+struct ShapeBuilder final : DialectBuilder {
+  ShapeBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  ShapeBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+
+  mlir::Value dim(mlir::Value val, int64_t index) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
 //===----------------------------------------------------------------------===//
 

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "stablehlo/dialect/BroadcastUtils.h"
 
 using namespace mlir;
@@ -93,4 +94,37 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
   }
   return broadcastedOperands;
 }
+
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
+// type, using MHLO and ONNX operations.
+DenseElementsAttr getDenseElementAttributeFromMhloValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto constantOp = dyn_cast_or_null<mhlo::ConstantOp>(definingOp)) {
+    return constantOp.getValue().dyn_cast<DenseElementsAttr>();
+  } else if (auto constantOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (constantOp.value().has_value())
+      return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
+// type, using MHLO operations.
+mlir::Value loadValuefromArrayAtIndexWithMhlo(mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value array, int64_t index) {
+  Type type = array.getType();
+  assert(isRankedShapedType(type) && "array must be ranked Shaped Type");
+  Type elemType = getElementType(type);
+  if (elemType.isa<IntegerType>()) {
+    // cast to a tensor of index
+    Type indexTensorType = RankedTensorType::get(
+        onnx_mlir::getShape(type), rewriter.getIndexType());
+    array = rewriter.create<arith::IndexCastOp>(loc, indexTensorType, array);
+  } else if (!elemType.isa<IndexType>()) {
+    llvm_unreachable("unsupported element type");
+  }
+  return rewriter.create<shape::GetExtentOp>(loc, array, index);
+}
+
 } // namespace onnx_mlir

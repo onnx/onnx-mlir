@@ -123,8 +123,8 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
         IndexExpr::select(endInput < 0, endInput + dimInput, endInput);
     endPos = endPos.selectOrSelf(endInput <= negInf, -1);
     endPos = endPos.selectOrSelf(endInput >= posInf, dimInput);
-    // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
-    neg = endPos.clamp(-1, dimInput);
+    // End: step<0: clamp(-1, end, dim -1); step>0 clamp(0, end, dim)
+    neg = endPos.clamp(-1, dimInput - 1);
     pos = endPos.clamp(0, dimInput);
     IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
 

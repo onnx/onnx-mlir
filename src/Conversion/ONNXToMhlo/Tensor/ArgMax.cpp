@@ -67,9 +67,9 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
     ONNXArgMaxOp argMaxOp = llvm::cast<ONNXArgMaxOp>(op);
 
     // shape helper
-    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp);
+    IndexExprScope scope(&rewriter, loc);
+    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, &scope);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
     assert(!failed(shapecomputed) && "shape helper failed");
 
     Type outputType = *op->result_type_begin();
@@ -124,15 +124,7 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
         result = rewriter.create<mhlo::ReshapeOp>(loc, outputType, result);
       else {
         SmallVector<Value> dims;
-        for (int64_t i = 0; i < dataRank; i++) {
-          if (i != axis) {
-            Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
-            dims.push_back(dim);
-          } else {
-            Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);
-            dims.push_back(dim);
-          }
-        }
+        IndexExpr::getValues(shapeHelper.dimsForOutput(), dims);
         Type outputShapeType =
             RankedTensorType::get({dataRank}, rewriter.getIndexType());
         Value newShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);

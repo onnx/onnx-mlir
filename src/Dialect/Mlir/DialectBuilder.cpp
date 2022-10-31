@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -625,6 +626,19 @@ Value MemRefBuilder::dim(Value val, Value index) const {
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
   return b().createOrFold<memref::DimOp>(loc(), val, index);
+}
+
+//===----------------------------------------------------------------------===//
+// Shape Dialect Builder
+//===----------------------------------------------------------------------===//
+
+Value ShapeBuilder::dim(Value val, int64_t index) const {
+  assert(val.getType().isa<ShapedType>() &&
+         "ShapeBuilder expects an input operand of ShapedType for "
+         "shape::ShapeOfOp");
+  assert(index >= 0 && "Expecting a valid index");
+  Value shapeValue = b().create<shape::ShapeOfOp>(loc(), val);
+  return b().create<shape::GetExtentOp>(loc(), shapeValue, index);
 }
 
 //===----------------------------------------------------------------------===//

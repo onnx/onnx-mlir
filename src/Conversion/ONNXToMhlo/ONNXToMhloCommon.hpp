@@ -114,6 +114,16 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     llvm::SmallVector<Value, 4> &operands, Type outputType,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
 
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
+// type, using MHLO and ONNX operations.
+mlir::DenseElementsAttr getDenseElementAttributeFromMhloValue(
+    mlir::Value value);
+
+// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
+// type, using MHLO operations.
+mlir::Value loadValuefromArrayAtIndexWithMhlo(mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value array, int64_t index);
+
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);

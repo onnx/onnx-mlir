@@ -477,8 +477,8 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK:           [[VAR_27_:%.+]] = arith.select [[VAR_26_]], [[CST_5_]], [[VAR_25_]] : index
 // CHECK:           [[VAR_28_:%.+]] = arith.cmpi slt, [[VAR_27_]], [[CST_minus_1_]] : index
 // CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[CST_minus_1_]], [[VAR_27_]] : index
-// CHECK:           [[VAR_30_:%.+]] = arith.cmpi sgt, [[VAR_29_]], [[CST_5_]] : index
-// CHECK-DAG:       [[VAR_31_:%.+]] = arith.select [[VAR_30_]], [[CST_5_]], [[VAR_29_]] : index
+// CHECK:           [[VAR_30_:%.+]] = arith.cmpi sgt, [[VAR_29_]], [[CST_4_]] : index
+// CHECK-DAG:       [[VAR_31_:%.+]] = arith.select [[VAR_30_]], [[CST_4_]], [[VAR_29_]] : index
 // CHECK-DAG:       [[VAR_32_:%.+]] = arith.cmpi slt, [[VAR_27_]], [[CST_0_]] : index
 // CHECK:           [[VAR_33_:%.+]] = arith.select [[VAR_32_]], [[CST_0_]], [[VAR_27_]] : index
 // CHECK:           [[VAR_34_:%.+]] = arith.cmpi sgt, [[VAR_33_]], [[CST_5_]] : index
@@ -523,8 +523,8 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK:           [[VAR_67_:%.+]] = arith.select [[VAR_66_]], [[CST_4_]], [[VAR_65_]] : index
 // CHECK:           [[VAR_68_:%.+]] = arith.cmpi slt, [[VAR_67_]], [[CST_minus_1_]] : index
 // CHECK:           [[VAR_69_:%.+]] = arith.select [[VAR_68_]], [[CST_minus_1_]], [[VAR_67_]] : index
-// CHECK:           [[VAR_70_:%.+]] = arith.cmpi sgt, [[VAR_69_]], [[CST_4_]] : index
-// CHECK-DAG:       [[VAR_71_:%.+]] = arith.select [[VAR_70_]], [[CST_4_]], [[VAR_69_]] : index
+// CHECK:           [[VAR_70_:%.+]] = arith.cmpi sgt, [[VAR_69_]], [[CST_3_]] : index
+// CHECK-DAG:       [[VAR_71_:%.+]] = arith.select [[VAR_70_]], [[CST_3_]], [[VAR_69_]] : index
 // CHECK-DAG:       [[VAR_72_:%.+]] = arith.cmpi slt, [[VAR_67_]], [[CST_0_]] : index
 // CHECK:           [[VAR_73_:%.+]] = arith.select [[VAR_72_]], [[CST_0_]], [[VAR_67_]] : index
 // CHECK:           [[VAR_74_:%.+]] = arith.cmpi sgt, [[VAR_73_]], [[CST_4_]] : index

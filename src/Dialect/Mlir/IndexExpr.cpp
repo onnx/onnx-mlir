@@ -823,7 +823,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa < rrr)
-      res.getObj().intLit = aaa;
+      res.getObj().initAsLiteral(aaa, IndexExprKind::Affine);
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
@@ -879,7 +879,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa > rrr)
-      res.getObj().intLit = aaa;
+      res.getObj().initAsLiteral(aaa, IndexExprKind::Affine);
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
@@ -1713,8 +1713,17 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
     return QuestionmarkIndexExpr(tensorOrMemref, i);
   }
 
-  MemRefBuilder createMemRef(scope.getRewriter(), scope.getLoc());
-  Value dynVal = createMemRef.dim(tensorOrMemref, i);
+  OpBuilder &rewriter = scope.getRewriter();
+  Location loc = scope.getLoc();
+  Value dynVal;
+  if (type.isa<MemRefType>() || type.isa<UnrankedMemRefType>()) {
+    MemRefBuilder createMemRef(rewriter, loc);
+    dynVal = createMemRef.dim(tensorOrMemref, i);
+  } else {
+    // Tensor type
+    ShapeBuilder createShape(rewriter, loc);
+    dynVal = createShape.dim(tensorOrMemref, i);
+  }
   return INDEX(dynVal);
 }
 
