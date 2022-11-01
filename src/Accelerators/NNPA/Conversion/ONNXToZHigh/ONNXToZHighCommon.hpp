@@ -23,7 +23,8 @@ template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
     mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](OP_TYPE op) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](
+                                             OP_TYPE op) {
     // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr nodeName =
