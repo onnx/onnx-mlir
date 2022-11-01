@@ -28,7 +28,7 @@ include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 
 //===----------------------------------------------------------------------===//
-// ONNX Ops to assit lowering of ONNX.
+// ONNX Ops to assist lowering of ONNX.
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -49,7 +49,7 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
     %2 = call @my_add(%0, %1) : (f32, f32) -> f32
     ```
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins FlatSymbolRefAttr:$callee, Variadic<AnyType>:$operands);
@@ -114,7 +114,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     passed to the user operation.
     The number of inputs and outputs can vary.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input,
@@ -148,7 +148,7 @@ def ONNXDimOp : ONNX_Op<"Dim",
 
     The axis identifies the dimension within the shape which is going to be obtained.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
@@ -158,6 +158,31 @@ def ONNXDimOp : ONNX_Op<"Dim",
   let hasVerifier = 1;
 }
 
+// ONNX DimGroupOp
+def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
+  let summary = "ONNX dimension group operation.";
+  let description = [{
+    This operation is to link a compile-time unknown dimension of a Tensor
+    to a group id. Two dimensions that have the same group id are expected
+    to be equal at runtime.
+
+    ```
+    "onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1: si64} : (tensor<?x3x5xf32>) -> ()
+    ```
+
+    `axis` identifies the dimension position in the tensor.
+
+    `group_id` identifies the group id of the dimension. It is non-negative.
+    Value -1 for `group_id` means the dimension does not belong to any group.
+
+    This operation is not part of the standard and was added to assist onnx-mlir.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+                       DefaultValuedAttr<SI64Attr, "0">:$axis,
+                       DefaultValuedAttr<SI64Attr, "-1">:$group_id);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX EntryPoint: Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
@@ -165,7 +190,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let description = [{
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins SymbolRefAttr:$func);
@@ -220,7 +245,7 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
       %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
     ```
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins UnitAttr:$value);
@@ -241,7 +266,7 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
     Print type signature of the op's input operands. This operation is introduced early
     so as to preserve the name of the original ONNX op.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins StrAttr:$op_name, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
@@ -256,7 +281,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
     The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
     The operation takes variable number of operands and produces no results.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
@@ -301,7 +326,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
     indicate a missing argument. Trailing optional arguments (those not followed
     by an argument that is present) may also be simply omitted.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
@@ -331,7 +356,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     ONNX MaxPool operation with a single output.
     See ONNXMaxPoolOp for a full description of the MaxPool semantics.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,

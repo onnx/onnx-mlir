@@ -1175,7 +1175,10 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(
 // Don't care about otherIndexExpr as question marks have no real data.
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr() {
+  // Keep the question mark value.
+  indexExprObj->intLit = o.getQuestionmark();
+}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(UndefinedIndexExpr const &o)
     : QuestionmarkIndexExpr() {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(LiteralIndexExpr const &o)
@@ -1183,7 +1186,10 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(LiteralIndexExpr const &o)
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(NonAffineIndexExpr const &o)
     : QuestionmarkIndexExpr() {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(QuestionmarkIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr() {
+  // Keep the question mark value.
+  indexExprObj->intLit = o.getQuestionmark();
+}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(PredicateIndexExpr const &o)
     : QuestionmarkIndexExpr() {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(AffineIndexExpr const &o)

@@ -19,6 +19,7 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -288,6 +289,11 @@ public:
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
+
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
@@ -325,27 +331,32 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSigmoidOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSigmoidOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis, execNodesOnCpu);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

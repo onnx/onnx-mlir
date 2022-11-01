@@ -17,11 +17,13 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
+    const onnx_mlir::DimAnalysis *dimAnalysis,
     mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([execNodesOnCpu](OP_TYPE op) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](OP_TYPE op) {
     // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr nodeName =
@@ -53,7 +55,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     if (exceedLimit)
       return true;
 
-    return !isSuitableForZDNN<OP_TYPE>(op);
+    return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
   });
 }
 

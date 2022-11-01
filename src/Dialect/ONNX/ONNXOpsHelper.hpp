@@ -257,4 +257,22 @@ template <class T>
 mlir::LogicalResult processConvTypeParams(
     T *op, mlir::Value inputOperand, mlir::Value W);
 
+//===----------------------------------------------------------------------===//
+// Support for dim operations.
+//===----------------------------------------------------------------------===//
+
+/// Check the defining operation of a value.
+template <typename OP>
+bool definedBy(mlir::Value v);
+
+/// Check if a value is to store dimensions, meaning it is defined by
+/// Dim/Constant/Cast/Concat.
+bool areDims(mlir::Value val);
+
+/// Check if a value is defined by Concat to store dimensions.
+bool areDimsFromConcat(mlir::Value val);
+
+/// Get all dimensions that are stored by the value.
+void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
 } // namespace onnx_mlir
