@@ -1111,6 +1111,8 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr)
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
+    // Keep the question mark value.
+    indexExprObj->intLit = otherObjPtr->getQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1281,6 +1283,8 @@ AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
+    // Keep the question mark value.
+    indexExprObj->intLit = otherObjPtr->getQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1354,6 +1358,8 @@ DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
+    // Keep the question mark value.
+    indexExprObj->intLit = otherObjPtr->getQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1427,6 +1433,8 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
+    // Keep the question mark value.
+    indexExprObj->intLit = otherObjPtr->getQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {

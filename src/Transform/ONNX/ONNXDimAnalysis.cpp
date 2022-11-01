@@ -416,6 +416,12 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // PadOp
+  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
+    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
+    return;
+  }
+
   // ReshapeOp
   if (auto reshapeOp = dyn_cast<ONNXReshapeOp>(op)) {
     if (reshapeOp.allowzero() != 0)

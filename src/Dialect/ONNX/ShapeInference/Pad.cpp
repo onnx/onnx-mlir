@@ -60,7 +60,12 @@ LogicalResult ONNXPadOpShapeHelper::computeShape(
     DimIndexExpr dimInput(dataBounds.getDim(i));
 
     // Calculation for output size.
-    IndexExpr dimOutputFinal = padBegin + dimInput + padEnd;
+    IndexExpr dimOutputFinal;
+    if (padBegin.isLiteral() && padEnd.isLiteral() &&
+        (padBegin.getLiteral() == 0) && (padEnd.getLiteral() == 0))
+      dimOutputFinal = dimInput;
+    else
+      dimOutputFinal = padBegin + dimInput + padEnd;
 
     // Save results.
     pads[i] = padBegin;
