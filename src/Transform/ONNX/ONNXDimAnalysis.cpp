@@ -69,6 +69,8 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     return;
   // Find the same unknown dimension in the inputs.
   for (Value v : operands) {
+    if (onnx_mlir::isFromNone(v))
+      continue;
     int64_t rank = onnx_mlir::getRank(v.getType());
     onnx_mlir::MemRefBoundsIndexCapture vDims(v);
     for (int64_t i = 0; i < rank; ++i) {
@@ -149,7 +151,9 @@ namespace onnx_mlir {
 
 DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
   for (Value val : vals)
-    build(val);
+    if (!isFromNone(val))
+      build(val);
+
   LLVM_DEBUG(llvm::dbgs() << "The number of unknown dims in the IR: "
                           << numOfUnknownDims << "\n");
 }
