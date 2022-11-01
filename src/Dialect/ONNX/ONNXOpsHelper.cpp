@@ -568,6 +568,12 @@ bool definedBy(Value v) {
   return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
 }
 
+/// Template instantiation for definedBy.
+template bool definedBy<ONNXCastOp>(Value v);
+template bool definedBy<ONNXConcatOp>(Value v);
+template bool definedBy<ONNXConstantOp>(Value v);
+template bool definedBy<ONNXDimOp>(Value v);
+
 /// Check if a value is to store dimensions, meaning it is defined by
 /// Dim/Constant/Cast/Concat.
 bool areDims(Value val) {
