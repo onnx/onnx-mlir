@@ -20,6 +20,14 @@ add_onnx_mlir_library(OMONNXOps
   ONNXTypes.cpp
   Rewrite.cpp
 
+  # start of new support
+  ControlFlow/If.cpp
+  ControlFlow/Loop.cpp
+  ControlFlow/Scan.cpp
+  Math/Clip.cpp
+  Math/ElementwiseBroadcast.cpp
+  Math/ElementwiseUnary.cpp
+
   ShapeInference/ArgMinMax.cpp
   ShapeInference/AveragePool.cpp
   ShapeInference/CategoryMapper.cpp  
@@ -52,13 +60,6 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/TopK.cpp
   ShapeInference/Transpose.cpp
   ShapeInference/Unsqueeze.cpp
-
-  # start of new support
-  ControlFlow/If.cpp
-  ControlFlow/Loop.cpp
-  ControlFlow/Scan.cpp
-  Math/Clip.cpp
-  Math/CumSum.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen

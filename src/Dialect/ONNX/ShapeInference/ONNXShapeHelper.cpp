@@ -492,7 +492,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   ONNXOpShapeHelper<OP_TYPE>::setOutputDims(outputDims);
   return success();
 }
-
+#if 0 // hi alex
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
   Value input = op->getOperand(0);
@@ -513,6 +513,7 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
       output, outputDims, inputType.getElementType(), inputType.getEncoding());
   return success();
 }
+#endif
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
