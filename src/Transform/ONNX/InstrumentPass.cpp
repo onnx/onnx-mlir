@@ -44,16 +44,16 @@ class InstrumentPass
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
-  Option<std::string> instrumentStage{*this, "instrument-stage",
-      llvm::cl::desc(
-          "Specify stage to be instrumented\n"
-          "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
-          "krnl)\n"
-          "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
-          "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh "
-          "ops\n"
-          "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
-      llvm::cl::init("")};
+  Option<onnx_mlir::InstrumentStages> instrumentStage{*this, "instrument-stage",
+      llvm::cl::desc("Specify stage to be instrumented:"),
+      llvm::cl::values(
+          clEnumVal(onnx_mlir::afterOnnxToOnnx, "Profile for onnx ops."),
+          clEnumVal(
+              onnx_mlir::nnpaAfterOnnxToOnnx, "[NNPA] Profile for onnx ops."),
+          clEnumVal(onnx_mlir::nnpaAfterOnnxToZhigh,
+              "[NNPA] Profile for onnx and zhigh ops."),
+          clEnumVal(onnx_mlir::nnpaAfterZhighToZlow,
+              "[NNPA] Profile for zlow ops."))};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
       llvm::cl::desc("Specify regex for ops to be instrumented:\n"
@@ -80,8 +80,8 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(StringRef stage, StringRef ops, unsigned actions) {
-    this->instrumentStage = stage.str();
+  InstrumentPass(int stage, StringRef ops, unsigned actions) {
+    this->instrumentStage = static_cast<onnx_mlir::InstrumentStages>(stage);
     this->instrumentOps = ops.str();
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
@@ -130,6 +130,7 @@ public:
   }
 
   void runOnOperation() override {
+    // Check if instrumentStage is the one speficied in compiler option.
     if (instrumentStage != onnx_mlir::instrumentStage)
       return;
     if (instrumentOps == "" || instrumentOps == "NONE")
@@ -167,6 +168,9 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    StringRef stage, StringRef ops, unsigned actions) {
+    int stage, StringRef ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(stage, ops, actions);
 }
+
+
+

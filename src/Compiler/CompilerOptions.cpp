@@ -133,15 +133,14 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> instrumentStage("instrument-stage",
-    llvm::cl::desc(
-        "Specify stage to be instrumented\n"
-        "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
-        "krnl)\n"
-        "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
-        "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh ops\n"
-        "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
+    llvm::cl::desc("Specify stage to be instrumented:"),
+    llvm::cl::values(clEnumVal(afterOnnxToOnnx, "Profile for onnx ops."),
+        clEnumVal(nnpaAfterOnnxToOnnx, "[NNPA] Profile for onnx ops."),
+        clEnumVal(
+            nnpaAfterOnnxToZhigh, "[NNPA] Profile for onnx and zhigh ops."),
+        clEnumVal(nnpaAfterZhighToZlow, "[NNPA] Profile for zlow ops.")),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
     llvm::cl::desc("Specify regex for ops to be instrumented:\n"

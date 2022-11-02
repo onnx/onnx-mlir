@@ -53,6 +53,13 @@ typedef enum {
   InstrumentReportMemory
 } InstrumentActions;
 
+typedef enum {
+  afterOnnxToOnnx,
+  nnpaAfterOnnxToOnnx,
+  nnpaAfterOnnxToZhigh,
+  nnpaAfterZhighToZlow
+} InstrumentStages;
+
 /* Onnx Mlir Compiler return code on errors; zero is success */
 typedef enum {
   CompilerSuccess = 0,            /* Zero is success. */

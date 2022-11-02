@@ -77,9 +77,9 @@ void addONNXToZHighPasses(
   }
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-zhigh",
-          instrumentOps, instrumentControlBits.getBits()));
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+      onnx_mlir::InstrumentStages::nnpaAfterOnnxToOnnx, instrumentOps,
+      instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -133,9 +133,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       pm.addPass(mlir::createCanonicalizerPass());
       // Insert an instrumentation before lowering onnx to krnl to get profiling
       // for onnx and zhigh ops.
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-krnl",
-              instrumentOps, instrumentControlBits.getBits()));
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh, instrumentOps,
+          instrumentControlBits.getBits()));
 
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
@@ -170,9 +170,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       }
       // Insert an instrumentation before lowering krnl to llvm to get profiling
       // for zlow ops
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createInstrumentPass("nnpa-before-krnl-to-llvm",
-              instrumentOps, instrumentControlBits.getBits()));
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          onnx_mlir::InstrumentStages::nnpaAfterZhighToZlow, instrumentOps,
+          instrumentControlBits.getBits()));
     }
   }
 

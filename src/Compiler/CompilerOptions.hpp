@@ -51,7 +51,7 @@ extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
 extern llvm::cl::opt<bool> allowSorting;
 
-extern llvm::cl::opt<std::string> instrumentStage;
+extern llvm::cl::opt<InstrumentStages> instrumentStage;
 extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
 extern llvm::cl::opt<bool> instrumentONNXSignature;
