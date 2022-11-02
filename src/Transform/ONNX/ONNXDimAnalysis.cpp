@@ -546,7 +546,6 @@ void ONNXDimAnalysisPass::runOnOperation() {
 
   // Add onnx.DimGroup into the IR for LIT tests.
   onnx_mlir::DimAnalysis::DimSetMapT mapping = testOp.getGroupingResult();
-  llvm::SmallDenseSet<Value, 4> visited;
   for (auto &entry : mapping) {
     uint64_t groupID = entry.first;
     onnx_mlir::DimAnalysis::DimSetT dimSet = entry.second;
@@ -563,11 +562,8 @@ void ONNXDimAnalysisPass::runOnOperation() {
         if (auto dimOp = dyn_cast<ONNXDimOp>(op))
           val = dimOp.data();
       }
-      if (visited.contains(val))
-        continue;
       onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(b, loc);
       create.onnx.dimGroup(val, dimAxis, groupID);
-      visited.insert(val);
     }
   }
 }
