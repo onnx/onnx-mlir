@@ -38,8 +38,8 @@ namespace {
 // Helper functions for dimension analysis.
 //===----------------------------------------------------------------------===//
 
-/// Check if two sets are interleaved or not.
-bool isInterleaved(const onnx_mlir::DimAnalysis::DimSetT &lhs,
+/// Check if two sets are overlapping or not.
+bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
     const onnx_mlir::DimAnalysis::DimSetT &rhs) {
   // Call `contains` on the smaller set for better performance.
   if (lhs.size() < rhs.size()) {
@@ -81,7 +81,6 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
       }
     }
   }
-  return;
 }
 
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
@@ -182,14 +181,14 @@ void DimAnalysis::build(Value val) {
   }
 }
 
-bool DimAnalysis::areSame(
-    Value lhs, uint64_t lhsDimIndex, Value rhs, uint64_t rhsDimIndex) const {
-  DimT lhsDim(lhs, lhsDimIndex);
-  DimT rhsDim(rhs, rhsDimIndex);
+bool DimAnalysis::areSame(mlir::Value tensor1, uint64_t dimAxis1,
+    mlir::Value tensor2, uint64_t dimAxis2) const {
+  DimT dim1(tensor1, dimAxis1);
+  DimT dim2(tensor2, dimAxis2);
   // Two dims are the same if they are in the same set.
   for (auto &entry : dimSetMap) {
     DimSetT dims = entry.second;
-    if (dims.contains(lhsDim) && dims.contains(rhsDim))
+    if (dims.contains(dim1) && dims.contains(dim2))
       return true;
   }
   return false;
@@ -271,7 +270,7 @@ void DimAnalysis::mergeDimSets() {
         // Two sets that have a common dim can be merged.
         DimSetT &lhs = dimSetMap[lhsKey];
         DimSetT &rhs = dimSetMap[rhsKey];
-        if (isInterleaved(lhs, rhs)) {
+        if (areOverlapping(lhs, rhs)) {
           /// Merge the rhs set into the lhs set.
           for (auto &ti : rhs)
             lhs.insert(ti);

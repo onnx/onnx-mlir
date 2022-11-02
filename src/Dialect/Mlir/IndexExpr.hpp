@@ -631,7 +631,7 @@ private:
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
-  // Constuct a question mark for an unknown dimension in a Tensor/Memref.
+  // Construct a question mark for an unknown dimension in a Tensor/Memref.
   // This constructor is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
   // tensorOrMemref and dimension index.
@@ -650,6 +650,17 @@ public:
   ~QuestionmarkIndexExpr() = default;
   QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
   QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
+
+  // Query functions.
+  // Check if the question mark is specific so that it can be distinguished from
+  // other question marks.
+  bool specificQuestionmark();
+  // Check if two question marks are the same or not. Two question marks are the
+  // same if they are not specific and have the same value.
+  bool sameQuestionmark(IndexExpr const &o);
+
+private:
+  QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Predicate IndexExpr.

@@ -20,8 +20,11 @@ namespace onnx_mlir {
 
 class DimAnalysis {
 public:
+  // Dimension type is a pair of a tensor and a dimension axis.
   using DimT = std::pair<mlir::Value, uint64_t>;
+  // A set of dimensions.
   using DimSetT = llvm::SmallDenseSet<DimT, 4>;
+  // A mapping between an ID and a set of dimensions.
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
 public:
@@ -38,8 +41,9 @@ public:
   DimSetMapT getGroupingResult() const { return dimSetMap; }
 
   /// Test if two unknown dimensions are the same or not.
-  bool areSame(mlir::Value lhs, uint64_t lhsDimIndex, mlir::Value rhs,
-      uint64_t rhsDimIndex) const;
+  /// Each dimension is identified by its tensor and axis.
+  bool areSame(mlir::Value tensor1, uint64_t dimAxis1, mlir::Value tensor2,
+      uint64_t dimAxis2) const;
 
   /// Dumps the analysis information.
   void dump() const;

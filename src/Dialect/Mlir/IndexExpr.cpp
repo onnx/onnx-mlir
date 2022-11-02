@@ -1110,9 +1110,7 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr)
   // Depending on what kind of index expr we got, take different actions.
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark();
-    // Keep the question mark value.
-    indexExprObj->intLit = otherObjPtr->getQuestionmark();
+    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1174,32 +1172,56 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsQuestionmark(tensorOrMemref, index);
 }
-// Don't care about otherIndexExpr as question marks have no real data.
+
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr)
+    : IndexExpr() {
+  // Create new IndexExpr implementation object.
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
+  // If the index expression is a question mark, just copy it.
+  if (otherObjPtr->isQuestionmark()) {
+    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    return;
+  }
+  // Don't care about otherObjPtr, just create a general question mark.
+  indexExprObj->initAsQuestionmark();
+}
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
-    : QuestionmarkIndexExpr() {
-  // Keep the question mark value.
-  indexExprObj->intLit = o.getQuestionmark();
-}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(UndefinedIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(LiteralIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(NonAffineIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(QuestionmarkIndexExpr const &o)
-    : QuestionmarkIndexExpr() {
-  // Keep the question mark value.
-  indexExprObj->intLit = o.getQuestionmark();
-}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(PredicateIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(AffineIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(DimIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
-    : QuestionmarkIndexExpr() {}
+    : QuestionmarkIndexExpr(o.getObjPtr()) {}
+
+bool QuestionmarkIndexExpr::specificQuestionmark() {
+  assert((getKind() == IndexExprKind::Questionmark) &&
+         "Expected QuestionMarkIndexExpr");
+  return (getQuestionmark() != -1);
+}
+
+bool QuestionmarkIndexExpr::sameQuestionmark(IndexExpr const &o) {
+  assert((o.getKind() == IndexExprKind::Questionmark) &&
+         "Expected QuestionMarkIndexExpr as input");
+  QuestionmarkIndexExpr oQM(o);
+  return (specificQuestionmark() && oQM.specificQuestionmark() &&
+          (getQuestionmark() == oQM.getQuestionmark()));
+}
 
 //===----------------------------------------------------------------------===//
 // IndexExpr Subclasses for constructing PredicateIndexExpr.
@@ -1282,9 +1304,7 @@ AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark();
-    // Keep the question mark value.
-    indexExprObj->intLit = otherObjPtr->getQuestionmark();
+    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1357,9 +1377,7 @@ DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark();
-    // Keep the question mark value.
-    indexExprObj->intLit = otherObjPtr->getQuestionmark();
+    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1432,9 +1450,7 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark();
-    // Keep the question mark value.
-    indexExprObj->intLit = otherObjPtr->getQuestionmark();
+    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
     return;
   }
   case IndexExprKind::NonAffine: {

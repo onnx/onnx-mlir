@@ -175,6 +175,9 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
     `group_id` identifies the group id of the dimension. It is non-negative.
     Value -1 for `group_id` means the dimension does not belong to any group.
 
+    This operation is currently used in the pass `--onnx-dim-analysis`
+    for testing the unknown dimension analysis class.
+
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
