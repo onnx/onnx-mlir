@@ -1149,20 +1149,6 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
       ONNXMatMulIntegerOp, ONNXMatMulIntegerOpAdaptor>(*this, elementType);
 }
 
-// GemmOp
-LogicalResult ONNXGemmOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  bool hasBias = !C().getType().isa<NoneType>();
-  // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>() ||
-      (hasBias && !C().getType().isa<RankedTensorType>()))
-    return success();
-
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXGemmOpShapeHelper, ONNXGemmOp,
-      ONNXGemmOpAdaptor>(*this, elementType);
-}
 
 /// BatchNormalizationInferenceModeOp
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(

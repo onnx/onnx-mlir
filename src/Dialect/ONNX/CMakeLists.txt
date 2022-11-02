@@ -27,6 +27,7 @@ add_onnx_mlir_library(OMONNXOps
   Math/Clip.cpp
   Math/ElementwiseBroadcast.cpp
   Math/ElementwiseUnary.cpp
+  Math/Gemm.cpp
 
   ShapeInference/ArgMinMax.cpp
   ShapeInference/AveragePool.cpp
