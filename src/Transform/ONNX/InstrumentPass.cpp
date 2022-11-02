@@ -171,6 +171,3 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
     int stage, StringRef ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(stage, ops, actions);
 }
-
-
-
