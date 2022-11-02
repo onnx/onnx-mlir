@@ -53,6 +53,13 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/Transpose.cpp
   ShapeInference/Unsqueeze.cpp
 
+  # start of new support
+  ControlFlow/If.cpp
+  ControlFlow/Loop.cpp
+  ControlFlow/Scan.cpp
+  Math/Clip.cpp
+  Math/CumSum.cpp
+
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
