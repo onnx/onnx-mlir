@@ -1277,6 +1277,13 @@ LogicalResult ONNXPReluOp::inferShapes(
 }
 
 LogicalResult ONNXPReluOp::verify() {
+  if (!hasShapeAndRank(X())) {
+    return success();
+  }
+  if (!hasShapeAndRank(slope())) {
+    return success();
+  }
+
   ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
   ArrayRef<int64_t> slopeShape =
       slope().getType().cast<ShapedType>().getShape();
@@ -1285,6 +1292,7 @@ LogicalResult ONNXPReluOp::verify() {
   // unidirectional broadcastable to input X.
   if (slopeShape.size() > xShape.size())
     return emitError("Slope tensor has a wrong shape");
+
   return success();
 }
 
