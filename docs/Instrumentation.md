@@ -6,7 +6,7 @@ Instrumentation is prototyped in onnx-mlir and can be used to debug runtime issu
 
 ## Compile for instrumentation
 
-By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation is inserted in some stages. The `--instrument-stage` is an option to specify it. For example, when you specify `afterOnnxToOnnx`, the instrumentation is inserted after pass for onnx-to-onnx conversion. The `--instrument-ops` option is an option to specify operations to be instrumented using regular expression. the `--InstrumentBeforeOp` and `--InstrumentAfterOp` are the options to insert instrumentation before and/or after the ops. For example, when you specify `onnx.` in `--instrument-ops` and use `--InstrumentBeforeOp` and `--InstrumentAfterOp`, the instrumantation is inserted before and after onnx operations such as onnx.Conv, onnx.Add etc.
+By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `afterOnnxToOnnx`, the instrumentation will be inserted after onnx-to-onnx conversion. The `--instrument-ops` option is an option to specify operations to be instrumented using regular expression. You can use `onnx.` for all onnx operations, `onnx.,zhigh` for all onnx and zhigh operations, and `onnx.Conv` for onnx Conv operations etc. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
 
 ```
   --instrument-stage=<value>                        - Specify stage to be instrumented:
@@ -54,6 +54,12 @@ The output is explained here:
 * accumulated: time, in second, from instrumentationInit.
 * VMem: the virtual memory size (in kb) used by this process.
 * Last column is the node name of op. This is displayed when the op has `onnx_node_name` attribute.
+
+Other example for NNPA
+- Performance profiling for onnx ops before lowering to zhigh ops:
+  `onnx-mlir --maccel=NNPA --instrument-stage=nnpaAfterOnnxToOnnx --instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+- Performance profiling for onnx and zhigh ops before lowering to zlow ops:
+  `onnx-mlir --maccel=NNPA --instrument-stage=nnpaAfterOnnxToZhigh --instrument-ops=onnx.,zhigh. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 
 ## Control instrument at runtime
 By providing certain env variable at runtime, you can disable reports from  instrument library.
