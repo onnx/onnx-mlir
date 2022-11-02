@@ -126,16 +126,16 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
+    // Insert an instrumentation after lowering onnx to zhigh to get profiling
+    // for onnx and zhigh ops.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh, instrumentOps,
+        instrumentControlBits.getBits()));
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Insert an instrumentation before lowering onnx to krnl to get profiling
-      // for onnx and zhigh ops.
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-          onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh, instrumentOps,
-          instrumentControlBits.getBits()));
 
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
@@ -168,7 +168,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
-      // Insert an instrumentation before lowering krnl to llvm to get profiling
+      // Insert an instrumentation after lowering zhigh to zlow to get profiling
       // for zlow ops
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
           onnx_mlir::InstrumentStages::nnpaAfterZhighToZlow, instrumentOps,
