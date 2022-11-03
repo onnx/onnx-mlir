@@ -102,10 +102,10 @@ func.func @dyntest_slice_constant_dynshape_not_spliced(%arg0 : tensor<?x4x5xf32>
 // CHECK-DAG:    [[VAR_8_:%.+]] = arith.index_cast [[VAR_17_]] : tensor<1xindex> to tensor<1xi64>
 // CHECK-DAG:    [[VAR_9_:%.+]] = "mhlo.dynamic_broadcast_in_dim"([[VAR_2_]], [[VAR_5_]]) {broadcast_dimensions = dense<0> : tensor<1xi64>} : (tensor<1xi1>, tensor<3xindex>) -> tensor<?x4x5xi1>
 // CHECK-DAG:    [[VAR_10_:%.+]] = "mhlo.reverse"([[PARAM_0_]]) {dimensions = dense<1> : tensor<1xi64>} : (tensor<?x4x5xf32>) -> tensor<?x4x5xf32>
-// CHECK-DAG:    [[VAR_11_:%.+]] = "mhlo.select"([[VAR_9_]], [[VAR_10_]], [[PARAM_0_]]) : (tensor<?x4x5xi1>, tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xf32>
+// CHECK-DAG:    [[VAR_11_:%.+]] = mhlo.select [[VAR_9_]], [[VAR_10_]], [[PARAM_0_]] : tensor<?x4x5xi1>, tensor<?x4x5xf32>
 // CHECK-DAG:    [[VAR_12_:%.+]] = "mhlo.dynamic_broadcast_in_dim"([[VAR_2_]], [[VAR_5_]]) {broadcast_dimensions = dense<0> : tensor<1xi64>} : (tensor<1xi1>, tensor<3xindex>) -> tensor<?x4x5xi1>
 // CHECK-DAG:    [[VAR_13_:%.+]] = "mhlo.reverse"([[VAR_11_]]) {dimensions = dense<2> : tensor<1xi64>} : (tensor<?x4x5xf32>) -> tensor<?x4x5xf32>
-// CHECK-DAG:    [[VAR_14_:%.+]] = "mhlo.select"([[VAR_12_]], [[VAR_13_]], [[VAR_11_]]) : (tensor<?x4x5xi1>, tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xf32>
+// CHECK-DAG:    [[VAR_14_:%.+]] = mhlo.select [[VAR_12_]], [[VAR_13_]], [[VAR_11_]] : tensor<?x4x5xi1>, tensor<?x4x5xf32>
 // CHECK-DAG:    [[VAR_15_:%.+]] = "mhlo.concatenate"([[VAR_8_]], [[VAR_4_]], [[VAR_3_]]) {dimension = 0 : i64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
 // CHECK-DAG:    [[VAR_16_:%.+]] = mhlo.real_dynamic_slice [[VAR_14_]], [[VAR_1_]], [[VAR_15_]], [[VAR_0_]] : (tensor<?x4x5xf32>, tensor<3xi64>, tensor<3xi64>, tensor<3xi64>) -> tensor<?x2x3xf32>
 // CHECK-DAG:    return [[VAR_16_]] : tensor<?x2x3xf32>
@@ -135,18 +135,18 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK-DAG:     %[[V12:.*]] = mhlo.negate %[[V8]] : tensor<1xi64>
 // CHECK-DAG:     %[[V13:.*]] = mhlo.add %[[V9]], %[[V6]] : tensor<1xi64>
 // CHECK-DAG:     %[[V14:.*]] = mhlo.add %[[V7]], %[[V6]] : tensor<1xi64>
-// CHECK-DAG:     %[[V15:.*]] = "mhlo.select"(%[[V10]], %[[V13]], %[[V7]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V16:.*]] = "mhlo.select"(%[[V10]], %[[V14]], %[[V9]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V17:.*]] = "mhlo.select"(%[[V10]], %[[V12]], %[[V8]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V18:.*]] = "mhlo.select"(%[[V11]], %[[V0]], %[[V4]]) : (tensor<3x4x5xi1>, tensor<3x4x5xi64>, tensor<3x4x5xi64>) -> tensor<3x4x5xi64>
+// CHECK-DAG:     %[[V15:.*]] = mhlo.select %[[V10]], %[[V13]], %[[V7]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V16:.*]] = mhlo.select %[[V10]], %[[V14]], %[[V9]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V17:.*]] = mhlo.select %[[V10]], %[[V12]], %[[V8]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V18:.*]] = mhlo.select %[[V11]], %[[V0]], %[[V4]] : tensor<3x4x5xi1>, tensor<3x4x5xi64>
 // CHECK-DAG:     %[[V19:.*]] = mhlo.compare  GT, %[[V16]], %[[V2]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
-// CHECK-DAG:     %[[V20:.*]] = "mhlo.select"(%[[V19]], %[[V2]], %[[V16]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V20:.*]] = mhlo.select %[[V19]], %[[V2]], %[[V16]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V21:.*]] = mhlo.compare  LT, %[[V20]], %[[V5]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK-DAG:     %[[V22:.*]] = mhlo.add %[[V20]], %[[V2]] : tensor<1xi64>
-// CHECK-DAG:     %[[V23:.*]] = "mhlo.select"(%[[V21]], %[[V22]], %[[V20]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V23:.*]] = mhlo.select %[[V21]], %[[V22]], %[[V20]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V24:.*]] = mhlo.compare  LT, %[[V15]], %[[V5]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK-DAG:     %[[V25:.*]] = mhlo.add %[[V15]], %[[V2]] : tensor<1xi64>
-// CHECK-DAG:     %[[V26:.*]] = "mhlo.select"(%[[V24]], %[[V25]], %[[V15]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V26:.*]] = mhlo.select %[[V24]], %[[V25]], %[[V15]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V27:.*]] = "mhlo.slice"(%arg0) {limit_indices = dense<1> : tensor<1xi64>, start_indices = dense<0> : tensor<1xi64>, strides = dense<1> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1xi64>
 // CHECK-DAG:     %[[V28:.*]] = "mhlo.slice"(%arg2) {limit_indices = dense<1> : tensor<1xi64>, start_indices = dense<0> : tensor<1xi64>, strides = dense<1> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1xi64>
 // CHECK-DAG:     %[[V29:.*]] = "mhlo.slice"(%arg1) {limit_indices = dense<1> : tensor<1xi64>, start_indices = dense<0> : tensor<1xi64>, strides = dense<1> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1xi64>
@@ -156,18 +156,18 @@ func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %
 // CHECK-DAG:     %[[V33:.*]] = mhlo.add %[[V29]], %[[V6]] : tensor<1xi64>
 // CHECK-DAG:     %[[V34:.*]] = mhlo.add %[[V27]], %[[V6]] : tensor<1xi64>
 // CHECK-DAG:     %[[V35:.*]] = "mhlo.reverse"(%[[V18]]) {dimensions = dense<2> : tensor<1xi64>} : (tensor<3x4x5xi64>) -> tensor<3x4x5xi64>
-// CHECK-DAG:     %[[V36:.*]] = "mhlo.select"(%[[V30]], %[[V33]], %[[V27]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V37:.*]] = "mhlo.select"(%[[V30]], %[[V34]], %[[V29]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V38:.*]] = "mhlo.select"(%[[V30]], %[[V32]], %[[V28]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CHECK-DAG:     %[[V39:.*]] = "mhlo.select"(%[[V31]], %[[V35]], %[[V18]]) : (tensor<3x4x5xi1>, tensor<3x4x5xi64>, tensor<3x4x5xi64>) -> tensor<3x4x5xi64>
+// CHECK-DAG:     %[[V36:.*]] = mhlo.select %[[V30]], %[[V33]], %[[V27]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V37:.*]] = mhlo.select %[[V30]], %[[V34]], %[[V29]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V38:.*]] = mhlo.select %[[V30]], %[[V32]], %[[V28]] : tensor<1xi1>, tensor<1xi64>
+// CHECK-DAG:     %[[V39:.*]] = mhlo.select %[[V31]], %[[V35]], %[[V18]] : tensor<3x4x5xi1>, tensor<3x4x5xi64>
 // CHECK-DAG:     %[[V40:.*]] = mhlo.compare  GT, %[[V37]], %[[V1]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
-// CHECK-DAG:     %[[V41:.*]] = "mhlo.select"(%[[V40]], %[[V1]], %[[V37]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V41:.*]] = mhlo.select %[[V40]], %[[V1]], %[[V37]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V42:.*]] = mhlo.compare  LT, %[[V41]], %[[V5]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK-DAG:     %[[V43:.*]] = mhlo.add %[[V41]], %[[V1]] : tensor<1xi64>
-// CHECK-DAG:     %[[V44:.*]] = "mhlo.select"(%[[V42]], %[[V43]], %[[V41]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V44:.*]] = mhlo.select %[[V42]], %[[V43]], %[[V41]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V45:.*]] = mhlo.compare  LT, %[[V36]], %[[V5]],  NOTYPE : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK-DAG:     %[[V46:.*]] = mhlo.add %[[V36]], %[[V1]] : tensor<1xi64>
-// CHECK-DAG:     %[[V47:.*]] = "mhlo.select"(%[[V45]], %[[V46]], %[[V36]]) : (tensor<1xi1>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:     %[[V47:.*]] = mhlo.select %[[V45]], %[[V46]], %[[V36]] : tensor<1xi1>, tensor<1xi64>
 // CHECK-DAG:     %[[V48:.*]] = "mhlo.concatenate"(%[[V5]], %[[V26]], %[[V47]]) {dimension = 0 : i64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
 // CHECK-DAG:     %[[V49:.*]] = "mhlo.concatenate"(%[[V3]], %[[V23]], %[[V44]]) {dimension = 0 : i64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
 // CHECK-DAG:     %[[V50:.*]] = "mhlo.concatenate"(%[[V6]], %[[V17]], %[[V38]]) {dimension = 0 : i64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>

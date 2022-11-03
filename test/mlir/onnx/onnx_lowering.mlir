@@ -2006,7 +2006,7 @@ func.func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) ->
 
   // CHECK: [[CST_VALUE:%.+]] = arith.constant 1.000000e+00 : f32
   // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map0([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map1([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map2([[DIM_0]], [[DIM_1]], [[DIM_2]])){
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map1([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map2([[DIM_0]], [[DIM_1]], [[DIM_2]])){
   // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
   // CHECK:   krnl.store [[CST_VALUE]], [[RES]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<?x?x?xf32>
   // CHECK: }
@@ -2087,7 +2087,7 @@ func.func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:         [[CST_2_1_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK:             [[VAR_7_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_3_]] : memref<2x?x4xf32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map0([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
 // CHECK-DAG:         [[CST_2_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_4_:%.+]] = arith.constant 4 : index
 // CHECK:             [[VAR_9_:%.+]] = affine.apply #map1([[I_2_]]){{.}}[[CST_4_]]{{.}}
@@ -2502,7 +2502,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
     onnx.Return %arg4,  %7 : tensor<i1>, tensor<?xf32>
   }) : (tensor<i64>, tensor<i1>) -> tensor<?x?xf32>
   return  %0 : tensor<?x?xf32>
-// CHECK-DAG: #map0 = affine_map<(d0, d1) -> (d0, d1)>
+// CHECK-DAG: #map = affine_map<(d0, d1) -> (d0, d1)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func @test_loop
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i64>, [[PARAM_1_:%.+]]: memref<i1>, [[PARAM_2_:%.+]]: memref<?xf32>) -> memref<?x?xf32> {
@@ -2530,7 +2530,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK-DAG:             [[VAR_16_:%.+]] = memref.dim [[PARAM_2_]], [[VAR_c0_3_]] : memref<?xf32>
 // CHECK-DAG:             [[VAR_c0_4_:%.+]] = arith.constant 0 : index
 // CHECK:                 [[VAR_17_:%.+]] = memref.dim [[PARAM_2_]], [[VAR_c0_4_]] : memref<?xf32>
-// CHECK:                 [[VAR_18_:%.+]] = affine.max #map0([[VAR_16_]], [[VAR_17_]])
+// CHECK:                 [[VAR_18_:%.+]] = affine.max #map([[VAR_16_]], [[VAR_17_]])
 // CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc([[VAR_18_]]) {{.*}}: memref<?xf32>
 // CHECK-DAG:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[VAR_c0_5_:%.+]] = arith.constant 0 : index
@@ -3024,7 +3024,7 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
   %4 = "onnx.SequenceAt"(%6, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
   %5 = "onnx.Shape"(%4) {start = 0 : si64} : (tensor<?x4x5xf32>) -> tensor<3xi64>
   return %5 : tensor<3xi64>
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (s0)>
+// CHECK-DAG: #map = affine_map<()[s0] -> (s0)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 2)>
 // CHECK-LABEL:  func.func @test_sequence_insert
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>, [[PARAM_1_:%.+]]: memref<3x4x5xf32>) -> memref<3xi64> {
@@ -3044,7 +3044,7 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 // CHECK-DAG:       [[VAR_c0_3_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_6_:%.+]] = arith.cmpi slt, [[VAR_5_]], [[VAR_c0_3_]] : index
-// CHECK-DAG:       [[VAR_7_:%.+]] = affine.apply #map0(){{.}}[[VAR_5_]]{{.}}
+// CHECK-DAG:       [[VAR_7_:%.+]] = affine.apply #map(){{.}}[[VAR_5_]]{{.}}
 // CHECK:           [[VAR_8_:%.+]] = arith.select [[VAR_6_]], [[VAR_7_]], [[VAR_5_]] : index
 // CHECK:           "krnl.seqstore"([[PARAM_0_]], [[VAR_3_]], [[VAR_8_]]) : (memref<?x4x5xf32>, memref<1xmemref<?x4x5xf32>>, index) -> ()
 // CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index
@@ -3206,7 +3206,7 @@ func.func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
 func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, %arg2 : tensor<?x5x?xf32>) -> tensor<*xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -2 : si64} : (tensor<?x1x?xf32>, tensor<?x3x32xf32>, tensor<?x5x?xf32>)  -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
-// CHECK-DAG: #map0 = affine_map<(d0) -> (d0)>
+// CHECK-DAG: #map = affine_map<(d0) -> (d0)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0 + 1)>
 // CHECK-DAG: #map2 = affine_map<(d0) -> (d0 + 4)>
 // CHECK-LABEL:  func.func @test_concat_4
@@ -3246,7 +3246,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // CHECK-DAG:       [[VAR_c1_11_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c2_12_:%.+]] = arith.constant 2 : index
 // CHECK:           [[VAR_8_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_12_]] : memref<?x1x?xf32>
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map0([[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 32){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map([[VAR_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 32){
 // CHECK:             [[VAR_14_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_14_]]#0, [[VAR_14_]]#1, [[VAR_14_]]#2] : memref<?x1x?xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_14_]]#0, [[VAR_14_]]#1, [[VAR_14_]]#2] : memref<?x9x32xf32>
@@ -3260,7 +3260,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // CHECK-DAG:       [[VAR_10_:%.+]] = memref.dim [[PARAM_1_]], [[VAR_c0_16_]] : memref<?x3x32xf32>
 // CHECK-DAG:       [[VAR_c3_17_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[VAR_c32_18_:%.+]] = arith.constant 32 : index
-// CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to #map0([[VAR_0_]]), [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 3, [[LOOP_1_]]#2 -> [[I_5_:%.+]] = 0 to 32){
+// CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to #map([[VAR_0_]]), [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 3, [[LOOP_1_]]#2 -> [[I_5_:%.+]] = 0 to 32){
 // CHECK-DAG:         [[VAR_14_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[VAR_c1_27_:%.+]] = arith.constant 1 : index
 // CHECK-NOT: separator of consecutive DAGs
@@ -3278,7 +3278,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // CHECK-DAG:       [[VAR_c5_23_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_c2_24_:%.+]] = arith.constant 2 : index
 // CHECK:           [[VAR_13_:%.+]] = memref.dim [[PARAM_2_]], [[VAR_c2_24_]] : memref<?x5x?xf32>
-// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_6_:%.+]] = 0 to #map0([[VAR_0_]]), [[LOOP_2_]]#1 -> [[I_7_:%.+]] = 0 to 5, [[LOOP_2_]]#2 -> [[I_8_:%.+]] = 0 to 32){
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_6_:%.+]] = 0 to #map([[VAR_0_]]), [[LOOP_2_]]#1 -> [[I_7_:%.+]] = 0 to 5, [[LOOP_2_]]#2 -> [[I_8_:%.+]] = 0 to 32){
 // CHECK-DAG:         [[VAR_14_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[VAR_c4_27_:%.+]] = arith.constant 4 : index
 // CHECK-NOT: separator of consecutive DAGs
@@ -3299,7 +3299,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 func.func @test_concat_5(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x3x32xf32>, %arg2 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -2 : si64} : (tensor<?x?x?xf32>, tensor<?x3x32xf32>, tensor<?x?x?xf32>)  -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
-// CHECK-DAG: #map0 = affine_map<(d0) -> (d0 + 3)>
+// CHECK-DAG: #map = affine_map<(d0) -> (d0 + 3)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1) -> (d0 + d1 + 3)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d3)>
@@ -3327,7 +3327,7 @@ func.func @test_concat_5(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // CHECK-DAG:       [[VAR_4_:%.+]] = memref.dim [[PARAM_1_]], [[VAR_c0_1_]] : memref<?x3x32xf32>
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[VAR_c3_2_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[VAR_5_:%.+]] = affine.apply #map0([[VAR_3_]])
+// CHECK-DAG:       [[VAR_5_:%.+]] = affine.apply #map([[VAR_3_]])
 // CHECK-DAG:       [[VAR_c32_:%.+]] = arith.constant 32 : index
 // CHECK-DAG:       [[VAR_c32_3_:%.+]] = arith.constant 32 : index
 // CHECK-DAG:       [[VAR_c0_4_:%.+]] = arith.constant 0 : index

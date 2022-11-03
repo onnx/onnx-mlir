@@ -948,7 +948,7 @@ def gen_op_def(schema, with_version = False):
           regions[attr.name] = "AnyRegion"
 
     # Generate decl for op traits.
-    traits = ["NoSideEffect"]
+    traits = ["Pure"]
     # OpsWithShapeInference:
     # Now the ShapeInference traits are added to all operation.
     # Dummy implementations are added to ONNXOps.cpp.

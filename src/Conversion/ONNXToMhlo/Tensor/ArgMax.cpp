@@ -116,7 +116,7 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
         llvm::ArrayRef<Value>(dataOperands), llvm::ArrayRef<Value>(initValues),
         reductionDimensions);
     BuildArgmaxReductionBody(
-        elementType, indexElementType, &reduction.body(), &rewriter);
+        elementType, indexElementType, &reduction.getBody(), &rewriter);
 
     Value result = reduction.getResult(1);
     if (isKeepdims) {
