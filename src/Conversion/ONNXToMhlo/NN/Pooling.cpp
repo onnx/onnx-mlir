@@ -45,9 +45,11 @@ void buildReduceBodyFor<ONNXMaxPoolSingleOutOp>(
   buildReduceBody<mhlo::MaxOp>(elementType, body, builder);
 }
 
-static DenseIntElementsAttr getDenseIntElementsAttr(SmallVectorImpl<int64_t> &values, Builder *builder) {
+static DenseIntElementsAttr getDenseIntElementsAttr(
+    SmallVectorImpl<int64_t> &values, Builder *builder) {
   return DenseIntElementsAttr::get(
-      RankedTensorType::get({static_cast<int64_t>(values.size())}, builder->getI64Type()),
+      RankedTensorType::get(
+          {static_cast<int64_t>(values.size())}, builder->getI64Type()),
       values);
 }
 
