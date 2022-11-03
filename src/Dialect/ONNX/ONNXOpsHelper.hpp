@@ -272,8 +272,9 @@ mlir::Type convertONNXTypeToMLIRType(
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
-template <class T>
-mlir::LogicalResult processConvTypeParams(
-    T *op, mlir::Value inputOperand, mlir::Value W);
+// hi alex, made this one private
+//template <class T>
+//mlir::LogicalResult processConvTypeParams(
+//    T *op, mlir::Value inputOperand, mlir::Value W);
 
 } // namespace onnx_mlir

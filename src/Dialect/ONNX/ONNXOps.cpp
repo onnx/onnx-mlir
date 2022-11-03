@@ -37,6 +37,9 @@
 #include <algorithm>
 #include <string>
 
+//hi alex: remove when done
+#include "src/Dialect/ONNX/NN/NNHelper.hpp"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -147,6 +150,8 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
+#if 0 // hi alex
+
 // Get reduction type.
 static RankedTensorType getReductionOutputType(
     ShapedType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
@@ -245,6 +250,9 @@ static LogicalResult shapeHelperInferShapes(OP &op, Type elementType) {
   updateType(op.getResult(), outputDims, elementType);
   return success();
 }
+#endif
+
+#if 0 // hi alex
 
 // Handle shapes for operations with multiple outputs.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
@@ -281,6 +289,7 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   updateType(op.getResult(), getShape(resultTy), resultTy.getElementType());
   return success();
 }
+#endif
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
   (getOperationName() +                                                        \
@@ -292,252 +301,14 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
 
-// This method substitutes any uses of dimensions and symbols (e.g.
-// dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
-// affine map, and returns an integer constant.
-static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
-    ArrayRef<int64_t> dimReplacements, ArrayRef<int64_t> symReplacements,
-    unsigned numResultDims, unsigned numResultSyms) {
-  // Prepare affine expressions.
-  SmallVector<AffineExpr, 4> dimExprs, symExprs;
-  for (int64_t dim : dimReplacements) {
-    AffineExpr exp = builder.getAffineConstantExpr(dim);
-    dimExprs.emplace_back(exp);
-  }
-  for (int64_t sym : symReplacements) {
-    AffineExpr exp = builder.getAffineConstantExpr(sym);
-    symExprs.emplace_back(exp);
-  }
-  // Replace all the affine map's arguments with real values and evaluate the
-  // map.
-  AffineMap replacedDimMap = map.replaceDimsAndSymbols(
-      dimExprs, symExprs, numResultDims, numResultSyms);
-  AffineMap simplifiedMap = simplifyAffineMap(replacedDimMap);
-  return simplifiedMap.getSingleConstantResult();
-}
 
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for dilations.
-//===----------------------------------------------------------------------===//
-template <class T>
-LogicalResult processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
-  auto kernelRank = ArrayAttrSize(kernelShape);
 
-  auto dilationsOpt = op->dilations();
-  if (dilationsOpt.has_value()) {
-    if (ArrayAttrSize(dilationsOpt) != kernelRank) {
-      return op->emitError("dilation rank is not the same as the spatial rank");
-    }
-    // Test values to be greater than 0.
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
-        return op->emitError("dilation value must be nonzero positive");
-      }
-    }
-  } else {
-    // Default dilatation is needed, all dimensions init with 1.
-    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    op->dilationsAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  return success();
-}
 
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for strides.
-//===----------------------------------------------------------------------===//
-template <class T>
-LogicalResult processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
-  auto kernelRank = ArrayAttrSize(kernelShape);
 
-  auto stridesOpt = op->strides();
-  if (stridesOpt.has_value()) {
-    if (ArrayAttrSize(stridesOpt) != kernelRank)
-      return op->emitError("strides rank is not the same as the spatial rank");
-    // Check values to be greater than 0.
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(stridesOpt, i) < 1)
-        return op->emitError("strides value must be nonzero positive");
-    }
-  } else {
-    // Default stride is needed, all dimensions init with 1.
-    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    op->stridesAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for pads.
-//===----------------------------------------------------------------------===//
-template <class T>
-LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
-    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
-    Optional<ArrayAttr> dilationsOpt = llvm::None) {
-  auto builder = mlir::Builder(op->getContext());
-
-  auto inputRank = inputShape.size();
-  auto kernelRank = ArrayAttrSize(kernelShape);
-  auto kernelOffset = inputRank - kernelRank;
-
-  // Try to find padding, getting auto_pad attribute first.
-  auto autoPad = op->auto_pad();
-  // And then investigate the various different cases. Prefill pad values with
-  // zeros, the most common case.
-  SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
-  bool updatedPad = false;
-  if (autoPad == "NOTSET") {
-    auto padsOpt = op->pads();
-    if (padsOpt.has_value()) {
-      // Only option where pads are not updated. Pads consists of two entries
-      // for each spatial axis.
-      if (ArrayAttrSize(padsOpt) != 2 * kernelRank) {
-        return op->emitError("pads rank is not twice the spatial rank");
-      }
-      // Check values, pads cannot be negative.
-      for (decltype(kernelRank) i = 0; i < 2 * kernelRank; ++i) {
-        if (ArrayAttrIntVal(padsOpt, i) < 0) {
-          return op->emitError("pads value must be nonnegative");
-        }
-      }
-    } else {
-      // We have notset with no pads, they are assumed to be all zero.
-      updatedPad = true;
-    }
-  } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    // Reload dilation and strides as they may have gotten default values.
-    updatedPad = true;
-    int64_t dilationVal = 1;
-    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
-      auto inputSize = inputShape[kernelOffset + i];
-      if (inputSize < 0)
-        return op->emitError("Conv Pads defined as SAME_UPPER or SAME_LOWER "
-                             "requires compile time X sizes");
-      auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-      if (dilationsOpt.has_value())
-        dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-      auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-      // Output size is input size divided by stride. When stride is 1, then
-      // input and output are the same size, which is the usual case. When
-      // stride is greater than 1, take the ceil to be sure to have each input
-      // value used, as padding will be used to fill the gaps.
-      int64_t outputSize = ceil((1.0 * inputSize) / (1.0 * strideVal));
-      // Formula is from ONNX MaxPool, and can be explained as follows. Pads
-      // is the difference between the needed values for the computations,
-      // minus the input values. The needed values for the computation is the
-      // effective side of the kernel plus the number of times we jump to the
-      // next kernel. Number of time we jump is (outputSize - 1). That number
-      // is multiplied with the size of the jump, namely strideVal. Now for
-      // the effective kernel size. It is the kernelSize + the number of times
-      // we have dilation holes time the dilation. The number of dilation
-      // holes is (kernelSize -1). Thus the effective size is "kernelSize +
-      // (kernelSize-1)*dilation". This simplifies to "(kernelSize
-      // -1)*dilation + 1".
-      auto sumOfPad = (outputSize - 1) * strideVal +
-                      ((kernelSize - 1) * dilationVal + 1) - inputSize;
-
-      // If filter size for dimension is 1, and dilation for dimension is 1,
-      // the above pattern can be negative, in which case the padding should
-      // be zero.
-      if (sumOfPad < 0)
-        sumOfPad = 0;
-      // Pad values are assumed equal on both size, at half the total value.
-      actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
-      // But if the total pad value is odd, we add 1 to begining or end
-      // depending on autoPad value.
-      if (sumOfPad % 2 != 0) {
-        if (autoPad == "SAME_UPPER") {
-          actualPads[kernelRank + i] += 1;
-        } else {
-          actualPads[i] += 1;
-        }
-      }
-    }
-  } else if (autoPad == "VALID") {
-    // No pad, default value was set to zero, we are all set.
-    updatedPad = true;
-  } else {
-    return op->emitError("auto_pad of unknown / unsupported value");
-  }
-  // Set pads values in attributes, if it is needed.
-  if (updatedPad) {
-    ArrayRef<int64_t> defaultRefs(actualPads);
-    op->padsAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  // In all cases now, the actual pad values are found in the pads attribute.
-  op->auto_padAttr(builder.getStringAttr("NOTSET"));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// Support function that computes default values for kernel_shape.
-//===----------------------------------------------------------------------===//
-template <class T>
-LogicalResult processConvKernelParam(
-    T *op, ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
-  // Deduce shape from weight input.
-  // Number of spatial dimensions.
-  if (!op->kernel_shape().has_value()) {
-    auto spatialOffset = 2;
-    int32_t spatialRank = inputShape.size() - spatialOffset;
-
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(op->getContext());
-    op->kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-  }
-  return success();
-}
 
 namespace onnx_mlir {
 
-//===----------------------------------------------------------------------===//
-// Support function computing default values for dilations, strides,
-// kernel_shape and pads.
-//===----------------------------------------------------------------------===//
-template <class T>
-LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
-  // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
-  auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
-  auto wShape = W.getType().cast<RankedTensorType>().getShape();
-
-  // If kernel_shape isn't provided, add kernel_shape to the the op based on the
-  // shape of the input and weights.
-  LogicalResult res = processConvKernelParam<T>(op, inputShape, wShape);
-  if (failed(res))
-    return res;
-
-  // 2) Get kernel_shape attribute. They were previously computed. At this time,
-  // they are guranteed to be compile time constant.
-  auto kernelShape = op->kernel_shape();
-
-  // Dilation. It is compile time constants (filled to default 1 value if not
-  // explicitely given as input).
-  res = processConvDilationParam<T>(op, kernelShape);
-  if (failed(res))
-    return res;
-  auto dilationsOpt = op->dilations();
-
-  // Strides. It is compile time constants (filled to default 1 value if not
-  // explicitely given as input).
-  res = processConvStrideParam<T>(op, kernelShape);
-  if (failed(res))
-    return res;
-  auto stridesOpt = op->strides();
-
-  // Pads.
-  return processConvPadParam<T>(
-      op, inputShape, kernelShape, stridesOpt, dilationsOpt);
-}
-
+#if 0 // hi alex conv
 template LogicalResult processConvTypeParams<ONNXConvOp>(
     ONNXConvOp *op, Value inputOperand, Value W);
 template LogicalResult processConvTypeParams<ONNXQLinearConvOp>(
@@ -547,37 +318,10 @@ template LogicalResult processConvTypeParams<ONNXConvIntegerOp>(
 template LogicalResult processConvTypeParams<ONNXConvTransposeOp>(
     ONNXConvTransposeOp *op, Value inputOperand, Value W);
 
+#endif
+
 } // namespace onnx_mlir
 
-//===----------------------------------------------------------------------===//
-// Compute spatial dimensions given dilations, strides, pads, and ceil mode.
-//===----------------------------------------------------------------------===//
-static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
-    Builder &builder, ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
-    Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
-  auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xShape.size() - spatialRank;
-
-  // Get an affine map to compute the output dimension.
-  AffineMap dimMap = getConvDimMap(builder, ceilMode);
-  for (unsigned int i = 0; i < spatialRank; ++i) {
-    int64_t res = -1;
-    if (xShape[spatialOffset + i] != -1) {
-      auto inputSize = xShape[spatialOffset + i];
-      auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-      auto sumOfPads = ArrayAttrIntVal(padsOpt, i) +
-                       ArrayAttrIntVal(padsOpt, spatialRank + i);
-      auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-      int64_t dilationVal = 1;
-      if (dilationsOpt.has_value())
-        dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-      res = AffineMapIntConstant(builder, dimMap, {inputSize},
-          {kernelSize, sumOfPads, strideVal, dilationVal}, 1, 4);
-    }
-    outputDims->emplace_back(res);
-  }
-}
 
 //===----------------------------------------------------------------------===//
 // Support function that infers shape for RNN operations.
@@ -703,36 +447,6 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
   return success();
 }
 
-static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
-    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
-    Optional<ArrayAttr> outputPadsOpt, Optional<ArrayAttr> outputShapeOpt,
-    Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
-  auto xRank = xShape.size();
-  auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xRank - spatialRank;
-
-  int64_t dilationVal = 1;
-  int64_t outputPadsVal = 0;
-  // output_shape[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
-  // ((kernel_shape[i] - 1) * dilations[i] + 1) - pads[start_i] - pads[end_i]
-  for (unsigned int i = 0; i < spatialRank; ++i) {
-    auto inputSize = xShape[spatialOffset + i];
-    auto sumOfPads =
-        ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
-    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.has_value())
-      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    if (outputPadsOpt.has_value())
-      outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
-    // Number of useful values: input plus pad - effective size of kernel (see
-    // processConvTypeParams comments to see how this value is derived).
-    int64_t res = strideVal * (inputSize - 1) + outputPadsVal +
-                  ((kernelSize - 1) * dilationVal + 1) - sumOfPads;
-    outputDims.emplace_back(res);
-  }
-}
 
 //===----------------------------------------------------------------------===//
 // ONNXArgMaxOp
@@ -1102,103 +816,10 @@ LogicalResult ONNXIdentityOp::inferShapes(
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// MatMulOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
-    return success();
-
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
-      ONNXMatMulOpAdaptor>(*this, elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// QLinearMatMulOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXQLinearMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!a().getType().isa<RankedTensorType>() ||
-      !b().getType().isa<RankedTensorType>())
-    return success();
-
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXQLinearMatMulOpShapeHelper,
-      ONNXQLinearMatMulOp, ONNXQLinearMatMulOpAdaptor>(*this, elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// MatMulIntegerOp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXMatMulIntegerOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
-    return success();
-
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXMatMulIntegerOpShapeHelper,
-      ONNXMatMulIntegerOp, ONNXMatMulIntegerOpAdaptor>(*this, elementType);
-}
 
 
-/// BatchNormalizationInferenceModeOp
-LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !scale().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>() ||
-      !mean().getType().isa<RankedTensorType>() ||
-      !var().getType().isa<RankedTensorType>())
-    return success();
 
-  auto inputTensorTy = X().getType().cast<RankedTensorType>();
-  auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
-  auto biasTensorTy = B().getType().cast<RankedTensorType>();
-  auto meanTensorTy = mean().getType().cast<RankedTensorType>();
-  auto varianceTensorTy = var().getType().cast<RankedTensorType>();
 
-  // Check whether the shapes of scale, bias, mean and variance are valid.
-  // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
-  // In case of N, C is assumed to be 1.
-  // 2-D tensors are assumed to be of shape NxC
-  // Shapes of scale, bias, mean and variance must be C.
-  int64_t c = -1;
-  if (inputTensorTy.getShape().size() == 1) {
-    c = 1;
-  } else if (inputTensorTy.getShape().size() >= 2) {
-    c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
-  }
-
-  if (c != -1) {
-    auto s = scaleTensorTy.getShape();
-    auto b = biasTensorTy.getShape();
-    auto m = meanTensorTy.getShape();
-    auto v = varianceTensorTy.getShape();
-
-    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
-      return emitError("Wrong rank for the scale");
-    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
-      return emitError("Wrong rank for the bias");
-    if ((m.size() != 1) || (m[0] != -1 && m[0] != c))
-      return emitError("Wrong rank for the mean");
-    if ((v.size() != 1) || (v[0] != -1 && v[0] != c))
-      return emitError("Wrong rank for the variance");
-  }
-
-  // The output tensor of the same shape as the input.
-  getResult().setType(X().getType());
-  return success();
-}
 
 // TODO:
 //   Verify that matrix sizes are valid for multiplication and addition.
@@ -1248,763 +869,13 @@ LogicalResult ONNXTransposeOp::inferShapes(
 }
 
 
-//===----------------------------------------------------------------------===//
-// ReduceMax
-//===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMaxOp, ONNXReduceMaxOpAdaptor>(
-      *this);
-}
 
-//===----------------------------------------------------------------------===//
-// ReduceMean
-//===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMeanOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMeanOp, ONNXReduceMeanOpAdaptor>(
-      *this);
-}
 
-//===----------------------------------------------------------------------===//
-// ReduceMin
-//===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMinOp, ONNXReduceMinOpAdaptor>(
-      *this);
-}
 
-//===----------------------------------------------------------------------===//
-// ReduceProd
-//===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceProdOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceProdOp, ONNXReduceProdOpAdaptor>(
-      *this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceL1
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceL1Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceL1Op, ONNXReduceL1OpAdaptor>(
-      *this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceL2
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceL2Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceL2Op, ONNXReduceL2OpAdaptor>(
-      *this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceLogSum
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceLogSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceLogSumOp,
-      ONNXReduceLogSumOpAdaptor>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceLogSumExp
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceLogSumExpOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceLogSumExpOp,
-      ONNXReduceLogSumExpOpAdaptor>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceSumSquare
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceSumSquareOp,
-      ONNXReduceSumSquareOpAdaptor>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceSum
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
-    return success();
-
-  auto operandTy = data().getType().cast<RankedTensorType>();
-  /**
-   *    In OpSet 13, axes of ReduceSum is an input, not an attribute.
-   *    If the axes is not a constant, the output shape is unknown.
-   *    So far, only constant input for axes is handled.
-   *    Since other reduction ops still have axes as attributes,
-   *    interface of getReductionOutputType is kept.
-   *    An array attribute is generated from the constant input
-   **/
-  DenseElementsAttr constAxes;
-  if (isFromNone(axes())) {
-    // constAxes should just be NULL
-    // Default value will be given in getReductionOutputType
-  } else if (getONNXConstantOp(axes())) {
-    constAxes = getONNXConstantOp(axes())
-                    .valueAttr()
-                    .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    if (!constAxes) {
-      return emitError("ReduceSum: expect dense value for axes ");
-    }
-  } else {
-    // When the axis is dynamic, try to infer the rank of output tensor
-
-    // Can not infer when keepdims is false
-    if (!keepdims())
-      return success();
-
-    if (getResult().getType().isa<RankedTensorType>())
-      // Can not improve further
-      return success();
-
-    // Output tensor should have the same rank as the input
-    // But size of dims is unknown
-    auto outputNumDim = operandTy.getShape().size();
-    SmallVector<int64_t, 4> dims(outputNumDim, -1);
-    getResult().setType(
-        RankedTensorType::get(dims, operandTy.getElementType()));
-    return success();
-  }
-
-  RankedTensorType type = getReductionOutputType(
-      operandTy, constAxes, keepdims(), noop_with_empty_axes());
-  if (!type)
-    return emitError("unknown shape");
-  getResult().setType(type);
-  return success();
-}
-
-LogicalResult ONNXReduceSumV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceSumV11Op,
-      ONNXReduceSumV11OpAdaptor>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// Conv
-//===----------------------------------------------------------------------===//
-
-// For ops without filter, pass nullptr in filterOperand.
-template <class T>
-static LogicalResult verifyKernelShape(T *op, Value filterOperand,
-    Optional<ArrayAttr> kernelShapeOpt, int64_t spatialRank) {
-  if (filterOperand && !hasShapeAndRank(filterOperand)) {
-    // Won't be able to do any checking at this stage.
-    return success();
-  }
-  // 1) Get shape of filter. Shape is not guaranteed to be compile time
-  // constant.
-  ArrayRef<int64_t> filterShape =
-      filterOperand ? filterOperand.getType().cast<ShapedType>().getShape()
-                    : ArrayRef<int64_t>();
-  // 2) Get kernel_shape attribute
-  if (!kernelShapeOpt.has_value()) {
-    assert(
-        filterOperand && "ops without filter have mandatory kernel_shape arg");
-    // Don't have a kernel shape explicitly, still make sure that the filter
-    // shape are fine if known. If size is negative, ok since this is runtime.
-    // If positive, ok since it must be strictly positive. If zero, that is
-    // bad.
-    for (int i = 0; i < spatialRank; ++i)
-      if (filterShape[2 + i] == 0)
-        return op->emitError("Bad spatial filter size: cannot be zero");
-    return success();
-  }
-  // 3) Verify that we have the right number.
-  if ((int64_t)ArrayAttrSize(kernelShapeOpt) != spatialRank)
-    return op->emitError(
-        "kernel_shape length incompatible with spatial dimensions");
-  // 4) Verify that they are all positive.
-  for (int i = 0; i < spatialRank; ++i) {
-    auto attrSize = ArrayAttrIntVal(kernelShapeOpt, i);
-    if (attrSize < 1)
-      return op->emitError("Bad kernel_shape value: must be strictly positive");
-    if (filterOperand) {
-      // Has a shape from filter, make sure its consistent.
-      auto filterSize = filterShape[2 + i];
-      if (filterSize >= 0 && filterSize != attrSize)
-        return op->emitError(
-            "Bad kernel_shape value: does not match filter sizes");
-    }
-  }
-  return success();
-}
-
-template <class T>
-static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
-  // 1) Get strides attribute.
-  auto strides = op->strides();
-  if (!strides.has_value())
-    return success();
-  // 2) Verify that we have the right number.
-  if ((int64_t)ArrayAttrSize(strides) != spatialRank)
-    return op->emitError("strides length incompatible with spatial dimensions");
-  // 3) Verify that they are all positive.
-  for (int i = 0; i < spatialRank; ++i) {
-    auto attrSize = ArrayAttrIntVal(strides, i);
-    if (attrSize < 1)
-      return op->emitError("Bad stride value: must be strictly positive");
-  }
-  return success();
-}
-
-template <class T>
-static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
-  // 1) Get dilation attribute.
-  auto dilations = op->dilations();
-  if (!dilations.has_value())
-    return success();
-  // 2) Verify that we have the right number.
-  if ((int64_t)ArrayAttrSize(dilations) != spatialRank)
-    return op->emitError(
-        "dilations length incompatible with spatial dimensions");
-  // 3) Verify that they are all positive.
-  for (int i = 0; i < spatialRank; ++i) {
-    auto attrSize = ArrayAttrIntVal(dilations, i);
-    if (attrSize < 1)
-      return op->emitError("Bad dilation value: must be strictly positive");
-  }
-  return success();
-}
-
-template <class T>
-static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
-  // Verify auto pad field.
-  auto autoPad = op->auto_pad();
-  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER" ||
-      autoPad == "VALID" || autoPad == "NOTSET") {
-    // Ok, known auto pad value.
-  } else {
-    return op->emitError("Unknown auto pad option");
-  }
-  // Verify pad values, if defined.
-  auto pads = op->pads();
-  if (!pads.has_value())
-    return success();
-  // Verify that we have the right number of pad values.
-  if ((int32_t)ArrayAttrSize(pads) != 2 * spatialRank)
-    return op->emitError("pads length incompatible with spatial dimensions");
-  // Verify the values of the pads.
-  if (autoPad == "NOTSET") {
-    for (int i = 0; i < 2 * spatialRank; ++i)
-      if (ArrayAttrIntVal(pads, i) < 0)
-        return op->emitError("Bad pad value: must be nonnegative");
-  } else {
-    for (int i = 0; i < 2 * spatialRank; ++i)
-      if (ArrayAttrIntVal(pads, i) != 0)
-        return op->emitError("Bad pad value: nonzero pad value only allowed "
-                             "with NOTSET option");
-  }
-  return success();
-}
-
-LogicalResult ONNXConvOp::verify() {
-  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(*this);
-  // Get operands.
-  auto X = operandAdaptor.X();
-  auto W = operandAdaptor.W();
-  auto B = operandAdaptor.B();
-  bool hasBias = !B.getType().isa<NoneType>();
-  int64_t g = group();
-  if (g < 1)
-    return emitOpError("group must be strictly positive");
-  // Get spatial rank.
-  if (!hasShapeAndRank(W)) {
-    // Won't be able to do any checking at this stage.
-    return success();
-  }
-  auto wShape = W.getType().cast<ShapedType>().getShape();
-  int64_t spatialRank = wShape.size() - 2;
-  // If ranked, verify ranks of inputs.
-  if (spatialRank < 1)
-    return emitOpError("Spatial rank must be strictly positive");
-
-  if (wShape[0] >= 0 && wShape[0] % g != 0) {
-    // This rule is not enforced in the spec but is present in Keras,
-    // Pytorch, and simplifies the code.
-    // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
-    // multiple of group number (G).
-    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
-    // ONNX clearly states that C (channel in or CI here) is a multiple of group
-    // number (G).
-    // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Conv
-    // Quote: X.shape[1] == (W.shape[1] * group) == C
-    // Keras also specifies it: Input channels and filters must both be
-    // divisible by groups.
-    // https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D
-    return emitOpError(
-        "Channel Out (M) must be a multiple of the number of groups");
-  }
-  if (hasShapeAndRank(X)) {
-    auto xShape = X.getType().cast<ShapedType>().getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
-      return emitOpError("Input and filter rank mismatch");
-    if (xShape[1] >= 0 && xShape[1] % g != 0)
-      return emitOpError(
-          "Channel In (C) must be a multiple of the number of groups");
-    if (xShape[1] >= 0 && wShape[1] >= 0 && xShape[1] != wShape[1] * g) {
-      return emitOpError("Channel In (C) of input must be equal 2nd dim "
-                         "of weights times g");
-    }
-  }
-  if (hasBias && hasShapeAndRank(B)) {
-    auto bShape = B.getType().cast<ShapedType>().getShape();
-    if (bShape.size() != 1)
-      return emitOpError("Bias should have a rank of one");
-    if (bShape[0] >= 0 && wShape[0] >= 0 && wShape[0] != bShape[0])
-      return emitOpError(
-          "Bias should have same dimension as first dimension of weights");
-  }
-  // Verify parameters.
-  if (failed(
-          verifyKernelShape<ONNXConvOp>(this, W, kernel_shape(), spatialRank)))
-    return failure();
-  if (failed(verifyStrides<ONNXConvOp>(this, spatialRank)))
-    return failure();
-  if (failed(verifyDilations<ONNXConvOp>(this, spatialRank)))
-    return failure();
-  if (failed(verifyPadding<ONNXConvOp>(this, spatialRank)))
-    return failure();
-  return success();
-}
-
-// For this operation, we define the attributes once in the original Conv
-// operation class. There is no need to redefine the attribute names for the
-// other classes based on Conv.
-// Conv attributes output: no changes to the op but the output.
-// ShapeHelper get
-//   -  dilations, strides: set to 1 if not defined by user;
-//   -  kernelShape: inferred from weight matrix if not defined by user;
-//   -  pads: set to proper value
-
-LogicalResult ONNXConvOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W, and optional bias B
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
-  // B: (M) Optional
-
-  // Cannot infer shape if no shape exists.
-  bool hasBias = !B().getType().isa<NoneType>();
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
-    return success();
-
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
-      ONNXConvOpAdaptor>(*this, elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// ConvTranspose
-//===----------------------------------------------------------------------===//
-
-// For this operation, we define the attributes once in the original Conv
-// operation class. There is no need to redefine the attribute names for the
-// other classes based on Conv.
-// Conv attributes output:
-//   -  auto_pad set to NOTSET;
-//   -  dilations, strides: set to 1 if not defined by user;
-//   -  kernelShape: inferred from weight matrix if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
-
-LogicalResult ONNXConvTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W, and optional bias B
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (C x M/group x k1 x k2 x ... x kn)
-  // B: (M) Optional
-
-  bool hasBias = !B().getType().isa<NoneType>();
-
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>())) {
-    return success();
-  }
-
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto weightTy = W().getType().cast<RankedTensorType>();
-  auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3) {
-    return emitError("Data input shape must be at least (NxCxD1)");
-  }
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size()) {
-    return emitError("Weight size not compatible with data size");
-  }
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvTransposeOp::group();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, group, /*isSigned=*/true)));
-
-  int64_t inChannels = weightShape[0];
-  int64_t outChannels = weightShape[1] * group;
-
-  // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
-  // condition holds.
-  if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
-      xShape[1] % group != 0) {
-    return emitOpError("Channel dimension mismatch")
-           << xTy << " " << weightTy << " " << group;
-  }
-
-  // Check the size of bias.
-  if (hasBias) {
-    auto bTx = B().getType().cast<RankedTensorType>();
-    auto bShape = bTx.getShape();
-    if (bShape.size() != 1) {
-      return emitError("bias should be one dimensional");
-    }
-    if (bShape[0] != outChannels) {
-      return emitError(
-          "bias should have same dimensions as number of output channels");
-    }
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitError(
-          "kernel_shape length incompatible with spatial dimensions");
-    }
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1) {
-        return emitError("bad kernel_shape value");
-      }
-  }
-
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res =
-      processConvTypeParams<ONNXConvTransposeOp>(this, X(), W());
-  assert(succeeded(res));
-  kernelShape = kernel_shape();
-
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-  auto outputPads = output_padding();
-  auto outputShape = output_shape();
-  // TODO: handle the spatial dimension computation if output shape is
-  // specified
-  assert(!outputShape.has_value() && "unhandled option in ConvTranspose");
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels *
-  // groups).
-  outputDims.emplace_back(outChannels);
-  // Compute and insert spatial dims.
-  insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
-      stridesOpt, outputPads, outputShape, dilationsOpt);
-
-  // Set the output shape if it's not already set
-  if (!outputShape.has_value()) {
-    output_shapeAttr(builder.getI64ArrayAttr(outputDims));
-  }
-
-  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// QLinearConv
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXQLinearConvOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W, and optional bias B
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
-  // B: (M) Optional
-
-  bool hasBias = !B().getType().isa<NoneType>();
-
-  // Cannot infer shape if no shape exists.
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
-    return success();
-
-  auto xTy = x().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto weightTy = w().getType().cast<RankedTensorType>();
-  auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3)
-    return emitError("Data input shape must be at least (NxCxD1)");
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size())
-    return emitError("Weight size not compatible with data size");
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXQLinearConvOp::group();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
-
-  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
-      xShape[1] != (weightShape[1] * group))
-    return emitError("Channel dimension mismatch");
-
-  // Check the size of bias.
-  if (hasBias) {
-    auto bTx = B().getType().cast<RankedTensorType>();
-    auto bShape = bTx.getShape();
-    if (bShape.size() != 1)
-      return emitError("bias should be one dimensional");
-    if (bShape[0] != weightShape[0])
-      return emitError("bias should have same dimensions "
-                       "as weight's first dimension");
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
-      return emitError(
-          "kernel_shape length incompatible with spatial dimensions");
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1)
-        return emitError("bad kernel_shape value");
-  }
-
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res = processConvTypeParams<ONNXQLinearConvOp>(this, x(), w());
-  assert(succeeded(res));
-  kernelShape = kernel_shape();
-
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt);
-
-  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// AveragePool
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXAveragePoolOp::verify() {
-  ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(*this);
-
-  // Mandatory and unsupported parameters.
-  if (!kernel_shape())
-    return emitOpError("kernel_shape is a mandatory attribute");
-  // Get spatial rank from mandatory kernel_shape parameter.
-  int64_t spatialRank = kernel_shape().size();
-  if (spatialRank < 1)
-    return emitOpError("Spatial rank must be strictly positive");
-
-  // Get operands.
-  auto X = operandAdaptor.X();
-  if (hasShapeAndRank(X)) {
-    auto xShape = X.getType().cast<ShapedType>().getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
-      return emitOpError("Input and kernel shape rank mismatch");
-  }
-
-  // Verify parameters.
-  if (failed(verifyKernelShape<ONNXAveragePoolOp>(
-          this, nullptr, kernel_shape(), spatialRank)))
-    return failure();
-  if (failed(verifyStrides<ONNXAveragePoolOp>(this, spatialRank)))
-    return failure();
-  if (failed(verifyPadding<ONNXAveragePoolOp>(this, spatialRank)))
-    return failure();
-  return success();
-}
-
-LogicalResult ONNXAveragePoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
-    return success();
-
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXAveragePoolOpShapeHelper, ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor>(*this, elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// MaxPoolSingleOut
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXMaxPoolSingleOutOp::verify() {
-  ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
-      ONNXMaxPoolSingleOutOpAdaptor(*this);
-
-  // Mandatory and unsupported parameters.
-  if (!kernel_shape())
-    return emitOpError("kernel_shape is a mandatory attribute");
-  // Get spatial rank from mandatory kernel_shape parameter.
-  int64_t spatialRank = kernel_shape().size();
-  if (spatialRank < 1)
-    return emitOpError("Spatial rank must be strictly positive");
-  // Not supported for storage order in column major mode.
-  if (storage_order() != 0)
-    return emitOpError("Column major storage order not implemented yet");
-
-  // Get operands.
-  auto X = operandAdaptor.X();
-  if (hasShapeAndRank(X)) {
-    auto xShape = X.getType().cast<ShapedType>().getShape();
-    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
-      return emitOpError("Input and kernel shape rank mismatch");
-  }
-
-  // Verify parameters.
-  if (failed(verifyKernelShape<ONNXMaxPoolSingleOutOp>(
-          this, nullptr, kernel_shape(), spatialRank)))
-    return failure();
-  if (failed(verifyStrides<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
-    return failure();
-  if (failed(verifyDilations<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
-    return failure();
-  if (failed(verifyPadding<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
-    return failure();
-  return success();
-}
-
-LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
-    return success();
-
-  // Verify parameters: mandatory for kernel shape.
-  auto kernelShape = kernel_shape();
-  assert(kernelShape && "verified that we had kernel shape");
-
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXMaxPoolSingleOutOpShapeHelper,
-      ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>(
-      *this, elementType);
-}
-
-// Helper function to infer shapes of global pool operations.
-template <typename PoolingOp>
-static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
-  // Cannot infer shape if no shape exists.
-  if (!op->X().getType().template isa<RankedTensorType>())
-    return success();
-
-  auto xTy = op->X().getType().template cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  xTy.getRank();
-
-  if (xShape.size() < 3) {
-    return op->emitError("Data input shape must be at least (NxCxD1)");
-  }
-
-  SmallVector<int64_t, 4> outputDims;
-  outputDims.emplace_back(xShape[0]);
-  outputDims.emplace_back(xShape[1]);
-  // Spatial dimensions are reduced to 1.
-  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
-
-  op->getResult().setType(
-      RankedTensorType::get(outputDims, xTy.getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// GlobalAveragePool
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
-}
-
-//===----------------------------------------------------------------------===//
-// GlobalLpPool
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXGlobalLpPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
-}
-
-//===----------------------------------------------------------------------===//
-// GlobalMaxPool
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
-}
 
 //===----------------------------------------------------------------------===//
 // Pad
@@ -2964,105 +1835,6 @@ LogicalResult ONNXDequantizeLinearOp::inferShapes(
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXConvIntegerOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
-
-  // Cannot infer shape if no shape exists.
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>()) {
-    return success();
-  }
-
-  auto xTy = x().getType().cast<RankedTensorType>();
-  if (!xTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto xShape = xTy.getShape();
-  auto weightTy = w().getType().cast<RankedTensorType>();
-  if (!weightTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3) {
-    return emitOpError("Data input shape must be at least (NxCxD1)");
-  }
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size()) {
-    return emitError("Weight size not compatible with data size");
-  }
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvIntegerOp::group();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, 1, /*isSigned=*/true)));
-
-  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
-      xShape[1] != (weightShape[1] * group)) {
-    return emitOpError("Channel dimension mismatch");
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitOpError(
-          "kernel_shape length incompatible with spatial dimensions");
-    }
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1) {
-        return emitError("bad kernel_shape value");
-      }
-  }
-
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
-  assert(succeeded(res));
-  kernelShape = kernel_shape();
-
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt);
-
-  // ONNX spec specifies the output type as an int32
-  Type outputElementType = IntegerType::get(getContext(), 32);
-  updateType(getResult(), outputDims, outputElementType);
-  return success();
-}
 
 //===----------------------------------------------------------------------===//
 // Shape
@@ -3637,59 +2409,6 @@ LogicalResult ONNXBernoulliOp::inferShapes(
 }
 
 
-LogicalResult ONNXInstanceNormalizationOp::verify() {
-  ONNXInstanceNormalizationOpAdaptor operandAdaptor =
-      ONNXInstanceNormalizationOpAdaptor(*this);
-  // Get operands.
-  auto input = operandAdaptor.input();
-  auto scale = operandAdaptor.scale();
-  auto B = operandAdaptor.B();
-
-  // Check input.
-  if (!hasShapeAndRank(input)) {
-    // Won't be able to do any checking at this stage.
-    return success();
-  }
-  auto inputType = input.getType().cast<ShapedType>();
-  auto inputShape = inputType.getShape();
-  auto inputElementType = inputType.getElementType();
-  int64_t spatialRank = inputShape.size() - 2;
-  // If ranked, verify ranks of inputs.
-  if (spatialRank < 1)
-    return emitOpError("Spatial rank must be strictly positive");
-
-  // Check bias B.
-  if (hasShapeAndRank(B)) {
-    // Can check at this stage.
-    auto bType = B.getType().cast<ShapedType>();
-    auto bShape = bType.getShape();
-    if (bShape.size() != 1)
-      return emitOpError("Bias should have a rank of one");
-    if (bShape[0] >= 0 && inputShape[1] >= 0 && bShape[0] != inputShape[1])
-      return emitOpError(
-          "Bias should have same dimension as the second dimension of input");
-    if (bType.getElementType() != inputElementType)
-      return emitOpError("Bias should have same element type as input");
-  }
-
-  // Check scale.
-  if (hasShapeAndRank(scale)) {
-    // Can check at this stage.
-    auto scaleType = scale.getType().cast<ShapedType>();
-    auto scaleShape = scaleType.getShape();
-    if (scaleShape.size() != 1)
-      return emitOpError("Scale should have a rank of one");
-    if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
-        scaleShape[0] != inputShape[1])
-      return emitOpError(
-          "Scale should have same dimension as the second dimension of input");
-    if (scaleType.getElementType() != inputElementType)
-      return emitOpError("Scale should have same element type as input");
-  }
-
-  return success();
-}
-
 
 //===----------------------------------------------------------------------===//
 // ONNXCompressOp
@@ -3896,17 +2615,6 @@ LogicalResult ONNXIsNaNOp::inferShapes(
   return success();
 }
 
-//===------------------------------------------------------------------------===//
-// LRNOp
-//===------------------------------------------------------------------------===//
-
-LogicalResult ONNXLRNOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXLRNOpShapeHelper, ONNXLRNOp,
-      ONNXLRNOpAdaptor>(*this, elementType);
-}
-
 //===----------------------------------------------------------------------===//
 // ONNXLogSoftmax
 //===----------------------------------------------------------------------===//
@@ -3941,43 +2649,6 @@ LogicalResult ONNXMaxPoolOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMaxRoiPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>())
-    return success();
-
-  if (!rois().getType().isa<RankedTensorType>())
-    return success();
-
-  auto x_type = X().getType().cast<RankedTensorType>();
-  auto x_shape = x_type.getShape();
-  auto rois_rank = rois().getType().cast<RankedTensorType>().getRank();
-  if (rois_rank != 2)
-    return success();
-
-  // 2d tensor: (num_rois, 5)
-  auto roi_shape = rois().getType().cast<RankedTensorType>().getShape();
-  int64_t num_rois = roi_shape[0];
-  SmallVector<int64_t, 2> pooled_dims;
-
-  auto pooled_shape_array_attr = pooled_shape();
-  for (auto pooled_shape_attr : pooled_shape_array_attr) {
-    auto pooled_shape_int_attr = pooled_shape_attr.dyn_cast<IntegerAttr>();
-    if (!pooled_shape_int_attr)
-      return success();
-    pooled_dims.push_back(pooled_shape_int_attr.getInt());
-  }
-
-  // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
-  SmallVector<int64_t, 2> outputDims;
-  outputDims.push_back(num_rois);
-  outputDims.push_back(x_shape[1]); // channel
-  outputDims.push_back(pooled_dims[0]);
-  outputDims.push_back(pooled_dims[1]);
-
-  updateType(getResult(), outputDims, x_type.getElementType());
-  return success();
-}
 
 LogicalResult ONNXMaxUnpoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -4005,51 +2676,6 @@ LogicalResult ONNXMultinomialOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXNonMaxSuppressionOp::verify() {
-  ONNXNonMaxSuppressionOpAdaptor operandAdaptor =
-      ONNXNonMaxSuppressionOpAdaptor(*this);
-  // Get operands.
-  auto boxes = operandAdaptor.boxes();
-  auto scores = operandAdaptor.scores();
-  auto MOPC = operandAdaptor.max_output_boxes_per_class();
-  auto scoreThreshold = operandAdaptor.score_threshold();
-  auto iouThreshold = operandAdaptor.iou_threshold();
-
-  // Check operands.
-  if (hasShapeAndRank(boxes)) {
-    auto shape = boxes.getType().cast<ShapedType>().getShape();
-    if (shape.size() != 3)
-      return emitOpError("boxes should have a rank of three");
-    if (shape[2] != -1 && shape[2] != 4)
-      return emitOpError("The last dim of Boxes should be four");
-  }
-
-  if (hasShapeAndRank(scores))
-    if (scores.getType().cast<ShapedType>().getRank() != 3)
-      return emitOpError("scores should have a rank of three");
-
-  if (hasShapeAndRank(MOPC))
-    if (MOPC.getType().cast<ShapedType>().getRank() > 1)
-      return emitOpError(
-          "max_output_boxex_per_class should have a rank of zero or one");
-
-  if (hasShapeAndRank(scoreThreshold))
-    if (scoreThreshold.getType().cast<ShapedType>().getRank() > 1)
-      return emitOpError("score_threshold should have a rank of zero or one");
-
-  if (hasShapeAndRank(iouThreshold))
-    if (iouThreshold.getType().cast<ShapedType>().getRank() > 1)
-      return emitOpError("iou_threshold should have a rank of zero or one");
-
-  return success();
-}
-
-LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto b = mlir::Builder(getContext());
-  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
-  return success();
-}
 
 LogicalResult ONNXNonZeroOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -4169,91 +2795,8 @@ LogicalResult ONNXOptionalHasElementOp::inferShapes(
   return success();
 }
 
-LogicalResult ONNXRandomNormalOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto outputShape = shape();
-  auto elementTypeID = dtype();
 
-  SmallVector<int64_t, 4> outputDims;
-  auto spatialRank = ArrayAttrSize(outputShape);
-  for (unsigned long i = 0; i < spatialRank; ++i) {
-    int64_t dimension = ArrayAttrIntVal(outputShape, i);
-    if (dimension < 0)
-      return emitError("Random normal tensor has dynamic dimension.");
-    outputDims.emplace_back(dimension);
-  }
 
-  RankedTensorType outputTensorType =
-      RankedTensorType::get(outputDims, FloatType::getF32(getContext()));
-  if (elementTypeID == 0)
-    outputTensorType =
-        RankedTensorType::get(outputDims, FloatType::getF16(getContext()));
-  else if (elementTypeID == 2)
-    outputTensorType =
-        RankedTensorType::get(outputDims, FloatType::getF64(getContext()));
-
-  getResult().setType(outputTensorType);
-  return success();
-}
-
-LogicalResult ONNXRandomNormalLikeOp::verify() {
-  ONNXRandomNormalLikeOpAdaptor operandAdaptor(*this);
-  mlir::Value input = operandAdaptor.input();
-  if (!hasShapeAndRank(input))
-    return success();
-  mlir::Value output = this->output();
-  if (!hasShapeAndRank(output))
-    return success();
-
-  auto inputType = input.getType().cast<RankedTensorType>().getElementType();
-  auto outputType = output.getType().cast<RankedTensorType>().getElementType();
-
-  auto elementTypeIDDType = operandAdaptor.dtype();
-  if (elementTypeIDDType) {
-    int64_t elementTypeID = elementTypeIDDType.value();
-    if (elementTypeID < 0 || elementTypeID > 2) {
-      return emitOpError("dtype not 0, 1 or 2.");
-    }
-    if (elementTypeID == 0 && outputType != FloatType::getF16(getContext()))
-      return emitOpError("output tensor does match 0 dtype.");
-    else if (elementTypeID == 1 &&
-             outputType != FloatType::getF32(getContext()))
-      return emitOpError("output tensor does match 1 dtype.");
-    else if (elementTypeID == 2 &&
-             outputType != FloatType::getF64(getContext()))
-      return emitOpError("output tensor does match 2 dtype.");
-  } else if (inputType != outputType) {
-    return emitOpError("output and input element types do not match.");
-  }
-
-  return success();
-}
-
-LogicalResult ONNXRandomNormalLikeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
-    return success();
-  auto inputType = input().getType().cast<RankedTensorType>();
-  auto elementTypeIDDType = dtype();
-
-  // Default output tensor type in all cases is the input tensor type.
-  Type elementType;
-  if (!elementTypeIDDType) {
-    elementType = inputType.getElementType();
-  } else {
-    int64_t elementTypeID = elementTypeIDDType.value();
-    if (elementTypeID == 0)
-      elementType = FloatType::getF16(getContext());
-    else if (elementTypeID == 1)
-      elementType = FloatType::getF32(getContext());
-    else if (elementTypeID == 2)
-      elementType = FloatType::getF64(getContext());
-    else
-      return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
-  }
-  updateType(getResult(), inputType.getShape(), elementType);
-  return success();
-}
 
 LogicalResult ONNXRandomUniformOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -4551,33 +3094,7 @@ LogicalResult ONNXTfIdfVectorizerOp::inferShapes(
 // TopK
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXTopKOp::verify() {
-  ONNXTopKOpAdaptor operandAdaptor(*this);
-
-  Value K = operandAdaptor.K();
-  if (hasShapeAndRank(K)) {
-    // K's rank must be zero or one.
-    int64_t KRank = K.getType().cast<ShapedType>().getRank();
-    if (KRank > 1)
-      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
-          *this->getOperation(), K, KRank, "< 2");
-  }
-
-  // axis attribute must be in the range [-r,r-1], where r = rank(X).
-  Value X = operandAdaptor.X();
-  if (hasShapeAndRank(X)) {
-    int64_t Xrank = X.getType().cast<ShapedType>().getRank();
-    int64_t axis = this->axis();
-
-    if (axis < -Xrank || axis >= Xrank)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "axis", axis,
-          onnx_mlir::Diagnostic::Range<int64_t>(-Xrank, Xrank - 1));
-  }
-
-  return success();
-}
-
+#if 0 // hi alex
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape isn't known yet.
@@ -4590,6 +3107,7 @@ LogicalResult ONNXTopKOp::inferShapes(
   return shapeHelperInferMultipleShapes<ONNXTopKOpShapeHelper, ONNXTopKOp,
       ONNXTopKOpAdaptor>(*this, {elementType, b.getI64Type()});
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // Unique
@@ -4730,6 +3248,8 @@ LogicalResult ONNXCastMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+#if 0 // hi alex
+
 LogicalResult ONNXCategoryMapperOp::verify() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
 
@@ -4782,6 +3302,8 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
       ONNXCategoryMapperOp, ONNXCategoryMapperOpAdaptor>(
       *this, outputElementType);
 }
+
+#endif
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {

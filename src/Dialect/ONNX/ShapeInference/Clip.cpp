@@ -18,7 +18,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-
+#if 0 // hi alex
 LogicalResult ONNXClipOpShapeHelper::computeShape(
     ONNXClipOpAdaptor operandAdaptor) {
   Value input = operandAdaptor.input();
@@ -32,5 +32,6 @@ LogicalResult ONNXClipOpShapeHelper::computeShape(
 
   return success();
 }
+#endif
 
 } // namespace onnx_mlir

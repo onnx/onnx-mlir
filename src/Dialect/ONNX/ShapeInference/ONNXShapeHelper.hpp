@@ -449,4 +449,22 @@ void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
     bool refineShape = true);
 
+//===----------------------------------------------------------------------===//
+// Templated helper function to reduce redundant code.
+//===----------------------------------------------------------------------===//
+
+template <class SHAPE_HELPER, class OP, class ADAPTOR>
+static mlir::LogicalResult shapeHelperInferShapes(
+    OP &op, mlir::Type elementType);
+
+template <class SHAPE_HELPER, class OP, class ADAPTOR>
+static mlir::LogicalResult shapeHelperInferMultipleShapes(
+    OP &op, mlir::TypeRange elementTypes);
+
+//===----------------------------------------------------------------------===//
+// Templated implementations
+//===----------------------------------------------------------------------===//
+
+#include "ONNXShapeHelper.inc"
+
 } // namespace onnx_mlir

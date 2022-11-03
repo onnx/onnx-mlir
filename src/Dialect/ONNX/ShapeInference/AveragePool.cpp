@@ -14,24 +14,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
-    ONNXAveragePoolOp *newOp, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
-          newOp, false /*hasFilter*/, newOp->ceil_mode(), inScope) {}
-
-ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
-    ONNXAveragePoolOp *newOp, mlir::OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
-          newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
-          fGetDenseVal, fLoadVal, inScope) {}
-
-LogicalResult ONNXAveragePoolOpShapeHelper::computeShape(
-    ONNXAveragePoolOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor>::computeShape(operandAdaptor, nullptr,
-      op->kernel_shape(), op->pads(), op->strides(), None);
-}
+// hi alex
 
 } // namespace onnx_mlir

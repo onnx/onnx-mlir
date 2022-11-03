@@ -18,6 +18,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#if 0 // hi alex
+
 template <typename OpAdaptor>
 std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
   Value A = operandAdaptor.A();
@@ -152,5 +154,7 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
 template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
 template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
+
+#endif
 
 } // namespace onnx_mlir

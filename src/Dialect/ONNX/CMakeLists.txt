@@ -12,13 +12,6 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
-  DialectBuilder.cpp
-  ONNXDialect.cpp
-  ONNXOps.cpp
-  ONNXOpsHelper.cpp
-  ONNXEinsumOpHelper.cpp
-  ONNXTypes.cpp
-  Rewrite.cpp
 
   # start of new support
   ControlFlow/If.cpp
@@ -28,6 +21,25 @@ add_onnx_mlir_library(OMONNXOps
   Math/ElementwiseBroadcast.cpp
   Math/ElementwiseUnary.cpp
   Math/Gemm.cpp
+  Math/LRN.cpp
+  Math/MatMul.cpp
+  Math/RandomNormal.cpp
+  Math/RandomNormalLike.cpp
+  Math/Reduction.cpp
+  Math/TopK.cpp
+  ML/CategoryMapper.cpp
+  NN/Conv.cpp
+  NN/Normalization.cpp
+  NN/Pooling.cpp
+  ObjectDetection/NonMaxSuppression.cpp
+
+  DialectBuilder.cpp
+  ONNXDialect.cpp
+  ONNXOps.cpp
+  ONNXOpsHelper.cpp
+  ONNXEinsumOpHelper.cpp
+  ONNXTypes.cpp
+  Rewrite.cpp
 
   ShapeInference/ArgMinMax.cpp
   ShapeInference/AveragePool.cpp

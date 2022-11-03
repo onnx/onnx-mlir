@@ -14,6 +14,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#if 0 // hi alex
 LogicalResult ONNXLRNOpShapeHelper::computeShape(
     ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -31,5 +32,5 @@ LogicalResult ONNXLRNOpShapeHelper::computeShape(
   setOutputDims(outputDims);
   return success();
 }
-
+#endif
 } // namespace onnx_mlir

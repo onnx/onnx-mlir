@@ -492,28 +492,6 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   ONNXOpShapeHelper<OP_TYPE>::setOutputDims(outputDims);
   return success();
 }
-#if 0 // hi alex
-/// Handle shape inference for unary element-wise operators.
-LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
-  Value input = op->getOperand(0);
-  Value output = op->getResult(0);
-
-  if (!hasShapeAndRank(input))
-    return success();
-
-  ONNXGenericOpUnaryElementwiseShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.computeShape(input)))
-    return op->emitError("Failed to scan parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-
-  // Inferred shape is getting from the input's shape.
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  updateType(
-      output, outputDims, inputType.getElementType(), inputType.getEncoding());
-  return success();
-}
-#endif
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
