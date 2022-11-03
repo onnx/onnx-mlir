@@ -122,5 +122,3 @@ LogicalResult ONNXReshapeOp::inferShapes(
   return shapeHelperInferShapes<ONNXReshapeOpShapeHelper, ONNXReshapeOp,
       ONNXReshapeOpAdaptor>(*this, elementType);
 }
-
-
