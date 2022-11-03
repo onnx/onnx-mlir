@@ -16,22 +16,3 @@
 
 using namespace mlir;
 
-namespace onnx_mlir {
-
-LogicalResult ONNXGatherElementsOpShapeHelper::computeShape(
-    ONNXGatherElementsOpAdaptor operandAdaptor) {
-  MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
-  DimsExpr indicesDims;
-  indicesBounds.getDimList(indicesDims);
-
-  // Output has the shape of indices.
-  DimsExpr outputDims;
-  int64_t indicesRank = indicesDims.size();
-  for (int i = 0; i < indicesRank; ++i)
-    outputDims.emplace_back(indicesDims[i]);
-
-  setOutputDims(outputDims);
-  return success();
-}
-
-} // namespace onnx_mlir

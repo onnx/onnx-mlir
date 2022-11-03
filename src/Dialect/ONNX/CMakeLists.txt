@@ -32,6 +32,38 @@ add_onnx_mlir_library(OMONNXOps
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
+  RNN/RNN.cpp
+  Sequence/Sequence.cpp
+  Tensor/ArgMinMax.cpp
+  Tensor/Compress.cpp
+  Tensor/Concat.cpp
+  Tensor/ConcatFromSequence.cpp
+  Tensor/Constant.cpp
+  Tensor/ConstantOfShape.cpp
+  Tensor/DepthToSpace.cpp
+  Tensor/Dim.cpp
+  Tensor/Expand.cpp
+  Tensor/Flatten.cpp
+  Tensor/Gather.cpp
+  Tensor/GatherElements.cpp
+  Tensor/GatherND.cpp
+  Tensor/Identity.cpp
+  Tensor/NonZero.cpp
+  Tensor/OneHot.cpp
+  Tensor/Pad.cpp
+  Tensor/Range.cpp
+  Tensor/Reshape.cpp
+  Tensor/Resize.cpp
+  Tensor/ReverseSequence.cpp
+  Tensor/Shape.cpp
+  Tensor/Size.cpp
+  Tensor/Slice.cpp
+  Tensor/SpaceToDepth.cpp
+  Tensor/Split.cpp
+  Tensor/Squeeze.cpp
+  Tensor/Tile.cpp
+  Tensor/Transpose.cpp
+  Tensor/Unsqueeze.cpp
 
   DialectBuilder.cpp
   ONNXDialect.cpp

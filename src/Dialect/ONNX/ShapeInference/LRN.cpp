@@ -14,23 +14,4 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-#if 0 // hi alex
-LogicalResult ONNXLRNOpShapeHelper::computeShape(
-    ONNXLRNOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Basic information.
-  auto rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
-
-  // Perform transposition according to perm attribute.
-  DimsExpr outputDims;
-  MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
-  for (decltype(rank) i = 0; i < rank; ++i) {
-    outputDims.emplace_back(XBounds.getDim(i));
-  }
-
-  // Set type for the first output.
-  setOutputDims(outputDims);
-  return success();
-}
-#endif
 } // namespace onnx_mlir
