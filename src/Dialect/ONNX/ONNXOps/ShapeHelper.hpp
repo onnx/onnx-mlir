@@ -116,12 +116,12 @@ private:
 
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
-struct ONNXGenericOpUnaryElementwiseShapeHelper
+struct ONNXGenericOpUnaryShapeHelper
     : public ONNXOpShapeHelper<mlir::Operation> {
-  ONNXGenericOpUnaryElementwiseShapeHelper(
+  ONNXGenericOpUnaryShapeHelper(
       mlir::Operation *newOp, IndexExprScope *inScope = nullptr);
 
-  ONNXGenericOpUnaryElementwiseShapeHelper(mlir::Operation *newOp,
+  ONNXGenericOpUnaryShapeHelper(mlir::Operation *newOp,
       mlir::OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,

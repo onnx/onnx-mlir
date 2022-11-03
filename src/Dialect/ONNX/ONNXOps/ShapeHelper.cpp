@@ -132,21 +132,17 @@ void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
-ONNXGenericOpUnaryElementwiseShapeHelper::
-    ONNXGenericOpUnaryElementwiseShapeHelper(
-        Operation *newOp, IndexExprScope *inScope)
+ONNXGenericOpUnaryShapeHelper::ONNXGenericOpUnaryShapeHelper(
+    Operation *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<Operation>(newOp, 1, inScope) {}
 
-ONNXGenericOpUnaryElementwiseShapeHelper::
-    ONNXGenericOpUnaryElementwiseShapeHelper(Operation *newOp,
-        mlir::OpBuilder *rewriter,
-        ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-        ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
+ONNXGenericOpUnaryShapeHelper::ONNXGenericOpUnaryShapeHelper(Operation *newOp,
+    mlir::OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<Operation>(
           newOp, 1, rewriter, fGetDenseVal, fLoadVal, inScope) {}
 
-LogicalResult ONNXGenericOpUnaryElementwiseShapeHelper::computeShape(
-    Value operand) {
+LogicalResult ONNXGenericOpUnaryShapeHelper::computeShape(Value operand) {
   DimsExpr outputDims;
   // Output and input have the same shape. Just pass the input shape to the
   // output.

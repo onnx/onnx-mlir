@@ -848,7 +848,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Shape helper.
-    ONNXGenericOpUnaryElementwiseShapeHelper shapeHelper(op, &rewriter,
+    ONNXGenericOpUnaryShapeHelper shapeHelper(op, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr);
     auto shapecomputed = shapeHelper.computeShape(X);

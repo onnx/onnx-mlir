@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/Tensor/SqueezeUnsqueeze.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/Tensor/SqueezeUnsqueeze.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
