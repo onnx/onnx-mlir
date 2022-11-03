@@ -30,14 +30,14 @@
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 namespace mlir {
-namespace tosa {
+namespace onnx_mlir {
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
 llvm::Optional<mlir::Value> convertReduceMeanOp(PatternRewriter &rewriter,
     Operation *op, RankedTensorType output_type, Value input_value,
     ElementsAttr axes_elems, bool keep_dims);
 
-} // namespace tosa
+} // namespace onnx_mlir
 } // namespace mlir
 
 namespace onnx_mlir {

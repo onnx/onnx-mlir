@@ -54,7 +54,7 @@ public:
           op, "Only tosa.const operands are supported");
     }
     // creating the DenseElementsAttr using pads values.
-    ElementsAttr denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
+    ElementsAttr denseAttr = mlir::onnx_mlir::getValueFromTosaConst<ElementsAttr>(pads);
 
     // Reading the ONNX side pads values and store in the array.
     llvm::SmallVector<int64_t, 8> intValues;
@@ -94,7 +94,7 @@ public:
 
     if (!constValue.getType().dyn_cast<NoneType>()) {
       ElementsAttr valueAttr =
-          tosa::getValueFromTosaConst<ElementsAttr>(constValue);
+          mlir::onnx_mlir::getValueFromTosaConst<ElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();

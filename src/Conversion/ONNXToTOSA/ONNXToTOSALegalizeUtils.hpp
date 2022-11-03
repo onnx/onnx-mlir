@@ -27,7 +27,7 @@
 #include "mlir/Support/LLVM.h"                    // from @llvm-project
 
 namespace mlir {
-namespace tosa {
+namespace onnx_mlir {
 
 // Transpose a given TOSA Tensor
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
@@ -78,10 +78,10 @@ TosaOp CreateOpAndInfer(
   // target type.
   auto result = op->getResult(0);
   auto predictedShape = returnedShapes[0];
-  auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(result_ty);
+  auto currentKnowledge = tosa::ValueKnowledge::getKnowledgeFromType(result_ty);
 
   // Compute the knowledge based on the inferred type.
-  auto inferredKnowledge = ValueKnowledge::getPessimisticValueState();
+  auto inferredKnowledge = tosa::ValueKnowledge::getPessimisticValueState();
   inferredKnowledge.dtype = result_ty.cast<ShapedType>().getElementType();
   inferredKnowledge.hasRank = predictedShape.hasRank();
   if (predictedShape.hasRank()) {
@@ -91,7 +91,7 @@ TosaOp CreateOpAndInfer(
   }
 
   // Compute the new type based on the joined version.
-  auto newKnowledge = ValueKnowledge::join(currentKnowledge, inferredKnowledge);
+  auto newKnowledge = tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
   auto new_ty = newKnowledge.getType();
   result.setType(new_ty);
   return op;

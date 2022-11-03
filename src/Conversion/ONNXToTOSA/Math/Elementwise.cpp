@@ -121,20 +121,20 @@ public:
 static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
     PatternRewriter &rewriter, Value input, float alpha,
     TensorType outputType) {
-  Value constZero = tosa::getTosaConstTensorSingleF32(
+  Value constZero = mlir::onnx_mlir::getTosaConstTensorSingleF32(
       rewriter, op, 0.0, outputType.getShape());
 
-  auto mul = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, op->getLoc(),
+  auto mul = mlir::onnx_mlir::CreateOpAndInfer<tosa::MulOp>(rewriter, op->getLoc(),
       outputType, input,
-      tosa::getTosaConstTensorSingleF32(
+      mlir::onnx_mlir::getTosaConstTensorSingleF32(
           rewriter, op, alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =
-      tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter, op->getLoc(),
+      mlir::onnx_mlir::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter, op->getLoc(),
           UnrankedTensorType::get(rewriter.getI1Type()), input, constZero);
 
-  tosa::CreateReplaceOpAndInfer<tosa::SelectOp>(
+  mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::SelectOp>(
       rewriter, op, outputType, greaterEqual, input, mul.getResult());
 
   return success();

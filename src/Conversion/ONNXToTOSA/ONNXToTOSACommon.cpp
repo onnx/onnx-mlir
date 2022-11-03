@@ -26,7 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace mlir {
-namespace tosa {
+namespace onnx_mlir {
 
 // Common function for lowering reduce operations to TOSA ops.
 template <typename T>
@@ -171,5 +171,5 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
 
   return val;
 }
-} // namespace tosa
+} // namespace onnx_mlir
 } // namespace mlir

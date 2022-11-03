@@ -66,7 +66,7 @@ public:
     }
     ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(newShape);
 
-    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(
+    mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::ReshapeOp>(
         rewriter, op, resultType, input, shapeAttr);
 
     return success();

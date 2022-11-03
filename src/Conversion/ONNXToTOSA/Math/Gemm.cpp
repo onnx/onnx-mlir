@@ -27,12 +27,9 @@ namespace onnx_mlir {
 
 namespace {
 
-
-
 class ONNXGemmOpLoweringToTOSA : public OpConversionPattern<ONNXGemmOp> {
 public:
   using OpConversionPattern<ONNXGemmOp>::OpConversionPattern;
-
 
   LogicalResult matchAndRewrite(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
@@ -43,7 +40,7 @@ public:
     }
     return rewriteToTosaMatMul(op, adaptor, rewriter);
   }
-    
+
   LogicalResult rewriteToTosaMatMul(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
     Location loc = op->getLoc();
@@ -58,77 +55,105 @@ public:
     auto BType = B.getType().cast<RankedTensorType>();
     auto shapeA = AType.getShape();
     auto shapeB = BType.getShape();
-    auto resultType = getTypeConverter()->convertType(op.getResult().getType()).cast<TensorType>();
-    
-    // C is optional, if it's not there, we need to be aware of it for later computations
+    auto resultType = getTypeConverter()
+                          ->convertType(op.getResult().getType())
+                          .cast<TensorType>();
+
+    // C is optional, if it's not there, we need to be aware of it for later
+    // computations
     bool isCPresent = C.getType().isa<TensorType>();
-    // ONNX uses HW matrix as input and output as it runs a matrix multiplication. TOSA implements it
-    // as a batch matrix multiplication, meaning the input and output are NHW. As such, there
-    // is a need to add reshapes operators before and after we do any computation to add a batch
+    // ONNX uses HW matrix as input and output as it runs a matrix
+    // multiplication. TOSA implements it as a batch matrix multiplication,
+    // meaning the input and output are NHW. As such, there is a need to add
+    // reshapes operators before and after we do any computation to add a batch
     // of 1.
     llvm::SmallVector<int64_t> newShapeA{1, shapeA[0], shapeA[1]};
     llvm::SmallVector<int64_t> newShapeB{1, shapeB[0], shapeB[1]};
 
-    A = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
-        rewriter, op->getLoc(),
+    A = mlir::onnx_mlir::CreateOpAndInfer<tosa::ReshapeOp>(rewriter,
+        op->getLoc(),
         RankedTensorType::get({-1, -1, -1}, AType.getElementType()), A,
-        rewriter.getI64ArrayAttr(newShapeA)).getResult();
-    B = tosa::CreateOpAndInfer<tosa::ReshapeOp>(
-        rewriter, op->getLoc(),
+        rewriter.getI64ArrayAttr(newShapeA))
+            .getResult();
+    B = mlir::onnx_mlir::CreateOpAndInfer<tosa::ReshapeOp>(rewriter,
+        op->getLoc(),
         RankedTensorType::get({-1, -1, -1}, BType.getElementType()), B,
-        rewriter.getI64ArrayAttr(newShapeB)).getResult();
+        rewriter.getI64ArrayAttr(newShapeB))
+            .getResult();
 
-    auto tosaResult = RankedTensorType::get({-1, -1, -1}, resultType.getElementType());
+    auto tosaResult =
+        RankedTensorType::get({-1, -1, -1}, resultType.getElementType());
 
     // If transA or transB are present, create Transpose operators.
     if (transA) {
-      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = RankedTensorType::get({-1, -1, -1}, AType.getElementType());
-      A = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, A, targetTensor).getResult();
+      Value targetTensor =
+          mlir::onnx_mlir::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3})
+              .value();
+      Type outputType =
+          RankedTensorType::get({-1, -1, -1}, AType.getElementType());
+      A = mlir::onnx_mlir::CreateOpAndInfer<tosa::TransposeOp>(
+          rewriter, loc, outputType, A, targetTensor)
+              .getResult();
     }
     if (transB) {
-      Value targetTensor = mlir::tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
-      Type outputType = RankedTensorType::get({-1, -1, -1}, BType.getElementType());
-      B = tosa::CreateOpAndInfer<tosa::TransposeOp>(rewriter, loc, outputType, B, targetTensor).getResult();
+      Value targetTensor =
+          mlir::onnx_mlir::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3})
+              .value();
+      Type outputType =
+          RankedTensorType::get({-1, -1, -1}, BType.getElementType());
+      B = mlir::onnx_mlir::CreateOpAndInfer<tosa::TransposeOp>(
+          rewriter, loc, outputType, B, targetTensor)
+              .getResult();
     }
-    
+
     Value alphaMulResult = A;
     Value betaMulResult = C;
-    // If Alpha is present and not 1, we create a multiply operation for alpha * A
+    // If Alpha is present and not 1, we create a multiply operation for alpha *
+    // A
     if (alpha && alpha.getValueAsDouble() != 1.) {
-      alphaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc,
-            tosaResult,
-            tosa::getTosaConstTensorSingleF32(rewriter, op, alpha.getValueAsDouble(), newShapeA),
-            A, 0).getResult();
+      alphaMulResult = mlir::onnx_mlir::CreateOpAndInfer<tosa::MulOp>(rewriter,
+          loc, tosaResult,
+          mlir::onnx_mlir::getTosaConstTensorSingleF32(
+              rewriter, op, alpha.getValueAsDouble(), newShapeA),
+          A, 0)
+                           .getResult();
     }
 
-    // If C and Beta are set, and beta is different from 1, we also need to add a multiplication for beta * C
+    // If C and Beta are set, and beta is different from 1, we also need to add
+    // a multiplication for beta * C
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
       auto shapeC = C.getType().dyn_cast<ShapedType>();
-      betaMulResult = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, loc, shapeC, 
-            tosa::getTosaConstTensorSingleF32(rewriter, op, beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
-            C, 0).getResult();
+      betaMulResult = mlir::onnx_mlir::CreateOpAndInfer<tosa::MulOp>(rewriter,
+          loc, shapeC,
+          mlir::onnx_mlir::getTosaConstTensorSingleF32(rewriter, op,
+              beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
+          C, 0)
+                          .getResult();
     }
 
-    //A * B
-    Value matmulRes = tosa::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc, 
-                  RankedTensorType::get({-1, -1, -1}, resultType.getElementType()), alphaMulResult, B).getResult();
+    // A * B
+    Value matmulRes =
+        mlir::onnx_mlir::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc,
+            RankedTensorType::get({-1, -1, -1}, resultType.getElementType()),
+            alphaMulResult, B)
+            .getResult();
 
     Value addRes = NULL;
     //(A*B) + Beta * C or (A*B) + C
     if (isCPresent) {
-      addRes = tosa::CreateOpAndInfer<tosa::AddOp>(rewriter, loc, tosaResult, matmulRes, betaMulResult).getResult();
-    }
-    else {
+      addRes = mlir::onnx_mlir::CreateOpAndInfer<tosa::AddOp>(
+          rewriter, loc, tosaResult, matmulRes, betaMulResult)
+                   .getResult();
+    } else {
       addRes = matmulRes;
     }
 
     // Add reshape to go back to the original shape
-    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(rewriter, op, resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
+    mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::ReshapeOp>(rewriter, op,
+        resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
 
     return success();
   }
-
 
   /// The GEMM can be described as a FullyConnected operator
   /// Y = AB^T + C if we perform a transpose on B only with
@@ -165,7 +190,7 @@ public:
       return false;
     }
 
-    // If all check passed, we replace the GEMM by a FC operator    
+    // If all check passed, we replace the GEMM by a FC operator
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
     // If no bias is given to the GEMM operator, we create a 1D bias with all
@@ -176,14 +201,16 @@ public:
       std::vector<float> elements = {};
       for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);
-      C = mlir::tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+      C = mlir::onnx_mlir::getConstTensor<float>(
+          rewriter, op, elements, cformat)
+              .value();
     }
 
-    rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(op, resultType, A, B, C);
+    rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(
+        op, resultType, A, B, C);
     return true;
   }
 };
-
 
 } // namespace
 

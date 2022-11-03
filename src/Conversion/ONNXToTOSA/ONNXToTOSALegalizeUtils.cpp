@@ -29,7 +29,7 @@
 #include <cstdint>
 
 namespace mlir {
-namespace tosa {
+namespace onnx_mlir {
 
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
     Value &value, llvm::ArrayRef<int64_t> perm) {
@@ -41,7 +41,7 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
   Type newValueTy = RankedTensorType::get(
       {-1, -1, -1, -1}, value.getType().cast<ShapedType>().getElementType());
   // create transpose for value
-  Value newValue = tosa::CreateOpAndInfer<tosa::TransposeOp>(
+  Value newValue = CreateOpAndInfer<tosa::TransposeOp>(
       rewriter, op->getLoc(), newValueTy, value, permList);
   return newValue;
 }
@@ -58,7 +58,7 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
   auto constType = reduceAxisToOne(shape, rewriter.getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
-  auto constOp = rewriter.create<ConstOp>(op->getLoc(), constType, constAttr);
+  auto constOp = rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
   return constOp.getResult();
 }
 
@@ -126,7 +126,7 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
 
   int32_t scale_width = scale32 ? 32 : 16;
 
-  computeMultiplierAndShift(scale, multiplier, shift, scale_width);
+  tosa::computeMultiplierAndShift(scale, multiplier, shift, scale_width);
 
   auto rescale_op =
       CreateOpAndInfer<tosa::RescaleOp>(rewriter, op->getLoc(), output_type,
@@ -152,4 +152,4 @@ Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
 }
 
 } // namespace tosa
-} // namespace mlir
+} // namespace onnx_mlir
