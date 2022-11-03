@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/NN/NNHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;

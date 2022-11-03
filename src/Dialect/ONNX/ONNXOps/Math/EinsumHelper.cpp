@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/Math/EinsumHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/Math/EinsumHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
