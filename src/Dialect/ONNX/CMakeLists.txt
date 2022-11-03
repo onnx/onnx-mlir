@@ -13,27 +13,44 @@ add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
 
-  # start of new support
+  # Support for shape inference and verifiers
+  Additional/CallOp.cpp
+  Additional/Custom.cpp
+  Additional/Dim.cpp
+  Additional/EntryPoint.cpp
+  Additional/LayoutTransform.cpp
+  Additional/None.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
+  ML/CategoryMapper.cpp
+  ML/OneHotEncoder.cpp
+  Math/Bernoulli.cpp
   Math/Clip.cpp
+  Math/Einsum.cpp
+  Math/EinsumHelper.cpp
   Math/ElementwiseBroadcast.cpp
   Math/ElementwiseUnary.cpp
   Math/Gemm.cpp
+  Math/IsNan.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
   Math/RandomNormal.cpp
   Math/RandomNormalLike.cpp
   Math/Reduction.cpp
   Math/TopK.cpp
-  ML/CategoryMapper.cpp
   NN/Conv.cpp
+  NN/Dropout.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
+  NN/RoiAlign.cpp
   ObjectDetection/NonMaxSuppression.cpp
+  Quantize/DequantizeLinear.cpp
+  Quantize/DynamicQuantizeLinear.cpp
+  Quantize/QuantizeLinear.cpp
   RNN/RNN.cpp
   Sequence/Sequence.cpp
+  Sequence/SplitToSequence.cpp
   Tensor/ArgMinMax.cpp
   Tensor/Compress.cpp
   Tensor/Concat.cpp
@@ -41,8 +58,8 @@ add_onnx_mlir_library(OMONNXOps
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/DepthToSpace.cpp
-  Tensor/Dim.cpp
   Tensor/Expand.cpp
+  Tensor/EyeLike.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp
   Tensor/GatherElements.cpp
@@ -50,6 +67,7 @@ add_onnx_mlir_library(OMONNXOps
   Tensor/Identity.cpp
   Tensor/NonZero.cpp
   Tensor/OneHot.cpp
+  Tensor/Optional.cpp
   Tensor/Pad.cpp
   Tensor/Range.cpp
   Tensor/Reshape.cpp
@@ -63,48 +81,50 @@ add_onnx_mlir_library(OMONNXOps
   Tensor/Squeeze.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
+  Tensor/Unique.cpp
   Tensor/Unsqueeze.cpp
+  Tensor/Upsample.cpp
 
+  # Top files
   DialectBuilder.cpp
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOpsHelper.cpp
-  ONNXEinsumOpHelper.cpp
+  ONNXShapeHelper.cpp  
   ONNXTypes.cpp
   Rewrite.cpp
 
-  ShapeInference/ArgMinMax.cpp
-  ShapeInference/AveragePool.cpp
-  ShapeInference/CategoryMapper.cpp  
-  ShapeInference/Clip.cpp  
-  ShapeInference/Compress.cpp
-  ShapeInference/Concat.cpp
-  ShapeInference/Conv.cpp
-  ShapeInference/DepthToSpace.cpp
-  ShapeInference/Expand.cpp
-  ShapeInference/Flatten.cpp
-  ShapeInference/Gather.cpp
-  ShapeInference/GatherElements.cpp  
-  ShapeInference/GatherND.cpp  
-  ShapeInference/Gemm.cpp
-  ShapeInference/LRN.cpp
-  ShapeInference/GenericMatMul.cpp
-  ShapeInference/MaxPool.cpp
-  ShapeInference/ONNXShapeHelper.cpp  
-  ShapeInference/OneHot.cpp
-  ShapeInference/Pad.cpp
-  ShapeInference/Reshape.cpp
-  ShapeInference/ReverseSequence.cpp
-  ShapeInference/RoiAlign.cpp
-  ShapeInference/Shape.cpp
-  ShapeInference/Slice.cpp
-  ShapeInference/SpaceToDepth.cpp
-  ShapeInference/Split.cpp
-  ShapeInference/Squeeze.cpp
-  ShapeInference/Tile.cpp
-  ShapeInference/TopK.cpp
-  ShapeInference/Transpose.cpp
-  ShapeInference/Unsqueeze.cpp
+  #ShapeInference/ArgMinMax.cpp
+  #ShapeInference/AveragePool.cpp
+  #ShapeInference/CategoryMapper.cpp  
+  #ShapeInference/Clip.cpp  
+  #ShapeInference/Compress.cpp
+  #ShapeInference/Concat.cpp
+  #ShapeInference/Conv.cpp
+  #ShapeInference/DepthToSpace.cpp
+  #ShapeInference/Expand.cpp
+  #ShapeInference/Flatten.cpp
+  #ShapeInference/Gather.cpp
+  #ShapeInference/GatherElements.cpp  
+  #ShapeInference/GatherND.cpp  
+  #ShapeInference/Gemm.cpp
+  #ShapeInference/LRN.cpp
+  #ShapeInference/GenericMatMul.cpp
+  #ShapeInference/MaxPool.cpp
+  #ShapeInference/OneHot.cpp
+  #ShapeInference/Pad.cpp
+  #ShapeInference/Reshape.cpp
+  #ShapeInference/ReverseSequence.cpp
+  #ShapeInference/RoiAlign.cpp
+  #ShapeInference/Shape.cpp
+  #ShapeInference/Slice.cpp
+  #ShapeInference/SpaceToDepth.cpp
+  #ShapeInference/Split.cpp
+  #ShapeInference/Squeeze.cpp
+  #ShapeInference/Tile.cpp
+  #ShapeInference/TopK.cpp
+  #ShapeInference/Transpose.cpp
+  #ShapeInference/Unsqueeze.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen

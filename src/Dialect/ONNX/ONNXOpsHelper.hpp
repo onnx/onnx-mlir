@@ -35,10 +35,10 @@
 #include "onnx/onnx_pb.h"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
-#include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
+// hi alex #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -273,8 +273,8 @@ mlir::Type convertONNXTypeToMLIRType(
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 // hi alex, made this one private
-//template <class T>
-//mlir::LogicalResult processConvTypeParams(
+// template <class T>
+// mlir::LogicalResult processConvTypeParams(
 //    T *op, mlir::Value inputOperand, mlir::Value W);
 
 } // namespace onnx_mlir
