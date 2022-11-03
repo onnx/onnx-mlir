@@ -465,6 +465,6 @@ static mlir::LogicalResult shapeHelperInferMultipleShapes(
 // Templated implementations
 //===----------------------------------------------------------------------===//
 
-#include "ONNXShapeHelper.inc"
+#include "ShapeHelper.inc"
 
 } // namespace onnx_mlir
