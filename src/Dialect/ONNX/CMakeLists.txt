@@ -12,7 +12,15 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
-
+  # Top files for ONNX dialect
+  DialectBuilder.cpp
+  ONNXDialect.cpp
+  ONNXOps.cpp
+  ONNXOpsHelper.cpp
+  ONNXShapeHelper.cpp  
+  ONNXTypes.cpp
+  Rewrite.cpp
+  
   # Support for shape inference and verifiers
   Additional/CallOp.cpp
   Additional/Custom.cpp
@@ -84,47 +92,6 @@ add_onnx_mlir_library(OMONNXOps
   Tensor/Unique.cpp
   Tensor/Unsqueeze.cpp
   Tensor/Upsample.cpp
-
-  # Top files
-  DialectBuilder.cpp
-  ONNXDialect.cpp
-  ONNXOps.cpp
-  ONNXOpsHelper.cpp
-  ONNXShapeHelper.cpp  
-  ONNXTypes.cpp
-  Rewrite.cpp
-
-  #ShapeInference/ArgMinMax.cpp
-  #ShapeInference/AveragePool.cpp
-  #ShapeInference/CategoryMapper.cpp  
-  #ShapeInference/Clip.cpp  
-  #ShapeInference/Compress.cpp
-  #ShapeInference/Concat.cpp
-  #ShapeInference/Conv.cpp
-  #ShapeInference/DepthToSpace.cpp
-  #ShapeInference/Expand.cpp
-  #ShapeInference/Flatten.cpp
-  #ShapeInference/Gather.cpp
-  #ShapeInference/GatherElements.cpp  
-  #ShapeInference/GatherND.cpp  
-  #ShapeInference/Gemm.cpp
-  #ShapeInference/LRN.cpp
-  #ShapeInference/GenericMatMul.cpp
-  #ShapeInference/MaxPool.cpp
-  #ShapeInference/OneHot.cpp
-  #ShapeInference/Pad.cpp
-  #ShapeInference/Reshape.cpp
-  #ShapeInference/ReverseSequence.cpp
-  #ShapeInference/RoiAlign.cpp
-  #ShapeInference/Shape.cpp
-  #ShapeInference/Slice.cpp
-  #ShapeInference/SpaceToDepth.cpp
-  #ShapeInference/Split.cpp
-  #ShapeInference/Squeeze.cpp
-  #ShapeInference/Tile.cpp
-  #ShapeInference/TopK.cpp
-  #ShapeInference/Transpose.cpp
-  #ShapeInference/Unsqueeze.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
