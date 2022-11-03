@@ -78,4 +78,3 @@ LogicalResult ONNXTransposeOp::inferShapes(
   return shapeHelperInferShapes<ONNXTransposeOpShapeHelper, ONNXTransposeOp,
       ONNXTransposeOpAdaptor>(*this, elementType);
 }
-

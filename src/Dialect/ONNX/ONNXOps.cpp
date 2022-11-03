@@ -224,7 +224,6 @@ NOT_IMPLEMENTED_INFER_SHAPE(ONNXUpsampleV7Op)
 NOT_IMPLEMENTED_INFER_SHAPE(ONNXUpsampleV9Op)
 NOT_IMPLEMENTED_INFER_SHAPE(ONNXZipMapOp)
 
-
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//

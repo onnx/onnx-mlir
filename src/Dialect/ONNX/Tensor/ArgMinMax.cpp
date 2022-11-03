@@ -85,7 +85,7 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
   return onnx_mlir::computeShape(*this, operandAdaptor);
 }
 
-} // namespace
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // ONNXArgMaxOp
@@ -120,7 +120,6 @@ LogicalResult ONNXArgMaxOp::inferShapes(
       ONNXArgMaxOpAdaptor>(*this, elementType);
 }
 
-
 //===----------------------------------------------------------------------===//
 // ONNXArgMinOp
 //===----------------------------------------------------------------------===//
@@ -153,4 +152,3 @@ LogicalResult ONNXArgMinOp::inferShapes(
   return shapeHelperInferShapes<ONNXArgMinOpShapeHelper, ONNXArgMinOp,
       ONNXArgMinOpAdaptor>(*this, elementType);
 }
-

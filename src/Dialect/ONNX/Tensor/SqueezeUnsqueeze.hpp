@@ -49,5 +49,4 @@ void updateNegativeAxisV11(Op *op, ArrayRef<int64_t> axes) {
   op->axesAttr(builder.getI64ArrayAttr(defaultRefs));
 }
 
-
 } // namespace

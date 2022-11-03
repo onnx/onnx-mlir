@@ -175,4 +175,3 @@ LogicalResult ONNXRNNOp::inferShapes(
   int gates = 1;
   return RNNShapeInference(this, gates);
 }
-

@@ -18,7 +18,6 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
-
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
@@ -61,4 +60,3 @@ LogicalResult ONNXUniqueOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
-

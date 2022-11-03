@@ -31,4 +31,3 @@ LogicalResult ONNXCustomOp::inferShapes(
   // getResult().setType(getOperand().getType());
   return success();
 }
-
