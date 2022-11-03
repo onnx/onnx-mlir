@@ -89,7 +89,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
+  target.addLegalDialect<mlir::tosa::TosaDialect, mlir::func::FuncDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);

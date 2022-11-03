@@ -69,22 +69,21 @@ public:
     // op2 = reduce_sum(op1, -1)
     // op3 = reciprocal(op2)
     // op4 = mul(op1, op3)
-    auto op1ExpIn = mlir::onnx_mlir::CreateOpAndInfer<tosa::ExpOp>(
+    auto op1ExpIn = tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
         rewriter, op->getLoc(), outputType, adaptor.input());
     RankedTensorType rsumType =
         RankedTensorType::get(rsumShape, outputType.getElementType());
 
     // Keep dims so we don't need to reshape later
-    auto op2ReducesumOp1 = mlir::onnx_mlir::CreateOpAndInfer<tosa::ReduceSumOp>(
-        rewriter, op->getLoc(), rsumType, op1ExpIn.getResult(),
-        rewriter.getI64IntegerAttr(axis));
+    auto op2ReducesumOp1 =
+        tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter, op->getLoc(),
+            rsumType, op1ExpIn.getResult(), rewriter.getI64IntegerAttr(axis));
     auto op3ReciprocalOp2 =
-        mlir::onnx_mlir::CreateOpAndInfer<tosa::ReciprocalOp>(rewriter,
-            op->getLoc(), op2ReducesumOp1.getType(),
-            op2ReducesumOp1.getResult());
+        tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, op->getLoc(),
+            op2ReducesumOp1.getType(), op2ReducesumOp1.getResult());
 
-    mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::MulOp>(rewriter, op,
-        outputType, op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::MulOp>(rewriter, op, outputType,
+        op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
 
     return success();
   }

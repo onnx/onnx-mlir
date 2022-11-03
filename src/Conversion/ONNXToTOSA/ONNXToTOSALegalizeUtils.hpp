@@ -30,41 +30,41 @@ namespace onnx_mlir {
 namespace tosa {
 
 // Transpose a given TOSA Tensor
-Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
-    Value &value, llvm::ArrayRef<int64_t> perm);
+mlir::Value createTosaTransposedTensor(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::Value &value, llvm::ArrayRef<int64_t> perm);
 
 // Create a 32-bit float constant operator from a float
 // The tensor will have the same rank as shape but with axis 1 (differs from
 // tensorflow impl.)
-Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
-    float val, llvm::ArrayRef<int64_t> shape = {});
+mlir::Value getTosaConstTensorSingleF32(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, float val, llvm::ArrayRef<int64_t> shape = {});
 
 // Templated function to create a constant op for given type and shape.
 // T: storage C type.
 // Default template creates a constant tensor in T.
 // To create INT48 TOSA constant, need to pass in llvm::APInt instead.
 template <typename T>
-llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
-    ArrayRef<T> vec, ArrayRef<int64_t> shape);
+llvm::Optional<mlir::Value> getConstTensor(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
 
 template <typename T>
-T getValueFromTosaConst(Value &val) {
-  return val.getDefiningOp<tosa::ConstOp>().getValue().cast<T>();
+T getValueFromTosaConst(mlir::Value &val) {
+  return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
 }
 
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
-TosaOp CreateOpAndInfer(
-    PatternRewriter &rewriter, Location loc, Type result_ty, Args &&...args) {
+TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type result_ty, Args &&...args) {
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
-  InferShapedTypeOpInterface shapeInterface =
-      dyn_cast<InferShapedTypeOpInterface>(op.getOperation());
+  mlir::InferShapedTypeOpInterface shapeInterface =
+      dyn_cast<mlir::InferShapedTypeOpInterface>(op.getOperation());
   if (!shapeInterface)
     return op;
 
-  SmallVector<ShapedTypeComponents> returnedShapes;
+  llvm::SmallVector<mlir::ShapedTypeComponents> returnedShapes;
   if (shapeInterface
           .inferReturnTypeComponents(op.getContext(), op.getLoc(),
               op->getOperands(), op->getAttrDictionary(), op->getRegions(),
@@ -78,11 +78,13 @@ TosaOp CreateOpAndInfer(
   // target type.
   auto result = op->getResult(0);
   auto predictedShape = returnedShapes[0];
-  auto currentKnowledge = tosa::ValueKnowledge::getKnowledgeFromType(result_ty);
+  auto currentKnowledge =
+      mlir::tosa::ValueKnowledge::getKnowledgeFromType(result_ty);
 
   // Compute the knowledge based on the inferred type.
-  auto inferredKnowledge = tosa::ValueKnowledge::getPessimisticValueState();
-  inferredKnowledge.dtype = result_ty.cast<ShapedType>().getElementType();
+  auto inferredKnowledge =
+      mlir::tosa::ValueKnowledge::getPessimisticValueState();
+  inferredKnowledge.dtype = result_ty.cast<mlir::ShapedType>().getElementType();
   inferredKnowledge.hasRank = predictedShape.hasRank();
   if (predictedShape.hasRank()) {
     for (auto dim : predictedShape.getDims()) {
@@ -92,15 +94,15 @@ TosaOp CreateOpAndInfer(
 
   // Compute the new type based on the joined version.
   auto newKnowledge =
-      tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
+      mlir::tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
   auto new_ty = newKnowledge.getType();
   result.setType(new_ty);
   return op;
 }
 
 template <typename TosaOp, typename... Args>
-void CreateReplaceOpAndInfer(
-    PatternRewriter &rewriter, Operation *op, Type result_ty, Args &&...args) {
+void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
@@ -108,13 +110,14 @@ void CreateReplaceOpAndInfer(
 
 // Create a TOSA rescale op from input framework scaling, zero points and
 // rounding mode
-Value buildRescale(PatternRewriter &rewriter, Operation *op,
-    ShapedType output_type, Value input_val, double scale, int64_t input_zp,
-    int64_t output_zp, bool double_round, bool scale32);
+mlir::Value buildRescale(mlir::PatternRewriter &rewriter, mlir::Operation *op,
+    mlir::ShapedType output_type, mlir::Value input_val, double scale,
+    int64_t input_zp, int64_t output_zp, bool double_round, bool scale32);
 
 // Creates TOSA rescale op with int32 output
-Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
-    Value input_val, double input_scale, int64_t input_zp);
+mlir::Value buildRescaleToInt32(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::Value input_val, double input_scale,
+    int64_t input_zp);
 
 } // namespace tosa
 } // namespace onnx_mlir

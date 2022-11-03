@@ -86,8 +86,8 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     // Optionally squeeze out the reduced axes.
     if (!keep_dims) {
       auto reshape_op =
-          CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(), output_type,
-              val, rewriter.getI64ArrayAttr(output_shape));
+          CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
+              output_type, val, rewriter.getI64ArrayAttr(output_shape));
       val = reshape_op.getResult();
     }
   }

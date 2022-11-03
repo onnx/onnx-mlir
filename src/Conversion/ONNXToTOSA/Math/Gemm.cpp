@@ -70,13 +70,11 @@ public:
     llvm::SmallVector<int64_t> newShapeA{1, shapeA[0], shapeA[1]};
     llvm::SmallVector<int64_t> newShapeB{1, shapeB[0], shapeB[1]};
 
-    A = mlir::onnx_mlir::CreateOpAndInfer<tosa::ReshapeOp>(rewriter,
-        op->getLoc(),
+    A = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get({-1, -1, -1}, AType.getElementType()), A,
         rewriter.getI64ArrayAttr(newShapeA))
             .getResult();
-    B = mlir::onnx_mlir::CreateOpAndInfer<tosa::ReshapeOp>(rewriter,
-        op->getLoc(),
+    B = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
         RankedTensorType::get({-1, -1, -1}, BType.getElementType()), B,
         rewriter.getI64ArrayAttr(newShapeB))
             .getResult();
@@ -87,21 +85,19 @@ public:
     // If transA or transB are present, create Transpose operators.
     if (transA) {
       Value targetTensor =
-          mlir::onnx_mlir::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3})
-              .value();
+          tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
       Type outputType =
           RankedTensorType::get({-1, -1, -1}, AType.getElementType());
-      A = mlir::onnx_mlir::CreateOpAndInfer<tosa::TransposeOp>(
+      A = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
           rewriter, loc, outputType, A, targetTensor)
               .getResult();
     }
     if (transB) {
       Value targetTensor =
-          mlir::onnx_mlir::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3})
-              .value();
+          tosa::getConstTensor<int32_t>(rewriter, op, {0, 2, 1}, {3}).value();
       Type outputType =
           RankedTensorType::get({-1, -1, -1}, BType.getElementType());
-      B = mlir::onnx_mlir::CreateOpAndInfer<tosa::TransposeOp>(
+      B = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
           rewriter, loc, outputType, B, targetTensor)
               .getResult();
     }
@@ -111,37 +107,36 @@ public:
     // If Alpha is present and not 1, we create a multiply operation for alpha *
     // A
     if (alpha && alpha.getValueAsDouble() != 1.) {
-      alphaMulResult = mlir::onnx_mlir::CreateOpAndInfer<tosa::MulOp>(rewriter,
-          loc, tosaResult,
-          mlir::onnx_mlir::getTosaConstTensorSingleF32(
-              rewriter, op, alpha.getValueAsDouble(), newShapeA),
-          A, 0)
-                           .getResult();
+      alphaMulResult =
+          tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, tosaResult,
+              tosa::getTosaConstTensorSingleF32(
+                  rewriter, op, alpha.getValueAsDouble(), newShapeA),
+              A, 0)
+              .getResult();
     }
 
     // If C and Beta are set, and beta is different from 1, we also need to add
     // a multiplication for beta * C
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
       auto shapeC = C.getType().dyn_cast<ShapedType>();
-      betaMulResult = mlir::onnx_mlir::CreateOpAndInfer<tosa::MulOp>(rewriter,
-          loc, shapeC,
-          mlir::onnx_mlir::getTosaConstTensorSingleF32(rewriter, op,
+      betaMulResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc,
+          shapeC,
+          tosa::getTosaConstTensorSingleF32(rewriter, op,
               beta.getValueAsDouble(), shapeC.cast<TensorType>().getShape()),
           C, 0)
                           .getResult();
     }
 
     // A * B
-    Value matmulRes =
-        mlir::onnx_mlir::CreateOpAndInfer<tosa::MatMulOp>(rewriter, loc,
-            RankedTensorType::get({-1, -1, -1}, resultType.getElementType()),
-            alphaMulResult, B)
-            .getResult();
+    Value matmulRes = tosa::CreateOpAndInfer<mlir::tosa::MatMulOp>(rewriter,
+        loc, RankedTensorType::get({-1, -1, -1}, resultType.getElementType()),
+        alphaMulResult, B)
+                          .getResult();
 
     Value addRes = NULL;
     //(A*B) + Beta * C or (A*B) + C
     if (isCPresent) {
-      addRes = mlir::onnx_mlir::CreateOpAndInfer<tosa::AddOp>(
+      addRes = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(
           rewriter, loc, tosaResult, matmulRes, betaMulResult)
                    .getResult();
     } else {
@@ -149,7 +144,7 @@ public:
     }
 
     // Add reshape to go back to the original shape
-    mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::ReshapeOp>(rewriter, op,
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op,
         resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
 
     return success();
@@ -201,12 +196,10 @@ public:
       std::vector<float> elements = {};
       for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);
-      C = mlir::onnx_mlir::getConstTensor<float>(
-          rewriter, op, elements, cformat)
-              .value();
+      C = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
     }
 
-    rewriter.replaceOpWithNewOp<tosa::FullyConnectedOp>(
+    rewriter.replaceOpWithNewOp<mlir::tosa::FullyConnectedOp>(
         op, resultType, A, B, C);
     return true;
   }

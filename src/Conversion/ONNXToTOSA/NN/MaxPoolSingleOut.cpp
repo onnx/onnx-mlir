@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op
-//--------------------===//
+//===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op-----------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -76,8 +75,7 @@ public:
 
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
     // transpose to change the format
-    Input = mlir::onnx_mlir::createTosaTransposedTensor(
-        rewriter, op, Input, {0, 2, 3, 1});
+    Input = tosa::createTosaTransposedTensor(rewriter, op, Input, {0, 2, 3, 1});
 
     // Pads and Strides are optionals for ONNX but mandatory for TOSA
     if (!pads) {
@@ -93,19 +91,18 @@ public:
     }
 
     Input = rewriter
-                .create<tosa::MaxPool2dOp>(
+                .create<mlir::tosa::MaxPool2dOp>(
                     loc, newResultType, Input, kernelShape, strides, pads)
                 .getResult();
     // Revert to original shape (NCHW)
     // Construct the old result shape out of the new one
     auto newInputType = Input.getType().cast<RankedTensorType>().getShape();
-    Value sourceTensor = mlir::onnx_mlir::getConstTensor<int32_t>(
-        rewriter, op, {0, 3, 1, 2}, {4})
-                             .value();
+    Value sourceTensor =
+        tosa::getConstTensor<int32_t>(rewriter, op, {0, 3, 1, 2}, {4}).value();
     Type transposedResultType = RankedTensorType::get(
         {newInputType[0], newInputType[3], newInputType[1], newInputType[2]},
         InputType.getElementType());
-    mlir::onnx_mlir::CreateReplaceOpAndInfer<tosa::TransposeOp>(
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::TransposeOp>(
         rewriter, op, transposedResultType, Input, sourceTensor);
     return success();
   }

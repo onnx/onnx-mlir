@@ -55,7 +55,7 @@ public:
         RankedTensorType::get({vecValuesSize}, rewriter.getI64Type()),
         vecValues);
 
-    auto output = mlir::onnx_mlir::convertReduceMeanOp(
+    auto output = tosa::convertReduceMeanOp(
         rewriter, op, resultType, input, newAxesAttr, keepDims);
 
     if (!output) {

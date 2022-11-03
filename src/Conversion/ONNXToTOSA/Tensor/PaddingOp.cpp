@@ -47,14 +47,14 @@ public:
           op, "Only 'constant' mode is supported");
     }
 
-    if (!pads.getDefiningOp<tosa::ConstOp>() ||
-        !(constValue.getDefiningOp<tosa::ConstOp>() ||
+    if (!pads.getDefiningOp<mlir::tosa::ConstOp>() ||
+        !(constValue.getDefiningOp<mlir::tosa::ConstOp>() ||
             constValue.getDefiningOp<ONNXNoneOp>())) {
       return rewriter.notifyMatchFailure(
           op, "Only tosa.const operands are supported");
     }
     // creating the DenseElementsAttr using pads values.
-    ElementsAttr denseAttr = mlir::onnx_mlir::getValueFromTosaConst<ElementsAttr>(pads);
+    ElementsAttr denseAttr = tosa::getValueFromTosaConst<ElementsAttr>(pads);
 
     // Reading the ONNX side pads values and store in the array.
     llvm::SmallVector<int64_t, 8> intValues;
@@ -86,27 +86,28 @@ public:
         RankedTensorType::get({numberOfDims, 2}, rewriter.getI64Type()),
         translatePadsList);
 
-    Value padsList1 =
-        rewriter.create<tosa::ConstOp>(loc, paddingAttr.getType(), paddingAttr);
+    Value padsList1 = rewriter.create<mlir::tosa::ConstOp>(
+        loc, paddingAttr.getType(), paddingAttr);
 
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
     if (!constValue.getType().dyn_cast<NoneType>()) {
       ElementsAttr valueAttr =
-          mlir::onnx_mlir::getValueFromTosaConst<ElementsAttr>(constValue);
+          tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
       auto constType = RankedTensorType::get({}, rewriter.getF32Type());
       auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor =
-          rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
+      Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
+          op->getLoc(), constType, constAttr);
 
-      rewriter.replaceOpWithNewOp<tosa::PadOp>(
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
-      rewriter.replaceOpWithNewOp<tosa::PadOp>(op, resultType, data, padsList1);
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+          op, resultType, data, padsList1);
     }
 
     return success();
