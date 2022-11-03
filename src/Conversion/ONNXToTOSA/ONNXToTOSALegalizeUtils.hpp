@@ -26,8 +26,8 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"                    // from @llvm-project
 
-namespace mlir {
 namespace onnx_mlir {
+namespace tosa {
 
 // Transpose a given TOSA Tensor
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
@@ -91,7 +91,8 @@ TosaOp CreateOpAndInfer(
   }
 
   // Compute the new type based on the joined version.
-  auto newKnowledge = tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
+  auto newKnowledge =
+      tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
   auto new_ty = newKnowledge.getType();
   result.setType(new_ty);
   return op;
@@ -116,6 +117,6 @@ Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
     Value input_val, double input_scale, int64_t input_zp);
 
 } // namespace tosa
-} // namespace mlir
+} // namespace onnx_mlir
 
 #endif // ONNXMLIR_CONVERSION_ONNXTOTOSA_TOSALEGALIZEUTILS_H

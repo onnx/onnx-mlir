@@ -25,8 +25,10 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-namespace mlir {
+using namespace mlir;
+
 namespace onnx_mlir {
+namespace tosa {
 
 // Common function for lowering reduce operations to TOSA ops.
 template <typename T>
@@ -47,7 +49,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
 
   if (axes_elems.getNumElements() == 0) {
     // No axes means return the original tensor.
-    auto identity_op = CreateOpAndInfer<tosa::IdentityOp>(
+    auto identity_op = CreateOpAndInfer<mlir::tosa::IdentityOp>(
         rewriter, op->getLoc(), output_type, val);
     val = identity_op.getResult();
   } else {
@@ -84,7 +86,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     // Optionally squeeze out the reduced axes.
     if (!keep_dims) {
       auto reshape_op =
-          CreateOpAndInfer<tosa::ReshapeOp>(rewriter, op->getLoc(), output_type,
+          CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(), output_type,
               val, rewriter.getI64ArrayAttr(output_shape));
       val = reshape_op.getResult();
     }
@@ -164,12 +166,12 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
 
   if (!input_is_qtype) {
     Value div_const = getTosaConstTensorSingleF32(rewriter, op, div_scale);
-    return CreateOpAndInfer<tosa::MulOp>(
+    return CreateOpAndInfer<mlir::tosa::MulOp>(
         rewriter, op->getLoc(), output_type, val.value(), div_const, 0)
         .getResult();
   }
 
   return val;
 }
+} // namespace tosa
 } // namespace onnx_mlir
-} // namespace mlir

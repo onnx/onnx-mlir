@@ -28,8 +28,9 @@
 #include "llvm/IR/DerivedTypes.h"
 #include <cstdint>
 
-namespace mlir {
+using namespace mlir;
 namespace onnx_mlir {
+namespace tosa {
 
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
     Value &value, llvm::ArrayRef<int64_t> perm) {
@@ -58,7 +59,8 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
   auto constType = reduceAxisToOne(shape, rewriter.getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
-  auto constOp = rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
+  auto constOp =
+      rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
   return constOp.getResult();
 }
 
