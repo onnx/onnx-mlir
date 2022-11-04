@@ -11,9 +11,12 @@ jobs:
         submodules: recursive
     - uses: actions/setup-python@v4
       with:
+        id: cp310
         python-version: '3.10'
     - name: install tools that are needed for compilation
-      run: brew install automake ninja pybind11
+      run: |
+        brew install automake ninja pybind11
+        echo PATH=${{ steps.cp310.outputs.python-path }}:$PATH >>$GITHUB_ENV
     - name: install protobuf
       run: |
         cd ~/work
@@ -34,14 +37,17 @@ jobs:
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
     - name: install third_party/onnx
       run: |
+        echo $PATH
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
         git fetch --prune --unshallow --tags
         python3 -m pip install -v .
     - name: build onnx-mlir
       run: |
+        echo $PATH
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
     - name: run onnx-mlir backend and numerical tests
       run: |
+        echo $PATH
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
