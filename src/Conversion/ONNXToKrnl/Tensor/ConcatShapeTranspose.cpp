@@ -45,10 +45,6 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     uint64_t commonRank = commonShape.size();
     int64_t axisIndex = operandAdaptor.axis();
 
-    // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
-    // assert(-commonRank <= axisIndex && axisIndex < commonRank &&
-    //      "axis out of range");
-
     // Negative axis means values are counted from the opposite side.
     // TOFIX should be in normalization pass
     if (axisIndex < 0)
