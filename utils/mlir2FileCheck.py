@@ -262,6 +262,8 @@ def process_line(i, line):
         return
 
     # Process output for FileCheck.
+    # Avoid the constant name numbering in krnl global
+    new_line = re.sub(r'name = "constant_\d+"', 'name = "constant_{{[0-9]+}}"', new_line)  # get rid of [[[
     # Avoid [[[ and ]]] and others text that are reserved by FileCheck.
     new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line)  # get rid of [[[
     new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line)  # get rid of ]]]
