@@ -220,7 +220,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [NoSideEffect,
     Operations that transforms data from the same ONNX layout format are
     considered as a no operation and will be removed.
 
-    This operation is not part of the standard and was added to assit onnx-mlir.
+    This operation is not part of the standard and was added to assist onnx-mlir.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
       ONNXTensor_KCMN4C4K]>:$data,
