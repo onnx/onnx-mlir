@@ -53,3 +53,7 @@ target_link_libraries(MhloDialect PUBLIC
   StablehloAssemblyFormat
   StablehloTypeInference
   )
+
+target_link_libraries(StablehloTypeInference PUBLIC
+  StablehloBase
+  )
