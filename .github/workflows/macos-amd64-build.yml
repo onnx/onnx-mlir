@@ -15,6 +15,7 @@ jobs:
       run: |
         cd ~/work
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
+        python3 -m pip install -v protobuf==3.18.3
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v2
