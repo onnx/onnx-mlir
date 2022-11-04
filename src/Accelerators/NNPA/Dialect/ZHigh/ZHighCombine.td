@@ -129,23 +129,6 @@ def ReplaceONNXConcatByZHighConcatPattern: Pat<
    (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
 >;
 
-// Since sigmoid is an element-wise op and does not depend on layout, we change
-// the sigmoid's layout to the one from the previous unstick, which enables
-// unstick/stick removal.
-// TODO: generalize this rule to the other element-wise ops, which requires
-// more analyses to decide whether changing layout is the best for the whole
-// model or not.
-def SigmoidLayoutChangingPattern : Pat<
-  // From different layouts.
-  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x (ZHighUnstickOp $x),
-                                                $_))),
-  // To the same layouts.
-  (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$new_s_x (ZHighUnstickOp $x),
-                                                         (GetLayout $x)),
-                                  (returnType $new_s_x))),
-  [(NotSameLayout $x, $s_x)]
->;
-
 // The pattern
 //   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
 // can be replaced by
