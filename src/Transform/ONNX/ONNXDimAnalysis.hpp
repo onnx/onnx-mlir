@@ -24,7 +24,9 @@ public:
   using DimT = std::pair<mlir::Value, uint64_t>;
   // A set of dimensions.
   using DimSetT = llvm::SmallDenseSet<DimT, 4>;
-  // A mapping between an ID and a set of dimensions.
+  // A mapping between an ID and a set of dimensions. The ID is called set ID.
+  // This data structure is to store the (intermediate or final) result of
+  // analysis.
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
 public:
@@ -35,6 +37,15 @@ public:
   DimAnalysis(mlir::ModuleOp op);
 
   /// Analyzes the relationship amongs unknown dimensions.
+  /// Current implementation uses a fixed-point iteration algorithm,
+  /// where there are two phases at each iteration:
+  ///   - Expand: find and add same unknown dimenisons to each set. Same unknown
+  ///     dimensions are discovered by ultilizing ShapeHelper of an operation or
+  ///     ultilizing the current result of this analysis.
+  ///   - Merge: sets that have common elements will be merged into a single
+  ///     set. The set with larger ID will be merged into the set with smaller
+  ///     ID.
+  /// The fixed point condition is: there is no update in each set.
   void analyze();
 
   /// Returns the grouping result of unknown dimensions.
@@ -50,6 +61,7 @@ public:
 
 private:
   /// Initializes the internal mappings.
+  /// Each unknown dimension is initially assigned to a singleton set.
   void build(mlir::Value val);
 
   /// Update each set of unknown dimensions to include the same unknown
