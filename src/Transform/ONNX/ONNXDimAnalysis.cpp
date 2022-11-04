@@ -22,8 +22,8 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
@@ -116,7 +116,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
 /// Use this function for unary operations.
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::ONNXGenericOpUnaryElementwiseShapeHelper shapeHelper(op, nullptr);
+  onnx_mlir::ONNXGenericOpUnaryShapeHelper shapeHelper(op, nullptr);
   auto shapecomputed = shapeHelper.computeShape(op->getOperands()[0]);
   assert(succeeded(shapecomputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
