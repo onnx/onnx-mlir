@@ -456,12 +456,10 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
                                      (!affineWithLitB || b.isLiteral()));
 
   // Test if we have a neutral value.
-  #if 1 // hi alex
   if (hasNeutralA && isLiteral() && getLiteral() == neutralVal)
     return b.deepCopy(); // Copy of the other value (use same questionmark).
   if (hasNeutralB && b.isLiteral() && b.getLiteral() == neutralVal)
     return deepCopy(); // Copy of the other value (use same questionmark).
-  #endif
 
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
@@ -673,9 +671,6 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
     return AffineIndexExpr(aa.getAffineExpr() * bb.getAffineExpr());
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    // hi alex, subsumed now
-    // if (bb.isLiteral() && bb.getLiteral() == 1)
-    //  return aa.deepCopy();
     return NonAffineIndexExpr(aa.getRewriter().create<arith::MulIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -696,19 +691,12 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    // hi alex, subsumed now
-    // if (bval == 1)
-    //  return aa.deepCopy();
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
     return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    // hi alex, subsumed now
-    // if (bb.isLiteral() && bb.getLiteral() == 1) {
-    //   return aa.deepCopy();
-    //}
     return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -726,19 +714,12 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    // hi alex, subsumed now
-    // if (bval == 1)
-    //    return aa.deepCopy();
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().ceilDiv(bval));
     return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    // hi alex, subsumed now
-    // if (bb.isLiteral() && bb.getLiteral() == 1) {
-    //    return aa.deepCopy();
-    //}
     return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
