@@ -21,7 +21,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
