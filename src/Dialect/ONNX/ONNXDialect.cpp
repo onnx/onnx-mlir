@@ -15,11 +15,13 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXTypes.hpp"
 
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
+
+using namespace mlir;
 
 // Tablegen ONNX types and attributes are implemented here (by including the
 // generated .cpp.inc code files) in the same source file as dialect
@@ -38,8 +40,8 @@
 // ONNX Type: SeqType
 //===----------------------------------------------------------------------===//
 
-mlir::Type SeqType::parse(mlir::AsmParser &parser) {
-  mlir::Type elementType;
+Type SeqType::parse(AsmParser &parser) {
+  Type elementType;
   if (parser.parseLess() || parser.parseType(elementType) ||
       parser.parseGreater()) {
     parser.emitError(parser.getCurrentLocation())
@@ -50,7 +52,7 @@ mlir::Type SeqType::parse(mlir::AsmParser &parser) {
   return get(elementType, -1);
 }
 
-void SeqType::print(mlir::AsmPrinter &printer) const {
+void SeqType::print(AsmPrinter &printer) const {
   // Previous implementation did not print/parse the length field
   // May add the field in future
   printer << "<" << getElementType() << ">";
@@ -78,8 +80,6 @@ void SeqType::print(mlir::AsmPrinter &printer) const {
   once that is done, the code is fully parametric in terms of the encoding
   attribute xFactor and yFactor.
 */
-
-using namespace mlir;
 
 Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   if (failed(parser.parseLess()))
@@ -141,7 +141,7 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-void mlir::ONNXDialect::initialize() {
+void ONNXDialect::initialize() {
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
