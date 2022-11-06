@@ -173,8 +173,6 @@ mlir::Value createNoneFloatConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 
 bool isFromNone(mlir::Value value);
-mlir::Type getBroadcastedRankedType(
-    mlir::Type type1, mlir::Type type2, mlir::Type elementType = nullptr);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -272,9 +270,3 @@ mlir::Type convertONNXTypeToMLIRType(
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 } // namespace onnx_mlir
-
-#define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() +                                                        \
-      ": is not supported at this time. Please open an issue on "              \
-      "https://github.com/onnx/onnx-mlir and/or consider contributing code. "  \
-      "Error encountered in shape inference.")

@@ -56,7 +56,4 @@ LogicalResult ONNXUniqueOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXUniqueOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
+// TODO
