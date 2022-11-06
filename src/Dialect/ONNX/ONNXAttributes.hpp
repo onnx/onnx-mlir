@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- ONNXAttributes.hpp - ONNX Attributes ----------------===//
+//===--------------------- ONNXAttributes.hpp -----------------------------===//
 //
 // This file defines attributes in the ONNX Dialect.
 //

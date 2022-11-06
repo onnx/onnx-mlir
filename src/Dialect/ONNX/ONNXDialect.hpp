@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- ONNXDialect.hpp - ONNX Operations -------------------===//
+//===-------------------------- ONNXDialect.hpp ---------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
