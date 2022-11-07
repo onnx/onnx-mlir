@@ -36,10 +36,18 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
   auto yTy = y().getType().cast<ShapedType>();
 
   if (!yTy.hasStaticShape()) {
-    // TODO: Unfortunately, we can't tell if this should be signed or
-    // unsigned here...
-    IntegerType i8Type = IntegerType::get(getContext(), 8);
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    Value zero = y_zero_point();
+
+    Type elementType;
+    if (isFromNone(zero)) {
+      // If zero point type isn't provided, output type defaults to ui8.
+      elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);
+    } else {
+      // If zero point is provided, output type is same as zero point type.
+      elementType = zero.getType().cast<ShapedType>().getElementType();
+    }
+    RankedTensorType outType =
+        RankedTensorType::get(inTy.getShape(), elementType);
     y().setType(outType);
   }
 

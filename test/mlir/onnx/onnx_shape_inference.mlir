@@ -1555,6 +1555,25 @@ func.func @test_quantize_linear_1(%arg0 : tensor<5x2x3x4xf32>, %arg1 : tensor<f3
   // CHECK: return [[RES]] : tensor<5x2x3x4xi8>
 }
 
+func.func @test_quantize_linear_2(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<ui8>) -> tensor<*xui8> {
+ %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<*xui8>
+ "func.return"(%0) {} : (tensor<*xui8>) -> ()
+
+ // CHECK-LABEL: test_quantize_linear_2
+ // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<5x2x3x4xui8>
+ // CHECK: return [[RES]] : tensor<5x2x3x4xui8>
+}
+
+func.func @test_quantize_linear_3(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xui8> {
+%none = "onnx.NoValue"() {value} : () -> none
+ %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %none) {} : (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<*xui8>
+ "func.return"(%0) {} : (tensor<*xui8>) -> ()
+
+ // CHECK-LABEL: test_quantize_linear_3
+ // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %0) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<5x2x3x4xui8>
+ // CHECK: return [[RES]] : tensor<5x2x3x4xui8>
+}
+
 func.func @test_dequantize_linear_1(%arg0 : tensor<5x2x3x4xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<*xf32> {
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x2x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<*xf32>
   "func.return"(%1) {} : (tensor<*xf32>) -> ()
