@@ -747,7 +747,7 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
-  // Neutral value: ignore here that x % x = x.
+  // Neutral value: ignore here that x % x = 0.
   return binaryOp(
       b, true, true, false, false, 1, litFct, affineExprFct, valueFct);
 }
