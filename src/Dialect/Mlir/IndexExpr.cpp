@@ -1209,15 +1209,15 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(DimIndexExpr const &o)
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
     : QuestionmarkIndexExpr(o.getObjPtr()) {}
 
-bool QuestionmarkIndexExpr::specificQuestionmark() {
+bool QuestionmarkIndexExpr::specificQuestionmark() const {
   assert((getKind() == IndexExprKind::Questionmark) &&
          "Expected QuestionMarkIndexExpr");
   return (getQuestionmark() != -1);
 }
 
-bool QuestionmarkIndexExpr::sameQuestionmark(IndexExpr const &o) {
-  assert((o.getKind() == IndexExprKind::Questionmark) &&
-         "Expected QuestionMarkIndexExpr as input");
+bool QuestionmarkIndexExpr::sameQuestionmark(IndexExpr const &o) const {
+  if (!o.isQuestionmark())
+    return false;
   QuestionmarkIndexExpr oQM(o);
   return (specificQuestionmark() && oQM.specificQuestionmark() &&
           (getQuestionmark() == oQM.getQuestionmark()));

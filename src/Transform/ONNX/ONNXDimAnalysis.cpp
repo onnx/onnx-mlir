@@ -62,10 +62,8 @@ bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
 /// same unknown dimensions in the inputs.
 void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     mlir::ValueRange operands, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  int64_t outputQMValue = qmOuputIE.getQuestionmark();
-  // Cannot process if the question mark value is -1 that is a common value for
-  // every question mark.
-  if (outputQMValue == -1)
+  // Cannot process if the question mark is not a specific one.
+  if (!qmOuputIE.specificQuestionmark())
     return;
   // Find the same unknown dimension in the inputs.
   for (Value v : operands) {
@@ -74,11 +72,8 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     int64_t rank = onnx_mlir::getRank(v.getType());
     onnx_mlir::MemRefBoundsIndexCapture vDims(v);
     for (int64_t i = 0; i < rank; ++i) {
-      onnx_mlir::IndexExpr iIR = vDims.getDim(i);
-      if (iIR.isQuestionmark()) {
-        if (iIR.getQuestionmark() == outputQMValue)
-          sameDims.insert(onnx_mlir::DimAnalysis::DimT(v, i));
-      }
+      if (qmOuputIE.sameQuestionmark(vDims.getDim(i)))
+        sameDims.insert(onnx_mlir::DimAnalysis::DimT(v, i));
     }
   }
 }
