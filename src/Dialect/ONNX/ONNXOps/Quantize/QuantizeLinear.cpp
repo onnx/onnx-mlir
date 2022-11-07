@@ -46,7 +46,8 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
       // If zero point is provided, output type is same as zero point type.
       elementType = zero.getType().cast<ShapedType>().getElementType();
     }
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), elementType);
+    RankedTensorType outType =
+        RankedTensorType::get(inTy.getShape(), elementType);
     y().setType(outType);
   }
 
