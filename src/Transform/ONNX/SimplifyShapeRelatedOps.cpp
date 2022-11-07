@@ -56,6 +56,7 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
