@@ -176,7 +176,7 @@ void DimAnalysis::build(Value val) {
   }
 }
 
-bool DimAnalysis::areSame(mlir::Value tensor1, uint64_t dimAxis1,
+bool DimAnalysis::sameUnknownDim(mlir::Value tensor1, uint64_t dimAxis1,
     mlir::Value tensor2, uint64_t dimAxis2) const {
   DimT dim1(tensor1, dimAxis1);
   DimT dim2(tensor2, dimAxis2);
@@ -187,6 +187,33 @@ bool DimAnalysis::areSame(mlir::Value tensor1, uint64_t dimAxis1,
       return true;
   }
   return false;
+}
+
+bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
+    return false;
+  // Different rank, return false.
+  if (tensor1Type.getRank() != tensor2Type.getRank())
+    return false;
+  // Both tensors have static dimensions.
+  if (tensor1Type.hasStaticShape() && tensor2Type.hasStaticShape())
+    return (tensor1Type.getShape() == tensor2Type.getShape());
+  // There are unknown dimensions, use DimAnalysis to check equality.
+  for (unsigned i = 0; i < tensor1Type.getRank(); ++i) {
+    int64_t dim1 = tensor1Type.getShape()[i];
+    int64_t dim2 = tensor2Type.getShape()[i];
+    if (dim1 != dim2)
+      return false;
+    // Same dimensions but can be unknown (-1).
+    if (dim1 == -1) {
+      // Two unknown dimensions are NOT the same at compile time.
+      if (!sameUnknownDim(tensor1, i, tensor2, i))
+        return false;
+    }
+  }
+  return true;
 }
 
 void DimAnalysis::dump() const {
@@ -324,7 +351,7 @@ void DimAnalysis::visitDim(
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
           (bShape[bDimIndex] == -1) &&
-          onnx_mlir::DimAnalysis::areSame(A, aDimIndex, B, bDimIndex))
+          onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
     }
     return;
@@ -397,7 +424,8 @@ void DimAnalysis::visitDim(
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
-          (bShape[bDimIndex] == -1) && areSame(A, aDimIndex, B, bDimIndex))
+          (bShape[bDimIndex] == -1) &&
+          sameUnknownDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(DimT(A, aDimIndex));
     }
     return;

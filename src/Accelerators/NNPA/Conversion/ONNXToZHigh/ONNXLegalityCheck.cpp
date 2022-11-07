@@ -44,41 +44,6 @@ bool isValidElementTypeAndRank(Value val) {
   return false;
 }
 
-/// A function to check whether two tensors have the same shape or not.
-/// In case where they have the same rank but unknown dimensions, we use the
-/// dimension analysis to try inferring the equality at compile.
-/// TODO: find a new home for this function since it's independent of NNPA.
-bool haveSameShape(
-    Value value1, Value value2, const onnx_mlir::DimAnalysis *dimAnalysis) {
-  ShapedType valueType1 = value1.getType().cast<ShapedType>();
-  ShapedType valueType2 = value2.getType().cast<ShapedType>();
-  if (!valueType1.hasRank() || !valueType2.hasRank())
-    return false;
-  // Different rank, return false.
-  if (valueType1.getRank() != valueType2.getRank())
-    return false;
-  // Only check when both tensors have static dimensions.
-  if (valueType1.hasStaticShape() && valueType2.hasStaticShape())
-    return (valueType1.getShape() == valueType2.getShape());
-  // There are unknown dimensions, use DimAnalysis to check equality.
-  if (!dimAnalysis)
-    // DimAnalysis is not given, return false.
-    return false;
-  for (unsigned i = 0; i < valueType1.getRank(); ++i) {
-    int64_t dim1 = valueType1.getShape()[i];
-    int64_t dim2 = valueType2.getShape()[i];
-    if (dim1 != dim2)
-      return false;
-    // Same dimensions but can be unknown (-1).
-    if (dim1 == -1) {
-      // Two unknown dimensions are NOT the same at compile time.
-      if (!dimAnalysis->areSame(value1, i, value2, i))
-        return false;
-    }
-  }
-  return true;
-}
-
 /// Common legality check for pooling ops
 template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
 bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
@@ -293,7 +258,7 @@ bool isSuitableForZDNN<ONNXAddOp>(
     return false;
   if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameShape(op.A(), op.B(), dimAnalysis);
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXSub.
@@ -304,7 +269,7 @@ bool isSuitableForZDNN<ONNXSubOp>(
     return false;
   if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameShape(op.A(), op.B(), dimAnalysis);
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXMul.
@@ -315,7 +280,7 @@ bool isSuitableForZDNN<ONNXMulOp>(
     return false;
   if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameShape(op.A(), op.B(), dimAnalysis);
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXDiv.
@@ -326,7 +291,7 @@ bool isSuitableForZDNN<ONNXDivOp>(
     return false;
   if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameShape(op.A(), op.B(), dimAnalysis);
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXSum.
@@ -344,7 +309,7 @@ bool isSuitableForZDNN<ONNXSumOp>(
     // Check data type.
     if (!isValidElementTypeAndRank(op.data_0()[i]))
       return false;
-    if (!haveSameShape(op.data_0()[0], op.data_0()[i], dimAnalysis))
+    if (!dimAnalysis->sameShape(op.data_0()[0], op.data_0()[i]))
       return false;
   }
   return true;
@@ -363,7 +328,7 @@ bool isSuitableForZDNN<ONNXMinOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
-  return haveSameShape(op.getOperand(0), op.getOperand(1), dimAnalysis);
+  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
 
 /// Check legality for ONNXMax.
@@ -379,7 +344,7 @@ bool isSuitableForZDNN<ONNXMaxOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
-  return haveSameShape(op.getOperand(0), op.getOperand(1), dimAnalysis);
+  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
 
 /// Check legality for ONNXSoftmax.
