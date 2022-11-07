@@ -50,6 +50,7 @@ void SeqType::print(AsmPrinter &printer) const {
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
 
+// See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
 void ONNXDialect::registerTypes() {
   addTypes<
 #define GET_TYPEDEF_LIST

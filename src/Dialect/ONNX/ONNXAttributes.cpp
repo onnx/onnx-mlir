@@ -100,6 +100,7 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 #define GET_ATTRDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
 
+// See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
 void ONNXDialect::registerAttributes() {
   addAttributes<
 #define GET_ATTRDEF_LIST
