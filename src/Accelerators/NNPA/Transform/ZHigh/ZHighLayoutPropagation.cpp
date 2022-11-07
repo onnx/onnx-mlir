@@ -62,6 +62,39 @@ Value emitONNXTranspose(Location loc, PatternRewriter &rewriter, Value x,
   return transposedInput.getResult();
 }
 
+template <typename ONNX_OP>
+class ONNXUnaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
+public:
+  using OpRewritePattern<ONNX_OP>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNX_OP unaryOp, PatternRewriter &rewriter) const override {
+    Operation *genericOp = unaryOp.getOperation();
+    Location loc = genericOp->getLoc();
+
+    Value input = unaryOp.X();
+    Value output = unaryOp.Y();
+
+    // Input is a block argument, do nothing.
+    if (input.dyn_cast<BlockArgument>())
+      return failure();
+
+    // Input is a CPU tensor, do nothing.
+    auto unstickOp = dyn_cast<ZHighUnstickOp>(input.getDefiningOp());
+    if (!unstickOp)
+      return failure();
+
+    // Input is unstickified from a zTensor. Do computation directly on the
+    // zTensor.
+    Value zTensor = unstickOp.In();
+    Value zOutput = rewriter.create<ONNX_OP>(loc, zTensor.getType(), zTensor);
+    Value replacedValue =
+        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+    rewriter.replaceOp(genericOp, replacedValue);
+    return success();
+  }
+};
+
 namespace {
 /// Use anonymous namespace to avoid duplication symbol `populateWithGenerated`
 /// among multiple tablegen-based definitions.
@@ -85,7 +118,10 @@ struct ZHighLayoutPropagationPass
     auto function = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+    // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
+    // Layout propagation for ONNX Ops.
+    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
     // We want to canonicalize stick/unstick ops during this pass to simplify
     // rules in this pass.
     ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());

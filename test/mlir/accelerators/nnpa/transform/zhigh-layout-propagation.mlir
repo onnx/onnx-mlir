@@ -166,3 +166,19 @@ func.func @relu_layout_propagate_nhwc(%arg0: tensor<1x56x56x256xf32, #zhigh.enco
 // CHECK:           return [[VAR_2_]] : tensor<1x256x56x56xf32, #zhigh.encoding<{dataLayout = "4D"}>>
 // CHECK:         }
 }
+
+// -----
+
+// Data layout propagation for ONNX operations.
+func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "onnx.Sqrt"(%0) : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32>
+  %2 = "zhigh.Stick"(%1) {layout = "4D"} : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+  return %2 : tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+
+// CHECK-LABEL:  func.func @test_onnx_sqrt_ztensor
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sqrt"([[PARAM_0_]]) : (tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+// CHECK:           return [[VAR_0_]] : tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+// CHECK:         }
+}
