@@ -95,6 +95,58 @@ public:
   }
 };
 
+template <typename ONNX_OP>
+class ONNXBinaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
+public:
+  using OpRewritePattern<ONNX_OP>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNX_OP binaryOp, PatternRewriter &rewriter) const override {
+    Operation *genericOp = binaryOp.getOperation();
+    Location loc = genericOp->getLoc();
+
+    Value A = binaryOp.A();
+    Value B = binaryOp.B();
+    Value output = binaryOp.C();
+
+    // Input is a block argument, do nothing.
+    if (A.dyn_cast<BlockArgument>() || B.dyn_cast<BlockArgument>())
+      return failure();
+
+    // Input is a CPU tensor, do nothing.
+    auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
+    auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
+    if (!unstickAOp || !unstickBOp)
+      return failure();
+
+    // Input is unstickified from a zTensor. Do computation directly on the
+    // zTensor.
+    Value zTensorA = unstickAOp.In();
+    Value zTensorB = unstickBOp.In();
+    Type zTensorAType = zTensorA.getType();
+    Type zTensorBType = zTensorB.getType();
+
+    // zTensor A & B must have the same layout.
+    if (getZTensorLayout(zTensorAType) != getZTensorLayout(zTensorBType))
+      return failure();
+
+    // Construct the output type from CPU tensor' shape and element type, plus
+    // zTensor's data layout.
+    auto outputType = output.getType().dyn_cast<RankedTensorType>();
+    if (!outputType)
+      return failure();
+    Type zOutputType = RankedTensorType::get(outputType.getShape(),
+        outputType.getElementType(), getZTensorEncoding(zTensorAType));
+
+    Value zOutput =
+        rewriter.create<ONNX_OP>(loc, zOutputType, zTensorA, zTensorB);
+    Value replacedValue =
+        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+    rewriter.replaceOp(genericOp, replacedValue);
+    return success();
+  }
+};
+
 namespace {
 /// Use anonymous namespace to avoid duplication symbol `populateWithGenerated`
 /// among multiple tablegen-based definitions.
@@ -121,6 +173,9 @@ struct ZHighLayoutPropagationPass
     // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
     // Layout propagation for ONNX Ops.
+    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
+    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
+        &getContext());
     patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
     // We want to canonicalize stick/unstick ops during this pass to simplify
     // rules in this pass.
