@@ -4,7 +4,7 @@
 
 //===---------- ZHighLayoutPropagation.cpp - ZHigh High Level Optimizer ---===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -32,37 +32,79 @@ using namespace onnx_mlir::zhigh;
 namespace onnx_mlir {
 namespace zhigh {
 
+namespace {
+
 //===----------------------------------------------------------------------===//
-// ZHigh layout propagation Pass
+// Helper functions for this pass
 //===----------------------------------------------------------------------===//
 
-/// Get MemRef transposed by using permArray(d0, d1, d2, d3).
-Value emitONNXTranspose(Location loc, PatternRewriter &rewriter, Value x,
-    int d0, int d1, int d2, int d3) {
-  ShapedType inputType = x.getType().cast<ShapedType>();
-  Type elementType = inputType.getElementType();
-  Type transposedType;
-  if (inputType.hasRank()) {
-    ArrayRef<int64_t> inputShape = inputType.getShape();
-    SmallVector<int64_t, 4> transposedShape;
-    transposedShape.emplace_back(inputShape[d0]);
-    transposedShape.emplace_back(inputShape[d1]);
-    transposedShape.emplace_back(inputShape[d2]);
-    transposedShape.emplace_back(inputShape[d3]);
-    transposedType = RankedTensorType::get(transposedShape, elementType);
-  } else {
-    transposedType = UnrankedTensorType::get(elementType);
-  }
+/// Check if all values are produced by ZHighUnstickOp with the same layout.
+std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
+    PatternRewriter &rewriter, ValueRange values) {
+  // Check the first value and get its layout.
+  Value first = values[0];
+  if (first.isa<BlockArgument>() || !isa<ZHighUnstickOp>(first.getDefiningOp()))
+    return std::make_pair(false, nullptr);
+  Value firstStickifiedVal = cast<ZHighUnstickOp>(first.getDefiningOp()).In();
+  StringAttr firstLayout = convertZTensorDataLayoutToStringAttr(
+      rewriter, getZTensorLayout(firstStickifiedVal.getType()));
 
-  SmallVector<int64_t, 4> permArray;
-  permArray.emplace_back(d0);
-  permArray.emplace_back(d1);
-  permArray.emplace_back(d2);
-  permArray.emplace_back(d3);
-  ONNXTransposeOp transposedInput = rewriter.create<ONNXTransposeOp>(
-      loc, transposedType, x, rewriter.getI64ArrayAttr(permArray));
-  return transposedInput.getResult();
+  // Check all values.
+  bool allTheSame = llvm::all_of(values, [&](Value v) {
+    using namespace onnx_mlir::zhigh;
+    if (v.isa<BlockArgument>() || !isa<ZHighUnstickOp>(v.getDefiningOp()))
+      return false;
+    Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
+    StringAttr nextLayout = convertZTensorDataLayoutToStringAttr(
+        rewriter, getZTensorLayout(stickifiedVal.getType()));
+    return (nextLayout == firstLayout);
+  });
+
+  if (allTheSame)
+    return std::make_pair(true, firstLayout);
+  return std::make_pair(false, nullptr);
 }
+
+/// Return zTensors that are unstickified into the given tensors.
+SmallVector<Value, 4> getZTensors(
+    PatternRewriter &rewriter, Location loc, ValueRange tensors) {
+  SmallVector<Value, 4> zTensors;
+  for (Value v : tensors)
+    zTensors.emplace_back(v.getDefiningOp()->getOperands()[0]);
+  return zTensors;
+}
+
+/// Return a zTensorType for the given tensor and layout.
+Type getZTensorType(
+    PatternRewriter &rewriter, Location loc, Value tensor, StringAttr layout) {
+  // Borrow ZHighStickOp to infer a zTensor type.
+  ZHighStickOp stickOp = rewriter.create<ZHighStickOp>(loc, tensor, layout);
+  (void)stickOp.inferShapes([](Region &region) {});
+
+  Type returnType = stickOp.Out().getType();
+  rewriter.eraseOp(stickOp);
+
+  return returnType;
+}
+
+//===----------------------------------------------------------------------===//
+// ZHigh layout propagation patterns
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Layout propagation for ONNX unary element-wise operations
+//
+// ONNX unary operations, such as Relu and Tanh, do not depend on a specific
+// layout. Thus, it is possible to use the layout of the previous zTensor. In
+// other words, propagate the existing layout down to the unary operation, so
+// that other rules can be applied to remove unstick-stick pairs.For example,
+// This sequence of operations:
+//   zhigh.Conv -> Unstick (NHWC) -> onnx.Relu
+// will become:
+//   zhigh.Conv -> onnx.Relu -> Unstick (NHWC)
+// then, canonicalization of unstick/stick will remove the unstick-stick pair.
+//
+//===----------------------------------------------------------------------===//
 
 template <typename ONNX_OP>
 class ONNXUnaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
@@ -96,6 +138,27 @@ public:
     return success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// Layout propagation for ONNX binary element-wise operations
+//
+// ONNX binary operations, such as Add and Div, do not depend on a specific
+// layout. Thus, it is possible to use the layout of the previous zTensor. In
+// other words, propagate the existing layout down to the unary operation, so
+// that other rules can be applied to remove unstick-stick pairs.For example,
+// This sequence of operations:
+//   X -> Unstick (NHWC) -> onnx.Add
+//                              ^
+//   Y -> Unstick (NHWC) -------|
+//
+// will become:
+//   X -> onnx.Add -> Unstick (NHWC)
+//          ^
+//   Y -----|
+//
+// then, canonicalization of unstick/stick will remove the unstick-stick pairs.
+//
+//===----------------------------------------------------------------------===//
 
 template <typename ONNX_OP>
 class ONNXBinaryOpLayoutPropPattern : public OpRewritePattern<ONNX_OP> {
@@ -154,95 +217,111 @@ public:
   }
 };
 
-namespace {
+/// The pattern
+///   onnx.Concat (zhigh.Unstick (%X1), zhigh.Unstick (%X2)) { axis })
+/// can be replaced by
+///   zhigh.Unstick (onnx.Concat (%X1, %X2) { new_axis })
+class ONNXConcatLayoutPropagatePattern : public OpRewritePattern<ONNXConcatOp> {
+public:
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
-// Check if all values are produced by ZHighUnstickOp.
-bool areProducedByUnstickOp(
-    PatternRewriter &rewriter, ValueRange values, StringAttr layout) {
-  // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
-  // stickification scheme.
-  if (!(isNHWCLayout(layout) || is4DLayout(layout)))
-    return false;
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
+    Operation *genericOp = concatOp.getOperation();
+    Location loc = genericOp->getLoc();
+    ValueRange inputs = concatOp.inputs();
+    IntegerAttr axis = concatOp.axisAttr();
+    Value output = concatOp.concat_result();
 
-  return llvm::all_of(values, [&](Value v) {
-    using namespace onnx_mlir::zhigh;
-    // Block argument.
-    if (v.isa<BlockArgument>())
+    // Variables for capturing values and attributes used while creating ops
+    StringAttr layout;
+    bool allTheSame;
+    std::tie(allTheSame, layout) =
+        areProducedByUnstickOpSameLayout(rewriter, inputs);
+    if (!allTheSame)
+      return failure();
+
+    // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
+    // stickification scheme.
+    if (!(isNHWCLayout(layout) || is4DLayout(layout)))
+      return failure();
+
+    if (!haveNoPadsWhenStickified(inputs, layout, axis))
+      return failure();
+
+    // Rewrite
+    SmallVector<Value, 4> tblgen_repl_values;
+    SmallVector<Value, 4> zTensors = getZTensors(rewriter, loc, inputs);
+    IntegerAttr newAxis = getNewConcatAxis(rewriter, layout, axis);
+    Type newOutputType = getZTensorType(rewriter, loc, output, layout);
+
+    Value zOutput =
+        rewriter.create<ONNXConcatOp>(loc, newOutputType, zTensors, newAxis);
+    Value replacedValue =
+        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+    rewriter.replaceOp(genericOp, replacedValue);
+    return ::mlir::success();
+  };
+
+private:
+  // Check if there are no pads along the given axis when stickifying values by
+  // using the given layout.
+  bool haveNoPadsWhenStickified(
+      ValueRange values, StringAttr layoutAttr, IntegerAttr axisAttr) const {
+    if (!layoutAttr)
       return false;
-    // Not produced by ZHighUnstickOp.
-    if (!isa<ZHighUnstickOp>(v.getDefiningOp()))
+    // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
+    // stickification scheme.
+    if (!(isNHWCLayout(layoutAttr) || is4DLayout(layoutAttr)))
+      return false;
+    // Only support C dimension at this moment.
+    int CAxis = 3; // C is at 3 for 4D and NHWC.
+    if (isNHWCLayout(layoutAttr))
+      // Value is NCHW that will be directly stickified to NHWC. So C is at 1.
+      CAxis = 1;
+    if (axisAttr.getValue().getSExtValue() != CAxis)
       return false;
 
-    // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the
-    // same stickification scheme.
-    Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
-    StringAttr valueLayout = convertZTensorDataLayoutToStringAttr(
-        rewriter, getZTensorLayout(stickifiedVal.getType()));
-    return (valueLayout == layout);
-  });
-}
-
-// Check if there are no pads along the given axis when stickifying values by
-// using the given layout.
-bool haveNoPadsWhenStickified(
-    ValueRange values, StringAttr layoutAttr, IntegerAttr axisAttr) {
-  if (!layoutAttr)
-    return false;
-  // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the same
-  // stickification scheme.
-  if (!(isNHWCLayout(layoutAttr) || is4DLayout(layoutAttr)))
-    return false;
-  // Only support C dimension at this moment.
-  int CAxis = 3; // C is at 3 for 4D and NHWC.
-  if (isNHWCLayout(layoutAttr))
-    // Value is NCHW that will be directly stickified to NHWC. So C is at 1.
-    CAxis = 1;
-  if (axisAttr.getValue().getSExtValue() != CAxis)
-    return false;
-
-  // C dimension is tiled by 64 when stickified. Hence, checking `C mod 64` for
-  // padding.
-  // TODO: get this info from affine_map that is used for stickiyfing NHWC.
-  return llvm::all_of(values, [&layoutAttr](Value v) {
-    if (v.getType().isa<ShapedType>() &&
-        v.getType().cast<ShapedType>().hasRank()) {
-      ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
-      if (isNHWCLayout(layoutAttr))
-        // Value is NCHW that will be directly unstickified from NHWC.
-        // NCHW, C is at 1.
-        return (dims[1] % 64 == 0);
-      else
-        // 4D (similar to NHWC), C is at 3.
-        return (dims[3] % 64 == 0);
-    }
-    return false;
-  });
-}
-
-SmallVector<Value, 4> getStickifiedInputs(
-    PatternRewriter &rewriter, Location loc, ValueRange values) {
-  SmallVector<Value, 4> stickfiedValues;
-  for (Value v : values)
-    stickfiedValues.emplace_back(v.getDefiningOp()->getOperands()[0]);
-  return stickfiedValues;
-}
-
-IntegerAttr getStickifiedConcatAxis(
-    PatternRewriter &rewriter, StringAttr layout, IntegerAttr axisAttr) {
-  int axis = axisAttr.getValue().getSExtValue();
-  if (isNHWCLayout(layout)) {
-    SmallVector<int, 4> NCHWtoNHWC = {0, 3, 1, 2};
-    return rewriter.getIntegerAttr(
-        rewriter.getIntegerType(64, true), NCHWtoNHWC[axis]);
+    // C dimension is tiled by 64 when stickified. Hence, checking `C mod 64`
+    // for padding.
+    // TODO: get this info from affine_map that is used for stickiyfing NHWC.
+    return llvm::all_of(values, [&layoutAttr](Value v) {
+      if (v.getType().isa<ShapedType>() &&
+          v.getType().cast<ShapedType>().hasRank()) {
+        ArrayRef<int64_t> dims = v.getType().cast<ShapedType>().getShape();
+        if (isNHWCLayout(layoutAttr))
+          // Value is NCHW that will be directly unstickified from NHWC.
+          // NCHW, C is at 1.
+          return (dims[1] % 64 == 0);
+        else
+          // 4D (similar to NHWC), C is at 3.
+          return (dims[3] % 64 == 0);
+      }
+      return false;
+    });
   }
-  return axisAttr;
-}
+
+  IntegerAttr getNewConcatAxis(PatternRewriter &rewriter, StringAttr layout,
+      IntegerAttr axisAttr) const {
+    int axis = axisAttr.getValue().getSExtValue();
+    if (isNHWCLayout(layout)) {
+      SmallVector<int, 4> NCHWtoNHWC = {0, 3, 1, 2};
+      return rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, true), NCHWtoNHWC[axis]);
+    }
+    return axisAttr;
+  }
+};
 
 /// Use anonymous namespace to avoid duplication symbol `populateWithGenerated`
 /// among multiple tablegen-based definitions.
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighLayoutPropagation.inc"
+
+//===----------------------------------------------------------------------===//
+// ZHigh layout propagation Pass
+//===----------------------------------------------------------------------===//
 
 struct ZHighLayoutPropagationPass
     : public PassWrapper<ZHighLayoutPropagationPass,
@@ -263,13 +342,22 @@ struct ZHighLayoutPropagationPass
     // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
     // Layout propagation for ONNX Ops.
+    // Add
     patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
+    // Concat
+    patterns.insert<ONNXConcatLayoutPropagatePattern>(&getContext());
+    // Div
     patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(&getContext());
+    // Mul
     patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(&getContext());
+    // Sub
     patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(&getContext());
+    // Reciprocal
     patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
         &getContext());
+    // Sqrt
     patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
+
     // We want to canonicalize stick/unstick ops during this pass to simplify
     // rules in this pass.
     ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());
