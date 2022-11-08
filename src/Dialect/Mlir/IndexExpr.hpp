@@ -557,8 +557,11 @@ protected:
   using F3 = std::function<IndexExpr(
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
+  // When hasNeutralA, if a==*this is neutral literal value, then result is b.
+  // When hasNeutralB, if b is neutral literal value, then result is a.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
+      bool affineExprCompatible, bool hasNeutralA, bool hasNeutralB,
+      int64_t neutralVal, F2 fInteger, F2 fAffine, F2 fValue) const;
   IndexExpr compareOp(
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
