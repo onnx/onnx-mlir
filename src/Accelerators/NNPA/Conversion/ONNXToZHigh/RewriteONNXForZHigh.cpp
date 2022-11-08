@@ -420,7 +420,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, execNodesOnCpu);
+      &target, nullptr, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be

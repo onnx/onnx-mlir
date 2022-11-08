@@ -653,6 +653,17 @@ public:
   ~QuestionmarkIndexExpr() = default;
   QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
   QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
+
+  // Query functions.
+  // Check if the question mark is specific so that it can be distinguished from
+  // other question marks.
+  bool specificQuestionmark() const;
+  // Check if two question marks are the same or not. Two question marks are the
+  // same if they are specific and have the same value.
+  bool sameQuestionmark(IndexExpr const &o) const;
+
+private:
+  QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Predicate IndexExpr.
