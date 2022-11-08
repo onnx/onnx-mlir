@@ -135,11 +135,8 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
 
 llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
     llvm::cl::desc("Specify stage to be instrumented:"),
-    llvm::cl::values(clEnumVal(afterOnnxToOnnx, "Profile for onnx ops."),
-        clEnumVal(nnpaAfterOnnxToOnnx, "[NNPA] Profile for onnx ops."),
-        clEnumVal(
-            nnpaAfterOnnxToZhigh, "[NNPA] Profile for onnx and zhigh ops."),
-        clEnumVal(nnpaAfterZhighToZlow, "[NNPA] Profile for zlow ops.")),
+    llvm::cl::values(clEnumVal(afterOnnxToOnnx, "Profile for onnx ops.")
+            APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",

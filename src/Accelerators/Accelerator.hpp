@@ -42,6 +42,15 @@
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
   map[accel::Accelerator::Kind::name] = #name;
 
+#define ACCEL_INSTRUMENTSTAGE_ENUM(name)                                       \
+  , nnpaAfterOnnxToOnnx, nnpaAfterOnnxToZhigh, nnpaAfterZhighToZlow
+
+#define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name)                                    \
+  , clEnumVal(nnpaAfterOnnxToOnnx, #name " Profile for onnx ops."),            \
+      clEnumVal(                                                               \
+          nnpaAfterOnnxToZhigh, #name " Profile for onnx and zhigh ops."),     \
+      clEnumVal(nnpaAfterZhighToZlow, #name " Profile for zlow ops.")
+
 namespace onnx_mlir {
 namespace accel {
 

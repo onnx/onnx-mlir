@@ -24,6 +24,14 @@
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {
+
+typedef enum {
+  // clang-format off
+  afterOnnxToOnnx
+  APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
+  // clang-format on
+} InstrumentStages;
+
 // Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 // Common options shared between onnx-mlir and onnx-mlir-opt.

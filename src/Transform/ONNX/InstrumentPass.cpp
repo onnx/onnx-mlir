@@ -31,7 +31,7 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops in specified
@@ -47,13 +47,8 @@ public:
   Option<onnx_mlir::InstrumentStages> instrumentStage{*this, "instrument-stage",
       llvm::cl::desc("Specify stage to be instrumented:"),
       llvm::cl::values(
-          clEnumVal(onnx_mlir::afterOnnxToOnnx, "Profile for onnx ops."),
-          clEnumVal(
-              onnx_mlir::nnpaAfterOnnxToOnnx, "[NNPA] Profile for onnx ops."),
-          clEnumVal(onnx_mlir::nnpaAfterOnnxToZhigh,
-              "[NNPA] Profile for onnx and zhigh ops."),
-          clEnumVal(onnx_mlir::nnpaAfterZhighToZlow,
-              "[NNPA] Profile for zlow ops."))};
+      llvm::cl::values(clEnumVal(afterOnnxToOnnx, "Profile for onnx ops.")
+              APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM))};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
       llvm::cl::desc("Specify regex for ops to be instrumented:\n"
@@ -158,7 +153,7 @@ public:
     });
   }
 };
-} // end anonymous namespace
+} // namespace onnx_mlir
 
 /*!
  * Create an instrumentation pass.
