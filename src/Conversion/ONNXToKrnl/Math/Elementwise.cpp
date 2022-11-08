@@ -917,7 +917,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     Type convertedType = typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    llvm::outs() << "alignment: " << alignment << "\n";
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();

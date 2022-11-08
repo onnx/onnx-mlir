@@ -743,9 +743,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 }
 
 int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
-  // Default alignment.
-  int64_t alignment = 16;
-
+  int64_t alignment = -1;
   if (auto tensorType = type.dyn_cast<TensorType>()) {
     // Accelerators may have special versions of TensorType. Call the
     // conversions of accelerators.
@@ -758,7 +756,6 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
         break;
     }
   }
-
   return alignment;
 }
 
