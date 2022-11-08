@@ -200,13 +200,9 @@ public:
         (ALayout != BLayout))
       return failure();
 
-    // Construct the output type from CPU tensor' shape and element type, plus
-    // zTensor's data layout.
-    auto outputType = output.getType().dyn_cast<RankedTensorType>();
-    if (!outputType)
-      return failure();
-    Type zOutputType = RankedTensorType::get(outputType.getShape(),
-        outputType.getElementType(), getZTensorEncoding(zTensorAType));
+    // Construct the zTensor type from the output CPU tensor.
+    Type zOutputType = getZTensorType(rewriter, loc, output,
+        convertZTensorDataLayoutToStringAttr(rewriter, ALayout));
 
     Value zOutput =
         rewriter.create<ONNX_OP>(loc, zOutputType, zTensorA, zTensorB);
