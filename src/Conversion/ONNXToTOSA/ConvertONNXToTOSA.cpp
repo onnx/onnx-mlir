@@ -64,7 +64,7 @@ struct FrontendToTosaLoweringPass
       : PassWrapper<FrontendToTosaLoweringPass, OperationPass<ModuleOp>>() {}
 
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<tosa::TosaDialect>();
+    registry.insert<mlir::tosa::TosaDialect>();
   }
   void runOnOperation() final;
 };
