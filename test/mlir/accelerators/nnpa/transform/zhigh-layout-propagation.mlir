@@ -169,7 +169,40 @@ func.func @relu_layout_propagate_nhwc(%arg0: tensor<1x56x56x256xf32, #zhigh.enco
 
 // -----
 
+func.func @onnx_concat_layout_propagation_nhwc(%arg0: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>
+  %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>
+  %2 = "onnx.Concat"(%0, %1) {axis = 1 : si64} : (tensor<?x192x4x4xf32>, tensor<?x192x4x4xf32>) -> tensor<?x384x4x4xf32>
+  %3 = "zhigh.Stick"(%2) {layout = "NHWC"} : (tensor<?x384x4x4xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+  return %3 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+
+// CHECK-LABEL:  func.func @onnx_concat_layout_propagation_nhwc
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]]) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:           return [[VAR_0_]] : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+// CHECK:         }
+}
+
+// -----
+
+func.func @onnx_concat_layout_propagation_4d(%arg0: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
+  %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
+  %2 = "onnx.Concat"(%0, %1) {axis = 3 : si64} : (tensor<?x4x4x192xf32>, tensor<?x4x4x192xf32>) -> tensor<?x4x4x384xf32>
+  %3 = "zhigh.Stick"(%2) {layout = "4D"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+  return %3 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+
+// CHECK-LABEL:  func.func @onnx_concat_layout_propagation_4d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]]) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>, tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+// CHECK:           return [[VAR_0_]] : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+// CHECK:         }
+}
+
+// -----
+
 // Data layout propagation for ONNX operations.
+// Take ONNXSqrtOp as the representative of unary element-wise ops.
 func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
   %1 = "onnx.Sqrt"(%0) : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32>
@@ -182,3 +215,8 @@ func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{da
 // CHECK:           return [[VAR_0_]] : tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
 // CHECK:         }
 }
+
+// -----
+
+// Data layout propagation for ONNX operations.
+// Take ONNXAddOp as the representative of binary element-wise ops.

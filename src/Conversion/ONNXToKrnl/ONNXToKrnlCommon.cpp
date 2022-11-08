@@ -742,4 +742,24 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 }
 
+int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
+  // Default alignment.
+  int64_t alignment = 16;
+
+  if (auto tensorType = type.dyn_cast<TensorType>()) {
+    // Accelerators may have special versions of TensorType. Call the
+    // conversions of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      // The accelerator knows whether `tensorType` is its target or not to
+      // decide the aligment.
+      // -1 means the accelerator does not have a specific alignment.
+      alignment = accel->getDefaultAllocAlignment(tensorType);
+      if (alignment != -1)
+        break;
+    }
+  }
+
+  return alignment;
+}
+
 } // namespace onnx_mlir

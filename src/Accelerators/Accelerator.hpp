@@ -107,6 +107,14 @@ public:
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
       const mlir::TensorType tensorType) const = 0;
 
+  // Return the default alignment value used when allocating a MemRef buffer for
+  // the given type. E.g. some special types for accelerators requires
+  // 4K-aligned buffers.
+  // Return -1 if there is no specific alignment.
+  virtual int64_t getDefaultAllocAlignment(const mlir::TensorType type) const {
+    return -1;
+  }
+
   /// Define conversion target to be used with ONNXToKrnl.
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const = 0;

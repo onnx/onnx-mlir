@@ -244,6 +244,11 @@ public:
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);
   }
+
+  // Return the default alignment value used when allocating a MemRef buffer for
+  // the given type. E.g. some special types for accelerators requires
+  // 4K-aligned buffers.
+  static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
 
 //===----------------------------------------------------------------------===//

@@ -119,6 +119,16 @@ mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
   return nullptr;
 }
 
+int64_t NNPAAccelerator::getDefaultAllocAlignment(
+    const mlir::TensorType tensorType) const {
+  assert(tensorType.hasRank() && "expected only ranked shapes");
+  if (tensorType.cast<mlir::RankedTensorType>()
+          .getEncoding()
+          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>())
+    return gAlignment;
+  return -1;
+}
+
 void NNPAAccelerator::conversionTargetONNXToKrnl(
     mlir::ConversionTarget &target) const {
   target.addLegalDialect<zlow::ZLowDialect>();
