@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 template <>
 struct TOSADialectOp<ONNXNegOp> {
-  using Op = tosa::NegateOp;
+  using Op = mlir::tosa::NegateOp;
 };
 
 namespace {
@@ -92,7 +92,8 @@ public:
           op, "`tosa.floor` only supports float types");
     }
 
-    rewriter.replaceOpWithNewOp<tosa::FloorOp>(op, op.getType(), adaptor.X());
+    rewriter.replaceOpWithNewOp<mlir::tosa::FloorOp>(
+        op, op.getType(), adaptor.X());
     return success();
   }
 };
@@ -108,7 +109,7 @@ public:
     // Quantized types are not supported right now (in type conversion).
     // Once they are, the input should be rescaled for quantized types. (TBD)
     // Maps to `tosa.clamp` which has both int and fp limits.
-    rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), input,
+    rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(op, op.getType(), input,
         rewriter.getI64IntegerAttr(0),
         rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
         rewriter.getF32FloatAttr(0.0f),
@@ -124,17 +125,17 @@ static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
   Value constZero = tosa::getTosaConstTensorSingleF32(
       rewriter, op, 0.0, outputType.getShape());
 
-  auto mul = tosa::CreateOpAndInfer<tosa::MulOp>(rewriter, op->getLoc(),
+  auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
       outputType, input,
       tosa::getTosaConstTensorSingleF32(
           rewriter, op, alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =
-      tosa::CreateOpAndInfer<tosa::GreaterEqualOp>(rewriter, op->getLoc(),
+      tosa::CreateOpAndInfer<mlir::tosa::GreaterEqualOp>(rewriter, op->getLoc(),
           UnrankedTensorType::get(rewriter.getI1Type()), input, constZero);
 
-  tosa::CreateReplaceOpAndInfer<tosa::SelectOp>(
+  tosa::CreateReplaceOpAndInfer<mlir::tosa::SelectOp>(
       rewriter, op, outputType, greaterEqual, input, mul.getResult());
 
   return success();
@@ -173,8 +174,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
-      ONNXAddSubOpLoweringToTOSA<ONNXAddOp, tosa::AddOp>,
-      ONNXAddSubOpLoweringToTOSA<ONNXSubOp, tosa::SubOp>,
+      ONNXAddSubOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
+      ONNXAddSubOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXLeakyReluOpLoweringToTOSA>(typeConverter, ctx);
 }
 

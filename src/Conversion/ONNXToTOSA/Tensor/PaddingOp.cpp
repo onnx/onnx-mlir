@@ -47,8 +47,8 @@ public:
           op, "Only 'constant' mode is supported");
     }
 
-    if (!pads.getDefiningOp<tosa::ConstOp>() ||
-        !(constValue.getDefiningOp<tosa::ConstOp>() ||
+    if (!pads.getDefiningOp<mlir::tosa::ConstOp>() ||
+        !(constValue.getDefiningOp<mlir::tosa::ConstOp>() ||
             constValue.getDefiningOp<ONNXNoneOp>())) {
       return rewriter.notifyMatchFailure(
           op, "Only tosa.const operands are supported");
@@ -86,8 +86,8 @@ public:
         RankedTensorType::get({numberOfDims, 2}, rewriter.getI64Type()),
         translatePadsList);
 
-    Value padsList1 =
-        rewriter.create<tosa::ConstOp>(loc, paddingAttr.getType(), paddingAttr);
+    Value padsList1 = rewriter.create<mlir::tosa::ConstOp>(
+        loc, paddingAttr.getType(), paddingAttr);
 
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
@@ -100,13 +100,14 @@ public:
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
       auto constType = RankedTensorType::get({}, rewriter.getF32Type());
       auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor =
-          rewriter.create<tosa::ConstOp>(op->getLoc(), constType, constAttr);
+      Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
+          op->getLoc(), constType, constAttr);
 
-      rewriter.replaceOpWithNewOp<tosa::PadOp>(
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
-      rewriter.replaceOpWithNewOp<tosa::PadOp>(op, resultType, data, padsList1);
+      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+          op, resultType, data, padsList1);
     }
 
     return success();

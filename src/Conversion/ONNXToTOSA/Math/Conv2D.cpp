@@ -52,18 +52,18 @@ public:
       return op.emitError("padding must be explicit");
 
     // Convert input [N,C,H,W] -> [N,H,W,C]
-    Value newInput =
-        tosa::createTosaTransposedTensor(rewriter, op, input, {0, 2, 3, 1});
+    Value newInput = tosa::createTosaTransposedTensor(
+        rewriter, op, input, {0, 2, 3, 1});
 
     // Convert weights [M,C,H,W] -> [M,H,W,C]
-    Value newWeight =
-        tosa::createTosaTransposedTensor(rewriter, op, weights, {0, 2, 3, 1});
+    Value newWeight = tosa::createTosaTransposedTensor(
+        rewriter, op, weights, {0, 2, 3, 1});
 
     if (bias.getType().isa<NoneType>()) {
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
           RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
           {0.0F});
-      bias = rewriter.create<tosa::ConstOp>(
+      bias = rewriter.create<mlir::tosa::ConstOp>(
           op->getLoc(), newBiasAttr.getType(), newBiasAttr);
     }
     if (!dilations) {
@@ -85,9 +85,9 @@ public:
       Type newConvOutputType = RankedTensorType::get(
           {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
 
-      conv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter, op->getLoc(),
-          newConvOutputType, newInput, newWeight, bias, pads, strides,
-          dilations);
+      conv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
+          op->getLoc(), newConvOutputType, newInput, newWeight, bias, pads,
+          strides, dilations);
     } else {
       // Set up constants outside of loop
       const int64_t groups = group.getSInt();
@@ -104,40 +104,40 @@ public:
         // Slice input
         ArrayAttr startInputAttr =
             rewriter.getI64ArrayAttr({0, 0, 0, i * sizeOfSlice});
-        Value newSliceInput =
-            tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
-                RankedTensorType::get({-1, -1, -1, -1},
-                    newInput.getType().cast<ShapedType>().getElementType()),
-                newInput, startInputAttr, inputSizeAttr);
+        Value newSliceInput = tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(
+            rewriter, op->getLoc(),
+            RankedTensorType::get({-1, -1, -1, -1},
+                newInput.getType().cast<ShapedType>().getElementType()),
+            newInput, startInputAttr, inputSizeAttr);
 
         // Slice kernel
         ArrayAttr startKernelAttr =
             rewriter.getI64ArrayAttr({i * kernelSize, 0, 0, 0});
-        Value newSliceWeight =
-            tosa::CreateOpAndInfer<tosa::SliceOp>(rewriter, op->getLoc(),
-                RankedTensorType::get({-1, -1, -1, -1},
-                    newInput.getType().cast<ShapedType>().getElementType()),
-                newWeight, startKernelAttr, kernelSizeAttr);
+        Value newSliceWeight = tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(
+            rewriter, op->getLoc(),
+            RankedTensorType::get({-1, -1, -1, -1},
+                newInput.getType().cast<ShapedType>().getElementType()),
+            newWeight, startKernelAttr, kernelSizeAttr);
 
         // Create conv
         Type newConvOutputType = RankedTensorType::get(
             {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
-        Value tempConv2D = tosa::CreateOpAndInfer<tosa::Conv2DOp>(rewriter,
-            op->getLoc(), newConvOutputType, newSliceInput, newSliceWeight,
-            bias, pads, strides, dilations);
+        Value tempConv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(
+            rewriter, op->getLoc(), newConvOutputType, newSliceInput,
+            newSliceWeight, bias, pads, strides, dilations);
         // Add value to vector
         sliceValues.push_back(tempConv2D);
       }
       // Create concat op
       Type newConcatOutputType = RankedTensorType::get(
           {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
-      conv2D = tosa::CreateOpAndInfer<tosa::ConcatOp>(
+      conv2D = tosa::CreateOpAndInfer<mlir::tosa::ConcatOp>(
           rewriter, op->getLoc(), newConcatOutputType, sliceValues, 3);
     }
 
     // Convert output [N,H,W,M] -> [N,M,H,W]
-    Value newOutput =
-        tosa::createTosaTransposedTensor(rewriter, op, conv2D, {0, 3, 1, 2});
+    Value newOutput = tosa::createTosaTransposedTensor(
+        rewriter, op, conv2D, {0, 3, 1, 2});
 
     rewriter.replaceOp(op, {newOutput});
     return success();

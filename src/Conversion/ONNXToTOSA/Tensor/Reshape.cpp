@@ -46,11 +46,11 @@ public:
       return rewriter.notifyMatchFailure(op, "Only allowZero = 0 is supported");
     }
 
-    if (!adaptor.shape().getDefiningOp<tosa::ConstOp>()) {
+    if (!adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
           op, "Only tosa.const operands are supported");
     }
-    Value shapeConst = adaptor.shape().getDefiningOp<tosa::ConstOp>();
+    Value shapeConst = adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>();
     ElementsAttr shapeConstAttr =
         tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
     for (APInt i : shapeConstAttr.getValues<APInt>()) {
@@ -65,7 +65,7 @@ public:
     }
     ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(shapeValues);
 
-    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(
         rewriter, op, outputType, adaptor.data(), shapeAttr);
     return success();
   }

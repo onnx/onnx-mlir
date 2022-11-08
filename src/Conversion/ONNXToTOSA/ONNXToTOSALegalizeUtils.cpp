@@ -28,7 +28,8 @@
 #include "llvm/IR/DerivedTypes.h"
 #include <cstdint>
 
-namespace mlir {
+using namespace mlir;
+namespace onnx_mlir {
 namespace tosa {
 
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
@@ -41,7 +42,7 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
   Type newValueTy = RankedTensorType::get(
       {-1, -1, -1, -1}, value.getType().cast<ShapedType>().getElementType());
   // create transpose for value
-  Value newValue = tosa::CreateOpAndInfer<tosa::TransposeOp>(
+  Value newValue = CreateOpAndInfer<mlir::tosa::TransposeOp>(
       rewriter, op->getLoc(), newValueTy, value, permList);
   return newValue;
 }
@@ -58,7 +59,8 @@ Value getTosaConstTensorSingleF32(PatternRewriter &rewriter, Operation *op,
   auto constType = reduceAxisToOne(shape, rewriter.getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
-  auto constOp = rewriter.create<ConstOp>(op->getLoc(), constType, constAttr);
+  auto constOp =
+      rewriter.create<mlir::tosa::ConstOp>(op->getLoc(), constType, constAttr);
   return constOp.getResult();
 }
 
@@ -82,8 +84,8 @@ llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
       RankedTensorType::get(shape, rewriter.getIntegerType(sizeof(T) * 8));
   auto const_attr = DenseElementsAttr::get(const_type, vec);
 
-  auto const_op =
-      rewriter.create<tosa::ConstOp>(op->getLoc(), const_type, const_attr);
+  auto const_op = rewriter.create<mlir::tosa::ConstOp>(
+      op->getLoc(), const_type, const_attr);
   return const_op.getResult();
 }
 
@@ -104,8 +106,8 @@ llvm::Optional<Value> getConstTensor<float>(PatternRewriter &rewriter,
   auto const_type = RankedTensorType::get(shape, rewriter.getF32Type());
   auto const_attr = DenseElementsAttr::get(const_type, vec);
 
-  auto const_op =
-      rewriter.create<tosa::ConstOp>(op->getLoc(), const_type, const_attr);
+  auto const_op = rewriter.create<mlir::tosa::ConstOp>(
+      op->getLoc(), const_type, const_attr);
   return const_op.getResult();
 }
 
@@ -126,15 +128,15 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
 
   int32_t scale_width = scale32 ? 32 : 16;
 
-  computeMultiplierAndShift(scale, multiplier, shift, scale_width);
+  mlir::tosa::computeMultiplierAndShift(scale, multiplier, shift, scale_width);
 
-  auto rescale_op =
-      CreateOpAndInfer<tosa::RescaleOp>(rewriter, op->getLoc(), output_type,
-          input_val, rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
-          rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
-          rewriter.getI32ArrayAttr({multiplier}),
-          rewriter.getI32ArrayAttr({shift}), rewriter.getBoolAttr(scale32),
-          rewriter.getBoolAttr(double_round), rewriter.getBoolAttr(false));
+  auto rescale_op = CreateOpAndInfer<mlir::tosa::RescaleOp>(rewriter,
+      op->getLoc(), output_type, input_val,
+      rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
+      rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
+      rewriter.getI32ArrayAttr({multiplier}), rewriter.getI32ArrayAttr({shift}),
+      rewriter.getBoolAttr(scale32), rewriter.getBoolAttr(double_round),
+      rewriter.getBoolAttr(false));
 
   return rescale_op.getResult();
 }
@@ -152,4 +154,4 @@ Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
 }
 
 } // namespace tosa
-} // namespace mlir
+} // namespace onnx_mlir
