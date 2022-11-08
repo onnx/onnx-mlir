@@ -57,7 +57,4 @@ LogicalResult ONNXConcatFromSequenceOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConcatFromSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
+// TODO
