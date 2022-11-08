@@ -445,7 +445,8 @@ void IndexExpr::debugPrint(
 
 // Used for add/sub/mult/ceilDiv/floorDiv
 IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
-    bool canBeAffine, F2 litFct, F2 affineExprFct, F2 valueFct) const {
+    bool canBeAffine, bool hasNeutralA, bool hasNeutralB, int64_t neutralVal,
+    F2 litFct, F2 affineExprFct, F2 valueFct) const {
   assert(canBeUsedInScope() && "a cannot be used in current scope");
   assert(b.canBeUsedInScope() && "b cannot be used in current scope");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
@@ -453,6 +454,12 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
   bool resIsLit = isLiteral() && b.isLiteral();
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
+
+  // Test if we have a neutral value.
+  if (hasNeutralA && isLiteral() && getLiteral() == neutralVal)
+    return b.deepCopy(); // Copy of the other value (use same questionmark).
+  if (hasNeutralB && b.isLiteral() && b.getLiteral() == neutralVal)
+    return deepCopy(); // Copy of the other value (use same questionmark).
 
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
@@ -511,7 +518,8 @@ IndexExpr IndexExpr::compareOp(
     return PredicateIndexExpr(compare);
   };
   // Cannot have affine results, disable and pass null lambda function.
-  return binaryOp(b, false, false, litFct, nullptr, valueFct);
+  // Ignore possible neutral values.
+  return binaryOp(b, false, false, false, false, 0, litFct, nullptr, valueFct);
 }
 
 // Conjunction of two conditions: And
@@ -634,7 +642,9 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
     return NonAffineIndexExpr(aa.getRewriter().create<arith::AddIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
-  return binaryOp(b, false, true, litFct, affineExprFct, valueFct);
+  // Neutral value: a + 0 = a, 0 + b = b.
+  return binaryOp(
+      b, false, true, true, true, 0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator-(IndexExpr const b) const {
@@ -648,7 +658,9 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
     return NonAffineIndexExpr(aa.getRewriter().create<arith::SubIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
-  return binaryOp(b, false, true, litFct, affineExprFct, valueFct);
+  // Neutral value: a - 0 = a.
+  return binaryOp(
+      b, false, true, false, true, 0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator*(IndexExpr const b) const {
@@ -659,15 +671,16 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
     return AffineIndexExpr(aa.getAffineExpr() * bb.getAffineExpr());
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    if (bb.isLiteral() && bb.getLiteral() == 1)
-      return aa.deepCopy();
     return NonAffineIndexExpr(aa.getRewriter().create<arith::MulIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Literal should be place in second argument; do so if a is a lit.
+  // Neutral value: a * 1 = a, 1 * b = b.
   if (isLiteral())
-    return b.binaryOp(*this, true, true, litFct, affineExprFct, valueFct);
-  return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
+    return b.binaryOp(
+        *this, true, true, true, true, 1, litFct, affineExprFct, valueFct);
+  return binaryOp(
+      b, true, true, true, true, 1, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
@@ -678,22 +691,19 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    if (bval == 1)
-      return aa.deepCopy();
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
     return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    if (bb.isLiteral() && bb.getLiteral() == 1) {
-      return aa.deepCopy();
-    }
     return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
-  return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
+  // Neutral value: a / 1 = a.
+  return binaryOp(
+      b, true, true, false, true, 1, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
@@ -704,22 +714,19 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    if (bval == 1)
-      return aa.deepCopy();
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().ceilDiv(bval));
     return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    if (bb.isLiteral() && bb.getLiteral() == 1) {
-      return aa.deepCopy();
-    }
     return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
-  return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
+  // Neutral value: a / 1 = a.
+  return binaryOp(
+      b, true, true, false, true, 1, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator%(IndexExpr const b) const {
@@ -736,14 +743,13 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    if (bb.isLiteral() && bb.getLiteral() == 1) {
-      return aa.deepCopy();
-    }
     return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
-  return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
+  // Neutral value: ignore here that x % x = 0.
+  return binaryOp(
+      b, true, true, false, false, 1, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {

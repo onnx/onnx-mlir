@@ -17,6 +17,7 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
