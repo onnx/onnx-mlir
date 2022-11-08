@@ -1041,6 +1041,21 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ReshapeOp.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropReshape(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  Operation *inputOp = constValue.getDefiningOp();
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res.getResult();
+}
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

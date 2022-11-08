@@ -35,6 +35,8 @@ public:
   void initAsUndefined();
   // Initialize a question mark with the default value of -1.
   void initAsQuestionmark();
+  // Initialize a question mark with a given value.
+  void initAsQuestionmark(int64_t const val);
   // Initialize a question mark for an unknown dimension in a Tensor/Memref.
   // This initialization is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
