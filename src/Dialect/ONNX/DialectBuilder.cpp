@@ -85,6 +85,16 @@ Value OnnxBuilder::dim(Value input, int axis) const {
   return b.create<ONNXDimOp>(loc, resultType, input, axisAttr);
 }
 
+void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
+  IntegerAttr axisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
+  IntegerAttr groupIDAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, groupID, /*isSigned=*/true));
+  b.create<ONNXDimGroupOp>(loc, input, axisAttr, groupIDAttr);
+}
+
 Value OnnxBuilder::div(Value A, Value B) const {
   assert((A.getType().cast<ShapedType>().getElementType() ==
              B.getType().cast<ShapedType>().getElementType()) &&

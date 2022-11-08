@@ -54,6 +54,9 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
 
+/// Pass for analysing unknown dimension in ONNX operations.
+std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 

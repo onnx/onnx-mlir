@@ -559,7 +559,7 @@ An empty string may be used in the place of an actual argument's name to
 indicate a missing argument. Trailing optional arguments (those not followed
 by an argument that is present) may also be simply omitted.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -788,7 +788,7 @@ Example:
 %2 = call @my_add(%0, %1) : (f32, f32) -> f32
 ```
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: MemRefsNormalizable
 
@@ -1495,7 +1495,7 @@ is a string which names the operation, other inputs are
 passed to the user operation.
 The number of inputs and outputs can vary.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -1674,6 +1674,41 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values
 
+### `onnx.DimGroup` (::mlir::ONNXDimGroupOp)
+
+ONNX dimension group operation.
+
+This operation is to link a compile-time unknown dimension of a Tensor
+to a group id. Two dimensions that have the same group id are expected
+to be equal at runtime.
+
+```
+"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1: si64} : (tensor<?x3x5xf32>) -> ()
+```
+
+`axis` identifies the dimension position in the tensor.
+
+`group_id` identifies the group id of the dimension. It is non-negative.
+Value -1 for `group_id` means the dimension does not belong to any group.
+
+This operation is currently used in the pass `--onnx-dim-analysis`
+for testing the unknown dimension analysis class.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `group_id` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
 ### `onnx.Dim` (::mlir::ONNXDimOp)
 
 ONNX dimensions operation.
@@ -1686,7 +1721,7 @@ This operation is to obtain the dimension of a Tensor;
 
 The axis identifies the dimension within the shape which is going to be obtained.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -1911,7 +1946,7 @@ Indicate ONNX entry point
 
 The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 #### Attributes:
 
@@ -3382,7 +3417,7 @@ NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
 Operations that transforms data from the same ONNX layout format are
 considered as a no operation and will be removed.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -3983,7 +4018,7 @@ ONNX MaxPool operation with a single output.
 ONNX MaxPool operation with a single output.
 See ONNXMaxPoolOp for a full description of the MaxPool semantics.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -4579,7 +4614,7 @@ Example:
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
 ```
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: ConstantLike
 
@@ -5158,7 +5193,7 @@ ONNX Op to print type signature of its input operands
 Print type signature of the op's input operands. This operation is introduced early
 so as to preserve the name of the original ONNX op.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 #### Attributes:
 
@@ -6158,7 +6193,7 @@ operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
 The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
 The operation takes variable number of operands and produces no results.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: ReturnLike, Terminator
 
