@@ -659,7 +659,7 @@ public:
   // other question marks.
   bool specificQuestionmark() const;
   // Check if two question marks are the same or not. Two question marks are the
-  // same if they are not specific and have the same value.
+  // same if they are specific and have the same value.
   bool sameQuestionmark(IndexExpr const &o) const;
 
 private:

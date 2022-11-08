@@ -23,7 +23,7 @@ DimAnalysis is constructed for a ModuleOp so that all operations in the ModuleOp
 Then, actual analysis is done via calling `analyze()` function.
 After that, we can query if two unknown dimensions are the same or not via calling
 ```C
-bool sameDim = dimAnalysis.areSame(tensor1, dimAxis1, tensor2, dimAxis2);
+bool sameDim = dimAnalysis.sameUnknownDim(tensor1, dimAxis1, tensor2, dimAxis2);
 ```
 where the first unknown dimension is identified by its tensor `tensor1` and its axis `dimAxis1`, and the second unknown dimension by `tensor2` and `dimAxis2`.
 
