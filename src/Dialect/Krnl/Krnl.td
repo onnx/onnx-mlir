@@ -328,7 +328,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -731,7 +731,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [Pure,
     MemRefsNormalizable, DeclareOpInterfaceMethods<CastOpInterface>, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
@@ -1179,7 +1179,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
-def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
+def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [Pure]> {
   let summary = "Compute the length of a string.";
   let description = [{
     Krnl operation that computes the length of a string.
@@ -1189,7 +1189,7 @@ def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
   let results = (outs I64:$res);
 }
 
-def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [NoSideEffect]> {
+def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [Pure]> {
   let summary = "Perform string comparison up to N bytes.";
   let description = [{
     Krnl operation that performs a string comparison up to N bytes.
@@ -1214,7 +1214,7 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
 }
 
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
-    [NoSideEffect, MemRefsNormalizable]> {
+    [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 

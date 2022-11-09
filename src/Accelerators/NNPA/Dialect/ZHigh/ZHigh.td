@@ -137,7 +137,7 @@ def SameOperandsAndResultLayout: NativeOpTrait<"SameOperandsAndResultLayout">;
 class ZHigh_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZHigh_Dialect, mnemonic, traits>;
 
-def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
+def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Stick operation";
   let description = [{
@@ -156,7 +156,7 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
   let hasCanonicalizer = 1;
 }
 
-def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
+def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Unstick operation";
   let description = [{
@@ -172,7 +172,7 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
   let hasCanonicalizer = 1;
 }
 
-def ZHighAddOp:ZHigh_Op<"Add", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighAddOp:ZHigh_Op<"Add", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Add operation";
   let description = [{
@@ -184,7 +184,7 @@ def ZHighAddOp:ZHigh_Op<"Add", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSubOp:ZHigh_Op<"Sub", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSubOp:ZHigh_Op<"Sub", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sub operation";
   let description = [{
@@ -196,7 +196,7 @@ def ZHighSubOp:ZHigh_Op<"Sub", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMulOp:ZHigh_Op<"Mul", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMulOp:ZHigh_Op<"Mul", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Mul operation";
   let description = [{
@@ -208,7 +208,7 @@ def ZHighMulOp:ZHigh_Op<"Mul", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighDivOp:ZHigh_Op<"Div", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighDivOp:ZHigh_Op<"Div", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Div operation";
   let description = [{
@@ -220,7 +220,7 @@ def ZHighDivOp:ZHigh_Op<"Div", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMinOp:ZHigh_Op<"Min", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMinOp:ZHigh_Op<"Min", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Min operation";
   let description = [{
@@ -232,7 +232,7 @@ def ZHighMinOp:ZHigh_Op<"Min", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMaxOp:ZHigh_Op<"Max", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMaxOp:ZHigh_Op<"Max", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Max operation";
   let description = [{
@@ -244,7 +244,7 @@ def ZHighMaxOp:ZHigh_Op<"Max", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighLogOp:ZHigh_Op<"Log", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighLogOp:ZHigh_Op<"Log", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Log operation";
   let description = [{
@@ -254,7 +254,7 @@ def ZHighLogOp:ZHigh_Op<"Log", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighExpOp:ZHigh_Op<"Exp", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighExpOp:ZHigh_Op<"Exp", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Exp operation";
   let description = [{
@@ -264,7 +264,7 @@ def ZHighExpOp:ZHigh_Op<"Exp", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighReluOp:ZHigh_Op<"Relu", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighReluOp:ZHigh_Op<"Relu", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Relu operation";
   let description = [{
@@ -274,7 +274,7 @@ def ZHighReluOp:ZHigh_Op<"Relu", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighTanhOp:ZHigh_Op<"Tanh", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighTanhOp:ZHigh_Op<"Tanh", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Tanh operation";
   let description = [{
@@ -284,7 +284,7 @@ def ZHighTanhOp:ZHigh_Op<"Tanh", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sigmoid operation";
   let description = [{
@@ -294,7 +294,7 @@ def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [NoSideEffect, SameOperandsAndResultLayou
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Softmax operation";
   let description = [{
@@ -306,7 +306,7 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [NoSideEffect, SameOperandsAndResultLayou
   let results = (outs ZTensor_3DS:$Out);
 }
 
-def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [NoSideEffect,
+def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D mean reduce operation";
   let description = [{
@@ -326,7 +326,7 @@ def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [NoSideEffect,
   ];
 }
 
-def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [NoSideEffect,
+def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D max pooling operation";
   let description = [{
@@ -348,7 +348,7 @@ def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [NoSideEffect,
   ];
 }
 
-def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [NoSideEffect,
+def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D average pooling operation";
   let description = [{
@@ -370,7 +370,7 @@ def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [NoSideEffect,
   ];
 }
 
-def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
+def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh MatMul operation";
   let description = [{
@@ -391,7 +391,7 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
+def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh LSTM operation";
   let description = [{
@@ -437,7 +437,7 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
+def ZHighGRUOp:ZHigh_Op<"GRU", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh GRU operation";
   let description = [{
@@ -479,7 +479,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
+def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh stick operation for LSTM";
   let description = [{
@@ -503,7 +503,7 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
   ];
 }
 
-def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [NoSideEffect,
+def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh stick operation for GRU";
   let description = [{
@@ -525,7 +525,7 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [NoSideEffect,
   ];
 }
 
-def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
+def ZHighConv2DOp:ZHigh_Op<"Conv2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D convolution operation";
   let description = [{
@@ -561,7 +561,7 @@ def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
+def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh batchnorm operation";
   let description = [{
@@ -579,7 +579,7 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
   ];
 }
 
-def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [NoSideEffect]> {
+def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
     This operator produces a constant tensor to store stickified data."
@@ -592,7 +592,7 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [NoSideEffect]> {
   let results = (outs AnyZTensor:$output);
 }
 
-def ZHighConcatOp:ZHigh_Op<"Concat", [NoSideEffect,
+def ZHighConcatOp:ZHigh_Op<"Concat", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Concat operation to concatenate stickified tensors";
   let description = [{
