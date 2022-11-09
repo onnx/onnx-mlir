@@ -124,6 +124,7 @@ def ONNXAddOp:ONNX_Op<"Add",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXAndOp:ONNX_Op<"And",
@@ -169,6 +170,7 @@ def ONNXAndOp:ONNX_Op<"And",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
@@ -503,6 +505,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
@@ -1235,6 +1238,7 @@ def ONNXDivOp:ONNX_Op<"Div",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
@@ -1433,6 +1437,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
@@ -2124,6 +2129,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
@@ -2149,6 +2155,7 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
       return {0};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
@@ -2621,6 +2628,7 @@ def ONNXLessOp:ONNX_Op<"Less",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
@@ -2646,6 +2654,7 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
       return {0};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
@@ -2985,6 +2994,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
@@ -3134,6 +3144,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
@@ -3180,6 +3191,7 @@ def ONNXMinOp:ONNX_Op<"Min",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
@@ -3263,6 +3275,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
@@ -3667,6 +3680,7 @@ def ONNXOrOp:ONNX_Op<"Or",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
@@ -6304,6 +6318,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
@@ -6327,6 +6342,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
@@ -6858,6 +6874,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
       return {21};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
@@ -6903,6 +6920,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
