@@ -118,10 +118,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
+  // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
+  //       the CPU specific transformations.
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty());
+        /*target CPU*/ false, enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.

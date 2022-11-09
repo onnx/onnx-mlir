@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Value.h"
 

@@ -479,8 +479,8 @@ LogicalResult inferShapeForUnaryElementwiseOps(Operation *op) {
 }
 
 /// Update a tensor type by using the given shape, elementType and encoding.
-void updateType(
-    Value val, ArrayRef<int64_t> shape, Type elementType, Attribute encoding) {
+void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
+    Attribute encoding, bool refineShape) {
   // Try to combine the given shape and the output's shape if possbile.
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
@@ -490,7 +490,8 @@ void updateType(
     else
       inferredDims.emplace_back(LiteralIndexExpr(d));
   }
-  refineDims(inferredDims, val);
+  if (refineShape)
+    refineDims(inferredDims, val);
   SmallVector<int64_t, 4> inferredShape;
   IndexExpr::getShape(inferredDims, inferredShape);
 
@@ -533,6 +534,8 @@ template struct ONNXOpShapeHelper<ONNXGatherOp>;
 template struct ONNXOpShapeHelper<ONNXGatherElementsOp>;
 template struct ONNXOpShapeHelper<ONNXGatherNDOp>;
 template struct ONNXOpShapeHelper<ONNXGemmOp>;
+template struct ONNXOpShapeHelper<ONNXQLinearMatMulOp>;
+template struct ONNXOpShapeHelper<ONNXMatMulIntegerOp>;
 template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;

@@ -235,6 +235,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
+
   // Neural network
   populateLoweringONNXConvOpPattern(
       patterns, typeConverter, ctx, enableParallel);
@@ -328,7 +330,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithmeticDialect,
+  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
       func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
       memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a

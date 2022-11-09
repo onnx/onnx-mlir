@@ -151,7 +151,7 @@ def HasSameElementType : Constraint<
 def HaveSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
           "$1.getType().dyn_cast<ShapedType>().getElementType())">,
-    "has same element type">;
+    "have same element types">;
 
 def HaveSameElementTypeBitWidth: Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementTypeBitWidth() == "
@@ -161,6 +161,10 @@ def HaveSameElementTypeBitWidth: Constraint<
 def  ElementTypeIsNotUnsigned: Constraint<
     CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
     "element type is not unsigned int">;
+
+def HaveSameONNXTensorDataLayout : Constraint<
+    CPred<"identicalONNXTensorDataLayout($0.getType(), $0.getType())">,
+    "have same ONNX Tensor Data Layouts">;
 
 def IsStaticShapeTensor:
   Constraint<
@@ -384,6 +388,18 @@ def CastEliminationPattern : Pat<
 def FuseCastCastPattern : Pat<
 	(ONNXCastOp (ONNXCastOp $arg, $_), $type),
 	(ONNXCastOp $arg, $type)>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXLayoutTransformOp
+//===----------------------------------------------------------------------===//
+
+// ONNX_Op (onnx.ONNXLayoutTransformOp (%X)) = ONNX_Op (%X) when input and
+// output layouts are identical
+def ONNXLayoutTransformEliminationPattern : Pat<
+	(ONNXLayoutTransformOp:$res $arg, $target_layout),
+	(replaceWithValue $arg),
+  [(HaveSameONNXTensorDataLayout $res, $arg),
+   (HaveSameElementType $res, $arg)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXTransposeOp

@@ -486,6 +486,7 @@ May be used for gdb.
 | `opName` | ::mlir::StringAttr | string attribute
 | `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `nodeName` | ::mlir::StringAttr | string attribute
 
 ### `krnl.isnan` (::mlir::KrnlIsNaNOp)
 
@@ -1037,9 +1038,49 @@ create a new memref inside the region and use it outside of the region.
 
 Traits: AffineScope, NoTerminator, SingleBlock
 
+### `krnl.seqalloc` (::mlir::KrnlSeqAllocOp)
+
+Krnl create a sequence
+
+This op allocates a memref for a new sequence according to the input Type and length.
+The output is tagged with Allocate side effect, and a deallocation is defined for
+sequence. This deallocation will free all the elements in the sequence as well as 
+the sequence itself.
+
+Traits: MemRefsNormalizable
+
+Interfaces: AllocationOpInterface, MemoryEffectOpInterface
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `length` | index
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | memref of any type values
+
+### `krnl.seqdealloc` (::mlir::KrnlSeqDeallocOp)
+
+Krnl dealloc a sequence
+
+This op deallocate the elements in the sequence and the sequence itself
+with memref::dealloc. This Op is a deep dealloc for sequence type.
+
+Traits: MemRefsNormalizable
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input_sequence` | memref of any type values
+
 ### `krnl.seqextract` (::mlir::KrnlSeqExtractOp)
 
-Krnl load from a seq
+Krnl load from a sequence
 
 This op loads an element from the input sequence 'seq' at position 'index'.
 The loaded element is copied and then return.
@@ -1070,45 +1111,6 @@ Interfaces: AllocationOpInterface, MemoryEffectOpInterface
 | Operand | Description |
 | :-----: | ----------- |
 | `seq` | memref of any type values
-| `index` | index
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | any type
-
-### `krnl.seqinsert` (::mlir::KrnlSeqInsertOp)
-
-Insert an element into a seq
-
-This op will create a new seq from the input seq by inserting the input
-element at the desired position. The input element will be copied before 
-inserted into the new seq, and the type will be casted to the type of seq 
-element if needed. The elements after the insertion point will be shifted
-one position in the new sequence without copying.
-The motivation to introduce this Op is to help bufferization::deallocation
-The sequence is implemented as memref of memref in onnx-mlir.
-When an element is stored into a sequence, it becomes invisible.
-The memref for the element will be freed after this Op after its last
-use of the element.
-To avoid dangling pointer, the element is copied before it is inserted 
-into the sequence. 
-The allocation for the copy will be freed by SequenceErase,
-or revealed to graph
-when the element is extracted from the sequence. Consequently, the 
-deallocation pass can handle the space correctly.
-For future optimization, the one-shot bufferization interface may be used
-to transfer the space of the input element to the element in the sequence.
-
-Traits: MemRefsNormalizable
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input_element` | any type
-| `input_sequence` | memref of any type values
 | `index` | index
 
 #### Results:

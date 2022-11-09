@@ -18,6 +18,10 @@
 //   of original ONNX ops. These ops may possibly be removed in the future.
 //   Example are ONNXBatchNormalizationInferenceModeOp, ...
 //
+// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact the documentation of the ops, run
+// "make onnx-mlir-docs".
+//
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
@@ -102,7 +106,7 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
 //===----------------------------------------------------------------------===//
 // ONNX CustomOp
 def ONNXCustomOp:ONNX_Op<"Custom",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Custom operation";
   let description = [{
     Allow call-out to a user defined operation. A single attribute
@@ -133,7 +137,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
 //===----------------------------------------------------------------------===//
 // ONNX DimOp
 def ONNXDimOp : ONNX_Op<"Dim",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX dimensions operation.";
   let description = [{
     This operation is to obtain the dimension of a Tensor;
@@ -176,8 +180,35 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 }
 
 //===----------------------------------------------------------------------===//
+// LayoutTransform.
+def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "An operation that transforms data between different layout formats";
+  let description = [{
+    An operation that transforms data between different ONNX layout format.
+    Currently, it supports transformations from standard format to a
+    NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
+
+    Operations that transforms data from the same ONNX layout format are
+    considered as a no operation and will be removed.
+
+    This operation is not part of the standard and was added to assit onnx-mlir.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
+      ONNXTensor_KCMN4C4K]>:$data,
+      DefaultValuedStrAttr<StrAttr, "STANDARD">:$target_layout
+      );
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
+      ONNXTensor_KCMN4C4K]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$data, "::mlir::StringAttr":$target_layout)>, // Defined layouts.
+  ];
+  let hasCanonicalizer = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // NoValueOp.
-def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
+def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
   let summary = "An operation representing the absence of a value.";
   let description = [{
     This operation can be used to represent the absence of a value. It is typically
@@ -218,7 +249,7 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
 
 //===----------------------------------------------------------------------===//
 // ONNX ReturnOp
-def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
+def ONNXReturnOp : ONNX_Op<"Return", [Pure,
                                 ReturnLike, Terminator]> {
   let summary = "ONNX return operation";
   let description = [{
@@ -252,7 +283,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
 //===----------------------------------------------------------------------===//
 // BatchNorm in Inference mode.
 def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let description = [{
     Carries out batch normalization as described in the paper
@@ -294,7 +325,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
 //===----------------------------------------------------------------------===//
 // MaxPoolSingleOutOp
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
     ONNX MaxPool operation with a single output.

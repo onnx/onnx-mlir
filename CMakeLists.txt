@@ -125,6 +125,7 @@ endif()
 
 # Suppress warnings in third party code if requested.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(LLVM_ENABLE_WERROR OFF)
   set(CMAKE_C_FLAGS_COPY ${CMAKE_C_FLAGS})
   set(CMAKE_CXX_FLAGS_COPY ${CMAKE_CXX_FLAGS})
   if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -132,8 +133,8 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
   elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
     # MSVC complains when overriding existing warning levels flags, so remove them.
-    STRING(REGEX REPLACE "/W[0-4x]" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-    STRING(REGEX REPLACE "/W[0-4x]" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+    STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
   endif()
@@ -170,6 +171,12 @@ llvm_update_compile_flags(benchmark)
 llvm_update_compile_flags(benchmark_main)
 llvm_update_compile_flags(rapidcheck)
 
+if (ONNX_MLIR_ENABLE_MHLO)
+  llvm_update_compile_flags(stablehlo-opt)
+  llvm_update_compile_flags(stablehlo-interpreter)
+  llvm_update_compile_flags(mlir-hlo-opt)
+endif()
+
 # Increase the log level for onnx-mlir
 set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
@@ -195,6 +202,7 @@ LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/lib/)
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")

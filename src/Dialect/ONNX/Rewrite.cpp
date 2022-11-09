@@ -587,6 +587,12 @@ void ONNXCastOp::getCanonicalizationPatterns(
   result.insert<FuseCastCastPattern>(context);
 }
 
+/// on the ONNXLayoutTransformOp.
+void ONNXLayoutTransformOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<ONNXLayoutTransformEliminationPattern>(context);
+}
+
 /// on the ONNXTransposeOp.
 void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {

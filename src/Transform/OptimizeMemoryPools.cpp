@@ -784,9 +784,9 @@ public:
 
     // We need to emit a new alloc of smaller size.
     memref::AllocOp newStaticMemPool =
-        (allocOp.alignment().has_value())
+        (allocOp.getAlignment().has_value())
             ? create.mem.alignedAlloc(
-                  newStaticMemPoolType, allocOp.alignment().value())
+                  newStaticMemPoolType, allocOp.getAlignment().value())
             : create.mem.alloc(newStaticMemPoolType);
 
     newStaticMemPool.getOperation()->moveBefore(allocOp);

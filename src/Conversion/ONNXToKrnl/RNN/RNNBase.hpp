@@ -8,9 +8,11 @@
 //
 // =============================================================================
 //
-// This file defines base functions for lowerng the ONNX RNN Operators.
+// This file defines base functions for lowering the ONNX RNN Operators.
 //
 //===----------------------------------------------------------------------===//
+
+#pragma once
 
 #include "mlir/IR/AffineExpr.h"
 

@@ -17,6 +17,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
 
@@ -603,6 +604,78 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 //===----------------------------------------------------------------------===//
+// Support functions for help with custom layout.
+//===----------------------------------------------------------------------===//
+
+MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
+  // Get tensor rank, shape, and element type.
+  RankedTensorType tensorType = type.dyn_cast<RankedTensorType>();
+  assert(tensorType && "expected only ranked shapes");
+  ArrayRef<int64_t> shape = tensorType.getShape();
+  int64_t rank = shape.size();
+  Type elementType = tensorType.getElementType();
+  // Get encoding.
+  mlir::ONNXTensorEncodingAttr encoding = getONNXTensorEncoding(type);
+  assert(encoding && "expected ONNX tensor encoding");
+  // Process encoding to generate an vector of affine expressions (dimExpr)
+  // corresponding to the data layout.
+  SmallVector<AffineExpr, 6> dimExpr;
+  OpBuilder b(type.getContext());
+  MLIRContext *context = b.getContext();
+  if (encoding.getDataLayout() == ONNXTensorEncodingAttr::DataLayout::NCHWxC) {
+    // perform the map for (N, C, H, W) -> (N, C/x, H, W, C%x) with C=Cin tiled
+    // by x.
+    int64_t N(0), C(1), H(2), W(3); // Indices for dims in affine expressions.
+    int64_t xVal(encoding.getXFactor());
+    assert(xVal > 0 && "expected strictly positive X factor");
+    AffineExpr x = getAffineConstantExpr(xVal, context);
+    AffineExpr newN = b.getAffineDimExpr(N);
+    AffineExpr newC = b.getAffineDimExpr(C).floorDiv(x);
+    AffineExpr newH = b.getAffineDimExpr(H);
+    AffineExpr newW = b.getAffineDimExpr(W);
+    AffineExpr newXC = b.getAffineDimExpr(C) % x;
+    dimExpr.emplace_back(newN);
+    dimExpr.emplace_back(newC);
+    dimExpr.emplace_back(newH);
+    dimExpr.emplace_back(newW);
+    dimExpr.emplace_back(newXC);
+  } else if (encoding.getDataLayout() ==
+             ONNXTensorEncodingAttr::DataLayout::KCNMxCyK) {
+    // perform the map for (K, C, N, M) -> (K/y, C/x, M, N, C%x, K%y) with C=Cin
+    // and K=Cout tiled by x and y.
+    int64_t K(0), C(1), N(2), M(3); // Indices for dims in affine expressions.
+    int64_t xVal(encoding.getXFactor());
+    int64_t yVal(encoding.getYFactor());
+    assert(xVal > 0 && yVal > 0 && "expected strictly positive X & Y factors");
+    AffineExpr x = getAffineConstantExpr(xVal, context);
+    AffineExpr y = getAffineConstantExpr(yVal, context);
+    AffineExpr newK = b.getAffineDimExpr(K).floorDiv(y);
+    AffineExpr newC = b.getAffineDimExpr(C).floorDiv(x);
+    AffineExpr newN = b.getAffineDimExpr(N);
+    AffineExpr newM = b.getAffineDimExpr(M);
+    AffineExpr newXC = b.getAffineDimExpr(C) % x;
+    AffineExpr newYK = b.getAffineDimExpr(K) % y;
+    dimExpr.emplace_back(newK);
+    dimExpr.emplace_back(newC);
+    dimExpr.emplace_back(newN);
+    dimExpr.emplace_back(newM);
+    dimExpr.emplace_back(newXC);
+    dimExpr.emplace_back(newYK);
+  } else if (encoding.getDataLayout() ==
+             ONNXTensorEncodingAttr::DataLayout::STANDARD) {
+    llvm_unreachable(
+        "should not have an ONNX tensor encoding for standard data layout");
+  } else {
+    llvm_unreachable("unknown ONNX tensor encoding");
+  }
+  // Have our new dims affine expressions.
+  AffineMap map =
+      AffineMap::get(/*dims*/ rank, /*symbols*/ 0, dimExpr, context);
+  MemRefType outType = MemRefType::get(shape, elementType);
+  return MemRefType::Builder(outType).setLayout(AffineMapAttr::get(map));
+}
+
+//===----------------------------------------------------------------------===//
 // Type conversion from Onnx types to Krnl types.
 //===----------------------------------------------------------------------===//
 
@@ -620,13 +693,15 @@ KrnlTypeConverter::KrnlTypeConverter() {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
-    // Acccelators may have special versions of TensorType. Call the conversions
-    // of accelerators.
+    // Accelerators may have special versions of TensorType. Call the
+    // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;
     }
+    if (hasCustomONNXTensorDataLayout(tensorType))
+      return convertTypeWithCustomONNXDataLayoutToMemRef(tensorType);
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });
 
