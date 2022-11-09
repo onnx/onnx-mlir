@@ -36,7 +36,7 @@ set_source_files_properties("${accelerators_inc}"
   )
 add_custom_target(AcceleratorsInc ALL DEPENDS ${accelerators_inc})
 
-add_onnx_mlir_library(InitAccelerators
+add_onnx_mlir_library(OMInitAccelerators
   InitAccelerators.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -50,7 +50,7 @@ add_onnx_mlir_library(InitAccelerators
     LLVMSupport
   )
 
-add_onnx_mlir_library(Accelerator
+add_onnx_mlir_library(OMAccelerator
   Accelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS

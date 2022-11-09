@@ -71,7 +71,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Unsqueeze.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   OMConstPropHelper
   OMONNXOps
   OMSupport

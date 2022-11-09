@@ -54,7 +54,7 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-add_onnx_mlir_library(ExecutionSession
+add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -63,7 +63,7 @@ add_onnx_mlir_library(ExecutionSession
   OMTensorUtils
   LLVMSupport
   )
-set_target_properties(ExecutionSession
+set_target_properties(OMExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
@@ -112,7 +112,7 @@ target_include_directories(PyRuntime
   )
 target_link_libraries(PyRuntime
   PRIVATE
-  ExecutionSession
+  OMExecutionSession
   )
 llvm_update_compile_flags(PyRuntime)
 
@@ -138,8 +138,8 @@ target_include_directories(PyCompileAndRuntime
   )
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
-  OnnxMlirCompiler
-  ExecutionSession
+  OMCompiler
+  OMExecutionSession
   )
 llvm_update_compile_flags(PyCompileAndRuntime)
 

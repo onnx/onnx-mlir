@@ -62,7 +62,7 @@ add_onnx_mlir_library(NNPAAccel
   LINK_LIBS PUBLIC
   onnx
   NNPACompilerUtils
-  Accelerator
+  OMAccelerator
   OMZHighOps
   OMZHighToZLow
   OMZLowOps

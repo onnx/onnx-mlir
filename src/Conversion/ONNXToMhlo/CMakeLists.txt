@@ -36,7 +36,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   Tensor/Unsqueeze.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   MhloDialect
   MLIRShapeDialect
   MLIRQuantDialect
