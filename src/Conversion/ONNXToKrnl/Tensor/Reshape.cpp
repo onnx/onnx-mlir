@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "reshape_onnx_to_krnl"

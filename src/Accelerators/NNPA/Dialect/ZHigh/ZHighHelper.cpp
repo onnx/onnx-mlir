@@ -156,6 +156,16 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
 
+StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
+  ZTensorEncodingAttr::DataLayout layout = getZTensorLayout(type);
+  if (layout != ZTensorEncodingAttr::DataLayout::UNDEFINED)
+    return convertZTensorDataLayoutToStringAttr(builder, layout);
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// Utility functions.
+
 Value getMinusBcastConst(
     mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
   ShapedType xType = X.getType().cast<ShapedType>();

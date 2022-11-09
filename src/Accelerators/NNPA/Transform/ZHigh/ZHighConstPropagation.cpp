@@ -18,6 +18,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"

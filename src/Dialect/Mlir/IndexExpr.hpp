@@ -557,8 +557,11 @@ protected:
   using F3 = std::function<IndexExpr(
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
+  // When hasNeutralA, if a==*this is neutral literal value, then result is b.
+  // When hasNeutralB, if b is neutral literal value, then result is a.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
+      bool affineExprCompatible, bool hasNeutralA, bool hasNeutralB,
+      int64_t neutralVal, F2 fInteger, F2 fAffine, F2 fValue) const;
   IndexExpr compareOp(
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
@@ -631,7 +634,7 @@ private:
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
-  // Constuct a question mark for an unknown dimension in a Tensor/Memref.
+  // Construct a question mark for an unknown dimension in a Tensor/Memref.
   // This constructor is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
   // tensorOrMemref and dimension index.
@@ -650,6 +653,17 @@ public:
   ~QuestionmarkIndexExpr() = default;
   QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
   QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
+
+  // Query functions.
+  // Check if the question mark is specific so that it can be distinguished from
+  // other question marks.
+  bool specificQuestionmark() const;
+  // Check if two question marks are the same or not. Two question marks are the
+  // same if they are specific and have the same value.
+  bool sameQuestionmark(IndexExpr const &o) const;
+
+private:
+  QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Predicate IndexExpr.

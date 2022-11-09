@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -848,7 +848,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Shape helper.
-    ONNXGenericOpUnaryElementwiseShapeHelper shapeHelper(op, &rewriter,
+    ONNXGenericOpUnaryShapeHelper shapeHelper(op, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr);
     auto shapecomputed = shapeHelper.computeShape(X);
