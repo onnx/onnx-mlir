@@ -335,24 +335,30 @@ struct ZHighLayoutPropagationPass
     auto function = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+
     // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
-    // Layout propagation for ONNX Ops.
+
+    // Layout propagation for ONNX Ops. Since DLFLOAT16 is not supported in
+    // LLVM, we disable computation operators like Add, Div, etc. and enable
+    // only data movement operators like Concat.
+
     // Add
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
+    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
+    // Div
+    //patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(&getContext());
+    // Mul
+    //patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(&getContext());
+    // Sub
+    //patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(&getContext());
+    // Reciprocal
+    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
+    //     &getContext());
+    // Sqrt
+    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
+
     // Concat
     patterns.insert<ONNXConcatLayoutPropagatePattern>(&getContext());
-    // Div
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(&getContext());
-    // Mul
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(&getContext());
-    // Sub
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(&getContext());
-    // Reciprocal
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
-        &getContext());
-    // Sqrt
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
 
     // We want to canonicalize stick/unstick ops during this pass to simplify
     // rules in this pass.
