@@ -22,6 +22,7 @@
 
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerators.inc"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 
 // Define the macros used to generate various accelerators artifacts (via the
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
@@ -42,18 +43,9 @@
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
   map[accel::Accelerator::Kind::name] = #name;
 
-// clang-format off
-#define ACCEL_INSTRUMENTSTAGE_ENUM(name)                                       \
-  , nnpaAfterOnnxToOnnx,                                                       \
-    nnpaAfterOnnxToZhigh,                                                      \
-    nnpaAfterZhighToZlow
-// clang-format on
+#define ACCEL_INSTRUMENTSTAGE_ENUM(name) INSTRUMENTSTAGE_EUM_##name
 
-#define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name)                                    \
-  , clEnumVal(nnpaAfterOnnxToOnnx, #name " Profile for onnx ops."),            \
-      clEnumVal(                                                               \
-          nnpaAfterOnnxToZhigh, #name " Profile for onnx and zhigh ops."),     \
-      clEnumVal(nnpaAfterZhighToZlow, #name " Profile for zlow ops.")
+#define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name) INSTRUMENTSTAGE_CL_ENUM_##name
 
 namespace onnx_mlir {
 namespace accel {
