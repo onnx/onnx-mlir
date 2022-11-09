@@ -17,6 +17,7 @@ add_onnx_mlir_library(OMConstPropHelper
 
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
+add_onnx_mlir_rewriter(ConvOpt)
 
 add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
@@ -28,6 +29,7 @@ add_onnx_mlir_library(OMONNXRewrite
   OMONNXOps
   OMONNXDecomposeIncGen
   OMONNXConstPropIncGen
+  OMONNXConvOptIncGen
 
   LINK_LIBS PUBLIC
   OMConstPropHelper

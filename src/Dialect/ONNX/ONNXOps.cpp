@@ -27,6 +27,7 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "src/Dialect/ONNX/ONNXEinsumOpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -55,15 +56,91 @@ using namespace onnx_mlir;
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 void ONNXDialect::initialize() {
-  addOperations<
-#define GET_OP_LIST
-#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-      >();
-
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
       >();
+
+  addAttributes<
+#define GET_ATTRDEF_LIST
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
+      >();
+
+  addOperations<
+#define GET_OP_LIST
+#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+      >();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Attribute
+//===----------------------------------------------------------------------===//
+
+/*
+  For the moment, the x and y factor are explicitly encoded in the
+  ONNXLayoutHelper.hpp LAYOUT strings. These strings are used to recognize which
+  layout is used. But once the pattern is recognized, we use the encoding's
+  layout to represent the high level type of encoding, and the encoding's x and
+  y factor integer to represent the unroll factors. That way, the code that use
+  these encoding does not need to be specialized for a specific value of x or y
+  factor, it just looks at the embedding x and y factor integers to perform the
+  proper unrolling.
+
+  In other words, the string to encoding is manually encoded by fixed string
+  that needs to be customized for each x and y factor that are accepted. But
+  once that is done, the code is fully parametric in terms of the encoding
+  attribute xFactor and yFactor.
+*/
+
+Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
+  if (failed(parser.parseLess()))
+    return {};
+  // Parse the data as a dictionary.
+  DictionaryAttr dict;
+  if (failed(parser.parseAttribute(dict)))
+    return {};
+  if (failed(parser.parseGreater()))
+    return {};
+
+  ONNXTensorEncodingAttr::DataLayout dataLayout =
+      ONNXTensorEncodingAttr::DataLayout::STANDARD;
+  int64_t xFactor = 0;
+  int64_t yFactor = 0;
+
+  // Process the data from the parsed dictionary value into struct-like data.
+  for (const NamedAttribute &attr : dict) {
+    if (attr.getName() == "dataLayout") {
+      StringAttr layoutAttr = attr.getValue().dyn_cast<StringAttr>();
+      if (!layoutAttr) {
+        parser.emitError(
+            parser.getNameLoc(), "expected a string value for data layout");
+        return {};
+      }
+      if (!convertStringToONNXCustomTensorDataLayout(
+              layoutAttr, dataLayout, xFactor, yFactor)) {
+        parser.emitError(
+            parser.getNameLoc(), "unexpected data layout attribute value: ")
+            << layoutAttr.getValue();
+        return {};
+      }
+    } else { // Attribute different than "dataLayout".
+      parser.emitError(parser.getNameLoc(), "unexpected key: ")
+          << attr.getName().str();
+      return {};
+    }
+  }
+  // Construct struct-like storage for attribute.
+  return parser.getChecked<ONNXTensorEncodingAttr>(
+      parser.getContext(), dataLayout, xFactor, yFactor);
+}
+
+void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
+  // Print the struct-like storage in dictionary fashion.
+  printer << "<{dataLayout = ";
+  StringRef layoutStr = convertONNXTensorDataLayoutToString(
+      getDataLayout(), getXFactor(), getYFactor());
+  printer << "\"" << layoutStr.str() << "\"";
+  printer << "}>";
 }
 
 //===----------------------------------------------------------------------===//
@@ -262,8 +339,7 @@ static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 // Support function that computes default values for dilations.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvDilationParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -292,8 +368,7 @@ static LogicalResult processConvDilationParam(
 // Support function that computes default values for strides.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvStrideParam(
-    T *op, Optional<ArrayAttr> kernelShape) {
+LogicalResult processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -320,7 +395,7 @@ static LogicalResult processConvStrideParam(
 // Support function that computes default values for pads.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
+LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
@@ -384,6 +459,12 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
+
+      // If filter size for dimension is 1, and dilation for dimension is 1,
+      // the above pattern can be negative, in which case the padding should
+      // be zero.
+      if (sumOfPad < 0)
+        sumOfPad = 0;
       // Pad values are assumed equal on both size, at half the total value.
       actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
       // But if the total pad value is odd, we add 1 to begining or end
@@ -413,12 +494,45 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 }
 
 //===----------------------------------------------------------------------===//
-// Support function computing default values for dilations, strides, and pads.
+// Support function that computes default values for kernel_shape.
 //===----------------------------------------------------------------------===//
 template <class T>
-static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
+LogicalResult processConvKernelParam(
+    T *op, ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
+  // Deduce shape from weight input.
+  // Number of spatial dimensions.
+  if (!op->kernel_shape().has_value()) {
+    auto spatialOffset = 2;
+    int32_t spatialRank = inputShape.size() - spatialOffset;
+
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(op->getContext());
+    op->kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+  }
+  return success();
+}
+
+namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Support function computing default values for dilations, strides,
+// kernel_shape and pads.
+//===----------------------------------------------------------------------===//
+template <class T>
+LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
   // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
+  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+
+  // If kernel_shape isn't provided, add kernel_shape to the the op based on the
+  // shape of the input and weights.
+  LogicalResult res = processConvKernelParam<T>(op, inputShape, wShape);
+  if (failed(res))
+    return res;
 
   // 2) Get kernel_shape attribute. They were previously computed. At this time,
   // they are guranteed to be compile time constant.
@@ -426,7 +540,7 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
 
   // Dilation. It is compile time constants (filled to default 1 value if not
   // explicitely given as input).
-  LogicalResult res = processConvDilationParam<T>(op, kernelShape);
+  res = processConvDilationParam<T>(op, kernelShape);
   if (failed(res))
     return res;
   auto dilationsOpt = op->dilations();
@@ -442,6 +556,17 @@ static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
   return processConvPadParam<T>(
       op, inputShape, kernelShape, stridesOpt, dilationsOpt);
 }
+
+template LogicalResult processConvTypeParams<ONNXConvOp>(
+    ONNXConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXQLinearConvOp>(
+    ONNXQLinearConvOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvIntegerOp>(
+    ONNXConvIntegerOp *op, Value inputOperand, Value W);
+template LogicalResult processConvTypeParams<ONNXConvTransposeOp>(
+    ONNXConvTransposeOp *op, Value inputOperand, Value W);
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
@@ -1405,130 +1530,29 @@ LogicalResult ONNXMatMulOp::inferShapes(
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
   if (!a().getType().isa<RankedTensorType>() ||
       !b().getType().isa<RankedTensorType>())
     return success();
 
-  auto lhsTy = a().getType().cast<RankedTensorType>();
-  auto rhsTy = b().getType().cast<RankedTensorType>();
+  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
+  return shapeHelperInferShapes<ONNXQLinearMatMulOpShapeHelper,
+      ONNXQLinearMatMulOp, ONNXQLinearMatMulOpAdaptor>(*this, elementType);
+}
 
-  SmallVector<int64_t, 2> dims;
-  auto lhsShape = lhsTy.getShape();
-  auto rhsShape = rhsTy.getShape();
+//===----------------------------------------------------------------------===//
+// MatMulIntegerOp
+//===----------------------------------------------------------------------===//
 
-  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
-    // Multiplication by scalars is not allowed.
-    return emitError("Multiplication by scalar arguments not allowed");
-  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
-    // Special case when both arrays are 1-dimensional and according to
-    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
-    // need to be removed after the multiplication but cannot be removed if
-    // all sizes are 1.
-    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    dims.emplace_back(1);
-  } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
-    // If the first argument is 1-D, it is promoted to a matrix by prepending
-    // a 1 to its dimensions. After matrix multiplication the prepended 1 is
-    // removed.
-    //
-    // N MATMUL (s1 x s2 x... x sK x N x P)
-    // =>
-    // (s1 x s2 x... x sK x P)
+LogicalResult ONNXMatMulIntegerOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer shape if no shape exists.
+  if (!A().getType().isa<RankedTensorType>() ||
+      !B().getType().isa<RankedTensorType>())
+    return success();
 
-    // Check legality of matrix multiplication.
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[0] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      dims.emplace_back(rhsShape[i]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
-    // If the second argument is 1-D, it is promoted to a matrix by appending
-    // a 1 to its dimensions. After matrix multiplication the appended 1 is
-    // removed.
-    //
-    // (s1 x s2 x... x sK x M x N) MATMUL N
-    // =>
-    // (s1 x s2 x... x sK x M)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
-      dims.emplace_back(lhsShape[i]);
-    dims.emplace_back(lhsShape[lhsRank - 2]);
-  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
-    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
-    // =>
-    // (s1 x s2 x... x sK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
-      dims.emplace_back(lhsShape[i]);
-    dims.emplace_back(rhsShape[1]);
-  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
-    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
-    // =>
-    // (s1 x s2 x... x sK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      dims.emplace_back(rhsShape[i]);
-    dims.emplace_back(lhsShape[0]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
-    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
-    // =>
-    // (u1 x u2 x... x uK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    // Check and perform broadcasting for the shapes.
-    SmallVector<int64_t, 2> lhsBcastShape;
-    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
-      lhsBcastShape.emplace_back(lhsShape[i]);
-    SmallVector<int64_t, 2> rhsBcastShape;
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      rhsBcastShape.emplace_back(rhsShape[i]);
-    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
-      return emitError("Broadcasted dimensions are incompatible");
-    dims.emplace_back(lhsShape[lhsRank - 2]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else {
-    // This case covers all remaining combinations of 1 and 2-D matrices.
-    int64_t lhsDim = lhsShape[0];
-    int64_t rhsDim = rhsShape[0];
-    if (lhsShape.size() > 1) {
-      lhsDim = lhsShape[1];
-      dims.emplace_back(lhsShape[0]);
-    }
-
-    // Check legality of matrix multiplication.
-    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
-      return emitError("Attempt to multiply incompatible matrices");
-    if (rhsShape.size() > 1)
-      dims.emplace_back(rhsShape[1]);
-  }
-
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
-  return success();
+  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
+  return shapeHelperInferShapes<ONNXMatMulIntegerOpShapeHelper,
+      ONNXMatMulIntegerOp, ONNXMatMulIntegerOpAdaptor>(*this, elementType);
 }
 
 // GemmOp
@@ -2118,21 +2142,14 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res =
+      processConvTypeParams<ONNXConvTransposeOp>(this, X(), W());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2237,21 +2254,13 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(kernelShape, i) < 1)
         return emitError("bad kernel_shape value");
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXQLinearConvOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -3272,41 +3281,112 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 // DequantizeLinear
 //===----------------------------------------------------------------------===//
 
+namespace {
+// Returns known length if ty is a non-scalar 1-D vector, otherwise -1.
+int64_t nonScalar1DLen(ShapedType ty) {
+  if (!ty.hasRank() || ty.getRank() != 1 || ty.isDynamicDim(0))
+    return -1;
+  int64_t d = ty.getDimSize(0);
+  return d == 1 ? -1 : d; // If dim size is 1 then it's considered a scalar.
+}
+} // namespace
+
 LogicalResult ONNXDequantizeLinearOp::verify() {
-  ONNXDequantizeLinearOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.x()))
-    return success(); // Too early to verify.
+  // Is tensor known to be a scalar (rank 0 or rank 1 with 1 element)?
+  auto isScalar = [](RankedTensorType t) -> bool {
+    return t.getRank() == 0 || (t.getRank() == 1 && t.getDimSize(0) == 1);
+  };
 
-  int64_t xRank = operandAdaptor.x().getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
+  Value scale = x_scale();
+  auto scaleTy = scale.getType().cast<ShapedType>();
+  if (scaleTy.hasRank() && scaleTy.getRank() > 1)
+    return emitOpError("x_scale must be a scalar or 1-D tensor");
+  int64_t scaleLen = nonScalar1DLen(scaleTy);
 
-  if (optionalAxis.has_value()) {
-    // axis attribute must be in the range [-r,r-1], where r = rank(input).
-    int64_t axis = optionalAxis.value();
-    if (axis < -xRank || axis >= xRank)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "axis", axis,
-          onnx_mlir::Diagnostic::Range<int64_t>(-xRank, xRank - 1));
+  Value zero = x_zero_point();
+  int64_t zeroLen = -1;
+  if (!isFromNone(zero)) {
+    if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
+      if (zeroTy.getRank() > 1)
+        return emitOpError("x_zero_point must be a scalar or 1-D tensor");
+      zeroLen = nonScalar1DLen(zeroTy);
+      if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
+        if ((isScalar(scaleTy) && scaleLen != -1) ||
+            (zeroLen != -1 && isScalar(zeroTy)) ||
+            (zeroLen != -1 && scaleLen != -1 && zeroLen != scaleLen))
+          return emitOpError(
+              "x_scale and x_zero_point must have the same shape");
+      }
+    }
+
+    // TODO: Figure out whether to introduce a variant of this check from the
+    // spec ("'x_zero_point' and 'x' must have same type"). It is violated in
+    // in the resnet50-v1-12-qdq model where x, x_zero_point are i8, ui8.
+    //
+    // if (getElementType(x().getType()) != getElementType(zero.getType()))
+    //   return emitOpError("x and x_zero_point must have the same data type");
+
+    if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
+      if (auto values = getDenseElementAttributeFromONNXValue(zero))
+        if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
+          return emitOpError("x_zero_point must be 0 for data type int32");
   }
 
-  // TODO: check other input constraints.
+  if (scaleLen == -1 && zeroLen == -1) {
+    // Either x_scale or x_zero_point is scalar, so quantization is per-tensor /
+    // per layer and axis is ignored and there is nothing more to verify, or
+    // their 1-D rank is unknown and we cannot verify more until they are known.
+  } else {
+    // If x_scale or x_zero_point is a non-scalar 1-D tensor then quantization
+    // is per-axis.
+    int64_t d = scaleLen != -1 ? scaleLen : zeroLen;
+    if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
+      int64_t r = xTy.getRank();
+      // axis attribute must be in the range [-r,r-1].
+      int64_t a = axis();
+      if (a < -r || a >= r)
+        return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+            *this->getOperation(), "axis", a,
+            onnx_mlir::Diagnostic::Range<int64_t>(-r, r - 1));
+      if (a < 0)
+        a += r;
+      if (!xTy.isDynamicDim(a) && xTy.getDimSize(a) != d)
+        return emitOpError("x_scale and x_zero_point 1-D tensor length must "
+                           "match the input axis dim size");
+    } else {
+      // Cannot verify more until x rank is known.
+    }
+  }
 
   return success();
 }
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy) {
-    return success();
-  }
 
-  auto yTy = y().getType().cast<ShapedType>();
-
-  if (!yTy.hasStaticShape()) {
-    FloatType f32 = FloatType::getF32(getContext());
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), f32);
-    y().setType(outType);
+  if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
+    auto xShape = xTy.getShape();
+    SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
+    int64_t d = nonScalar1DLen(x_scale().getType().cast<ShapedType>());
+    if (d == -1 && !isFromNone(x_zero_point())) {
+      d = nonScalar1DLen(x_zero_point().getType().cast<ShapedType>());
+    }
+    if (d != -1) {
+      int64_t r = xTy.getRank();
+      int64_t a = axis();
+      // Checked in verify:
+      assert(-r <= a && a < r && "axis out of range");
+      if (a < 0)
+        a += r;
+      if (yShape[a] == -1) {
+        yShape[a] = d;
+      } else {
+        // Checked in verify:
+        assert(yShape[a] == d && "x_scale and x_zero_point 1-D tensor length "
+                                 "must match the input axis dim size");
+      }
+    }
+    updateType(y(), yShape);
   }
 
   return success();
@@ -3384,21 +3464,13 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       if (ArrayAttrIntVal(kernelShape, i) < 1) {
         return emitError("bad kernel_shape value");
       }
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
   }
 
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, x());
+  // Process strides, dilations, kernel_shape and pads.
+  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
   assert(succeeded(res));
+  kernelShape = kernel_shape();
+
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -4467,6 +4539,30 @@ LogicalResult ONNXIsInfOp::inferShapes(
 }
 
 //===------------------------------------------------------------------------===//
+// LayoutTransform
+//===------------------------------------------------------------------------===//
+
+void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
+    Value data, StringAttr targetLayoutAttr) {
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, data.getType(), targetLayoutAttr);
+  build(builder, state, resType, data, targetLayoutAttr);
+}
+
+LogicalResult ONNXLayoutTransformOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  ONNXLayoutTransformOp operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.data()))
+    return success();
+
+  auto builder = mlir::Builder(getContext());
+  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
+      builder, data().getType(), target_layoutAttr());
+  getResult().setType(resType);
+  return success();
+}
+
+//===------------------------------------------------------------------------===//
 // IsNaNOp
 //===------------------------------------------------------------------------===//
 
@@ -4525,11 +4621,6 @@ LogicalResult ONNXLpNormalizationOp::inferShapes(
 }
 
 LogicalResult ONNXLpPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
@@ -5069,7 +5160,8 @@ LogicalResult ONNXScanOp::inferShapes(
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
     updateType(std::get<1>(vScanOutputValToTy), squeezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   // Now we have modified loop body function input signatures according to
@@ -5110,7 +5202,8 @@ LogicalResult ONNXScanOp::inferShapes(
         scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
     unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();
@@ -5474,7 +5567,86 @@ LogicalResult ONNXUniqueOp::inferShapes(
 
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!X().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+  if (!scales().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+
+  auto inputTy = X().getType().cast<RankedTensorType>();
+  int32_t inputRank = inputTy.getShape().size();
+
+  SmallVector<int64_t, 4> outputDims(inputRank, -1);
+
+  // Extract the scale values
+  auto scalesConstOp = getONNXConstantOp(scales());
+  if (!scalesConstOp) {
+    return success();
+  }
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!valueAttr) {
+    return emitError("Scales constant is not a DenseElementsAttr");
+  }
+  int scaleIdx = 0;
+  // Why are the scale values float's?
+  for (auto it = valueAttr.getValues<FloatAttr>().begin();
+       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
+    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
+  }
+
+  // Compute and set the output shape
+  for (int i = 0; i < inputRank; ++i) {
+    outputDims[i] *= inputTy.getShape()[i];
+  }
+  getResult().setType(
+      RankedTensorType::get(outputDims, inputTy.getElementType()));
+
+  return success();
+}
+
+LogicalResult ONNXUpsampleOp::verify() {
+  if (!X().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+  if (!scales().getType().isa<RankedTensorType>()) {
+    return success();
+  }
+
+  auto inputTy = X().getType().cast<RankedTensorType>();
+  int32_t inputRank = inputTy.getShape().size();
+
+  // Sanity checks on scale argument
+  auto scalesTy = scales().getType().cast<RankedTensorType>();
+  if (scalesTy.getShape().size() != 1) {
+    return emitError("Scales tensor must be rank-1");
+  }
+  if (scalesTy.getShape()[0] != inputRank) {
+    return emitError("Input tensor rank doesn't match scales tensor shape");
+  }
+
+  // Extract the scale values
+  auto scalesConstOp = getONNXConstantOp(scales());
+  if (!scalesConstOp) {
+    return success();
+  }
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!valueAttr) {
+    return emitError("Scales constant is not a DenseElementsAttr");
+  }
+
+  int scaleIdx = 0;
+  for (auto it = valueAttr.getValues<FloatAttr>().begin();
+       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
+    if (scaleIdx >= inputRank) {
+      return emitError("Scales tensor shape doesn't match # of scale values");
+    }
+    scaleIdx++;
+  }
+  if (scaleIdx != inputRank) {
+    return emitError("Scales tensor shape doesn't match # of scale values");
+  }
+  return success();
 }
 
 LogicalResult ONNXWhereOp::inferShapes(
@@ -5645,6 +5817,7 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
 //===----------------------------------------------------------------------===//
 // Loop
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXLoopOp.
 LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -5708,7 +5881,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     // early termination to be sure.
     unsqueezedShape.insert(unsqueezedShape.begin(), -1);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
-        rankedScanTy.getElementType());
+        rankedScanTy.getElementType(), /*encoding=*/nullptr,
+        /*refineShape=*/false);
   }
 
   return success();
@@ -5732,6 +5906,7 @@ mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
 //===----------------------------------------------------------------------===//
 // CustomOp
 //===----------------------------------------------------------------------===//
+
 /// Infer the output shape of the ONNXCustomOp. This method is required by
 /// the shape inference interface.
 LogicalResult ONNXCustomOp::inferShapes(
@@ -5739,6 +5914,10 @@ LogicalResult ONNXCustomOp::inferShapes(
   // getResult().setType(getOperand().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// CallOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   // Check that the callee attribute was specified.
@@ -5828,3 +6007,6 @@ LogicalResult ONNXDimOp::inferShapes(
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+#define GET_ATTRDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"

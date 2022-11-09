@@ -55,15 +55,21 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
   //       to run the CPU specific transformations.
   Option<bool> onnxOpTransformTargetCPU{*this, "onnx-op-transform-target-cpu",
       llvm::cl::desc("Target CPU op transform passes."), llvm::cl::init(false)};
+  Option<bool> onnxOpTransformEnableSimdDataLayout{*this,
+      "onnx-op-transform-simd-data-layout",
+      llvm::cl::desc("Enable SIMD data layout opt in op transform passes."),
+      llvm::cl::init(false)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold, bool report, bool targetCPU) {
+  ONNXOpTransformPass(int threshold, bool report, bool targetCPU,
+      bool enableSimdDataLayoutOpt) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
+    this->onnxOpTransformEnableSimdDataLayout = enableSimdDataLayoutOpt;
   }
 
   void runOnOperation() final;
@@ -146,7 +152,8 @@ void ONNXOpTransformPass::runOnOperation() {
     // Convolution Optimization currently only for CPU.
     if (targetCPU) {
       dynamicPM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConvOptONNXToONNXPass());
+          onnx_mlir::createConvOptONNXToONNXPass(
+              onnxOpTransformEnableSimdDataLayout));
       dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     }
     dynamicPM.addNestedPass<func::FuncOp>(
@@ -179,6 +186,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU) {
-  return std::make_unique<ONNXOpTransformPass>(threshold, report, targetCPU);
+    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt) {
+  return std::make_unique<ONNXOpTransformPass>(
+      threshold, report, targetCPU, enableSimdDataLayoutOpt);
 }

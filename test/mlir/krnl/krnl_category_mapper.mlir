@@ -12,8 +12,8 @@ func.func private @test_find_index_str(%str: !krnl.string) -> index {
 }
 
 // CHECK-DAG:   llvm.func @find_index_str(!llvm.ptr<i8>, !llvm.ptr<i32>, !llvm.ptr<i32>, i32) -> i64
-// CHECK-DAG:   llvm.mlir.global internal constant @V(dense<[1, 2, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
-// CHECK-DAG:   llvm.mlir.global internal constant @G(dense<[1, 0, -3]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
+// CHECK-DAG:   llvm.mlir.global internal constant @V(dense<[1, 2, 0]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
+// CHECK-DAG:   llvm.mlir.global internal constant @G(dense<[1, 0, -3]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
 
 // CHECK-LABEL: @test_find_index_str(%arg0: i64) -> i64
 // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
@@ -34,8 +34,8 @@ func.func private @test_find_index_int(%val: i64) -> index {
   return %index : index
 
 // CHECK-DAG:   llvm.func @find_index_i64(i64, !llvm.ptr<i32>, !llvm.ptr<i32>, i32) -> i64
-// CHECK-DAG:   llvm.mlir.global internal constant @V(dense<[1, 2, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
-// CHECK-DAG:   llvm.mlir.global internal constant @G(dense<[1, 0, -3]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
+// CHECK-DAG:   llvm.mlir.global internal constant @V(dense<[1, 2, 0]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
+// CHECK-DAG:   llvm.mlir.global internal constant @G(dense<[1, 0, -3]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
 
 // CHECK-LABEL: llvm.func @test_find_index_int(%arg0: i64) -> i64
 // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
@@ -81,7 +81,7 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   // CHECK-DAG: llvm.mlir.global internal constant @cat("cat")
   // CHECK-DAG: llvm.mlir.global internal constant @dog("dog")
   // CHECK-DAG: llvm.mlir.global internal constant @cow("cow")    
-  // CHECK:     llvm.mlir.global internal constant @cats_strings{{.*}}() {alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
+  // CHECK:     llvm.mlir.global internal constant @cats_strings{{.*}}() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:       [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[CAT_ADDR:%.+]] = llvm.mlir.addressof @cat : !llvm.ptr<array<3 x i8>>
   // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -97,9 +97,9 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   // CHECK:       [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:       llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:     }
-  // CHECK-DAG: llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {alignment = 16 : i64} : !llvm.array<3 x i64>
-  // CHECK-DAG: llvm.mlir.global internal constant @V{{.*}}(dense<[1, 2, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
-  // CHECK-DAG: llvm.mlir.global internal constant @G{{.*}}(dense<[1, 0, -3]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
+  // CHECK-DAG: llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i64>
+  // CHECK-DAG: llvm.mlir.global internal constant @V{{.*}}(dense<[1, 2, 0]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
+  // CHECK-DAG: llvm.mlir.global internal constant @G{{.*}}(dense<[1, 0, -3]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
 
   // CHECK-LABEL: @test_category_mapper_string_to_int64(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK-DAG:   [[C0:%.+]] = llvm.mlir.constant(0 : i32) : i32  
@@ -166,7 +166,7 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK-DAG:  llvm.mlir.global internal constant @cat("cat")
   // CHECK-DAG:  llvm.mlir.global internal constant @dog("dog")
   // CHECK-DAG:  llvm.mlir.global internal constant @cow("cow")    
-  // CHECK:      llvm.mlir.global internal constant @cats_strings{{.*}}() {alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
+  // CHECK:      llvm.mlir.global internal constant @cats_strings{{.*}}() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:        [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[CAT_ADDR:%.+]] = llvm.mlir.addressof @cat : !llvm.ptr<array<3 x i8>>
   // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -182,9 +182,9 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK:        [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:        llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:      }
-  // CHECK-DAG:  llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {alignment = 16 : i64} : !llvm.array<3 x i64>
-  // CHECK-DAG:  llvm.mlir.global internal constant @V{{.*}}(dense<[2, 1, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
-  // CHECK-DAG:  llvm.mlir.global internal constant @G{{.*}}(dense<[-1, 1, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
+  // CHECK-DAG:  llvm.mlir.global internal constant @cats_int64s{{.*}}(dense<[1, 2, 3]> : tensor<3xi64>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i64>
+  // CHECK-DAG:  llvm.mlir.global internal constant @V{{.*}}(dense<[2, 1, 0]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
+  // CHECK-DAG:  llvm.mlir.global internal constant @G{{.*}}(dense<[-1, 1, 0]> : tensor<3xi32>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x i32>
 
   // CHECK-LABEL: @test_category_mapper_int64_to_string(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<2 x i64>, array<2 x i64>)> 
   // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32

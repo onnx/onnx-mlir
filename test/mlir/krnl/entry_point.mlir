@@ -17,7 +17,7 @@ module {
 // CHECK:             ([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
 // CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
 
-// CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<2 x ptr<i8>> {
+// CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<2 x ptr<i8>> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr<i8>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK:           [[VAR_3_:%.+]] = llvm.getelementptr [[VAR_2_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
@@ -104,7 +104,7 @@ module {
 // CHECK:         llvm.func @run_second_entry([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
 
-// CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() : !llvm.array<3 x ptr<i8>> {
+// CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<3 x ptr<i8>> {
 // CHECK-DAG:       [[VAR_0_6_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
 // CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
 // CHECK:           [[VAR_3_5_:%.+]] = llvm.getelementptr [[VAR_2_6_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>

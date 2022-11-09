@@ -158,7 +158,7 @@ func.func @test_update_reshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: ten
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<256> : tensor<1xi64>} : () -> tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_3_]]) : (tensor<?x256xi64>, tensor<3xi64>) -> tensor<?x1x256xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x256xi64>, tensor<3xi64>) -> tensor<?x1x256xi64>
 // CHECK:           return [[VAR_4_]] : tensor<?x1x256xi64>
 // CHECK:         }
 }
