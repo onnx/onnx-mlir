@@ -325,9 +325,20 @@ DisposableElementsAttr DisposableElementsAttr::castElementType(
       newType, getBuffer(), getStrides(), getBufferDType(), std::move(reader));
 }
 
+namespace {
+bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
+  for (size_t i = 0; i < perm.size(); ++i) {
+    if (perm[i] != i)
+      return false;
+  }
+  return true;
+}
+} // namespace
+
 DisposableElementsAttr DisposableElementsAttr::transpose(
     ElementsAttrBuilder &elmsBuilder, ArrayRef<uint64_t> perm) const {
-  // TODO: Check if perm is identity and then just return *this.
+  if (isIdentityPermutation(perm))
+    return *this;
 
   ShapedType type = getType();
   auto shape = type.getShape();
