@@ -45,8 +45,8 @@ public:
       DType bufferDType, const Filler<char> &bytesFiller);
 
   template <typename T>
-  mlir::DisposableElementsAttr fromArray(mlir::ShapedType type,
-      DType bufferDType, llvm::ArrayRef<T> array, bool mustCopy);
+  mlir::DisposableElementsAttr fromArray(
+      mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy);
 
   template <typename T>
   mlir::DisposableElementsAttr fromArray(
@@ -99,9 +99,8 @@ private:
 
 template <typename T>
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
-    mlir::ShapedType type, DType bufferDType, llvm::ArrayRef<T> array,
-    bool mustCopy) {
-  return fromRawBytes(type, toDType<T>, castArrayRef<char>, mustCopy);
+    mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy) {
+  return fromRawBytes(type, toDType<T>, castArrayRef<char>(array), mustCopy);
 }
 
 template <typename T>
