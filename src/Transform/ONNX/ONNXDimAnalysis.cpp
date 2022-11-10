@@ -509,7 +509,7 @@ void DimAnalysis::visitDim(
     // IndexExpr for its shape inferece.
     // ```c
     // exploreSameInputDims<ONNXReduceMeanOp, ONNXReduceMeanOpShapeHelper>(
-    //    dim, squeezeOp, sameDims);
+    //    dim, reduceMeanOp, sameDims);
     // ```
 
     // Only support keepdims at this moment.
