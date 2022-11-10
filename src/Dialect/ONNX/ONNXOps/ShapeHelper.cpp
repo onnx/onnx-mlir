@@ -26,10 +26,80 @@ using namespace mlir;
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
+// IndexShapeBuilder
+//===----------------------------------------------------------------------===//
+
+IndexExpr IndexExprShapeBuilder::getIndexExpr(ArrayAttr arrayAttr, int64_t i) {
+  assert(i >= 0 && "expected nonnegative array index");
+  int64_t size = arrayAttr.size();
+  if (i >= size)
+    return UndefinedIndexExpr();
+  int64_t val = (array.getValue()[i]).cast<IntegerAttr>().getInt();
+  return LiteralIndexExpr(val);
+}
+
+IndexExpr IndexExprShapeBuilder::getIndexExpr(
+    ArrayAttr arrayAttr, int64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIndexExpr(arrayAttr, i);
+  // Undefined value are set to default value.
+  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+}
+
+IndexExpr IndexExprShapeBuilder::getIndexExpr(Value scalarArray, int64_t i) {
+  assert(i >= 0 && "expected nonnegative array index");
+  int64_t size = getSize(scalarArray);
+  if (i >= size)
+    return UndefinedIndexExpr();
+  // If our scalar array is a constant, return it.
+  if (DenseElementsAttr attrArray =
+          getDenseElementAttributeFromONNXValue(scalarArray)) {
+    auto attrVal = attrArray.getValues<Attribute>()[ArrayRef<uint64_t>({i})];
+    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
+    return LiteralIndexExpr(attrInt);
+  }
+  // If our scalar array is not a constant; we have a questionmark.
+  return QuestionmarkIndexExpr();
+}
+
+IndexExpr IndexExprShapeBuilder::getIndexExpr(
+    Value scalarArray, int64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIndexExpr(scalarArray, i);
+  // Undefined value are set to default value.
+  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+}
+
+bool IndexExprShapeBuilder::getIndexExprList(
+    Value scalarArray, int64_t num, SmallVectorImpl<IndexExpr> &list) {
+  list.clear();
+  int64_t size = getSize(scalarArray);
+  if (num > size)
+    return false;
+  for (int64_t i = 0; i < num; ++i) {
+    IndexExpr indexExpr = getIndexExpr(scalarArray, i);
+    assert(!indexExpr.isUndefined() && "expected defined index expr");
+    list.emplace_back(indexExpr);
+  }
+}
+
+bool IndexExprShapeBuilder::getIndexExprList(
+    Value scalarArray, SmallVectorImpl<IndexExpr> &list) {
+  return getIndexExprList(scalarArray, getSize(scalarArray), list);
+}
+
+int64_t IndexExprShapeBuilder::getSize(Value scalarArray) {
+  assert(hasShapeAndRank(scalarArray) && "expected shaped type with rank");
+  ShapedType shapeType = scalarArray.getType().cast<ShapedType>();
+  // Find shaped type size (rank of 0 is scalar).
+  int rank = shapeType.getRank();
+  assert(rank < 2 && "expected scalar or scalar array");
+  return (rank == 0) ? 1 : shapeType.getShape(0);
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-/// Refine `inferredDims` using the output's shape if possbile. For example,
+/// Refine `inferredDims` using the output's shape if possible. For example,
 /// replacing a dynamic dim in `inferredDims` by a static dim in the output's
 /// shape.
 static void refineDims(DimsExpr &inferredDims, Value output) {
@@ -58,12 +128,12 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
     }
-    // inferredDim is unknown at lowering: use exising dim for efficiency.
+    // inferredDim is unknown at lowering: use existing dim for efficiency.
     if (!inferredDims[i].isLiteral()) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
     }
-    // inferedDim is different from existingDim. Believe in existingDim.
+    // inferredDim is different from existingDim. Believe in existingDim.
     if (inferredDims[i].isLiteral() &&
         (existingDims[i] != inferredDims[i].getLiteral())) {
       // Warning for users.
@@ -121,7 +191,7 @@ Value ONNXOpShapeHelper<Operation>::getOutput(int n) {
 template <class OP>
 void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   outputsDims[n] = inferredDims;
-  // Try to refine outputsDims[n] using the output's shape if possbile. For
+  // Try to refine outputsDims[n] using the output's shape if possible. For
   // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
   // output's shape.
   Value output = getOutput(n);
@@ -229,8 +299,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
   // stands for anything but a literal. When we are allowed to generate code,
   // there should be no more QuestionMarks as we are allowed to generate
   // affine/symbols/dims/non-affine expressions. Since this code predominantly
-  // runs when we can gen code (as it actually does gen max ops), we should use
-  // !isLiteral() for anything that is runtime. The comments were left
+  // runs when we can gen code (as it actually does gen max ops), we should
+  // use !isLiteral() for anything that is runtime. The comments were left
   // unchanged.
 
   //  Now compute each broadcasted dimension for the output. folding over the
@@ -492,7 +562,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     Attribute encoding, bool refineShape) {
-  // Try to combine the given shape and the output's shape if possbile.
+  // Try to combine the given shape and the output's shape if possible.
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
   for (int64_t d : shape) {

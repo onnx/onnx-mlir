@@ -31,6 +31,32 @@
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// IndexShapeBuilder
+//===----------------------------------------------------------------------===//
+
+class IndexExprShapeBuilder {
+  virtual IndexExprShapeBuilder();
+  virtual ~IndexExprShapeBuilder();
+
+  virtual IndexExpr getIndexExpr(ArrayAttr arrayAttr, int64_t i);
+  virtual IndexExpr getIndexExpr(
+      ArrayAttr arrayAttr, int64_t i, int64_t defaultLiteral);
+  virtual IndexExpr getIndexExpr(Value scalarArray, int64_t i);
+  virtual IndexExpr getIndexExpr(
+      Value scalarArray, int64_t i, int64_t defaultLiteral);
+
+  virtual bool getIndexExprList(
+      Value scalarArray, llvm::SmallVectorImpl<IndexExpr> &indexExprList);
+  virtual bool getIndexExprList(Value scalarArray, int64_t num,
+      llvm::SmallVectorImpl<IndexExpr> &indexExprList);
+
+   virtual bool isShapeInferencePass() { return true; }
+   
+private:
+  int64_t getSize(Value scalarArray);
+};
+
 // Steps to add a new op XXX:
 // 1) Create a new shape inference type inside this file, ONNXShapeHelper.hpp.
 // 2) Create new shape inference file, say XXX.cpp and implement.
@@ -387,7 +413,7 @@ struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXOneHotOp> {
   mlir::LogicalResult computeShape(mlir::ONNXOneHotOpAdaptor operandAdaptor);
   // Additional data for ExpandOp.
   int64_t axis = -1; // Default value.
-  IndexExpr depth;   // Depth which may/maynot be known at compile time.
+  IndexExpr depth;   // Depth which may/may not be known at compile time.
 };
 
 // Shape for ONNXRoiAlignOp
