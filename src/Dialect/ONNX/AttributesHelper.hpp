@@ -27,15 +27,7 @@ struct mlir::DenseElementsAttr::is_valid_cpp_fp_type<onnx_mlir::bfloat_16> {
 
 namespace onnx_mlir {
 
-union WideNum;
-
 // Makes deep copy of elements, unless they are already a DenseElementsAttr.
 mlir::DenseElementsAttr toDenseElementsAttr(mlir::ElementsAttr elements);
-
-void readIntElements(
-    mlir::ElementsAttr elements, llvm::MutableArrayRef<int64_t> ints);
-
-void readFPElements(
-    mlir::ElementsAttr elements, llvm::MutableArrayRef<double> fps);
 
 } // namespace onnx_mlir
