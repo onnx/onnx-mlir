@@ -54,8 +54,10 @@ enum class DType : int8_t {
   // Non-IEEE floating-point format based on IEEE754 single-precision
   // floating-point number truncated to 16 bits.
   // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
-  BFLOAT16 = 16
+  BFLOAT16 = 16,
   // clang-format on
+
+  MAX_DTYPE = 16 // TODO: update this if more types are added to the enum
 };
 
 // DType and enum onnx::TensorProto_DataType convert to each other with
@@ -183,9 +185,9 @@ struct DTypeToken {
   constexpr operator DType() const { return DTYPE; }
 };
 
-template <typename Action, typename... Args>
-auto dispatchByDType(DType dtype, Action &&act, Args &&...args) {
-#define ACT(DTYPE) act(DTypeToken<DTYPE>{}, std::forward<Args>(args)...)
+template <typename Action>
+auto dispatchByDType(DType dtype, Action &&act) {
+#define ACT(DTYPE) act(DTypeToken<DTYPE>{})
   // clang-format off
   switch (dtype) {
   case DType::BOOL     : return ACT(DType::BOOL);
@@ -207,10 +209,9 @@ auto dispatchByDType(DType dtype, Action &&act, Args &&...args) {
 #undef ACT
 }
 
-template <typename Action, typename... Args>
-auto dispatchByMlirType(mlir::Type type, Action &&act, Args &&...args) {
-  return dispatchByDType(dtypeOfMlirType(type), std::forward<Action>(act),
-      std::forward<Args>(args)...);
+template <typename Action>
+auto dispatchByMlirType(mlir::Type type, Action &&act) {
+  return dispatchByDType(dtypeOfMlirType(type), std::forward<Action>(act));
 }
 
 } // namespace onnx_mlir
