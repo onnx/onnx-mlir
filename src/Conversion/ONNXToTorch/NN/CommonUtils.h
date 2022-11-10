@@ -9,7 +9,6 @@
 // =============================================================================
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -25,6 +24,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
