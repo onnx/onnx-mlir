@@ -68,7 +68,7 @@ public:
     auto module = op->getParentOfType<ModuleOp>();
     auto *context = module.getContext();
     const RuntimeAPIRegistry &apiRegistry =
-        RuntimeAPIRegistry::build(module, rewriter);
+        RuntimeAPIRegistry(module, rewriter);
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();

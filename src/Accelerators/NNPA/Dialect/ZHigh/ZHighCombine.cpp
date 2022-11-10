@@ -130,7 +130,6 @@ void ZHighStickOp::getCanonicalizationPatterns(
 void ZHighUnstickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<UnstickStickRemovalPattern>(context);
-  results.insert<SigmoidLayoutChangingPattern>(context);
 }
 
 } // namespace zhigh

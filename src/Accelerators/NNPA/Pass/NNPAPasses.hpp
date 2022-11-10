@@ -40,9 +40,6 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
-/// Pass for instrument the ZHigh ops
-std::unique_ptr<mlir::Pass> createInstrumentZHighPass();
-
 } // end namespace zhigh
 
 namespace zlow {

@@ -17,7 +17,7 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 
@@ -83,6 +83,16 @@ Value OnnxBuilder::dim(Value input, int axis) const {
       IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
           APInt(64, axis, /*isSigned=*/true));
   return b.create<ONNXDimOp>(loc, resultType, input, axisAttr);
+}
+
+void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
+  IntegerAttr axisAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
+  IntegerAttr groupIDAttr =
+      IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, groupID, /*isSigned=*/true));
+  b.create<ONNXDimGroupOp>(loc, input, axisAttr, groupIDAttr);
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {

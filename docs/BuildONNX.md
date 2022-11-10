@@ -6,7 +6,32 @@ Backend tests are triggered by `make check-onnx-backend` in the build directory 
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` variable in your top cmake file.
 
-You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` or linux: `apt -y install python3-pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+
+ ## Upgrading ONNX in ONNX-MLIR
+ 
+Here are the steps taken to upgrade the ONNX version:
+
+1.	Create your own branch
+
+2.	cd into `third_party/onnx` and checkout the commit for the latest version of onnx (You can find the latest commit here: https://github.com/onnx/onnx/releases)
+
+3.	pip uninstall onnx (remove older version)
+
+4.	In `onnx-mlir/` directory, pip install —user third_party/onnx (install onnx from the commit and not online version)
+
+5.	Update `utils/gen_onnx_mlir.py` file with the correct version number
+
+6.	Build onnx in the `build/` directory using: set CMAKE_ARGS=-DONNX_USE_LITE_PROTO=ON
+
+7.	Run in the `build/` directory : make OMONNXOpsIncTranslation
+
+8.	Run in `build/` directory : make onnx-mlir-docs
+
+
+**Note: Please use `git add <filename>` for files that might have been changed before doing a PR.** 
+
+**Tip: Check that we have the right version of `third_party/onnx` committed by looking in the PR and clicking on the files that are changed. You should be redirected to the appropriate onnx commit hash.** 
 
 ## Known issues
 
@@ -29,3 +54,4 @@ Current thread 0x0000000107919e00 (most recent call first):
  ```shell
  % export no_proxy="*"
  ```
+ 

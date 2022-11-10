@@ -46,7 +46,11 @@ ZTensorEncodingAttr getZTensorEncoding(mlir::Type type);
 /// Get the layout of a ztensor.
 ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 
-/// Get the layout of a ztensor.
+/// Get the layout attribute of a ztensor.
+mlir::StringAttr getZTensorLayoutAttr(
+    mlir::OpBuilder &builder, mlir::Type type);
+
+/// Get a minus value.
 mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
     mlir::FloatAttr floatAttr, mlir::Value input);
 
