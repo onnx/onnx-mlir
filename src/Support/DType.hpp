@@ -157,6 +157,10 @@ mlir::Type toMlirType(mlir::MLIRContext *ctx) {
 // The following functions isFloatDType(dtype), bitwidthOfDType(dtype), etc are
 // helpful alternatives to DTypeTrait<dtype>::isFloat/bitwidth/etc
 // when dtype isn't known at compile.
+//
+// TODO: Fix them up so they don't crash with
+//       llvm_unreachable("not a supported datatype")
+//       when called with DType::STRING or DType::COMPLEX64/128.
 
 // == mlirTypeOfDType(dtype, ctx).isa<FloatType>()
 bool isFloatDType(DType);
