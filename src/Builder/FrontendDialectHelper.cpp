@@ -38,7 +38,7 @@ constexpr bool shouldSwapLEBytes =
     sizeof(T) > 1 && llvm::support::endian::system_endianness() !=
                          llvm::support::endianness::little;
 
-#ifdef ENABLE_DISPOSABLE_POOL
+#ifndef DISABLE_DISPOSABLE_POOL
 // TODO: make this work...
 struct ElementsAttrFactory {
   template <typename T>
