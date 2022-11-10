@@ -164,9 +164,9 @@ private:
   int64_t getNumBufferElements() const;
 
 public:
-  // isSplat() can return false even if all elements are identical, e.g.
-  // no splat check is done to verify if the reader function maps all
-  // elements to the same value, or to verify if a mmap'ed file is splat.
+  // isSplat() is true if all elements are known to be the same
+  // (and are represented as a single number with all-zeros strides).
+  // Can return false even if all elements are identical.
   bool isSplat() const;
 
   // Same as dtypeOfMlirType(getElementType()).
