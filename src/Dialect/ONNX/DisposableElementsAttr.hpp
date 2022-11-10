@@ -127,10 +127,6 @@ private:
       Optional<Strides> optionalStrides, DType bufferDType,
       Reader reader = nullptr);
 
-  // TODO: remove if not needed
-  static DisposableElementsAttr get(ShapedType type, const Buffer &buffer,
-      Strides strides, Properties properties, Reader reader = nullptr);
-
   // Internal method called by get(..) methods.
   static DisposableElementsAttr create(ShapedType type, const Buffer &buffer,
       Strides strides, Properties properties, Reader reader /*= nullptr*/);

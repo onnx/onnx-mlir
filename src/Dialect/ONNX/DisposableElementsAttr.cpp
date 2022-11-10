@@ -68,28 +68,6 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
 }
 
 /*static*/
-DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
-    const Buffer &buffer, Strides strides, Properties properties,
-    Reader reader) {
-  unsigned bufBytewidth = bytewidthOfDType(properties.bufferDType);
-  assert(buffer->getBufferSize() % bufBytewidth == 0);
-  int64_t numBufferElements = buffer->getBufferSize() / bufBytewidth;
-  auto shape = type.getShape();
-  assert(strides.size() == shape.size());
-  // We don't require areStridesSplat(strides) == (numBufferElements == 1)
-  // because strides can be splat when type.getNumElements() == 0 and
-  // numBufferElements == 0.
-  assert(!areStridesSplat(strides) || numBufferElements == 1);
-  assert(numBufferElements == getStridesNumElements(shape, strides));
-  assert(properties.isContiguous == areStridesContiguous(shape, strides));
-  assert(reader || !properties.isTransformed);
-  assert(properties.isTransformed || wideDTypeOfDType(properties.bufferDType) ==
-                                         wideDTypeOfDType(properties.dtype));
-  // TODO: add more checks
-  return create(type, buffer, strides, properties, std::move(reader));
-}
-
-/*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     const Buffer &buffer, Strides strides, Properties properties,
     Reader reader) {
