@@ -91,7 +91,7 @@ public:
   }
 
   int test_splat() {
-    std::cout << "test_splat:\n";
+    std::cout << "test_splat:" << std::endl;
 
     bool all = forAllDTypes([this](DType d) {
       return dispatchByDType(d, [this](auto dtype) {
@@ -134,7 +134,7 @@ public:
   }
 
   int test_transpose() {
-    std::cout << "test_transpose:\n";
+    std::cout << "test_transpose:" << std::endl;
 
     ShapedType type = RankedTensorType::get({2, 3, 5}, getUInt(8));
     auto elms = nums<uint8_t>(std::make_integer_sequence<uint8_t, 30>{});
@@ -154,7 +154,7 @@ public:
   }
 
   int test_cast() {
-    std::cout << "test_cast:\n";
+    std::cout << "test_cast:" << std::endl;
 
     ShapedType type = RankedTensorType::get({1}, I64);
     auto e = elmsBuilder.create(type, buffer<int64_t>({256}));

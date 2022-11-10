@@ -47,7 +47,7 @@ public:
   }
 
   int test_dispatchByDType() {
-    std::cout << "test_dispatchByDType:\n";
+    std::cout << "test_dispatchByDType:" << std::endl;
 
     for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
          d = static_cast<DType>(static_cast<int>(d) + 1)) {
@@ -91,7 +91,7 @@ public:
   }
 
   int test_FloatingPoint16() {
-    std::cout << "test_FloatingPoint16:\n";
+    std::cout << "test_FloatingPoint16:" << std::endl;
 
     float_16 f9984(9984);
     bfloat_16 fminus1(-1);
