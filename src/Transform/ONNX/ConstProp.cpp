@@ -298,15 +298,14 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, U, EnableNotBool<U>> {
 template <typename ElementwiseBinaryOp>
 auto combinerOfElementwiseBinaryOp(DType operandsDType) {
   using Combiner = std::function<WideNum(WideNum, WideNum)>;
-  return dispatchByDType(
-      operandsDType, [](auto dtype) -> Combiner {
-        using W = WideDType<dtype>;
-        using OpImpl =
-            ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
-        return [](WideNum lhs, WideNum rhs) -> WideNum {
-          return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
-        };
-      });
+  return dispatchByDType(operandsDType, [](auto dtype) -> Combiner {
+    using W = WideDType<dtype>;
+    using OpImpl =
+        ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
+    return [](WideNum lhs, WideNum rhs) -> WideNum {
+      return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
+    };
+  });
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
@@ -885,14 +884,15 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropReshape(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  Operation *inputOp = constValue.getDefiningOp();
-  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+  ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
 
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  DisposableElementsAttr reshapedElements =
+      elementsBuilder.reshape(constElements, reshapedShape);
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
+      .getResult();
 }
 //===----------------------------------------------------------------------===//
 // Pattern definition.

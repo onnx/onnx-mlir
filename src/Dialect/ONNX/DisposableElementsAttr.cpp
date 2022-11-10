@@ -354,6 +354,7 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   //       reader) when getNumBufferElements() == getNumElements(), i.e.
   //       strides have no zeros.
 
+  // TODO: use elmsBuilder.fromArray(Filler<T>) to reduce code duplication
   ArrayBuffer<WideNum> wideSrc = getBufferAsWideNums();
   ArrayRef<char> src(castArrayRef<char>(wideSrc.get()));
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
@@ -371,11 +372,27 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
 
 DisposableElementsAttr DisposableElementsAttr::reshape(
     ElementsAttrBuilder &elmsBuilder, ArrayRef<int64_t> reshapedShape) const {
-  // TODO: if getStrides() don't conflict with reshapedShape clone *this
-  //       with strides that incorporate reshape, otherwise create a new
-  //       MemoryBuffer and restrideArray buffer into it and, if needed,
-  //       do a post processing phase to reorder elements
-  llvm_unreachable("TODO: implement DisposableElementsAttr::reshape");
+  ShapedType type = getType();
+  auto shape = type.getShape();
+  if (reshapedShape == shape)
+    return *this;
+
+  ShapedType reshapedType = type.clone(reshapedShape);
+  auto strides = getStrides();
+  if (auto reshapedStrides = reshapeStrides(shape, strides, reshapedShape)) {
+    return elmsBuilder.create(reshapedType, getBuffer(),
+        makeArrayRef(*reshapedStrides), getBufferDType(), getReaderOrNull());
+  }
+
+  // TODO: Consider reshaping without transforming (just carry over the
+  //       reader) when getNumBufferElements() == getNumElements(), i.e.
+  //       strides have no zeros.
+
+  DType reshapedBufferDType = wideDTypeOfDType(getDType());
+  return elmsBuilder.fromRawBytes(
+      reshapedType, reshapedBufferDType, [this](MutableArrayRef<char> bytes) {
+        this->readElements(castMutableArrayRef<WideNum>(bytes));
+      });
 }
 
 DisposableElementsAttr DisposableElementsAttr::expand(
