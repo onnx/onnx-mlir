@@ -205,7 +205,7 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
     return;
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+  pm.addNestedPass<ModuleOp>(createInstrumentPass());
   
   pm.addPass(createONNXToAtenModifyMainFunctionPass());
   pm.addPass(createLowerToTorchPass(optLevel));
