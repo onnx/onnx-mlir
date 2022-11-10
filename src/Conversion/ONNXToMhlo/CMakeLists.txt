@@ -2,10 +2,22 @@
 
 # Please keep in alphabetical order.
 
-install(TARGETS 
-  MhloDialect
-  MLIRMhloUtils
+set(MHLO_LIBS
+  ChloOps
   HloOpsCommon
+  MLIRMhloUtils
+  MhloDialect
+  MhloRegisterDialects
+  StablehloBase
+  StablehloBroadcastUtils
+  StablehloOps
+  StablehloRegister
+  StablehloTypeInference
+  )
+
+install(TARGETS
+  ${MHLO_LIBS}
+  DESTINATION lib
   )
 
 add_onnx_mlir_library(OMONNXToMhlo
@@ -37,7 +49,7 @@ add_onnx_mlir_library(OMONNXToMhlo
 
   LINK_LIBS PUBLIC
   Accelerator
-  MhloDialect
+  ${MHLO_LIBS}
   MLIRShapeDialect
   MLIRQuantDialect
   MLIRTransforms
@@ -52,6 +64,10 @@ add_onnx_mlir_library(OMONNXToMhlo
 target_link_libraries(MhloDialect PUBLIC
   StablehloAssemblyFormat
   StablehloTypeInference
+  )
+
+target_link_libraries(StablehloTypeInference PUBLIC
+  StablehloBase
   )
 
 target_link_libraries(StablehloTypeInference PUBLIC
