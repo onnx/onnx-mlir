@@ -93,15 +93,6 @@ using EnableFloat = std::enable_if_t<CppTypeTrait<U>::isFloat>;
 template <typename U>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<U, bool>>;
 
-template <typename S>
-void castAndCopy(Type dstElemType, ArrayRef<S> src, MutableArrayRef<char> dst) {
-  dispatchByMlirType(dstElemType, [&](auto dstDType) {
-    using D = CppType<dstDType>;
-    fillOrTransform(src, castMutableArrayRef<D>(dst),
-        [](S v) { return static_cast<D>(v); });
-  });
-}
-
 template <typename T>
 SmallVector<T, 4> createIntVectorFromArrayAttr(ArrayAttr a) {
   SmallVector<T, 4> vec;
