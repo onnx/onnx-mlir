@@ -39,7 +39,6 @@ constexpr bool shouldSwapLEBytes =
                          llvm::support::endianness::little;
 
 #ifndef DISABLE_DISPOSABLE_POOL
-// TODO: make this work...
 struct ElementsAttrFactory {
   template <typename T>
   static mlir::ElementsAttr get(
