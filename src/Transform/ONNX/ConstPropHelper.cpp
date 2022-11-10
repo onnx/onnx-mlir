@@ -18,7 +18,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-#include "src/Dialect/ONNX/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -88,20 +87,28 @@ char *createArrayFromDenseElementsAttr(ElementsAttr dataAttr) {
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     double *resArr = (double *)res;
-    readFPElements(dataAttr, llvm::makeMutableArrayRef(resArr, numElements));
+    auto valueIt = dataAttr.getValues<APFloat>().begin();
+    for (int64_t i = 0; i < numElements; ++i) {
+      double val = (*valueIt++).convertToDouble();
+      *(resArr + i) = val;
+    }
   } else if (elementType.isa<IntegerType>()) {
     // Use int64_t to avoid the precision loss during computation.
     int64_t *resArr = (int64_t *)res;
-    readIntElements(dataAttr, llvm::makeMutableArrayRef(resArr, numElements));
+    auto valueIt = dataAttr.getValues<APInt>().begin();
+    for (int64_t i = 0; i < numElements; ++i) {
+      int64_t val = (*valueIt++).getSExtValue();
+      *(resArr + i) = val;
+    }
   } else
     llvm_unreachable("Unknown data type");
   return res;
 }
 
 template <typename SRC_TYPE, typename DEST_TYPE>
-void copyAndCastArr(const char *srcRawArr, char *destRawArr, int64_t size) {
-  const SRC_TYPE *srcArr = reinterpret_cast<const SRC_TYPE *>(srcRawArr);
-  DEST_TYPE *destArr = reinterpret_cast<DEST_TYPE *>(destRawArr);
+void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size) {
+  SRC_TYPE *srcArr = (SRC_TYPE *)srcRawArr;
+  DEST_TYPE *destArr = (DEST_TYPE *)destRawArr;
   std::transform(
       srcArr, srcArr + size, destArr, [](SRC_TYPE v) { return (DEST_TYPE)v; });
 }
@@ -269,29 +276,29 @@ void ConstPropTransposeImpl(Type elementType, char *constArray,
 
 /// Explicit instantiation of all templated API functions.
 template void copyAndCastArr<double, bool>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int8_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int32_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, int64_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, float>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<double, double>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 
 template void copyAndCastArr<int64_t, bool>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int8_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int32_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, int64_t>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, float>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, double>(
-    const char *srcRawArr, char *destRawArr, int64_t size);
+    char *srcRawArr, char *destRawArr, int64_t size);
 
 } // namespace onnx_mlir
