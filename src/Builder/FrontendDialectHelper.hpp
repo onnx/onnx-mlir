@@ -25,7 +25,7 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
     mlir::OpBuilder &builder, const std::string &externalDataDir,
     const onnx::TensorProto &initializer);
 
-mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
+mlir::ElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     const std::string &externalDataDir, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir
