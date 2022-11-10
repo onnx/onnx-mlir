@@ -44,6 +44,28 @@ std::ostream &operator<<(std::ostream &os, const ArrayRef<int64_t> &v) {
   return os;
 }
 
+bool near(double a, double b) { return fabs(a - b) < 1e-6; }
+
+template <typename CPPTY>
+bool eq(CPPTY a, CPPTY b) {
+  if constexpr (isFP16Type<CPPTY>)
+    return a.toFloat() == b.toFloat();
+  else
+    return a == b;
+}
+
+bool forAllDTypes(std::function<bool(DType)> predicate) {
+  bool result = true;
+  for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
+       d = static_cast<DType>(static_cast<int>(d) + 1)) {
+    if (d == DType::UNDEFINED || d == DType::STRING || d == DType::COMPLEX64 ||
+        d == DType::COMPLEX128)
+      continue;
+    result &= predicate(d);
+  }
+  return result;
+}
+
 MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
   ctx->loadDialect<ONNXDialect>();
@@ -84,68 +106,43 @@ public:
     return IntegerType::get(ctx, width, IntegerType::Unsigned);
   }
 
-  bool near(float a, float b) { return fabs(a - b) < 1e-6; }
-
   int test_splat() {
     std::cout << "test_splat:\n";
-    ShapedType type = RankedTensorType::get({1}, builder.getF32Type());
-    float f4_2 = 4.2;
-    Attribute a = elmsBuilder.create(type, buffer<float>({f4_2}));
-    ElementsAttr e = a.cast<ElementsAttr>();
-    assert(e.isSplat());
-    DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
-    assert(i.isSplat());
-    assert(i.getSplatValue<float>() == f4_2);
-    auto b = i.value_begin<float>();
-    assert(*b == f4_2);
-    auto apf = i.getSplatValue<APFloat>();
-    assert(near(apf.convertToDouble(), f4_2));
-    auto d = toDenseElementsAttr(i);
-    assert(d.getSplatValue<float>() == f4_2);
-    return 0;
-  }
 
-  int test_f16() {
-    std::cout << "test_f16:\n";
-    assert(fabs(float_16::fromFloat(4.2).toFloat() - 4.2) < 1e-3);
-    ShapedType type = RankedTensorType::get({1}, builder.getF16Type());
-    Attribute a =
-        elmsBuilder.create(type, buffer<float_16>({float_16::fromFloat(4.2)}));
-    assert(a);
-    assert(a.isa<ElementsAttr>());
-    ElementsAttr e = a.cast<ElementsAttr>();
-    assert(a.isa<DisposableElementsAttr>());
-    DisposableElementsAttr i = a.cast<DisposableElementsAttr>();
-    assert(e.isSplat());
-    llvm::errs() << "splat value " << i.getSplatValue<float>() << "\n";
-    assert(fabs(i.getSplatValue<float>() - 4.2) < 1e-3);
-    auto b = i.value_begin<float>();
-    auto x = *b;
-    llvm::errs() << "x " << x << "\n";
-    auto d = toDenseElementsAttr(i);
-    d = toDenseElementsAttr(i);
-    llvm::errs() << "as DenseElementsAttr " << d << "\n";
-    return 0;
-  }
+    bool all = forAllDTypes([this](DType d) {
+      return dispatchByDType(d, [this](auto dtype) {
+        using cpptype = CppType<dtype>;
 
-  int test_bool() {
-    std::cout << "test_bool:\n";
-    ShapedType type = RankedTensorType::get({1}, getUInt(1));
-    Attribute a = elmsBuilder.create(type, buffer<bool>({true}));
-    assert(a);
-    assert(a.isa<ElementsAttr>());
-    ElementsAttr e = a.cast<ElementsAttr>();
-    assert(a.isa<DisposableElementsAttr>());
-    DisposableElementsAttr i = a.cast<DisposableElementsAttr>();
-    assert(e.isSplat());
-    llvm::errs() << "splat value " << i.getSplatValue<bool>() << "\n";
-    assert(i.getSplatValue<bool>());
-    auto b = i.value_begin<bool>();
-    auto x = *b;
-    llvm::errs() << "x " << x << "\n";
-    auto d = toDenseElementsAttr(i);
-    d = toDenseElementsAttr(i);
-    llvm::errs() << "as DenseElementsAttr " << d << "\n";
+        ShapedType type =
+            RankedTensorType::get({1}, mlirTypeOfDType(dtype, ctx));
+        cpptype one(1);
+        Attribute a = elmsBuilder.create(type, buffer<cpptype>({one}));
+        ElementsAttr e = a.cast<ElementsAttr>();
+        assert(e.isSplat());
+        DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
+        assert(i.isSplat());
+
+        assert(eq<cpptype>(i.getSplatValue<cpptype>(), one));
+        auto b = i.value_begin<cpptype>();
+        assert(eq<cpptype>(*b, one));
+
+        if (isFloatDType(dtype)) {
+          auto apf = i.getSplatValue<APFloat>();
+          assert(near(apf.convertToDouble(), static_cast<double>(one)));
+        } else {
+          auto api = i.getSplatValue<APInt>();
+          auto x = WideNum::fromAPInt(dtype, api).template to<cpptype>(dtype);
+          assert(eq<cpptype>(x, one));
+        }
+
+        auto d = toDenseElementsAttr(i);
+        assert(eq<cpptype>(d.getSplatValue<cpptype>(), one));
+
+        return true;
+      });
+    });
+    assert(all);
+
     return 0;
   }
 
@@ -268,8 +265,6 @@ int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
   failures += test.test_splat();
-  failures += test.test_f16();
-  failures += test.test_bool();
   failures += test.test_attributes();
   failures += test.test_transpose();
   failures += test.test_cast();
