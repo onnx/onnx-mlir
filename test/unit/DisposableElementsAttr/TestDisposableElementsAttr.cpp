@@ -50,21 +50,15 @@ MLIRContext *createCtx() {
   return ctx;
 }
 
-template <typename Dst = char>
-ArrayRef<Dst> asArrayRef(StringRef s) {
-  return llvm::makeArrayRef(
-      reinterpret_cast<const Dst *>(s.data()), s.size() / sizeof(Dst));
+template <typename T>
+std::shared_ptr<llvm::MemoryBuffer> buffer(ArrayRef<T> data) {
+  return std::shared_ptr<llvm::MemoryBuffer>(
+      llvm::MemoryBuffer::getMemBufferCopy(asStringRef(data)));
 }
 
 template <typename Dst = char>
 ArrayRef<Dst> asArrayRef(const llvm::MemoryBuffer &b) {
   return asArrayRef<Dst>(b.getBuffer());
-}
-
-template <typename T>
-std::shared_ptr<llvm::MemoryBuffer> buffer(ArrayRef<T> data) {
-  return std::shared_ptr<llvm::MemoryBuffer>(
-      llvm::MemoryBuffer::getMemBufferCopy(asStringRef(data)));
 }
 
 class Test {
