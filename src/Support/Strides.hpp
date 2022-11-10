@@ -23,19 +23,16 @@ int64_t getStridesNumElements(
 size_t getStridesPosition(
     llvm::ArrayRef<int64_t> indices, llvm::ArrayRef<int64_t> strides);
 
+// The data is splat (singleton) if strides are all zero.
+inline bool areStridesSplat(llvm::ArrayRef<int64_t> strides) {
+  return llvm::all_of(strides, [](int64_t s) { return s == 0; });
+}
+
 // Returns strides == getDefaultStrides(shape, strides).
 bool areStridesContiguous(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides);
 
 llvm::SmallVector<int64_t, 4> getDefaultStrides(llvm::ArrayRef<int64_t> shape);
-
-llvm::SmallVector<int64_t, 4> unpadStrides(llvm::ArrayRef<int64_t> strides);
-
-llvm::SmallVector<int64_t, 4> padStrides(
-    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides);
-
-llvm::SmallVector<int64_t, 4> paddedStridesOfShape(
-    llvm::ArrayRef<int64_t> shape);
 
 llvm::Optional<llvm::SmallVector<int64_t, 4>> transposeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
@@ -44,6 +41,9 @@ llvm::Optional<llvm::SmallVector<int64_t, 4>> transposeStrides(
 llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     llvm::ArrayRef<int64_t> reshapedShape);
+
+llvm::SmallVector<int64_t, 4> expandStrides(
+    llvm::ArrayRef<int64_t> strides, llvm::ArrayRef<int64_t> expandedShape);
 
 // The following transpose and unflatten functions are more about shapes than
 // strides but they live here for now:
@@ -64,17 +64,21 @@ struct Strided {
   T data;
 };
 
-// Requires srcStrides and dstStrides are padded.
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<char>> src,
     Strided<llvm::MutableArrayRef<char>> dst);
 
 // Computes dstStrides from shape, and pads them and srcStrides.
-void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
+inline void restrideArray(unsigned elementBytewidth,
+    llvm::ArrayRef<int64_t> shape, Strided<llvm::ArrayRef<char>> src,
+    llvm::MutableArrayRef<char> dstData) {
+  auto dstStrides = getDefaultStrides(shape);
+  Strided<llvm::MutableArrayRef<char>> dst{dstStrides, dstData};
+  return restrideArray(elementBytewidth, shape, src, dst);
+}
 
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
-void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
+inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
     Strided<llvm::MutableArrayRef<WideNum>> dst, BinaryFunction fun) {
   assert(lhs.strides.size() == shape.size() && "lhs strides must be padded");

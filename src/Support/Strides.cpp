@@ -77,39 +77,12 @@ SmallVector<int64_t, 4> getDefaultStrides(ArrayRef<int64_t> shape) {
   return strides;
 }
 
-SmallVector<int64_t, 4> unpadStrides(ArrayRef<int64_t> strides) {
-  size_t skip = 0;
-  while (skip < strides.size() && strides[skip] == 0)
-    skip += 1;
-  SmallVector<int64_t, 4> unpadded(strides.drop_front(skip));
-  return unpadded;
-}
-
-SmallVector<int64_t, 4> padStrides(
-    ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
-  int64_t skip = shape.size() - strides.size();
-  assert(skip >= 0);
-  SmallVector<int64_t, 4> padded(skip, 0);
-  padded.append(strides.begin(), strides.end());
-  return padded;
-}
-
-SmallVector<int64_t, 4> paddedStridesOfShape(ArrayRef<int64_t> shape) {
-  SmallVector<int64_t, 4> strides = getDefaultStrides(shape);
-  return padStrides(shape, strides);
-}
-
 Optional<SmallVector<int64_t, 4>> transposeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<uint64_t> perm) {
   // TODO: refine logic to figure out strides in more situations
   if (strides != makeArrayRef(getDefaultStrides(shape)))
     return None;
-  SmallVector<int64_t, 4> paddedStrides = padStrides(shape, strides);
-  SmallVector<int64_t, 4> transposedStrides =
-      transposeDims(paddedStrides, perm);
-  SmallVector<int64_t, 4> unpaddedTransposedStrides =
-      unpadStrides(transposedStrides);
-  return unpaddedTransposedStrides;
+  return transposeDims(strides, perm);
 }
 
 Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
@@ -118,6 +91,15 @@ Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
   if (strides != makeArrayRef(getDefaultStrides(shape)))
     return None;
   return getDefaultStrides(reshapedShape);
+}
+
+SmallVector<int64_t, 4> expandStrides(
+    ArrayRef<int64_t> strides, llvm::ArrayRef<int64_t> expandedShape) {
+  size_t rank = expandedShape.size();
+  assert(rank >= strides.size());
+  SmallVector<int64_t, 4> padded(rank - strides.size(), 0);
+  padded.append(strides.begin(), strides.end());
+  return padded;
 }
 
 SmallVector<int64_t, 4> transposeDims(
@@ -166,10 +148,10 @@ namespace {
 template <typename T>
 void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
     Strided<MutableArrayRef<T>> dst) {
-  assert(src.strides.size() == shape.size() && "src strides must be padded");
-  assert(dst.strides.size() == shape.size() && "dst strides must be padded");
-  int64_t rank = shape.size();
-  auto traverse = [=](int64_t axis, size_t srcPos, size_t dstPos,
+  size_t rank = shape.size();
+  assert(src.strides.size() == rank && "src strides must match rank");
+  assert(dst.strides.size() == rank && "dst strides must match rank");
+  auto traverse = [=](size_t axis, size_t srcPos, size_t dstPos,
                       const auto &recurse) -> void {
     if (axis == rank) {
       dst.data[dstPos] = src.data[srcPos];
@@ -220,22 +202,14 @@ auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&...args) {
 
 void restrideArray(unsigned bytewidth, ArrayRef<int64_t> shape,
     Strided<ArrayRef<char>> src, Strided<MutableArrayRef<char>> dst) {
+  auto expandedSrcStrides = expandStrides(src.strides, shape);
   dispatchByBytewidth(bytewidth, [&](auto staticBytewidth) {
     using T = BitcastType<staticBytewidth>;
-    Strided<ArrayRef<T>> srcT{src.strides, castArrayRef<T>(src.data)};
+    Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
     Strided<MutableArrayRef<T>> dstT{
         dst.strides, castMutableArrayRef<T>(dst.data)};
     restrideArrayImpl<T>(shape, srcT, dstT);
   });
-}
-
-void restrideArray(unsigned elementBytewidth, ArrayRef<int64_t> shape,
-    Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
-  SmallVector<int64_t, 4> paddedSrcStrides = padStrides(shape, src.strides);
-  SmallVector<int64_t, 4> dstStrides = paddedStridesOfShape(shape);
-  Strided<ArrayRef<char>> paddedSrc{paddedSrcStrides, src.data};
-  Strided<MutableArrayRef<char>> dst{dstStrides, dstData};
-  restrideArray(elementBytewidth, shape, paddedSrc, dst);
 }
 
 } // namespace onnx_mlir

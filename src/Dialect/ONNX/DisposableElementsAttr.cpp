@@ -72,20 +72,17 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
     const Buffer &buffer, Strides strides, Properties properties,
     Reader reader) {
-  assert((strides.empty() || strides.front() != 0) &&
-         "non-padded strides shouldn't have leading zeros");
   unsigned bufBytewidth = bytewidthOfDType(properties.bufferDType);
   assert(buffer->getBufferSize() % bufBytewidth == 0);
   int64_t numBufferElements = buffer->getBufferSize() / bufBytewidth;
   auto shape = type.getShape();
-  // We don't require strides.empty() == (numBufferElements == 1)
-  // because strides can be empty when numBufferElements == 0, i.e.
-  // when type.getNumElements() == 0.
-  assert(!strides.empty() || numBufferElements == 1);
+  assert(strides.size() == shape.size());
+  // We don't require areStridesSplat(strides) == (numBufferElements == 1)
+  // because strides can be splat when type.getNumElements() == 0 and
+  // numBufferElements == 0.
+  assert(!areStridesSplat(strides) || numBufferElements == 1);
   assert(numBufferElements == getStridesNumElements(shape, strides));
-  // TODO: figure out if isContiguous should always be exactly the same as
-  //       areStridesContiguous(shape, strides))
-  assert(!properties.isContiguous || areStridesContiguous(shape, strides));
+  assert(properties.isContiguous == areStridesContiguous(shape, strides));
   assert(reader || !properties.isTransformed);
   assert(properties.isTransformed || wideDTypeOfDType(properties.bufferDType) ==
                                          wideDTypeOfDType(properties.dtype));
@@ -169,7 +166,7 @@ ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
 }
 
 bool DisposableElementsAttr::isSplat() const {
-  return getStrides().empty() && getBuffer()->getBufferSize() != 0;
+  return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
 }
 
 DType DisposableElementsAttr::getDType() const { return getProperties().dtype; }
@@ -351,13 +348,12 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(
           getNumElements() * sizeof(WideNum));
-  auto reverseStrides =
-      untransposeDims(paddedStridesOfShape(transposedShape), perm);
+  auto newStrides = getDefaultStrides(transposedShape);
+  auto reverseStrides = untransposeDims(newStrides, perm);
   restrideArray(sizeof(WideNum), shape, {strides, src},
       {reverseStrides, writeBuffer->getBuffer()});
   DType dtype = getDType();
   Buffer transposedBuffer = std::move(writeBuffer);
-  auto newStrides = getDefaultStrides(transposedShape);
   return elmsBuilder.create(transposedType, transposedBuffer,
       makeArrayRef(newStrides), wideDTypeOfDType(dtype));
 }
@@ -378,8 +374,9 @@ DisposableElementsAttr DisposableElementsAttr::expand(
     return *this;
 
   ShapedType expandedType = type.clone(expandedShape);
-  return elmsBuilder.create(expandedType, getBuffer(), getStrides(),
-      getBufferDType(), getReaderOrNull());
+  auto expandedStrides = expandStrides(getStrides(), expandedShape);
+  return elmsBuilder.create(expandedType, getBuffer(),
+      makeArrayRef(expandedStrides), getBufferDType(), getReaderOrNull());
 }
 
 } // namespace mlir

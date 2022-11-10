@@ -150,10 +150,12 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
   auto shape = combinedType.getShape();
   auto dstStrides = getDefaultStrides(shape);
   Strided<llvm::MutableArrayRef<WideNum>> dst{dstStrides, dstNums};
+  auto lhsStrides = expandStrides(lhs.getStrides(), shape);
   ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
-  Strided<llvm::ArrayRef<WideNum>> lhsStrided{lhs.getStrides(), lhsNums.get()};
+  Strided<llvm::ArrayRef<WideNum>> lhsStrided{lhsStrides, lhsNums.get()};
+  auto rhsStrides = expandStrides(rhs.getStrides(), shape);
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
-  Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhs.getStrides(), rhsNums.get()};
+  Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
   transformAndRestrideTwoWideArrays(
       shape, lhsStrided, rhsStrided, dst, combiner);
 
