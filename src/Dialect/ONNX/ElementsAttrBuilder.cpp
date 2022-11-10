@@ -23,10 +23,9 @@ namespace {
 
 // Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
 bool testBoolsValidityAndSplatness(ArrayRef<char> bytes) {
-  return !bytes.empty() && llvm::all_of(bytes, [bytes](char x) {
-    assert(x == 0 || x == 1);
-    return x == bytes[0];
-  });
+  for (char c : bytes)
+    assert(c == 0 || c == 1);
+  return bytes.size() == 1;
 }
 
 // Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
@@ -35,7 +34,8 @@ bool testRawBytesValidityAndSplatness(
   DType dtype = dtypeOfMlirType(type.getElementType());
   assert(wideDTypeOfDType(dtype) == wideDTypeOfDType(bufferDType));
   if (bufferDType == DType::BOOL) {
-    assert(static_cast<size_t>(type.getNumElements()) == bytes.size());
+    size_t numElements = type.getNumElements();
+    assert(bytes.size() == numElements || bytes.size() == 1);
     return testBoolsValidityAndSplatness(bytes);
   }
   ShapedType bufferType =
@@ -86,9 +86,8 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, DType bufferDType, ArrayRef<char> bytes, bool mustCopy) {
   bool isSplat = testRawBytesValidityAndSplatness(type, bufferDType, bytes);
-  StringRef s = asStringRef(
-      isSplat ? bytes.take_front(bitwidthOfDType(bufferDType)) : bytes);
   std::unique_ptr<llvm::MemoryBuffer> buffer;
+  StringRef s = asStringRef(bytes);
   if (mustCopy) {
     buffer = llvm::MemoryBuffer::getMemBufferCopy(s);
   } else {
@@ -106,10 +105,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
-  bool isSplat = testRawBytesValidityAndSplatness(
-      type, bufferDType, writeBuffer->getBuffer());
-  (void)isSplat;
-  // TODO: consider replacing writeBuffer with single element buffer if isSplat
+  // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
   return create(type, std::move(writeBuffer), None, bufferDType);
 }
 

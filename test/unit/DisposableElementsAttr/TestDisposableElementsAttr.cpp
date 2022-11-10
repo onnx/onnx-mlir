@@ -113,16 +113,19 @@ public:
       return dispatchByDType(d, [this](auto dtype) {
         using cpptype = CppType<dtype>;
 
-        ShapedType type =
-            RankedTensorType::get({1}, mlirTypeOfDType(dtype, ctx));
+        Type elementType = mlirTypeOfDType(dtype, ctx);
+        ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
-        Attribute a = elmsBuilder.create(type, buffer<cpptype>({one}));
+        ArrayRef<int64_t> emptyStrides;
+        Attribute a =
+            elmsBuilder.create(type, buffer<cpptype>({one}), emptyStrides);
         ElementsAttr e = a.cast<ElementsAttr>();
         assert(e.isSplat());
         DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
         assert(i.isSplat());
 
         assert(eq<cpptype>(i.getSplatValue<cpptype>(), one));
+
         auto b = i.value_begin<cpptype>();
         assert(eq<cpptype>(*b, one));
 
