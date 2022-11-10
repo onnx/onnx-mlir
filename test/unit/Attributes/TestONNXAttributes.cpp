@@ -45,21 +45,6 @@ std::ostream &operator<<(std::ostream &os, const ArrayRef<int64_t> &v) {
   os << ")";
   return os;
 }
-inline raw_ostream &operator<<(raw_ostream &os, float_16 f16) {
-  return os << "F16(" << f16.toFloat() << ")";
-}
-inline raw_ostream &operator<<(raw_ostream &os, bfloat_16 bf16) {
-  return os << "BF16(" << bf16.toFloat() << ")";
-}
-inline raw_ostream &operator<<(raw_ostream &os, APFloat af) {
-  return os << "APFloat(" << af.convertToDouble() << ")";
-}
-inline raw_ostream &operator<<(raw_ostream &os, onnx_mlir::WideNum n) {
-  return os << "WideNum(i=" << n.i64 << ",u=" << n.u64 << ",f=" << n.dbl << ")";
-}
-inline raw_ostream &operator<<(raw_ostream &os, onnx_mlir::DType dtype) {
-  return os << "DType(" << static_cast<int>(dtype) << ")";
-}
 
 MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
@@ -105,110 +90,6 @@ public:
 
   IntegerType getUInt(unsigned width) const {
     return IntegerType::get(ctx, width, IntegerType::Unsigned);
-  }
-
-  int test_dispatchByDType() {
-    llvm::errs() << "test_dispatch_DTypeToken:\n";
-    for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
-         d = static_cast<DType>(static_cast<int>(d) + 1)) {
-      if (d == DType::UNDEFINED || d == DType::STRING ||
-               d == DType::COMPLEX64 || d == DType::COMPLEX128)
-        continue;
-      if (isIntOrFloatDType(d)) {
-        if (isFloatDType(d)) {
-          assert(!isSignedIntDType(d));
-          assert(!isUnsignedIntDType(d));
-        } else {
-          assert(isSignedIntDType(d) ^ isUnsignedIntDType(d));
-        }
-      }
-      auto dty = dispatchByDType(d, [d](auto dtype) -> DType {
-        using Q = DTypeTrait<dtype>;
-        assert(isFloatDType(dtype) == Q::isFloat);
-        assert(isIntOrFloatDType(dtype) == Q::isIntOrFloat);
-        assert(isSignedIntDType(dtype) == Q::isSignedInt);
-        assert(isUnsignedIntDType(dtype) == Q::isUnsignedInt);
-        assert(sizeof(CppType<dtype>) == Q::bytewidth);
-        assert(d == dtype);
-        return dtype;
-      });
-      assert(dty == d);
-    }
-    return 0;
-  }
-
-  int test_float_16() {
-    llvm::errs() << "test_float_16:\n";
-    using cpptype = float_16;
-    constexpr WideNum n = WideNum::from(toDType<cpptype>, true);
-    assert(n.dbl == 1.0);
-    float_16 f9984(9984);
-    bfloat_16 fminus1(-1);
-    float_16 bfminus1(fminus1);
-    bfloat_16 bf9984(f9984);
-    llvm::errs() << "float16 " << f9984.toFloat() << " as uint "
-                 << f9984.bitcastToU16() << "\n";
-    llvm::errs() << "float16 " << bfminus1.toFloat() << " as uint "
-                 << bfminus1.bitcastToU16() << "\n";
-    llvm::errs() << "bfloat16 " << bf9984.toFloat() << " as uint "
-                 << bf9984.bitcastToU16() << "\n";
-    llvm::errs() << "bfloat16 " << fminus1.toFloat() << " as uint "
-                 << fminus1.bitcastToU16() << "\n";
-    // assert(static_cast<bfloat_16>(bfminus1) == bf9984); // fails, == not
-    // defined
-    assert(bfminus1.toFloat() == fminus1.toFloat());
-    assert(static_cast<float_16>(bf9984).toFloat() ==
-           static_cast<bfloat_16>(f9984).toFloat());
-    constexpr float_16 f16z = float_16();
-    constexpr bfloat_16 bf16z = bfloat_16();
-    constexpr float_16 f16z2 = f16z;
-    constexpr bfloat_16 bf16z2 = bf16z;
-    constexpr uint16_t f16zu = f16z2.bitcastToU16();
-    constexpr uint16_t bf16zu = bf16z2.bitcastToU16();
-    constexpr DType df16 = toDType<decltype(f16z)>;
-    constexpr DType dbf16 = toDType<decltype(bf16z)>;
-    assert(df16 == toDType<float_16>);
-    assert(dbf16 == toDType<bfloat_16>);
-    assert((std::is_same_v<CppType<df16>, float_16>));
-    assert((std::is_same_v<CppType<dbf16>, bfloat_16>));
-    assert((std::is_same_v<CppType<toDType<float>>, float>));
-    llvm::errs() << "float16 " << f16z.toFloat() << " as uint " << f16zu
-                 << ", dtype=" << df16 << "\n";
-    llvm::errs() << "bfloat16 " << bf16z.toFloat() << " as uint " << bf16zu
-                 << ", dtype=" << dbf16 << "\n";
-    return 0;
-  }
-
-  int test_DType() {
-    llvm::errs() << "test_DType:\n";
-    uint64_t u;
-    int8_t i = -128;
-    u = i;
-    llvm::errs() << "-128i8 as u64 " << u << "\n";
-    llvm::errs() << "static_cast<u64>(-128i8) " << static_cast<uint64_t>(i)
-                 << "\n";
-    assert(CppTypeTrait<float>::isFloat);
-    return 0;
-  }
-
-  int test_WideNum() {
-    llvm::errs() << "test_WideNum:\n";
-    constexpr WideNum nf = WideNum::from(DType::DOUBLE, 42.0);
-    llvm::errs() << "nf " << nf << "\n";
-    llvm::errs() << "nf as APFloat " << nf.toAPFloat(DType::DOUBLE) << "\n";
-    constexpr int64_t i = -42;
-    constexpr WideNum ni = WideNum::from(DType::INT64, i);
-    llvm::errs() << "ni " << ni << "\n";
-    llvm::errs() << "ni as APInt " << ni.toAPInt(DType::INT64) << "\n";
-    constexpr uint64_t u = 1ULL << 63;
-    constexpr WideNum nu = WideNum::from(DType::UINT64, u);
-    llvm::errs() << "nu " << nu << "\n";
-    llvm::errs() << "nu as APInt " << nu.toAPInt(DType::UINT64) << "\n";
-    constexpr bool b = true;
-    constexpr WideNum nb = WideNum::from(DType::UINT64, b);
-    constexpr bool b3 = nb.to<bool>(DType::BOOL);
-    llvm::errs() << "b3 " << b3 << "\n";
-    return 0;
   }
 
   int test_ElementsAttrBuilder() {
@@ -429,10 +310,6 @@ public:
 int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
-  failures += test.test_dispatchByDType();
-  failures += test.test_float_16();
-  failures += test.test_DType();
-  failures += test.test_WideNum();
   failures += test.test_ElementsAttrBuilder();
   failures += test.test_makeDense();
   failures += test.test_splat();
