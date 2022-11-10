@@ -105,11 +105,6 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
 
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, DType bufferDType, const Filler<char> &bytesFiller) {
-  DType dtype = dtypeOfMlirType(type.getElementType());
-  ShapedType bufferType =
-      dtype == bufferDType
-          ? type
-          : type.clone(mlirTypeOfDType(bufferDType, type.getContext()));
   size_t size = type.getNumElements() * bytewidthOfDType(bufferDType);
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
