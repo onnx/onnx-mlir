@@ -296,11 +296,10 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, U, EnableNotBool<U>> {
 };
 
 template <typename ElementwiseBinaryOp>
-/*std::function<WideNum(WideNum, WideNum)>*/
 auto combinerOfElementwiseBinaryOp(DType operandsDType) {
-  using ElementwiseBinaryOpCombiner = std::function<WideNum(WideNum, WideNum)>;
+  using Combiner = std::function<WideNum(WideNum, WideNum)>;
   return dispatchByDType(
-      operandsDType, [](auto dtype) -> ElementwiseBinaryOpCombiner {
+      operandsDType, [](auto dtype) -> Combiner {
         using W = WideDType<dtype>;
         using OpImpl =
             ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
