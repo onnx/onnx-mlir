@@ -124,6 +124,7 @@ def ONNXAddOp:ONNX_Op<"Add",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXAndOp:ONNX_Op<"And",
@@ -169,6 +170,7 @@ def ONNXAndOp:ONNX_Op<"And",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
@@ -176,8 +178,8 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
   let summary = "ONNX ArgMax operation";
   let description = [{
   Computes the indices of the max elements of the input tensor's element along the
-  provided axis. The resulting tensor has the same rank as the input if keepdims equal 1.
-  If keepdims equal 0, then the resulting tensor have the reduced dimension pruned.
+  provided axis. The resulting tensor has the same rank as the input if keepdims equals 1.
+  If keepdims equals 0, then the resulting tensor has the reduced dimension pruned.
   If select_last_index is True (default False), the index of the last occurrence of the max
   is selected if the max appears more than once in the input. Otherwise the index of the
   first occurrence is selected.
@@ -207,8 +209,8 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
   let summary = "ONNX ArgMin operation";
   let description = [{
   Computes the indices of the min elements of the input tensor's element along the
-  provided axis. The resulting tensor has the same rank as the input if keepdims equal 1.
-  If keepdims equal 0, then the resulting tensor have the reduced dimension pruned.
+  provided axis. The resulting tensor has the same rank as the input if keepdims equals 1.
+  If keepdims equals 0, then the resulting tensor has the reduced dimension pruned.
   If select_last_index is True (default False), the index of the last occurrence of the min
   is selected if the min appears more than once in the input. Otherwise the index of the
   first occurrence is selected.
@@ -501,6 +503,30 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let hasVerifier = 1;
+}
+
+def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX BlackmanWindow operation";
+  let description = [{
+  Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
+    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
+    DefaultValuedAttr<SI64Attr, "1">:$periodic);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
     }
   }];
 }
@@ -1086,6 +1112,31 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
   }];
 }
 
+def ONNXDFTOp:ONNX_Op<"DFT",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX DFT operation";
+  let description = [{
+  Computes the discrete Fourier transform of input.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$dft_length,
+    DefaultValuedAttr<SI64Attr, "1">:$axis,
+    DefaultValuedAttr<SI64Attr, "0">:$inverse,
+    DefaultValuedAttr<SI64Attr, "0">:$onesided);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
@@ -1235,6 +1286,7 @@ def ONNXDivOp:ONNX_Op<"Div",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
@@ -1433,6 +1485,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
@@ -1494,7 +1547,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
   Broadcast the input tensor following the given shape and the broadcast rule.
   The broadcast rule is similar to numpy.array(input) * numpy.ones(shape):
   Dimensions are right alignment;
-  Two corresponding dimension must have the same value, or one of them is equal to 1.
+  Two corresponding dimensions must have the same value, or one of them is equal to 1.
   Also, this operator is similar to numpy.broadcast_to(input, shape),
   but the major difference is numpy.broadcast_to() does not allow shape to be smaller than input.size().
   It is possible that the output.shape is not equal to shape, when some dimensions in shape is equal to 1,
@@ -1743,7 +1796,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
   Let
   k = indices[i_{0}, ..., i_{q-1\}\]
   Then
-  output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]
+  output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]
   
   ```
     data = [
@@ -2124,6 +2177,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
@@ -2149,6 +2203,7 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
       return {0};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
@@ -2173,6 +2228,52 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+}
+
+def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX HammingWindow operation";
+  let description = [{
+  Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
+    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
+    DefaultValuedAttr<SI64Attr, "1">:$periodic);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+}
+
+def ONNXHannWindowOp:ONNX_Op<"HannWindow",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX HannWindow operation";
+  let description = [{
+  Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
+    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
+    DefaultValuedAttr<SI64Attr, "1">:$periodic);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
     }
     static int getNumberOfResults() {
       return 1;
@@ -2548,6 +2649,72 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
   }];
 }
 
+def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX LayerNormalization operation";
+  let description = [{
+  This is layer normalization defined in ONNX as function.
+        The overall computation can be split into two stages.
+        The first stage is standardization, which makes the
+        normalized elements have zero mean and unit variances.
+        The computation required by standardization can be
+        described by the following equations.
+        ```
+        Mean = ReduceMean<axes=normalized_axes>(X)
+        D = Sub(X, Mean)
+        DD = Mul(Diff, Diff)
+        Var = ReduceMean<axes=normalized_axes>(DD)
+        VarEps = Add(Var, epsilon)
+        StdDev = Sqrt(VarEps)
+        InvStdDev = Reciprocal(StdDev)
+        Normalized = Mul(D, InvStdDev)
+        ```
+        where `normalized_axes` is `[axis, ..., rank of X - 1]`.
+        The variables `Var` and `StdDev` stand for variance and
+        standard deviation, respectively. The second output is
+        `Mean` and the last one is `InvStdDev`.
+        Depending on `stash_type` attribute, the actual computation
+        must happen in different floating-point precision.
+        For example, if `stash_type` is 1, this operator casts
+        all input variables to 32-bit float, perform the computation, and
+        finally cast `Normalized` back to the original type of `X`.
+        The second stage then scales and shifts the outcome of the
+        first stage using
+        ```
+        NormalizedScaled = Mul(Normalized, Scale)
+        Y = Add(NormalizedScaled, B)
+        ```
+        The second stage doesn't depends on `stash_type`.
+        All equations are in [this syntax](https://github.com/onnx/onnx/blob/main/docs/Syntax.md).
+        The same variable (i.e., input, output, and attribute) uses
+        the same name in the equations above and this operator's definition.
+        Let `d[i]` indicate the i-th dimension of `X`.
+        If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
+        the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
+        `Y` and `X` have the same shape.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Scale,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$B,
+    DefaultValuedAttr<SI64Attr, "-1">:$axis,
+    DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+    DefaultValuedAttr<SI64Attr, "1">:$stash_type);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$Mean,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$InvStdDev);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 3;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,-1,-1};
+    }
+  }];
+}
+
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LeakyRelu operation";
@@ -2621,6 +2788,7 @@ def ONNXLessOp:ONNX_Op<"Less",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
@@ -2646,6 +2814,7 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
       return {0};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
@@ -2985,6 +3154,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
@@ -3134,6 +3304,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
@@ -3159,6 +3330,39 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
   }];
 }
 
+def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX MelWeightMatrix operation";
+  let description = [{
+  Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
+  This function defines the mel scale in terms of a frequency in hertz according to the following formula:
+  
+      mel(f) = 2595 * log10(1 + f/700)
+  
+  In the returned matrix, all the triangles (filterbanks) have a peak value of 1.0.
+  
+  The returned MelWeightMatrix can be used to right-multiply a spectrogram S of shape [frames, num_spectrogram_bins] of linear scale spectrum values (e.g. STFT magnitudes) to generate a \"mel spectrogram\" M of shape [frames, num_mel_bins].
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$num_mel_bins,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$dft_length,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$sample_rate,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$lower_edge_hertz,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$upper_edge_hertz,
+    DefaultValuedAttr<SI64Attr, "1">:$output_datatype);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
+}
+
 def ONNXMinOp:ONNX_Op<"Min",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Min operation";
@@ -3180,6 +3384,7 @@ def ONNXMinOp:ONNX_Op<"Min",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
@@ -3263,6 +3468,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
@@ -3473,7 +3679,8 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
   Returns the indices of the elements that are non-zero
       (in row-major order - by dimension).
       NonZero behaves similar to numpy.nonzero:
-      https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html
+      https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html,
+      but for scalar input, NonZero produces output shape (0, N) instead of (1, N), which is different from Numpy's behavior.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X);
   let results = (outs TensorOf<[I64]>:$Y);
@@ -3666,6 +3873,7 @@ def ONNXOrOp:ONNX_Op<"Or",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
@@ -4035,14 +4243,14 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
-  It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, 
-  and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point). 
-  For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 
-  Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor 
-  (per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row 
-  or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be 
-  an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K] 
-  for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may 
+  It consumes two quantized input tensors, their scales and zero points, scale and zero point of output,
+  and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point).
+  For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
+  Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor
+  (per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row
+  or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be
+  an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K]
+  for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may
   have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
   Production must never overflow, and accumulation may overflow if and only if in 32 bits.
   }];
@@ -4389,11 +4597,11 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
-  Computes the L1 norm of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the L1 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4417,11 +4625,11 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
-  Computes the L2 norm of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the L2 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4445,11 +4653,11 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
-  Computes the log sum of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the log sum of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4483,11 +4691,11 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
-  Computes the log sum exponent of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4511,11 +4719,11 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
-  Computes the max of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the max of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
@@ -4549,11 +4757,11 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
-  Computes the mean of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the mean of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4577,11 +4785,11 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
-  Computes the min of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the min of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
@@ -4605,11 +4813,11 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
-  Computes the product of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the product of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4633,11 +4841,11 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
-  Computes the sum of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the sum of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -4672,11 +4880,11 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
-  Computes the sum of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
+  Computes the sum of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equal 0, then
   the resulted tensor have the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$data,
@@ -4710,11 +4918,11 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
-  Computes the sum square of the input tensor's element along the provided axes. The resulted
-  tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-  the resulted tensor have the reduced dimension pruned.
+  Computes the sum square of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
   
-  The above behavior is similar to numpy, with the exception that numpy default keepdims to
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
@@ -5018,13 +5226,38 @@ def ONNXRoundOp:ONNX_Op<"Round",
   }];
 }
 
+def ONNXSTFTOp:ONNX_Op<"STFT",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX STFT operation";
+  let description = [{
+  Computes the Short-time Fourier Transform of the signal.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$signal,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$frame_step,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$window,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$frame_length,
+    DefaultValuedAttr<SI64Attr, "1">:$onesided);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXScanOp:ONNX_Op<"Scan",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Scan operation";
   let description = [{
   Scan can be used to iterate over one or more scan_input tensors,
   constructing zero or more scan_output tensors. It combines ideas from general recurrences,
-  functional programming constructs such as scan, fold, map, and zip and is intended to enable
+  functional programming constructs such as scan, fold, map, and zip, and is intended to enable
   generalizations of RNN-like constructs for sequence-to-sequence processing.
   Other tensors (referred to as state_variables here) can be used to carry a state
   when iterating from one element to another (similar to hidden-state in RNNs, also referred
@@ -5605,6 +5838,46 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   }];
 }
 
+def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let summary = "ONNX SequenceMap operation";
+  let description = [{
+  Applies a sub-graph to each sample in the input sequence(s).
+  
+  Inputs can be either tensors or sequences, with the exception of the first input which must
+  be a sequence. The length of the first input sequence will determine the number of samples in the
+  outputs. Any other sequence inputs should have the same number of samples. The number of inputs
+  and outputs, should match the one of the subgraph.
+  
+  For each i-th element in the output, a sample will be extracted from the input sequence(s) at
+  the i-th position and the sub-graph will be applied to it.
+  The outputs will contain the outputs of the sub-graph for each sample, in the same order as in
+  the input.
+  
+  This operator assumes that processing each sample is independent and could executed in parallel
+  or in any order. Users cannot expect any specific ordering in which each subgraph is computed.
+  }];
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$input_sequence,
+    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>>:$additional_inputs);
+  let results = (outs Variadic<AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>>:$out_sequence);
+  let regions = (region SizedRegion<1>:$body);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  int64_t getSubgraphRegionIdx(const std::string& name) {
+    if (name == "body") return 0;
+    llvm_unreachable("region with the specified name does not exist");
+  }
+  }];
+}
+
 def ONNXShapeOp:ONNX_Op<"Shape",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
@@ -5616,7 +5889,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
   The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
   If the end axis is omitted, the axes upto the last one will be included.
   Negative axes indicate counting back from the last axis.
-  Note that axes will be clipped to the range [0, r-1], where r is the
+  Note that axes will be clamped to the range [0, r-1], where r is the
   rank of the input tensor if they are out-of-range (after adding r in the case of
   negative axis). Thus, specifying any end value > r is equivalent to specifying an end
   value of r, and specifying any start value < -r is equivalent to specifying a start
@@ -5798,19 +6071,38 @@ def ONNXSliceOp:ONNX_Op<"Slice",
   let summary = "ONNX Slice operation";
   let description = [{
   Produces a slice of the input tensor along multiple axes. Similar to numpy:
-  https://docs.scipy.org/doc/numpy/reference/arrays.indexing.html
-  Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end
-  dimension and step for each axis in the list of axes, it uses this information to
-  slice the input `data` tensor. If a negative value is passed for any of the
-  start or end indices, it represents number of elements before the end of that
-  dimension. If the value passed to start or end is larger than the `n` (the
-  number of elements in this dimension), it represents `n`. For slicing to the
-  end of a dimension with unknown size, it is recommended to pass in `INT_MAX`
-  when sclicing forward and 'INT_MIN' when slicing backward.
-  If a negative value is passed for step, it represents slicing backward.
-  However step value cannot be 0.
-  If `axes` are omitted, they are set to `[0, ..., ndim-1]`.
+  https://numpy.org/doc/stable/user/basics.indexing.html?highlight=slice#slicing-and-striding
+  
+  Slice uses the `starts`, `ends`, `axes` and `steps` inputs to select a sub-tensor
+  of its input `data` tensor.
+  
+  An effective `start[i]`, `end[i]`, and `step[i]` must be computed for each `i`
+  in `[0, ... r-1]` where `r = rank(input)` as follows:
+  
+  If `axes` are omitted, they are set to `[0, ..., r-1]`.
   If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`
+  
+  The effective values are initialized as `start[i] = 0`, `end[i] = dims[i]` where
+  `dims` are the dimensions of `input` and `step[i] = `1.
+  
+  All negative elements of `axes` are made non-negatve by adding `r` to them, where
+  `r =rank(input)`.
+  
+  All negative values in `starts[i]` and `ends[i]` have `dims[axes[i]]` added to them,
+  where `dims` are the dimensions of `input`. Then `start[axes[i]]` is the adjusted
+  `starts[i]` is clamped into the range `[0, dims[axes[i]]]` for positive stepping
+  and `[0, dims[axes[i]]-1]` for negative stepping.
+  
+  The clamping for the adjusted `ends[i]` depends on the sign of `steps[i]` and must
+  accommodate copying 0 through `dims[axes[i]]` elements, so for positive stepping
+  `end[axes[i]]` is clamped to `[0, dims[axes[i]]]`, while for negative stepping it
+  is clamped to `[-1, dims[axes[i]]-1]`.
+  
+  Finally, `step[axes[i]] = steps[i]`.
+  
+  For slicing to the end of a dimension with unknown size, it is recommended to pass
+  in `INT_MAX` when slicing forward and 'INT_MIN' when slicing backward.
+  
   Example 1:
     data = [
         [1, 2, 3, 4],
@@ -6284,6 +6576,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
@@ -6307,6 +6600,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
@@ -6838,6 +7132,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
       return {21};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
@@ -6883,6 +7178,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
         return {0};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",

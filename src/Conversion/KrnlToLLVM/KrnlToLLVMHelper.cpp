@@ -16,7 +16,7 @@
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;

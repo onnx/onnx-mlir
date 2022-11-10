@@ -14,7 +14,7 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
 using namespace mlir;

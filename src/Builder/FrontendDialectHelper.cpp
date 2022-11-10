@@ -19,7 +19,7 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 namespace {
 

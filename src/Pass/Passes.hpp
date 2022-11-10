@@ -42,10 +42,10 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<mlir::Pass> createElideConstantValuePass();
 
-/// Pass for instrument the Onnx ops.
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
-    llvm::StringRef ops, unsigned actions);
+/// Pass for instrument the ops in specific stage.
+std::unique_ptr<mlir::Pass> createInstrumentPass();
+std::unique_ptr<mlir::Pass> createInstrumentPass(
+    llvm::StringRef stage, llvm::StringRef ops, unsigned actions);
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
@@ -53,6 +53,9 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+
+/// Pass for analysing unknown dimension in ONNX operations.
+std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();

@@ -33,7 +33,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "zdnn.h"
@@ -411,7 +411,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
 
 LogicalResult ZHighAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -419,7 +419,7 @@ LogicalResult ZHighAddOp::inferShapes(
 
 LogicalResult ZHighSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -427,7 +427,7 @@ LogicalResult ZHighSubOp::inferShapes(
 
 LogicalResult ZHighMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -435,7 +435,7 @@ LogicalResult ZHighMulOp::inferShapes(
 
 LogicalResult ZHighDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -443,7 +443,7 @@ LogicalResult ZHighDivOp::inferShapes(
 
 LogicalResult ZHighMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -451,7 +451,7 @@ LogicalResult ZHighMinOp::inferShapes(
 
 LogicalResult ZHighMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -459,7 +459,7 @@ LogicalResult ZHighMaxOp::inferShapes(
 
 LogicalResult ZHighLogOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -467,7 +467,7 @@ LogicalResult ZHighLogOp::inferShapes(
 
 LogicalResult ZHighExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -475,7 +475,7 @@ LogicalResult ZHighExpOp::inferShapes(
 
 LogicalResult ZHighReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -483,7 +483,7 @@ LogicalResult ZHighReluOp::inferShapes(
 
 LogicalResult ZHighTanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -491,7 +491,7 @@ LogicalResult ZHighTanhOp::inferShapes(
 
 LogicalResult ZHighSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -499,7 +499,7 @@ LogicalResult ZHighSigmoidOp::inferShapes(
 
 LogicalResult ZHighSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
@@ -507,7 +507,7 @@ LogicalResult ZHighSoftmaxOp::inferShapes(
 
 LogicalResult ZHighBatchNormOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryElementwiseOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation());
 }
 
 //===----------------------------------------------------------------------===//
