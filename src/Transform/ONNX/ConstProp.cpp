@@ -137,6 +137,14 @@ ONNXConstantOp createReplacingConstantOp(
       IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 }
 
+ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
+    Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  return elementsBuilder.reshape(constElements, reshapedShape);
+}
+
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
 /// get from memory. Otherwise, get from the dense attribute.
 char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
@@ -322,9 +330,8 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
       getConstValueAsDisposableElements(elementsBuilder, rhsValue);
   DType operandsDType = lhs.getDType();
   assert(operandsDType == rhs.getDType());
-  DisposableElementsAttr resultElements =
-      elementsBuilder.combine(lhs, rhs, replacingType,
-          combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsDType));
+  ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
+      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsDType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
       .getResult();
 }
@@ -379,7 +386,7 @@ Value ConstPropElementwiseUnary(
       getConstValueAsDisposableElements(elementsBuilder, constValue);
   assert(replacingElemType == constElements.getElementType() &&
          "all element wise unary ops preserve element type");
-  DisposableElementsAttr transposedElements =
+  ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
           transformElementWiseUnaryOp<ElementwiseUnaryOp>(replacingElemType));
   return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
@@ -401,7 +408,7 @@ Value ConstPropTranspose(
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   DisposableElementsAttr constElements =
       getConstValueAsDisposableElements(elementsBuilder, constValue);
-  DisposableElementsAttr transposedElements =
+  ElementsAttr transposedElements =
       elementsBuilder.transpose(constElements, perm);
   return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
       .getResult();
@@ -413,15 +420,11 @@ Value ConstPropTranspose(
 
 Value ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  Operation *inputOp = input.getDefiningOp();
-
-  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
+  ElementsAttr reshapedElements =
+      ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -430,15 +433,11 @@ Value ConstPropUnsqueeze(
 
 Value ConstPropSqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  Operation *inputOp = input.getDefiningOp();
-
-  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
+  ElementsAttr reshapedElements =
+      ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -669,7 +668,7 @@ Value ConstPropCast(
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   DisposableElementsAttr constElements =
       getConstValueAsDisposableElements(elementsBuilder, constValue);
-  DisposableElementsAttr castElements =
+  ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
   return createReplacingConstantOp(rewriter, replacingValue, castElements)
       .getResult();
@@ -799,7 +798,7 @@ Value ConstPropExpand(
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   DisposableElementsAttr constElements =
       getConstValueAsDisposableElements(elementsBuilder, constValue);
-  DisposableElementsAttr expandedElements =
+  ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
       .getResult();
@@ -885,15 +884,12 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 Value ConstPropReshape(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
-
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
-  DisposableElementsAttr reshapedElements =
-      elementsBuilder.reshape(constElements, reshapedShape);
+  ElementsAttr reshapedElements =
+      ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
   return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
       .getResult();
 }
+
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
