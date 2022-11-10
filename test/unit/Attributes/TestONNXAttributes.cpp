@@ -92,64 +92,29 @@ public:
     return IntegerType::get(ctx, width, IntegerType::Unsigned);
   }
 
-  int test_ElementsAttrBuilder() {
-    llvm::errs() << "test_ElementsAttrBuilder:\n";
-    ShapedType type = RankedTensorType::get({1}, getUInt(1));
-    auto dispo = elmsBuilder.create(type, buffer<bool>({true}));
-    assert(dispo.isSplat());
-    return 0;
-  }
-
-  int test_makeDense() {
-    llvm::errs() << "test_makeDense:\n";
-#if 0
-    ShapedType type = RankedTensorType::get({2}, builder.getF32Type());
-    auto b = buffer<float>({42.0f, 42.0f});
-
-    auto eCopy =
-        makeElementsAttrFromRawBytes(type, asArrayRef(*b), /*mustCopy=*/true);
-    llvm::errs() << "eCopy " << eCopy << "\n";
-    assert(eCopy.isa<DisposableElementsAttr>());
-    // auto dCopy = eCopy.cast<DisposableElementsAttr>();
-    // assert(dCopy.getBuffer()->getBuffer().data() != b->getBuffer().data());
-
-    auto e =
-        makeElementsAttrFromRawBytes(type, asArrayRef(*b), /*mustCopy=*/false);
-    assert(e.isa<DisposableElementsAttr>());
-    // auto d = e.cast<DisposableElementsAttr>();
-    // assert(d.getBuffer()->getBuffer().data() == b->getBuffer().data());
-#endif
-    return 0;
-  }
+  bool near(float a, float b) { return fabs(a - b) < 1e-6; }
 
   int test_splat() {
-    llvm::errs() << "test_splat:\n";
+    std::cout << "test_splat:\n";
     ShapedType type = RankedTensorType::get({1}, builder.getF32Type());
-    Attribute a = elmsBuilder.create(type, buffer<float>({4.2}));
-    assert(a);
-    assert(a.isa<ElementsAttr>());
+    float f4_2 = 4.2;
+    Attribute a = elmsBuilder.create(type, buffer<float>({f4_2}));
     ElementsAttr e = a.cast<ElementsAttr>();
-    assert(a.isa<DisposableElementsAttr>());
-    DisposableElementsAttr i = a.cast<DisposableElementsAttr>();
-    llvm::errs() << "as DisposableElementsAttr " << i << "\n";
-    llvm::errs() << "as ElementsAttr " << e << "\n";
-    llvm::errs() << "as Attribute " << a << "\n";
     assert(e.isSplat());
-    llvm::errs() << "splat value " << i.getSplatValue<float>() << "\n";
-    assert(fabs(i.getSplatValue<float>() - 4.2) < 1e-6);
+    DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
+    assert(i.isSplat());
+    assert(i.getSplatValue<float>() == f4_2);
     auto b = i.value_begin<float>();
-    auto x = *b;
-    llvm::errs() << "x " << x << "\n";
-    auto f = i.getSplatValue<APFloat>();
-    assert(fabs(f.convertToDouble() - 4.2) < 1e-6);
+    assert(*b == f4_2);
+    auto apf = i.getSplatValue<APFloat>();
+    assert(near(apf.convertToDouble(), f4_2));
     auto d = toDenseElementsAttr(i);
-    d = toDenseElementsAttr(i);
-    llvm::errs() << "as DenseElementsAttr " << d << "\n";
+    assert(d.getSplatValue<float>() == f4_2);
     return 0;
   }
 
   int test_f16() {
-    llvm::errs() << "test_f16:\n";
+    std::cout << "test_f16:\n";
     assert(fabs(float_16::fromFloat(4.2).toFloat() - 4.2) < 1e-3);
     ShapedType type = RankedTensorType::get({1}, builder.getF16Type());
     Attribute a =
@@ -172,7 +137,7 @@ public:
   }
 
   int test_bool() {
-    llvm::errs() << "test_bool:\n";
+    std::cout << "test_bool:\n";
     ShapedType type = RankedTensorType::get({1}, getUInt(1));
     Attribute a = elmsBuilder.create(type, buffer<bool>({true}));
     assert(a);
@@ -193,7 +158,7 @@ public:
   }
 
   int test_attributes() {
-    llvm::errs() << "test_attributes:\n";
+    std::cout << "test_attributes:\n";
     ShapedType type = RankedTensorType::get({2}, getUInt(64));
     Attribute a;
     a = elmsBuilder.create(type, buffer<uint64_t>({7, 9}));
@@ -272,7 +237,7 @@ public:
   }
 
   int test_transpose() {
-    llvm::errs() << "test_transpose:\n";
+    std::cout << "test_transpose:\n";
     ShapedType type = RankedTensorType::get({2, 3, 5}, getUInt(8));
     auto elms = nums<uint8_t>(std::make_integer_sequence<uint8_t, 30>{});
     auto e = elmsBuilder.create(type, buffer<uint8_t>(elms));
@@ -289,7 +254,7 @@ public:
   }
 
   int test_cast() {
-    llvm::errs() << "test_cast:\n";
+    std::cout << "test_cast:\n";
     ShapedType type = RankedTensorType::get({1}, I64);
     auto e = elmsBuilder.create(type, buffer<int64_t>({256}));
     std::cerr << "before cast " << e.getShape();
@@ -310,8 +275,6 @@ public:
 int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
-  failures += test.test_ElementsAttrBuilder();
-  failures += test.test_makeDense();
   failures += test.test_splat();
   failures += test.test_f16();
   failures += test.test_bool();
