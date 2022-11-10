@@ -6,8 +6,8 @@
 //
 // Storage for DisposableElementsAttr. For information hiding purposes this
 // should not be included by users of DisposableElementsAttr. It is needed for
-// the implementation DisposableElementsAttr itself, DisposablePool needs it
-// to create instances, and ONNXDialect needs it for dialect registration.
+// the implementation DisposableElementsAttr itself, DisposablePool needs it to
+// garbage collect instances, and ONNXDialect needs it for dialect registration.
 //
 //===----------------------------------------------------------------------===//
 
@@ -65,10 +65,6 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // row-major order (maybe as a result of a transpose) or requires broadcast
   // to fill in type's shape. A special case is when the buffer holds a single
   // splat value that broadcasts to shape's size with all-zero strides.
-  //
-  // Strides cannot have leading zeros. Leading zeros are implicit. Pad with
-  // leading zeros up to type's rank whenever you want explicit leading zeros
-  // (see the padStrides(shape, strides) function in Support/Strides).
   Strides strides;
 
   Properties properties;
