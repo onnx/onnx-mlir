@@ -45,9 +45,6 @@ add_onnx_mlir_library(InitAccelerators
     AcceleratorsInc
     MLIRIR
 
-  INCLUDE_DIRS PUBLIC
-    ${ONNX_MLIR_SRC_ROOT}/include
-
   LINK_LIBS PUBLIC
     ${ACCEL_TARGET_LIST}
     LLVMSupport

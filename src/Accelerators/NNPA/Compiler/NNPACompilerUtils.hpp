@@ -18,26 +18,7 @@
 #include "mlir/Pass/PassRegistry.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
-// clang-format off
-#define INSTRUMENTSTAGE_EUM_NNPA                                               \
-  , nnpaAfterOnnxToOnnx,                                                       \
-    nnpaAfterOnnxToZhigh,                                                      \
-    nnpaAfterZhighToZlow                                                       \
-// clang-format on
-
-#define INSTRUMENTSTAGE_CL_ENUM_NNPA                                           \
-  , clEnumVal(nnpaAfterOnnxToOnnx, "NNPA profiling for onnx ops."),            \
-      clEnumVal(                                                               \
-          nnpaAfterOnnxToZhigh, "NNPA profiling for onnx and zhigh ops."),     \
-      clEnumVal(nnpaAfterZhighToZlow, "NNPA profiling for zlow ops.")
-
 namespace onnx_mlir {
-
-typedef enum {
-  EmitZNONE,
-  EmitZLowIR,
-  EmitZHighIR,
-} NNPAEmissionTargetType;
 
 void addMemoryPooling(mlir::PassManager &pm);
 

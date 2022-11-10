@@ -29,6 +29,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -44,26 +45,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace onnx_mlir {
-extern llvm::cl::OptionCategory OnnxMlirOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
-
-llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
-    llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
-                   "(once selected it will cancel the other targets):"),
-    llvm::cl::values(
-        clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
-        clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
-    llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
-    llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                   "specified nodes are forced to run on the CPU instead of "
-                   "using the zDNN. The node name is an optional attribute "
-                   "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-    llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
-    llvm::cl::cat(OnnxMlirOptions)};
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
