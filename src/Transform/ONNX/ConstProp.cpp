@@ -796,52 +796,15 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropExpand(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  // Get the const value using the maximum precision e.g. double, int64_t.
-  char *inputArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
-  // Create the result buffer using the maximum precision e.g. double, int64_t.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+  ArrayRef<int64_t> expandedShape = getShape(replacingValue.getType());
 
-  ArrayRef<int64_t> inputShape = getShape(constValue.getType());
-  std::vector<int64_t> inputStrides = getStrides(inputShape);
-  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
-  int64_t inputRank = inputShape.size();
-  int64_t outputRank = outputShape.size();
-
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
-    // Compute indices to access the output.
-    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
-    // Compute indices to access the input.
-    SmallVector<int64_t, 4> inputIndices;
-    if (inputRank == 0) {
-      inputIndices.emplace_back(0);
-    } else {
-      for (int inputAxis = 0; inputAxis < inputRank; ++inputAxis) {
-        if (inputShape[inputAxis] == 1) {
-          // broadcast
-          inputIndices.emplace_back(0);
-        } else {
-          int outputIndex = (outputRank - inputRank) + inputAxis;
-          inputIndices.emplace_back(outputIndices[outputIndex]);
-        }
-      }
-    }
-
-    // Calculate the final result.
-    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    int64_t outputOffset = getLinearAccessIndex(outputIndices, outputStrides);
-    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
-    memcpy(resArray + outputOffset * typeSize,
-        inputArray + inputOffset * typeSize, typeSize);
-  }
-
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr constElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  DisposableElementsAttr expandedElements =
+      elementsBuilder.expand(constElements, expandedShape);
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
