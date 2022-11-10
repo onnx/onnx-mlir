@@ -39,6 +39,14 @@ def ONNX_Dialect : Dialect {
   let useDefaultAttributePrinterParser = 1;
   let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = ["func::FuncDialect"];
+  let extraClassDeclaration = [{
+  private:
+    // Register the builtin Attributes.
+    void registerAttributes();
+    // Register the builtin Types.
+    void registerTypes();
+  public:
+  }];
 }
 
 //===----------------------------------------------------------------------===//
