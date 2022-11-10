@@ -15,8 +15,6 @@
 #include "src/Support/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
-#include "mlir/IR/BuiltinAttributes.h"
-
 using namespace mlir;
 
 namespace onnx_mlir {

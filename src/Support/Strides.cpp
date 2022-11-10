@@ -12,8 +12,6 @@
 
 #include "src/Support/Arrays.hpp"
 
-#include "mlir/IR/BuiltinTypeInterfaces.h"
-
 using namespace mlir;
 
 namespace onnx_mlir {
