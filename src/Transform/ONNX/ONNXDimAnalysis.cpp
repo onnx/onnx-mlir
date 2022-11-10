@@ -505,12 +505,29 @@ void DimAnalysis::visitDim(
 
   // ReduceMeanOp
   if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanOp>(op)) {
+    // TODO: replace the code here by the following code once ReduceMean uses
+    // IndexExpr for its shape inferece.
+    // ```c
+    // exploreSameInputDims<ONNXReduceMeanOp, ONNXReduceMeanOpShapeHelper>(
+    //    dim, squeezeOp, sameDims);
+    // ```
+
     // Only support keepdims at this moment.
     if (reduceMeanOp.keepdims() != 1)
       return;
     // Reduction dims in output are always 1. So an unknown dim in the output
-    // is at the same index as the one in the input. It's like an unary op.
-    exploreSameInputDimsUnaryOp(dim, op, sameDims);
+    // is at the same index as the one in the input.
+    llvm::Optional<ArrayAttr> axesAttr = reduceMeanOp.axes();
+    if (axesAttr.has_value()) {
+      // Do nothing if the target dim is the reduction dim.
+      for (size_t i = 0; i < ArrayAttrSize(axesAttr); ++i) {
+        if (ArrayAttrIntVal(axesAttr, i) == dim.second)
+          return;
+      }
+      // The target dim is not the reduction dim, it would be the same as the
+      // input dim.
+      sameDims.insert(DimT(reduceMeanOp.data(), dim.second));
+    }
     return;
   }
 
