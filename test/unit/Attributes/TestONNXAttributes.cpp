@@ -107,27 +107,32 @@ public:
     return IntegerType::get(ctx, width, IntegerType::Unsigned);
   }
 
-  int test_getSwappedBytes() {
-    llvm::errs() << "test_float_16:\n";
-    llvm::errs() << "swap true " << llvm::sys::getSwappedBytes(true) << "\n";
-    bool t = true;
-    llvm::errs() << "swap t " << llvm::sys::getSwappedBytes(t) << "\n";
-    return 0;
-  }
-
-  int test_dispatch_DTypeToken() {
+  int test_dispatchByDType() {
     llvm::errs() << "test_dispatch_DTypeToken:\n";
-    for (int i = 1; i <= 16; ++i) {
-      if (i == 8 || i == 14 || i == 15)
+    for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
+         d = static_cast<DType>(static_cast<int>(d) + 1)) {
+      if (d == DType::UNDEFINED || d == DType::STRING ||
+               d == DType::COMPLEX64 || d == DType::COMPLEX128)
         continue;
-      dispatchByDType(static_cast<DType>(i), [](auto dtype) {
-        using cpptype = CppType<dtype>;
-        constexpr cpptype x{};
-        constexpr DType d1 = dtype;
-        constexpr DType d2 = toDType<cpptype>;
-        assert(d1 == d2);
-        llvm::errs() << "dtype " << dtype << ", x=" << x << "\n";
+      if (isIntOrFloatDType(d)) {
+        if (isFloatDType(d)) {
+          assert(!isSignedIntDType(d));
+          assert(!isUnsignedIntDType(d));
+        } else {
+          assert(isSignedIntDType(d) ^ isUnsignedIntDType(d));
+        }
+      }
+      auto dty = dispatchByDType(d, [d](auto dtype) -> DType {
+        using Q = DTypeTrait<dtype>;
+        assert(isFloatDType(dtype) == Q::isFloat);
+        assert(isIntOrFloatDType(dtype) == Q::isIntOrFloat);
+        assert(isSignedIntDType(dtype) == Q::isSignedInt);
+        assert(isUnsignedIntDType(dtype) == Q::isUnsignedInt);
+        assert(sizeof(CppType<dtype>) == Q::bytewidth);
+        assert(d == dtype);
+        return dtype;
       });
+      assert(dty == d);
     }
     return 0;
   }
