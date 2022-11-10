@@ -353,20 +353,16 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   //       reader) when getNumBufferElements() == getNumElements(), i.e.
   //       strides have no zeros.
 
-  // TODO: use elmsBuilder.fromArray(Filler<T>) to reduce code duplication
   ArrayBuffer<WideNum> wideSrc = getBufferAsWideNums();
   ArrayRef<char> src(castArrayRef<char>(wideSrc.get()));
-  std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
-      llvm::WritableMemoryBuffer::getNewUninitMemBuffer(
-          getNumElements() * sizeof(WideNum));
   auto newStrides = getDefaultStrides(transposedShape);
   auto reverseStrides = untransposeDims(newStrides, perm);
-  restrideArray(sizeof(WideNum), shape, {strides, src},
-      {reverseStrides, writeBuffer->getBuffer()});
-  DType dtype = getDType();
-  Buffer transposedBuffer = std::move(writeBuffer);
-  return elmsBuilder.create(transposedType, transposedBuffer,
-      makeArrayRef(newStrides), wideDTypeOfDType(dtype));
+  DType bufferDType = wideDTypeOfDType(getDType());
+  return elmsBuilder.fromRawBytes(
+      transposedType, bufferDType, [&](MutableArrayRef<char> dst) {
+        restrideArray(
+            sizeof(WideNum), shape, {strides, src}, {reverseStrides, dst});
+      });
 }
 
 DisposableElementsAttr DisposableElementsAttr::reshape(

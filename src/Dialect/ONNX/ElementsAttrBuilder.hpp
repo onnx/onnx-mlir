@@ -142,27 +142,23 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
                 WideNum n) { return combiner(n, rhsNum); }));
   }
 
-  // TODO: use fromArray(Filler<T>) to reduce code duplication
-  size_t size = combinedType.getNumElements() * sizeof(WideNum);
-  std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
-      llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
-  auto dstNums = castMutableArrayRef<WideNum>(writeBuffer->getBuffer());
   auto shape = combinedType.getShape();
-  auto dstStrides = getDefaultStrides(shape);
-  Strided<llvm::MutableArrayRef<WideNum>> dst{dstStrides, dstNums};
   auto lhsStrides = expandStrides(lhs.getStrides(), shape);
   ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
   Strided<llvm::ArrayRef<WideNum>> lhsStrided{lhsStrides, lhsNums.get()};
   auto rhsStrides = expandStrides(rhs.getStrides(), shape);
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
   Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
-  transformAndRestrideTwoWideArrays(
-      shape, lhsStrided, rhsStrided, dst, combiner);
-
   DType dtype = dtypeOfMlirType(combinedType.getElementType());
   DType bufferDType = wideDTypeOfDType(dtype);
-  return create(combinedType, std::move(writeBuffer),
-      llvm::makeArrayRef(dstStrides), bufferDType);
+  return fromRawBytes(
+      combinedType, bufferDType, [&](llvm::MutableArrayRef<char> dst) {
+        auto dstStrides = getDefaultStrides(shape);
+        auto dstNums = castMutableArrayRef<WideNum>(dst);
+        Strided<llvm::MutableArrayRef<WideNum>> dstStrided{dstStrides, dstNums};
+        transformAndRestrideTwoWideArrays(
+            shape, lhsStrided, rhsStrided, dstStrided, combiner);
+      });
 }
 
 } // namespace onnx_mlir

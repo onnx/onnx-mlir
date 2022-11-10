@@ -61,24 +61,23 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
     return disposable;
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
-    // TODO: call fromRawBytes to reduce code duplication
-    bool isSplat = dense.isSplat();
+    ShapedType type = dense.getType();
+    DType dtype = dtypeOfMlirType(type.getElementType());
     std::unique_ptr<llvm::MemoryBuffer> buffer;
-    if (dense.getElementType().isInteger(1)) {
-      size_t size = isSplat ? 1 : dense.getNumElements();
-      std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
-          llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
-      std::copy_n(
-          dense.value_begin<bool>(), size, writeBuffer->getBuffer().begin());
-      buffer = std::move(writeBuffer);
+    if (dtype == DType::BOOL) {
+      if (dense.isSplat()) {
+        char b = dense.getSplatValue<bool>();
+        return fromRawBytes(
+            type, dtype, llvm::makeArrayRef(b), /*mustCopy=*/true);
+      } else {
+        return fromRawBytes(type, dtype, [dense](MutableArrayRef<char> dst) {
+          std::copy_n(
+              dense.value_begin<bool>(), dense.getNumElements(), dst.begin());
+        });
+      }
     } else {
-      StringRef s = asStringRef(dense.getRawData());
-      buffer = llvm::MemoryBuffer::getMemBuffer(
-          s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
+      return fromRawBytes(type, dtype, dense.getRawData(), /*mustCopy=*/false);
     }
-    ArrayRef<int64_t> emptyStrides; // empty strides when splat
-    return isSplat ? create(dense.getType(), std::move(buffer), emptyStrides)
-                   : create(dense.getType(), std::move(buffer));
   }
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
@@ -111,7 +110,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
       type, bufferDType, writeBuffer->getBuffer());
   (void)isSplat;
   // TODO: consider replacing writeBuffer with single element buffer if isSplat
-  return create(type, std::move(writeBuffer));
+  return create(type, std::move(writeBuffer), None, bufferDType);
 }
 
 mlir::DisposableElementsAttr ElementsAttrBuilder::transform(
