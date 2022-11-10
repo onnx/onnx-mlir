@@ -429,8 +429,7 @@ public:
 int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
-  failures += test.test_getSwappedBytes();
-  failures += test.test_dispatch_DTypeToken();
+  failures += test.test_dispatchByDType();
   failures += test.test_float_16();
   failures += test.test_DType();
   failures += test.test_WideNum();
