@@ -2,11 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//============-- TestONNXAttributes.cpp - ONNXAttributes tests --=============//
+//===================-- TestDisposableElementsAttr.cpp --=====================//
 //
 // Tests DisposableElementsAttr.
-//
-// NOTE: AVERT YOUR EYES, THIS FILE IS A GARBAGE DUMP IN ITS CURRENT STATE
 //
 // TODO: CLEAN THIS UP
 //
