@@ -953,8 +953,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   // TODO: determine if we should call DisposablePool::garbageCollectUnreachable
   //       (what's the relationship between function and the ModuleOp?)
-
-} // end anonymous namespace
+}
 
 /*!
  * Create a ConstPropONNX pass.
