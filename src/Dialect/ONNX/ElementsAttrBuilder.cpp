@@ -94,9 +94,12 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
     buffer = llvm::MemoryBuffer::getMemBuffer(
         s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
   }
-  ArrayRef<int64_t> emptyStrides; // empty strides when splat
-  return isSplat ? create(type, std::move(buffer), emptyStrides, bufferDType)
-                 : create(type, std::move(buffer), None, bufferDType);
+  if (isSplat) {
+    SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
+    return create(
+        type, std::move(buffer), makeArrayRef(zerosStrides), bufferDType);
+  }
+  return create(type, std::move(buffer), None, bufferDType);
 }
 
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(

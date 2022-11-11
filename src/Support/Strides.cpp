@@ -38,16 +38,11 @@ size_t getStridesPosition(
 
 bool areStridesContiguous(ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
   unsigned rank = shape.size();
-  assert(rank >= strides.size());
-  int skip = rank - strides.size();
-  auto leadingOnes =
-      shape.take_while([](int64_t dimSize) { return dimSize == 1; });
-  if (unsigned(skip) != leadingOnes.size())
-    return false;
+  assert(rank == strides.size());
   int64_t mult = 1;
-  for (int axis = rank - 1; axis >= skip; --axis) {
+  for (int axis = rank - 1; axis >= 0; --axis) {
     int64_t dimSize = shape[axis];
-    if (strides[axis - skip] != (dimSize == 1 ? 0 : mult))
+    if (strides[axis] != (dimSize == 1 ? 0 : mult))
       return false;
     mult *= dimSize;
   }
@@ -55,21 +50,13 @@ bool areStridesContiguous(ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
 }
 
 SmallVector<int64_t, 4> getDefaultStrides(ArrayRef<int64_t> shape) {
-  SmallVector<int64_t, 4> strides;
   int64_t rank = shape.size();
-  if (rank == 0)
-    return strides;
-  int64_t skip = 0;
-  while (shape[skip] == 1) {
-    ++skip;
-    if (skip == rank)
-      return strides;
-  }
-  strides.resize_for_overwrite(rank - skip);
+  SmallVector<int64_t, 4> strides;
+  strides.resize_for_overwrite(rank);
   int64_t mult = 1;
-  for (int64_t axis = rank - 1; axis >= skip; --axis) {
+  for (int64_t axis = rank - 1; axis >= 0; --axis) {
     int64_t dimSize = shape[axis];
-    strides[axis - skip] = dimSize == 1 ? 0 : mult;
+    strides[axis] = dimSize == 1 ? 0 : mult;
     mult *= dimSize;
   }
   return strides;
