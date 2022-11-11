@@ -52,7 +52,7 @@ public:
   mlir::DisposableElementsAttr fromArray(
       mlir::ShapedType type, const Filler<T> &typedFiller);
 
-  using Transformer = Filler<WideNum>;
+  using Transformer = mlir::DisposableElementsAttr::Transformer;
 
   template <typename UnaryFunction = std::function<WideNum(WideNum)>>
   static Transformer functionTransformer(UnaryFunction fun);
