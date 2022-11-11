@@ -118,7 +118,7 @@ RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "lib")
 sys.path.append(RUNTIME_DIR)
 
 try:
-    from PyRuntime import ExecutionSession
+    from PyRuntime import OMExecutionSession
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
@@ -377,7 +377,7 @@ def main():
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
         start = time.perf_counter()
-        sess = ExecutionSession(shared_lib_path)
+        sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 

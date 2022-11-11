@@ -46,12 +46,12 @@ inference for a model that has a single entry point.
 
 ```python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 model = 'model.so' # LeNet from ONNX Zoo compiled with onnx-mlir
 
 # Create a session for this model.
-session = ExecutionSession(shared_lib_path=model)
+session = OMExecutionSession(shared_lib_path=model)
 # Input and output signatures of the default entry point.
 print("input signature in json", session.input_signature())
 print("output signature in json",session.output_signature())
@@ -68,12 +68,12 @@ entry point to do inference. Below is an example of doing inference with multipl
 entry points.
 ```python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 model = 'multi-entry-points-model.so'
 
 # Create a session for this model.
-session = ExecutionSession(shared_lib_path=model, use_default_entry_point=False) # False to manually set an entry point.
+session = OMExecutionSession(shared_lib_path=model, use_default_entry_point=False) # False to manually set an entry point.
 
 # Query entry points in the model.
 entry_points = session.entry_points()
@@ -93,7 +93,7 @@ for entry_point in entry_points:
 ```
 
 ## PyRuntime model API
-The complete interface to ExecutionSession can be seen in the sources mentioned previously.
+The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
 
 ```python

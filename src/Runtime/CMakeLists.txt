@@ -83,7 +83,7 @@ set_target_properties(OMExecutionSession
 #   - onnx_cpp2py_export.cpython-39-s390x-linux-gnu.so
 #     (import onnx)
 #   - PyRuntime.cpython-39-s390x-linux-gnu.so
-#     (from PyRuntime import ExecutionSession)
+#     (from PyRuntime import OMExecutionSession)
 #
 # Both libs share the same libprotobuf.so when loaded by test.py.
 # However, they were both built with the same onnx-ml.pb.cc generated
