@@ -257,10 +257,9 @@ public:
   onnx_mlir::ArrayBuffer<WideNum> getWideNums() const;
 
   // Returns a pointer to the underlying data, if everything aligns,
-  // otherwise makes and returns a copy. Contrary to
-  // DenseElementsAttr::getRawData(), if the element type is bool the returned
-  // data here is not bit packed but instead holds one byte (zero or one) per
-  // bool.
+  // otherwise makes and returns a copy.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
   onnx_mlir::ArrayBuffer<char> getRawBytes() const;
 
   void printWithoutType(raw_ostream &os) const;
