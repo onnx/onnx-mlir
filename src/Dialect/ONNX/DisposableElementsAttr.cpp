@@ -112,9 +112,6 @@ auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
 }
 
 bool DisposableElementsAttr::isDisposed() const {
-  //  TODO: Decide if a splat value can be represented with a constant
-  //        reader with no buffer; in that case isDisposed should
-  //        only return true if both buffer and reader are null.
   return !getImpl()->buffer;
 }
 
