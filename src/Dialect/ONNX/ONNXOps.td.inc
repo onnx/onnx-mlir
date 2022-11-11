@@ -509,7 +509,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BlackmanWindow operation";
   let description = [{
   Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -1113,7 +1113,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 }
 
 def ONNXDFTOp:ONNX_Op<"DFT",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DFT operation";
   let description = [{
   Computes the discrete Fourier transform of input.
@@ -2239,7 +2239,7 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
 }
 
 def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HammingWindow operation";
   let description = [{
   Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -2262,7 +2262,7 @@ def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
 }
 
 def ONNXHannWindowOp:ONNX_Op<"HannWindow",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HannWindow operation";
   let description = [{
   Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -2650,7 +2650,7 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
 }
 
 def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LayerNormalization operation";
   let description = [{
   This is layer normalization defined in ONNX as function.
@@ -3331,7 +3331,7 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
 }
 
 def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MelWeightMatrix operation";
   let description = [{
   Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
@@ -5227,7 +5227,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
 }
 
 def ONNXSTFTOp:ONNX_Op<"STFT",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX STFT operation";
   let description = [{
   Computes the Short-time Fourier Transform of the signal.
@@ -5839,7 +5839,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX SequenceMap operation";
   let description = [{
   Applies a sub-graph to each sample in the input sequence(s).
