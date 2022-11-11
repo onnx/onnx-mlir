@@ -24,8 +24,8 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -1040,6 +1040,21 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   return res.getResult();
 }
 
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ReshapeOp.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropReshape(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  Operation *inputOp = constValue.getDefiningOp();
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res.getResult();
+}
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//

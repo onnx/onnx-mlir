@@ -55,6 +55,11 @@ void IndexExprImpl::initAsQuestionmark() {
       AffineExpr(nullptr), Value(nullptr));
 }
 
+void IndexExprImpl::initAsQuestionmark(int64_t const val) {
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, val,
+      AffineExpr(nullptr), Value(nullptr));
+}
+
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
   // by hashing the tensor/memref value and the target dimension index.

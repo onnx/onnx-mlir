@@ -79,23 +79,6 @@ func.func @remove_nonetype_stick() -> () {
 
 // -----
 
-func.func @change_sigmoid_layout_to_remove_unstick_stick(%arg0: tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32> {
-  %0 = "zhigh.Unstick"(%arg0) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
-  %1 = "zhigh.Stick"(%0) : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>
-  %2 = "zhigh.Sigmoid"(%1) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>
-  %3 = "zhigh.Unstick"(%2) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32>
-  "func.return"(%3) : (tensor<5x10x10xf32>) -> ()
-
-  // CHECK-LABEL: change_sigmoid_layout_to_remove_unstick_stick
-  // CHECK-NOT: zhigh.Unstick
-  // CHECK-NOT: zhigh.Stick
-  // CHECK: [[SIGMOID:%.+]] = "zhigh.Sigmoid"(%arg0) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
-  // CHECK-NEXT: [[RES:%.+]] = "zhigh.Unstick"([[SIGMOID]]) : (tensor<5x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
-  // CHECK-NEXT: return [[RES]] : tensor<5x10x10xf32>
-}
-
-// -----
-
 func.func @replace_onnx_concat_by_zhigh_concat(%arg0: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>

@@ -37,23 +37,6 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
-// Mapping to remember what the original tensor was.
-
-/// A list of layouts associated with newly allocated MemRefs.
-/// When lowering an operation, its output Tensor (e.g.
-/// `tensor<1x3x5x7xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>`) will be
-/// converted to a Memref (e.g. `memref<1x3x5x7xf16, #map>`), and we lost the
-/// layout `NHWC`. Thus, make sure to put the new MemRef and its associated
-/// layout into this map, so that we can obtain the layout for the MemRef later
-/// when lowering other ops.
-llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
-static mlir::StringAttr readLayout(mlir::Value val) {
-  return stickedLayouts[val];
-}
-static void storeLayout(mlir::Value val, mlir::StringAttr layout) {
-  stickedLayouts[val] = layout;
-}
-
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given dimensions and layout.
@@ -96,8 +79,6 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
       SmallVector<IndexExpr>(dims.begin(), dims.end()),
       /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
 
-  // Store the buffer's layout. Otherwise, we lost the layout.
-  storeLayout(alloc, zType.layout);
   return alloc;
 }
 
@@ -633,7 +614,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
-    StringAttr layout = readLayout(input);
+
+    // Get layout attribute. Do not get it from the input in OpAdaptor since
+    // that input is the converted type, i.e. MemRefType. Get directly from
+    // Operation instead where the type is TensorType that has the layout
+    // encoding attribute.
+    StringAttr layout =
+        getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
 
     ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
