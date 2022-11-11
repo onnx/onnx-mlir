@@ -236,25 +236,21 @@ def rewriteMatMulNDto3D_Broadcast_2: Pat<
 // Rules to turn ONNXSoftmaxOp with N-D inputs into the one with 2-D inputs.
 //===----------------------------------------------------------------------===//
 
-def ReshapeTo2DKeepLast: NativeCodeCall<
-  "reshapeTo2DKeepLast($_builder, $_loc, $0)"
->;
-
-def SoftmaxAxisOne: NativeCodeCall<
- "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))">;
+def SoftmaxAxisMinusOne: NativeCodeCall<
+ "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, -1, /*isSigned=*/true))">;
 
 def GetShapeResultType: NativeCodeCall<
  "RankedTensorType::get({getRank($0.getType())}, $_builder.getI64Type())">;
 
-def rewriteSoftmaxNDto2D: Pat<
+def rewriteSoftmaxNDto3D: Pat<
   (ONNXSoftmaxOp:$c $input, $axis),
   (ONNXReshapeOp (ONNXSoftmaxOp
-                    (ReshapeTo2DKeepLast:$r $input),
-                    (SoftmaxAxisOne),
+                    (ReshapeTo3D:$r $input),
+                    (SoftmaxAxisMinusOne),
                     (returnType $r)),
                  (CreateShapeOp (GetShapeResultType $input), $input),
                  (GetZeroI64Attr)),
-  [(HasRankGT<2> $input)]
+  [(HasRankGT<3> $input)]
 >;
 
 //===----------------------------------------------------------------------===//
