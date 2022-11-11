@@ -590,27 +590,19 @@ public:
  * for idx in np.ndindex(update_indices):
  *     output[indices[idx]] = updates[idx]
  */
-template <typename T>
-LogicalResult ScatterNDImpl(
-    PatternRewriter &rewriter, ONNXScatterNDOp scatterNdOp, char *raw_buffer) {
+void ScatterNDImpl(DisposableElementsAttr dataElements,
+    DisposableElementsAttr indicesElements,
+    DisposableElementsAttr updatesElements,
+    MutableArrayRef<WideNum> output_data) {
+  dataElements.readElements(output_data);
+  ArrayBuffer<WideNum> indices_nums = indicesElements.getWideNums();
+  assert(indicesElements.getDType() == DType::INT64);
+  ArrayRef<int64_t> indices_data = castArrayRef<int64_t>(indices_nums.get());
+  ArrayBuffer<WideNum> updates_data = updatesElements.getWideNums();
 
-  char *data_value = getArrayFromAttributeOrBuffer(
-      rewriter, scatterNdOp.data().getDefiningOp());
-  char *indices_value = getArrayFromAttributeOrBuffer(
-      rewriter, scatterNdOp.indices().getDefiningOp());
-  char *updates_value = getArrayFromAttributeOrBuffer(
-      rewriter, scatterNdOp.updates().getDefiningOp());
-
-  auto data_shape = scatterNdOp.data().getType().cast<ShapedType>().getShape();
-  auto indices_shape =
-      scatterNdOp.indices().getType().cast<ShapedType>().getShape();
-  auto updates_shape =
-      scatterNdOp.updates().getType().cast<ShapedType>().getShape();
-
-  // the output shape keep same with data, so fill with input data temporarily
-  T *output_data = reinterpret_cast<T *>(data_value);
-  int64_t *indices_data = reinterpret_cast<int64_t *>(indices_value);
-  T *updates_data = reinterpret_cast<T *>(updates_value);
+  auto data_shape = dataElements.getShape();
+  auto indices_shape = indicesElements.getShape();
+  auto updates_shape = updatesElements.getShape();
 
   int64_t n_slices = 1;
   int64_t slice_size = 1;
@@ -644,12 +636,9 @@ LogicalResult ScatterNDImpl(
       to_pos += idx * dims_to_count[j];
     }
     for (int64_t j = 0; j < slice_size; j++) {
-      output_data[to_pos + j] = updates_data[i * slice_size + j];
+      output_data[to_pos + j] = updates_data.get()[i * slice_size + j];
     }
   }
-
-  std::memcpy(raw_buffer, data_value, output_flat_size * 8);
-  return success();
 }
 
 class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
@@ -659,9 +648,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXScatterNDOp scatterNdOp, PatternRewriter &rewriter) const override {
     // Match
-    if (!scatterNdOp.getResult()
-             .getType()
-             .template dyn_cast_or_null<RankedTensorType>())
+    if (!scatterNdOp.getResult().getType().isa<RankedTensorType>())
       return failure();
 
     if (!isFromDenseONNXConstantOp(scatterNdOp.data()))
@@ -673,30 +660,23 @@ public:
     if (!isFromDenseONNXConstantOp(scatterNdOp.updates()))
       return failure();
 
-    char *result_raw_data =
-        allocateBufferFor(scatterNdOp.data().getType(), /*useMaxSize=*/true);
+    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    DisposableElementsAttr dataElements =
+        getConstValueAsDisposableElements(elementsBuilder, scatterNdOp.data());
+    DisposableElementsAttr indicesElements = getConstValueAsDisposableElements(
+        elementsBuilder, scatterNdOp.indices());
+    DisposableElementsAttr updatesElements = getConstValueAsDisposableElements(
+        elementsBuilder, scatterNdOp.updates());
+    DType bufferDType = wideDTypeOfDType(dataElements.getDType());
+    ElementsAttr scatteredElements = elementsBuilder.fromRawBytes(
+        dataElements.getType(), bufferDType, [&](MutableArrayRef<char> dst) {
+          ScatterNDImpl(dataElements, indicesElements, updatesElements,
+              castMutableArrayRef<WideNum>(dst));
+        });
+    ONNXConstantOp constOp = createReplacingConstantOp(
+        rewriter, scatterNdOp.data(), scatteredElements);
 
-    mlir::ShapedType shaped_type =
-        scatterNdOp.data().getType().cast<ShapedType>();
-
-    if (shaped_type.getElementType().isa<FloatType>()) {
-      if (mlir::failed(
-              ScatterNDImpl<double>(rewriter, scatterNdOp, result_raw_data)))
-        return failure();
-    } else if (shaped_type.getElementType().isa<IntegerType>()) {
-      if (mlir::failed(
-              ScatterNDImpl<int64_t>(rewriter, scatterNdOp, result_raw_data)))
-        return failure();
-    } else {
-      llvm_unreachable("type not yet supported");
-    }
-
-    // Construct result values.
-    ONNXConstantOp gen_const_op = createConstantOpAndStoreBufferPtr(
-        rewriter, scatterNdOp.data(), result_raw_data);
-
-    SmallVector<Value, 1> op_repl_values(1, gen_const_op.getResult());
-    rewriter.replaceOp(scatterNdOp, op_repl_values);
+    rewriter.replaceOp(scatterNdOp, constOp.getResult());
     return success();
   }
 };
