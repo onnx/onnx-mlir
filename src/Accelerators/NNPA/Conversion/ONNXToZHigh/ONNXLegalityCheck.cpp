@@ -348,16 +348,19 @@ bool isSuitableForZDNN<ONNXMaxOp>(
 }
 
 /// Check legality for ONNXSoftmax.
-/// zDNN softmax only supports axis = 1 (or -1 when rank = 2). If axis is not
-/// 1 (or -1 when rank = 2), keep ONNXSoftmax unchanged.
+/// zDNN softmax only supports axis = rank-1 (or -1) when rank = 2 or 3). If
+/// axis is not rank-1 (or -1) when rank = 2/3), keep ONNXSoftmax unchanged.
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
-  return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
-         (inputType.getRank() == 2);
+  if (!inputType.hasRank())
+    return false;
+  int64_t rank = inputType.getRank();
+  return (((rank == 2) || (rank == 3)) &&
+          ((op.axis() == rank - 1) || (op.axis() == -1)));
 }
 
 /// Check legality for ONNXRelu.
