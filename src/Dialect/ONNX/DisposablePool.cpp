@@ -36,6 +36,7 @@ DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
 DisposablePool::~DisposablePool() {}
 
 void DisposablePool::insert(DisposableElementsAttr d) {
+  // TODO: make this thread safe
   auto insertion = pool.insert(d.getImpl());
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
