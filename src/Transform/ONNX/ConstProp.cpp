@@ -537,7 +537,8 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
             dstIterator = std::copy_n(splitBegin, splitSize, dstIterator);
             splitBegin += iterationOffset;
           }
-          assert(dstIterator == dstNums.end());
+          assert(dstIterator == dstNums.end() &&
+                 "result type num elements mismatch");
         });
     resValues.push_back(
         createReplacingConstantOp(rewriter, replacingValue, splitElements)
