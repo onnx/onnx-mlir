@@ -52,24 +52,24 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExpr getSymbol(mlir::Value scalarOr1DArrayIntValue, uint64_t i);
   IndexExpr getSymbol(
       mlir::Value scalarOr1DArrayIntValue, uint64_t i, int64_t defaultLiteral);
-  bool getSymbolList(mlir::Value scalarOr1DArrayIntValue, IndexExprList &list,
+  bool getSymbols(mlir::Value scalarOr1DArrayIntValue, IndexExprList &list,
       int64_t listSize = -1);
 
   // Get info from tensor/memref shape.
   bool isShapeCompileTimeConstant(mlir::Value tensorOrMemrefValue, uint64_t i);
   bool isShapeCompileTimeConstant(mlir::Value tensorOrMemrefValue);
-  uint64_t getRank(mlir::Value tensorOrMemrefValue);
+  uint64_t getShapeRank(mlir::Value tensorOrMemrefValue);
   int64_t getShape(mlir::Value tensorOrMemrefValue, uint64_t i);
 
   // Get index expressions from tensor/memref shape.
-  IndexExpr getLiteralFromShape(mlir::Value tensorOrMemrefValue, uint64_t i);
-  IndexExpr getSymbolFromShape(mlir::Value tensorOrMemrefValue, uint64_t i);
-  IndexExpr getDimFromShape(mlir::Value tensorOrMemrefValue, uint64_t i);
-  void getLiteralListFromShape(
+  IndexExpr getShapeAsLiteral(mlir::Value tensorOrMemrefValue, uint64_t i);
+  IndexExpr getShapeAsSymbol(mlir::Value tensorOrMemrefValue, uint64_t i);
+  IndexExpr getShapeAsDim(mlir::Value tensorOrMemrefValue, uint64_t i);
+  void getShapeAsLiterals(
       mlir::Value tensorOrMemrefValue, IndexExprList &list);
-  void getSymbolListFromShape(
+  void getShapeAsSymbols(
       mlir::Value tensorOrMemrefValue, IndexExprList &list);
-  void getDimListFromShape(
+  void getShapeAsDims(
       mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
 protected:

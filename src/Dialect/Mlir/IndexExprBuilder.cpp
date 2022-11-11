@@ -101,7 +101,7 @@ IndexExpr IndexExprBuilder::getSymbol(
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-bool IndexExprBuilder::getSymbolList(
+bool IndexExprBuilder::getSymbols(
     Value scalarOr1DArrayIntValue, IndexExprList &list, int64_t listSize) {
   list.clear();
   uint64_t size = getSize(scalarOr1DArrayIntValue);
@@ -124,75 +124,75 @@ bool IndexExprBuilder::isShapeCompileTimeConstant(
 }
 
 bool IndexExprBuilder::isShapeCompileTimeConstant(Value tensorOrMemrefValue) {
-  uint64_t rank = getRank(tensorOrMemrefValue);
+  uint64_t rank = getShapeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     if (!isShapeCompileTimeConstant(tensorOrMemrefValue, i))
       return false;
   return true;
 }
 
-uint64_t IndexExprBuilder::getRank(Value tensorOrMemrefValue) {
+uint64_t IndexExprBuilder::getShapeRank(Value tensorOrMemrefValue) {
   assert(
       hasShapeAndRank(tensorOrMemrefValue) && "expected shaped type with rank");
   return tensorOrMemrefValue.getType().dyn_cast_or_null<ShapedType>().getRank();
 }
 
 int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
-  uint64_t rank = getRank(tensorOrMemrefValue);
+  uint64_t rank = getShapeRank(tensorOrMemrefValue);
   assert(i < rank && "expected index smaller than memref rank");
   return tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[i];
 }
 
 // Get index expressions from tensor/memref shape.
-IndexExpr IndexExprBuilder::getLiteralFromShape(
+IndexExpr IndexExprBuilder::getShapeAsLiteral(
     Value tensorOrMemrefValue, uint64_t i) {
   int64_t shape = getShape(tensorOrMemrefValue, i);
   assert(shape != -1 && "expected compile time constant shape");
   return LiteralIndexExpr(shape);
 }
 
-IndexExpr IndexExprBuilder::getSymbolFromShape(
+IndexExpr IndexExprBuilder::getShapeAsSymbol(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
-    return getLiteralFromShape(tensorOrMemrefValue, i);
+    return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return SymbolIndexExpr(val);
   else
     return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
-IndexExpr IndexExprBuilder::getDimFromShape(
+IndexExpr IndexExprBuilder::getShapeAsDim(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
-    return getLiteralFromShape(tensorOrMemrefValue, i);
+    return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIndexExpr(val);
   else
     return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
-void IndexExprBuilder::getLiteralListFromShape(
+void IndexExprBuilder::getShapeAsLiterals(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getRank(tensorOrMemrefValue);
+  uint64_t rank = getShapeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
-    list.emplace_back(getLiteralFromShape(tensorOrMemrefValue, i));
+    list.emplace_back(getShapeAsLiteral(tensorOrMemrefValue, i));
 }
 
-void IndexExprBuilder::getSymbolListFromShape(
+void IndexExprBuilder::getShapeAsSymbols(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getRank(tensorOrMemrefValue);
+  uint64_t rank = getShapeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
-    list.emplace_back(getSymbolFromShape(tensorOrMemrefValue, i));
+    list.emplace_back(getShapeAsSymbol(tensorOrMemrefValue, i));
 }
 
-void IndexExprBuilder::getDimListFromShape(
+void IndexExprBuilder::getShapeAsDims(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getRank(tensorOrMemrefValue);
+  uint64_t rank = getShapeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
-    list.emplace_back(getDimFromShape(tensorOrMemrefValue, i));
+    list.emplace_back(getShapeAsDim(tensorOrMemrefValue, i));
 }
 
 } // namespace onnx_mlir

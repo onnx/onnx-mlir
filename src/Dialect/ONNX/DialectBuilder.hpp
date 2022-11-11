@@ -139,15 +139,14 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // used for building, only for analysis.
 
 struct IndexExprBuilderForAnalysis : IndexExprBuilder {
-  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
-      : IndexExprBuilder(b, loc) {}
-  IndexExprBuilderForAnalysis(const DialectBuilder &db)
-      : IndexExprBuilder(db) {}
+  // IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+  //    : IndexExprBuilder(b, loc) {}
+  // IndexExprBuilderForAnalysis(const DialectBuilder &db)
+  //    : IndexExprBuilder(db) {}
 
   // Version with dummy builder and location (ok as we never build).
-  // IndexExprBuilderForAnalysis()
-  //    : IndexExprBuilder(
-  //          mlir::Builder(mlir::getContext()), mlir::UnknownLoc()) {}
+  IndexExprBuilderForAnalysis(mlir::Operation *op)
+      : IndexExprBuilder(mlir::Builder(op), mlir::UnknownLoc()) {}
 
 protected:
   virtual mlir::DenseElementsAttr getConst(mlir::Value value) override;
