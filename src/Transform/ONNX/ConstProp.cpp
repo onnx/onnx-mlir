@@ -757,58 +757,63 @@ Value ConstPropSlice(
 // Code to perform constant propagation for ConcatOp.
 //===----------------------------------------------------------------------===//
 
-Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
-    ValueRange operands, IntegerAttr axisAttr) {
-  // Get the const values using the maximum precision e.g. double, int64_t.
-  SmallVector<char *, 4> inputArrays;
-  for (uint64_t i = 0; i < operands.size(); ++i) {
-    char *array =
-        getArrayFromAttributeOrBuffer(rewriter, operands[i].getDefiningOp());
-    inputArrays.emplace_back(array);
-  }
-  // Create the result buffer using the maximum precision e.g. double, int64_t.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-
-  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+void ConstPropConcatImpl(ShapedType outputType,
+    ArrayRef<DisposableElementsAttr> inputElements, int64_t axis,
+    MutableArrayRef<WideNum> outputData) {
+  ArrayRef<int64_t> outputShape = outputType.getShape();
   std::vector<int64_t> outputStrides = getStrides(outputShape);
-  int64_t axis = axisAttr.getValue().getSExtValue();
-  if (axis < 0)
-    axis += outputShape.size();
 
   // If concatenation is on the outermost dimension, do memcpy for better
   // performance. Otherwise, copy elements one-by-one.
   if (axis == 0) {
-    int64_t offset = 0;
-    for (uint64_t i = 0; i < operands.size(); ++i) {
-      int64_t sizeInBytes = getMaxSizeInBytes(operands[i].getType());
-      memcpy(resArray + offset, inputArrays[i], sizeInBytes);
-      offset += sizeInBytes;
+    auto outputIterator = outputData.begin();
+    for (uint64_t i = 0; i < inputElements.size(); ++i) {
+      ArrayBuffer<WideNum> inputData = inputElements[i].getWideNums();
+      outputIterator = std::copy(
+          inputData.get().begin(), inputData.get().end(), outputIterator);
     }
   } else {
     int64_t dimAtAxis = 0;
-    for (uint64_t i = 0; i < operands.size(); ++i) {
-      ArrayRef<int64_t> inputShape = getShape(operands[i].getType());
+    for (uint64_t i = 0; i < inputElements.size(); ++i) {
+      ArrayBuffer<WideNum> inputData = inputElements[i].getWideNums();
+      ArrayRef<int64_t> inputShape = inputElements[i].getShape();
       std::vector<int64_t> inputStrides = getStrides(inputShape);
-      for (int64_t k = 0; k < ShapedType::getNumElements(inputShape); ++k) {
+      for (size_t k = 0; k < inputData.get().size(); ++k) {
         std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
         std::vector<int64_t> outputIndices(inputIndices);
         outputIndices[axis] += dimAtAxis;
         int64_t outputOffset =
             getLinearAccessIndex(outputIndices, outputStrides);
-        int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
-        memcpy(resArray + outputOffset * typeSize,
-            inputArrays[i] + k * typeSize, typeSize);
+        outputData[outputOffset] = inputData.get()[k];
       }
       dimAtAxis += inputShape[axis];
     }
   }
+}
 
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
+    ValueRange operands, IntegerAttr axisAttr) {
+  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
+  int64_t axis = axisAttr.getValue().getSExtValue();
+  if (axis < 0)
+    axis += outputType.getRank();
 
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  SmallVector<DisposableElementsAttr, 4> inputElements;
+  inputElements.reserve(operands.size());
+  for (Value input : operands)
+    inputElements.push_back(
+        getConstValueAsDisposableElements(elementsBuilder, input));
+  DType dtype = dtypeOfMlirType(outputType.getElementType());
+  DType bufferDType = wideDTypeOfDType(dtype);
+  ElementsAttr concatenatedElements = elementsBuilder.fromRawBytes(
+      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
+        ConstPropConcatImpl(
+            outputType, inputElements, axis, castMutableArrayRef<WideNum>(dst));
+      });
+  return createReplacingConstantOp(
+      rewriter, replacingValue, concatenatedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
