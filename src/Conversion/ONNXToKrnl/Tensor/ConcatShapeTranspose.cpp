@@ -83,6 +83,12 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     if (operandAdaptor.end().has_value()) {
       end = operandAdaptor.end().value();
     }
+    // Handle negative
+    if (start < 0)
+      start += commonRank;
+
+    if (end < 0)
+      end += commonRank;
 
     // SmallVector<int64_t, 4> outputDims;
     // outputDims.emplace_back(end-start);
