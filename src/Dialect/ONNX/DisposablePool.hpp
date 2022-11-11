@@ -37,14 +37,6 @@ public:
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
-  // // Create a DisposableElementsAttr and put it in the pool.
-  // template <typename... Args>
-  // mlir::DisposableElementsAttr createElementsAttr(Args &&...args) {
-  //   auto d = mlir::DisposableElementsAttr::get(std::forward<Args>(args)...);
-  //   insert(d);
-  //   return d;
-  // }
-
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
   void garbageCollectUnreachable(mlir::ModuleOp moduleOp);
