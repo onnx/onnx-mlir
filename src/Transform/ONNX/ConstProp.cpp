@@ -703,34 +703,14 @@ Value ConstPropCast(
 // Code to perform constant propagation for SliceOp.
 //===----------------------------------------------------------------------===//
 
-Value ConstPropSlice(
-    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  Operation *op = replacingValue.getDefiningOp();
-  ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
-
-  ArrayRef<int64_t> inputShape = getShape(constValue.getType());
-  std::vector<int64_t> inputStrides = getStrides(inputShape);
-  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
-
-  // Get the const value using the maximum precision e.g. double, int64_t.
-  char *constArray =
-      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
-
-  // Create the result buffer using the maximum precision e.g. double, int64_t.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-
-  // Get starts, ends, axes and steps via ShapeHelper.
-  NewONNXSliceOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape())) {
-    sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
-                      " parameters successfully");
-    return nullptr;
-  }
-
+void ConstPropSliceImpl(ShapedType outputType,
+    const NewONNXSliceOpShapeHelper &shapeHelper,
+    DisposableElementsAttr inputElements, MutableArrayRef<WideNum> outputData) {
+  std::vector<int64_t> outputStrides = getStrides(outputType.getShape());
+  std::vector<int64_t> inputStrides = getStrides(inputElements.getShape());
+  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
   // Iterate over the output index space.
-  for (int64_t i = 0; i < ShapedType::getNumElements(outputShape); ++i) {
+  for (size_t i = 0; i < outputData.size(); ++i) {
     // Input index: "ii * step + start" for all dim.
     // Output index: "ii" for all dims.
     // where `ii` is a tensor index.
@@ -742,16 +722,35 @@ Value ConstPropSlice(
                                 shapeHelper.starts[k].getLiteral());
     }
     int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
-    memcpy(
-        resArray + i * typeSize, constArray + inputOffset * typeSize, typeSize);
+    outputData[i] = inputData.get()[inputOffset];
+  }
+}
+
+Value ConstPropSlice(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
+
+  // Get starts, ends, axes and steps via ShapeHelper.
+  NewONNXSliceOpShapeHelper shapeHelper(op, {});
+  if (failed(shapeHelper.computeShape())) {
+    sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
+                      " parameters successfully");
+    return nullptr;
   }
 
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr inputElements =
+      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
+  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
+  ElementsAttr slicedElements = elementsBuilder.fromRawBytes(
+      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
+        ConstPropSliceImpl(outputType, shapeHelper, inputElements,
+            castMutableArrayRef<WideNum>(dst));
+      });
+  return createReplacingConstantOp(rewriter, replacingValue, slicedElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
