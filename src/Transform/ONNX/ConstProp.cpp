@@ -489,7 +489,6 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     return failure();
   ShapedType inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
-  Type elementType = inputType.getElementType();
 
   // Split axis.
   uint64_t splitAxis = splitOp.axis();
@@ -511,28 +510,38 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     }
   }
 
-  // Get the constant input value.
-  char *inputArray =
-      getArrayFromAttributeOrBuffer(rewriter, input.getDefiningOp());
-
-  SmallVector<Value, 4> replacingValues;
-  SmallVector<Type, 4> replacingTypes;
-  for (unsigned int i = 0; i < numOfResults; ++i) {
-    replacingValues.emplace_back(splitOp.getResults()[i]);
-    replacingTypes.emplace_back(splitOp.getResults()[i].getType());
-  }
-
-  // Do splitting.
-  std::vector<char *> resBuffers;
-  ConstPropSplitImpl(elementType, inputArray, inputShape, splitAxis,
-      splitOffsets, replacingTypes, resBuffers);
-
-  // Construct result values.
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr inputElements =
+      getConstValueAsDisposableElements(elementsBuilder, input);
+  ArrayBuffer<WideNum> inputNums = inputElements.getWideNums();
+  size_t numElements = inputElements.getNumElements();
+  auto strides = getDefaultStrides(inputShape);
+  size_t iterationOffset =
+      splitAxis == 0 ? numElements : strides[splitAxis - 1];
+  size_t iterations = numElements / iterationOffset;
+  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
   std::vector<Value> resValues;
   for (unsigned int i = 0; i < numOfResults; ++i) {
-    ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
-        rewriter, replacingValues[i], resBuffers[i]);
-    resValues.emplace_back(res.getResult());
+    Value replacingValue = splitOp.getResults()[i];
+    ElementsAttr splitElements = elementsBuilder.fromRawBytes(
+        replacingValue.getType(), bufferDType, [&](MutableArrayRef<char> dst) {
+          MutableArrayRef<WideNum> dstNums = castMutableArrayRef<WideNum>(dst);
+          auto dstIterator = dstNums.begin();
+          size_t start = splitOffsets[i];
+          size_t stop = i == numOfResults - 1 ? inputShape[splitAxis]
+                                              : splitOffsets[i + 1];
+          auto splitBegin =
+              inputNums.get().begin() + (strides[splitAxis] * start);
+          size_t splitSize = strides[splitAxis] * (stop - start);
+          for (size_t j = 0; j < iterations; ++j) {
+            dstIterator = std::copy_n(splitBegin, splitSize, dstIterator);
+            splitBegin += iterationOffset;
+          }
+          assert(dstIterator == dstNums.end());
+        });
+    resValues.push_back(
+        createReplacingConstantOp(rewriter, replacingValue, splitElements)
+            .getResult());
   }
 
   rewriter.replaceOp(splitOp, resValues);
