@@ -1,0 +1,103 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// gp16_nonraw_data.json is an onnx model that outputs 2 constant tensors
+// with float16 and bfloat16 data types data types
+
+// json is generated with utils/testing/floatingpoint16_data.py nonraw
+{
+  "irVersion": "8",
+  "graph": {
+    "node": [
+      {
+        "output": [
+          "output_f16"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 10,
+              "int32Data": [
+                48128,
+                28896
+              ],
+              "name": "tensor_f16"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output_bf16"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 16,
+              "int32Data": [
+                49024,
+                17948
+              ],
+              "name": "tensor_bf16"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "rawdata",
+    "output": [
+      {
+        "name": "output_f16",
+        "type": {
+          "tensorType": {
+            "elemType": 10,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output_bf16",
+        "type": {
+          "tensorType": {
+            "elemType": 16,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "16"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   () -> (tensor<2xf16>, tensor<2xbf16>) attributes {input_names = [], output_names = ["output_f16", "output_bf16"]} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[-1.000000e+00, 9.984000e+03]>  : tensor<2xf16>} : () -> tensor<2xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<[-1.000000e+00, 9.984000e+03]>  : tensor<2xbf16>} : () -> tensor<2xbf16>
+// CHECK:           return [[VAR_0_]], [[VAR_1_]] : tensor<2xf16>, tensor<2xbf16>
+// CHECK:         }

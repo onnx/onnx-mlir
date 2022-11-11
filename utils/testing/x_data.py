@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-######################### zipmap.py #########################################
+######################### x_data.py ############################################
 #
 # Generates raw/external/nonraw_data models in test/mlir/onnx/parse/
 #
