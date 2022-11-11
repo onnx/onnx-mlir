@@ -34,8 +34,7 @@ namespace onnx_mlir {
 // IndexShapeBuilder
 //===----------------------------------------------------------------------===//
 
-class IndexExprBuilder : DialectBuilder {
-public:
+struct IndexExprBuilder : DialectBuilder {
   using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
 
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -74,9 +73,10 @@ public:
       mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
 protected:
-  virtual mlir::DenseElementsAttr getConst(mlir::Value) = 0;
-  virtual mlir::Value getVal(mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
-
+  virtual mlir::DenseElementsAttr getConst(mlir::Value value) = 0;
+  virtual mlir::Value getVal(
+      mlir::Value scalarOr1DArrayIntValue, uint64_t i) = 0;
+  virtual mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 };
 
 } // namespace onnx_mlir

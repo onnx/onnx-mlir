@@ -15,6 +15,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
@@ -270,6 +271,39 @@ void KrnlBuilder::printf(
 void KrnlBuilder::printf(Value input, Type inputType) const {
   StringRef format = getFormat(inputType);
   b.create<KrnlPrintOp>(loc, format, input);
+}
+
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// Return null if none is found.
+// Copy from getDenseElementAttributeFromConstantValue
+DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto globalOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+Value IndexExprBuilderForKrnl::getVal(
+    Value scalarOr1DArrayIntValue, uint64_t i) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
+  // hi alex, may cause problem with scalar... may have to check type
+  Value iVal = create.math.constantIndex(i);
+  return create.krnl.load(scalarOr1DArrayIntValue, {iVal});
+}
+
+Value IndexExprBuilderForKrnl::getShapeVal(
+    Value tensorOrMemrefValue, uint64_t i) {
+  MemRefBuilder createMemRef(*this);
+  return createMemRef.dim(tensorOrMemrefValue, i);
 }
 
 } // namespace onnx_mlir

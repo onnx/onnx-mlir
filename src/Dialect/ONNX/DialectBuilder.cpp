@@ -313,4 +313,24 @@ Value OnnxBuilder::reshapeToNDim(
   return reshape(outputType, val, newShapeVals);
 }
 
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// Return null if none is found.
+DenseElementsAttr IndexExprBuilderForAnalysis::getConst(mlir::Value value) {
+  return getDenseElementAttributeFromONNXValue(value);
+}
+
+// For analysis, we never create values, so return null.
+Value IndexExprBuilderForAnalysis::getVal(
+    Value scalarOr1DArrayIntValue, uint64_t i) {
+  return nullptr;
+}
+
+Value IndexExprBuilderForAnalysis::getShapeVal(
+    Value tensorOrMemrefValue, uint64_t i) {
+  return nullptr;
+}
+
 } // namespace onnx_mlir

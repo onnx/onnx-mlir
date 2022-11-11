@@ -30,11 +30,13 @@
 using namespace mlir;
 
 namespace {
+
 // Local helper.
 static bool hasShapeAndRank(Value val) {
   ShapedType shapedType = val.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
 }
+
 } // namespace
 
 namespace onnx_mlir {
@@ -86,11 +88,10 @@ IndexExpr IndexExprBuilder::getSymbol(
     return LiteralIndexExpr(attrInt);
   }
   // If our scalar array is not a constant; we have a questionmark.
-  Value val = getVal(scalarOr1DArrayIntValue, i);
-  if (val == nullptr)
-    return QuestionmarkIndexExpr(scalarOr1DArrayIntValue, i);
-  else
+  if (Value val = getVal(scalarOr1DArrayIntValue, i))
     return SymbolIndexExpr(val);
+  else
+    return QuestionmarkIndexExpr();
 }
 
 IndexExpr IndexExprBuilder::getSymbol(
@@ -154,22 +155,20 @@ IndexExpr IndexExprBuilder::getSymbolFromShape(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
     return getLiteralFromShape(tensorOrMemrefValue, i);
-  Value val = getVal(tensorOrMemrefValue, i);
-  if (val == nullptr)
-    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
-  else
+  if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return SymbolIndexExpr(val);
+  else
+    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
 IndexExpr IndexExprBuilder::getDimFromShape(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
     return getLiteralFromShape(tensorOrMemrefValue, i);
-  Value val = getVal(tensorOrMemrefValue, i);
-  if (val == nullptr)
-    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
-  else
+  if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIndexExpr(val);
+  else
+    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
 void IndexExprBuilder::getLiteralListFromShape(

@@ -15,9 +15,11 @@
 #pragma once
 
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
@@ -127,6 +129,32 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
+};
+
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// This class is not meant to work with the MultiDialectBuilder as it is not
+// used for building, only for analysis.
+
+struct IndexExprBuilderForAnalysis : IndexExprBuilder {
+  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForAnalysis(const DialectBuilder &db)
+      : IndexExprBuilder(db) {}
+
+  // Version with dummy builder and location (ok as we never build).
+  // IndexExprBuilderForAnalysis()
+  //    : IndexExprBuilder(
+  //          mlir::Builder(mlir::getContext()), mlir::UnknownLoc()) {}
+
+protected:
+  virtual mlir::DenseElementsAttr getConst(mlir::Value value) override;
+  virtual mlir::Value getVal(
+      mlir::Value scalarOr1DArrayIntValue, uint64_t i) override;
+  virtual mlir::Value getShapeVal(
+      mlir::Value tensorOrMemrefValue, uint64_t i) override;
 };
 
 } // namespace onnx_mlir
