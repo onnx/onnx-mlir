@@ -56,71 +56,19 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
-
-/// Check the defining operation of a value.
-template <typename OP>
-bool definedBy(Value v) {
-  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
-}
-
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
-bool areDims(Value val) {
-  // Value must be a 1D tensor.
-  Type vType = val.getType();
-  if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
-    return false;
-
-  // Base case.
-  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
-      definedBy<ONNXCastOp>(val)) {
-    // Value must be a 1D tensor of one element.
-    return (getShape(vType)[0] == 1);
-  }
-
-  // Recursion case.
-  if (definedBy<ONNXConcatOp>(val)) {
-    // Recursively check.
-    for (Value v : val.getDefiningOp()->getOperands())
-      if (!areDims(v))
-        return false;
-    return true;
-  }
-
-  // Not Dim/Constant/Cast/Concat.
-  return false;
-}
-
-/// Check if a value is defined by Concat to store dimensions.
-bool areDimsFromConcat(Value val) {
-  return (areDims(val) && definedBy<ONNXConcatOp>(val));
-}
-
-/// Get all dimensions that are stored by the value.
-void getDims(Value val, SmallVectorImpl<Value> &dims) {
-  assert(areDims(val) && "Value does not store dimensions");
-  if (definedBy<ONNXConcatOp>(val)) {
-    for (Value v : val.getDefiningOp()->getOperands()) {
-      SmallVector<Value, 4> inputs;
-      getDims(v, inputs);
-      for (Value i : inputs)
-        dims.emplace_back(i);
-    }
-  } else
-    dims.emplace_back(val);
-}
 
 /// Get all dimensions in I64 (-1 for unknown) that are stored by the value.
 void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {

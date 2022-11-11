@@ -55,21 +55,7 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
 // RuntimeAPIRegistry
 //===----------------------------------------------------------------------===//
 
-RuntimeAPIRegistry *RuntimeAPIRegistry::instance = nullptr;
-
-RuntimeAPIRegistry::~RuntimeAPIRegistry() {
-  // To support multiple modules in the same compilation process we need to
-  // reset the singleton instance.
-  instance = nullptr;
-}
-
-const RuntimeAPIRegistry RuntimeAPIRegistry::build(
-    ModuleOp &module, OpBuilder &builder) {
-  if (!instance)
-    instance = new RuntimeAPIRegistry(module, builder);
-
-  return *instance;
-}
+RuntimeAPIRegistry::~RuntimeAPIRegistry() {}
 
 RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     : registry() {

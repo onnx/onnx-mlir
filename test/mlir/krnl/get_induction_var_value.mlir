@@ -40,8 +40,8 @@ func.func @test_2d_tiling_imperfectly_nested() {
   // CHECK:             affine.for [[JBLOCK:%.+]] = 0 to 20 step 4 {
   // CHECK:               [[BAR:%.+]] = arith.addi [[IBLOCK]], [[JBLOCK]] : index
   // CHECK:               [[TILE_BUFFER:%.+]] = memref.alloc() : memref<10xf32>
-  // CHECK:               affine.for [[ILOCAL:%.+]] = #map0([[IBLOCK]]) to #map1([[IBLOCK]]) {
-  // CHECK:                 affine.for [[JLOCAL:%.+]] = #map0([[JBLOCK]]) to #map2([[JBLOCK]]) {
+  // CHECK:               affine.for [[ILOCAL:%.+]] = #map([[IBLOCK]]) to #map1([[IBLOCK]]) {
+  // CHECK:                 affine.for [[JLOCAL:%.+]] = #map([[JBLOCK]]) to #map2([[JBLOCK]]) {
   // CHECK:                   [[BAR:%.+]] = arith.addi [[ILOCAL]], [[JLOCAL]] : index
   // CHECK:                 }
   // CHECK:               }

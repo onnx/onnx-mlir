@@ -82,7 +82,7 @@ private:
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
-    const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+    const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Check the original type, not after type conversion
@@ -149,7 +149,7 @@ private:
           // In future, the attributes should be converted in krnl.call builder.
           // This code passed onnx-mlir-opt --convert-krnl-to-llvm test case,
           // but failed in onnx-milr for the tensor type for the attribute
-          const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+          const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
           auto tensorTy = denseAttr.getType().cast<TensorType>();
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
