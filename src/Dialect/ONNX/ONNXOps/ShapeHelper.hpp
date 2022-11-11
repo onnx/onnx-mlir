@@ -31,32 +31,6 @@
 
 namespace onnx_mlir {
 
-//===----------------------------------------------------------------------===//
-// IndexShapeBuilder
-//===----------------------------------------------------------------------===//
-
-class IndexExprShapeBuilder {
-  virtual IndexExprShapeBuilder();
-  virtual ~IndexExprShapeBuilder();
-
-  virtual IndexExpr getIndexExpr(ArrayAttr arrayAttr, int64_t i);
-  virtual IndexExpr getIndexExpr(
-      ArrayAttr arrayAttr, int64_t i, int64_t defaultLiteral);
-  virtual IndexExpr getIndexExpr(Value scalarArray, int64_t i);
-  virtual IndexExpr getIndexExpr(
-      Value scalarArray, int64_t i, int64_t defaultLiteral);
-
-  virtual bool getIndexExprList(
-      Value scalarArray, llvm::SmallVectorImpl<IndexExpr> &indexExprList);
-  virtual bool getIndexExprList(Value scalarArray, int64_t num,
-      llvm::SmallVectorImpl<IndexExpr> &indexExprList);
-
-   virtual bool isShapeInferencePass() { return true; }
-   
-private:
-  int64_t getSize(Value scalarArray);
-};
-
 // Steps to add a new op XXX:
 // 1) Create a new shape inference type inside this file, ONNXShapeHelper.hpp.
 // 2) Create new shape inference file, say XXX.cpp and implement.
