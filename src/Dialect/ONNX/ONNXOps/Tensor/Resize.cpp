@@ -48,8 +48,7 @@ LogicalResult ONNXResizeOp::inferShapes(
 
   // Current implementation handles constant scales only
   if (!isFromNone(scales())) {
-    DenseElementsAttr scalesAttrs =
-        getDenseElementAttributeFromONNXValue(scales());
+    ElementsAttr scalesAttrs = getElementAttributeFromONNXValue(scales());
     if (!scalesAttrs) {
       return success();
     }
@@ -71,8 +70,7 @@ LogicalResult ONNXResizeOp::inferShapes(
 
     updateType(getResult(), dims, inputTy.getElementType());
   } else {
-    DenseElementsAttr sizesAttrs =
-        getDenseElementAttributeFromONNXValue(sizes());
+    ElementsAttr sizesAttrs = getElementAttributeFromONNXValue(sizes());
     if (!sizesAttrs) {
       return success();
     }

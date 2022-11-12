@@ -75,8 +75,8 @@ LogicalResult ONNXScatterElementsOp::verify() {
   ArrayRef<int64_t> dataShape = dataType.getShape();
   const int64_t dataDimAtAxis = dataShape[axis];
   if (dataDimAtAxis >= 0) {
-    if (DenseElementsAttr valueAttribute =
-            getDenseElementAttributeFromONNXValue(indices)) {
+    if (ElementsAttr valueAttribute =
+            getElementAttributeFromONNXValue(indices)) {
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)

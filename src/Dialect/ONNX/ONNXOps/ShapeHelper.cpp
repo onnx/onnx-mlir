@@ -80,7 +80,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, int numResults, IndexExprScope *inScope)
-    : op(newOp), fGetDenseVal(getDenseElementAttributeFromONNXValue),
+    : op(newOp), fGetDenseVal(getElementAttributeFromONNXValue),
       fLoadVal(nullptr), outputsDims(), ownScope(inScope == nullptr) {
   assert(op && "Expecting a valid pointer");
   if (ownScope)
@@ -107,7 +107,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
       res = fGetDenseValInput(array);
     // If provided method was not provided or failed, try default ONNX method.
     if (!res)
-      res = getDenseElementAttributeFromONNXValue(array);
+      res = getElementAttributeFromONNXValue(array);
     return res;
   };
 }

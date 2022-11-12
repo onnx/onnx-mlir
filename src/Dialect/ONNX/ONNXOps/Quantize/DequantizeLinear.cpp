@@ -74,7 +74,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     //   return emitOpError("x and x_zero_point must have the same data type");
 
     if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
-      if (auto values = getDenseElementAttributeFromONNXValue(zero))
+      if (auto values = getElementAttributeFromONNXValue(zero))
         if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
           return emitOpError("x_zero_point must be 0 for data type int32");
   }

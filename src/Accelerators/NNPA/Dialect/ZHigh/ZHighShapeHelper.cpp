@@ -57,7 +57,7 @@ ZHighOpShapeHelper<OP>::ZHighOpShapeHelper(OP *newOp, int numResults,
       res = fGetDenseValInput(array);
     // If provided method was not provided or failed, try default ONNX method.
     if (!res)
-      res = getDenseElementAttributeFromONNXValue(array);
+      res = getElementAttributeFromONNXValue(array);
     return res;
   };
 }

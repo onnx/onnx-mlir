@@ -63,8 +63,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       // Attribute::cast() const [with U = mlir::IntegerAttr]
       // The reason seems to be that IntegerAttr is assumed
       //
-      DenseElementsAttr scalesAttrs =
-          getDenseElementAttributeFromONNXValue(resizeOp.scales());
+      ElementsAttr scalesAttrs =
+          getElementAttributeFromONNXValue(resizeOp.scales());
       SmallVector<float, 4> scalesConstant;
       if (scalesAttrs) {
         for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {

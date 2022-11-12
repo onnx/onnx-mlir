@@ -44,8 +44,7 @@ struct ONNXUnsqueezeOpLoweringToMhlo : public ConversionPattern {
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     SmallVector<int64_t, 4> axesList;
-    if (DenseElementsAttr axesAttr =
-            getDenseElementAttributeFromONNXValue(axes)) {
+    if (ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes)) {
       for (IntegerAttr value : axesAttr.getValues<IntegerAttr>()) {
         int64_t axis = value.cast<IntegerAttr>().getInt();
         if (axis < 0)

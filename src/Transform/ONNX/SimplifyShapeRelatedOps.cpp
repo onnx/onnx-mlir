@@ -80,7 +80,7 @@ void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   getDims(val, dims);
   for (Value v : dims) {
     if (auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp())) {
-      auto valueAttr = constOp.valueAttr().cast<DenseElementsAttr>();
+      auto valueAttr = constOp.valueAttr().cast<ElementsAttr>();
       int64_t dim = valueAttr.getSplatValue<int64_t>();
       result.emplace_back(dim);
     } else {
@@ -262,8 +262,7 @@ public:
     // Indices are constants.
     if (!definedBy<ONNXConstantOp>(indices))
       return failure();
-    DenseElementsAttr indicesAttr =
-        getDenseElementAttributeFromONNXValue(indices);
+    ElementsAttr indicesAttr = getElementAttributeFromONNXValue(indices);
     if (!indicesAttr)
       return failure();
 

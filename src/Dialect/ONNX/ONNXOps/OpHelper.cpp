@@ -307,10 +307,10 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
+ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
-    return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    return constantOp.valueAttr().dyn_cast<ElementsAttr>();
   return nullptr;
 }
 
@@ -403,7 +403,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
     return false;
 
   ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
-  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  ElementsAttr shapeAttr = getElementAttributeFromONNXValue(shape);
   if (shapeAttr == nullptr)
     return false;
 
@@ -484,7 +484,7 @@ bool hasShapeAndRank(Value val) {
 
 // Create an ArrayAttr from a dense ConstantOp
 ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
-  auto denseAttr = getDenseElementAttributeFromONNXValue(constOp);
+  auto denseAttr = getElementAttributeFromONNXValue(constOp);
   assert(denseAttr && "ConstantOp is not a DenseElementsAttr");
   SmallVector<int64_t, 4> intVals;
   for (auto val : denseAttr.getValues<IntegerAttr>()) {
