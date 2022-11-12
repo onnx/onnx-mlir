@@ -383,7 +383,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
 
 //===----------------------------------------------------------------------===//
 // ConcatShapeTransposeOp
-def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [NoSideEffect,
+def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX merged operation";
   let description = [{
