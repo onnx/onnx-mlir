@@ -100,9 +100,9 @@ public:
         Type elementType = mlirTypeOfDType(dtype, ctx);
         ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
-        ArrayRef<int64_t> emptyStrides;
-        Attribute a =
-            elmsBuilder.create(type, buffer<cpptype>({one}), emptyStrides);
+        std::vector<int64_t> zerosStrides(2, 0);
+        Attribute a = elmsBuilder.create(
+            type, buffer<cpptype>({one}), llvm::makeArrayRef(zerosStrides));
         ElementsAttr e = a.cast<ElementsAttr>();
         assert(e.isSplat());
         DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
