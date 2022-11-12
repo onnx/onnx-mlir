@@ -814,6 +814,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 
+#ifdef SCRUB_DISPOSABLE_ATTR_AFTER_CONST_PROP
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
@@ -825,6 +826,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   // TODO: determine if we should call DisposablePool::garbageCollectUnreachable
   //       (what's the relationship between function and the ModuleOp?)
+#endif
 }
 
 /*!
