@@ -29,10 +29,18 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
-
+    Location loc = op->getLoc();
+    ONNXConcatShapeTransposeOp concatShapeTransposeOp =
+        llvm::cast<ONNXConcatShapeTransposeOp>(op);
     ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
         operands, op->getAttrDictionary());
+    ONNXConcatShapeTransposeOpShapeHelper shapeHelper(&concatShapeTransposeOp,
+        &rewriter, krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
+
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
     // Compute concat output shape.
@@ -40,32 +48,30 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     Value firstInput = operandAdaptor.inputs().front();
     ArrayRef<int64_t> commonShape =
         firstInput.getType().cast<ShapedType>().getShape();
-    // Type dataElementType =
     // firstInput.getType().cast<ShapedType>().getElementType();
-    uint64_t commonRank = commonShape.size();
-    int64_t axisIndex = operandAdaptor.axis();
+    uint64_t rank = commonShape.size();
+    int64_t axis = operandAdaptor.axis();
 
     // Negative axis means values are counted from the opposite side.
     // TOFIX should be in normalization pass
-    if (axisIndex < 0)
-      axisIndex += commonRank;
+    if (axis < 0)
+      axis += rank;
 
     IndexExprScope IEScope(&rewriter, loc);
-    DimsExpr outputConcatDims(commonRank);
+    DimsExpr outputConcatDims(rank);
     MemRefBoundsIndexCapture firstInputBounds(operandAdaptor.inputs()[0]);
-    for (unsigned dim = 0; dim < commonRank; dim++) {
+    for (unsigned dim = 0; dim < rank; dim++) {
       outputConcatDims[dim] = firstInputBounds.getDim(dim);
     }
-    IndexExpr cumulativeAxisSize =
-        DimIndexExpr(firstInputBounds.getDim(axisIndex));
+    IndexExpr cumulativeAxisSize = DimIndexExpr(firstInputBounds.getDim(axis));
 
     // Handle the rest of input
     for (unsigned i = 1; i < numInputs; ++i) {
       Value currentInput = operandAdaptor.inputs()[i];
       MemRefBoundsIndexCapture currInputBounds(currentInput);
-      for (unsigned dim = 0; dim < commonRank; dim++) {
-        if (dim == axisIndex) {
-          DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
+      for (unsigned dim = 0; dim < rank; dim++) {
+        if (dim == axis) {
+          DimIndexExpr currentSize(currInputBounds.getDim(axis));
           cumulativeAxisSize = cumulativeAxisSize + currentSize;
         } else {
           if (currInputBounds.getDim(dim).isLiteral()) {
@@ -75,33 +81,29 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
         }
       }
     }
-    outputConcatDims[axisIndex] = cumulativeAxisSize;
+    outputConcatDims[axis] = cumulativeAxisSize;
 
     // Shape for Shape
     uint64_t start = operandAdaptor.start();
-    uint64_t end = commonRank;
+    uint64_t end = rank;
     if (operandAdaptor.end().has_value()) {
       end = operandAdaptor.end().value();
     }
     // Handle negative
     if (start < 0)
-      start += commonRank;
+      start += rank;
 
     if (end < 0)
-      end += commonRank;
+      end += rank;
 
-    // SmallVector<int64_t, 4> outputDims;
-    // outputDims.emplace_back(end-start);
-    // auto outputShapeType = RankedTensorType::get(outputDims,
-    // rewriter.getIntegerType(64));
-    auto outputShapeType = op->getResultTypes()[0];
+    Type outputShapeType = op->getResultTypes()[0];
 
     // Alloc and set value for ShapeOp output
     auto convertedShapeType =
         typeConverter->convertType(outputShapeType).cast<MemRefType>();
+    Value shapeAlloc = insertAllocAndDeallocSimple(
+        rewriter, op, convertedShapeType, loc, shapeHelper.dimsForOutput());
     Type elementType = convertedShapeType.getElementType();
-    Value shapeAlloc =
-        insertAllocAndDealloc(convertedShapeType, loc, rewriter, false);
     for (uint64_t i = start; i < end; i++) {
       Value intVal =
           create.math.cast(elementType, outputConcatDims[i].getValue());
@@ -110,17 +112,12 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     }
 
     // Convert the output type to MemRefType.
-    DimsExpr outputTransposeDims(commonRank);
-    auto permAttr = operandAdaptor.perm();
-    for (uint64_t i = 0; i < commonRank; i++) {
-      auto current = outputConcatDims[ArrayAttrIntVal(permAttr, i)];
-      outputTransposeDims[i] = current;
-    }
+    DimsExpr outputTransposeDims = shapeHelper.dimsForOutput(1);
+    ArrayAttr permAttr = operandAdaptor.permAttr();
     Type t = op->getResultTypes()[1];
     auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputTransposeType, loc, outputTransposeDims);
-    unsigned int rank = commonRank;
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
@@ -130,8 +127,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 4> commonUB = outputConcatDims;
     IndexExpr accumulatedOffset = LiteralIndexExpr(0);
-    unsigned int inputNum = operands.size();
-    for (unsigned int i = 0; i < inputNum; ++i) {
+    for (unsigned int i = 0; i < numInputs; ++i) {
       // Since the acculatedOffsetValue will be used in a nested IndexExprScope,
       // we get the Value of this IndexExpr and pass it as a symbol
       Value accumulatedOffsetValue = accumulatedOffset.getValue();
@@ -143,7 +139,6 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> ubs;
       bounds.getDimList(ubs);
       // For each input, only the dimension 'axis' is different
-      auto axis = axisIndex;
       commonUB[axis] = ubs[axis];
       createKrnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
