@@ -837,39 +837,26 @@ Value ConstPropExpand(
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
-Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
-    Value inputValue, Value indicesValue) {
-  Operation *op = replacingValue.getDefiningOp();
-  ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
-
-  ArrayRef<int64_t> inputShape = getShape(inputValue.getType());
-  ArrayRef<int64_t> indicesShape = getShape(indicesValue.getType());
-  ArrayRef<int64_t> outputShape = getShape(replacingValue.getType());
+void ConstPropGatherImpl(ShapedType outputType,
+    DisposableElementsAttr inputElements,
+    DisposableElementsAttr indicesElements, int64_t axis,
+    MutableArrayRef<WideNum> outputData) {
+  std::vector<int64_t> outputStrides = getStrides(outputType.getShape());
+  ArrayRef<int64_t> inputShape = inputElements.getShape();
+  ArrayRef<int64_t> indicesShape = indicesElements.getShape();
   std::vector<int64_t> inputStrides = getStrides(inputShape);
   std::vector<int64_t> indicesStrides = getStrides(indicesShape);
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
   int64_t inputRank = inputShape.size();
   int64_t indicesRank = indicesShape.size();
-
-  int64_t axis = gatherOp.axis();
-  if (axis < 0)
-    axis += inputRank;
   int64_t axisDim = inputShape[axis];
 
-  // Get the input value using the maximum precision e.g. double, int64_t.
-  char *inputArray =
-      getArrayFromAttributeOrBuffer(rewriter, inputValue.getDefiningOp());
-
-  // Get the indices value using the maximum precision. Index is integer.
-  int64_t *indicesArray = (int64_t *)getArrayFromAttributeOrBuffer(
-      rewriter, indicesValue.getDefiningOp());
-
-  // Create the result buffer using the maximum precision e.g. double, int64_t.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
+  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
+  ArrayBuffer<char> indicesBytes = indicesElements.getRawBytes();
+  assert(indicesElements.getDType() == DType::INT64);
+  ArrayRef<int64_t> indicesData = castArrayRef<int64_t>(indicesBytes.get());
 
   // Iterate over the output index space.
-  for (int64_t ii = 0; ii < ShapedType::getNumElements(outputShape); ++ii) {
+  for (size_t ii = 0; ii < outputData.size(); ++ii) {
     std::vector<int64_t> outputIndices = getAccessIndex(ii, outputStrides);
     SmallVector<int64_t, 4> inputIndices, indicesIndices;
     // Compute tensor access indices for indices: indices[jj].
@@ -878,7 +865,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     int64_t indicesOffset =
         getLinearAccessIndex(indicesIndices, indicesStrides);
     // Get indices.
-    int64_t axisIndex = *(indicesArray + indicesOffset);
+    int64_t axisIndex = indicesData[indicesOffset];
     if (axisIndex < 0)
       axisIndex += axisDim;
 
@@ -894,16 +881,32 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 
     // Copy values.
     int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    int64_t typeSize = 8; // both double and int64_t have size of 8 bytes.
-    memcpy(resArray + ii * typeSize, inputArray + inputOffset * typeSize,
-        typeSize);
+    outputData[ii] = inputData.get()[inputOffset];
   }
+}
 
-  // Construct a new ONNXConstantOp.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
+    Value inputValue, Value indicesValue) {
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
+  int64_t axis = gatherOp.axis();
+  if (axis < 0)
+    axis += inputValue.getType().cast<ShapedType>().getRank();
 
-  return res.getResult();
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  DisposableElementsAttr inputElements =
+      getConstValueAsDisposableElements(elementsBuilder, inputValue);
+  DisposableElementsAttr indicesElements =
+      getConstValueAsDisposableElements(elementsBuilder, indicesValue);
+  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
+  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
+  ElementsAttr gatheredElements = elementsBuilder.fromRawBytes(
+      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
+        ConstPropGatherImpl(outputType, inputElements, indicesElements, axis,
+            castMutableArrayRef<WideNum>(dst));
+      });
+  return createReplacingConstantOp(rewriter, replacingValue, gatheredElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
