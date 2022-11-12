@@ -202,12 +202,10 @@ public:
   // All the iterable types are listed as NonContiguous here as no type
   // is guaranteed to be represented contiguously in the underlying buffer
   // because of strides and the possibility that bufferDType != dtype.
-  //
-  // (We could add Attribute, IntegerAttr, FloatAttr by adding support for
-  // them in detail::getNumber<X>.)
-  using NonContiguousIterableTypesT = std::tuple<bool, int8_t, uint8_t, int16_t,
-      uint16_t, int32_t, uint32_t, int64_t, uint64_t, onnx_mlir::float_16,
-      onnx_mlir::bfloat_16, float, double, APInt, APFloat, WideNum>;
+  using NonContiguousIterableTypesT =
+      std::tuple<Attribute, IntegerAttr, FloatAttr, APInt, APFloat, WideNum,
+          bool, int8_t, uint8_t, int16_t, int8_t, int32_t, uint32_t, int64_t,
+          uint64_t, onnx_mlir::float_16, onnx_mlir::bfloat_16, float, double>;
 
   template <typename X>
   using iterator = llvm::mapped_iterator<IndexIterator, IndexToX<X>>;
@@ -246,6 +244,8 @@ private:
   onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
 
 public:
+  WideNum getSplatWideNum() const;
+
   template <typename X>
   X getSplatValue() const;
 
@@ -298,19 +298,29 @@ namespace detail {
 // True for the types T in DisposableElementsAttr::NonContiguousIterableTypesT.
 template <typename T>
 constexpr bool isIterableType =
+    std::is_same_v<T, Attribute> || std::is_same_v<T, IntegerAttr> ||
+    std::is_same_v<T, FloatAttr> || std::is_same_v<T, APInt> ||
+    std::is_same_v<T, APFloat> || std::is_same_v<T, onnx_mlir::WideNum> ||
     (onnx_mlir::CppTypeTrait<T>::dtype != onnx_mlir::DType::UNDEFINED &&
-        onnx_mlir::CppTypeTrait<T>::isIntOrFloat) ||
-    std::is_same_v<T, llvm::APInt> || std::is_same_v<T, llvm::APFloat> ||
-    std::is_same_v<T, onnx_mlir::WideNum>;
+        onnx_mlir::CppTypeTrait<T>::isIntOrFloat);
 
 // Supports all the types T in NonContiguousIterableTypesT.
 template <typename T>
-T getNumber(onnx_mlir::DType tag, onnx_mlir::WideNum n) {
+T getNumber(Type elementType, onnx_mlir::DType tag, onnx_mlir::WideNum n) {
   static_assert(isIterableType<T>);
-  if constexpr (std::is_same_v<T, llvm::APFloat>)
-    return n.toAPFloat(tag); // fails unless isFloatDType(tag)
-  else if constexpr (std::is_same_v<T, llvm::APInt>)
+  if constexpr (std::is_same_v<T, Attribute>)
+    if (isFloatDType(tag))
+      return FloatAttr::get(elementType, n.toAPFloat(tag));
+    else
+      return IntegerAttr::get(elementType, n.toAPInt(tag));
+  else if constexpr (std::is_same_v<T, IntegerAttr>)
+    return IntegerAttr::get(elementType, n.toAPInt(tag)); // fails if float
+  else if constexpr (std::is_same_v<T, FloatAttr>)
+    return FloatAttr::get(elementType, n.toAPFloat(tag)); // fails if !float
+  else if constexpr (std::is_same_v<T, APInt>)
     return n.toAPInt(tag); // fails if isFloatDType(tag)
+  else if constexpr (std::is_same_v<T, APFloat>)
+    return n.toAPFloat(tag); // fails unless isFloatDType(tag)
   else if constexpr (std::is_same_v<T, onnx_mlir::WideNum>)
     return n;
   else
@@ -320,8 +330,7 @@ T getNumber(onnx_mlir::DType tag, onnx_mlir::WideNum n) {
 
 template <typename X>
 X DisposableElementsAttr::getSplatValue() const {
-  assert(isSplat() && "expected the attribute to be a splat");
-  return detail::getNumber<X>(getDType(), readBufferPos(0));
+  return detail::getNumber<X>(getElementType(), getDType(), getSplatWideNum());
 }
 
 template <typename X>
@@ -342,7 +351,8 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
     DisposableElementsAttr attr = *this;
     auto range = llvm::seq<size_t>(0, getNumElements());
     return iterator<X>(range.begin(), [dtype, attr](size_t flatIndex) -> X {
-      return detail::getNumber<X>(dtype, attr.readFlatIndex(flatIndex));
+      WideNum n = attr.readFlatIndex(flatIndex);
+      return detail::getNumber<X>(attr.getElementType(), dtype, n);
     });
   } else {
     return failure();

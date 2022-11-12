@@ -128,14 +128,14 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
     mlir::DisposableElementsAttr lhs, mlir::DisposableElementsAttr rhs,
     mlir::ShapedType combinedType, BinaryCombiner combiner) {
   if (lhs.isSplat()) {
-    WideNum lhsNum = lhs.getSplatValue<WideNum>();
+    WideNum lhsNum = lhs.getSplatWideNum();
     return transformAndExpand(rhs, combinedType,
         functionTransformer(
             [lhsNum, combiner = std::forward<BinaryCombiner>(combiner)](
                 WideNum n) { return combiner(lhsNum, n); }));
   }
   if (rhs.isSplat()) {
-    WideNum rhsNum = rhs.getSplatValue<WideNum>();
+    WideNum rhsNum = rhs.getSplatWideNum();
     return transformAndExpand(lhs, combinedType,
         functionTransformer(
             [rhsNum, combiner = std::forward<BinaryCombiner>(combiner)](

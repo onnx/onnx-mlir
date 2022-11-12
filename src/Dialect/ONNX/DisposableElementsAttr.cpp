@@ -111,9 +111,7 @@ auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
     return nullptr;
 }
 
-bool DisposableElementsAttr::isDisposed() const {
-  return !getImpl()->buffer;
-}
+bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
 
 bool DisposableElementsAttr::isContiguous() const {
   return getProperties().isContiguous;
@@ -161,13 +159,12 @@ WideNum DisposableElementsAttr::readFlatIndex(size_t flatIndex) const {
 }
 
 size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
-  if (isContiguous())
+  if (flatIndex == 0 || isContiguous())
     return flatIndex;
   if (isSplat())
     return 0;
-  SmallVector<int64_t, 4> indices;
-  return getStridesPosition(
-      unflattenIndex(getShape(), flatIndex), getStrides());
+  auto indices = unflattenIndex(getShape(), flatIndex);
+  return getStridesPosition(indices, getStrides());
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
@@ -180,6 +177,11 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
   wideBufferData.resize_for_overwrite(getNumBufferElements());
   getReader()(getBufferString(), wideBufferData);
   return std::move(wideBufferData);
+}
+
+auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
+  assert(isSplat() && "expected the attribute to be a splat");
+  return readBufferPos(0);
 }
 
 void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
