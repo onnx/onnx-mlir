@@ -13,7 +13,9 @@
 //
 // This pass is applied before any other pass so that there is no need to
 // implement shape inference for the constpropd operation. Hence, it is expected
-// that there is no knowledge about tensor shape at this point
+// that there is no knowledge about tensor shape at this point.
+// TODO: Edit the above statement. Seems inaccurate because some of the
+//       const prop functions rely on static result shape.
 //
 //===----------------------------------------------------------------------===//
 
@@ -61,102 +63,6 @@ namespace {
 // ConstProp.td for example.
 //
 
-const StringRef BUFFER_ID_ATTR = "buffer_id";
-
-/// Buffers will be allocated to store intermediate constants during the const
-/// propagation. The use of buffers is to avoid creating dense attributes which
-/// are immortal by design in MLIR, leading to small memory footprint.
-///
-/// There are three helper functions to use when working with buffers:
-/// 1) getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)
-///    - create a buffer from a dense attribute at the first time we reach the
-///      const 'op' and add the buffer to the buffer pool, or
-///    - get the buffer from the buffer pool if it was created.
-/// 2) createConstantOpAndStoreBufferPtr(..., char *buffer)
-///    - create a new ONNXConstantOp using the given buffer, and
-///    - add the buffer to the buffer pool.
-/// 3) allocateBufferFor(Value value, bool useMaxSize = false)
-///    - create a new buffer whose size is obtained from the type of 'value'.
-///
-/// Note that:
-///   - The buffers in the buffer pool will be automatically freed. Users don't
-///     need to take care about that.
-///   - If we create a buffer and do not put it on the buffer pool, please
-///     make sure that it is correctly freed.
-///
-/// Buffer pool to store buffer pointers.
-SmallVector<char *, 4> bufferPtrs;
-
-/// A helper function to get a value of a given type from an attribute.
-template <typename T>
-T getAttrValue(Attribute attr) {
-  llvm_unreachable("unknown operation");
-}
-
-template <>
-ATTRIBUTE(unused)
-double getAttrValue(Attribute attr) {
-  return attr.cast<FloatAttr>().getValueAsDouble();
-}
-
-template <>
-ATTRIBUTE(unused)
-float getAttrValue(Attribute attr) {
-  return (float)attr.cast<FloatAttr>().getValueAsDouble();
-}
-
-template <>
-ATTRIBUTE(unused)
-int64_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
-}
-
-template <>
-ATTRIBUTE(unused)
-int32_t getAttrValue(Attribute attr) {
-  return attr.cast<IntegerAttr>().getInt();
-}
-
-/// Get a data array from a given ONNXConstantOp. If data were stored in memory,
-/// get from memory. Otherwise, get from the dense attribute.
-char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
-  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
-  assert(constOp && "Not a constant operation");
-  char *res = nullptr;
-
-  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
-  if (bufferIDAttr) {
-    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
-    res = bufferPtrs[bufferId];
-  } else {
-    ElementsAttr dataAttr = constOp.valueAttr().cast<mlir::ElementsAttr>();
-    res = createArrayFromDenseElementsAttr(dataAttr);
-    bufferPtrs.emplace_back(res);
-    unsigned bufferId = bufferPtrs.size() - 1;
-    // Add an attribute to store the buffer id.
-    op->setAttr(BUFFER_ID_ATTR,
-        IntegerAttr::get(
-            rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
-            bufferId));
-  }
-  return res;
-}
-
-/// Get array with the exact data type for the final ONNXConstantOp.
-void getArrayForFinalOutput(Operation *op, char *res) {
-  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
-  assert(constOp && "Not a constant operation");
-
-  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
-  if (bufferIDAttr) {
-    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
-    char *resArr = bufferPtrs[bufferId];
-    convertDoubleInt64ToExactType(constOp.getResult().getType(), resArr, res);
-  } else {
-    llvm_unreachable("Could not find the input buffer");
-  }
-}
-
 /// A helper function to construct a RankedTensorType from a ShapedType.
 ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
   assert(type.hasRank() && "Not a ranked type");
@@ -165,6 +71,8 @@ ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
 
 /// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
+///
+/// TODO: remove obsolete trueONNXConstant argument
 bool isFromDenseONNXConstantOp(Value result, bool trueONNXConstant = false) {
   Operation *op = result.getDefiningOp();
 
@@ -176,10 +84,7 @@ bool isFromDenseONNXConstantOp(Value result, bool trueONNXConstant = false) {
   // If the dense attribute is null, there must be buffer_id
   // attribute.
   if (!(op->getAttrOfType<::mlir::Attribute>("value"))) {
-    if (trueONNXConstant)
-      return false;
-    if (!(op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)))
-      return false;
+    return false;
   }
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
@@ -207,38 +112,6 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
       operands, [](Value v) { return isFromDenseONNXConstantOp(v); });
 }
 
-/// A helper function to create an ONNXConstantOp for a given data array.
-/// This ONNXConstantOp is only used internally.
-ONNXConstantOp createConstantOpAndStoreBufferPtr(
-    PatternRewriter &rewriter, Value replacingValue, char *vt) {
-  Location loc = replacingValue.getLoc();
-  // int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
-
-  ONNXConstantOp constOp = rewriter.create<ONNXConstantOp>(loc,
-      replacingValue.getType(), Attribute(), Attribute(), FloatAttr(),
-      ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-
-  // Store the buffer pointer.
-  unsigned bufferId = (unsigned)-1;
-  for (unsigned i = 0; i < bufferPtrs.size(); ++i) {
-    if (bufferPtrs[i] == vt) {
-      bufferId = i;
-      break;
-    }
-  }
-
-  if (bufferId == (unsigned)-1) {
-    bufferPtrs.emplace_back(vt);
-    bufferId = bufferPtrs.size() - 1;
-  }
-  // Store the buffer id.
-  constOp.getOperation()->setAttr(BUFFER_ID_ATTR,
-      IntegerAttr::get(
-          rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false), bufferId));
-
-  return constOp;
-}
-
 //===----------------------------------------------------------------------===//
 // Helpers to support DisposableElementsAttr constant propagation.
 //
@@ -249,24 +122,6 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
 DisposableElementsAttr getConstValueAsDisposableElements(
     ElementsAttrBuilder &elementsBuilder, Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
-
-  // -------------------------------------------------------------- //
-  // Adapter code to make DisposableElements logic interoperate with the
-  // "buffer_id" buffer pool logic. TODO: Remove after migration.
-  Attribute bufferIDAttr =
-      constOp->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
-  if (bufferIDAttr) {
-    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
-    ShapedType type = constValue.getType().cast<ShapedType>();
-    int64_t maxSize = getMaxSizeInBytes(type);
-    DType dtype = dtypeOfMlirType(type.getElementType());
-    DType bufferDType = wideDTypeOfDType(dtype);
-    ArrayRef<char> buffer(bufferPtrs[bufferId], maxSize);
-    return elementsBuilder.fromRawBytes(
-        type, bufferDType, buffer, /*mustCopy=*/true);
-  }
-  // -------------------------------------------------------------- //
-
   return elementsBuilder.fromElementsAttr(
       constOp.valueAttr().cast<ElementsAttr>());
 }
@@ -962,26 +817,11 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
-    if (op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)) {
-      ShapedType type = constOp.getResult().getType().cast<ShapedType>();
-      char *arr = allocateBufferFor(type, /*useMaxSize=*/false);
-      getArrayForFinalOutput(op, arr);
-      DenseElementsAttr denseAttr =
-          createDenseElementsAttrFromRawBuffer(type, arr);
-      op->setAttr("value", denseAttr);
-      op->removeAttr(BUFFER_ID_ATTR);
-      free(arr);
-    } else if (auto elements =
-                   constOp.valueAttr().dyn_cast<DisposableElementsAttr>()) {
+    if (auto elements =
+            constOp.valueAttr().dyn_cast<DisposableElementsAttr>()) {
       constOp.valueAttr(toDenseElementsAttr(elements));
     }
   });
-
-  // Remove temporary buffers.
-  for (char *ptr : bufferPtrs) {
-    free(ptr);
-  }
-  bufferPtrs.clear();
 
   // TODO: determine if we should call DisposablePool::garbageCollectUnreachable
   //       (what's the relationship between function and the ModuleOp?)
