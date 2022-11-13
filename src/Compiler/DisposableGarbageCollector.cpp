@@ -19,6 +19,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void DisposableGarbageCollector::runAfterPass(Pass *pass, Operation *op) {
+  if (!disposablePool.isActive())
+    return;
   ModuleOp moduleOp = dyn_cast<ModuleOp>(op);
   if (!moduleOp)
     return;

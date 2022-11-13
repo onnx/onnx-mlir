@@ -23,6 +23,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectInterface.h"
 
+#include <unordered_map>
 #include <unordered_set>
 
 namespace onnx_mlir {
@@ -34,16 +35,16 @@ public:
 
   static DisposablePool *get(mlir::MLIRContext *context);
 
+  // Disposes every DisposableElementsAttr and in moduleOp replaces each with a
+  // DenseElementsAttr.
+  static void scrub(mlir::ModuleOp moduleOp, DisposablePool *disposablepool);
+
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
   void garbageCollectUnreachable(mlir::ModuleOp moduleOp);
-
-  // Disposes every DisposableElementsAttr and in moduleOp replaces each with a
-  // DenseElementsAttr.
-  void scrub(mlir::ModuleOp moduleOp);
 
   void close() {
     assert(pool.empty() && "pool must be scrubbed before close");
@@ -53,9 +54,16 @@ public:
   bool isActive() const { return active; }
 
 private:
-  using Pool = std::unordered_set<mlir::DisposableElementsAttributeStorage *>;
+  using Item = mlir::DisposableElementsAttributeStorage *;
+  using Pool = std::unordered_set<Item>;
+  using Scrubbed = std::unordered_map<Item, mlir::DenseElementsAttr>;
 
   void insert(mlir::DisposableElementsAttr d);
+
+  static Scrubbed doScrub(mlir::ModuleOp moduleOp);
+
+  void flushAfterScrub(const Scrubbed &scrubbed);
+
   void eraseUnreachable(const Pool &reachable);
 
   Pool pool;

@@ -55,26 +55,44 @@ void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
   eraseUnreachable(reachable);
 }
 
-void DisposablePool::scrub(ModuleOp moduleOp) {
-  moduleOp.walk([&](ONNXConstantOp constOp) {
+/*static*/
+void DisposablePool::scrub(mlir::ModuleOp moduleOp, DisposablePool *disposablePool) {
+  Scrubbed scrubbed = doScrub(moduleOp);
+  if (disposablePool)
+    disposablePool->flushAfterScrub(scrubbed);
+}
+
+/*static*/
+auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
+  Scrubbed scrubbed;
+  moduleOp.walk([&scrubbed](ONNXConstantOp constOp) {
     if (auto attr = constOp.value())
       if (auto elements = attr->dyn_cast<DisposableElementsAttr>()) {
-        // TODO: Determine if we can encounter the same elements
-        //       attribute twice and, if so, whether it's ok to rely on the
-        //       storage uniquer to deduplicate or whether it's
-        //       better to do it explicitly here somehow.
-        assert(this->pool.count(elements.getImpl()) == 1 &&
-               "reachable disposables must be in the pool");
-        constOp.valueAttr(toDenseElementsAttr(elements));
+        DenseElementsAttr dense;
+        Item item = elements.getImpl();
+        auto found = scrubbed.find(item);
+        if (found != scrubbed.end()) {
+          dense = found->second;
+        } else {
+          dense = toDenseElementsAttr(elements);
+          auto insertion = scrubbed.insert({item, dense});
+        }
+        constOp.valueAttr(dense);
       }
   });
+  return scrubbed;
+}
+
+void DisposablePool::flushAfterScrub(const Scrubbed &scrubbed) {
+  for (const auto& s : scrubbed)
+    assert(pool.count(s.first) == 1 && "scrubbed disposables must be in the pool");
   eraseUnreachable({});
 }
 
 void DisposablePool::eraseUnreachable(const Pool &reachable) {
   for (Pool::iterator it = pool.begin(); it != pool.end();) {
     DisposableElementsAttributeStorage *p = *it;
-    if (pool.count(p) == 0) {
+    if (reachable.count(p) == 0) {
       // p is unreachable, so we reset the buffer payload shared_ptr
       // which decreases the reference count and, if it reached zero,
       // frees or closes the underlying MemoryBuffer's heap allocation or file.

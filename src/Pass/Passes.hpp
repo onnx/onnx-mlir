@@ -26,7 +26,7 @@ class DisposablePool;
 
 /// Pass for removing DisposableElementsAttr attributes.
 std::unique_ptr<mlir::Pass> createScrubDisposablePass(
-    DisposablePool *disposablePool = nullptr);
+    DisposablePool *disposablePool = nullptr, bool closeAfter = true);
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();

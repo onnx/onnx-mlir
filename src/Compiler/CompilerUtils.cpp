@@ -32,7 +32,6 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Compiler/LineForwardingRawOstream.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -950,9 +949,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return rc;
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  if (DisposablePool *disposablePool = DisposablePool::get(&context))
-    pm.addInstrumentation(
-        std::make_unique<DisposableGarbageCollector>(*disposablePool));
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation

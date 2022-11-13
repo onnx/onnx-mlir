@@ -31,8 +31,10 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
+#include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -51,6 +53,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   // 2. Easy to compare two approaches.
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
+
+  DisposablePool *disposablePool = DisposablePool::get(pm.getContext());
+  if (disposablePool)
+    // GC unreachable DisposableElementsAttrs between module passes.
+    pm.addInstrumentation(
+        std::make_unique<DisposableGarbageCollector>(*disposablePool));
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
@@ -85,6 +93,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  pm.addPass(createScrubDisposablePass(disposablePool));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
