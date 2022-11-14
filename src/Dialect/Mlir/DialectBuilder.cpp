@@ -49,74 +49,74 @@ namespace onnx_mlir {
 
 Value MathBuilder::abs(Value val) const {
   if (val.getType().isa<IntegerType>() || val.getType().isa<IndexType>())
-    return bbbb().create<math::AbsIOp>(loc, val);
-  return bbbb().create<math::AbsFOp>(loc, val);
+    return bbbb().create<math::AbsIOp>(llll(), val);
+  return bbbb().create<math::AbsFOp>(llll(), val);
 }
 
 Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return bbbb().create<arith::AndIOp>(loc, lhs, rhs);
+  return bbbb().create<arith::AndIOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::ori(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return bbbb().create<arith::OrIOp>(loc, lhs, rhs);
+  return bbbb().create<arith::OrIOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return bbbb().create<arith::AddIOp>(loc, lhs, rhs);
-  return bbbb().create<arith::AddFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::AddIOp>(llll(), lhs, rhs);
+  return bbbb().create<arith::AddFOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::sub(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return bbbb().create<arith::SubIOp>(loc, lhs, rhs);
-  return bbbb().create<arith::SubFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::SubIOp>(llll(), lhs, rhs);
+  return bbbb().create<arith::SubFOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return bbbb().create<arith::MulIOp>(loc, lhs, rhs);
-  return bbbb().create<arith::MulFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::MulIOp>(llll(), lhs, rhs);
+  return bbbb().create<arith::MulFOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<FloatType>())
-    return bbbb().create<arith::DivFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::DivFOp>(llll(), lhs, rhs);
   else if (lhs.getType().isUnsignedInteger())
-    return bbbb().create<arith::DivUIOp>(loc, lhs, rhs);
+    return bbbb().create<arith::DivUIOp>(llll(), lhs, rhs);
   else
-    return bbbb().create<arith::DivSIOp>(loc, lhs, rhs);
+    return bbbb().create<arith::DivSIOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::exp(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return bbbb().create<math::ExpOp>(loc, val);
+  return bbbb().create<math::ExpOp>(llll(), val);
 }
 
 Value MathBuilder::exp2(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return bbbb().create<math::Exp2Op>(loc, val);
+  return bbbb().create<math::Exp2Op>(llll(), val);
 }
 
 Value MathBuilder::log2(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return bbbb().create<math::Log2Op>(loc, val);
+  return bbbb().create<math::Log2Op>(llll(), val);
 }
 
 Value MathBuilder::sqrt(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return bbbb().create<math::SqrtOp>(loc, val);
+  return bbbb().create<math::SqrtOp>(llll(), val);
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
   assert(base.getType().isa<FloatType>() && "Data type must be float.");
-  return bbbb().create<math::PowFOp>(loc, base, exp);
+  return bbbb().create<math::PowFOp>(llll(), base, exp);
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
@@ -124,11 +124,11 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return bbbb().create<arith::MinUIOp>(loc, lhs, rhs);
+      return bbbb().create<arith::MinUIOp>(llll(), lhs, rhs);
     else
-      return bbbb().create<arith::MinSIOp>(loc, lhs, rhs);
+      return bbbb().create<arith::MinSIOp>(llll(), lhs, rhs);
   else
-    return bbbb().create<arith::MinFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::MinFOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
@@ -136,11 +136,11 @@ Value MathBuilder::max(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return bbbb().create<arith::MaxUIOp>(loc, lhs, rhs);
+      return bbbb().create<arith::MaxUIOp>(llll(), lhs, rhs);
     else
-      return bbbb().create<arith::MaxSIOp>(loc, lhs, rhs);
+      return bbbb().create<arith::MaxSIOp>(llll(), lhs, rhs);
   else
-    return bbbb().create<arith::MaxFOp>(loc, lhs, rhs);
+    return bbbb().create<arith::MaxFOp>(llll(), lhs, rhs);
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
@@ -181,37 +181,37 @@ Value MathBuilder::neq(Value lhs, Value rhs) const {
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return bbbb().create<arith::SelectOp>(loc, cmp, lhs, rhs);
+  return bbbb().create<arith::SelectOp>(llll(), cmp, lhs, rhs);
 }
 
 Value MathBuilder::constant(Type type, double val) const {
   Value constant = nullptr;
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF16FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(llll(), bbbb().getF16FloatAttr(val));
       })
       .Case<Float32Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF32FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(llll(), bbbb().getF32FloatAttr(val));
       })
       .Case<Float64Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF64FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(llll(), bbbb().getF64FloatAttr(val));
       })
       .Case<IntegerType>([&](IntegerType type) {
         assert(val == (int64_t)val && "value is ambiguous");
         unsigned width = type.getWidth();
 
         if (width == 1)
-          constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getBoolAttr(val != 0));
+          constant = bbbb().create<arith::ConstantOp>(llll(), bbbb().getBoolAttr(val != 0));
         else {
           assert(type.isSignless() &&
                  "arith::ConstantOp requires a signless type.");
           constant = bbbb().create<arith::ConstantOp>(
-              loc, bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
+              llll(), bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
       })
       .Case<IndexType>([&](Type) {
         constant =
-            bbbb().create<arith::ConstantOp>(loc, bbbb().getIntegerAttr(type, val));
+            bbbb().create<arith::ConstantOp>(llll(), bbbb().getIntegerAttr(type, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -221,7 +221,7 @@ Value MathBuilder::constant(Type type, double val) const {
 
 Value MathBuilder::constantIndex(int64_t val) const {
   Attribute constantAttr = bbbb().getIntegerAttr(bbbb().getIndexType(), val);
-  return bbbb().create<arith::ConstantOp>(loc, constantAttr);
+  return bbbb().create<arith::ConstantOp>(llll(), constantAttr);
 }
 
 Value MathBuilder::negativeInf(Type type) const {
@@ -229,11 +229,11 @@ Value MathBuilder::negativeInf(Type type) const {
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getF32FloatAttr(-std::numeric_limits<float>::infinity()));
+            llll(), bbbb().getF32FloatAttr(-std::numeric_limits<float>::infinity()));
       })
       .Case<Float64Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getF64FloatAttr(-std::numeric_limits<double>::infinity()));
+            llll(), bbbb().getF64FloatAttr(-std::numeric_limits<double>::infinity()));
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -265,7 +265,7 @@ Value MathBuilder::negativeInf(Type type) const {
           llvm_unreachable("unsupported element type");
         }
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getIntegerAttr(type, APInt(width, value)));
+            llll(), bbbb().getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -278,11 +278,11 @@ Value MathBuilder::positiveInf(Type type) const {
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getF32FloatAttr(std::numeric_limits<float>::infinity()));
+            llll(), bbbb().getF32FloatAttr(std::numeric_limits<float>::infinity()));
       })
       .Case<Float64Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getF64FloatAttr(std::numeric_limits<double>::infinity()));
+            llll(), bbbb().getF64FloatAttr(std::numeric_limits<double>::infinity()));
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -314,7 +314,7 @@ Value MathBuilder::positiveInf(Type type) const {
           llvm_unreachable("unsupported element type");
         }
         constant = bbbb().create<arith::ConstantOp>(
-            loc, bbbb().getIntegerAttr(type, APInt(width, value)));
+            llll(), bbbb().getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -329,7 +329,7 @@ Value MathBuilder::createArithCmp(
   assert(((type.isa<IntegerType>() && type.isSignlessInteger()) ||
              type.isa<IndexType>()) &&
          "Expecting a signless IntegerType or an IndexType");
-  return bbbb().create<arith::CmpIOp>(loc, pred, lhs, rhs);
+  return bbbb().create<arith::CmpIOp>(llll(), pred, lhs, rhs);
 }
 
 Value MathBuilder::createArithCmp(
@@ -337,7 +337,7 @@ Value MathBuilder::createArithCmp(
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
   assert(type.isa<FloatType>() && "Expecting a FloatType");
-  return bbbb().create<arith::CmpFOp>(loc, pred, lhs, rhs);
+  return bbbb().create<arith::CmpFOp>(llll(), pred, lhs, rhs);
 }
 
 // Several operations in the arith dialect require signless integers. This
@@ -346,7 +346,7 @@ Value MathBuilder::createArithCmp(
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
   assert(val.getType().isa<IntegerType>() &&
          !val.getType().isSignlessInteger() && "Expecting signed integer type");
-  return bbbb().create<UnrealizedConversionCastOp>(loc, bbbb().getIntegerType(width), val)
+  return bbbb().create<UnrealizedConversionCastOp>(llll(), bbbb().getIntegerType(width), val)
       .getResult(0);
 }
 
@@ -354,7 +354,7 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   assert(val.getType().isa<IntegerType>() && "Expecting integer type");
   return bbbb()
       .create<UnrealizedConversionCastOp>(
-          loc, bbbb().getIntegerType(width, false /*signed*/), val)
+          llll(), bbbb().getIntegerType(width, false /*signed*/), val)
       .getResult(0);
 }
 
@@ -370,7 +370,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // If our source is an index type, first convert it into a signless int of
     // size 64.
     srcType = bbbb().getIntegerType(64);
-    src = bbbb().create<arith::IndexCastOp>(loc, srcType, src);
+    src = bbbb().create<arith::IndexCastOp>(llll(), srcType, src);
   }
   bool destIsIndex = false;
   if (destType.isa<IndexType>()) {
@@ -400,11 +400,11 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Boolean to int/float conversions. Boolean are unsigned.
   if (srcType.isInteger(1)) {
     if (destType.isa<FloatType>()) {
-      return bbbb().create<arith::UIToFPOp>(loc, destType, src);
+      return bbbb().create<arith::UIToFPOp>(llll(), destType, src);
     } else {
-      Value dest = bbbb().create<arith::ExtUIOp>(loc, destType, src);
+      Value dest = bbbb().create<arith::ExtUIOp>(llll(), destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(llll(), bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -426,9 +426,9 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
     assert((bitExtend || bitTrunc) && "expected extend or trunc");
     if (bitExtend)
-      return bbbb().create<arith::ExtFOp>(loc, destType, src);
+      return bbbb().create<arith::ExtFOp>(llll(), destType, src);
     else
-      return bbbb().create<arith::TruncFOp>(loc, destType, src);
+      return bbbb().create<arith::TruncFOp>(llll(), destType, src);
   }
 
   // Float to int conversions.
@@ -437,12 +437,12 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // min/max signed/unsigned integer values.
     if (destType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
-      return bbbb().create<arith::FPToUIOp>(loc, destType, cast);
+      return bbbb().create<arith::FPToUIOp>(llll(), destType, cast);
     } else {
       // Handle signed int.
-      Value dest = bbbb().create<arith::FPToSIOp>(loc, destType, src);
+      Value dest = bbbb().create<arith::FPToSIOp>(llll(), destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(llll(), bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -451,10 +451,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<IntegerType>() && destType.isa<FloatType>()) {
     if (srcType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
-      return bbbb().create<arith::UIToFPOp>(loc, destType, cast);
+      return bbbb().create<arith::UIToFPOp>(llll(), destType, cast);
     } else {
       // Handle signed int.
-      return bbbb().create<arith::SIToFPOp>(loc, destType, src);
+      return bbbb().create<arith::SIToFPOp>(llll(), destType, src);
     }
   }
 
@@ -468,10 +468,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
       Value cast = castToSignless(src, srcWidth);
       Type castType = bbbb().getIntegerType(destWidth);
       if (bitExtend) {
-        cast = bbbb().create<arith::ExtUIOp>(loc, castType, cast);
+        cast = bbbb().create<arith::ExtUIOp>(llll(), castType, cast);
       } else {
         // TosaToLinalg use a clipping algo, not sure if needed.
-        cast = bbbb().create<arith::TruncIOp>(loc, castType, cast);
+        cast = bbbb().create<arith::TruncIOp>(llll(), castType, cast);
       }
       return castToUnsigned(cast, destWidth);
     } else {
@@ -479,12 +479,12 @@ Value MathBuilder::cast(Type destType, Value src) const {
       assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
       Value dest = src;
       if (bitExtend)
-        dest = bbbb().create<arith::ExtSIOp>(loc, destType, src);
+        dest = bbbb().create<arith::ExtSIOp>(llll(), destType, src);
       if (bitTrunc)
         // TosaToLinalg use a clipping algo
-        dest = bbbb().create<arith::TruncIOp>(loc, destType, src);
+        dest = bbbb().create<arith::TruncIOp>(llll(), destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(llll(), bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -532,11 +532,11 @@ void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
 
 memref::AllocOp MemRefBuilder::alloc(
     MemRefType type, ValueRange dynSymbols) const {
-  return bbbb().create<memref::AllocOp>(loc, type, dynSymbols);
+  return bbbb().create<memref::AllocOp>(llll(), type, dynSymbols);
 }
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
-  return bbbb().create<memref::AllocOp>(loc, type);
+  return bbbb().create<memref::AllocOp>(llll(), type);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
@@ -544,8 +544,8 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
-    return bbbb().create<memref::AllocOp>(loc, type);
-  return bbbb().create<memref::AllocOp>(loc, type, alignmentAttr);
+    return bbbb().create<memref::AllocOp>(llll(), type);
+  return bbbb().create<memref::AllocOp>(llll(), type, alignmentAttr);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
@@ -553,12 +553,12 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
-    return bbbb().create<memref::AllocOp>(loc, type, dynSymbols);
-  return bbbb().create<memref::AllocOp>(loc, type, dynSymbols, alignmentAttr);
+    return bbbb().create<memref::AllocOp>(llll(), type, dynSymbols);
+  return bbbb().create<memref::AllocOp>(llll(), type, dynSymbols, alignmentAttr);
 }
 
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
-  return bbbb().create<memref::AllocaOp>(loc, type);
+  return bbbb().create<memref::AllocaOp>(llll(), type);
 }
 
 memref::AllocaOp MemRefBuilder::alignedAlloca(
@@ -566,16 +566,16 @@ memref::AllocaOp MemRefBuilder::alignedAlloca(
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
-    return bbbb().create<memref::AllocaOp>(loc, type);
-  return bbbb().create<memref::AllocaOp>(loc, type, alignmentAttr);
+    return bbbb().create<memref::AllocaOp>(llll(), type);
+  return bbbb().create<memref::AllocaOp>(llll(), type, alignmentAttr);
 }
 
 memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
-  return bbbb().create<memref::DeallocOp>(loc, val);
+  return bbbb().create<memref::DeallocOp>(llll(), val);
 }
 
 memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
-  return bbbb().create<memref::CastOp>(loc, outputType, input);
+  return bbbb().create<memref::CastOp>(llll(), outputType, input);
 }
 
 Value MemRefBuilder::reinterpretCast(
@@ -601,7 +601,7 @@ Value MemRefBuilder::reinterpretCast(
   Type elementType = input.getType().cast<ShapedType>().getElementType();
   MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
 
-  return bbbb().create<memref::ReinterpretCastOp>(loc, outputMemRefType, input,
+  return bbbb().create<memref::ReinterpretCastOp>(llll(), outputMemRefType, input,
       /*offset=*/bbbb().getIndexAttr(0), sizes, strides);
 }
 
@@ -611,7 +611,7 @@ Value MemRefBuilder::dim(Value val, int64_t index) const {
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
   assert(index >= 0 && "Expecting a valid index");
-  return dim(val, bbbb().create<arith::ConstantIndexOp>(loc, index));
+  return dim(val, bbbb().create<arith::ConstantIndexOp>(llll(), index));
 }
 
 Value MemRefBuilder::dim(Value val, Value index) const {
@@ -619,7 +619,7 @@ Value MemRefBuilder::dim(Value val, Value index) const {
              val.getType().isa<UnrankedMemRefType>()) &&
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
-  return bbbb().createOrFold<memref::DimOp>(loc, val, index);
+  return bbbb().createOrFold<memref::DimOp>(llll(), val, index);
 }
 
 //===----------------------------------------------------------------------===//
@@ -630,7 +630,7 @@ void SCFBuilder::ifThenElse(Value cond,
     function_ref<void(SCFBuilder &createSCF)> thenFn,
     function_ref<void(SCFBuilder &createSCF)> elseFn) const {
   if (!elseFn) {
-    bbbb().create<scf::IfOp>(loc, cond,
+    bbbb().create<scf::IfOp>(llll(), cond,
         /* then */
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
@@ -639,12 +639,12 @@ void SCFBuilder::ifThenElse(Value cond,
         });
   } else {
     bbbb().create<scf::IfOp>(
-        loc, cond,
+        llll(), cond,
         /* then */
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
           thenFn(scfBuilder);
-          bbbb().create<scf::YieldOp>(loc);
+          bbbb().create<scf::YieldOp>(llll());
         },
         /*else*/
         [&](OpBuilder &childBuilder, Location childLoc) {
@@ -659,7 +659,7 @@ void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
   // SmallVectorImpl<Value> ivStorage;
-  bbbb().create<scf::ParallelOp>(loc, lowerBounds, upperBounds, steps,
+  bbbb().create<scf::ParallelOp>(llll(), lowerBounds, upperBounds, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
         KrnlBuilder builder(childBuilder, childLoc);
@@ -668,7 +668,7 @@ void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
       });
 }
 
-void SCFBuilder::yield() const { bbbb().create<scf::YieldOp>(loc); }
+void SCFBuilder::yield() const { bbbb().create<scf::YieldOp>(llll()); }
 
 //===----------------------------------------------------------------------===//
 // Vector Builder
@@ -697,7 +697,7 @@ int64_t VectorBuilder::getMachineVectorLength(Value vecValue) const {
 
 Value VectorBuilder::load(
     VectorType vecType, Value memref, ValueRange indices) const {
-  return bbbb().create<vector::LoadOp>(loc, vecType, memref, indices);
+  return bbbb().create<vector::LoadOp>(llll(), vecType, memref, indices);
 }
 mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
@@ -716,7 +716,7 @@ mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
 }
 
 void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
-  bbbb().create<vector::StoreOp>(loc, val, memref, indices);
+  bbbb().create<vector::StoreOp>(llll(), val, memref, indices);
 }
 
 void VectorBuilder::store(mlir::Value val, mlir::Value memref,
@@ -736,16 +736,16 @@ void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
-  return bbbb().create<vector::FMAOp>(loc, lhs, rhs, acc);
+  return bbbb().create<vector::FMAOp>(llll(), lhs, rhs, acc);
 }
 
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
-  return bbbb().create<vector::BroadcastOp>(loc, vecType, val);
+  return bbbb().create<vector::BroadcastOp>(llll(), vecType, val);
 }
 
 Value VectorBuilder::shuffle(
     Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const {
-  return bbbb().create<vector::ShuffleOp>(loc, lhs, rhs, mask);
+  return bbbb().create<vector::ShuffleOp>(llll(), lhs, rhs, mask);
 }
 
 // Private vector utilities.
@@ -864,31 +864,31 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 //===----------------------------------------------------------------------===//
 
 Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
-  return bbbb().create<LLVM::AddressOfOp>(loc, op);
+  return bbbb().create<LLVM::AddressOfOp>(llll(), op);
 }
 
 Value LLVMBuilder::_alloca(
     Type resultType, Value size, int64_t alignment) const {
-  return bbbb().create<LLVM::AllocaOp>(loc, resultType, size, alignment);
+  return bbbb().create<LLVM::AllocaOp>(llll(), resultType, size, alignment);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
-  return bbbb().create<LLVM::BitcastOp>(loc, type, val);
+  return bbbb().create<LLVM::BitcastOp>(llll(), type, val);
 }
 
 Value LLVMBuilder::bitcastI8Ptr(Value val) const {
   return bbbb().create<LLVM::BitcastOp>(
-      loc, LLVM::LLVMPointerType::get(bbbb().getI8Type()), val);
+      llll(), LLVM::LLVMPointerType::get(bbbb().getI8Type()), val);
 }
 
 Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return bbbb().create<LLVM::BitcastOp>(loc,
+  return bbbb().create<LLVM::BitcastOp>(llll(),
       LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(bbbb().getI8Type())),
       val);
 }
 
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
-  bbbb().create<LLVM::BrOp>(loc, destOperands, destBlock);
+  bbbb().create<LLVM::BrOp>(llll(), destOperands, destBlock);
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
@@ -896,7 +896,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
   LLVM::CallOp callOp =
-      bbbb().create<LLVM::CallOp>(loc, resultTypes, funcName, inputs);
+      bbbb().create<LLVM::CallOp>(llll(), resultTypes, funcName, inputs);
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
@@ -908,7 +908,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
   LLVM::CallOp callOp =
-      bbbb().create<LLVM::CallOp>(loc, resultTypes, funcSymbol, inputs);
+      bbbb().create<LLVM::CallOp>(llll(), resultTypes, funcSymbol, inputs);
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
@@ -919,7 +919,7 @@ void LLVMBuilder::condBr(Value cond, Block *trueBlock,
     llvm::ArrayRef<Value> trueOperands, Block *falseBlock,
     llvm::ArrayRef<Value> falseOperands) const {
   bbbb().create<LLVM::CondBrOp>(
-      loc, cond, trueBlock, trueOperands, falseBlock, falseOperands);
+      llll(), cond, trueBlock, trueOperands, falseBlock, falseOperands);
 }
 
 Value LLVMBuilder::constant(Type type, int64_t val) const {
@@ -929,17 +929,17 @@ Value LLVMBuilder::constant(Type type, int64_t val) const {
         unsigned width = type.getWidth();
         if (width == 1)
           constant =
-              bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getBoolAttr(val != 0));
+              bbbb().create<LLVM::ConstantOp>(llll(), type, bbbb().getBoolAttr(val != 0));
         else {
           assert(type.isSignless() &&
                  "LLVM::ConstantOp requires a signless type.");
           constant = bbbb().create<LLVM::ConstantOp>(
-              loc, type, bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
+              llll(), type, bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
       })
       .Case<IndexType>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getIntegerAttr(type, val));
+            bbbb().create<LLVM::ConstantOp>(llll(), type, bbbb().getIntegerAttr(type, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -952,15 +952,15 @@ Value LLVMBuilder::constant(Type type, double val) const {
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF16FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(llll(), type, bbbb().getF16FloatAttr(val));
       })
       .Case<Float32Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF32FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(llll(), type, bbbb().getF32FloatAttr(val));
       })
       .Case<Float64Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF64FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(llll(), type, bbbb().getF64FloatAttr(val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -970,54 +970,54 @@ Value LLVMBuilder::constant(Type type, double val) const {
 
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
-  return bbbb().create<LLVM::ExtractValueOp>(loc, resultType, container, position);
+  return bbbb().create<LLVM::ExtractValueOp>(llll(), resultType, container, position);
 }
 
 LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
-  return bbbb().create<LLVM::LLVMFuncOp>(loc, name, type);
+  return bbbb().create<LLVM::LLVMFuncOp>(llll(), name, type);
 }
 
 Value LLVMBuilder::getElemPtr(
     Type resultType, Value base, ArrayRef<Value> indices) const {
-  return bbbb().create<LLVM::GEPOp>(loc, resultType, base, indices);
+  return bbbb().create<LLVM::GEPOp>(llll(), resultType, base, indices);
 }
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
     uint64_t alignment) const {
-  return bbbb().create<LLVM::GlobalOp>(loc, resultType,
+  return bbbb().create<LLVM::GlobalOp>(llll(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
-  return bbbb().create<LLVM::ICmpOp>(loc, cond, lhs, rhs);
+  return bbbb().create<LLVM::ICmpOp>(llll(), cond, lhs, rhs);
 }
 
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
   return bbbb().create<LLVM::InsertValueOp>(
-      loc, resultType, container, val, position);
+      llll(), resultType, container, val, position);
 }
 
 Value LLVMBuilder::load(Value addr) const {
-  return bbbb().create<LLVM::LoadOp>(loc, addr);
+  return bbbb().create<LLVM::LoadOp>(llll(), addr);
 }
 
 Value LLVMBuilder::null(Type type) const {
-  return bbbb().create<LLVM::NullOp>(loc, type);
+  return bbbb().create<LLVM::NullOp>(llll(), type);
 }
 
 Value LLVMBuilder::nullI8Ptr() const {
   Type I8PtrTy = LLVM::LLVMPointerType::get(bbbb().getI8Type());
-  return bbbb().create<LLVM::NullOp>(loc, I8PtrTy);
+  return bbbb().create<LLVM::NullOp>(llll(), I8PtrTy);
 }
 
 void LLVMBuilder::_return(Value val) const {
-  bbbb().create<LLVM::ReturnOp>(loc, ArrayRef<Value>({val}));
+  bbbb().create<LLVM::ReturnOp>(llll(), ArrayRef<Value>({val}));
 }
 
 void LLVMBuilder::store(Value val, Value addr) const {
-  bbbb().create<LLVM::StoreOp>(loc, val, addr);
+  bbbb().create<LLVM::StoreOp>(llll(), val, addr);
 }
 
 FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
@@ -1035,7 +1035,7 @@ FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
 
 void LLVMBuilder::ifThenElse(
     valueFuncRef cond, voidFuncRef thenFn, voidFuncRef elseFn) const {
-  LLVMBuilder createLLVM(bbbb(), loc);
+  LLVMBuilder createLLVM(bbbb(), llll());
 
   // Split the current block into IF, THEN, ELSE and END blocks.
   Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
