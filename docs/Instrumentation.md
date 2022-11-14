@@ -33,7 +33,7 @@ Currently, the call of initialization, OMInstrumentInit, need to be added before
 ## Run with instrumentation
 Run the model in the same way as usual.
 The instrumentation library will print out the time and memory usage along at each instrumentation point.
-For example, a model, `mymodel.onnx`, is compiled with `onnx-mlir  --instrument-stage=aOnnx --instrument-ops="onnx." --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
+For example, a model, `mymodel.onnx`, is compiled with `onnx-mlir  --instrument-stage=Onnx --instrument-ops="onnx." --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
 Its runtime output is listed below:
 
 ```
@@ -58,8 +58,10 @@ The output is explained here:
 Other example for NNPA
 - Performance profiling for onnx ops before lowering to zhigh ops:
   `onnx-mlir --maccel=NNPA --instrument-stage=Onnx --instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
-- Performance profiling for onnx and zhigh ops before lowering to zlow ops:
+- Performance profiling for onnx and zhigh ops:
   `onnx-mlir --maccel=NNPA --instrument-stage=ZHigh --instrument-ops=onnx.,zhigh. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+- Performance profiling for zlow ops:
+  `onnx-mlir --maccel=NNPA --instrument-stage=ZLow --instrument-ops=zlow. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 
 ## Control instrument at runtime
 By providing certain env variable at runtime, you can disable reports from  instrument library.
