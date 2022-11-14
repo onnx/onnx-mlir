@@ -24,13 +24,15 @@
 
 // clang-format off
 #define INSTRUMENTSTAGE_EUM_NNPA                                               \
-  , nnpaAfterOnnxToOnnx,                                                       \
+    ,                                                                          \
+    nnpaAfterOnnxToOnnx,                                                       \
     nnpaAfterOnnxToZhigh,                                                      \
     nnpaAfterZhighToZlow                                                       \
 // clang-format on
 
 #define INSTRUMENTSTAGE_CL_ENUM_NNPA                                           \
-  , clEnumVal(nnpaAfterOnnxToOnnx, "NNPA profiling for onnx ops."),            \
+    clEnumVal(afterOnnxToOnnx, "Profile for onnx ops."),   \
+  clEnumVal(nnpaAfterOnnxToOnnx, "NNPA profiling for onnx ops."),            \
       clEnumVal(                                                               \
           nnpaAfterOnnxToZhigh, "NNPA profiling for onnx and zhigh ops."),     \
       clEnumVal(nnpaAfterZhighToZlow, "NNPA profiling for zlow ops.")
@@ -45,6 +47,5 @@ typedef enum {
   extern llvm::cl::OptionCategory OnnxMlirOptions;
   extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
   extern llvm::cl::list<std::string> execNodesOnCpu;
-
 
 } // namespace onnx_mlir

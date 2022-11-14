@@ -21,6 +21,10 @@
 #include <string>
 #include <vector>
 
+#define DEFAULT_INSTRUMENTSTAGE_ENUM afterOnnxToOnnx
+#define DEFAULT_INSTRUMENTSTAGE_CL_ENUM                                        \
+  clEnumVal(afterOnnxToOnnx, "Profile for onnx ops.")
+
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {

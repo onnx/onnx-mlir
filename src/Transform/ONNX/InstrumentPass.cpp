@@ -46,7 +46,7 @@ public:
 
   Option<onnx_mlir::InstrumentStages> instrumentStage{*this, "instrument-stage",
       llvm::cl::desc("Specify stage to be instrumented:"),
-      llvm::cl::values(clEnumVal(afterOnnxToOnnx, "Profile for onnx ops.")
+      llvm::cl::values(APPLY_TO_NO_ACCELERATORS(DEFAULT_INSTRUMENTSTAGE_CL_ENUM)
               APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM))};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
