@@ -59,7 +59,7 @@ public:
         rewriter, op, resultType, input, newAxesAttr, keepDims);
 
     if (!output) {
-      return rewriter.notifyMatchFailure(op, "Could not be converted");
+      return rewriter.notifyMatchFailure(op, "could not be converted");
     }
     // Shape inference is handled by the helper functions
     rewriter.replaceOp(op, {output.value()});
