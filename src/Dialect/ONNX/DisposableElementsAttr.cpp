@@ -186,15 +186,12 @@ auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
 
 void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
   if (isContiguous()) {
-    getReader()(getBuffer()->getBuffer(), dst);
+    getReader()(getBufferString(), dst);
     return;
   }
-  SmallVector<WideNum, 1> wideBufferData;
-  wideBufferData.resize_for_overwrite(getNumBufferElements());
-  getReader()(getBufferString(), wideBufferData);
-  ArrayRef<WideNum> src(wideBufferData);
+  ArrayBuffer<WideNum> src = getBufferAsWideNums();
   restrideArray(sizeof(WideNum), getShape(),
-      {getStrides(), castArrayRef<char>(src)}, castMutableArrayRef<char>(dst));
+      {getStrides(), castArrayRef<char>(src.get())}, castMutableArrayRef<char>(dst));
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
