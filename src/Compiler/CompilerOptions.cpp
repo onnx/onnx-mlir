@@ -137,7 +137,7 @@ llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
     llvm::cl::desc("Specify stage to be instrumented:"),
     llvm::cl::values(APPLY_TO_NO_ACCELERATORS(DEFAULT_INSTRUMENTSTAGE_CL_ENUM)
             APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
-    llvm::cl::cat(OnnxMlirCommonOptions));
+    llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
     llvm::cl::desc("Specify regex for ops to be instrumented:\n"
