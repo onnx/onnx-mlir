@@ -35,9 +35,9 @@ DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
     : Base(dialect), pool() {}
 DisposablePool::~DisposablePool() {}
 
-void DisposablePool::insert(DisposableElementsAttr d) {
+void DisposablePool::insert(DisposableElementsAttr disposable) {
   // TODO: make this thread safe
-  auto insertion = pool.insert(d.getImpl());
+  auto insertion = pool.insert(disposable.getImpl());
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
 }
@@ -67,17 +67,13 @@ auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
   Scrubbed scrubbed;
   moduleOp.walk([&scrubbed](ONNXConstantOp constOp) {
     if (auto attr = constOp.value())
-      if (auto elements = attr->dyn_cast<DisposableElementsAttr>()) {
-        DenseElementsAttr dense;
-        Item item = elements.getImpl();
-        auto found = scrubbed.find(item);
-        if (found != scrubbed.end()) {
-          dense = found->second;
-        } else {
-          dense = toDenseElementsAttr(elements);
-          auto insertion = scrubbed.insert({item, dense});
+      if (auto disposable = attr->dyn_cast<DisposableElementsAttr>()) {
+        auto insertion = scrubbed.emplace(disposable.getImpl(), nullptr);
+        auto iter = insertion.first;
+        if (insertion.second) { // disposable were inserted
+          iter->second = toDenseElementsAttr(disposable);
         }
-        constOp.valueAttr(dense);
+        constOp.valueAttr(iter->second);
       }
   });
   return scrubbed;

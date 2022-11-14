@@ -58,7 +58,7 @@ private:
   using Pool = std::unordered_set<Item>;
   using Scrubbed = std::unordered_map<Item, mlir::DenseElementsAttr>;
 
-  void insert(mlir::DisposableElementsAttr d);
+  void insert(mlir::DisposableElementsAttr disposable);
 
   static Scrubbed doScrub(mlir::ModuleOp moduleOp);
 
