@@ -341,7 +341,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
 
 /// Get alignment of an AllocOp if it exists else return zero.
 int64_t getAllocAlignment(memref::AllocOp allocOp) {
-  if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
+  if (IntegerAttr alignmentAttr = allocOp.getAlignmentAttr())
     return alignmentAttr.getInt();
 
   return 0;

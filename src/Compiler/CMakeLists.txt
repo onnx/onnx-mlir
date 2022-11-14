@@ -24,6 +24,11 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
+if (ONNX_MLIR_VENDOR)
+  list(APPEND DEFINITIONS "ONNX_MLIR_VENDOR=\"${ONNX_MLIR_VENDOR}\"")
+endif()
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
+
 add_onnx_mlir_library(CompilerOptions
   CompilerOptions.cpp
 
@@ -87,6 +92,8 @@ if (DEFINED ONNX_MLIR_PRODUCT_VERSION)
   message(DEBUG "PRODUCT_VERSION_PATCH = ${PRODUCT_VERSION_PATCH}")
   message(DEBUG "PRODUCT_ID = ${PRODUCT_ID}")
 
+  list(APPEND DEFINITIONS "ONNX_MLIR_PRODUCT_VERSION=${ONNX_MLIR_PRODUCT_VERSION}")
+
   # Major and product ID are mandatory, minor and patch are optional.
   if (("${PRODUCT_VERSION_MAJOR}" STREQUAL "") OR ("${PRODUCT_ID}" STREQUAL ""))
     message(STATUS "Product version          : Invalid version ${ONNX_MLIR_PRODUCT_VERSION} ignored")
@@ -113,6 +120,7 @@ list(APPEND DEFINITIONS "PRODUCT_VERSION_MAJOR=${PRODUCT_VERSION_MAJOR}")
 list(APPEND DEFINITIONS "PRODUCT_VERSION_MINOR=${PRODUCT_VERSION_MINOR}")
 list(APPEND DEFINITIONS "PRODUCT_VERSION_PATCH=${PRODUCT_VERSION_PATCH}")
 list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
+target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
 add_onnx_mlir_library(CompilerUtils
@@ -123,10 +131,12 @@ add_onnx_mlir_library(CompilerUtils
   DEPENDS
   ExternalUtil
   MLIRIR
+  llc
+  opt
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
-  
+
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
@@ -163,8 +173,11 @@ add_onnx_mlir_library(OnnxMlirCompiler
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
   EXCLUDE_FROM_OM_LIBS
-  
+
   LINK_LIBS PRIVATE
   CompilerUtils
   )
@@ -172,3 +185,27 @@ add_onnx_mlir_library(OnnxMlirCompiler
 if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
+
+pybind11_add_module(PyCompile PyOMCompileSession.cpp)
+add_dependencies(PyCompile onnx_proto)
+target_compile_options(PyCompile
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
+target_compile_definitions(PyCompile
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(PyCompile
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  )
+target_link_libraries(PyCompile
+  PRIVATE
+  OnnxMlirCompiler
+  )
+
+install(TARGETS PyCompile
+  DESTINATION lib
+  )

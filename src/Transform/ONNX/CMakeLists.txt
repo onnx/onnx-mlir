@@ -17,6 +17,7 @@ add_onnx_mlir_library(OMConstPropHelper
 
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
+add_onnx_mlir_rewriter(ConvOpt)
 
 add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
@@ -28,6 +29,7 @@ add_onnx_mlir_library(OMONNXRewrite
   OMONNXOps
   OMONNXDecomposeIncGen
   OMONNXConstPropIncGen
+  OMONNXConvOptIncGen
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
@@ -45,13 +47,14 @@ add_onnx_mlir_library(OMShapeInference
   )
 
 add_onnx_mlir_library(OMInstrumentONNX
-  InstrumentONNXPass.cpp
+  InstrumentPass.cpp
   InstrumentONNXSignaturePass.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  CompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass
@@ -79,6 +82,18 @@ add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
 
 add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   SimplifyShapeRelatedOps.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMONNXDimAnalysis
+  ONNXDimAnalysis.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

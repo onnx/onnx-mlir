@@ -43,7 +43,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
-    bool transformReport, bool targetCPU) {
+    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -61,7 +61,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayoutOpt));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
@@ -70,8 +71,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
 
   if (transformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(
-        transformThreshold, transformReport, targetCPU));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(transformThreshold,
+        transformReport, targetCPU, enableSimdDataLayoutOpt));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
@@ -114,8 +115,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
-      instrumentONNXOps, instrumentControlBits.getBits()));
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+      "before-onnx-to-krnl", instrumentOps, instrumentControlBits.getBits()));
+
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
@@ -203,7 +205,7 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
     return;
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+  pm.addNestedPass<ModuleOp>(createInstrumentPass());
   
   pm.addPass(createONNXToAtenModifyMainFunctionPass());
   pm.addPass(createLowerToTorchPass(optLevel));
@@ -226,7 +228,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     //       the CPU specific transformations.
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
-        /*target CPU*/ false);
+        /*target CPU*/ false, enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)

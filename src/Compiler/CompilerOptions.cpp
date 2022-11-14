@@ -22,11 +22,10 @@
 
 namespace onnx_mlir {
 // Options for onnx-mlir only.
-llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX-MLIR Options", "These are frontend options.");
+llvm::cl::OptionCategory OnnxMlirOptions("Frontend Options", "");
 
 // Common options shared between onnx-mlir and onnx-mlir-opt.
-llvm::cl::OptionCategory OnnxMlirCommonOptions("ONNX-MLIR Common Options", "");
+llvm::cl::OptionCategory OnnxMlirCommonOptions("Optimization Options", "");
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -127,19 +126,29 @@ llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
 
-llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
+llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
         clEnumVal(O1, "Optimization level 1,"),
         clEnumVal(O2, "Optimization level 2,"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("Specify onnx ops to be instrumented:\n"
+llvm::cl::opt<std::string> instrumentStage("instrument-stage",
+    llvm::cl::desc(
+        "Specify stage to be instrumented\n"
+        "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
+        "krnl)\n"
+        "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
+        "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh ops\n"
+        "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> instrumentOps("instrument-ops",
+    llvm::cl::desc("Specify regex for ops to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
-                   "\"ALL\" for all ops, \n"
-                   "\"op1 op2 ...\" for the specified ops."),
+                   "\"regex1,regex2, ...\" for the specified ops.\n"
+                   "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
+                   "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
@@ -188,12 +197,21 @@ llvm::cl::opt<bool> enableParallel("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
+    llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
+                   "Set to 'true' if you want to enable SIMD optimizations."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"
         "Data type and shape are verified. Enable this may introduce overhead "
         "at runtime."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> allowSorting("allowSorting",
+    llvm::cl::desc("Perform topological sort on onnx graph"),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
@@ -411,6 +429,13 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for Verbose Option
+void setVerboseOption() { VerboseOutput = true; }
+void clearVerboseOption() { VerboseOutput = false; }
+std::string getVerboseOption() {
+  return VerboseOutput ? std::string("-v") : std::string();
+}
+
 // =============================================================================
 // Methods for OMCompilerOptions
 
@@ -444,6 +469,9 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::Verbose:
+    setVerboseOption();
+    break;
     // Ignore options that were added but are unknown.
   }
   return CompilerSuccess;
@@ -475,6 +503,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     clearLLVMOption();
     break;
+  case OptionKind::Verbose:
+    clearVerboseOption();
+    break;
     // Ignore options that were added but are unknown.
   }
 }
@@ -505,6 +536,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::Verbose:
+    return getVerboseOption();
   }
   return std::string();
 }

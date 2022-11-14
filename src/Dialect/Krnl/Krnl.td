@@ -30,6 +30,17 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let dependentDialects = [
+    "AffineDialect",
+    "arith::ArithDialect",
+    "func::FuncDialect",
+    "linalg::LinalgDialect",
+    "math::MathDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "shape::ShapeDialect",
+  ];
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
@@ -190,10 +201,33 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
 // ToDo: handle an element in multiple sequences with copy
 // ToDo: use the one-shot interface for space manangement.
 
+def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl create a sequence";
+  let description = [{
+    This op allocates a memref for a new sequence according to the input Type and length.
+    The output is tagged with Allocate side effect, and a deallocation is defined for
+    sequence. This deallocation will free all the elements in the sequence as well as 
+    the sequence itself.
+  }];
+  let arguments = (ins Variadic<Index>:$length);
+  let results = (outs AnyMemRef:$output);
+}
+
+def KrnlSeqDeallocOp : Op<Krnl_Dialect, "seqdealloc", [MemRefsNormalizable]> {
+  let summary = "Krnl dealloc a sequence";
+  let description = [{
+    This op deallocate the elements in the sequence and the sequence itself
+    with memref::dealloc. This Op is a deep dealloc for sequence type.
+  }];
+  let arguments = (ins AnyMemRef:$input_sequence);
+}
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
-  let summary = "Krnl load from a seq";
+  let summary = "Krnl load from a sequence";
   let description = [{
     This op loads an element from the input sequence 'seq' at position 'index'.
     The loaded element is copied and then return.
@@ -213,34 +247,6 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
                        Index:$index,
                        DefaultValuedAttr<UI1Attr, "1">:$copy);
 
-  let results = (outs AnyType:$output);
-}
-
-def KrnlSeqInsertOp : Op<Krnl_Dialect, "seqinsert", [MemRefsNormalizable]> {
-  let summary = "Insert an element into a seq";
-  let description = [{
-    This op will create a new seq from the input seq by inserting the input
-    element at the desired position. The input element will be copied before 
-    inserted into the new seq, and the type will be casted to the type of seq 
-    element if needed. The elements after the insertion point will be shifted
-    one position in the new sequence without copying.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The sequence is implemented as memref of memref in onnx-mlir.
-    When an element is stored into a sequence, it becomes invisible.
-    The memref for the element will be freed after this Op after its last
-    use of the element.
-    To avoid dangling pointer, the element is copied before it is inserted 
-    into the sequence. 
-    The allocation for the copy will be freed by SequenceErase,
-    or revealed to graph
-    when the element is extracted from the sequence. Consequently, the 
-    deallocation pass can handle the space correctly.
-    For future optimization, the one-shot bufferization interface may be used
-    to transfer the space of the input element to the element in the sequence.
-  }];
-  let arguments = (ins AnyType:$input_element,
-                       AnyMemRef:$input_sequence,
-                       Index:$index);
   let results = (outs AnyType:$output);
 }
 
@@ -322,7 +328,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -725,7 +731,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [Pure,
     MemRefsNormalizable, DeclareOpInterfaceMethods<CastOpInterface>, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
@@ -1134,7 +1140,9 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName,
+                       I64Attr:$tag,
+                       OptionalAttr<StrAttr>:$nodeName);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
@@ -1173,7 +1181,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
-def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
+def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [Pure]> {
   let summary = "Compute the length of a string.";
   let description = [{
     Krnl operation that computes the length of a string.
@@ -1183,7 +1191,7 @@ def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
   let results = (outs I64:$res);
 }
 
-def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [NoSideEffect]> {
+def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [Pure]> {
   let summary = "Perform string comparison up to N bytes.";
   let description = [{
     Krnl operation that performs a string comparison up to N bytes.
@@ -1208,7 +1216,7 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
 }
 
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
-    [NoSideEffect, MemRefsNormalizable]> {
+    [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 

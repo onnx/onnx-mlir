@@ -30,6 +30,18 @@ It is easier to simply remove the `third_party` directory and then reinstalling 
 
 Sometimes a dialect update requires the entire build directory to be rebuilt. Typical errors that you may see are missing declarations, for example to `verifier` methods. The recommendation is to simply remove the `onnx-mlir/build` subdirectory and rebuild from scratch using the `cmake` commands.
 
+### 4) Protobuf related issues
+
+If you run into protobuf related errors during the build, check the following potential causes:
+
+* protobuf version is too low or too new (relative to the prereq)
+* libprotobuf version and python binding version mismatch
+* llvm-project, onnx, and/or onnx-mlir are built against different versions of protobuf, because after updating protobuf you only rebuild one of them
+* llvm-project, onnx, and/or onnx-mlir may detect different versions of python3 (so watch their cmake output) if you have multiple python versions installed
+* cmake caches stuff and you should never use "make clean" when rebuilding. Instead remove everything under the build tree and start from scratch.
+
+These and many other trickeries for setting up the build env are the reason why we recommend using the `onnxmlirczar/onnx-mlir-dev` docker image for development.
+
 ## High level testing of ONNX-MLIR
 
 To run the lit ONNX-MLIR tests, use the following command:

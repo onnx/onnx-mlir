@@ -8,8 +8,10 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
-  Math/CumSum.cpp
+  ConvertONNXToKrnl.cpp
+  ML/CategoryMapper.cpp
   Math/Clip.cpp
+  Math/CumSum.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Hardmax.cpp
@@ -20,22 +22,20 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp
-  ML/CategoryMapper.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
-  RNN/RNNBase.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp
   RNN/RNN.cpp
+  RNN/RNNBase.cpp
   RNN/RNNBase.cpp
   Sequence/SequenceAt.cpp
   Sequence/SequenceEmpty.cpp
   Sequence/SequenceErase.cpp
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
-  ConvertONNXToKrnl.cpp
   Tensor/ArgMinMax.cpp
   Tensor/Compress.cpp  
   Tensor/Concat.cpp
@@ -49,6 +49,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/GatherElements.cpp
   Tensor/GatherND.cpp
   Tensor/Identity.cpp
+  Tensor/LayoutTransform.cpp
   Tensor/NonZero.cpp
   Tensor/OneHot.cpp  
   Tensor/Pad.cpp

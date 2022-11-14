@@ -4,7 +4,7 @@
 
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -250,6 +250,8 @@ Value createReduce(Location loc, Value operand, Value identity,
   return result;
 }
 
+// ONNXReductionOp is implmented as mhlo.reduce with its body built
+// correspondingly.
 template <typename ONNXReductionOp>
 struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
   bool computeMean = false;
@@ -304,8 +306,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
       // TODO: support dynamic shape
       if (inputType.hasStaticShape()) {
         int64_t reduceFactor = getReductionFactor(inputType, axes);
-        Value reduceFactorValue = getShapedFloat(
-            loc, rewriter, outputType, reduceFactor, reduceResult, outputType);
+        Value reduceFactorValue =
+            getShapedFloat(loc, rewriter, reduceFactor, reduceResult);
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {

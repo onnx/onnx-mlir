@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyExecutionSession.hpp - PyExecutionSession Implementation -----===//
+//===----- PyExecutionSession.cpp - PyExecutionSession Implementation -----===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -22,6 +22,10 @@ SUPPRESS_WARNINGS_POP
 #include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
+
+PyExecutionSession::PyExecutionSession(
+    std::string sharedLibPath, bool defaultEntryPoint)
+    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
 
 std::vector<py::array> PyExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {

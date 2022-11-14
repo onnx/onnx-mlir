@@ -757,3 +757,18 @@ func.func @test_gather_negative_index() -> tensor<*xf32>{
   // CHECK:           return [[VAR_0_]] : tensor<3x1x2xf32>
   // CHECK:         }
 }
+
+// -----
+
+func.func @test_reshape() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>} : () -> tensor<3x3xf32>
+  %1 = "onnx.Constant"() {value = dense<[1, -1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Reshape"(%0, %1) : (tensor<3x3xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape
+// CHECK-SAME:   () -> tensor<1x9xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<{{.}}[1.000000e+00, 1.200000e+00, 1.900000e+00, 2.300000e+00, 3.400000e+00, 3.900000e+00, 4.500000e+00, 5.700000e+00, 5.900000e+00]{{.}}> : tensor<1x9xf32>} : () -> tensor<1x9xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1x9xf32>
+// CHECK:         }
+}

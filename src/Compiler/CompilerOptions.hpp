@@ -17,6 +17,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -48,8 +49,10 @@ extern llvm::cl::list<std::string> Xopt;
 extern llvm::cl::list<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
+extern llvm::cl::opt<bool> allowSorting;
 
-extern llvm::cl::opt<std::string> instrumentONNXOps;
+extern llvm::cl::opt<std::string> instrumentStage;
+extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
 extern llvm::cl::opt<bool> instrumentONNXSignature;
 extern llvm::cl::opt<std::string> ONNXOpStats;
@@ -57,6 +60,7 @@ extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> enableParallel;
+extern llvm::cl::opt<bool> enableSimdDataLayout;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

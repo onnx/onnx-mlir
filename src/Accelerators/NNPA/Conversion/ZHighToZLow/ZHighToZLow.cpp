@@ -37,22 +37,10 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
-/// A list of layouts associated with newly allocated MemRefs.
-/// When lowering an operation, its output Tensor (e.g.
-/// `tensor<1x3x5x7xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>`) will be
-/// converted to a Memref (e.g. `memref<1x3x5x7xf16, #map>`), and we lost the
-/// layout `NHWC`. Thus, make sure to put the new MemRef and its associated
-/// layout into this map, so that we can obtain the layout for the MemRef later
-/// when lowering other ops.
-llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
-mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
-void storeLayout(mlir::Value val, mlir::StringAttr layout) {
-  stickedLayouts[val] = layout;
-}
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given dimensions and layout.
-// By default, set aligment to 4K.
+// By default, set alignment to 4K.
 //===----------------------------------------------------------------------===//
 
 Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
@@ -77,7 +65,7 @@ Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given ZMemRefType.
-// By default, set aligment to 4K.
+// By default, set alignment to 4K.
 //===----------------------------------------------------------------------===//
 
 Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
@@ -91,8 +79,6 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
       SmallVector<IndexExpr>(dims.begin(), dims.end()),
       /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
 
-  // Store the buffer's layout. Otherwise, we lost the layout.
-  storeLayout(alloc, zType.layout);
   return alloc;
 }
 
@@ -198,9 +184,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         RankedTensorType::get(shape, rewriter.getF32Type(),
             ZTensorEncodingAttr::get(op->getContext(), layout));
     ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
-    MemRefType resType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType resType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
 
     // Create a ZHighStickifiedConstantOp.
     ZHighStickifiedConstantOp stickifiedConstant =
@@ -421,7 +406,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_FICO layout");
         }
         n = constExpr0;
-        // shape[0] is the direction dimmension for LSTM, and should be 1 or 2
+        // shape[0] is the direction dimension for LSTM, and should be 1 or 2
         assert((shape[0] == 1 || shape[0] == 2) &&
                "wrong direction dimension size");
         h = (((rank == 2) ? shape[0] : 1) *
@@ -487,11 +472,11 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
       MemRefType outType = MemRefType::get(shape, b.getF16Type());
       resZMemRefType.value =
           MemRefType::Builder(outType).setLayout(AffineMapAttr::get(smap));
-      resZMemRefType.layout = convertDataLayoutToStringAttr(b, layout);
-    } else {
+      resZMemRefType.layout = convertZTensorDataLayoutToStringAttr(b, layout);
+    } else { // Does not have tensorType.getEncoding().
       resZMemRefType.value = MemRefType::get(shape, elementType);
     }
-  } else {
+  } else { // Not type.isa<TensorType>().
     resZMemRefType.value = type.dyn_cast<MemRefType>();
   }
   return resZMemRefType;
@@ -629,7 +614,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
-    StringAttr layout = readLayout(input);
+
+    // Get layout attribute. Do not get it from the input in OpAdaptor since
+    // that input is the converted type, i.e. MemRefType. Get directly from
+    // Operation instead where the type is TensorType that has the layout
+    // encoding attribute.
+    StringAttr layout =
+        getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
 
     ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
@@ -678,9 +669,8 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // Normalize MemRefType to get a static shape.
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
            "MemRefType has dynamic dimensions");
-    MemRefType normalizedType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType normalizedType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Get dense resource attribute.
@@ -696,7 +686,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
     memRefSizeInBytes *= normalizedType.getNumElements();
     assert((data.size() == (uint64_t)memRefSizeInBytes) &&
-           "The stickied tensor's buffer size and MemRef's size mismatched");
+           "The stickified tensor's buffer size and MemRef's size mismatched");
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =
@@ -1006,7 +996,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
         zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // - In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
     // shape is a 1D MemRef (memref<3xindex>) whose items are:
@@ -1096,7 +1086,7 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
         cfZMemRefType, shapeHelper.dimsForOutput(1), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // shapeMemRef :: memref<5xindex>
     // - 1st item: direction
@@ -1180,7 +1170,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
         hnZMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // shapeMemRef :: memref<5xindex>
     // - 1st item: direction

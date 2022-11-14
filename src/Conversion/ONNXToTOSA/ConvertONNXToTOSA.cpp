@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -62,6 +63,9 @@ struct FrontendToTosaLoweringPass
   FrontendToTosaLoweringPass(const FrontendToTosaLoweringPass &pass)
       : PassWrapper<FrontendToTosaLoweringPass, OperationPass<ModuleOp>>() {}
 
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<mlir::tosa::TosaDialect>();
+  }
   void runOnOperation() final;
 };
 
@@ -89,7 +93,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
+  target.addLegalDialect<mlir::tosa::TosaDialect, mlir::func::FuncDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);

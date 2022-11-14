@@ -300,8 +300,8 @@ Effects: MemoryEffects::Effect{}
 ONNX ArgMax operation
 
 Computes the indices of the max elements of the input tensor's element along the
-provided axis. The resulting tensor has the same rank as the input if keepdims equal 1.
-If keepdims equal 0, then the resulting tensor have the reduced dimension pruned.
+provided axis. The resulting tensor has the same rank as the input if keepdims equals 1.
+If keepdims equals 0, then the resulting tensor has the reduced dimension pruned.
 If select_last_index is True (default False), the index of the last occurrence of the max
 is selected if the max appears more than once in the input. Otherwise the index of the
 first occurrence is selected.
@@ -336,8 +336,8 @@ Effects: MemoryEffects::Effect{}
 ONNX ArgMin operation
 
 Computes the indices of the min elements of the input tensor's element along the
-provided axis. The resulting tensor has the same rank as the input if keepdims equal 1.
-If keepdims equal 0, then the resulting tensor have the reduced dimension pruned.
+provided axis. The resulting tensor has the same rank as the input if keepdims equals 1.
+If keepdims equals 0, then the resulting tensor has the reduced dimension pruned.
 If select_last_index is True (default False), the index of the last occurrence of the min
 is selected if the min appears more than once in the input. Otherwise the index of the
 first occurrence is selected.
@@ -559,7 +559,7 @@ An empty string may be used in the place of an actual argument's name to
 indicate a missing argument. Trailing optional arguments (those not followed
 by an argument that is present) may also be simply omitted.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -788,7 +788,7 @@ Example:
 %2 = call @my_add(%0, %1) : (f32, f32) -> f32
 ```
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: MemRefsNormalizable
 
@@ -1495,7 +1495,7 @@ is a string which names the operation, other inputs are
 passed to the user operation.
 The number of inputs and outputs can vary.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -1674,6 +1674,41 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values
 
+### `onnx.DimGroup` (::mlir::ONNXDimGroupOp)
+
+ONNX dimension group operation.
+
+This operation is to link a compile-time unknown dimension of a Tensor
+to a group id. Two dimensions that have the same group id are expected
+to be equal at runtime.
+
+```
+"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1: si64} : (tensor<?x3x5xf32>) -> ()
+```
+
+`axis` identifies the dimension position in the tensor.
+
+`group_id` identifies the group id of the dimension. It is non-negative.
+Value -1 for `group_id` means the dimension does not belong to any group.
+
+This operation is currently used in the pass `--onnx-dim-analysis`
+for testing the unknown dimension analysis class.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `group_id` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
 ### `onnx.Dim` (::mlir::ONNXDimOp)
 
 ONNX dimensions operation.
@@ -1686,7 +1721,7 @@ This operation is to obtain the dimension of a Tensor;
 
 The axis identifies the dimension within the shape which is going to be obtained.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -1911,7 +1946,7 @@ Indicate ONNX entry point
 
 The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 #### Attributes:
 
@@ -1996,7 +2031,7 @@ ONNX Expand operation
 Broadcast the input tensor following the given shape and the broadcast rule.
 The broadcast rule is similar to numpy.array(input) * numpy.ones(shape):
 Dimensions are right alignment;
-Two corresponding dimension must have the same value, or one of them is equal to 1.
+Two corresponding dimensions must have the same value, or one of them is equal to 1.
 Also, this operator is similar to numpy.broadcast_to(input, shape),
 but the major difference is numpy.broadcast_to() does not allow shape to be smaller than input.size().
 It is possible that the output.shape is not equal to shape, when some dimensions in shape is equal to 1,
@@ -2491,7 +2526,7 @@ axis = 1 :
 Let
 k = indices[i_{0}, ..., i_{q-1\}\]
 Then
-output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]
+output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]
 
 ```
   data = [
@@ -2859,6 +2894,44 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values
+
+### `onnx.GridSample` (::mlir::ONNXGridSampleOp)
+
+ONNX GridSample operation
+
+Given an `input` and a flow-field `grid`, computes the `output` using `input` values and pixel locations from `grid`.
+Currently, only spatial (4-D) inputs are supported. For `input` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
+the `output` will have shape (N, C, H_out, W_out).
+For each output location `output[N, C, H_out, W_out]`, the size-2 vector `grid[N, H_out, W_out]` specifies `input` pixel locations `x` and `y`,
+which are used to interpolate the output value `output[N, C, H_out, W_out]`.
+
+The GridSample operator is often used in doing grid generator and sampler in the [Spatial Transformer Networks](https://arxiv.org/abs/1506.02025).
+See also in [torch.nn.functional.grid_sample](https://pytorch.org/docs/master/generated/torch.nn.functional.grid_sample.html#torch-nn-functional-grid-sample).
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `align_corners` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `mode` | ::mlir::StringAttr | string attribute
+| `padding_mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `grid` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.HardSigmoid` (::mlir::ONNXHardSigmoidOp)
 
@@ -3332,6 +3405,41 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values
+
+### `onnx.LayoutTransform` (::mlir::ONNXLayoutTransformOp)
+
+An operation that transforms data between different layout formats
+
+An operation that transforms data between different ONNX layout format.
+Currently, it supports transformations from standard format to a
+NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
+
+Operations that transforms data from the same ONNX layout format are
+considered as a no operation and will be removed.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `target_layout` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Out` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
 
 ### `onnx.LeakyRelu` (::mlir::ONNXLeakyReluOp)
 
@@ -3910,7 +4018,7 @@ ONNX MaxPool operation with a single output.
 ONNX MaxPool operation with a single output.
 See ONNXMaxPoolOp for a full description of the MaxPool semantics.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -4474,7 +4582,8 @@ ONNX NonZero operation
 Returns the indices of the elements that are non-zero
     (in row-major order - by dimension).
     NonZero behaves similar to numpy.nonzero:
-    https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html
+    https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html,
+    but for scalar input, NonZero produces output shape (0, N) instead of (1, N), which is different from Numpy's behavior.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
 
@@ -4505,7 +4614,7 @@ Example:
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
 ```
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: ConstantLike
 
@@ -5084,7 +5193,7 @@ ONNX Op to print type signature of its input operands
 Print type signature of the op's input operands. This operation is introduced early
 so as to preserve the name of the original ONNX op.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 #### Attributes:
 
@@ -5150,14 +5259,14 @@ Effects: MemoryEffects::Effect{}
 ONNX QLinearMatMul operation
 
 Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
-It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, 
-and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point). 
-For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 
-Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor 
-(per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row 
-or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be 
-an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K] 
-for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may 
+It consumes two quantized input tensors, their scales and zero points, scale and zero point of output,
+and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point).
+For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
+Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor
+(per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row
+or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be
+an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K]
+for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may
 have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
 Production must never overflow, and accumulation may overflow if and only if in 32 bits.
 
@@ -5531,11 +5640,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceL1 operation
 
-Computes the L1 norm of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the L1 norm of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5565,11 +5674,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceL2 operation
 
-Computes the L2 norm of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the L2 norm of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5599,11 +5708,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceLogSumExp operation
 
-Computes the log sum exponent of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5633,11 +5742,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceLogSum operation
 
-Computes the log sum of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the log sum of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5667,11 +5776,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceMax operation
 
-Computes the max of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the max of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5701,11 +5810,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceMean operation
 
-Computes the mean of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the mean of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5735,11 +5844,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceMin operation
 
-Computes the min of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the min of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5769,11 +5878,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceProd operation
 
-Computes the product of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the product of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5803,11 +5912,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceSum operation
 
-Computes the sum of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the sum of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5838,11 +5947,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceSumSquare operation
 
-Computes the sum square of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
+Computes the sum square of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -5872,11 +5981,11 @@ Effects: MemoryEffects::Effect{}
 
 ONNX ReduceSum operation
 
-Computes the sum of the input tensor's element along the provided axes. The resulted
-tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then
+Computes the sum of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equal 0, then
 the resulted tensor have the reduced dimension pruned.
 
-The above behavior is similar to numpy, with the exception that numpy default keepdims to
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
 Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
@@ -6084,7 +6193,7 @@ operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
 The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
 The operation takes variable number of operands and produces no results.
 
-This operation is not part of the standard and was added to assit onnx-mlir.
+This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: ReturnLike, Terminator
 
@@ -6184,6 +6293,7 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
 | `mode` | ::mlir::StringAttr | string attribute
 | `output_height` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 | `output_width` | ::mlir::IntegerAttr | 64-bit signed integer attribute
@@ -6347,7 +6457,7 @@ ONNX Scan operation
 
 Scan can be used to iterate over one or more scan_input tensors,
 constructing zero or more scan_output tensors. It combines ideas from general recurrences,
-functional programming constructs such as scan, fold, map, and zip and is intended to enable
+functional programming constructs such as scan, fold, map, and zip, and is intended to enable
 generalizations of RNN-like constructs for sequence-to-sequence processing.
 Other tensors (referred to as state_variables here) can be used to carry a state
 when iterating from one element to another (similar to hidden-state in RNNs, also referred
@@ -6510,11 +6620,24 @@ index-value for dimension = axis is obtained from the value of the corresponding
 entry in `indices` and the index-value for dimension != axis is obtained from the
 index of the entry itself.
 
-For instance, in a 2-D tensor case, the update corresponding to the [i][j] entry
-is performed as below:
+`reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
+tensor into `output` at the specified `indices`.
+In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2, 
+then indices[idx1] != indices[idx2]. For instance, in a 2-D tensor case, the update 
+corresponding to the [i][j] entry is performed as below:
 ```
   output[indices[i][j]][j] = updates[i][j] if axis = 0,
   output[i][indices[i][j]] = updates[i][j] if axis = 1,
+```
+When `reduction` is set to \"add\", the update corresponding to the [i][j] entry is performed as below:
+```
+  output[indices[i][j]][j] += updates[i][j] if axis = 0,
+  output[i][indices[i][j]] += updates[i][j] if axis = 1,
+```
+When `reduction` is set to \"mul\", the update corresponding to the [i][j] entry is performed as below:
+```
+  output[indices[i][j]][j] *= updates[i][j] if axis = 0,
+  output[i][indices[i][j]] *= updates[i][j] if axis = 1,
 ```
 
 This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
@@ -6558,6 +6681,7 @@ Effects: MemoryEffects::Effect{}
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `reduction` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -6946,7 +7070,7 @@ If start axis is omitted, the slice starts from axis 0.
 The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
 If the end axis is omitted, the axes upto the last one will be included.
 Negative axes indicate counting back from the last axis.
-Note that axes will be clipped to the range [0, r-1], where r is the
+Note that axes will be clamped to the range [0, r-1], where r is the
 rank of the input tensor if they are out-of-range (after adding r in the case of
 negative axis). Thus, specifying any end value > r is equivalent to specifying an end
 value of r, and specifying any start value < -r is equivalent to specifying a start
@@ -7143,19 +7267,38 @@ Effects: MemoryEffects::Effect{}
 ONNX Slice operation
 
 Produces a slice of the input tensor along multiple axes. Similar to numpy:
-https://docs.scipy.org/doc/numpy/reference/arrays.indexing.html
-Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end
-dimension and step for each axis in the list of axes, it uses this information to
-slice the input `data` tensor. If a negative value is passed for any of the
-start or end indices, it represents number of elements before the end of that
-dimension. If the value passed to start or end is larger than the `n` (the
-number of elements in this dimension), it represents `n`. For slicing to the
-end of a dimension with unknown size, it is recommended to pass in `INT_MAX`
-when sclicing forward and 'INT_MIN' when slicing backward.
-If a negative value is passed for step, it represents slicing backward.
-However step value cannot be 0.
-If `axes` are omitted, they are set to `[0, ..., ndim-1]`.
+https://numpy.org/doc/stable/user/basics.indexing.html?highlight=slice#slicing-and-striding
+
+Slice uses the `starts`, `ends`, `axes` and `steps` inputs to select a sub-tensor
+of its input `data` tensor.
+
+An effective `start[i]`, `end[i]`, and `step[i]` must be computed for each `i`
+in `[0, ... r-1]` where `r = rank(input)` as follows:
+
+If `axes` are omitted, they are set to `[0, ..., r-1]`.
 If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`
+
+The effective values are initialized as `start[i] = 0`, `end[i] = dims[i]` where
+`dims` are the dimensions of `input` and `step[i] = `1.
+
+All negative elements of `axes` are made non-negatve by adding `r` to them, where
+`r =rank(input)`.
+
+All negative values in `starts[i]` and `ends[i]` have `dims[axes[i]]` added to them,
+where `dims` are the dimensions of `input`. Then `start[axes[i]]` is the adjusted
+`starts[i]` is clamped into the range `[0, dims[axes[i]]]` for positive stepping
+and `[0, dims[axes[i]]-1]` for negative stepping.
+
+The clamping for the adjusted `ends[i]` depends on the sign of `steps[i]` and must
+accommodate copying 0 through `dims[axes[i]]` elements, so for positive stepping
+`end[axes[i]]` is clamped to `[0, dims[axes[i]]]`, while for negative stepping it
+is clamped to `[-1, dims[axes[i]]-1]`.
+
+Finally, `step[axes[i]] = steps[i]`.
+
+For slicing to the end of a dimension with unknown size, it is recommended to pass
+in `INT_MAX` when slicing forward and 'INT_MIN' when slicing backward.
+
 Example 1:
   data = [
       [1, 2, 3, 4],

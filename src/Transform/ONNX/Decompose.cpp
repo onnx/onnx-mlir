@@ -23,7 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
@@ -65,7 +65,7 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
-/// Create an Scalar DenseElementsAttr from FloatAttr or IntergerAttr.
+/// Create an Scalar DenseElementsAttr from FloatAttr or IntegerAttr.
 /// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {
@@ -167,7 +167,7 @@ struct SoftmaxPattern : public ConversionPattern {
     int64_t axisValue = axis.getSInt();
 
     // Rewrite
-    Location odsLoc = rewriter.getFusedLoc({op0->getLoc()});
+    Location odsLoc = op0->getLoc();
     IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 1);
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
@@ -203,10 +203,12 @@ struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
-  DecomposeONNXToONNXPass() = default;
+  DecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
-            OperationPass<func::FuncOp>>() {}
+            OperationPass<func::FuncOp>>() {
+    this->target = pass.target;
+  }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -219,6 +221,9 @@ struct DecomposeONNXToONNXPass
       llvm::cl::desc("Target Dialect to decompose into"), ::llvm::cl::init("")};
 
   void runOnOperation() final;
+
+  typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
+      BaseType;
 };
 
 void DecomposeONNXToONNXPass::runOnOperation() {
@@ -226,8 +231,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
-      func::FuncDialect>();
+  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
@@ -277,8 +281,9 @@ namespace onnx_mlir {
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass() {
-  return std::make_unique<DecomposeONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
+    const std::string &target) {
+  return std::make_unique<DecomposeONNXToONNXPass>(target);
 }
 
 } // namespace onnx_mlir

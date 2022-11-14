@@ -50,6 +50,15 @@ const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
 
+// Return the vendor name if specified during make processing or the default.
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
+
 llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
@@ -651,6 +660,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.allowSorting = allowSorting;
     options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
@@ -666,6 +676,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
@@ -817,8 +828,9 @@ static std::string getDataLayout(const Location &loc) {
   const std::string targetCpu = getTargetCpu();
   const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
   llvm::TargetOptions ops;
-  llvm::TargetMachine *targetMachine = LLVMTarget.createTargetMachine(
-      targetTriple, targetCpu, "" /*features*/, ops, None);
+  auto targetMachine =
+      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
+          targetTriple, targetCpu, "" /*features*/, ops, None)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;

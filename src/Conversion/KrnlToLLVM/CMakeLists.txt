@@ -23,6 +23,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   Accelerator
   OMSupport
   MLIRAffineToStandard
+  MLIRArithTransforms
   MLIRFuncDialect
   MLIRFuncToLLVM
   MLIRFuncTransforms

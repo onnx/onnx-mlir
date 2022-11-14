@@ -28,7 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -224,9 +224,22 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   ONNXConvOpShapeHelper shapeHelper(&op);
   assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
-  return (shapeHelper.pads.size() == 4) &&
-         (llvm::all_of(
-             shapeHelper.pads, [](IndexExpr val) { return val.isLiteral(); }));
+  RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  // dimension of inferenced pads should be 4D
+  if (shapeHelper.pads.size() != 4)
+    return false;
+  // all dimensions of pad should be literal
+  if (llvm::any_of(
+          shapeHelper.pads, [](IndexExpr val) { return !val.isLiteral(); }))
+    return false;
+  // auto_pad should not be "VALID"
+  if (op.auto_pad().equals_insensitive("VALID"))
+    return false;
+  // image dimensions of input shape should be static
+  if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
+    return false;
+  return true;
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
@@ -407,7 +420,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, execNodesOnCpu);
+      &target, nullptr, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be

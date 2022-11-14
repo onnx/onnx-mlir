@@ -46,7 +46,7 @@ bool areProducedByUnstickOp(
     // Only support LAYOUT_4D and LAYOUT_NHWC at this moment. They have the
     // same stickification scheme.
     Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
-    StringAttr valueLayout = convertDataLayoutToStringAttr(
+    StringAttr valueLayout = convertZTensorDataLayoutToStringAttr(
         rewriter, getZTensorLayout(stickifiedVal.getType()));
     return (valueLayout == layout);
   });
@@ -130,7 +130,6 @@ void ZHighStickOp::getCanonicalizationPatterns(
 void ZHighUnstickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<UnstickStickRemovalPattern>(context);
-  results.insert<SigmoidLayoutChangingPattern>(context);
 }
 
 } // namespace zhigh

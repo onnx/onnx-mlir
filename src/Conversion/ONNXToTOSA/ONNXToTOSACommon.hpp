@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/Dialect/Quant/QuantTypes.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
@@ -22,23 +24,23 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
-namespace mlir {
+namespace onnx_mlir {
 namespace tosa {
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
-llvm::Optional<mlir::Value> convertReduceMeanOp(PatternRewriter &rewriter,
-    Operation *op, RankedTensorType output_type, Value input_value,
-    ElementsAttr axes_elems, bool keep_dims);
+llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::RankedTensorType output_type,
+    mlir::Value input_value, mlir::ElementsAttr axes_elems, bool keep_dims);
 
 } // namespace tosa
-} // namespace mlir
+} // namespace onnx_mlir
 
 namespace onnx_mlir {
 

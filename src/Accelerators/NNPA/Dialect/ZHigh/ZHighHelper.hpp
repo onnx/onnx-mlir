@@ -23,14 +23,14 @@ namespace zhigh {
 bool hasRankedType(mlir::Value val);
 
 /// Get a ztensor data layout by StringAttr.
-ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
+ZTensorEncodingAttr::DataLayout convertStringAttrToZTensorDataLayout(
     mlir::StringAttr layoutAttr);
 
 /// Get a ztensor data layout by rank.
-ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank);
+ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank);
 
 /// Convert a data layout to StringAttr.
-mlir::StringAttr convertDataLayoutToStringAttr(
+mlir::StringAttr convertZTensorDataLayoutToStringAttr(
     mlir::OpBuilder &builder, ZTensorEncodingAttr::DataLayout layout);
 
 //===----------------------------------------------------------------------===//
@@ -46,7 +46,11 @@ ZTensorEncodingAttr getZTensorEncoding(mlir::Type type);
 /// Get the layout of a ztensor.
 ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 
-/// Get the layout of a ztensor.
+/// Get the layout attribute of a ztensor.
+mlir::StringAttr getZTensorLayoutAttr(
+    mlir::OpBuilder &builder, mlir::Type type);
+
+/// Get a minus value.
 mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
     mlir::FloatAttr floatAttr, mlir::Value input);
 

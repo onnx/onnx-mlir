@@ -35,8 +35,7 @@ public:
   LogicalResult matchAndRewrite(ONNXReshapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto outputType =
-        op.getResult().getType().dyn_cast<TensorType>();
+    auto outputType = op.getResult().getType().dyn_cast<TensorType>();
 
     if (!outputType) {
       return rewriter.notifyMatchFailure(op, "not a ranked tensor");
@@ -46,13 +45,12 @@ public:
       return rewriter.notifyMatchFailure(op, "only allowZero = 0 is supported");
     }
 
-    if (!adaptor.shape().getDefiningOp<tosa::ConstOp>()) {
+    if (!adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
           op, "only tosa.const operands are supported");
     }
-    Value shapeConst = adaptor.shape().getDefiningOp<tosa::ConstOp>();
-    auto shapeConstAttr =
-        tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
+    Value shapeConst = adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>();
+    auto shapeConstAttr = tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
     for (APInt i : shapeConstAttr.getValues<APInt>()) {
       if (i.getZExtValue() == 0) {
         return rewriter.notifyMatchFailure(op, "zero shape not allowed");
@@ -65,7 +63,7 @@ public:
     }
     ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(shapeValues);
 
-    tosa::CreateReplaceOpAndInfer<tosa::ReshapeOp>(
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(
         rewriter, op, outputType, adaptor.data(), shapeAttr);
     return success();
   }

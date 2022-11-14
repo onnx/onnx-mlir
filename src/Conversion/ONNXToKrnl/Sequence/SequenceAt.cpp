@@ -13,7 +13,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -42,9 +42,10 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
     IndexExpr condIE = positionIE < 0;
     IndexExpr fixedPosition = positionIE + boundIE;
     positionIE = IndexExpr::select(condIE, fixedPosition, positionIE);
+    Value positionVal = positionIE.getValue();
 
     Value outputVal = rewriter.create<KrnlSeqExtractOp>(loc, outputMemRefType,
-        input_sequence, positionIE.getValue(),
+        input_sequence, positionVal,
         IntegerAttr::get(rewriter.getIntegerType(1, false), 1));
 
     rewriter.replaceOp(op, outputVal);

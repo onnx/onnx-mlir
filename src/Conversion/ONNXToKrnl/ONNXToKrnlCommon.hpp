@@ -37,7 +37,7 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
@@ -126,6 +126,10 @@ void defineLoops(mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
 /// output of the dim op.
 mlir::Value getDimOrConstant(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value operand, int64_t axis, mlir::Type type);
+
+//===----------------------------------------------------------------------===//
+// Fold and emit support.
+//===----------------------------------------------------------------------===//
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
@@ -393,6 +397,8 @@ void populateLoweringONNXCompressOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXLayoutTransformOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 
@@ -425,5 +431,11 @@ mlir::Location ONNXLoc(mlir::Operation *op) {
 mlir::Value getOptionalScalarValue(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value optionalScalar, mlir::Type elementType,
     double defaultValue);
+
+//===----------------------------------------------------------------------===//
+// Support functions for help with custom layout.
+//===----------------------------------------------------------------------===//
+
+mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
 
 } // namespace onnx_mlir

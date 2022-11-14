@@ -33,7 +33,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -76,10 +75,11 @@ void addONNXToZHighPasses(
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
-  // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
-  if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
-        instrumentONNXOps, instrumentControlBits.getBits()));
+  // Insert an instrumentation before lowering onnx to zhigh to get onnx level
+  // profiling.
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-zhigh",
+          instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -118,10 +118,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
+  // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
+  //       the CPU specific transformations.
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty());
+        /*target CPU*/ false, enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
@@ -131,8 +133,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Add instrumentation for ZHigh Ops
-      pm.addNestedPass<func::FuncOp>(zhigh::createInstrumentZHighPass());
+      // Insert an instrumentation before lowering onnx to krnl to get profiling
+      // for onnx and zhigh ops.
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-krnl",
+              instrumentOps, instrumentControlBits.getBits()));
+
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
@@ -164,6 +170,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
+      // Insert an instrumentation before lowering krnl to llvm to get profiling
+      // for zlow ops
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createInstrumentPass("nnpa-before-krnl-to-llvm",
+              instrumentOps, instrumentControlBits.getBits()));
     }
   }
 

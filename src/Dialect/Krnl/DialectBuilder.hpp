@@ -40,6 +40,9 @@ struct KrnlBuilder : public DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 
+  void seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const;
+  void seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const;
+
   mlir::Value vectorTypeCast(mlir::Value sourceMemref, int64_t vectorLen) const;
 
   mlir::ValueRange defineLoops(int64_t originalLoopNum) const;

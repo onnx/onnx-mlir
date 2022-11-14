@@ -28,7 +28,7 @@ bool hasRankedType(Value val) {
 }
 
 /// Get a ztensor data layout by StringAttr.
-ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
+ZTensorEncodingAttr::DataLayout convertStringAttrToZTensorDataLayout(
     StringAttr layoutAttr) {
   if (layoutAttr) {
     StringRef layoutStr = layoutAttr.getValue();
@@ -67,7 +67,7 @@ ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
 }
 
 /// Get a ztensor data layout by rank.
-ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank) {
+ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank) {
   if (rank == 1)
     return ZTensorEncodingAttr::DataLayout::_1D;
   else if (rank == 2)
@@ -82,7 +82,7 @@ ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank) {
 }
 
 /// Convert a data layout to StringAttr.
-StringAttr convertDataLayoutToStringAttr(
+StringAttr convertZTensorDataLayoutToStringAttr(
     OpBuilder &builder, ZTensorEncodingAttr::DataLayout layout) {
   StringAttr attr;
   switch (layout) {
@@ -155,6 +155,16 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
     return encoding.getDataLayout();
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
+
+StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
+  ZTensorEncodingAttr::DataLayout layout = getZTensorLayout(type);
+  if (layout != ZTensorEncodingAttr::DataLayout::UNDEFINED)
+    return convertZTensorDataLayoutToStringAttr(builder, layout);
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// Utility functions.
 
 Value getMinusBcastConst(
     mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {

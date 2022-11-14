@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Value.h"
 
@@ -49,6 +51,9 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXDimOp
   mlir::Value dim(mlir::Value input, int axis) const;
+
+  // ONNXDimGroupOp
+  void dimGroup(mlir::Value input, int axis, int groupID) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(

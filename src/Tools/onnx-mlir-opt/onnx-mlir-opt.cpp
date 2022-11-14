@@ -32,6 +32,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
@@ -171,7 +172,7 @@ int main(int argc, char **argv) {
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
-          "ONNX-MLIR modular optimizer driver\n", &llvm::errs(),
+          getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
@@ -192,7 +193,13 @@ int main(int argc, char **argv) {
   }
 
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
-      registry, split_input_file, verify_diagnostics, verify_passes,
-      allowUnregisteredDialects, /*preloadDialectsInContext*/ true));
+  if (failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
+          registry, split_input_file, verify_diagnostics, verify_passes,
+          allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
+          /*emitBytecode*/ false, /*implicitModule*/ true))) {
+    return mlir::asMainReturnCode(failure());
+  }
+
+  output->keep();
+  return mlir::asMainReturnCode(success());
 }

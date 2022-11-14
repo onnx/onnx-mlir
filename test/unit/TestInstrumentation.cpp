@@ -7,17 +7,22 @@
 #include <thread>
 
 int main(int argc, char *argv[]) {
-  const char opstart[8] = "TOpStar";
-  const char op2[8]     = "TOp2";
-  const char op3[8]     = "TOp3";
-  const char op4[8]     = "TOp4";
-  const char opfinal[8] = "TOpFin";
+  const std::string opstart = "TDStar.TOpStar";
+  const std::string op2 = "TD2.TOp2";
+  const std::string op3 = "TD3.TOp3";
+  const std::string op4 = "TD4.TOp4";
+  const std::string opfinal = "TDFin.TOpFin";
+  const std::string nodeStart = "NodeSta";
+  const std::string nodeOp2 = "Node2";
+  const std::string nodeOp3 = "Node3";
+  const std::string nodeOp4 = "Node4";
+  const std::string nodeOpfinal = "NodeFin";
   OMInstrumentInit();
-  OMInstrumentPoint(*(const int64_t*)opstart, 13);
-  OMInstrumentPoint(*(const int64_t*)op2, 1);
-  OMInstrumentPoint(*(const int64_t*)op3, 4);
-  OMInstrumentPoint(*(const int64_t*)op4, 9);
+  OMInstrumentPoint(opstart.c_str(), 13, nodeStart.c_str());
+  OMInstrumentPoint(op2.c_str(), 1, nodeOp2.c_str());
+  OMInstrumentPoint(op3.c_str(), 4, nodeOp3.c_str());
+  OMInstrumentPoint(op4.c_str(), 9, nodeOp4.c_str());
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  OMInstrumentPoint(*(const int64_t*)opfinal, 12);
+  OMInstrumentPoint(opfinal.c_str(), 12, nodeOpfinal.c_str());
   return 0;
 }

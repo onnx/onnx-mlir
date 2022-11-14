@@ -31,21 +31,25 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto valueAttr = adaptor.value();
     auto sparseAttr = adaptor.sparse_value();
-    // Only one of the attributes can be present and one must be present. If sparse is there,
-    // value is not present. Currently sparse doesn't seem to be supported by TOSA.
+    // Only one of the attributes can be present and one must be present. If
+    // sparse is there, value is not present. Currently sparse doesn't seem to
+    // be supported by TOSA.
     if (sparseAttr.has_value()) {
-      return rewriter.notifyMatchFailure(op, "tosa.const does not support sparse value");
+      return rewriter.notifyMatchFailure(
+          op, "tosa.const does not support sparse value");
     }
     ::mlir::Attribute currentAttr = valueAttr.value();
-    mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    mlir::Type resultType =
+        getTypeConverter()->convertType(op.getResult().getType());
     if (!currentAttr.isa<ElementsAttr>()) {
-      return rewriter.notifyMatchFailure(op, "tosa.const does not support non-tensor types");
+      return rewriter.notifyMatchFailure(
+          op, "tosa.const does not support non-tensor types");
     }
-    rewriter.replaceOpWithNewOp<tosa::ConstOp>(op, resultType, currentAttr);
+    rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
+        op, resultType, currentAttr);
     return success();
   }
 };
-
 
 } // namespace
 
