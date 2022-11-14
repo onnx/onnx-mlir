@@ -374,13 +374,11 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   size_t iterationOffset =
       splitAxis == 0 ? numElements : strides[splitAxis - 1];
   size_t iterations = numElements / iterationOffset;
-  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
   std::vector<Value> resValues;
   for (unsigned int i = 0; i < numOfResults; ++i) {
     Value replacingValue = splitOp.getResults()[i];
-    ElementsAttr splitElements = elementsBuilder.fromRawBytes(
-        replacingValue.getType(), bufferDType, [&](MutableArrayRef<char> dst) {
-          MutableArrayRef<WideNum> dstNums = castMutableArrayRef<WideNum>(dst);
+    ElementsAttr splitElements = elementsBuilder.fromWideNums(
+        replacingValue.getType(), [&](MutableArrayRef<WideNum> dstNums) {
           auto dstIterator = dstNums.begin();
           size_t start = splitOffsets[i];
           size_t stop = i == numOfResults - 1 ? inputShape[splitAxis]
@@ -522,11 +520,9 @@ public:
         elementsBuilder, scatterNdOp.indices());
     DisposableElementsAttr updatesElements = getConstValueAsDisposableElements(
         elementsBuilder, scatterNdOp.updates());
-    DType bufferDType = wideDTypeOfDType(dataElements.getDType());
-    ElementsAttr scatteredElements = elementsBuilder.fromRawBytes(
-        dataElements.getType(), bufferDType, [&](MutableArrayRef<char> dst) {
-          ScatterNDImpl(dataElements, indicesElements, updatesElements,
-              castMutableArrayRef<WideNum>(dst));
+    ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
+        dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
+          ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
         });
     ONNXConstantOp constOp = createReplacingConstantOp(
         rewriter, scatterNdOp.data(), scatteredElements);
@@ -598,11 +594,9 @@ Value ConstPropSlice(
   DisposableElementsAttr inputElements =
       getConstValueAsDisposableElements(elementsBuilder, constValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
-  ElementsAttr slicedElements = elementsBuilder.fromRawBytes(
-      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
-        ConstPropSliceImpl(outputType, shapeHelper, inputElements,
-            castMutableArrayRef<WideNum>(dst));
+  ElementsAttr slicedElements = elementsBuilder.fromWideNums(
+      outputType, [&](MutableArrayRef<WideNum> dst) {
+        ConstPropSliceImpl(outputType, shapeHelper, inputElements, dst);
       });
   return createReplacingConstantOp(rewriter, replacingValue, slicedElements)
       .getResult();
@@ -659,12 +653,9 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   for (Value input : operands)
     inputElements.push_back(
         getConstValueAsDisposableElements(elementsBuilder, input));
-  DType dtype = dtypeOfMlirType(outputType.getElementType());
-  DType bufferDType = wideDTypeOfDType(dtype);
-  ElementsAttr concatenatedElements = elementsBuilder.fromRawBytes(
-      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
-        ConstPropConcatImpl(
-            outputType, inputElements, axis, castMutableArrayRef<WideNum>(dst));
+  ElementsAttr concatenatedElements = elementsBuilder.fromWideNums(
+      outputType, [&](MutableArrayRef<WideNum> dst) {
+        ConstPropConcatImpl(outputType, inputElements, axis, dst);
       });
   return createReplacingConstantOp(
       rewriter, replacingValue, concatenatedElements)
@@ -754,11 +745,10 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   DisposableElementsAttr indicesElements =
       getConstValueAsDisposableElements(elementsBuilder, indicesValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  DType bufferDType = wideDTypeOfDType(inputElements.getDType());
-  ElementsAttr gatheredElements = elementsBuilder.fromRawBytes(
-      outputType, bufferDType, [&](MutableArrayRef<char> dst) {
-        ConstPropGatherImpl(outputType, inputElements, indicesElements, axis,
-            castMutableArrayRef<WideNum>(dst));
+  ElementsAttr gatheredElements = elementsBuilder.fromWideNums(
+      outputType, [&](MutableArrayRef<WideNum> dst) {
+        ConstPropGatherImpl(
+            outputType, inputElements, indicesElements, axis, dst);
       });
   return createReplacingConstantOp(rewriter, replacingValue, gatheredElements)
       .getResult();

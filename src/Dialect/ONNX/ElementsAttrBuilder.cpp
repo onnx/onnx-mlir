@@ -112,6 +112,22 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   return create(type, std::move(writeBuffer), None, bufferDType);
 }
 
+mlir::DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
+    mlir::ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy) {
+  DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
+  return fromRawBytes(
+      type, bufferDType, castArrayRef<char>(wideData), mustCopy);
+}
+
+mlir::DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
+    mlir::ShapedType type, const Filler<WideNum> &wideDataFiller) {
+  DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
+  return fromRawBytes(
+      type, bufferDType, [&wideDataFiller](llvm::MutableArrayRef<char> bytes) {
+        wideDataFiller(castMutableArrayRef<WideNum>(bytes));
+      });
+}
+
 mlir::DisposableElementsAttr ElementsAttrBuilder::transform(
     mlir::DisposableElementsAttr elms, Type transformedElementType,
     Transformer transformer) {

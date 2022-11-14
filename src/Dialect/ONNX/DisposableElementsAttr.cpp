@@ -191,7 +191,8 @@ void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
   }
   ArrayBuffer<WideNum> src = getBufferAsWideNums();
   restrideArray(sizeof(WideNum), getShape(),
-      {getStrides(), castArrayRef<char>(src.get())}, castMutableArrayRef<char>(dst));
+      {getStrides(), castArrayRef<char>(src.get())},
+      castMutableArrayRef<char>(dst));
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
@@ -327,15 +328,12 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   //       reader) when getNumBufferElements() == getNumElements(), i.e.
   //       strides have no zeros.
 
-  ArrayBuffer<WideNum> wideSrc = getBufferAsWideNums();
-  ArrayRef<char> src(castArrayRef<char>(wideSrc.get()));
+  ArrayBuffer<WideNum> src = getBufferAsWideNums();
   auto newStrides = getDefaultStrides(transposedShape);
   auto reverseStrides = untransposeDims(newStrides, perm);
-  DType bufferDType = wideDTypeOfDType(getDType());
-  return elmsBuilder.fromRawBytes(
-      transposedType, bufferDType, [&](MutableArrayRef<char> dst) {
-        restrideArray(
-            sizeof(WideNum), shape, {strides, src}, {reverseStrides, dst});
+  return elmsBuilder.fromWideNums(
+      transposedType, [&](MutableArrayRef<WideNum> dst) {
+        restrideArray<WideNum>(shape, {strides, src.get()}, {reverseStrides, dst});
       });
 }
 
@@ -357,10 +355,9 @@ DisposableElementsAttr DisposableElementsAttr::reshape(
   //       reader) when getNumBufferElements() == getNumElements(), i.e.
   //       strides have no zeros.
 
-  DType reshapedBufferDType = wideDTypeOfDType(getDType());
-  return elmsBuilder.fromRawBytes(
-      reshapedType, reshapedBufferDType, [this](MutableArrayRef<char> bytes) {
-        this->readElements(castMutableArrayRef<WideNum>(bytes));
+  return elmsBuilder.fromWideNums(
+      reshapedType, [this](MutableArrayRef<WideNum> wideData) {
+        this->readElements(wideData);
       });
 }
 

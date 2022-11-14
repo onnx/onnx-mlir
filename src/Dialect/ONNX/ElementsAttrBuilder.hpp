@@ -44,6 +44,12 @@ public:
   mlir::DisposableElementsAttr fromRawBytes(mlir::ShapedType type,
       DType bufferDType, const Filler<char> &bytesFiller);
 
+  mlir::DisposableElementsAttr fromWideNums(
+      mlir::ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy);
+
+  mlir::DisposableElementsAttr fromWideNums(
+      mlir::ShapedType type, const Filler<WideNum> &wideDataFiller);
+
   template <typename T>
   mlir::DisposableElementsAttr fromArray(
       mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy);
@@ -108,7 +114,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
     mlir::ShapedType type, const Filler<T> &typedFiller) {
   return fromRawBytes(
       type, toDType<T>, [&typedFiller](llvm::MutableArrayRef<char> bytes) {
-        typedFiller(castArrayRef<T>(bytes));
+        typedFiller(castMutableArrayRef<T>(bytes));
       });
 }
 
@@ -149,12 +155,9 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
   auto rhsStrides = expandStrides(rhs.getStrides(), shape);
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
   Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
-  DType dtype = dtypeOfMlirType(combinedType.getElementType());
-  DType bufferDType = wideDTypeOfDType(dtype);
-  return fromRawBytes(
-      combinedType, bufferDType, [&](llvm::MutableArrayRef<char> dst) {
+  return fromWideNums(
+      combinedType, [&](llvm::MutableArrayRef<WideNum> dstNums) {
         auto dstStrides = getDefaultStrides(shape);
-        auto dstNums = castMutableArrayRef<WideNum>(dst);
         Strided<llvm::MutableArrayRef<WideNum>> dstStrided{dstStrides, dstNums};
         transformAndRestrideTwoWideArrays(
             shape, lhsStrided, rhsStrided, dstStrided, combiner);
