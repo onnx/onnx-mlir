@@ -41,7 +41,7 @@ struct DialectBuilder {
 //protected:
 private:
   mlir::OpBuilder *b;
-protected:
+//protected:
   mlir::Location loc;
 };
 

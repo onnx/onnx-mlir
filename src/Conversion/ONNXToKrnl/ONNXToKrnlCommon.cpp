@@ -31,7 +31,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  MultiDialectBuilder<OnnxBuilder> create(bbbb(), loc);
+  MultiDialectBuilder<OnnxBuilder> create(bbbb(), llll());
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -42,7 +42,7 @@ Value OnnxToKrnlBuilder::reshape(
       shape.push_back(dim.getLiteral());
 
     auto constantOp =
-        createONNXConstantOpWithDenseAttr(bbbb(), loc, bbbb().getI64TensorAttr(shape));
+        createONNXConstantOpWithDenseAttr(bbbb(), llll(), bbbb().getI64TensorAttr(shape));
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -51,7 +51,7 @@ Value OnnxToKrnlBuilder::reshape(
   }
 
 // hi alex: use multi
-  MemRefBuilder memRefBuilder(bbbb(), loc);
+  MemRefBuilder memRefBuilder(bbbb(), llll());
   KrnlBuilder krnlBuilder(memRefBuilder);
   MathBuilder createMath(memRefBuilder);
 
@@ -93,7 +93,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
          "Expecting valid permutation array");
-  MultiDialectBuilder<OnnxBuilder> create(bbbb(), loc);
+  MultiDialectBuilder<OnnxBuilder> create(bbbb(), llll());
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
