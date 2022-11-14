@@ -68,8 +68,9 @@ public:
 
     Value dtype = rewriter.create<ConstantNoneOp>(loc);
     Type resultType = typeConverter->convertType(op.getResult().getType());
-    rewriter.replaceOpWithNewOp<Torch::AtenMeanDimOp>(
+    auto newOp = rewriter.replaceOpWithNewOp<Torch::AtenMeanDimOp>(
         op, resultType, adaptor.data(), axisList, keepDimsVal, dtype);
+    setLayerNameAttr(op, newOp);
     return success();
   }
 };

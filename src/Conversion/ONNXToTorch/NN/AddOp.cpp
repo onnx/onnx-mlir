@@ -63,9 +63,9 @@ struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenAddTensorOp>(
         loc, resultType, aTensor, bTensor, alphaDefaultValue);
-
+    setLayerNameAttr(op, result.getDefiningOp());
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, resultType, result);
+            op, resultType, result);
     return success();
   }
 };

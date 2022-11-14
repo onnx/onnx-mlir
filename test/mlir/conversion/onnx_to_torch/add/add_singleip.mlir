@@ -5,7 +5,7 @@ module {
 //CHECK-DAG: [[ALPHA:%.]] = torch.vtensor.literal(dense<1.000000e+01> : tensor<f32>) : !torch.vtensor<[],f32>
 //CHECK-DAG: %int[[OUT:.]] = torch.constant.int 1 
 %1 = "onnx.Add"(%arg0, %0) {onnx_node_name = "Add_1"} : (tensor<5xf32>, tensor<f32>) -> tensor<5xf32>
-//CHECK: torch.aten.add.Tensor %arg0, [[ALPHA:%.]], %int[[OUT:.]] : !torch.vtensor<[5],f32>, !torch.vtensor<[],f32>, !torch.int -> !torch.vtensor<[5],f32>
+//CHECK: torch.aten.add.Tensor %arg0, [[ALPHA:%.]], %int[[OUT:.]] {layer_name = "Add_1"} : !torch.vtensor<[5],f32>, !torch.vtensor<[],f32>, !torch.int -> !torch.vtensor<[5],f32>
     return %1 : tensor<5xf32>
   }
 }

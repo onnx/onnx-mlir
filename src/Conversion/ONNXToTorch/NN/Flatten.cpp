@@ -13,6 +13,7 @@
 //
 //===-------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
 using namespace mlir;
@@ -28,8 +29,10 @@ static Value createAtenFlattenOp(ConversionPatternRewriter &rewriter,
       rewriter.create<Torch::ConstantIntOp>(loc, startDimInt);
   IntegerAttr endDimInt = IntegerAttr::get(ty, (end_dim));
   Value endDimConstInt = rewriter.create<Torch::ConstantIntOp>(loc, endDimInt);
-  return rewriter.create<Torch::AtenFlattenUsingIntsOp>(
+  auto newOp = rewriter.create<Torch::AtenFlattenUsingIntsOp>(
       loc, resultType, result, startDimConstInt, endDimConstInt);
+  setLayerNameAttr(op, newOp);
+  return newOp;
 }
 
 // Flattens input by reshaping it into a one-dimensional tensor.
@@ -113,7 +116,7 @@ public:
     //  1) flatten the region from 0 position to axis - 1.
     //  2) Since all dimensions before `axis` have already been
     //     condensed into a single one (dim 0),
-    //     we set start=1, and end as the size. 
+    //     we set start=1, and end as the size.
     /********************************************************************/
 
     if (axisValue > 1) {
@@ -133,14 +136,15 @@ public:
       // 1) Flatten the region from 0 position to axis - 1.
       tmpValue = createAtenFlattenOp(rewriter, loc, inputValue, intermType,
           /*start=*/0, /*start=*/axisValue - 1, op);
-      
     }
 
     // 2) Flatten the region from start=1 to the end
     Value flattenedInput;
     if (!tmpValue || inputTensorType.getRank() - axisValue >= 2) {
-      int highBound = axisValue > 1 ? inputTensorType.getRank() - axisValue : inputTensorType.getRank() - 1;
-      flattenedInput = createAtenFlattenOp(rewriter, loc, tmpValue ? tmpValue : inputValue, resultType,
+      int highBound = axisValue > 1 ? inputTensorType.getRank() - axisValue
+                                    : inputTensorType.getRank() - 1;
+      flattenedInput = createAtenFlattenOp(rewriter, loc,
+          tmpValue ? tmpValue : inputValue, resultType,
           /*start=*/1, /*end=*/highBound, op);
     }
     rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
