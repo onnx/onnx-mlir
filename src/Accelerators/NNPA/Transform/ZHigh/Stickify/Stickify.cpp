@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <errno.h>
 #include <fenv.h>
 #include <stdarg.h>
 #include <stdbool.h>
