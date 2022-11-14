@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "src/Support/Arrays.hpp"
 #include "src/Support/WideNum.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -68,16 +69,24 @@ void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<char>> src,
     Strided<llvm::MutableArrayRef<char>> dst);
 
-// Strides dstData by shape's default strides.
-void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
-
 template <typename T>
 void restrideArray(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<T>> src, Strided<llvm::MutableArrayRef<T>> dst) {
   return restrideArray(sizeof(T), shape,
       {src.strides, castArrayRef<char>(src.data)},
       {dst.strides, castMutableArrayRef<char>(dst.data)});
+}
+
+// Strides dstData by shape's default strides.
+void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
+    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
+
+template <typename T>
+void restrideArray(llvm::ArrayRef<int64_t> shape,
+    Strided<llvm::ArrayRef<T>> src, llvm::MutableArrayRef<T> dstData) {
+  return restrideArray(sizeof(T), shape,
+      {src.strides, castArrayRef<char>(src.data)},
+      castMutableArrayRef<char>(dstData));
 }
 
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>

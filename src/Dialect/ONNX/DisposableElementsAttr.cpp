@@ -190,9 +190,7 @@ void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
     return;
   }
   ArrayBuffer<WideNum> src = getBufferAsWideNums();
-  restrideArray(sizeof(WideNum), getShape(),
-      {getStrides(), castArrayRef<char>(src.get())},
-      castMutableArrayRef<char>(dst));
+  restrideArray<WideNum>(getShape(), {getStrides(), src.get()}, dst);
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
@@ -331,10 +329,10 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   ArrayBuffer<WideNum> src = getBufferAsWideNums();
   auto newStrides = getDefaultStrides(transposedShape);
   auto reverseStrides = untransposeDims(newStrides, perm);
-  return elmsBuilder.fromWideNums(
-      transposedType, [&](MutableArrayRef<WideNum> dst) {
-        restrideArray<WideNum>(shape, {strides, src.get()}, {reverseStrides, dst});
-      });
+  return elmsBuilder.fromWideNums(transposedType, [&](MutableArrayRef<WideNum>
+                                                          dst) {
+    restrideArray<WideNum>(shape, {strides, src.get()}, {reverseStrides, dst});
+  });
 }
 
 DisposableElementsAttr DisposableElementsAttr::reshape(
