@@ -145,6 +145,9 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
+  // After affine is lowered, KrnlRegion for affine scope can be removed.
+  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+
   // Hoist allocations out of loop nests to avoid stack overflow.
   pm.addPass(bufferization::createBufferLoopHoistingPass());
 
@@ -161,7 +164,6 @@ void addKrnlToLLVMPasses(
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
   pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
