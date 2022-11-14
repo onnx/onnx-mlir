@@ -184,7 +184,7 @@ auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
   return readBufferPos(0);
 }
 
-void DisposableElementsAttr::readElements(MutableArrayRef<WideNum> dst) const {
+void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
   if (isContiguous()) {
     getReader()(getBufferString(), dst);
     return;
@@ -201,7 +201,7 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
   }
   ArrayBuffer<WideNum>::Vector wideData;
   wideData.resize_for_overwrite(getNumElements());
-  readElements(wideData);
+  readWideNums(wideData);
   return std::move(wideData);
 }
 
@@ -219,11 +219,11 @@ ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
     auto src = getBufferBytes();
     restrideArray(attrBytewidth, getShape(), {getStrides(), src}, bytes);
   } else if (attrBytewidth == sizeof(WideNum)) {
-    readElements(castMutableArrayRef<WideNum>(bytes));
+    readWideNums(castMutableArrayRef<WideNum>(bytes));
   } else {
     SmallVector<WideNum, 1> wideData;
     wideData.resize_for_overwrite(getNumElements());
-    readElements(wideData);
+    readWideNums(wideData);
     narrowArray(getElementType(), wideData, bytes);
   }
   return std::move(vec);
@@ -355,7 +355,7 @@ DisposableElementsAttr DisposableElementsAttr::reshape(
 
   return elmsBuilder.fromWideNums(
       reshapedType, [this](MutableArrayRef<WideNum> wideData) {
-        this->readElements(wideData);
+        this->readWideNums(wideData);
       });
 }
 

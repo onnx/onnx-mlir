@@ -190,7 +190,7 @@ public:
   // element and, furthermore, performs a slow calculation from flat index to
   // buffer position if the underlying buffer is not contiguous, namely when its
   // strides are not the default strides for the type shape. It's more efficient
-  // to copy out data in bulk with readElements().
+  // to copy out data in bulk with readWideNums().
   //===----------------------------------------------------------------------===//
 private:
   using IndexIterator = llvm::iota_range<size_t>::const_iterator;
@@ -232,7 +232,7 @@ private:
   ArrayRef<char> getBufferBytes() const;
 
   // Warning: this is somewhat inefficient because it invokes getReader().
-  // It's more efficient to copy out data in bulk with readElements().
+  // It's more efficient to copy out data in bulk with readWideNums().
   WideNum readBufferPos(size_t pos) const;
 
   // Warning: this is inefficient unless isContiguous() or isSplat().
@@ -250,7 +250,7 @@ public:
   X getSplatValue() const;
 
   // Copies out the elements in a flat array in row-major order.
-  void readElements(MutableArrayRef<WideNum> dst) const;
+  void readWideNums(MutableArrayRef<WideNum> dst) const;
 
   // Returns a pointer to the underlying data, if everything aligns,
   // otherwise makes and returns a copy.

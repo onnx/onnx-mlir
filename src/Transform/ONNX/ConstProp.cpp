@@ -447,7 +447,7 @@ void ScatterNDImpl(DisposableElementsAttr dataElements,
     DisposableElementsAttr indicesElements,
     DisposableElementsAttr updatesElements,
     MutableArrayRef<WideNum> output_data) {
-  dataElements.readElements(output_data);
+  dataElements.readWideNums(output_data);
   ArrayBuffer<char> indices_bytes = indicesElements.getRawBytes();
   assert(indicesElements.getDType() == DType::INT64);
   ArrayRef<int64_t> indices_data = castArrayRef<int64_t>(indices_bytes.get());
