@@ -8,7 +8,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -31,7 +31,7 @@ ZHigh 2D average pooling operation
 
 ZHigh operation to perform 2D average pooling.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -61,7 +61,7 @@ ZHigh batchnorm operation
 
 ZHigh operation to perform batchnorm.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -88,7 +88,7 @@ have the same shape, except for the dimension size of the axis
 to concatenate on. Users must ensure that it is safe to concatenate
 stickified tensors for the given axis.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -124,7 +124,7 @@ ZHigh operation to perform 2D convolution.
 * act_func: ACT_NONE or ACT_RELU 
 * output: `[num_batches, height_out, width_out, channels_out]`
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -160,7 +160,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -185,7 +185,7 @@ ZHigh operation to perform a Exp.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -218,7 +218,7 @@ ZHigh GRU operation
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep."
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -265,7 +265,7 @@ zHigh operation to perform a LSTM.
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -304,7 +304,7 @@ ZHigh operation to perform a Log.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -326,7 +326,7 @@ ZHigh MatMul operation
 
 ZHigh operation to perform a MatMul.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -353,7 +353,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -376,7 +376,7 @@ ZHigh 2D max pooling operation
 
 ZHigh operation to perform 2D max pooling.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -409,7 +409,7 @@ returns a downsampled tensor reducing the middle 2nd and 3rd dimensions
 to a size of 1 based on the mean of the original values.
  Input and Output tensors should be in the 3D layout.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -434,7 +434,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -460,7 +460,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -485,7 +485,7 @@ ZHigh Relu operation
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -509,7 +509,7 @@ ZHigh operation to perform a Sigmoid.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -534,7 +534,7 @@ act_func: ACT_NONE or ACT_LOG.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -565,7 +565,7 @@ Variadic: list of pointers for input data to be transformed:
   - GRU concatenated: 3 data pointers, one for each input gate in
 (Z)update, Reset, Hidden, (ZRH) gate order
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -592,7 +592,7 @@ Variadic: list of pointers for input data to be transformed:
   - LSTM concatenated: 4 data pointers, one for each input gate in 
 Forget, Input, Cell, Output (FICO) order, 
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -618,7 +618,7 @@ ZHigh Stick operation
 ZHigh operation to perform a Stick."
 If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -649,7 +649,7 @@ Stickified data is opaque and must be 4K-aligned. One who produces
 the stickified data must make sure its size in bytes consistent with
 the output tensor's size.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: Pure (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -675,7 +675,7 @@ This operation does not support broadcasting.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -700,7 +700,7 @@ ZHigh operation to perform a Tanh.
 
 Traits: SameOperandsAndResultLayout
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -722,7 +722,7 @@ ZHigh Unstick operation
 
 ZHigh operation to perform a Unstick.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 

@@ -67,10 +67,10 @@ func.func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
   %0 = "zhigh.MaxPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 - 1)>
 // CHECK-LABEL:  func @maxpool_valid_padding_unknown_dims
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x?x?x?xf16, #map0>) -> memref<1x?x?x?xf16, #map0> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x?x?x?xf16, #map>) -> memref<1x?x?x?xf16, #map> {
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -79,14 +79,14 @@ func.func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x?x?xf16, #map0>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_]] : memref<1x?x?x?xf16, #map0>
-// CHECK-DAG:       [[VAR_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x?x?xf16, #map0>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x?x?xf16, #map>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_]] : memref<1x?x?x?xf16, #map>
+// CHECK-DAG:       [[VAR_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x?x?xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #map1(){{.}}[[VAR_0_]]{{.}}
 // CHECK-DAG:       [[VAR_4_:%.+]] = affine.apply #map1(){{.}}[[VAR_1_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {{.*}}: memref<1x?x?x?xf16, #map0>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {{.*}}: memref<1x?x?x?xf16, #map>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<6xi64>
 // CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_7_:%.+]] = arith.index_cast [[VAR_2_]] : index to i64
@@ -99,8 +99,8 @@ func.func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_11_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map0>, memref<6xi64>, memref<1x?x?x?xf16, #map0>) -> ()
-// CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map0>
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
 
@@ -244,10 +244,10 @@ func.func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
   %0 = "zhigh.AvgPool2D"(%arg0) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 - 1)>
 // CHECK-LABEL:  func @avgpool_valid_padding_unknown_dims
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x?x?x?xf16, #map0>) -> memref<1x?x?x?xf16, #map0> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x?x?x?xf16, #map>) -> memref<1x?x?x?xf16, #map> {
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -256,14 +256,14 @@ func.func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x?x?xf16, #map0>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_]] : memref<1x?x?x?xf16, #map0>
-// CHECK-DAG:       [[VAR_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x?x?xf16, #map0>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x?x?xf16, #map>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_]] : memref<1x?x?x?xf16, #map>
+// CHECK-DAG:       [[VAR_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x?x?xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #map1(){{.}}[[VAR_0_]]{{.}}
 // CHECK-DAG:       [[VAR_4_:%.+]] = affine.apply #map1(){{.}}[[VAR_1_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {{.*}}: memref<1x?x?x?xf16, #map0>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {{.*}}: memref<1x?x?x?xf16, #map>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<6xi64>
 // CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_7_:%.+]] = arith.index_cast [[VAR_2_]] : index to i64
@@ -276,8 +276,8 @@ func.func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_11_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map0>, memref<6xi64>, memref<1x?x?x?xf16, #map0>) -> ()
-// CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map0>
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
 

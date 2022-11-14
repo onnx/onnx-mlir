@@ -10,7 +10,7 @@ func.func @test_default_maxpoolsingleout(%arg0 : tensor<5x5x32x32xf32>) -> tenso
 // CHECK-NEXT:              ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:   }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : vector<4xi64>, window_strides = dense<1> : vector<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK-NEXT{LITERAL}:   }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<1> : tensor<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
 
 
 // -----
@@ -25,7 +25,7 @@ func.func @test_default_maxpoolsingleout_defpad(%arg0 : tensor<5x5x32x32xf32>) -
 // CHECK-NEXT:              ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:   }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : vector<4xi64>, window_strides = dense<1> : vector<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK-NEXT{LITERAL}:   }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<1> : tensor<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
 
 
 // -----
@@ -40,7 +40,7 @@ func.func @test_default_maxpoolsingleout_pad(%arg0 : tensor<5x5x32x32xf32>) -> t
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : vector<4xi64>, window_strides = dense<1> : vector<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<1> : tensor<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
 
 
 // -----
@@ -55,7 +55,7 @@ func.func @test_default_maxpoolsingleout_pad_nonunif(%arg0 : tensor<5x5x32x32xf3
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [2, 1], [1, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 5, 3]> : vector<4xi64>, window_strides = dense<1> : vector<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x31x31xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [2, 1], [1, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 5, 3]> : tensor<4xi64>, window_strides = dense<1> : tensor<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x31x31xf32>
 
 // -----
 
@@ -69,7 +69,7 @@ func.func @test_default_maxpoolsingleout_strides(%arg0 : tensor<5x5x32x32xf32>) 
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : vector<4xi64>, window_strides = dense<[1, 1, 2, 2]> : vector<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
 
 // -----
 
@@ -83,7 +83,7 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad(%arg0 : tensor<5x5x3
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 0], [0, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : vector<4xi64>, window_strides = dense<[1, 1, 2, 2]> : vector<4xi64>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x15x16xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 0], [0, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x15x16xf32>
 
 // -----
 
@@ -97,7 +97,7 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil(%arg0 : tensor<
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [0, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : vector<4xi64>, window_strides = dense<[1, 1, 2, 2]> : vector<4xi64>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [1, 1], [0, 0]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
 
 
 // -----
@@ -112,7 +112,7 @@ func.func @test_default_maxpoolsingleout_strides_dilatation(%arg0 : tensor<5x5x8
 // CHECK-NEXT:               ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                 %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                 mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<[1, 1, 2, 2]> : vector<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : vector<4xi64>, window_strides = dense<[1, 1, 3, 3]> : vector<4xi64>} : (tensor<5x5x8x8xf32>, tensor<f32>) -> tensor<5x5x2x2xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<[1, 1, 2, 2]> : tensor<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : tensor<4xi64>, window_strides = dense<[1, 1, 3, 3]> : tensor<4xi64>} : (tensor<5x5x8x8xf32>, tensor<f32>) -> tensor<5x5x2x2xf32>
 
 // -----
 
@@ -126,7 +126,7 @@ func.func @test_default_maxpoolsingleout_upper(%arg0 : tensor<5x5x16x13xf32>) ->
 // CHECK-NEXT:                 ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                   %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                   mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [0, 0], [1, 2]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 4, 4]> : vector<4xi64>, window_strides = dense<[1, 1, 4, 4]> : vector<4xi64>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
+// CHECK-NEXT{LITERAL}:    }) {padding = dense<[[0, 0], [0, 0], [0, 0], [1, 2]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 4, 4]> : tensor<4xi64>, window_strides = dense<[1, 1, 4, 4]> : tensor<4xi64>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
 
 
 // -----
@@ -141,4 +141,4 @@ func.func @test_default_maxpoolsingleout_lower(%arg0 : tensor<5x5x16x13xf32>) ->
 // CHECK-NEXT:              ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:                %2 = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:                mhlo.return %2 : tensor<f32>
-// CHECK-NEXT{LITERAL}:   }) {padding = dense<[[0, 0], [0, 0], [0, 0], [2, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 4, 4]> : vector<4xi64>, window_strides = dense<[1, 1, 4, 4]> : vector<4xi64>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
+// CHECK-NEXT{LITERAL}:   }) {padding = dense<[[0, 0], [0, 0], [0, 0], [2, 1]]> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 4, 4]> : tensor<4xi64>, window_strides = dense<[1, 1, 4, 4]> : tensor<4xi64>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
