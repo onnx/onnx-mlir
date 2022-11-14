@@ -68,7 +68,7 @@ void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<char>> src,
     Strided<llvm::MutableArrayRef<char>> dst);
 
-// Computes dstStrides from shape, and pads them and srcStrides.
+// Strides dstData by shape's default strides.
 inline void restrideArray(unsigned elementBytewidth,
     llvm::ArrayRef<int64_t> shape, Strided<llvm::ArrayRef<char>> src,
     llvm::MutableArrayRef<char> dstData) {
