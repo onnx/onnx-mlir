@@ -54,10 +54,6 @@ public:
   mlir::DisposableElementsAttr fromArray(
       mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy);
 
-  template <typename T>
-  mlir::DisposableElementsAttr fromArray(
-      mlir::ShapedType type, const Filler<T> &typedFiller);
-
   using Transformer = mlir::DisposableElementsAttr::Transformer;
 
   template <typename UnaryFunction = std::function<WideNum(WideNum)>>
@@ -107,15 +103,6 @@ template <typename T>
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
     mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy) {
   return fromRawBytes(type, toDType<T>, castArrayRef<char>(array), mustCopy);
-}
-
-template <typename T>
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
-    mlir::ShapedType type, const Filler<T> &typedFiller) {
-  return fromRawBytes(
-      type, toDType<T>, [&typedFiller](llvm::MutableArrayRef<char> bytes) {
-        typedFiller(castMutableArrayRef<T>(bytes));
-      });
 }
 
 /*static*/
