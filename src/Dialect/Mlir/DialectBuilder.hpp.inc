@@ -125,13 +125,13 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
   mlir::Block *elseBlock = ifOp.getElseBlock();
   if (!allFalse) {
     appendToBlock(thenBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b, loc);
+      GenericAffineBuilder createAffine(bbbb(), loc);
       thenFn(createAffine);
     });
   }
   if (!allTrue) {
     appendToBlock(elseBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b, loc);
+      GenericAffineBuilder createAffine(bbbb(), loc);
       elseFn(createAffine);
     });
   }
@@ -161,7 +161,7 @@ void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForIE(
         });
   } else {
     // Call lambda function
-    GenericAffineBuilder createAffine(b, loc);
+    GenericAffineBuilder createAffine(bbbb(), loc);
     builderFn(createAffine, loopIndices);
   }
 }
@@ -171,11 +171,11 @@ template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
     mlir::Block *block,
     mlir::function_ref<void(mlir::ValueRange)> builderFn) const {
-  mlir::OpBuilder::InsertionGuard guard(b);
+  mlir::OpBuilder::InsertionGuard guard(bbbb());
   if (block->empty() ||
       !block->back().mightHaveTrait<mlir::OpTrait::IsTerminator>()) {
-    b.setInsertionPointToEnd(block);
+    bbbb().setInsertionPointToEnd(block);
   } else
-    b.setInsertionPoint(&block->back());
+    bbbb().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
 }

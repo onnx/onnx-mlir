@@ -188,30 +188,30 @@ Value MathBuilder::constant(Type type, double val) const {
   Value constant = nullptr;
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, b.getF16FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF16FloatAttr(val));
       })
       .Case<Float32Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, b.getF32FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF32FloatAttr(val));
       })
       .Case<Float64Type>([&](Type) {
-        constant = bbbb().create<arith::ConstantOp>(loc, b.getF64FloatAttr(val));
+        constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getF64FloatAttr(val));
       })
       .Case<IntegerType>([&](IntegerType type) {
         assert(val == (int64_t)val && "value is ambiguous");
         unsigned width = type.getWidth();
 
         if (width == 1)
-          constant = bbbb().create<arith::ConstantOp>(loc, b.getBoolAttr(val != 0));
+          constant = bbbb().create<arith::ConstantOp>(loc, bbbb().getBoolAttr(val != 0));
         else {
           assert(type.isSignless() &&
                  "arith::ConstantOp requires a signless type.");
           constant = bbbb().create<arith::ConstantOp>(
-              loc, b.getIntegerAttr(type, APInt(width, (int64_t)val)));
+              loc, bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
       })
       .Case<IndexType>([&](Type) {
         constant =
-            bbbb().create<arith::ConstantOp>(loc, b.getIntegerAttr(type, val));
+            bbbb().create<arith::ConstantOp>(loc, bbbb().getIntegerAttr(type, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -220,7 +220,7 @@ Value MathBuilder::constant(Type type, double val) const {
 }
 
 Value MathBuilder::constantIndex(int64_t val) const {
-  Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
+  Attribute constantAttr = bbbb().getIntegerAttr(bbbb().getIndexType(), val);
   return bbbb().create<arith::ConstantOp>(loc, constantAttr);
 }
 
@@ -229,11 +229,11 @@ Value MathBuilder::negativeInf(Type type) const {
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getF32FloatAttr(-std::numeric_limits<float>::infinity()));
+            loc, bbbb().getF32FloatAttr(-std::numeric_limits<float>::infinity()));
       })
       .Case<Float64Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getF64FloatAttr(-std::numeric_limits<double>::infinity()));
+            loc, bbbb().getF64FloatAttr(-std::numeric_limits<double>::infinity()));
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -265,7 +265,7 @@ Value MathBuilder::negativeInf(Type type) const {
           llvm_unreachable("unsupported element type");
         }
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getIntegerAttr(type, APInt(width, value)));
+            loc, bbbb().getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -278,11 +278,11 @@ Value MathBuilder::positiveInf(Type type) const {
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getF32FloatAttr(std::numeric_limits<float>::infinity()));
+            loc, bbbb().getF32FloatAttr(std::numeric_limits<float>::infinity()));
       })
       .Case<Float64Type>([&](Type) {
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getF64FloatAttr(std::numeric_limits<double>::infinity()));
+            loc, bbbb().getF64FloatAttr(std::numeric_limits<double>::infinity()));
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -314,7 +314,7 @@ Value MathBuilder::positiveInf(Type type) const {
           llvm_unreachable("unsupported element type");
         }
         constant = bbbb().create<arith::ConstantOp>(
-            loc, b.getIntegerAttr(type, APInt(width, value)));
+            loc, bbbb().getIntegerAttr(type, APInt(width, value)));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -346,15 +346,15 @@ Value MathBuilder::createArithCmp(
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
   assert(val.getType().isa<IntegerType>() &&
          !val.getType().isSignlessInteger() && "Expecting signed integer type");
-  return bbbb().create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
+  return bbbb().create<UnrealizedConversionCastOp>(loc, bbbb().getIntegerType(width), val)
       .getResult(0);
 }
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   assert(val.getType().isa<IntegerType>() && "Expecting integer type");
-  return b
+  return bbbb()
       .create<UnrealizedConversionCastOp>(
-          loc, b.getIntegerType(width, false /*signed*/), val)
+          loc, bbbb().getIntegerType(width, false /*signed*/), val)
       .getResult(0);
 }
 
@@ -369,14 +369,14 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<IndexType>()) {
     // If our source is an index type, first convert it into a signless int of
     // size 64.
-    srcType = b.getIntegerType(64);
+    srcType = bbbb().getIntegerType(64);
     src = bbbb().create<arith::IndexCastOp>(loc, srcType, src);
   }
   bool destIsIndex = false;
   if (destType.isa<IndexType>()) {
     // If our dest is an index type, pretend for now that we want it to be
     // converted to.
-    destType = b.getIntegerType(64);
+    destType = bbbb().getIntegerType(64);
     destIsIndex = true;
   }
 
@@ -404,7 +404,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
     } else {
       Value dest = bbbb().create<arith::ExtUIOp>(loc, destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -442,7 +442,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
       // Handle signed int.
       Value dest = bbbb().create<arith::FPToSIOp>(loc, destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -466,7 +466,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
       assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       Value cast = castToSignless(src, srcWidth);
-      Type castType = b.getIntegerType(destWidth);
+      Type castType = bbbb().getIntegerType(destWidth);
       if (bitExtend) {
         cast = bbbb().create<arith::ExtUIOp>(loc, castType, cast);
       } else {
@@ -484,7 +484,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo
         dest = bbbb().create<arith::TruncIOp>(loc, destType, src);
       if (destIsIndex)
-        dest = bbbb().create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+        dest = bbbb().create<arith::IndexCastOp>(loc, bbbb().getIndexType(), dest);
       return dest;
     }
   }
@@ -495,7 +495,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
 }
 
 Value MathBuilder::castToIndex(Value src) const {
-  return cast(b.getIndexType(), src);
+  return cast(bbbb().getIndexType(), src);
 }
 
 // Add offsets to least significant values in indices. So if indices has 4
@@ -542,7 +542,7 @@ memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) const {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
     return bbbb().create<memref::AllocOp>(loc, type);
   return bbbb().create<memref::AllocOp>(loc, type, alignmentAttr);
@@ -551,7 +551,7 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, ValueRange dynSymbols, int64_t alignment) const {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
     return bbbb().create<memref::AllocOp>(loc, type, dynSymbols);
   return bbbb().create<memref::AllocOp>(loc, type, dynSymbols, alignmentAttr);
@@ -564,7 +564,7 @@ memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
 memref::AllocaOp MemRefBuilder::alignedAlloca(
     MemRefType type, int64_t alignment) const {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  IntegerAttr alignmentAttr = bbbb().getI64IntegerAttr(alignment);
   if (type.getShape().size() == 0) // Drop align for scalars.
     return bbbb().create<memref::AllocaOp>(loc, type);
   return bbbb().create<memref::AllocaOp>(loc, type, alignmentAttr);
@@ -602,7 +602,7 @@ Value MemRefBuilder::reinterpretCast(
   MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
 
   return bbbb().create<memref::ReinterpretCastOp>(loc, outputMemRefType, input,
-      /*offset=*/b.getIndexAttr(0), sizes, strides);
+      /*offset=*/bbbb().getIndexAttr(0), sizes, strides);
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
@@ -619,7 +619,7 @@ Value MemRefBuilder::dim(Value val, Value index) const {
              val.getType().isa<UnrankedMemRefType>()) &&
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
-  return b.createOrFold<memref::DimOp>(loc, val, index);
+  return bbbb().createOrFold<memref::DimOp>(loc, val, index);
 }
 
 //===----------------------------------------------------------------------===//
@@ -878,12 +878,12 @@ Value LLVMBuilder::bitcast(Type type, Value val) const {
 
 Value LLVMBuilder::bitcastI8Ptr(Value val) const {
   return bbbb().create<LLVM::BitcastOp>(
-      loc, LLVM::LLVMPointerType::get(b.getI8Type()), val);
+      loc, LLVM::LLVMPointerType::get(bbbb().getI8Type()), val);
 }
 
 Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
   return bbbb().create<LLVM::BitcastOp>(loc,
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b.getI8Type())),
+      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(bbbb().getI8Type())),
       val);
 }
 
@@ -929,17 +929,17 @@ Value LLVMBuilder::constant(Type type, int64_t val) const {
         unsigned width = type.getWidth();
         if (width == 1)
           constant =
-              bbbb().create<LLVM::ConstantOp>(loc, type, b.getBoolAttr(val != 0));
+              bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getBoolAttr(val != 0));
         else {
           assert(type.isSignless() &&
                  "LLVM::ConstantOp requires a signless type.");
           constant = bbbb().create<LLVM::ConstantOp>(
-              loc, type, b.getIntegerAttr(type, APInt(width, (int64_t)val)));
+              loc, type, bbbb().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
       })
       .Case<IndexType>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, b.getIntegerAttr(type, val));
+            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getIntegerAttr(type, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -952,15 +952,15 @@ Value LLVMBuilder::constant(Type type, double val) const {
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, b.getF16FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF16FloatAttr(val));
       })
       .Case<Float32Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, b.getF32FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF32FloatAttr(val));
       })
       .Case<Float64Type>([&](Type) {
         constant =
-            bbbb().create<LLVM::ConstantOp>(loc, type, b.getF64FloatAttr(val));
+            bbbb().create<LLVM::ConstantOp>(loc, type, bbbb().getF64FloatAttr(val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
@@ -1008,7 +1008,7 @@ Value LLVMBuilder::null(Type type) const {
 }
 
 Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b.getI8Type());
+  Type I8PtrTy = LLVM::LLVMPointerType::get(bbbb().getI8Type());
   return bbbb().create<LLVM::NullOp>(loc, I8PtrTy);
 }
 
@@ -1024,46 +1024,46 @@ FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
     StringRef funcName, Type resultType, ArrayRef<Type> operandTypes,
     bool isVarArg) const {
   if (!module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPointToStart(module.getBody());
+    OpBuilder::InsertionGuard guard(bbbb());
+    bbbb().setInsertionPointToStart(module.getBody());
     LLVM::LLVMFunctionType funcType =
         LLVM::LLVMFunctionType::get(resultType, operandTypes, isVarArg);
     bbbb().create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
   }
-  return SymbolRefAttr::get(b.getContext(), funcName);
+  return SymbolRefAttr::get(bbbb().getContext(), funcName);
 }
 
 void LLVMBuilder::ifThenElse(
     valueFuncRef cond, voidFuncRef thenFn, voidFuncRef elseFn) const {
-  LLVMBuilder createLLVM(b, loc);
+  LLVMBuilder createLLVM(bbbb(), loc);
 
   // Split the current block into IF, THEN, ELSE and END blocks.
   Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
-  ifBlock = b.getInsertionBlock();
-  thenBlock = ifBlock->splitBlock(b.getInsertionPoint());
-  elseBlock = b.createBlock(
+  ifBlock = bbbb().getInsertionBlock();
+  thenBlock = ifBlock->splitBlock(bbbb().getInsertionPoint());
+  elseBlock = bbbb().createBlock(
       thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
   if (elseFn)
-    endBlock = b.createBlock(
+    endBlock = bbbb().createBlock(
         elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
   else
     endBlock = elseBlock;
 
   // Emit code for the IF block.
-  b.setInsertionPointToEnd(ifBlock);
+  bbbb().setInsertionPointToEnd(ifBlock);
   Value condVal = cond(createLLVM);
 
   // Branch the block into the THEN and ELSE blocks.
   createLLVM.condBr(condVal, thenBlock, {}, elseBlock, {});
 
   // Emit code for the THEN block.
-  b.setInsertionPointToStart(thenBlock);
+  bbbb().setInsertionPointToStart(thenBlock);
   thenFn(createLLVM);
   if (thenBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(thenBlock->back()))
     br({}, endBlock);
 
   // Emit code for the ELSE block if required.
-  b.setInsertionPointToStart(elseBlock);
+  bbbb().setInsertionPointToStart(elseBlock);
   if (elseFn) {
     elseFn(createLLVM);
     if (elseBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(elseBlock->back()))
@@ -1071,7 +1071,7 @@ void LLVMBuilder::ifThenElse(
   }
 
   // End if-then-else and return to the main body.
-  b.setInsertionPointToStart(endBlock);
+  bbbb().setInsertionPointToStart(endBlock);
 }
 
 } // namespace onnx_mlir

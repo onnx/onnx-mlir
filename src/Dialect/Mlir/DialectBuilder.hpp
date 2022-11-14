@@ -38,8 +38,10 @@ struct DialectBuilder {
   mlir::OpBuilder &bbbb() const { return b; }
   mlir::Location llll() const { return loc; }
 
-protected:
+//protected:
+private:
   mlir::OpBuilder &b;
+protected:
   mlir::Location loc;
 };
 

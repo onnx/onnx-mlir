@@ -31,7 +31,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder> create(bbbb(), loc);
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -42,7 +42,7 @@ Value OnnxToKrnlBuilder::reshape(
       shape.push_back(dim.getLiteral());
 
     auto constantOp =
-        createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
+        createONNXConstantOpWithDenseAttr(bbbb(), loc, bbbb().getI64TensorAttr(shape));
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -50,14 +50,15 @@ Value OnnxToKrnlBuilder::reshape(
     return reshapeRes;
   }
 
-  MemRefBuilder memRefBuilder(b, loc);
+// hi alex: use multi
+  MemRefBuilder memRefBuilder(bbbb(), loc);
   KrnlBuilder krnlBuilder(memRefBuilder);
-  MathBuilder createMath(b, loc);
+  MathBuilder createMath(memRefBuilder);
 
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the putput dimension
   // into it.
-  IndexType indexTy = b.getIndexType();
+  IndexType indexTy = bbbb().getIndexType();
   int64_t length = shapeDims.size();
   memref::AllocOp alloc =
       memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
@@ -92,7 +93,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
          "Expecting valid permutation array");
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder> create(bbbb(), loc);
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -103,7 +104,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   ShapedType inputType = input.getType().cast<ShapedType>();
   Value transposeRes =
       create.onnx.transpose(MemRefType::get(shape, inputType.getElementType()),
-          input, b.getI64ArrayAttr(perm));
+          input, bbbb().getI64ArrayAttr(perm));
 
   return transposeRes;
 }

@@ -219,8 +219,8 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
     Optional<Attribute> value, Optional<IntegerAttr> offset,
     Optional<IntegerAttr> alignment) const {
   static int32_t constantID = 0;
-  return bbbb().create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
-      b.getStringAttr(name + std::to_string(constantID++)),
+  return bbbb().create<KrnlGlobalOp>(loc, type, bbbb().getI64ArrayAttr(type.getShape()),
+      bbbb().getStringAttr(name + std::to_string(constantID++)),
       value.value_or(nullptr), offset.value_or(nullptr),
       alignment.value_or(nullptr));
 }
@@ -230,15 +230,15 @@ void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
 }
 
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
-  bbbb().create<KrnlMemsetOp>(loc, dest, val, b.getBoolAttr(delayed));
+  bbbb().create<KrnlMemsetOp>(loc, dest, val, bbbb().getBoolAttr(delayed));
 }
 
 Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {
-  return bbbb().create<KrnlStrncmpOp>(loc, b.getI32Type(), str1, str2, len);
+  return bbbb().create<KrnlStrncmpOp>(loc, bbbb().getI32Type(), str1, str2, len);
 }
 
 Value KrnlBuilder::strlen(Value str) const {
-  return bbbb().create<KrnlStrlenOp>(loc, b.getI64Type(), str);
+  return bbbb().create<KrnlStrlenOp>(loc, bbbb().getI64Type(), str);
 }
 
 void KrnlBuilder::randomNormal(Value alloc, Value numberOfRandomValues,
@@ -248,7 +248,7 @@ void KrnlBuilder::randomNormal(Value alloc, Value numberOfRandomValues,
 }
 
 Value KrnlBuilder::findIndex(Value input, Value G, Value V, Value len) const {
-  return bbbb().create<KrnlFindIndexOp>(loc, b.getIndexType(), input, G, V, len);
+  return bbbb().create<KrnlFindIndexOp>(loc, bbbb().getIndexType(), input, G, V, len);
 }
 
 void KrnlBuilder::printTensor(StringRef msg, Value input) const {
