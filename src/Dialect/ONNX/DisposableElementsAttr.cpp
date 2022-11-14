@@ -52,10 +52,8 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
   DType dtype = dtypeOfMlirType(type.getElementType());
   assert(wideDTypeOfDType(dtype) == wideDTypeOfDType(bufferDType) ||
          reader != nullptr);
-  Properties properties = {.dtype = dtype,
-      .bufferDType = bufferDType,
-      // .isContiguous is set below
-      .isTransformed = reader != nullptr};
+  Properties properties = {.bufferDType = bufferDType, .dtype = dtype};
+  // properties.isContiguous is set below
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
     strides.assign(optionalStrides->begin(), optionalStrides->end());
@@ -71,18 +69,14 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     const Buffer &buffer, Strides strides, Properties properties,
     Reader reader) {
+  assert((reader != nullptr || wideDTypeOfDType(properties.bufferDType) ==
+                                   wideDTypeOfDType(properties.dtype)) &&
+         "buffer wide type mismatch requires transforming reader");
   DisposableElementsAttr a =
       Base::get(type.getContext(), type, strides, properties);
   Storage &s = *a.getImpl();
   s.buffer = buffer;
-  if (reader) {
-    s.reader = std::move(reader);
-  } else {
-    assert(wideDTypeOfDType(properties.bufferDType) ==
-               wideDTypeOfDType(properties.dtype) &&
-           "buffer wide type mismatch requires transforming reader");
-    s.reader = getIdentityReader(properties.bufferDType);
-  }
+  s.reader = std::move(reader);
   return a;
 }
 
@@ -99,16 +93,17 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   return getImpl()->buffer;
 }
 
-auto DisposableElementsAttr::getReader() const -> const Reader & {
-  assert(!isDisposed());
-  return getImpl()->reader;
+// TODO: For better efficiency fix getIdentityReader() to return a const& in a
+//       static const table so we don't need to create the identity reader here
+//       and can return const& from getReader().
+auto DisposableElementsAttr::getReader() const -> Reader {
+  const auto &reader = getReaderOrNull();
+  return reader ? reader : getIdentityReader(getBufferDType());
 }
 
 auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
-  if (getProperties().isTransformed)
-    return getReader();
-  else
-    return nullptr;
+  assert(!isDisposed());
+  return getImpl()->reader;
 }
 
 bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
@@ -117,10 +112,13 @@ bool DisposableElementsAttr::isContiguous() const {
   return getProperties().isContiguous;
 }
 
+bool DisposableElementsAttr::isTransformed() const {
+  return getImpl()->reader != nullptr;
+}
+
 bool DisposableElementsAttr::isTransformedOrCast() const {
   const Properties &properties = getProperties();
-  return !properties.isTransformed &&
-         properties.dtype == properties.bufferDType;
+  return isTransformed() || properties.dtype != properties.bufferDType;
 }
 
 DType DisposableElementsAttr::getBufferDType() const {
@@ -174,9 +172,7 @@ size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
-  const Properties &properties = getProperties();
-  if (!properties.isTransformed &&
-      getBufferElementBytewidth() == sizeof(WideNum)) {
+  if (!isTransformed() && getBufferElementBytewidth() == sizeof(WideNum)) {
     return asArrayRef<WideNum>(getBufferString());
   }
   ArrayBuffer<WideNum>::Vector wideBufferData;
@@ -200,8 +196,7 @@ void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
-  const Properties &properties = getProperties();
-  if (!properties.isTransformed && properties.isContiguous &&
+  if (!isTransformed() && isContiguous() &&
       getBufferElementBytewidth() == sizeof(WideNum)) {
     return asArrayRef<WideNum>(getBufferString());
   }

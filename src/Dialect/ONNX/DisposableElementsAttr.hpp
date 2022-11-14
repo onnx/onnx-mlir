@@ -85,19 +85,16 @@ public:
   using Strides = ArrayRef<int64_t>;
 
   struct Properties {
-    // Data type (BOOL, INT8, FLOAT16, etc) of the type's elements.
-    onnx_mlir::DType dtype;
-
     // Data type of the elements in buffer before transform.
     onnx_mlir::DType bufferDType;
 
-    // Do the strides match the type's shape?
-    bool isContiguous;
+    // Data type (BOOL, INT8, FLOAT16, etc) of the type's elements.
+    // dtype == dtypeOfMlirType(getElementType())
+    onnx_mlir::DType dtype;
 
-    // Is the reader just casting the underlying bufferDType to WideNum? In this
-    // case dtypeBuffer and dtype must have the same double/i64/u64 widetype
-    // (both are float, or both are signed ints, or both are unsigned ints).
-    bool isTransformed;
+    // Do the strides match the type's shape?
+    // isContiguous == areStridedContiguous(getShape(), getStrides())
+    bool isContiguous;
   };
 
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
@@ -149,13 +146,15 @@ private:
 
   const Buffer &getBuffer() const;
 
-  const Reader &getReader() const;
+  Reader getReader() const;
 
   Reader getReaderOrNull() const;
 
   bool isDisposed() const;
 
   bool isContiguous() const;
+
+  bool isTransformed() const;
 
   bool isTransformedOrCast() const;
 

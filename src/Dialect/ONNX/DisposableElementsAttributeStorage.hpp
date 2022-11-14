@@ -85,8 +85,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   Buffer buffer;
 
   // Reads the buffer elements to WideNums corresponding to type's
-  // element type. Is set to the identity reader function if data is not
-  // transformed, namely when properties.isTransformed is false.
+  // element type. Is null if data is not transformed.
   // In this case the buffer data type and the type's element type must promote
   // to the same double/i64/u64 widetype
   // (both are float, or both are signed ints, or both are unsigned ints).
