@@ -448,9 +448,7 @@ void ScatterNDImpl(DisposableElementsAttr dataElements,
     DisposableElementsAttr updatesElements,
     MutableArrayRef<WideNum> output_data) {
   dataElements.readWideNums(output_data);
-  ArrayBuffer<char> indices_bytes = indicesElements.getRawBytes();
-  assert(indicesElements.getDType() == DType::INT64);
-  ArrayRef<int64_t> indices_data = castArrayRef<int64_t>(indices_bytes.get());
+  ArrayBuffer<int64_t> indices_data = indicesElements.getArray<int64_t>();
   ArrayBuffer<WideNum> updates_data = updatesElements.getWideNums();
 
   auto data_shape = dataElements.getShape();
@@ -484,7 +482,7 @@ void ScatterNDImpl(DisposableElementsAttr dataElements,
   for (int64_t i = 0; i < n_slices; ++i) {
     int64_t to_pos = 0;
     for (int64_t j = 0; j < indices_nd; ++j) {
-      int64_t idx = indices_data[i * indices_nd + j];
+      int64_t idx = indices_data.get()[i * indices_nd + j];
       // assert(0 <= idx && idx < data_shape[j]);
       to_pos += idx * dims_to_count[j];
     }
@@ -697,9 +695,7 @@ void ConstPropGatherImpl(ShapedType outputType,
   int64_t axisDim = inputShape[axis];
 
   ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
-  ArrayBuffer<char> indicesBytes = indicesElements.getRawBytes();
-  assert(indicesElements.getDType() == DType::INT64);
-  ArrayRef<int64_t> indicesData = castArrayRef<int64_t>(indicesBytes.get());
+  ArrayBuffer<int64_t> indicesData = indicesElements.getArray<int64_t>();
 
   // Iterate over the output index space.
   for (size_t ii = 0; ii < outputData.size(); ++ii) {
@@ -711,7 +707,7 @@ void ConstPropGatherImpl(ShapedType outputType,
     int64_t indicesOffset =
         getLinearAccessIndex(indicesIndices, indicesStrides);
     // Get indices.
-    int64_t axisIndex = indicesData[indicesOffset];
+    int64_t axisIndex = indicesData.get()[indicesOffset];
     if (axisIndex < 0)
       axisIndex += axisDim;
 

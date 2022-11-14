@@ -157,6 +157,8 @@ private:
 
   bool isContiguous() const;
 
+  bool isTransformedOrCast() const;
+
   DType getBufferDType() const;
 
   unsigned getBufferElementBytewidth() const;
@@ -256,11 +258,19 @@ public:
   // otherwise makes and returns a copy.
   onnx_mlir::ArrayBuffer<WideNum> getWideNums() const;
 
+  // Copies out the elements in a flat array in row-major order.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  void readRawBytes(MutableArrayRef<char> dst) const;
+
   // Returns a pointer to the underlying data, if everything aligns,
   // otherwise makes and returns a copy.
   // If the element type is bool the data holds one byte (with value 0 or 1) per
   // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
   onnx_mlir::ArrayBuffer<char> getRawBytes() const;
+
+  template <typename X>
+  onnx_mlir::ArrayBuffer<X> getArray() const;
 
   void printWithoutType(raw_ostream &os) const;
 
@@ -329,7 +339,7 @@ T getNumber(Type elementType, onnx_mlir::DType tag, onnx_mlir::WideNum n) {
 } // namespace detail
 
 template <typename X>
-X DisposableElementsAttr::getSplatValue() const {
+inline X DisposableElementsAttr::getSplatValue() const {
   return detail::getNumber<X>(getElementType(), getDType(), getSplatWideNum());
 }
 
@@ -357,6 +367,17 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
   } else {
     return failure();
   }
+}
+
+template <typename X>
+inline onnx_mlir::ArrayBuffer<X> DisposableElementsAttr::getArray() const {
+  assert(onnx_mlir::toDType<X> == getDType());
+  if (!isTransformedOrCast() && isContiguous())
+    return onnx_mlir::castArrayRef<X>(getBufferBytes());
+  typename onnx_mlir::ArrayBuffer<X>::Vector vec;
+  vec.resize_for_overwrite(getNumElements());
+  readRawBytes(onnx_mlir::castMutableArrayRef<char>(makeMutableArrayRef(vec)));
+  return std::move(vec);
 }
 
 } // namespace mlir

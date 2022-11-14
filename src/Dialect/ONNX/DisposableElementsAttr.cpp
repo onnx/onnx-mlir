@@ -117,6 +117,12 @@ bool DisposableElementsAttr::isContiguous() const {
   return getProperties().isContiguous;
 }
 
+bool DisposableElementsAttr::isTransformedOrCast() const {
+  const Properties &properties = getProperties();
+  return !properties.isTransformed &&
+         properties.dtype == properties.bufferDType;
+}
+
 DType DisposableElementsAttr::getBufferDType() const {
   return getProperties().bufferDType;
 }
@@ -205,27 +211,28 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
   return std::move(wideData);
 }
 
-ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
-  const Properties &properties = getProperties();
-  bool requiresNoElementwiseTransformOrCast =
-      !properties.isTransformed && properties.dtype == properties.bufferDType;
-  if (requiresNoElementwiseTransformOrCast && properties.isContiguous)
-    return getBufferBytes();
-  unsigned attrBytewidth = bytewidthOfDType(properties.dtype);
-  ArrayBuffer<char>::Vector vec;
-  vec.resize_for_overwrite(getNumElements() * attrBytewidth);
-  MutableArrayRef<char> bytes(vec);
-  if (requiresNoElementwiseTransformOrCast) {
+void DisposableElementsAttr::readRawBytes(MutableArrayRef<char> dst) const {
+  unsigned attrBytewidth = bytewidthOfDType(getDType());
+  if (!isTransformedOrCast()) {
     auto src = getBufferBytes();
-    restrideArray(attrBytewidth, getShape(), {getStrides(), src}, bytes);
+    restrideArray(attrBytewidth, getShape(), {getStrides(), src}, dst);
   } else if (attrBytewidth == sizeof(WideNum)) {
-    readWideNums(castMutableArrayRef<WideNum>(bytes));
+    readWideNums(castMutableArrayRef<WideNum>(dst));
   } else {
     SmallVector<WideNum, 1> wideData;
     wideData.resize_for_overwrite(getNumElements());
     readWideNums(wideData);
-    narrowArray(getElementType(), wideData, bytes);
+    narrowArray(getElementType(), wideData, dst);
   }
+}
+
+ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
+  if (!isTransformedOrCast() && isContiguous())
+    return getBufferBytes();
+  unsigned attrBytewidth = bytewidthOfDType(getDType());
+  ArrayBuffer<char>::Vector vec;
+  vec.resize_for_overwrite(getNumElements() * attrBytewidth);
+  readRawBytes(vec);
   return std::move(vec);
 }
 
