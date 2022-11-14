@@ -69,20 +69,23 @@ void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::MutableArrayRef<char>> dst);
 
 // Strides dstData by shape's default strides.
-inline void restrideArray(unsigned elementBytewidth,
-    llvm::ArrayRef<int64_t> shape, Strided<llvm::ArrayRef<char>> src,
-    llvm::MutableArrayRef<char> dstData) {
-  auto dstStrides = getDefaultStrides(shape);
-  Strided<llvm::MutableArrayRef<char>> dst{dstStrides, dstData};
-  return restrideArray(elementBytewidth, shape, src, dst);
+void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
+    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
+
+template <typename T>
+void restrideArray(llvm::ArrayRef<int64_t> shape,
+    Strided<llvm::ArrayRef<T>> src, Strided<llvm::MutableArrayRef<T>> dst) {
+  return restrideArray(sizeof(T), shape,
+      {src.strides, castArrayRef<char>(src.data)},
+      {dst.strides, castMutableArrayRef<char>(dst.data)});
 }
 
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
 inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
     Strided<llvm::MutableArrayRef<WideNum>> dst, BinaryFunction fun) {
-  assert(lhs.strides.size() == shape.size() && "lhs strides must be padded");
-  assert(rhs.strides.size() == shape.size() && "rhs strides must be padded");
+  assert(lhs.strides.size() == shape.size() && "lhs strides must be expanded");
+  assert(rhs.strides.size() == shape.size() && "rhs strides must be expanded");
   assert(dst.strides.size() == shape.size() && "dst strides must be full rank");
   int64_t rank = shape.size();
   auto traverse = [=](int64_t axis, size_t lhsPos, size_t rhsPos, size_t dstPos,

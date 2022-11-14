@@ -198,4 +198,11 @@ void restrideArray(unsigned bytewidth, ArrayRef<int64_t> shape,
   });
 }
 
+void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
+    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData) {
+  auto dstStrides = getDefaultStrides(shape);
+  Strided<llvm::MutableArrayRef<char>> dst{dstStrides, dstData};
+  return restrideArray(elementBytewidth, shape, src, dst);
+}
+
 } // namespace onnx_mlir
