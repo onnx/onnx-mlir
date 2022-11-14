@@ -13,32 +13,6 @@
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 
-#if 0
-#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
-#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#include "mlir/Dialect/MemRef/Transforms/Passes.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Pass/PassRegistry.h"
-#include "mlir/Transforms/Passes.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
-
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
-#include "src/Compiler/CompilerPasses.hpp"
-#include "src/Pass/Passes.hpp"
-#endif
 #define DEBUG_TYPE "NNPACompilerOptions"
 
 namespace onnx_mlir {

@@ -21,9 +21,7 @@
 #include <string>
 #include <vector>
 
-#define DEFAULT_INSTRUMENTSTAGE_ENUM afterOnnxToOnnx
-#define DEFAULT_INSTRUMENTSTAGE_CL_ENUM                                        \
-  clEnumVal(afterOnnxToOnnx, "Profile for onnx ops.")
+#define DEFAULT_INSTRUMENTSTAGE_CL_ENUM clEnumVal(Onnx, "Profile for onnx ops.")
 
 extern const std::string OnnxMlirEnvOptionName;
 
@@ -31,7 +29,7 @@ namespace onnx_mlir {
 
 typedef enum {
   // clang-format off
-  afterOnnxToOnnx
+  Onnx
   APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
   // clang-format on
 } InstrumentStages;

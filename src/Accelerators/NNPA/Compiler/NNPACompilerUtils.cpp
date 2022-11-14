@@ -58,7 +58,7 @@ void addONNXToZHighPasses(
   }
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
-  if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterOnnxToOnnx)
+  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
         instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
@@ -109,7 +109,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     addONNXToZHighPasses(pm, execNodesOnCpu);
     // Insert an instrumentation after lowering onnx to zhigh to get profiling
     // for onnx and zhigh ops.
-    if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh)
+    if (instrumentStage == onnx_mlir::InstrumentStages::ZHigh)
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
           instrumentOps, instrumentControlBits.getBits()));
 
@@ -151,7 +151,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       }
       // Insert an instrumentation after lowering zhigh to zlow to get profiling
       // for zlow ops
-      if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterZhighToZlow)
+      if (instrumentStage == onnx_mlir::InstrumentStages::ZLow)
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
             instrumentOps, instrumentControlBits.getBits()));
     }

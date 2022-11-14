@@ -112,7 +112,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
   // Add instrumentation for Onnx Ops
-  if (instrumentStage == onnx_mlir::InstrumentStages::afterOnnxToOnnx)
+  if (maccel.empty() && instrumentStage == Onnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
         instrumentOps, instrumentControlBits.getBits()));
 
