@@ -18,7 +18,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
-#define USE_NEW_SHAPE 1
+#define USE_NEW_SHAPE 0
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;

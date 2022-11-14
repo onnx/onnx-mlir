@@ -25,7 +25,7 @@ namespace onnx_mlir {
 
 struct DialectBuilder {
   DialectBuilder(mlir::OpBuilder &b, mlir::Location loc) : b(b), loc(loc) {}
-  DialectBuilder(const DialectBuilder &db) : b(db.b), loc(db.loc) {}
+  DialectBuilder(const DialectBuilder &db) : b(db.bbbb()), loc(db.llll()) {}
   virtual ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
@@ -33,6 +33,10 @@ struct DialectBuilder {
 
   mlir::OpBuilder &getBuilder() const { return b; }
   mlir::Location getLoc() const { return loc; }
+
+  // hi alex: temp
+  mlir::OpBuilder &bbbb() const { return b; }
+  mlir::Location llll() const { return loc; }
 
 protected:
   mlir::OpBuilder &b;
