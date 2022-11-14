@@ -34,8 +34,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 /*!
- * This pass insert KrnlInstrumentOp before and after each ops in specified
- * stage
+ * This pass insert KrnlInstrumentOp before and after each ops
  */
 
 class InstrumentPass
@@ -43,11 +42,6 @@ class InstrumentPass
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
-
-  Option<onnx_mlir::InstrumentStages> instrumentStage{*this, "instrument-stage",
-      llvm::cl::desc("Specify stage to be instrumented:"),
-      llvm::cl::values(APPLY_TO_NO_ACCELERATORS(DEFAULT_INSTRUMENTSTAGE_CL_ENUM)
-              APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM))};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
       llvm::cl::desc("Specify regex for ops to be instrumented:\n"
@@ -74,8 +68,7 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(int stage, StringRef ops, unsigned actions) {
-    this->instrumentStage = static_cast<onnx_mlir::InstrumentStages>(stage);
+  InstrumentPass(StringRef ops, unsigned actions) {
     this->instrumentOps = ops.str();
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
@@ -89,9 +82,7 @@ private:
 public:
   StringRef getArgument() const override { return "instrument"; }
 
-  StringRef getDescription() const override {
-    return "instrument on ops in a specific stage.";
-  }
+  StringRef getDescription() const override { return "instrument on ops."; }
 
   void init(std::string allowedOps_) {
     std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
@@ -124,9 +115,6 @@ public:
   }
 
   void runOnOperation() override {
-    // Check if instrumentStage is the one speficied in compiler option.
-    if (instrumentStage != onnx_mlir::instrumentStage)
-      return;
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
     init(instrumentOps);
@@ -162,6 +150,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    int stage, StringRef ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(stage, ops, actions);
+    StringRef ops, unsigned actions) {
+  return std::make_unique<InstrumentPass>(ops, actions);
 }

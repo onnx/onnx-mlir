@@ -58,9 +58,9 @@ void addONNXToZHighPasses(
   }
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-      onnx_mlir::InstrumentStages::nnpaAfterOnnxToOnnx, instrumentOps,
-      instrumentControlBits.getBits()));
+  if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterOnnxToOnnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -109,9 +109,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     addONNXToZHighPasses(pm, execNodesOnCpu);
     // Insert an instrumentation after lowering onnx to zhigh to get profiling
     // for onnx and zhigh ops.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh, instrumentOps,
-        instrumentControlBits.getBits()));
+    if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterOnnxToZhigh)
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          instrumentOps, instrumentControlBits.getBits()));
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
@@ -151,9 +151,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       }
       // Insert an instrumentation after lowering zhigh to zlow to get profiling
       // for zlow ops
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-          onnx_mlir::InstrumentStages::nnpaAfterZhighToZlow, instrumentOps,
-          instrumentControlBits.getBits()));
+      if (instrumentStage == onnx_mlir::InstrumentStages::nnpaAfterZhighToZlow)
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+            instrumentOps, instrumentControlBits.getBits()));
     }
   }
 
