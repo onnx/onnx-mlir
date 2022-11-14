@@ -817,10 +817,9 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 #ifdef SCRUB_DISPOSABLE_ATTR_AFTER_CONST_PROP
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
-    Operation *op = constOp.getOperation();
-    if (auto elements =
+    if (auto disposable =
             constOp.valueAttr().dyn_cast<DisposableElementsAttr>()) {
-      constOp.valueAttr(toDenseElementsAttr(elements));
+      constOp.valueAttr(toDenseElementsAttr(disposable));
     }
   });
 
