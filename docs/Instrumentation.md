@@ -6,7 +6,7 @@ Instrumentation is prototyped in onnx-mlir and can be used to debug runtime issu
 
 ## Compile for instrumentation
 
-By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `Onnx`, the instrumentation will be inserted after onnx-to-onnx conversion to get onnx-level profiling. The `--instrument-ops` option is an option to specify operations to be instrumented. You can use `onnx.Conv` for onnx Conv operations for example. Also, you can use asterisk such as `onnx.*` for all onnx operations, and specify two expressions with `,` such as `onnx.Conv,onnx.Add` for both Conv and Add operations. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
+By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `Onnx`, the instrumentation will be inserted after onnx-to-onnx conversion to get onnx-level profiling. The `--instrument-ops` option is an option to specify operations to be instrumented. You can use `onnx.Conv` for onnx Conv operations for example. Also, you can use asterisk such as `onnx.*` for all onnx operations, and specify two expressions with `,` such as `onnx.Conv,onnx.Add` for both Conv and Add operations. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
 For NNPA, additional stages for `ZHigh` and `ZLow` are provided. You can get profile for onnx and zhigh ops using `--instrument-stage=ZHigh` and `--instrument-ops=onnx.*,zhigh.*`, and for zlow ops using `--instrument-stage=ZLow` and `--instrument-ops=zlow.*`.
 
 ```
@@ -34,7 +34,7 @@ Currently, the call of initialization, OMInstrumentInit, need to be added before
 ## Run with instrumentation
 Run the model in the same way as usual.
 The instrumentation library will print out the time and memory usage along at each instrumentation point.
-For example, a model, `mymodel.onnx`, is compiled with `onnx-mlir  --instrument-stage=Onnx --instrument-ops="onnx." --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
+For example, a model, `mymodel.onnx`, is compiled with `onnx-mlir  --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
 Its runtime output is listed below:
 
 ```
@@ -58,11 +58,11 @@ The output is explained here:
 
 Other example for NNPA
 - Performance profiling for onnx ops before lowering to zhigh ops:
-  `onnx-mlir --maccel=NNPA --instrument-stage=Onnx --instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --maccel=NNPA --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 - Performance profiling for onnx and zhigh ops:
-  `onnx-mlir --maccel=NNPA --instrument-stage=ZHigh --instrument-ops=onnx.,zhigh. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --maccel=NNPA --instrument-stage=ZHigh --instrument-ops=onnx.*,zhigh.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 - Performance profiling for zlow ops:
-  `onnx-mlir --maccel=NNPA --instrument-stage=ZLow --instrument-ops=zlow. --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+  `onnx-mlir --maccel=NNPA --instrument-stage=ZLow --instrument-ops=zlow.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
 
 ## Control instrument at runtime
 By providing certain env variable at runtime, you can disable reports from  instrument library.
