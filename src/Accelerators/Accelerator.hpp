@@ -23,6 +23,9 @@
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerators.inc"
 
+// TODO: Remove NNPA from this header
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+
 // Define the macros used to generate various accelerators artifacts (via the
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
 // generated file Accelerators.inc).
@@ -41,6 +44,10 @@
   }
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
   map[accel::Accelerator::Kind::name] = #name;
+
+#define ACCEL_INSTRUMENTSTAGE_ENUM(name) INSTRUMENTSTAGE_EUM_##name
+
+#define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name) INSTRUMENTSTAGE_CL_ENUM_##name
 
 namespace onnx_mlir {
 namespace accel {

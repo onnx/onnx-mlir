@@ -201,6 +201,8 @@ std::vector<py::array> PyOMCompileExecutionSession::pyRun(
     outputPyArrays.emplace_back(
         py::array(dtype, shape, omTensorGetDataPtr(omt)));
   }
+  omTensorListDestroy(wrappedOutput);
+  omTensorListDestroy(wrappedInput);
 
   return outputPyArrays;
 }
