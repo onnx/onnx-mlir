@@ -325,8 +325,7 @@ DenseElementsAttr IndexExprBuilderForAnalysis::getConst(mlir::Value value) {
 }
 
 // For analysis, we never create values, so return null.
-Value IndexExprBuilderForAnalysis::getVal(
-    Value scalarOr1DArrayIntValue, uint64_t i) {
+Value IndexExprBuilderForAnalysis::getVal(Value intArrayVal, uint64_t i) {
   return nullptr;
 }
 

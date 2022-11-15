@@ -295,12 +295,11 @@ DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   return nullptr;
 }
 
-Value IndexExprBuilderForKrnl::getVal(
-    Value scalarOr1DArrayIntValue, uint64_t i) {
+Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
   // hi alex, may cause problem with scalar... may have to check type
   Value iVal = create.math.constantIndex(i);
-  return create.krnl.load(scalarOr1DArrayIntValue, {iVal});
+  return create.krnl.load(intArrayVal, {iVal});
 }
 
 Value IndexExprBuilderForKrnl::getShapeVal(

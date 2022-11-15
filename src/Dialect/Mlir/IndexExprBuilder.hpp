@@ -51,8 +51,8 @@ namespace onnx_mlir {
 // analysis phase; runtime values are described by questionmark index
 // expressions.
 //
-// Other subclasses (e.g. IndexExprBuilderForKrnl) generate Krnl dialect
-// operations to generate code that compute runtime values.
+// Other subclasses (e.g. IndexExprBuilderForKrnl) generate dialect operations
+// (e.g. Krnl ops) to generate code that compute runtime values.
 //
 // Subclasses simply have to define three virtual functions: getConst, getVal,
 // and getShape to provide the proper values for the methods defined in this
@@ -134,9 +134,19 @@ struct IndexExprBuilder : DialectBuilder {
   void getShapeAsDims(mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
 protected:
+  //===--------------------------------------------------------------------===//
+  // Subclasses must define these pure virtual functions.
+
+  // Locate a dense element attribute associated with the defining op given by
+  // value. Return nullptr if none exists.
   virtual mlir::DenseElementsAttr getConst(mlir::Value value) = 0;
-  virtual mlir::Value getVal(
-      mlir::Value scalarOr1DArrayIntValue, uint64_t i) = 0;
+  // Locate/generate a value that represents the integer value given by the op
+  // defining intArrayVal at position i in the array. Return nullptr if cannot
+  // locate/generate the value.
+  virtual mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) = 0;
+  // Locate/generate a value that represents the integer value of the shape
+  // given by a tensor or memref at position i. Return nullptr if cannot
+  // locate/generate the value.
   virtual mlir::Value getShapeVal(
       mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 };
