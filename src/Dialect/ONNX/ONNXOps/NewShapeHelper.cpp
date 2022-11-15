@@ -110,12 +110,14 @@ void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = ieBuilder.getShapeRank(operands[0]);
+  uint64_t rank = ieBuilder->getShapeRank(operands[0]);
   DimsExpr outputDims;
   for (uint64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(ieBuilder.getShapeAsDim(operands[0], i));
+    outputDims.emplace_back(ieBuilder->getShapeAsDim(operands[0], i));
   setOutputDims(outputDims);
   return success();
 }
+
+template struct NewONNXOpShapeHelper<Operation>;
 
 } // namespace onnx_mlir
