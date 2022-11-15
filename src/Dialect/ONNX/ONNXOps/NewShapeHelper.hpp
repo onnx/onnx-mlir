@@ -38,7 +38,7 @@ template <class OP>
 struct NewONNXOpShapeHelper {
   // Constructor for shape inference.
   NewONNXOpShapeHelper(OP *op, mlir::ValueRange operands,
-      IndexExprBuilder &IEBuilder, IndexExprScope *scope);
+      IndexExprBuilder *ieBuilder, IndexExprScope *scope);
   ~NewONNXOpShapeHelper() {
     if (ownScope)
       delete scope;
@@ -69,7 +69,7 @@ struct NewONNXOpShapeHelper {
   // child's struct `computeShape` function.
   OP *op;
   mlir::ValueRange operands;
-  IndexExprBuilder &IEBuilder;
+  IndexExprBuilder *ieBuilder;
   IndexExprScope *scope;
 
 private:
@@ -82,10 +82,10 @@ private:
 struct NewONNXGenericOpUnaryShapeHelper
     : public NewONNXOpShapeHelper<mlir::Operation> {
   NewONNXGenericOpUnaryShapeHelper(mlir::Operation *op,
-      mlir::ValueRange operands, IndexExprBuilder &IEBuilder,
+      mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper<mlir::Operation>(
-            op, operands, IEBuilder, scope) {}
+            op, operands, ieBuilder, scope) {}
 
   virtual mlir::LogicalResult computeShape() override;
 };

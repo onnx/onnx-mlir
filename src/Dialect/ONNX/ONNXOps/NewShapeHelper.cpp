@@ -83,10 +83,11 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
 template <class OP>
 NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
-    IndexExprBuilder &IEBuilder, IndexExprScope *scope)
-    : op(op), operands(operands), IEBuilder(IEBuilder), scope(scope),
+    IndexExprBuilder *ieBuilder, IndexExprScope *scope)
+    : op(op), operands(operands), ieBuilder(ieBuilder), scope(scope),
       outputsDims(), ownScope(scope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
+  assert(ieBuilder && "Expecting a valid index expression builder");
   if (ownScope)
     scope = new IndexExprScope(nullptr, op->getLoc());
   setNumberOfOutputs(op->getNumResults());
@@ -109,10 +110,10 @@ void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = IEBuilder.getShapeRank(operands[0]);
+  uint64_t rank = ieBuilder.getShapeRank(operands[0]);
   DimsExpr outputDims;
   for (uint64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(IEBuilder.getShapeAsDim(operands[0], i));
+    outputDims.emplace_back(ieBuilder.getShapeAsDim(operands[0], i));
   setOutputDims(outputDims);
   return success();
 }
