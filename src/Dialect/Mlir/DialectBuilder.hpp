@@ -24,8 +24,9 @@
 namespace onnx_mlir {
 
 struct DialectBuilder {
-  DialectBuilder(mlir::Operation *op)
-      : builder(nullptr), location(op->getLoc()) {}
+  // Constructor for analysis (no code generation, get builder disabled).
+  DialectBuilder(mlir::Location loc) : builder(nullptr), location(loc) {}
+  // Constructors for code generation.
   DialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : builder(&b), location(loc) {}
   DialectBuilder(const DialectBuilder &db)
@@ -35,19 +36,17 @@ struct DialectBuilder {
   DialectBuilder &operator=(const DialectBuilder &) = delete;
   DialectBuilder &&operator=(const DialectBuilder &&) = delete;
 
+  // Public getters of builder and location.
   mlir::OpBuilder &getBuilder() const { return b(); }
   mlir::Location getLoc() const { return loc(); }
 
-  // hi alex: temp
 protected:
+  // Private getters of builder and location (concise version).
   mlir::OpBuilder &b() const {
     assert(builder);
     return *builder;
   }
-  mlir::Location loc() const {
-    assert(builder);
-    return location;
-  }
+  mlir::Location loc() const { return location; }
 
 private:
   mlir::OpBuilder *builder;

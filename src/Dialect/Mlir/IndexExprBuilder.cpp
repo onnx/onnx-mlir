@@ -45,88 +45,94 @@ namespace onnx_mlir {
 // IndexShapeBuilder
 //===----------------------------------------------------------------------===//
 
-// Get lit from array attribute.
-uint64_t IndexExprBuilder::getSize(mlir::ArrayAttr arrayAttr) {
-  return arrayAttr.size();
+//===----------------------------------------------------------------------===//
+// Get literals from integer array attribute.
+
+uint64_t IndexExprBuilder::getIntArrayAttrSize(ArrayAttr intArrayAttr) {
+  return intArrayAttr.size();
 }
 
-IndexExpr IndexExprBuilder::getLiteral(mlir::ArrayAttr arrayAttr, uint64_t i) {
-  uint64_t size = arrayAttr.size();
+IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
+    ArrayAttr intArrayAttr, uint64_t i) {
+  uint64_t size = intArrayAttr.size();
   if (i >= size)
     return UndefinedIndexExpr();
-  int64_t val = (arrayAttr.getValue()[i]).cast<IntegerAttr>().getInt();
+  int64_t val = (intArrayAttr.getValue()[i]).cast<IntegerAttr>().getInt();
   return LiteralIndexExpr(val);
 }
 
-IndexExpr IndexExprBuilder::getLiteral(
-    mlir::ArrayAttr arrayAttr, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getLiteral(arrayAttr, i);
+IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
+    ArrayAttr intArrayAttr, uint64_t i, int64_t defaultVal) {
+  IndexExpr indexExpr = getIntArrayAttrAsLiteral(intArrayAttr, i);
   // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultVal) : indexExpr;
 }
 
-// Get symbol from operands.
-uint64_t IndexExprBuilder::getSize(Value scalarOr1DArrayIntValue) {
-  assert(hasShapeAndRank(scalarOr1DArrayIntValue) &&
+//===----------------------------------------------------------------------===//
+// Get symbols from value defined by intArrayVal.
+
+uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
+  assert(hasShapeAndRank(intArrayVal) &&
          "expected shaped type with rank");
-  ShapedType shapeType = scalarOr1DArrayIntValue.getType().cast<ShapedType>();
+  ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
   // Find shaped type size (rank of 0 is scalar).
   uint64_t rank = shapeType.getRank();
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   return (rank == 0) ? 1 : shapeType.getShape()[0];
 }
 
-IndexExpr IndexExprBuilder::getSymbol(
-    Value scalarOr1DArrayIntValue, uint64_t i) {
-  uint64_t size = getSize(scalarOr1DArrayIntValue);
+IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
+    Value intArrayVal, uint64_t i) {
+  uint64_t size = getIntArraySize(intArrayVal);
   if (i >= size)
     return UndefinedIndexExpr();
   // If our scalar array is a constant, return it.
-  if (DenseElementsAttr attrArray = getConst(scalarOr1DArrayIntValue)) {
+  if (DenseElementsAttr attrArray = getConst(intArrayVal)) {
     auto attrVal = attrArray.getValues<Attribute>()[ArrayRef<uint64_t>({i})];
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     return LiteralIndexExpr(attrInt);
   }
   // If our scalar array is not a constant; we have a questionmark.
-  if (Value val = getVal(scalarOr1DArrayIntValue, i))
+  if (Value val = getVal(intArrayVal, i))
     return SymbolIndexExpr(val);
   else
     return QuestionmarkIndexExpr();
 }
 
-IndexExpr IndexExprBuilder::getSymbol(
-    Value scalarOr1DArrayIntValue, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getSymbol(scalarOr1DArrayIntValue, i);
+IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
+    Value intArrayVal, uint64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-bool IndexExprBuilder::getSymbols(
-    Value scalarOr1DArrayIntValue, IndexExprList &list, int64_t listSize) {
+void IndexExprBuilder::getIntArrayAsSymbols(
+    Value intArrayVal, IndexExprList &list, int64_t listSize) {
   list.clear();
-  uint64_t size = getSize(scalarOr1DArrayIntValue);
+  uint64_t size = getIntArraySize(intArrayVal);
   if (listSize == -1) // Meaning pick up the full size of the list.
     listSize = size;
-  else if ((uint64_t)listSize > size) // Requesting more elements than avail.
-    return false;
+  else 
+    assert((uint64_t)listSize <= size && "requesting too many elements"); 
   for (uint64_t i = 0; i < (uint64_t)listSize; ++i) {
-    IndexExpr indexExpr = getSymbol(scalarOr1DArrayIntValue, i);
+    IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }
-  return true;
 }
 
+//===----------------------------------------------------------------------===//
 // Get info from tensor/memref shape.
-bool IndexExprBuilder::isShapeCompileTimeConstant(
+
+bool IndexExprBuilder::isLiteralShape(
     Value tensorOrMemrefValue, uint64_t i) {
   return getShape(tensorOrMemrefValue, i) != -1;
 }
 
-bool IndexExprBuilder::isShapeCompileTimeConstant(Value tensorOrMemrefValue) {
+bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
   uint64_t rank = getShapeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
-    if (!isShapeCompileTimeConstant(tensorOrMemrefValue, i))
+    if (!isLiteralShape(tensorOrMemrefValue, i))
       return false;
   return true;
 }
@@ -153,7 +159,7 @@ IndexExpr IndexExprBuilder::getShapeAsLiteral(
 
 IndexExpr IndexExprBuilder::getShapeAsSymbol(
     Value tensorOrMemrefValue, uint64_t i) {
-  if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
+  if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return SymbolIndexExpr(val);
@@ -163,7 +169,7 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
 
 IndexExpr IndexExprBuilder::getShapeAsDim(
     Value tensorOrMemrefValue, uint64_t i) {
-  if (isShapeCompileTimeConstant(tensorOrMemrefValue, i))
+  if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIndexExpr(val);

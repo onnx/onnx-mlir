@@ -42,10 +42,9 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
     return success();
 
 #if USE_NEW_SHAPE
-  IndexExprBuilderForAnalysis ieBuilderForAnalysis(op);
-  IndexExprBuilder *ieBuilder = (IndexExprBuilder *)&ieBuilderForAnalysis;
+  IndexExprBuilderForAnalysis createIE(op->getLoc());
   NewONNXGenericOpUnaryShapeHelper shapeHelper(
-      op, op->getOperands(), ieBuilder);
+      op, op->getOperands(), (IndexExprBuilder *)&createIE);
   if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
 #else

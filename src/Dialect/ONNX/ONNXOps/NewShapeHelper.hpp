@@ -69,7 +69,7 @@ struct NewONNXOpShapeHelper {
   // child's struct `computeShape` function.
   OP *op;
   mlir::ValueRange operands;
-  IndexExprBuilder *ieBuilder;
+  IndexExprBuilder *createIE;
   IndexExprScope *scope;
 
 private:
