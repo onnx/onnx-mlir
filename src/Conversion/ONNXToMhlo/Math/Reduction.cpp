@@ -221,7 +221,7 @@ Value createReduce(Location loc, Value operand, Value identity,
       operand, identity, rewriter.getI64TensorAttr(axes));
 
   // setup "mhlo.reduce"'s body
-  Region &region = reduce.body();
+  Region &region = reduce.getBody();
   Block &block = region.emplaceBlock();
   RankedTensorType blockArgumentType =
       RankedTensorType::get({}, operandType.getElementType());

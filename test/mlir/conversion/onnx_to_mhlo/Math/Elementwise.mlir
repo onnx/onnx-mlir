@@ -107,21 +107,21 @@ func.func @cast_float(%arg0: tensor<2xf64>) -> tensor<2xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<2xf64>) -> tensor<2xf32>
   return %0 : tensor<2xf32>
 // CHECK-LABEL:  func @cast_float
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<2xf64>) -> tensor<2xf32>
+// CHECK:         %0 = mhlo.convert %arg0  : (tensor<2xf64>) -> tensor<2xf32>
 }
 
 func.func @cast_int(%arg0: tensor<2xf32>) -> tensor<2xi32> {
   %0 = "onnx.Cast"(%arg0) {to = i32} : (tensor<2xf32>) -> tensor<2xi32>
   return %0 : tensor<2xi32>
 // CHECK-LABEL:  func @cast_int
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<2xf32>) -> tensor<2xi32>
+// CHECK:         %0 = mhlo.convert %arg0 : (tensor<2xf32>) -> tensor<2xi32>
 }
 
 func.func @cast_dyn(%arg0: tensor<?x2xf64>) -> tensor<?x2xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<?x2xf64>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 // CHECK-LABEL:  func @cast_dyn
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<?x2xf64>) -> tensor<?x2xf32>
+// CHECK:         %0 = mhlo.convert %arg0 : (tensor<?x2xf64>) -> tensor<?x2xf32>
 }
 
 func.func @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {

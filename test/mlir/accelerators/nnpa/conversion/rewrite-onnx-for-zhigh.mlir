@@ -478,11 +478,11 @@ func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256
 
 // CONSTPROP-LABEL:  func.func @softmax_nd_to_2d
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<4x12x256x256xf32>) -> tensor<4x12x256x256xf32> {
-// CONSTPROP:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[-1, 256]> : tensor<2xi64>} : () -> tensor<2xi64>
-// CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<2xi64>) -> tensor<12288x256xf32>
-// CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.Softmax"([[VAR_1_]]) {axis = 1 : si64} : (tensor<12288x256xf32>) -> tensor<12288x256xf32>
+// CONSTPROP:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<[-1, 256, 256]> : tensor<3xi64>} : () -> tensor<3xi64>
+// CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
+// CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.Softmax"([[VAR_1_]]) {axis = -1 : si64} : (tensor<48x256x256xf32>) -> tensor<48x256x256xf32>
 // CONSTPROP-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<[4, 12, 256, 256]> : tensor<4xi64>} : () -> tensor<4xi64>
-// CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<12288x256xf32>, tensor<4xi64>) -> tensor<4x12x256x256xf32>
+// CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x256xf32>, tensor<4xi64>) -> tensor<4x12x256x256xf32>
 // CONSTPROP:           return [[VAR_4_]] : tensor<4x12x256x256xf32>
 // CONSTPROP:         }
 }

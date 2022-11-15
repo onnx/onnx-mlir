@@ -25,6 +25,7 @@ add_onnx_mlir_library(OMONNXOps
   
   # Support for shape inference and verifiers
   ONNXOps/Additional/CallOp.cpp
+  ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp
