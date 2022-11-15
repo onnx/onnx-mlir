@@ -255,7 +255,7 @@ def replaceONNXMaxPattern : Pat<
 //                                0))
 //===----------------------------------------------------------------------===//
 
-def replaceONNXSoftmaxPattern : Pattern<
+def replaceONNXSoftmax2DPattern : Pattern<
   (ONNXSoftmaxOp:$res $x, $axis),
   [
    // Get unstick result
@@ -274,7 +274,19 @@ def replaceONNXSoftmaxPattern : Pattern<
        (GetTypeOf $res),
        $unstick,
        (GetI64ArrayAttr<0>))
-  ]
+  ],
+  [(HasRankOf<2> $x)]
+>;
+
+def replaceONNXSoftmax3DPattern : Pat<
+  (ONNXSoftmaxOp:$res $x, $axis),
+  // Get unstick result
+  (ZHighUnstickOp:$unstick
+     (ZHighSoftmaxOp
+        (ZHighStickOp:$s_x $x, (_3DSLayoutAttr)),
+        (GetStringAttr<"ACT_NONE">),
+        (returnType $s_x))),
+  [(HasRankOf<3> $x)]
 >;
 
 //===----------------------------------------------------------------------===//

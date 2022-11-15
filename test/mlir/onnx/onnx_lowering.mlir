@@ -1965,7 +1965,7 @@ func.func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) ->
 
   // CHECK: [[CST_VALUE:%.+]] = arith.constant 1.000000e+00 : f32
   // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map0([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map1([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map2([[DIM_0]], [[DIM_1]], [[DIM_2]])){
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map1([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map2([[DIM_0]], [[DIM_1]], [[DIM_2]])){
   // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
   // CHECK:   krnl.store [[CST_VALUE]], [[RES]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<?x?x?xf32>
   // CHECK: }
@@ -2046,7 +2046,7 @@ func.func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:         [[CST_2_1_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK:             [[VAR_7_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_3_]] : memref<2x?x4xf32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map0([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
 // CHECK-DAG:         [[CST_2_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_4_:%.+]] = arith.constant 4 : index
 // CHECK:             [[VAR_9_:%.+]] = affine.apply #map1([[I_2_]]){{.}}[[CST_4_]]{{.}}
@@ -2402,7 +2402,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
     onnx.Return %arg4,  %7 : tensor<i1>, tensor<?xf32>
   }) : (tensor<i64>, tensor<i1>) -> tensor<?x?xf32>
   return  %0 : tensor<?x?xf32>
-// CHECK-DAG: #map0 = affine_map<(d0, d1) -> (d0, d1)>
+// CHECK-DAG: #map = affine_map<(d0, d1) -> (d0, d1)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func @test_loop
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i64>, [[PARAM_1_:%.+]]: memref<i1>, [[PARAM_2_:%.+]]: memref<?xf32>) -> memref<?x?xf32> {
@@ -2430,7 +2430,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK-DAG:             [[VAR_16_:%.+]] = memref.dim [[PARAM_2_]], [[VAR_c0_3_]] : memref<?xf32>
 // CHECK-DAG:             [[VAR_c0_4_:%.+]] = arith.constant 0 : index
 // CHECK:                 [[VAR_17_:%.+]] = memref.dim [[PARAM_2_]], [[VAR_c0_4_]] : memref<?xf32>
-// CHECK:                 [[VAR_18_:%.+]] = affine.max #map0([[VAR_16_]], [[VAR_17_]])
+// CHECK:                 [[VAR_18_:%.+]] = affine.max #map([[VAR_16_]], [[VAR_17_]])
 // CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc([[VAR_18_]]) {{.*}}: memref<?xf32>
 // CHECK-DAG:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[VAR_c0_5_:%.+]] = arith.constant 0 : index

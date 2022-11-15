@@ -14,6 +14,7 @@ add_onnx_mlir_rewriter(Rewrite)
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
   DialectBuilder.cpp
+  ONNXAttributes.cpp
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
@@ -23,6 +24,7 @@ add_onnx_mlir_library(OMONNXOps
   
   # Support for shape inference and verifiers
   ONNXOps/Additional/CallOp.cpp
+  ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp

@@ -63,12 +63,6 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
 }
 
-// Reshape: B1xB2x...xBkxM to BxM
-Value reshapeTo2DKeepLast(PatternRewriter &rewriter, Location loc, Value val) {
-  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  return create.onnx.reshapeToNDim(val, 2, /*collapseMostSignificant*/ true);
-}
-
 // Get a value that store the shape of the matmul result.
 Value getMatMulResultShape(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
@@ -420,7 +414,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, execNodesOnCpu);
+      &target, nullptr, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be
@@ -485,11 +479,11 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // Illegalize SoftmaxOp if
   // - axis is the last dimension.
-  // This SoftmaxOp will be rewritten in which its input is reshaped to 2D.
+  // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
     Value input = op.input();
     if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
-      if ((shapedType.getRank() > 2) &&
+      if ((shapedType.getRank() > 3) &&
           ((op.axis() == shapedType.getRank() - 1) || (op.axis() == -1))) {
         return false;
       }

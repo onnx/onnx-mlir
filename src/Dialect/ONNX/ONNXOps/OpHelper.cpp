@@ -365,29 +365,6 @@ bool isFromNone(Value v) {
 }
 
 //===----------------------------------------------------------------------===//
-// Get a broadcasted type for RankedTensorType and MemRefType.
-//===----------------------------------------------------------------------===//
-Type getBroadcastedRankedType(Type type1, Type type2, Type elementType) {
-  if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
-    return OpTrait::util::getBroadcastedType(type1, type2, elementType);
-  if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
-    // Construct RankedTensorType(s).
-    if (!elementType)
-      elementType = type1.cast<MemRefType>().getElementType();
-    RankedTensorType ty1 =
-        RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
-    RankedTensorType ty2 =
-        RankedTensorType::get(type2.cast<MemRefType>().getShape(), elementType);
-    // Compute a broadcasted type.
-    Type outputType = OpTrait::util::getBroadcastedType(ty1, ty2);
-    // Construct a MemRefType.
-    return MemRefType::get(
-        outputType.cast<RankedTensorType>().getShape(), elementType);
-  } else
-    return {};
-}
-
-//===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
 
@@ -556,6 +533,69 @@ DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
   }
   auto tensorType = RankedTensorType::get(dims, elementType);
   return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+}
+
+//===----------------------------------------------------------------------===//
+// Support for dim operations.
+//===----------------------------------------------------------------------===//
+
+/// Check the defining operation of a value.
+template <typename OP>
+bool definedBy(Value v) {
+  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
+}
+
+/// Template instantiation for definedBy.
+template bool definedBy<ONNXCastOp>(Value v);
+template bool definedBy<ONNXConcatOp>(Value v);
+template bool definedBy<ONNXConstantOp>(Value v);
+template bool definedBy<ONNXDimOp>(Value v);
+
+/// Check if a value is to store dimensions, meaning it is defined by
+/// Dim/Constant/Cast/Concat.
+bool areDims(Value val) {
+  // Value must be a 1D tensor.
+  Type vType = val.getType();
+  if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
+    return false;
+
+  // Base case.
+  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
+      definedBy<ONNXCastOp>(val)) {
+    // Value must be a 1D tensor of one element.
+    return (getShape(vType)[0] == 1);
+  }
+
+  // Recursion case.
+  if (definedBy<ONNXConcatOp>(val)) {
+    // Recursively check.
+    for (Value v : val.getDefiningOp()->getOperands())
+      if (!areDims(v))
+        return false;
+    return true;
+  }
+
+  // Not Dim/Constant/Cast/Concat.
+  return false;
+}
+
+/// Check if a value is defined by Concat to store dimensions.
+bool areDimsFromConcat(Value val) {
+  return (areDims(val) && definedBy<ONNXConcatOp>(val));
+}
+
+/// Get all dimensions that are stored by the value.
+void getDims(Value val, SmallVectorImpl<Value> &dims) {
+  assert(areDims(val) && "Value does not store dimensions");
+  if (definedBy<ONNXConcatOp>(val)) {
+    for (Value v : val.getDefiningOp()->getOperands()) {
+      SmallVector<Value, 4> inputs;
+      getDims(v, inputs);
+      for (Value i : inputs)
+        dims.emplace_back(i);
+    }
+  } else
+    dims.emplace_back(val);
 }
 
 // Create a DenseElementsAttr from a String attribute.

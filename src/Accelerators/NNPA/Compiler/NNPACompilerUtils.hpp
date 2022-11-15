@@ -20,12 +20,6 @@
 
 namespace onnx_mlir {
 
-typedef enum {
-  EmitZNONE,
-  EmitZLowIR,
-  EmitZHighIR,
-} NNPAEmissionTargetType;
-
 void addMemoryPooling(mlir::PassManager &pm);
 
 void addONNXToZHighPasses(mlir::PassManager &pm);

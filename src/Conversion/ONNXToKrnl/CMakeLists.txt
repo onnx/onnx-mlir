@@ -39,6 +39,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/ArgMinMax.cpp
   Tensor/Compress.cpp  
   Tensor/Concat.cpp
+  Tensor/ConcatShapeTranspose.cpp
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/DepthToSpace.cpp

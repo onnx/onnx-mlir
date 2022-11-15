@@ -90,6 +90,7 @@ version_dict = {
  'Bernoulli': [15],
  'Binarizer': [1],
  'BitShift': [11],
+ 'BlackmanWindow': [17],
  'Cast': [13],
  'CastLike': [15],
  'CastMap': [1],
@@ -138,6 +139,8 @@ version_dict = {
  'Greater': [13],
  'GreaterOrEqual': [16],
  'GridSample': [16],
+ 'HammingWindow': [17],
+ 'HannWindow': [17],
  'HardSigmoid': [6],
  'Hardmax': [13],
  'HardSwish': [14],
@@ -147,6 +150,7 @@ version_dict = {
  'InstanceNormalization': [6],
  'IsInf': [10],
  'IsNaN': [13],
+ 'LayerNormalization': [17],
  'LRN': [13],
  'LSTM': [14],
  'LabelEncoder': [2],
@@ -168,6 +172,7 @@ version_dict = {
  'MaxUnpool': [11],
  'Mean': [13],
  'MeanVarianceNormalization': [13],
+ 'MelWeightMatrix': [17],
  'Min': [13],
  'Mod': [13],
  'Momentum': [1],
@@ -228,6 +233,7 @@ version_dict = {
  'SequenceErase': [11],
  'SequenceInsert': [11],
  'SequenceLength': [11],
+ 'SequenceMap': [17],
  'Shape': [15],
  'Shrink': [9],
  'Sigmoid': [13],
@@ -246,6 +252,7 @@ version_dict = {
  'Sqrt': [13],
  'Squeeze': [13, 11],
  'StringNormalizer': [10],
+ 'STFT': [17],
  'Sub': [14],
  'Sum': [13],
  'Tan': [7],
@@ -315,9 +322,12 @@ OpsWithCanonicalizer = [
 
 # Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
-    'AveragePool',
+    'Add',
+    'And',
     'ArgMax',
     'ArgMin',
+    'AveragePool',
+    'BitShift',
     'CategoryMapper',
     'Compress',
     'Concat',
@@ -327,30 +337,41 @@ OpsWithVerifier = [
     'DepthToSpace',
     'DequantizeLinear',
     'DFT',
+    'Div',
     'Einsum',
+    'Equal',
     'Expand',
     'Flatten',
     'Gather',
     'GatherElements',
     'GatherND',
+    'Greater',
+    'GreaterOrEqual',
     'Hardmax',
     'If',
     'InstanceNormalization',
+    'Less',
+    'LessOrEqual',
     'LogSoftmax',
+    'Max',
+    'Mean',
+    'Min',
     'Mod',
+    'Mul',
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
     'Optional',
     'OptionalGetElement',
     'OptionalHasElement',
+    'Or',
+    'PRelu',
     'Pad',
     'Pow',
-    'PRelu',
     'RandomNormalLike',
     'ReverseSequence',
-    "RoiAlign",
-    "ScatterElements",
+    'RoiAlign',
+    'ScatterElements',
     'ScatterND',
     'SequenceEmpty',
     'SequenceInsert',
@@ -358,9 +379,13 @@ OpsWithVerifier = [
     'SpaceToDepth',
     'Split',
     'SplitToSequence',
+    'Sub',
+    'Sum',
     'TopK',
     'Unique',
-    'Upsample'
+    'Upsample',
+    'Where',
+    'Xor'
 ]
 
 # Op with Helper functions
@@ -950,7 +975,7 @@ def gen_op_def(schema, with_version = False):
           regions[attr.name] = "AnyRegion"
 
     # Generate decl for op traits.
-    traits = ["NoSideEffect"]
+    traits = ["Pure"]
     # OpsWithShapeInference:
     # Now the ShapeInference traits are added to all operation.
     # Dummy implementations are added to ONNXOps.cpp.
