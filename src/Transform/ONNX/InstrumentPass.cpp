@@ -85,7 +85,12 @@ public:
   StringRef getDescription() const override { return "instrument on ops."; }
 
   void init(std::string allowedOps_) {
-    std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
+    // Separate multiple expressions with space
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex(","), " ");
+    // '.' in `--instrument-ops` is recognized as normal character, not regular
+    // expression
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\."), "\\.");
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\*"), ".*");
     std::stringstream ss(allowedOps_);
     std::istream_iterator<std::string> begin(ss);
     std::istream_iterator<std::string> end;
@@ -124,7 +129,7 @@ public:
       std::string opName = op->getName().getStringRef().str();
       for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
         std::regex re(*itr);
-        if (std::regex_search(opName, re)) {
+        if (std::regex_match(opName, re)) {
           Location loc = op->getLoc();
           OpBuilder opBuilder(op);
           if (instrumentBefore)

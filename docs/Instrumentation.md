@@ -6,8 +6,8 @@ Instrumentation is prototyped in onnx-mlir and can be used to debug runtime issu
 
 ## Compile for instrumentation
 
-By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `Onnx`, the instrumentation will be inserted after onnx-to-onnx conversion to get onnx-level profiling. The `--instrument-ops` option is an option to specify operations to be instrumented using regular expression. You can use `onnx.` for all onnx operations and `onnx.Conv` for onnx Conv operations etc. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
-For NNPA, additional stages for `ZHigh` and `ZLow` are provided. You can get profile for onnx and zhigh ops using `--instrument-stage=ZHigh` and `--instrument-ops=onnx.,zhigh.`, and for zlow ops using `--instrument-stage=ZLow` and `--instrument-ops=zlow.`.
+By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `Onnx`, the instrumentation will be inserted after onnx-to-onnx conversion to get onnx-level profiling. The `--instrument-ops` option is an option to specify operations to be instrumented. You can use `onnx.Conv` for onnx Conv operations for example. Also, you can use asterisk such as `onnx.*` for all onnx operations, and specify two expressions with `,` such as `onnx.Conv,onnx.Add` for both Conv and Add operations. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx. --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
+For NNPA, additional stages for `ZHigh` and `ZLow` are provided. You can get profile for onnx and zhigh ops using `--instrument-stage=ZHigh` and `--instrument-ops=onnx.*,zhigh.*`, and for zlow ops using `--instrument-stage=ZLow` and `--instrument-ops=zlow.*`.
 
 ```
   --instrument-stage=<value>                        - Specify stage to be instrumented:
@@ -15,11 +15,12 @@ For NNPA, additional stages for `ZHigh` and `ZLow` are provided. You can get pro
     =ZHigh                                            -   NNPA profiling for onnx and zhigh ops.
     =ZLow                                             -   NNPA profiling for zlow ops.
 
-  --instrument-ops=<string>                         - Specify regex for ops to be instrumented:
+  --instrument-ops=<string>                         - Specify operations operations to be instrumented:
                                                       "NONE" or "" for no instrument,
-                                                      "regex1,regex2, ..." for the specified ops.
-                                                      e.g. "onnx.,zhigh." for onnx and zhigh ops.
-                                                      e.g. "onnx.Conv" for onnx Conv ops.
+                                                      "ops1,ops2, ..." for the multiple ops.
+                                                      e.g. "onnx.Conv,onnx.Add" for Conv and Add ops.
+                                                      Asterisk is also available.
+                                                      e.g. "onnx.*" for all onnx operations.
 
   Specify what instrumentation actions at runtime:
       --InstrumentBeforeOp                          - insert instrument before op,

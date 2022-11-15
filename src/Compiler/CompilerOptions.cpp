@@ -140,11 +140,12 @@ llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
     llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
-    llvm::cl::desc("Specify regex for ops to be instrumented:\n"
+    llvm::cl::desc("Specify operations operations to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
-                   "\"regex1,regex2, ...\" for the specified ops.\n"
-                   "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
-                   "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
