@@ -139,10 +139,10 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // used for building, only for analysis.
 
 struct IndexExprBuilderForAnalysis : IndexExprBuilder {
-   IndexExprBuilderForAnalysis() {} // hi alex: empty for analysis
-   IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+  IndexExprBuilderForAnalysis() {} // hi alex: empty for analysis
+  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
       : IndexExprBuilder(b, loc) {}
-   IndexExprBuilderForAnalysis(const DialectBuilder &db)
+  IndexExprBuilderForAnalysis(const DialectBuilder &db)
       : IndexExprBuilder(db) {}
 
   // Version with dummy builder and location (ok as we never build).

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------ IndexExprBuilder.hpp - builder for index expressions ----===//
+//===------------ IndexExprBuilder.cpp - builder for index expressions ----===//
 //
 // Copyright 2022 The IBM Research Authors.
 //

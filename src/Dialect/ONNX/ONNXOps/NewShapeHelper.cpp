@@ -17,7 +17,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
-
 #include <algorithm>
 
 #define DEBUG_TYPE "shape-helper"

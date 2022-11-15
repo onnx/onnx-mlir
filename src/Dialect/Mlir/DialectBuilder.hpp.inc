@@ -12,7 +12,7 @@
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(
     mlir::Value memref, mlir::ValueRange indices) const {
-  return bbbb().create<LOAD_OP>(llll(), memref, indices);
+  return b().create<LOAD_OP>(loc(), memref, indices);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -36,7 +36,7 @@ mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(
     mlir::Value val, mlir::Value memref, mlir::ValueRange indices) const {
-  bbbb().create<STORE_OP>(llll(), val, memref, indices);
+  b().create<STORE_OP>(loc(), val, memref, indices);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -70,8 +70,8 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
   lb.getAffineMapAndOperands(lbMap, lbOperands);
   ub.getAffineMapAndOperands(ubMap, ubOperands);
   // Create affine for.
-  bbbb().create<mlir::AffineForOp>(llll(), lbOperands, lbMap, ubOperands, ubMap, step,
-      mlir::ValueRange{},
+  b().create<mlir::AffineForOp>(loc(), lbOperands, lbMap, ubOperands, ubMap,
+      step, mlir::ValueRange{},
       [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
           mlir::ValueRange args) {
         GenericAffineBuilder createAffine(b, loc);
@@ -120,18 +120,19 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
       scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
   llvm::SmallVector<mlir::Value, 8> dimAndSymbolList;
   scope.getDimAndSymbolList(dimAndSymbolList);
-  auto ifOp = bbbb().create<mlir::AffineIfOp>(llll(), inset, dimAndSymbolList, true);
+  auto ifOp =
+      b().create<mlir::AffineIfOp>(loc(), inset, dimAndSymbolList, true);
   mlir::Block *thenBlock = ifOp.getThenBlock();
   mlir::Block *elseBlock = ifOp.getElseBlock();
   if (!allFalse) {
     appendToBlock(thenBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(bbbb(), llll());
+      GenericAffineBuilder createAffine(b(), loc());
       thenFn(createAffine);
     });
   }
   if (!allTrue) {
     appendToBlock(elseBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(bbbb(), llll());
+      GenericAffineBuilder createAffine(b(), loc());
       elseFn(createAffine);
     });
   }
@@ -139,7 +140,7 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
-  bbbb().create<mlir::AffineYieldOp>(llll());
+  b().create<mlir::AffineYieldOp>(loc());
 }
 
 // Support for multiple forIE loops.
@@ -161,7 +162,7 @@ void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForIE(
         });
   } else {
     // Call lambda function
-    GenericAffineBuilder createAffine(bbbb(), llll());
+    GenericAffineBuilder createAffine(b(), loc());
     builderFn(createAffine, loopIndices);
   }
 }
@@ -171,11 +172,11 @@ template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
     mlir::Block *block,
     mlir::function_ref<void(mlir::ValueRange)> builderFn) const {
-  mlir::OpBuilder::InsertionGuard guard(bbbb());
+  mlir::OpBuilder::InsertionGuard guard(b());
   if (block->empty() ||
       !block->back().mightHaveTrait<mlir::OpTrait::IsTerminator>()) {
-    bbbb().setInsertionPointToEnd(block);
+    b().setInsertionPointToEnd(block);
   } else
-    bbbb().setInsertionPoint(&block->back());
+    b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
 }

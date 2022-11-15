@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -66,18 +66,16 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExpr getShapeAsLiteral(mlir::Value tensorOrMemrefValue, uint64_t i);
   IndexExpr getShapeAsSymbol(mlir::Value tensorOrMemrefValue, uint64_t i);
   IndexExpr getShapeAsDim(mlir::Value tensorOrMemrefValue, uint64_t i);
-  void getShapeAsLiterals(
-      mlir::Value tensorOrMemrefValue, IndexExprList &list);
-  void getShapeAsSymbols(
-      mlir::Value tensorOrMemrefValue, IndexExprList &list);
-  void getShapeAsDims(
-      mlir::Value tensorOrMemrefValue, IndexExprList &list);
+  void getShapeAsLiterals(mlir::Value tensorOrMemrefValue, IndexExprList &list);
+  void getShapeAsSymbols(mlir::Value tensorOrMemrefValue, IndexExprList &list);
+  void getShapeAsDims(mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
 protected:
   virtual mlir::DenseElementsAttr getConst(mlir::Value value) = 0;
   virtual mlir::Value getVal(
       mlir::Value scalarOr1DArrayIntValue, uint64_t i) = 0;
-  virtual mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
+  virtual mlir::Value getShapeVal(
+      mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 };
 
 } // namespace onnx_mlir

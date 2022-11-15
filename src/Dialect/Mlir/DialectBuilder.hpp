@@ -24,26 +24,32 @@
 namespace onnx_mlir {
 
 struct DialectBuilder {
-  DialectBuilder() : build(nullptr), location(mlir::UnknownLoc()) {}
-  DialectBuilder(mlir::OpBuilder &b, mlir::Location l)
-      : build(&b), location(l) {}
+  DialectBuilder() : builder(nullptr), location(mlir::UnknownLoc()) {}
+  DialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : builder(&b), location(loc) {}
   DialectBuilder(const DialectBuilder &db)
-      : build(db.build), location(db.location) {}
+      : builder(db.builder), location(db.location) {}
   virtual ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
   DialectBuilder &&operator=(const DialectBuilder &&) = delete;
 
-  mlir::OpBuilder &getBuilder() const { return bbbb(); }
-  mlir::Location getLoc() const { return llll(); }
+  mlir::OpBuilder &getBuilder() const { return b(); }
+  mlir::Location getLoc() const { return loc(); }
 
   // hi alex: temp
 protected:
-  mlir::OpBuilder &bbbb() const { assert(build); return *build; }
-  mlir::Location llll() const { assert(build); return location; }
+  mlir::OpBuilder &b() const {
+    assert(builder);
+    return *builder;
+  }
+  mlir::Location loc() const {
+    assert(builder);
+    return location;
+  }
 
 private:
-  mlir::OpBuilder *build;
+  mlir::OpBuilder *builder;
   mlir::Location location;
 };
 

@@ -211,5 +211,16 @@ protected:
   virtual mlir::Value getShapeVal(
       mlir::Value tensorOrMemrefValue, uint64_t i) override;
 };
+// Recursive class specialized for IndexExprBuilderForKrnl refereed to as
+// affineKMem.
+template <class... Ts>
+struct MultiDialectBuilder<IndexExprBuilderForKrnl, Ts...>
+    : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), ieKrnl(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), ieKrnl(db) {}
+  IndexExprBuilderForKrnl ieKrnl;
+};
 
 } // namespace onnx_mlir

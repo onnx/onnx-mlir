@@ -84,8 +84,7 @@ struct NewONNXGenericOpUnaryShapeHelper
   NewONNXGenericOpUnaryShapeHelper(mlir::Operation *op,
       mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
-      : NewONNXOpShapeHelper<mlir::Operation>(
-            op, operands, ieBuilder, scope) {}
+      : NewONNXOpShapeHelper<mlir::Operation>(op, operands, ieBuilder, scope) {}
 
   virtual mlir::LogicalResult computeShape() override;
 };
