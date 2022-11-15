@@ -69,7 +69,7 @@ if (not check_operation_version and not list_operation_version) and current_onnx
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
- 
+
 version_dict = {
  'Abs': [13],
  'Acos': [7],
@@ -111,6 +111,7 @@ version_dict = {
  'DepthToSpace': [13],
  'DequantizeLinear': [13],
  'Det': [11],
+ 'DFT': [17],
  'DictVectorizer': [1],
  'Div': [14],
  'Dropout': [13],
@@ -317,7 +318,7 @@ OpsWithVerifier = [
     'AveragePool',
     'ArgMax',
     'ArgMin',
-    'CategoryMapper',    
+    'CategoryMapper',
     'Compress',
     'Concat',
     'ConcatFromSequence',
@@ -325,12 +326,13 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'DequantizeLinear',
+    'DFT',
     'Einsum',
     'Expand',
     'Flatten',
     'Gather',
     'GatherElements',
-    'GatherND',        
+    'GatherND',
     'Hardmax',
     'If',
     'InstanceNormalization',
@@ -362,7 +364,7 @@ OpsWithVerifier = [
 ]
 
 # Op with Helper functions
-# Here the functions are for data flow analysis. 
+# Here the functions are for data flow analysis.
 OpsWithHelpers = {
   "Loop": """
     mlir::Operation::result_range v_final();
