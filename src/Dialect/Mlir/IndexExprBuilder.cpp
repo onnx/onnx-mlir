@@ -72,8 +72,7 @@ IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
 // Get symbols from value defined by intArrayVal.
 
 uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
-  assert(hasShapeAndRank(intArrayVal) &&
-         "expected shaped type with rank");
+  assert(hasShapeAndRank(intArrayVal) && "expected shaped type with rank");
   ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
   // Find shaped type size (rank of 0 is scalar).
   uint64_t rank = shapeType.getRank();
@@ -81,8 +80,7 @@ uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
   return (rank == 0) ? 1 : shapeType.getShape()[0];
 }
 
-IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
-    Value intArrayVal, uint64_t i) {
+IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value intArrayVal, uint64_t i) {
   uint64_t size = getIntArraySize(intArrayVal);
   if (i >= size)
     return UndefinedIndexExpr();
@@ -112,8 +110,8 @@ void IndexExprBuilder::getIntArrayAsSymbols(
   uint64_t size = getIntArraySize(intArrayVal);
   if (listSize == -1) // Meaning pick up the full size of the list.
     listSize = size;
-  else 
-    assert((uint64_t)listSize <= size && "requesting too many elements"); 
+  else
+    assert((uint64_t)listSize <= size && "requesting too many elements");
   for (uint64_t i = 0; i < (uint64_t)listSize; ++i) {
     IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -124,8 +122,7 @@ void IndexExprBuilder::getIntArrayAsSymbols(
 //===----------------------------------------------------------------------===//
 // Get info from tensor/memref shape.
 
-bool IndexExprBuilder::isLiteralShape(
-    Value tensorOrMemrefValue, uint64_t i) {
+bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue, uint64_t i) {
   return getShape(tensorOrMemrefValue, i) != -1;
 }
 
