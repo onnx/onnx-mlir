@@ -3170,3 +3170,29 @@ func.func @test_if_2(%arg0: tensor<i1>, %arg1: !onnx.Seq<tensor<2xf32>>) -> (!on
 // CHECK:           }) : (tensor<i1>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<?xf32>>>)
 // CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : !onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<?xf32>>>
 }
+
+// -----
+
+func.func @test_concatshapetranspose_1(%arg0: tensor<10x20xf32>, %arg1: tensor<10x30xf32>) -> (tensor<*xi64>, tensor<*xf32>)
+{
+    %1:2 = "onnx.ConcatShapeTranspose"(%arg0, %arg1) {axis = 1 : si64, perm = [1, 0]} : (tensor<10x20xf32>, tensor<10x30xf32>) -> (tensor<*xi64>, tensor<*xf32>)
+    return %1#0, %1#1 : tensor<*xi64>, tensor<*xf32>
+// CHECK-LABEL:  func.func @test_concatshapetranspose_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x20xf32>, [[PARAM_1_:%.+]]: tensor<10x30xf32>) -> (tensor<2xi64>, tensor<50x10xf32>) {
+// CHECK:           [[shape_:%.+]], [[VAR_transposed_:%.+]] = "onnx.ConcatShapeTranspose"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, perm = [1, 0], start = 0 : si64} : (tensor<10x20xf32>, tensor<10x30xf32>) -> (tensor<2xi64>, tensor<50x10xf32>)
+// CHECK:           return [[shape_]], [[VAR_transposed_]] : tensor<2xi64>, tensor<50x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_concatshapetranpose_2(%arg0: tensor<?x?xf32>, %arg1: tensor<10x30xf32>) -> (tensor<*xi64>, tensor<*xf32>)
+{
+    %1:2 = "onnx.ConcatShapeTranspose"(%arg0, %arg1) {axis = 1 : si64} : (tensor<?x?xf32>, tensor<10x30xf32>) -> (tensor<*xi64>, tensor<*xf32>)
+    return %1#0, %1#1 : tensor<*xi64>, tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_concatshapetranpose_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>, [[PARAM_1_:%.+]]: tensor<10x30xf32>) -> (tensor<2xi64>, tensor<?x10xf32>) {
+// CHECK:           [[shape_:%.+]], [[VAR_transposed_:%.+]] = "onnx.ConcatShapeTranspose"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, perm = [1, 0], start = 0 : si64} : (tensor<?x?xf32>, tensor<10x30xf32>) -> (tensor<2xi64>, tensor<?x10xf32>)
+// CHECK:           return [[shape_]], [[VAR_transposed_]] : tensor<2xi64>, tensor<?x10xf32>
+// CHECK:         }
