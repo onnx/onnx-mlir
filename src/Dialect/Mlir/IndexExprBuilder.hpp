@@ -37,6 +37,7 @@ namespace onnx_mlir {
 struct IndexExprBuilder : DialectBuilder {
   using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
 
+  IndexExprBuilder() {} // hi alex (empty for analysis)
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   IndexExprBuilder(const DialectBuilder &db) : DialectBuilder(db) {}

@@ -39,10 +39,7 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
     return success();
 
 #if USE_NEW_SHAPE
-  OpBuilder dummyBuilder(op);
-
-  //IndexExprBuilderForAnalysis IEBuilder(dummyBuilder, UnknownLoc());
-  IndexExprBuilderForAnalysis IEBuilder(op);
+  IndexExprBuilderForAnalysis IEBuilder();
   NewONNXGenericOpUnaryShapeHelper shapeHelper(
       op, op->getOperands(), IEBuilder);
   if (failed(shapeHelper.computeShape()))

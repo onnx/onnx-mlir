@@ -38,6 +38,7 @@ struct DialectBuilder {
   mlir::Location getLoc() const { return llll(); }
 
   // hi alex: temp
+protected:
   mlir::OpBuilder &bbbb() const { assert(build); return *build; }
   mlir::Location llll() const { assert(build); return location; }
 
