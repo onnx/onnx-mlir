@@ -16,6 +16,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
@@ -41,9 +42,10 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
     return success();
 
 #if USE_NEW_SHAPE
-  IndexExprBuilderForAnalysis ieBuilder();
+  IndexExprBuilderForAnalysis ieBuilderForAnalysis;
+  IndexExprBuilder *ieBuilder = (IndexExprBuilder *)&ieBuilderForAnalysis;
   NewONNXGenericOpUnaryShapeHelper shapeHelper(
-      op, op->getOperands(), (IndexExprBuilder *)&ieBuilder);
+      op, op->getOperands(), ieBuilder);
   if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
 #else
