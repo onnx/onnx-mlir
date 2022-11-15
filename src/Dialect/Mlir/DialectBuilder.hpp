@@ -24,7 +24,8 @@
 namespace onnx_mlir {
 
 struct DialectBuilder {
-  DialectBuilder() : builder(nullptr), location(mlir::UnknownLoc()) {}
+  DialectBuilder(mlir::Operation *op)
+      : builder(nullptr), location(op->getLoc()) {}
   DialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : builder(&b), location(loc) {}
   DialectBuilder(const DialectBuilder &db)

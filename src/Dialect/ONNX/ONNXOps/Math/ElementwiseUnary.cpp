@@ -21,7 +21,7 @@
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
 // hi alex
-#define USE_NEW_SHAPE 0
+#define USE_NEW_SHAPE 1
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -42,7 +42,7 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
     return success();
 
 #if USE_NEW_SHAPE
-  IndexExprBuilderForAnalysis ieBuilderForAnalysis;
+  IndexExprBuilderForAnalysis ieBuilderForAnalysis(op);
   IndexExprBuilder *ieBuilder = (IndexExprBuilder *)&ieBuilderForAnalysis;
   NewONNXGenericOpUnaryShapeHelper shapeHelper(
       op, op->getOperands(), ieBuilder);
