@@ -31,11 +31,10 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
 /*!
- * This pass insert KrnlInstrumentOp before and after each ops in specified
- * stage
+ * This pass insert KrnlInstrumentOp before and after each ops
  */
 
 class InstrumentPass
@@ -43,17 +42,6 @@ class InstrumentPass
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
-
-  Option<std::string> instrumentStage{*this, "instrument-stage",
-      llvm::cl::desc(
-          "Specify stage to be instrumented\n"
-          "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
-          "krnl)\n"
-          "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
-          "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh "
-          "ops\n"
-          "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
-      llvm::cl::init("")};
 
   Option<std::string> instrumentOps{*this, "instrument-ops",
       llvm::cl::desc("Specify regex for ops to be instrumented:\n"
@@ -80,8 +68,7 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(StringRef stage, StringRef ops, unsigned actions) {
-    this->instrumentStage = stage.str();
+  InstrumentPass(StringRef ops, unsigned actions) {
     this->instrumentOps = ops.str();
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
@@ -95,12 +82,15 @@ private:
 public:
   StringRef getArgument() const override { return "instrument"; }
 
-  StringRef getDescription() const override {
-    return "instrument on ops in a specific stage.";
-  }
+  StringRef getDescription() const override { return "instrument on ops."; }
 
   void init(std::string allowedOps_) {
-    std::replace(allowedOps_.begin(), allowedOps_.end(), ',', ' ');
+    // Separate multiple expressions with space
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex(","), " ");
+    // '.' in `--instrument-ops` is recognized as normal character, not regular
+    // expression
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\."), "\\.");
+    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\*"), ".*");
     std::stringstream ss(allowedOps_);
     std::istream_iterator<std::string> begin(ss);
     std::istream_iterator<std::string> end;
@@ -130,8 +120,6 @@ public:
   }
 
   void runOnOperation() override {
-    if (instrumentStage != onnx_mlir::instrumentStage)
-      return;
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
     init(instrumentOps);
@@ -141,7 +129,7 @@ public:
       std::string opName = op->getName().getStringRef().str();
       for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
         std::regex re(*itr);
-        if (std::regex_search(opName, re)) {
+        if (std::regex_match(opName, re)) {
           Location loc = op->getLoc();
           OpBuilder opBuilder(op);
           if (instrumentBefore)
@@ -157,7 +145,7 @@ public:
     });
   }
 };
-} // end anonymous namespace
+} // namespace onnx_mlir
 
 /*!
  * Create an instrumentation pass.
@@ -167,6 +155,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    StringRef stage, StringRef ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(stage, ops, actions);
+    StringRef ops, unsigned actions) {
+  return std::make_unique<InstrumentPass>(ops, actions);
 }
