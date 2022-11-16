@@ -511,7 +511,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   // (A(m, n) * B(n, p) + C(p))
   if (hasC && cShape.size() == 1) {
     // Cannot check broadcasting at compile time.
-    if (cShape[0] == -1)
+    if (ShapedType::isDynamic(cShape[0]))
       return false;
     if (cShape[0] != bShape1)
       return false;
@@ -810,8 +810,10 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // Do not support dynamic height and weight dimensions since we can not check
   // them at compile time.
-  if (shapeInput[2] == -1 || shapeInput[3] == -1 || shapeOutput[2] == -1 ||
-      shapeOutput[3] == -1)
+  if (ShapedType::isDynamic(shapeInput[2]) ||
+      ShapedType::isDynamic(shapeInput[3]) ||
+      ShapedType::isDynamic(shapeOutput[2]) ||
+      ShapedType::isDynamic(shapeOutput[3]))
     return false;
 
   // Do not support group.

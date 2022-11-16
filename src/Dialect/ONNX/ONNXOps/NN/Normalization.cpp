@@ -47,22 +47,22 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
   if (inputTensorTy.getShape().size() == 1) {
     c = 1;
   } else if (inputTensorTy.getShape().size() >= 2) {
-    c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
+    c = (!inputTensorTy.isDynamicDim(1)) ? inputTensorTy.getShape()[1] : -1;
   }
 
-  if (c != -1) {
+  if (!ShapedType::isDynamic(c)) {
     auto s = scaleTensorTy.getShape();
     auto b = biasTensorTy.getShape();
     auto m = meanTensorTy.getShape();
     auto v = varianceTensorTy.getShape();
 
-    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
+    if ((s.size() != 1) || (!ShapedType::isDynamic(s[0]) && s[0] != c))
       return emitError("Wrong rank for the scale");
-    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
+    if ((b.size() != 1) || (!ShapedType::isDynamic(b[0]) && b[0] != c))
       return emitError("Wrong rank for the bias");
-    if ((m.size() != 1) || (m[0] != -1 && m[0] != c))
+    if ((m.size() != 1) || (!ShapedType::isDynamic(m[0]) && m[0] != c))
       return emitError("Wrong rank for the mean");
-    if ((v.size() != 1) || (v[0] != -1 && v[0] != c))
+    if ((v.size() != 1) || (!ShapedType::isDynamic(v[0]) && v[0] != c))
       return emitError("Wrong rank for the variance");
   }
 

@@ -71,7 +71,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
         sum += i;
       }
       int64_t dimSize = inputShape[axisIndex];
-      if (dimSize != -1 && dimSize != sum)
+      if (!ShapedType::isDynamic(dimSize) && dimSize != sum)
         return emitOpError() << ": split tensor entries sum to " << sum
                              << " != axis dimension size " << dimSize;
     }
@@ -129,7 +129,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
       if (splitRank == 0) {
         auto scalar = getScalarValue<int64_t>(entries, splitType);
         assert(scalar > 0 && "invalid split scalar");
-        if (dimSize != -1) {
+        if (!ShapedType::isDynamic(dimSize)) {
           length = dimSize / scalar;
           if ((dimSize % scalar) == 0)
             dims[axisIndex] = scalar;
@@ -148,7 +148,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
             dims[axisIndex] = first;
         }
       }
-    } else if (splitRank == 1 && splitShape[0] != -1) {
+    } else if (splitRank == 1 && !ShapedType::isDynamic(splitShape[0])) {
       length = splitShape[0];
       // corner case: if the input dimension size for axis is zero, any tensors
       // in the output sequence must also be zero if the sequence is non-empty

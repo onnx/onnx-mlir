@@ -165,7 +165,7 @@ void DimAnalysis::build(Value val) {
   if (auto tensorType = val.getType().dyn_cast<RankedTensorType>()) {
     for (unsigned i = 0; i < tensorType.getRank(); ++i) {
       // Only care about unknown dimensions.
-      if (tensorType.getShape()[i] == -1) {
+      if (tensorType.isDynamicDim(i)) {
         DimT ti(val, i);
         DimSetT dimSet;
         dimSet.insert(ti);
@@ -210,7 +210,7 @@ bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
     if (dim1 != dim2)
       return false;
     // Same dimensions but can be unknown (-1).
-    if (dim1 == -1) {
+    if (ShapedType::isDynamic(dim1)) {
       // Two unknown dimensions are NOT the same at compile time.
       if (!sameUnknownDim(tensor1, i, tensor2, i))
         return false;
@@ -352,8 +352,9 @@ void DimAnalysis::visitDim(
       // aDim == bDim (unknown), there is no broadcasting and aDim == outpuDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
-          (bShape[bDimIndex] == -1) &&
+      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
+          ShapedType::isDynamic(aShape[aDimIndex]) &&
+          ShapedType::isDynamic(bShape[bDimIndex]) &&
           onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
     }
@@ -426,8 +427,9 @@ void DimAnalysis::visitDim(
       // aDim == bDim (unknown), there is no broadcasting and aDim == outpuDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
-          (bShape[bDimIndex] == -1) &&
+      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
+          ShapedType::isDynamic(aShape[aDimIndex]) &&
+          ShapedType::isDynamic(bShape[bDimIndex]) &&
           sameUnknownDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(DimT(A, aDimIndex));
     }
@@ -494,7 +496,7 @@ void DimAnalysis::visitDim(
       // Find the index of the unknown dimension in the data.
       int64_t unknownDimIndexInData = -1;
       for (int64_t i = 0; i < dataType.getRank(); ++i)
-        if (dataType.getShape()[i] == -1) {
+        if (dataType.isDynamicDim(i)) {
           unknownDimIndexInData = i;
           break;
         }
