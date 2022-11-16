@@ -65,7 +65,7 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   IndexExprBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~IndexExprBuilder() {}
+  virtual ~IndexExprBuilder() {}
 
   using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
 
