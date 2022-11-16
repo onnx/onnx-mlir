@@ -62,14 +62,6 @@ SmallVector<int64_t, 4> getDefaultStrides(ArrayRef<int64_t> shape) {
   return strides;
 }
 
-Optional<SmallVector<int64_t, 4>> transposeStrides(ArrayRef<int64_t> shape,
-    ArrayRef<int64_t> strides, ArrayRef<uint64_t> perm) {
-  // TODO: refine logic to figure out strides in more situations
-  if (!areStridesContiguous(shape, strides))
-    return None;
-  return transposeDims(strides, perm);
-}
-
 Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> reshapedShape) {
   // TODO: refine logic to figure out strides in more situations, see:

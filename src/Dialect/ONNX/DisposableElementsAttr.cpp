@@ -308,22 +308,9 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   auto transposedShape = transposeDims(shape, perm);
   ShapedType transposedType = type.clone(transposedShape);
   auto strides = getStrides();
-  if (auto transposedStrides = transposeStrides(shape, strides, perm)) {
-    return elmsBuilder.create(transposedType, getBuffer(),
-        makeArrayRef(*transposedStrides), getBufferDType(), getReaderOrNull());
-  }
-
-  // TODO: Consider transposing without transforming (just carry over the
-  //       reader) when getNumBufferElements() == getNumElements(), i.e.
-  //       strides have no zeros.
-
-  ArrayBuffer<WideNum> src = getBufferAsWideNums();
-  auto newStrides = getDefaultStrides(transposedShape);
-  auto reverseStrides = untransposeDims(newStrides, perm);
-  return elmsBuilder.fromWideNums(transposedType, [&](MutableArrayRef<WideNum>
-                                                          dst) {
-    restrideArray<WideNum>(shape, {strides, src.get()}, {reverseStrides, dst});
-  });
+  auto transposedStrides = transposeDims(strides, perm);
+  return elmsBuilder.create(transposedType, getBuffer(),
+      makeArrayRef(transposedStrides), getBufferDType(), getReaderOrNull());
 }
 
 DisposableElementsAttr DisposableElementsAttr::reshape(

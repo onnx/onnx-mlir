@@ -35,10 +35,6 @@ bool areStridesContiguous(
 
 llvm::SmallVector<int64_t, 4> getDefaultStrides(llvm::ArrayRef<int64_t> shape);
 
-llvm::Optional<llvm::SmallVector<int64_t, 4>> transposeStrides(
-    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-    llvm::ArrayRef<uint64_t> perm);
-
 llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     llvm::ArrayRef<int64_t> reshapedShape);
