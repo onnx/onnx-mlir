@@ -199,6 +199,13 @@ void populateDecomposingONNXBeforeMhloPatterns(
 }
 #endif
 
+// Special Op fusion for the following pattern:
+//   %1 = Concat(inputs, axis)
+//   %2 = Shape(%1, start, end)
+//   %3 = Transpose(%1, perm)
+// into a special Op
+//   %2, %3 = ConcatShapeTranspose(inputs, axis, start, end, perm)
+// This fusion is an experimental work for performance
 struct ConcatFusePattern : public ConversionPattern {
   ConcatFusePattern(MLIRContext *context)
       : ConversionPattern(ONNXConcatOp::getOperationName(), 4, context) {}
@@ -206,12 +213,12 @@ struct ConcatFusePattern : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
 
     ONNXConcatOp concatOp = ::llvm::dyn_cast<ONNXConcatOp>(op);
-    ONNXConcatOpAdaptor operatorAdaptor(operands, op->getAttrDictionary());
 
     // Match
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
     bool failed = false;
+    // Check there are exactly two users by Shape and Transpose
     for (Operation *user : op->getUsers()) {
       if (isa<ONNXShapeOp>(user) && !shapeOp)
         shapeOp = cast<ONNXShapeOp>(user);
