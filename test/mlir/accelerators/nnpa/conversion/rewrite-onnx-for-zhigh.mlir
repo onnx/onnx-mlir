@@ -439,6 +439,60 @@ func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tenso
 
 // -----
 
+// Not rewrite because we cannot determine whether there is broadcasting or not.
+func.func @test_matmul_unknown_batch_dim_no_rewriting(%arg0: tensor<?x?x256x256xf32>, %arg1: tensor<?x?x256x64xf32>) -> (tensor<?x?x256x64xf32>) {
+    %0= "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x256x256xf32>, tensor<?x?x256x64xf32>) -> tensor<?x?x256x64xf32>
+    return %0 : tensor<?x?x256x64xf32>
+// CHECK-LABEL: test_matmul_unknown_batch_dim_no_rewriting
+// CHECK: %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x256x256xf32>, tensor<?x?x256x64xf32>) -> tensor<?x?x256x64xf32>
+}
+
+// -----
+
+// Rewrite this matmul because we know that there is no broadcasting.
+func.func @test_matmul_unknown_batch_dim(%arg0: tensor<?x?x256x256xf32>) -> (tensor<?x?x256x256xf32>) {
+    %0= "onnx.MatMul"(%arg0, %arg0) : (tensor<?x?x256x256xf32>, tensor<?x?x256x256xf32>) -> tensor<?x?x256x256xf32>
+    return %0 : tensor<?x?x256x256xf32>
+
+// CHECK-LABEL:  func.func @test_matmul_unknown_batch_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x256x256xf32>) -> tensor<?x?x256x256xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x256x256xf32>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Constant"() {value = dense<4> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Slice"([[VAR_0_]], [[VAR_3_]], [[VAR_4_]], [[VAR_2_]], [[VAR_5_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_6_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<?x?x256x256xf32>, tensor<3xi64>) -> tensor<?x256x256xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x256x256xf32>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<4> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:           [[VAR_15_:%.+]] = "onnx.Slice"([[VAR_9_]], [[VAR_12_]], [[VAR_13_]], [[VAR_11_]], [[VAR_14_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_16_:%.+]] = "onnx.Concat"([[VAR_10_]], [[VAR_15_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_17_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_16_]]) {allowzero = 0 : si64} : (tensor<?x?x256x256xf32>, tensor<3xi64>) -> tensor<?x256x256xf32>
+// CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.MatMul"([[VAR_8_]], [[VAR_17_]]) : (tensor<?x256x256xf32>, tensor<?x256x256xf32>) -> tensor<?x256x256xf32>
+// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x256x256xf32>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_20_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<?x?x256x256xf32>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_22_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_23_:%.+]] = "onnx.Constant"() {value = dense<3> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_24_:%.+]] = "onnx.Constant"() {value = dense<4> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_25_:%.+]] = "onnx.Constant"() {value = dense<3> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Slice"([[VAR_19_]], [[VAR_21_]], [[VAR_23_]], [[VAR_21_]], [[VAR_22_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_27_:%.+]] = "onnx.Slice"([[VAR_20_]], [[VAR_25_]], [[VAR_24_]], [[VAR_21_]], [[VAR_22_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_28_:%.+]] = "onnx.Concat"([[VAR_26_]], [[VAR_27_]]) {axis = 0 : si64} : (tensor<3xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_29_:%.+]] = "onnx.Reshape"([[VAR_18_]], [[VAR_28_]]) {allowzero = 0 : si64} : (tensor<?x256x256xf32>, tensor<4xi64>) -> tensor<?x?x256x256xf32>
+// CHECK:           return [[VAR_29_]] : tensor<?x?x256x256xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
 func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
     %cst = "onnx.Constant"() {value = dense<5.0> : tensor<f32>} : () -> tensor<f32>

@@ -24,19 +24,34 @@
 namespace onnx_mlir {
 
 struct DialectBuilder {
-  DialectBuilder(mlir::OpBuilder &b, mlir::Location loc) : b(b), loc(loc) {}
-  DialectBuilder(const DialectBuilder &db) : b(db.b), loc(db.loc) {}
-  virtual ~DialectBuilder() {}
+  // Constructor for analysis (no code generation, get builder disabled).
+  DialectBuilder(mlir::Location loc) : builder(nullptr), location(loc) {}
+  // Constructors for code generation.
+  DialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : builder(&b), location(loc) {}
+  DialectBuilder(const DialectBuilder &db)
+      : builder(db.builder), location(db.location) {}
+  ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
   DialectBuilder &&operator=(const DialectBuilder &&) = delete;
 
-  mlir::OpBuilder &getBuilder() const { return b; }
-  mlir::Location getLoc() const { return loc; }
+  // Public getters of builder and location.
+  mlir::OpBuilder &getBuilder() const { return b(); }
+  mlir::OpBuilder *getBuilderPtr() const { return builder; } // Possibly null.
+  mlir::Location getLoc() const { return loc(); }
 
 protected:
-  mlir::OpBuilder &b;
-  mlir::Location loc;
+  // Private getters of builder and location (concise version).
+  mlir::OpBuilder &b() const {
+    assert(builder);
+    return *builder;
+  }
+  mlir::Location loc() const { return location; }
+
+private:
+  mlir::OpBuilder *builder;
+  mlir::Location location;
 };
 
 //===----------------------------------------------------------------------===//
@@ -58,9 +73,11 @@ protected:
 //===----------------------------------------------------------------------===//
 
 struct MathBuilder final : DialectBuilder {
+  MathBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   MathBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~MathBuilder() {}
 
   mlir::Value abs(mlir::Value val) const;
 
@@ -129,9 +146,11 @@ private:
 //===----------------------------------------------------------------------===//
 
 struct MemRefBuilder final : DialectBuilder {
+  MemRefBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   MemRefBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~MemRefBuilder() {}
 
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
   mlir::memref::AllocOp alloc(
@@ -169,8 +188,10 @@ static constexpr int64_t gDefaultAllocAlign = 16;
 //===----------------------------------------------------------------------===//
 
 struct SCFBuilder final : DialectBuilder {
+  SCFBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   SCFBuilder(mlir::OpBuilder &b, mlir::Location loc) : DialectBuilder(b, loc) {}
   SCFBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~SCFBuilder() {}
 
   /// Create an if then with optional else. Construct does not generate a result
   /// (unlike some scf::if) and introduces the yields automatically.
@@ -190,9 +211,11 @@ struct SCFBuilder final : DialectBuilder {
 //===----------------------------------------------------------------------===//
 
 struct VectorBuilder final : DialectBuilder {
+  VectorBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   VectorBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   VectorBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~VectorBuilder() {}
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
@@ -237,9 +260,11 @@ private:
 
 template <class LOAD_OP, class STORE_OP>
 struct GenericAffineBuilder final : DialectBuilder {
+  GenericAffineBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   GenericAffineBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~GenericAffineBuilder() {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -303,9 +328,11 @@ struct LLVMBuilder final : DialectBuilder {
   using voidFuncRef = mlir::function_ref<void(LLVMBuilder &createLLVM)>;
   using valueFuncRef = mlir::function_ref<mlir::Value(LLVMBuilder &createLLVM)>;
 
+  LLVMBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~LLVMBuilder() {}
 
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
