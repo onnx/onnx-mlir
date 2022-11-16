@@ -19,6 +19,14 @@
 
 namespace onnx_mlir {
 
+std::string getOnnxRepositoryPath() {
+#if defined(ONNX_REPOSITORY)
+  return ONNX_REPOSITORY;
+#else
+  return "";
+#endif
+}
+
 std::string getOnnxMlirRepositoryPath() {
 #if defined(ONNX_MLIR_REPOSITORY)
   return ONNX_MLIR_REPOSITORY;
@@ -30,6 +38,14 @@ std::string getOnnxMlirRepositoryPath() {
 std::string getLLVMRepositoryPath() {
 #ifdef LLVM_REPOSITORY
   return LLVM_REPOSITORY;
+#else
+  return "";
+#endif
+}
+
+std::string getOnnxRevision() {
+#ifdef ONNX_REVISION
+  return ONNX_REVISION;
 #else
   return "";
 #endif
@@ -54,6 +70,8 @@ std::string getLLVMRevision() {
 std::string getOnnxMlirFullRepositoryVersion(bool toIncludeLLVM) {
   std::string buf;
   llvm::raw_string_ostream os(buf);
+  std::string OnnxPath = getOnnxRepositoryPath();
+  std::string OnnxRevision = getOnnxRevision();
   std::string OnnxMlirPath = getOnnxMlirRepositoryPath();
   std::string OnnxMlirRevision = getOnnxMlirRevision();
   std::string LLVMPath = getLLVMRepositoryPath();
