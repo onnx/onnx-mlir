@@ -178,6 +178,9 @@ void DimAnalysis::build(Value val) {
 
 bool DimAnalysis::sameUnknownDim(mlir::Value tensor1, uint64_t dimAxis1,
     mlir::Value tensor2, uint64_t dimAxis2) const {
+  if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
+    return true;
+
   DimT dim1(tensor1, dimAxis1);
   DimT dim2(tensor2, dimAxis2);
   // Two dims are the same if they are in the same set.
@@ -521,7 +524,7 @@ void DimAnalysis::visitDim(
     if (axesAttr.has_value()) {
       // Do nothing if the target dim is the reduction dim.
       for (size_t i = 0; i < ArrayAttrSize(axesAttr); ++i) {
-        if (ArrayAttrIntVal(axesAttr, i) == (int64_t) dim.second)
+        if (ArrayAttrIntVal(axesAttr, i) == (int64_t)dim.second)
           return;
       }
       // The target dim is not the reduction dim, it would be the same as the
