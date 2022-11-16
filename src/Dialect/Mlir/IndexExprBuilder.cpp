@@ -160,8 +160,7 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return SymbolIndexExpr(val);
-  else
-    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
+  return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
 IndexExpr IndexExprBuilder::getShapeAsDim(
@@ -170,8 +169,7 @@ IndexExpr IndexExprBuilder::getShapeAsDim(
     return getShapeAsLiteral(tensorOrMemrefValue, i);
   if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIndexExpr(val);
-  else
-    return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
+  return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
 
 void IndexExprBuilder::getShapeAsLiterals(

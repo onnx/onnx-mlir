@@ -88,7 +88,7 @@ NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
   if (ownScope)
-    scope = new IndexExprScope(nullptr, op->getLoc());
+    scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
   setNumberOfOutputs(op->getNumResults());
 }
 

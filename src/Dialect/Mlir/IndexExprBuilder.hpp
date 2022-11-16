@@ -59,14 +59,15 @@ namespace onnx_mlir {
 // class.
 
 struct IndexExprBuilder : DialectBuilder {
-  using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
-
   // Constructor for analysis (no code generation).
   IndexExprBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   // Constructors for code generation.
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   IndexExprBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~IndexExprBuilder() {}
+
+  using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
 
   //===--------------------------------------------------------------------===//
   // Get literal index expressions from an integer array attributes. Typically
@@ -147,8 +148,7 @@ protected:
   // Locate/generate a value that represents the integer value of the shape
   // given by a tensor or memref at position i. Return nullptr if cannot
   // locate/generate the value.
-  virtual mlir::Value getShapeVal(
-      mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
+  virtual mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 };
 
 } // namespace onnx_mlir

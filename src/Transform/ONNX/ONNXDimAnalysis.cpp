@@ -88,7 +88,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
   SHAPE_HELPER shapeHelper(&op);
   LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed) && "Could not compute output shape");
-  // The operation may have multiple ouputs, find the index of the processing
+  // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;
   uint64_t tensorIndex = 0;
@@ -219,7 +219,7 @@ bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
 void DimAnalysis::dump() const {
   llvm::outs() << numOfUnknownDims
                << " unknown dimensions (not including block arguments) are "
-                  "clasified into "
+                  "classified into "
                << dimSetMap.size() << " sets.\n";
   for (auto &entry : dimSetMap) {
     uint64_t i = entry.first;
@@ -346,7 +346,7 @@ void DimAnalysis::visitDim(
     if ((aRank != 0) && (bRank != 0)) {
       ArrayRef<int64_t> aShape = onnx_mlir::getShape(aType);
       ArrayRef<int64_t> bShape = onnx_mlir::getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim == outpuDim.
+      // aDim == bDim (unknown), there is no broadcasting and aDim == outputDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
@@ -420,7 +420,7 @@ void DimAnalysis::visitDim(
     if (dimIndex <= maxRank - 2) { // In the batchsize space.
       ArrayRef<int64_t> aShape = getShape(aType);
       ArrayRef<int64_t> bShape = getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim == outpuDim.
+      // aDim == bDim (unknown), there is no broadcasting and aDim == outputDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) && (aShape[aDimIndex] == -1) &&
@@ -506,7 +506,7 @@ void DimAnalysis::visitDim(
   // ReduceMeanOp
   if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanOp>(op)) {
     // TODO: replace the code here by the following code once ReduceMean uses
-    // IndexExpr for its shape inferece.
+    // IndexExpr for its shape inference.
     // ```c
     // exploreSameInputDims<ONNXReduceMeanOp, ONNXReduceMeanOpShapeHelper>(
     //    dim, reduceMeanOp, sameDims);
@@ -521,7 +521,7 @@ void DimAnalysis::visitDim(
     if (axesAttr.has_value()) {
       // Do nothing if the target dim is the reduction dim.
       for (size_t i = 0; i < ArrayAttrSize(axesAttr); ++i) {
-        if (ArrayAttrIntVal(axesAttr, i) == dim.second)
+        if (ArrayAttrIntVal(axesAttr, i) == (int64_t) dim.second)
           return;
       }
       // The target dim is not the reduction dim, it would be the same as the

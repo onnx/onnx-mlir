@@ -14,9 +14,13 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
+
+// hi alex
+#define USE_NEW_SHAPE 1
 
 namespace onnx_mlir {
 
@@ -818,7 +822,6 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     llvm_unreachable("unsupported element type");
   }
 }
-
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -847,11 +850,18 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    // Shape helper.
+// Shape helper.
+#if USE_NEW_SHAPE
+    IndexExprBuilderForKrnl createIE(rewriter, loc);
+    NewONNXGenericOpUnaryShapeHelper shapeHelper(
+        op, operands, (IndexExprBuilder *)&createIE);
+    auto shapecomputed = shapeHelper.computeShape();
+#else
     ONNXGenericOpUnaryShapeHelper shapeHelper(op, &rewriter,
         krnl::getDenseElementAttributeFromKrnlValue,
         krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr);
     auto shapecomputed = shapeHelper.computeShape(X);
+#endif
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Insert an allocation for the result of this operation.

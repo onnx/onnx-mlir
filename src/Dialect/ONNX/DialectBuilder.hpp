@@ -26,10 +26,11 @@ namespace onnx_mlir {
 //====-------------------------- ONNX Builder ---------------------------===//
 
 struct OnnxBuilder : onnx_mlir::DialectBuilder {
+  OnnxBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-
+  ~OnnxBuilder(){};
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -144,14 +145,13 @@ struct IndexExprBuilderForAnalysis : IndexExprBuilder {
       : IndexExprBuilder(b, loc) {}
   IndexExprBuilderForAnalysis(const DialectBuilder &db)
       : IndexExprBuilder(db) {}
-
-  // Version with dummy builder and location (ok as we never build).
+  ~IndexExprBuilderForAnalysis() {}
 
 protected:
-  virtual mlir::DenseElementsAttr getConst(mlir::Value value) override;
-  virtual mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) override;
-  virtual mlir::Value getShapeVal(
-      mlir::Value tensorOrMemrefValue, uint64_t i) override;
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(
+      mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir

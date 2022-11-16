@@ -23,9 +23,11 @@ namespace onnx_mlir {
 //====-------------------- Support for Krnl Builder ----------------------===//
 
 struct KrnlBuilder : public DialectBuilder {
+  KrnlBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   KrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  ~KrnlBuilder() {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -195,9 +197,11 @@ struct MultiDialectBuilder<AffineBuilderKrnlMem, Ts...>
 // used for building, only for analysis.
 
 struct IndexExprBuilderForKrnl : IndexExprBuilder {
+  IndexExprBuilderForKrnl(mlir::Location loc) : IndexExprBuilder(loc) {}
   IndexExprBuilderForKrnl(mlir::OpBuilder &b, mlir::Location loc)
       : IndexExprBuilder(b, loc) {}
   IndexExprBuilderForKrnl(const DialectBuilder &db) : IndexExprBuilder(db) {}
+  ~IndexExprBuilderForKrnl() {}
 
   // Version with dummy builder and location (ok as we never build).
   // IndexExprBuilderAnalysis()
@@ -205,10 +209,10 @@ struct IndexExprBuilderForKrnl : IndexExprBuilder {
   //          mlir::Builder(mlir::getContext()), mlir::UnknownLoc()) {}
 
 protected:
-  virtual mlir::DenseElementsAttr getConst(mlir::Value value) override;
-  virtual mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) override;
-  virtual mlir::Value getShapeVal(
-      mlir::Value tensorOrMemrefValue, uint64_t i) override;
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(
+      mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 // Recursive class specialized for IndexExprBuilderForKrnl refereed to as
 // affineKMem.
