@@ -31,7 +31,7 @@ struct DialectBuilder {
       : builder(&b), location(loc) {}
   DialectBuilder(const DialectBuilder &db)
       : builder(db.builder), location(db.location) {}
-  ~DialectBuilder() {}
+  virtual ~DialectBuilder() {}
   DialectBuilder(DialectBuilder &&) = delete;
   DialectBuilder &operator=(const DialectBuilder &) = delete;
   DialectBuilder &&operator=(const DialectBuilder &&) = delete;
@@ -77,7 +77,7 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~MathBuilder() {}
+  virtual ~MathBuilder() {}
 
   mlir::Value abs(mlir::Value val) const;
 
@@ -150,7 +150,7 @@ struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   MemRefBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~MemRefBuilder() {}
+  virtual ~MemRefBuilder() {}
 
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
   mlir::memref::AllocOp alloc(
@@ -191,7 +191,7 @@ struct SCFBuilder final : DialectBuilder {
   SCFBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   SCFBuilder(mlir::OpBuilder &b, mlir::Location loc) : DialectBuilder(b, loc) {}
   SCFBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~SCFBuilder() {}
+  virtual ~SCFBuilder() {}
 
   /// Create an if then with optional else. Construct does not generate a result
   /// (unlike some scf::if) and introduces the yields automatically.
@@ -215,7 +215,7 @@ struct VectorBuilder final : DialectBuilder {
   VectorBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   VectorBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~VectorBuilder() {}
+  virtual ~VectorBuilder() {}
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
@@ -264,7 +264,7 @@ struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   GenericAffineBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~GenericAffineBuilder() {}
+  virtual ~GenericAffineBuilder() {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -332,7 +332,7 @@ struct LLVMBuilder final : DialectBuilder {
   LLVMBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~LLVMBuilder() {}
+  virtual ~LLVMBuilder() {}
 
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
