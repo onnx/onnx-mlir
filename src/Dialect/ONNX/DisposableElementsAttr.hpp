@@ -80,23 +80,7 @@ class DisposableElementsAttr
   using DType = onnx_mlir::DType;
   using WideNum = onnx_mlir::WideNum;
 
-public:
-  using Storage = DisposableElementsAttributeStorage;
   using Strides = ArrayRef<int64_t>;
-
-  struct Properties {
-    // Data type of the elements in buffer before transform.
-    onnx_mlir::DType bufferDType;
-
-    // Data type (BOOL, INT8, FLOAT16, etc) of the type's elements.
-    // dtype == dtypeOfMlirType(getElementType())
-    onnx_mlir::DType dtype;
-
-    // Do the strides match the type's shape?
-    // isContiguous == areStridedContiguous(getShape(), getStrides())
-    bool isContiguous;
-  };
-
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   // TODO: change reader to take ArrayRef<char> as first parameter
   using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
@@ -126,7 +110,7 @@ private:
 
   // Internal method called by get(..) methods.
   static DisposableElementsAttr create(ShapedType type, const Buffer &buffer,
-      Strides strides, Properties properties, Reader reader /*= nullptr*/);
+      Strides strides, DType bufferDType, Reader reader /*= nullptr*/);
 
 public:
   DisposableElementsAttr(std::nullptr_t) {}
@@ -141,8 +125,6 @@ public:
   //===----------------------------------------------------------------------===//
 private:
   Strides getStrides() const;
-
-  const Properties &getProperties() const;
 
   const Buffer &getBuffer() const;
 

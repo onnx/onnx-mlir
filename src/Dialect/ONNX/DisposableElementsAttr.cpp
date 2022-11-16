@@ -31,7 +31,7 @@ void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
   std::transform(src.begin(), src.end(), dst.begin(), W::widen);
 }
 
-DisposableElementsAttr::Reader getIdentityReader(DType dtype) {
+auto getIdentityReader(DType dtype) {
   return dispatchByDType(
       dtype, [](auto staticDType) { return identityReader<staticDType>; });
 }
@@ -49,32 +49,26 @@ DisposableElementsAttr DisposableElementsAttr::get(
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
     const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
     Reader reader) {
-  DType dtype = dtypeOfMlirType(type.getElementType());
-  assert(wideDTypeOfDType(dtype) == wideDTypeOfDType(bufferDType) ||
-         reader != nullptr);
-  Properties properties = {.bufferDType = bufferDType, .dtype = dtype};
-  // properties.isContiguous is set below
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
     strides.assign(optionalStrides->begin(), optionalStrides->end());
-    properties.isContiguous = areStridesContiguous(type.getShape(), strides);
   } else {
     strides = getDefaultStrides(type.getShape());
-    properties.isContiguous = true;
   }
-  return create(type, buffer, strides, properties, std::move(reader));
+  return create(type, buffer, strides, bufferDType, std::move(reader));
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
-    const Buffer &buffer, Strides strides, Properties properties,
-    Reader reader) {
-  assert((reader != nullptr || wideDTypeOfDType(properties.bufferDType) ==
-                                   wideDTypeOfDType(properties.dtype)) &&
+    const Buffer &buffer, Strides strides, DType bufferDType, Reader reader) {
+  DType dtype = dtypeOfMlirType(type.getElementType());
+  assert((reader != nullptr ||
+             wideDTypeOfDType(bufferDType) == wideDTypeOfDType(dtype)) &&
          "buffer wide type mismatch requires transforming reader");
-  DisposableElementsAttr a =
-      Base::get(type.getContext(), type, strides, properties);
-  Storage &s = *a.getImpl();
+  bool isContiguous = areStridesContiguous(type.getShape(), strides);
+  DisposableElementsAttr a = Base::get(
+      type.getContext(), type, strides, bufferDType, dtype, isContiguous);
+  DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
   s.reader = std::move(reader);
   return a;
@@ -82,10 +76,6 @@ DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
 
 auto DisposableElementsAttr::getStrides() const -> Strides {
   return getImpl()->strides;
-}
-
-auto DisposableElementsAttr::getProperties() const -> const Properties & {
-  return getImpl()->properties;
 }
 
 auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
@@ -109,7 +99,7 @@ auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
 bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
 
 bool DisposableElementsAttr::isContiguous() const {
-  return getProperties().isContiguous;
+  return getImpl()->isContiguous;
 }
 
 bool DisposableElementsAttr::isTransformed() const {
@@ -117,16 +107,15 @@ bool DisposableElementsAttr::isTransformed() const {
 }
 
 bool DisposableElementsAttr::isTransformedOrCast() const {
-  const Properties &properties = getProperties();
-  return isTransformed() || properties.dtype != properties.bufferDType;
+  return isTransformed() || getDType() != getBufferDType();
 }
 
 DType DisposableElementsAttr::getBufferDType() const {
-  return getProperties().bufferDType;
+  return getImpl()->bufferDType;
 }
 
 unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
-  return bytewidthOfDType(getProperties().bufferDType);
+  return bytewidthOfDType(getBufferDType());
 }
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
@@ -145,7 +134,7 @@ bool DisposableElementsAttr::isSplat() const {
   return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
 }
 
-DType DisposableElementsAttr::getDType() const { return getProperties().dtype; }
+DType DisposableElementsAttr::getDType() const { return getImpl()->dtype; }
 
 ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
 
@@ -238,8 +227,8 @@ void DisposableElementsAttr::printWithoutType(raw_ostream &os) const {
 // TODO: move all the following to ElementsAttrBuilder
 
 namespace {
-DisposableElementsAttr::Reader composeReadTransform(
-    const DisposableElementsAttr::Reader &reader,
+auto composeReadTransform(
+    const std::function<void(StringRef, MutableArrayRef<WideNum>)> &reader,
     ElementsAttrBuilder::Transformer transformer) {
   return [read = reader, transform = std::move(transformer)](
              StringRef s, MutableArrayRef<WideNum> dst) {

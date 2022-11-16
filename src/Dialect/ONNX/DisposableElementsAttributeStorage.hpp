@@ -20,17 +20,18 @@ using namespace onnx_mlir;
 namespace mlir {
 
 struct DisposableElementsAttributeStorage : public AttributeStorage {
-  using Strides = DisposableElementsAttr::Strides;
-  using Properties = DisposableElementsAttr::Properties;
-  using Buffer = DisposableElementsAttr::Buffer;
-  using Reader = DisposableElementsAttr::Reader;
-  using KeyTy = std::tuple<ShapedType, Strides, Properties>;
+  using Strides = ArrayRef<int64_t>;
+  using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
+  using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
+  using KeyTy =
+      std::tuple<ShapedType, Strides, onnx_mlir::DType, onnx_mlir::DType, bool>;
 
   // Constructs only type and strides and properties while the caller sets
   // buffer and reader after construction to minimize copying.
-  DisposableElementsAttributeStorage(
-      ShapedType type, Strides strides, Properties properties)
-      : type(type), strides(strides), properties(properties) {}
+  DisposableElementsAttributeStorage(ShapedType type, Strides strides,
+      onnx_mlir::DType bufferDType, onnx_mlir::DType dtype, bool isContiguous)
+      : type(type), strides(strides), bufferDType(bufferDType), dtype(dtype),
+        isContiguous(isContiguous) {}
 
   // Equality and hashKey are engineered to defeat the storage uniquer.
   // We don't want uniqueing because we can't compare readers for equality
@@ -49,10 +50,12 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
       AttributeStorageAllocator &allocator, const KeyTy &key) {
     ShapedType type = std::get<0>(key);
     Strides strides = std::get<1>(key);
-    Properties properties = std::get<2>(key);
+    onnx_mlir::DType bufferDType = std::get<2>(key);
+    onnx_mlir::DType dtype = std::get<3>(key);
+    bool isContiguous = std::get<4>(key);
     return new (allocator.allocate<DisposableElementsAttributeStorage>())
-        DisposableElementsAttributeStorage(
-            type, allocator.copyInto(strides), properties);
+        DisposableElementsAttributeStorage(type, allocator.copyInto(strides),
+            bufferDType, dtype, isContiguous);
   }
 
   // The tensor shape and element type that this object represents.
@@ -67,7 +70,16 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // splat value that broadcasts to shape's size with all-zero strides.
   Strides strides;
 
-  Properties properties;
+  // Data type of the elements in buffer before transform.
+  onnx_mlir::DType bufferDType;
+
+  // Data type (BOOL, INT8, FLOAT16, etc) of the type's elements.
+  // dtype == dtypeOfMlirType(type.getElementType())
+  onnx_mlir::DType dtype;
+
+  // Do the strides match the type's shape?
+  // isContiguous == areStridedContiguous(type.getShape(), strides)
+  bool isContiguous;
 
   // shared_ptr to an underlying MemoryBuffer which can be either heap allocated
   // or a mmap'ed file or point to the raw data of a DenseElementsAttr.
