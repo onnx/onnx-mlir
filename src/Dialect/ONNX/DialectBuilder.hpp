@@ -150,8 +150,7 @@ struct IndexExprBuilderForAnalysis : IndexExprBuilder {
 protected:
   mlir::DenseElementsAttr getConst(mlir::Value value) final;
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
-  mlir::Value getShapeVal(
-      mlir::Value tensorOrMemrefValue, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir
