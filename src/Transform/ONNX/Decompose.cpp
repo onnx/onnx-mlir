@@ -206,6 +206,24 @@ void populateDecomposingONNXBeforeMhloPatterns(
 // into a special Op
 //   %2, %3 = ConcatShapeTranspose(inputs, axis, start, end, perm)
 // This fusion is an experimental work for performance
+
+// Helper function
+static bool concatFuseMatchHelper(
+    Operation *op, ONNXShapeOp &shapeOp, ONNXTransposeOp &transposeOp) {
+  shapeOp = NULL;
+  transposeOp = NULL;
+  bool failed;
+  for (Operation *user : op->getUsers()) {
+    if (isa<ONNXShapeOp>(user) && !shapeOp)
+      shapeOp = cast<ONNXShapeOp>(user);
+    else if (isa<ONNXTransposeOp>(user) && !transposeOp)
+      transposeOp = cast<ONNXTransposeOp>(user);
+    else
+      failed = true;
+  }
+  return (shapeOp && transposeOp && !failed);
+}
+
 struct ConcatFusePattern : public ConversionPattern {
   ConcatFusePattern(MLIRContext *context)
       : ConversionPattern(ONNXConcatOp::getOperationName(), 4, context) {}
@@ -217,18 +235,8 @@ struct ConcatFusePattern : public ConversionPattern {
     // Match
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
-    bool failed = false;
-    // Check there are exactly two users by Shape and Transpose
-    for (Operation *user : op->getUsers()) {
-      if (isa<ONNXShapeOp>(user) && !shapeOp)
-        shapeOp = cast<ONNXShapeOp>(user);
-      else if (isa<ONNXTransposeOp>(user) && !transposeOp)
-        transposeOp = cast<ONNXTransposeOp>(user);
-      else
-        failed = true;
-    }
-    if (!(shapeOp && transposeOp && !failed))
-      return success();
+    if (!concatFuseMatchHelper(op, shapeOp, transposeOp))
+      return failure();
 
     // Rewrite
     SmallVector<Type, 2> outputTypes;
@@ -307,16 +315,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
-    bool failed = false;
-    for (Operation *user : op->getUsers()) {
-      if (isa<ONNXShapeOp>(user) && !shapeOp)
-        shapeOp = cast<ONNXShapeOp>(user);
-      else if (isa<ONNXTransposeOp>(user) && !transposeOp)
-        transposeOp = cast<ONNXTransposeOp>(user);
-      else
-        failed = true;
-    }
-    return !(shapeOp && transposeOp && !failed);
+    return !concatFuseMatchHelper(op, shapeOp, transposeOp);
   });
 
   RewritePatternSet patterns(context);
@@ -331,7 +330,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyFullConversion(function, target, std::move(patterns))))
+  if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
 
