@@ -51,8 +51,8 @@ public:
     int64_t transB = adaptor.transB();
     FloatAttr alpha = adaptor.alphaAttr();
     FloatAttr beta = adaptor.betaAttr();
-    auto AType = A.getType().cast<RankedTensorType>();
-    auto BType = B.getType().cast<RankedTensorType>();
+    auto AType = A.getType().cast<TensorType>();
+    auto BType = B.getType().cast<TensorType>();
     auto shapeA = AType.getShape();
     auto shapeB = BType.getShape();
     auto resultType = getTypeConverter()
@@ -162,8 +162,8 @@ public:
     Value B = op.B();
     Value C = op.C();
 
-    auto AType = A.getType().cast<RankedTensorType>();
-    auto BType = B.getType().cast<RankedTensorType>();
+    auto AType = A.getType().cast<TensorType>();
+    auto BType = B.getType().cast<TensorType>();
 
     // If C is present, it can only be of rank 1
     if (C.getType().isa<RankedTensorType>() &&

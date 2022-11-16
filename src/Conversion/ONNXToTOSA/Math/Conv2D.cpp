@@ -49,7 +49,7 @@ public:
     // but currently inferShapes() does not do this for ConvOp (it does for
     // ConvTransposeOp). We have not implemented code for autopad so fail.
     if (autopad && autopad != "NOTSET")
-      return op.emitError("padding must be explicit");
+      return rewriter.notifyMatchFailure(op, "padding must be explicit");
 
     // Convert input [N,C,H,W] -> [N,H,W,C]
     Value newInput = tosa::createTosaTransposedTensor(

@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
   // Loop tests, with early termination. The early termination trip count is
   // hard-coded in the IR as a constant operation as 3.
 
-  // Early termination for scan output is tempoarily disabled
+  // Early termination for scan output is temporally disabled
 #if 0
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 0, 42, /*earlyTerminationTripCount=*/3));

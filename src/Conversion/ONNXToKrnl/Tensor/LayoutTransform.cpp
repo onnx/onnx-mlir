@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,8 +28,6 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXLayoutTransformOpAdaptor operandAdaptor(operands);
-    ONNXLayoutTransformOp LayoutTransformOp =
-        llvm::cast<ONNXLayoutTransformOp>(op);
     auto loc = op->getLoc();
 
     // Operands and attributes.

@@ -115,8 +115,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
-      instrumentONNXOps, instrumentControlBits.getBits()));
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+      "before-onnx-to-krnl", instrumentOps, instrumentControlBits.getBits()));
+
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
@@ -204,7 +205,7 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
     return;
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<ModuleOp>(createInstrumentONNXPass());
+  pm.addNestedPass<ModuleOp>(createInstrumentPass());
   
   pm.addPass(createONNXToAtenModifyMainFunctionPass());
   pm.addPass(createLowerToTorchPass(optLevel));

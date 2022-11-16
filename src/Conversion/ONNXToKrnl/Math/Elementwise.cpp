@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -847,15 +847,16 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
+    // Shape helper.
+    ONNXGenericOpUnaryShapeHelper shapeHelper(op, &rewriter,
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr);
+    auto shapecomputed = shapeHelper.computeShape(X);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
+    // Insert an allocation for the result of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
     KrnlBuilder createKrnl(rewriter, loc);
     // Only create krnl.iterate if one of the operands is not scalar tensor.

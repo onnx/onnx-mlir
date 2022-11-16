@@ -36,7 +36,7 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
     Value &value, llvm::ArrayRef<int64_t> perm) {
   // Create Permutation Const
   Value permList = getConstTensor(
-      rewriter, op, perm, {value.getType().cast<TensorType>().getRank()})
+      rewriter, op, perm, {value.getType().cast<RankedTensorType>().getRank()})
                        .value();
   // get new value type
   Type newValueTy = RankedTensorType::get(

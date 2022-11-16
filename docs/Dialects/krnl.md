@@ -484,7 +484,6 @@ May be used for gdb.
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `opName` | ::mlir::StringAttr | string attribute
-| `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `nodeName` | ::mlir::StringAttr | string attribute
 

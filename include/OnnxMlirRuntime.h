@@ -58,7 +58,7 @@
  * ```
  *
  * Intuitively, the model takes a list of tensors as input and returns a list of
- * ensors as output.
+ * tensors as output.
  *
  * \subsection invoke-models-using-c-runtime-api Invoke Models Using C Runtime
  * API

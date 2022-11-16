@@ -828,8 +828,9 @@ static std::string getDataLayout(const Location &loc) {
   const std::string targetCpu = getTargetCpu();
   const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
   llvm::TargetOptions ops;
-  llvm::TargetMachine *targetMachine = LLVMTarget.createTargetMachine(
-      targetTriple, targetCpu, "" /*features*/, ops, None);
+  auto targetMachine =
+      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
+          targetTriple, targetCpu, "" /*features*/, ops, None)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;

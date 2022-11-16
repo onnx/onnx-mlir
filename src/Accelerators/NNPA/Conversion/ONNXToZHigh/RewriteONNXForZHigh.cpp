@@ -28,7 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -420,7 +420,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, execNodesOnCpu);
+      &target, nullptr, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be

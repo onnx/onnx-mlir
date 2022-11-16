@@ -32,10 +32,10 @@ public:
   LogicalResult matchAndRewrite(ONNXSoftmaxOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     // softmax = exp(logits) / reduce_sum(exp(logits), -1)
-    RankedTensorType outputType =
-        op.getResult().getType().dyn_cast<RankedTensorType>();
-    RankedTensorType inputType =
-        adaptor.input().getType().dyn_cast<RankedTensorType>();
+    auto outputType =
+        op.getResult().getType().dyn_cast<TensorType>();
+    auto inputType =
+        adaptor.input().getType().dyn_cast<TensorType>();
     IntegerAttr axisAttr = adaptor.axisAttr();
 
     // reduce_sum on last dimension
