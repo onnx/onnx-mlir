@@ -207,8 +207,8 @@ void populateDecomposingONNXBeforeMhloPatterns(
 //   %2, %3 = ConcatShapeTranspose(inputs, axis, start, end, perm)
 // This fusion is an experimental work for performance
 
-// Helper function
-static bool concatFuseMatchHelper(
+// Helper function: is the ConcatOp matched to the fusion pattern?
+static bool isConcatFuseMatched(
     Operation *op, ONNXShapeOp &shapeOp, ONNXTransposeOp &transposeOp) {
   shapeOp = NULL;
   transposeOp = NULL;
@@ -235,7 +235,7 @@ struct ConcatFusePattern : public ConversionPattern {
     // Match
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
-    if (!concatFuseMatchHelper(op, shapeOp, transposeOp))
+    if (!isConcatFuseMatched(op, shapeOp, transposeOp))
       return failure();
 
     // Rewrite
@@ -315,7 +315,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
-    return !concatFuseMatchHelper(op, shapeOp, transposeOp);
+    return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
 
   RewritePatternSet patterns(context);
