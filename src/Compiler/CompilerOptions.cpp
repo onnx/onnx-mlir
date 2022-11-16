@@ -133,22 +133,19 @@ llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> instrumentStage("instrument-stage",
-    llvm::cl::desc(
-        "Specify stage to be instrumented\n"
-        "\"before-onnx-to-krnl\" : Profile for onnx ops (before lowering to "
-        "krnl)\n"
-        "\"nnpa-before-onnx-to-zhigh\" : [NNPA] Profile for onnx ops\n"
-        "\"nnpa-before-onnx-to-krnl\" : [NNPA] Profile for onnx and zhigh ops\n"
-        "\"nnpa-before-krnl-to-llvm\" : [NNPA] Profile for zlow ops\n"),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
+    llvm::cl::desc("Specify stage to be instrumented:"),
+    llvm::cl::values(APPLY_TO_NO_ACCELERATORS(DEFAULT_INSTRUMENTSTAGE_CL_ENUM)
+            APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
+    llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<std::string> instrumentOps("instrument-ops",
-    llvm::cl::desc("Specify regex for ops to be instrumented:\n"
+    llvm::cl::desc("Specify operations operations to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
-                   "\"regex1,regex2, ...\" for the specified ops.\n"
-                   "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
-                   "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
