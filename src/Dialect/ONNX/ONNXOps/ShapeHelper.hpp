@@ -388,7 +388,7 @@ struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXOneHotOp> {
   mlir::LogicalResult computeShape(mlir::ONNXOneHotOpAdaptor operandAdaptor);
   // Additional data for ExpandOp.
   int64_t axis = -1; // Default value.
-  IndexExpr depth;   // Depth which may/maynot be known at compile time.
+  IndexExpr depth;   // Depth which may/may not be known at compile time.
 };
 
 // Shape for ONNXRoiAlignOp
