@@ -8,6 +8,7 @@ set(MHLO_LIBS
   MLIRMhloUtils
   MhloDialect
   MhloRegisterDialects
+  StablehloAssemblyFormat
   StablehloBase
   StablehloBroadcastUtils
   StablehloOps
