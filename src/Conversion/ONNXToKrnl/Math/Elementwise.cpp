@@ -871,12 +871,19 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
+#if USE_NEW_SHAPE
+      ValueRange loopDef = createKrnl.defineLoops(memRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      createIE.getShapeAsDims(X, ubs);
+#else
       IndexExprScope childScope(&rewriter, loc);
       ValueRange loopDef = createKrnl.defineLoops(memRefType.getRank());
       SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
       MemRefBoundsIndexCapture bounds(X);
       SmallVector<IndexExpr, 4> ubs;
       bounds.getDimList(ubs);
+#endif
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadedVal = createKrnl.load(X, loopInd);
