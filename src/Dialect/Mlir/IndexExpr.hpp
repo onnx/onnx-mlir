@@ -789,9 +789,11 @@ public:
   // Lambda functions to extract/generate info. No code is provided in order to
   // keep the IndexExpr and their support operations generic.
 
-  // GetDenseVal locate a DenseElementAttr by looking at the definition of the
-  // array value. Return null if this definition is not generating a dense
-  // array.
+  // If ArrayValueIndexCapture constructor's array is defined by a constant,
+  // the the function below will locate it and return its DenseElementsAttr.
+  // GetDenseVal attempts to locate a DenseElementAttr by looking at the
+  // definition of the array value. Return null if this definition is not
+  // generating a dense array.
   using GetDenseVal = std::function<mlir::DenseElementsAttr(mlir::Value array)>;
   // LoadVal will load the value at array[i] where array is a single dimensional
   // array.

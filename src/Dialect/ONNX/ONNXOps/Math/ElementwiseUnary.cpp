@@ -16,6 +16,10 @@
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -34,8 +38,10 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   if (!hasShapeAndRank(input))
     return success();
 
-  ONNXGenericOpUnaryShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.computeShape(input)))
+  IndexExprBuilderForAnalysis createIE(op->getLoc());
+  NewONNXGenericOpUnaryShapeHelper shapeHelper(
+      op, op->getOperands(), (IndexExprBuilder *)&createIE);
+  if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
