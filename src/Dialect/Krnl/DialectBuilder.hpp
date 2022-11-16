@@ -167,7 +167,6 @@ struct KrnlBuilder : public DialectBuilder {
 using AffineBuilderKrnlMem =
     GenericAffineBuilder<mlir::KrnlLoadOp, mlir::KrnlStoreOp>;
 
-
 // =============================================================================
 // IndexExpr Builder for building
 // =============================================================================

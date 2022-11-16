@@ -31,7 +31,8 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  MultiDialectBuilder<OnnxBuilder> create(b(), loc());
+  MultiDialectBuilder<OnnxBuilder, MemRefBuilder, KrnlBuilder, MathBuilder>
+      create(b(), loc());
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -50,23 +51,18 @@ Value OnnxToKrnlBuilder::reshape(
     return reshapeRes;
   }
 
-  // hi alex: use multi
-  MemRefBuilder memRefBuilder(b(), loc());
-  KrnlBuilder krnlBuilder(memRefBuilder);
-  MathBuilder createMath(memRefBuilder);
-
   // When the output dimensions aren't all literals we need to generate code
   // to compute the shape. Allocate a buffer and store the output dimension
   // into it.
   IndexType indexTy = b().getIndexType();
   int64_t length = shapeDims.size();
   memref::AllocOp alloc =
-      memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
+      create.mem.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = createMath.constant(indexTy, i);
+    Value index = create.math.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
-    krnlBuilder.store(data, alloc, index);
+    create.krnl.store(data, alloc, index);
   }
 
   // Now create the 'onnx.Reshape' operation. Because the shape is not a
@@ -81,7 +77,7 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(create.onnx.toMemref(reshapeRes),
+  Value castRes = create.mem.cast(create.onnx.toMemref(reshapeRes),
       MemRefType::get(castOutputShape, elementType));
 
   return castRes;

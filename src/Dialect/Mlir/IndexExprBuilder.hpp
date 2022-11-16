@@ -91,15 +91,18 @@ struct IndexExprBuilder : DialectBuilder {
   // values, questionmark index expressions are returned during code analysis
   // phases and symbol index expressions are returned during code generation
   // phases. Note that array of rank 0 are treated as scalars. There is no
-  // support for ranks higher than 1 at this time.
+  // support for ranks higher than 1 at this time.  Asserts if the type is
+  // not a shaped type with a known rank.
 
-  // Get size of array defined by intArrayVal value.
+  // Get rank of array defined by intArrayVal value.
+  uint64_t getIntArrayRank(mlir::Value intArrayVal);
+  // Get size of array defined by intArrayVal value. Asserts if rank>1.
   uint64_t getIntArraySize(mlir::Value intArrayVal);
   // Get a symbol index expression from the integer array defined by intArrayVal
   // at position i. If array is defined by a constant, return a literal index
   // expression. If defined by a runtime value, return questionmark or symbol
   // index expressions depending on the phase. If out of bound, return an
-  // undefined index expressions.
+  // undefined index expressions. Asserts if rank>1.
   IndexExpr getIntArrayAsSymbol(mlir::Value intArrayVal, uint64_t i);
   // Same as above; if out of bound, return a literal index expression of value
   // defaultVal.
@@ -115,7 +118,8 @@ struct IndexExprBuilder : DialectBuilder {
   // shape is known at compile time. Returns questionmark for runtime shapes
   // during analysis phases. Returns symbol or dim index expressions for runtime
   // shapes during code generation phases. Asserts when requesting out of bound
-  // shapes. Works on tensors and memrefs.
+  // shapes.  Asserts if the type is not a shaped type with a known rank.
+  // Works on tensors and memrefs.
 
   // Return true if shape is known at compile time, i.e. is a literal value.
   bool isLiteralShape(mlir::Value tensorOrMemrefValue, uint64_t i);
@@ -148,7 +152,8 @@ protected:
   // Locate/generate a value that represents the integer value of the shape
   // given by a tensor or memref at position i. Return nullptr if cannot
   // locate/generate the value.
-  virtual mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
+  virtual mlir::Value getShapeVal(
+      mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 };
 
 } // namespace onnx_mlir

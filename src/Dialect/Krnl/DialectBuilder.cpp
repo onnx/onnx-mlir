@@ -297,7 +297,11 @@ DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
 
 Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
-  // hi alex, may cause problem with scalar... may have to check type
+  uint64_t rank = getIntArrayRank(intArrayVal);
+  if (rank == 0)
+    return create.krnl.load(intArrayVal, {});
+  uint64_t size = getIntArraySize(intArrayVal);
+  assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);
   return create.krnl.load(intArrayVal, {iVal});
 }

@@ -71,13 +71,20 @@ IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intArrayVal.
 
-uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
+uint64_t IndexExprBuilder::getIntArrayRank(Value intArrayVal) {
   assert(hasShapeAndRank(intArrayVal) && "expected shaped type with rank");
   ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
   // Find shaped type size (rank of 0 is scalar).
-  uint64_t rank = shapeType.getRank();
+  return shapeType.getRank();
+}
+
+uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
+  uint64_t rank = getIntArrayRank(intArrayVal);
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
-  return (rank == 0) ? 1 : shapeType.getShape()[0];
+  if (rank == 0)
+    return 1;
+  ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
+  return shapeType.getShape()[0];
 }
 
 IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value intArrayVal, uint64_t i) {
