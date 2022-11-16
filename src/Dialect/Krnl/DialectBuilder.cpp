@@ -297,7 +297,7 @@ DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
 
 Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
-  uint64_t rank = getIntArrayRank(intArrayVal);
+  uint64_t rank = getTypeRank(intArrayVal);
   if (rank == 0)
     return create.krnl.load(intArrayVal, {});
   uint64_t size = getIntArraySize(intArrayVal);

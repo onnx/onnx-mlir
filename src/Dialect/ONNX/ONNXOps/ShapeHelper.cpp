@@ -132,6 +132,7 @@ void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
+#if DEPRACATED
 ONNXGenericOpUnaryShapeHelper::ONNXGenericOpUnaryShapeHelper(
     Operation *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<Operation>(newOp, 1, inScope) {}
@@ -153,6 +154,7 @@ LogicalResult ONNXGenericOpUnaryShapeHelper::computeShape(Value operand) {
   setOutputDims(outputDims);
   return success();
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Broadcasting

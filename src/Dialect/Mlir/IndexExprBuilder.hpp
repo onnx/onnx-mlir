@@ -94,8 +94,9 @@ struct IndexExprBuilder : DialectBuilder {
   // support for ranks higher than 1 at this time.  Asserts if the type is
   // not a shaped type with a known rank.
 
-  // Get rank of array defined by intArrayVal value.
-  uint64_t getIntArrayRank(mlir::Value intArrayVal);
+  // Get rank of array defined by arrayVal value. Asserts if the type is not a
+  // shaped type with a known rank.
+  uint64_t getTypeRank(mlir::Value arrayVal);
   // Get size of array defined by intArrayVal value. Asserts if rank>1.
   uint64_t getIntArraySize(mlir::Value intArrayVal);
   // Get a symbol index expression from the integer array defined by intArrayVal

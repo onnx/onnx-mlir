@@ -114,6 +114,7 @@ private:
   bool ownScope;
 };
 
+#if DEPRACATED
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
 struct ONNXGenericOpUnaryShapeHelper
@@ -132,6 +133,7 @@ struct ONNXGenericOpUnaryShapeHelper
   // for the output.
   mlir::LogicalResult computeShape(mlir::Value operand);
 };
+#endif
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.

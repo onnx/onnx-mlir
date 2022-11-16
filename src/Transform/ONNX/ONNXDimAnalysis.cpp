@@ -22,6 +22,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
@@ -86,8 +87,8 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
     onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   typename ONNX_OP::Adaptor operandAdaptor(op);
   SHAPE_HELPER shapeHelper(&op);
-  LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
+  LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
+  assert(succeeded(shapeComputed) && "Could not compute output shape");
   // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;
@@ -111,9 +112,11 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
 /// Use this function for unary operations.
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::ONNXGenericOpUnaryShapeHelper shapeHelper(op, nullptr);
-  auto shapecomputed = shapeHelper.computeShape(op->getOperands()[0]);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
+  onnx_mlir::IndexExprBuilderForAnalysis createIE(op->getLoc());
+  onnx_mlir::NewONNXGenericOpUnaryShapeHelper shapeHelper(
+      op, op->getOperands(), (onnx_mlir::IndexExprBuilder *)&createIE);
+  auto shapeComputed = shapeHelper.computeShape();
+  assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
@@ -130,8 +133,8 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   Value B = op->getOperands()[1];
   onnx_mlir::ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, nullptr);
   onnx_mlir::DimsExpr empty;
-  auto shapecomputed = shapeHelper.computeShape(ArrayRef<Value>({A, B}), empty);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
+  auto shapeComputed = shapeHelper.computeShape(ArrayRef<Value>({A, B}), empty);
+  assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =

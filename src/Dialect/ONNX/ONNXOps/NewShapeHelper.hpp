@@ -86,7 +86,64 @@ struct NewONNXGenericOpUnaryShapeHelper
       IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper<mlir::Operation>(op, operands, ieBuilder, scope) {}
 
-  virtual mlir::LogicalResult computeShape() override;
+  mlir::LogicalResult computeShape() final;
+};
+
+/// Compute a broadcasted shape from the shapes of given operands. Operands must
+/// be ranked in advance.
+template <class OP>
+struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
+  // hi alex: maybe set output rank here,  or see if it is needed
+  NewONNXOpBroadcastedShapeHelper(mlir::Operation *op,
+      mlir::ValueRange operands, DimsExpr *additionalOperand,
+      IndexExprBuilder *ieBuilder, IndexExprScope *scope = nullptr,
+      bool uniBroadcasting = false, bool noBroadcasting = false)
+      : NewONNXOpShapeHelper<OP>(op, operands, ieBuilder, scope), inputsDims(),
+        outputRank(-1), additionalOperand(additionalOperand),
+        isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+
+  mlir::LogicalResult computeShape() final;
+
+  // Compute access indices to load/store value from/to a given 'operand'.
+  // Used in a loop to access the operand.
+  // Parameters:
+  //   - operand: operand to access.
+  //   - operandIndex: index of the operand in 'this->inputsDims'.
+  //   - loopAccessExprs: IndexExprs for the loop's IVs.
+  //   - operandAccessExprs: access indices to access the operand.
+  //     This is the output of this function. Use it in subsequent load/stores.
+  mlir::LogicalResult GetAccessExprs(mlir::Value operand, uint64_t operandIndex,
+      const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
+
+  // A vector of input shapes where dimensions are padded with 1 if necessary,
+  // so that all inputs have the same rank. Instantiated during ComputeShape.
+  llvm::SmallVector<DimsExpr, 4> inputsDims;
+  // A vector of IndexExprs representing the output shape.
+  // in upper DimsExpr outputDims;
+  int64_t outputRank;
+
+protected:
+  // Some ops need an additional operand passed as an IndexExpression vector.
+  // Ignored when null.
+  DimsExpr *additionalOperand;
+  // When unidirectional broadcasting is true, the other operands are always
+  // unidirectional broadcastable to the first operand.
+  bool isUniBroadcasting;
+  // When isNoBroadcasting is true, the shape of all input is assumed to be
+  // same. This flag is used to test dynamic shape. There is no impact on static
+  // shape.
+  bool isNoBroadcasting;
+};
+
+struct NewONNXGenericOpBroadcastedShapeHelper
+    : public NewONNXOpBroadcastedShapeHelper<mlir::Operation> {
+  NewONNXGenericOpBroadcastedShapeHelper(mlir::Operation *op,
+      mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
+      IndexExprScope *scope = nullptr, bool uniBroadcasting = false,
+      bool noBroadcasting = false)
+      : NewONNXOpBroadcastedShapeHelper(op, operands, nullptr, ieBuilder, scope,
+            uniBroadcasting, noBroadcasting) {}
 };
 
 } // namespace onnx_mlir
