@@ -71,6 +71,7 @@ IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intArrayVal.
 
+<<<<<<< HEAD
 uint64_t IndexExprBuilder::getTypeRank(Value arrayVal) {
   assert(hasShapeAndRank(arrayVal) && "expected shaped type with rank");
   // Find shaped type size (rank of 0 is scalar).
@@ -79,6 +80,17 @@ uint64_t IndexExprBuilder::getTypeRank(Value arrayVal) {
 
 uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
   uint64_t rank = getTypeRank(intArrayVal);
+=======
+uint64_t IndexExprBuilder::getIntArrayRank(Value intArrayVal) {
+  assert(hasShapeAndRank(intArrayVal) && "expected shaped type with rank");
+  ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
+  // Find shaped type size (rank of 0 is scalar).
+  return shapeType.getRank();
+}
+
+uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
+  uint64_t rank = getIntArrayRank(intArrayVal);
+>>>>>>> shapehelper-reorg-v2
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;

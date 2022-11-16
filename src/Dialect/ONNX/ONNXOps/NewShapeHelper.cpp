@@ -117,6 +117,7 @@ LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
   return success();
 }
 
+<<<<<<< HEAD
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -266,6 +267,8 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
 
+=======
+>>>>>>> shapehelper-reorg-v2
 template struct NewONNXOpShapeHelper<Operation>;
 
 } // namespace onnx_mlir

@@ -86,6 +86,7 @@ struct NewONNXGenericOpUnaryShapeHelper
       IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper<mlir::Operation>(op, operands, ieBuilder, scope) {}
 
+<<<<<<< HEAD
   mlir::LogicalResult computeShape() final;
 };
 
@@ -144,6 +145,9 @@ struct NewONNXGenericOpBroadcastedShapeHelper
       bool noBroadcasting = false)
       : NewONNXOpBroadcastedShapeHelper(op, operands, nullptr, ieBuilder, scope,
             uniBroadcasting, noBroadcasting) {}
+=======
+  virtual mlir::LogicalResult computeShape() override;
+>>>>>>> shapehelper-reorg-v2
 };
 
 } // namespace onnx_mlir
