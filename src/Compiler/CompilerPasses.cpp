@@ -112,8 +112,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-      "before-onnx-to-krnl", instrumentOps, instrumentControlBits.getBits()));
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
 
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
