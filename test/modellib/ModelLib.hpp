@@ -393,7 +393,7 @@ public:
       const bool isDynamicB, const bool isNoneH = false,
       const bool isNoneC = false, const bool isNoneP = false,
       const int layout = 0);
-  ~LSTMLibBuilder();
+  virtual ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -415,7 +415,7 @@ public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const int linearBeforeReset,
       const bool isDynamicS, const bool isDynamicB, const int layout = 0);
-  ~GRULibBuilder();
+  virtual ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -436,7 +436,7 @@ public:
   RNNLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
       const bool isDynamicB, const int layout = 0);
-  ~RNNLibBuilder();
+  virtual ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
