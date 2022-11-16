@@ -27,7 +27,7 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~KrnlBuilder() {}
+  virtual ~KrnlBuilder() {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -176,7 +176,7 @@ struct IndexExprBuilderForKrnl : IndexExprBuilder {
   IndexExprBuilderForKrnl(mlir::OpBuilder &b, mlir::Location loc)
       : IndexExprBuilder(b, loc) {}
   IndexExprBuilderForKrnl(const DialectBuilder &db) : IndexExprBuilder(db) {}
-  ~IndexExprBuilderForKrnl() {}
+  virtual ~IndexExprBuilderForKrnl() {}
 
 protected:
   mlir::DenseElementsAttr getConst(mlir::Value value) final;
