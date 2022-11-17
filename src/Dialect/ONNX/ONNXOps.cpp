@@ -132,18 +132,23 @@ using namespace mlir;
 ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
   Attribute attr;
   Type type;
-  if (!parser.parseOptionalAttrDict(result.attributes)) {
+  OptionalParseResult opt = parser.parseOptionalAttribute(attr, type);
+  if (opt.has_value()) {
+    if (*opt)
+      return failure();
+    const char *name =
+        attr.isa<SparseElementsAttr>() ? "sparse_value" : "value";
+    result.addAttribute(name, attr);
+    result.addTypes({attr.cast<ElementsAttr>().getType()});
+  } else {
+    if (parser.parseOptionalAttrDict(result.attributes))
+      return failure();
     if (parser.parseColon())
       return failure();
     Type type;
     if (parser.parseType(type))
       return failure();
     result.addTypes({type});
-  } else {
-    if (parser.parseAttribute(attr, type))
-      return failure();
-    result.addAttribute("value", attr);
-    result.addTypes({attr.cast<DenseElementsAttr>().getType()});
   }
   return success();
 }
