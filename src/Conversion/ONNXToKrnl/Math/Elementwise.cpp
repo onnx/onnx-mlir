@@ -916,16 +916,12 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
-        isUniBroadcasting);
-    DimsExpr empty;
-    auto shapeComputed = shapeHelper.computeShape(operands, empty);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
+        rewriter, loc);
+    NewONNXGenericOpBroadcastedShapeHelper shapeHelper(op, operands,
+        (IndexExprBuilder *)&create.krnlIE, nullptr, isUniBroadcasting);
+    auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
-    // Scope for krnl ops
-    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -933,13 +929,13 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      ValueRange loopDef = createKrnl.defineLoops(outputRank);
+      ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      allocBounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(alloc, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             for (uint64_t i = 0; i < outputRank; ++i)
               outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
@@ -966,15 +962,15 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
             createKrnl.store(result, alloc, loopInd);
           });
     } else {
-      Value lhs = createKrnl.load(operands[0]);
-      Value rhs = createKrnl.load(operands[1]);
+      Value lhs = create.krnl.load(operands[0]);
+      Value rhs = create.krnl.load(operands[1]);
 
       // Apply the element-wise function.
       Value result = emitScalarOpFor<ElementwiseBinaryOp>(
           rewriter, loc, op, outputElementType, {lhs, rhs});
 
       // Store result in the resulting array.
-      createKrnl.store(result, alloc);
+      create.krnl.store(result, alloc);
     }
 
     rewriter.replaceOp(op, alloc);

@@ -82,13 +82,15 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
 template <class OP>
 NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
-    IndexExprBuilder *ieBuilder, IndexExprScope *scope)
-    : op(op), operands(operands), createIE(ieBuilder), scope(scope),
-      outputsDims(), ownScope(scope == nullptr) {
+    IndexExprBuilder *ieBuilder, IndexExprScope *inputScope)
+    : op(op), operands(operands), createIE(ieBuilder), scope(inputScope),
+      outputsDims(), ownScope(inputScope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
-  if (ownScope)
+  if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
+    assert(scope && "failed to create a new scope");
+  }
   setNumberOfOutputs(op->getNumResults());
 }
 
@@ -146,7 +148,7 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape() {
   // Compute rank of the output. Rank of the output is the maximum rank of all
   // operands.
   uint64_t additionalOperRank =
-      additionalOperand ? 0 : additionalOperand->size();
+      additionalOperand ? additionalOperand->size() : 0;
   outputRank = additionalOperRank;
   for (uint64_t i = 0; i < numOfInputs; ++i)
     outputRank = std::max(outputRank, createIE->getTypeRank(operands[i]));
@@ -226,13 +228,14 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape() {
       }
     }
   }
+
   // Set the final output.
   this->setOutputDims(dimsExpr);
   return success();
 }
 
 template <class OP>
-LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::getAccessExprs(Value operand,
+LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {

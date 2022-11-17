@@ -68,6 +68,9 @@ struct NewONNXOpShapeHelper {
   // Obtain the n-th output value.
   mlir::Value getOutput(int n) { return op->getResult(n); }
 
+  IndexExprScope *getScope() { return scope; }
+
+protected:
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `computeShape` function.
@@ -119,7 +122,8 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
-  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
+  // hi alex: rename getAccessExprs
+  mlir::LogicalResult GetAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
