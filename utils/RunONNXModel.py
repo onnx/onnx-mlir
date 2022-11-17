@@ -26,10 +26,35 @@ from onnx import numpy_helper
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
+
+def valid_onnx_input(fname):
+    valid_exts = ['onnx', 'mlir']
+    ext = os.path.splitext(fname)[1][1:]
+
+    if ext not in valid_exts:
+        parser.error(
+            "Only accept an input model with one of extensions {}".format(
+                valid_exts))
+    return fname
+
+
 # Command arguments.
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, help="Path to the ONNX model")
-lib_group = parser.add_mutually_exclusive_group()
+parser.add_argument('--model',
+                    type=lambda s: valid_onnx_input(s),
+                    help="Path to an ONNX model (.onnx or .mlir)")
+parser.add_argument('--compile-args',
+                    type=str,
+                    default="",
+                    help="Arguments passed directly to onnx-mlir command."
+                    " See bin/onnx-mlir --help")
+parser.add_argument('--compile-only',
+                    action='store_true',
+                    help="Only compile the input model")
+parser.add_argument('--compile-using-input-shape',
+                    action='store_true',
+                    help="Compile the model by using the shape info getting from"
+                    " the inputs in data folder. Must set --data-folder")
 parser.add_argument('--print-input',
                     action='store_true',
                     help="Print out inputs")
@@ -41,6 +66,28 @@ parser.add_argument('--save-onnx',
                     type=str,
                     help="File path to save the onnx model. Only effective if "
                     "--verify=onnxruntime")
+parser.add_argument('--save-data',
+                    metavar='PATH',
+                    type=str,
+                    help="Path to a folder to save the inputs and outputs"
+                    " in protobuf")
+parser.add_argument('--verify',
+                    choices=['onnxruntime', 'ref'],
+                    help="Verify the output by using onnxruntime or reference"
+                    " inputs/outputs. By default, no verification")
+parser.add_argument('--verify-all-ops',
+                    action='store_true',
+                    help="Verify all operation outputs when using onnxruntime.")
+parser.add_argument('--rtol',
+                    type=str,
+                    default="0.05",
+                    help="Relative tolerance for verification")
+parser.add_argument('--atol',
+                    type=str,
+                    default="0.01",
+                    help="Absolute tolerance for verification")
+
+lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument('--save-so',
                        metavar='PATH',
                        type=str,
@@ -51,51 +98,17 @@ lib_group.add_argument('--load-so',
                        type=str,
                        help="File path to load a generated shared library for "
                        "inference, and the ONNX model will not be re-compiled")
-parser.add_argument('--save-data',
-                    metavar='PATH',
-                    type=str,
-                    help="Path to a folder to save the inputs and outputs"
-                    " in protobuf")
+
 data_group = parser.add_mutually_exclusive_group()
-data_group.add_argument(
-    '--data-folder',
-    type=str,
-    help="Path to a folder containing inputs and outputs stored in protobuf."
-    " If --verify=ref, inputs and outputs are reference data for verification")
-data_group.add_argument(
-    '--shape-info',
-    type=str,
-    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --data-folder is not set")
-parser.add_argument('--compile-args',
-                    type=str,
-                    default="",
-                    help="Arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
-parser.add_argument('--verify',
-                    choices=['onnxruntime', 'ref'],
-                    help="Verify the output by using onnxruntime or reference"
-                    " inputs/outputs. By default, no verification")
-parser.add_argument(
-    '--verify-all-ops',
-    action='store_true',
-    help="Verify all operation outputs when using onnxruntime.")
-parser.add_argument(
-    '--compile-using-input-shape',
-    action='store_true',
-    help="Compile the model by using the shape info getting from"
-    " the inputs in data folder. Must set --data-folder")
-parser.add_argument('--rtol',
-                    type=str,
-                    default="0.05",
-                    help="Relative tolerance for verification")
-parser.add_argument('--atol',
-                    type=str,
-                    default="0.01",
-                    help="Absolute tolerance for verification")
-parser.add_argument('--compile-only',
-                    action='store_true',
-                    help="Only compile the input model")
+data_group.add_argument('--data-folder',
+                        type=str,
+                        help="Path to a folder containing inputs and outputs stored in protobuf."
+                        " If --verify=ref, inputs and outputs are reference data for verification")
+data_group.add_argument('--shape-info',
+                        type=str,
+                        help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+                        "Used to generate random inputs for the model if --data-folder is not set")
+
 args = parser.parse_args()
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -310,7 +323,7 @@ def main():
             input_shapes[int(input_index)] = dims
 
     # Load the onnx model.
-    if args.model:
+    if args.model and args.model.endswith('.onnx'):
         model = onnx.load(args.model)
         # Get names of all intermediate tensors and modify model such that each of
         # them will be an output of the model. If using onnxruntime for
@@ -342,10 +355,17 @@ def main():
             shared_lib_path = args.load_so
         else:
             print("Compiling the model ...")
-            # Save modified model & invoke onnx-mlir to compile it.
-            temp_model_path = os.path.join(temp_dir, "model.onnx")
-            onnx.save(model, temp_model_path)
+            # Prepare input and output paths.
+            output_path = os.path.join(temp_dir, "model")
             shared_lib_path = os.path.join(temp_dir, "model.so")
+            if args.model.endswith('.onnx'):
+                input_model_path = os.path.join(temp_dir, "model.onnx")
+                onnx.save(model, input_model_path)
+            elif args.model.endswith('.mlir'):
+                input_model_path = args.model
+            else:
+                print("Invalid input model path. Must end with .onnx or .mlir")
+                exit(1)
 
             # Prepare compiler arguments.
             command_str = [ONNX_MLIR]
@@ -363,7 +383,8 @@ def main():
                 command_str += [shape_info]
                 warning("the shapes of the model's inputs will be " \
                     "changed to the shapes of the inputs in the data folder")
-            command_str += [temp_model_path]
+            command_str += [input_model_path]
+            command_str += ['-o', output_path]
 
             # Compile the model.
             start = time.perf_counter()
@@ -411,11 +432,19 @@ def main():
                     ordinal(i + 1), input_names[i],
                     'x'.join([str(i) for i in inp.shape]), inp.dtype, inp))
 
+        # Running inference.
         print("Running inference ...")
         start = time.perf_counter()
         outs = sess.run(inputs)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
+
+        # Print the output if required.
+        if (args.print_output):
+            for i, out in enumerate(outs):
+                print("The {} output {}:[{}x{}] is: \n {} \n".format(
+                    ordinal(i + 1), output_names[i],
+                    'x'.join([str(i) for i in out.shape]), out.dtype, out))
 
         # Store the input and output if required.
         if args.save_data:
@@ -435,7 +464,7 @@ def main():
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
 
-        # Run the model with reference backend and get results.
+        # Verify the output if required.
         if (args.verify):
             ref_outs = []
             if (args.verify.lower() == "onnxruntime"):
@@ -444,11 +473,12 @@ def main():
                 input_feed = dict(zip(input_names, inputs))
                 print("Running inference using onnxruntime ...")
                 start = time.perf_counter()
-                ref_session = onnxruntime.InferenceSession(temp_model_path)
+                ref_session = onnxruntime.InferenceSession(input_model_path)
                 ref_outs = ref_session.run(output_names, input_feed)
                 end = time.perf_counter()
                 print("  took ", end - start, " seconds.\n")
             elif (args.verify.lower() == "ref"):
+                # Reference output available in protobuf.
                 ref_outs = read_output_from_refs(len(output_names),
                                                  args.data_folder)
             else:
@@ -480,13 +510,6 @@ def main():
                     raise AssertionError(
                         "  mismatched elements {}/{}.\n".format(
                             mismatched_elements, total_elements))
-
-        # Print the output if required.
-        if (args.print_output):
-            for i, out in enumerate(outs):
-                print("The {} output {}:[{}x{}] is: \n {} \n".format(
-                    ordinal(i + 1), output_names[i],
-                    'x'.join([str(i) for i in out.shape]), out.dtype, out))
 
 
 if __name__ == '__main__':
