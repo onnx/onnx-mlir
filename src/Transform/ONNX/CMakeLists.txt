@@ -103,3 +103,15 @@ add_onnx_mlir_library(OMONNXDimAnalysis
   MLIRPass
   MLIRTransforms
   )
+
+add_onnx_mlir_library(OMONNXReplaceNoValue
+  ReplaceNoValueOperands.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
+  )
