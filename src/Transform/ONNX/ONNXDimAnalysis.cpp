@@ -87,13 +87,8 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
     onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   typename ONNX_OP::Adaptor operandAdaptor(op);
   SHAPE_HELPER shapeHelper(&op);
-<<<<<<< HEAD
   LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapeComputed) && "Could not compute output shape");
-=======
-  LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
->>>>>>> shapehelper-reorg-v2
   // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;

@@ -34,6 +34,10 @@ namespace onnx_mlir {
 
 using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 
+//===----------------------------------------------------------------------===//
+// Top shape helper class
+//===----------------------------------------------------------------------===//
+
 template <class OP>
 struct NewONNXOpShapeHelper {
   // Constructor for shape inference.
@@ -77,31 +81,33 @@ private:
   bool ownScope;
 };
 
+//===----------------------------------------------------------------------===//
+// Unary
+//===----------------------------------------------------------------------===//
+
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
 struct NewONNXGenericOpUnaryShapeHelper
     : public NewONNXOpShapeHelper<mlir::Operation> {
   NewONNXGenericOpUnaryShapeHelper(mlir::Operation *op,
       mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr)
-      : NewONNXOpShapeHelper<mlir::Operation>(op, operands, ieBuilder, scope) {}
+      IndexExprScope *scope = nullptr);
 
-<<<<<<< HEAD
   mlir::LogicalResult computeShape() final;
 };
+
+//===----------------------------------------------------------------------===//
+// Broadcast
+//===----------------------------------------------------------------------===//
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
 template <class OP>
 struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
-  // hi alex: maybe set output rank here,  or see if it is needed
   NewONNXOpBroadcastedShapeHelper(mlir::Operation *op,
       mlir::ValueRange operands, DimsExpr *additionalOperand,
       IndexExprBuilder *ieBuilder, IndexExprScope *scope = nullptr,
-      bool uniBroadcasting = false, bool noBroadcasting = false)
-      : NewONNXOpShapeHelper<OP>(op, operands, ieBuilder, scope), inputsDims(),
-        outputRank(-1), additionalOperand(additionalOperand),
-        isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+      bool hasUniBroadcasting = false, bool hasNoBroadcasting = false);
 
   mlir::LogicalResult computeShape() final;
 
@@ -113,7 +119,7 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
-  mlir::LogicalResult GetAccessExprs(mlir::Value operand, uint64_t operandIndex,
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
@@ -122,19 +128,23 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
   llvm::SmallVector<DimsExpr, 4> inputsDims;
   // A vector of IndexExprs representing the output shape.
   // in upper DimsExpr outputDims;
-  int64_t outputRank;
+  uint64_t outputRank;
 
 protected:
+  // Because of templates, have to be specific about vars from parent class.
+  using NewONNXOpShapeHelper<OP>::createIE;
+  using NewONNXOpShapeHelper<OP>::operands;
+
   // Some ops need an additional operand passed as an IndexExpression vector.
   // Ignored when null.
   DimsExpr *additionalOperand;
   // When unidirectional broadcasting is true, the other operands are always
   // unidirectional broadcastable to the first operand.
-  bool isUniBroadcasting;
+  bool hasUniBroadcasting;
   // When isNoBroadcasting is true, the shape of all input is assumed to be
   // same. This flag is used to test dynamic shape. There is no impact on static
   // shape.
-  bool isNoBroadcasting;
+  bool hasNoBroadcasting;
 };
 
 struct NewONNXGenericOpBroadcastedShapeHelper
@@ -142,12 +152,7 @@ struct NewONNXGenericOpBroadcastedShapeHelper
   NewONNXGenericOpBroadcastedShapeHelper(mlir::Operation *op,
       mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr, bool uniBroadcasting = false,
-      bool noBroadcasting = false)
-      : NewONNXOpBroadcastedShapeHelper(op, operands, nullptr, ieBuilder, scope,
-            uniBroadcasting, noBroadcasting) {}
-=======
-  virtual mlir::LogicalResult computeShape() override;
->>>>>>> shapehelper-reorg-v2
+      bool noBroadcasting = false);
 };
 
 } // namespace onnx_mlir

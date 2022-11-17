@@ -107,9 +107,7 @@ Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
 }
 
 ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) const {
-  return b()
-      .template create<KrnlDefineLoopsOp>(loc(), originalLoopNum)
-      .getResults();
+  return b().create<KrnlDefineLoopsOp>(loc(), originalLoopNum).getResults();
 }
 
 ValueRange KrnlBuilder::block(Value loop, int64_t blockSize) const {
@@ -121,9 +119,7 @@ void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) const {
 }
 
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
-  return b()
-      .template create<KrnlGetInductionVariableValueOp>(loc(), loops)
-      .getResults();
+  return b().create<KrnlGetInductionVariableValueOp>(loc(), loops).getResults();
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
@@ -301,11 +297,7 @@ DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
 
 Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
-<<<<<<< HEAD
   uint64_t rank = getTypeRank(intArrayVal);
-=======
-  uint64_t rank = getIntArrayRank(intArrayVal);
->>>>>>> shapehelper-reorg-v2
   if (rank == 0)
     return create.krnl.load(intArrayVal, {});
   uint64_t size = getIntArraySize(intArrayVal);
