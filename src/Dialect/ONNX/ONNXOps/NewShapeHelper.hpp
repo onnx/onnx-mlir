@@ -39,7 +39,7 @@ struct NewONNXOpShapeHelper {
   // Constructor for shape inference.
   NewONNXOpShapeHelper(OP *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder, IndexExprScope *scope);
-  ~NewONNXOpShapeHelper() {
+  virtual ~NewONNXOpShapeHelper() {
     if (ownScope)
       delete scope;
   }
