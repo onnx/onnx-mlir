@@ -3336,11 +3336,11 @@ def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
   let description = [{
   Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
   This function defines the mel scale in terms of a frequency in hertz according to the following formula:
-  
+
       mel(f) = 2595 * log10(1 + f/700)
-  
+
   In the returned matrix, all the triangles (filterbanks) have a peak value of 1.0.
-  
+
   The returned MelWeightMatrix can be used to right-multiply a spectrogram S of shape [frames, num_spectrogram_bins] of linear scale spectrum values (e.g. STFT magnitudes) to generate a \"mel spectrogram\" M of shape [frames, num_mel_bins].
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$num_mel_bins,
@@ -5843,17 +5843,17 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
   let summary = "ONNX SequenceMap operation";
   let description = [{
   Applies a sub-graph to each sample in the input sequence(s).
-  
+
   Inputs can be either tensors or sequences, with the exception of the first input which must
   be a sequence. The length of the first input sequence will determine the number of samples in the
   outputs. Any other sequence inputs should have the same number of samples. The number of inputs
   and outputs, should match the one of the subgraph.
-  
+
   For each i-th element in the output, a sample will be extracted from the input sequence(s) at
   the i-th position and the sub-graph will be applied to it.
   The outputs will contain the outputs of the sub-graph for each sample, in the same order as in
   the input.
-  
+
   This operator assumes that processing each sample is independent and could executed in parallel
   or in any order. Users cannot expect any specific ordering in which each subgraph is computed.
   }];
@@ -7283,32 +7283,6 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
     }
   }];
   let hasVerifier = 1;
-}
-
-def ONNXDictVectorizerOp:ONNX_Op<"DFT",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX DFT operation";
-    let description = [{
-  Computes the discrete Fourier transform of input.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]> TensorOf<[BF16]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$dft_length,
-    DefaultValuedAttr<SI64Attr, "1">:$axis,
-    DefaultValuedAttr<SI64Attr, "0">:$inverse,
-    DefaultValuedAttr<SI64Attr, "0">:$onesided);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",

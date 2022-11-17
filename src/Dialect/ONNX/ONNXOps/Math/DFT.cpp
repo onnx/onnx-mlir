@@ -26,7 +26,7 @@ using namespace std;
 namespace onnx_mlir {
 LogicalResult ONNXDFTOpShapeHelper::computeShape(
     ONNXDFTOpAdaptor operandAdaptor) {
-  Value input = operandAdaptor.input();
+  //Value input = operandAdaptor.input();
 
   // Get info about input data operand.
   auto *op = shapeHelper.op;

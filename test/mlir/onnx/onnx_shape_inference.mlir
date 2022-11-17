@@ -95,27 +95,25 @@ func.func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32>
 /// Test shape inference for DFT.
 //===----------------------------------------------------------------------===//
 
-func.func @test_dft_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
-  %0 = "onnx.DFT"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
+func.func @test_dft_1(%arg0: tensor<1x10x10x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.DFT"(%arg0) : (tensor<1x10x10x1xf32>) -> tensor<*f32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-
-// CHECK-LABEL: test_dft
-// CHECK: [[RES_ATTR:%.+]] = "onnx.DFT"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
-// CHECK: return [[RES_ATTR]] : tensor<3x2xf32>
 }
-
+//{onesided = 0}
 // -----
 
-
-func.func @test_dft_axis2(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
-  %0 = "onnx.DFT"(%arg0, %arg1) {axis = 2 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
+func.func @test_dft_2(%arg0: tensor<1x10x10x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.DFT"(%arg0) : (tensor<1x10x10x1xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-
-// CHECK-LABEL: test_dft
-// CHECK: [[RES_ATTR:%.+]] = "onnx.DFT"(%arg0, %arg1) {axis = 2 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
-// CHECK: return [[RES_ATTR]] : tensor<3x2xf32>
 }
+//{onesided = 1}
+// -----
 
+func.func @test_dft_3(%arg0: tensor<1x10x10x2xf32> , %arg1 : tensor<?x?x?x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.DFT"(%arg0, %arg1) : (tensor<1x10x10x2xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+}
+//{onesided = 1, axis =0 }
 // -----
 
 
