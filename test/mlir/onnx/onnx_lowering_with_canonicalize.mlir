@@ -97,7 +97,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // -----
 
 func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32>) -> tensor<3xi64>  {
-  %0 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<i64>
+  %0 = onnx.Constant {value = dense<0> : tensor<1xi64>} : tensor<i64>
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %2 = "onnx.NoValue"() {value} : () -> none
   %3 = "onnx.SequenceInsert"(%1, %arg0, %0) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4x5xf32>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
@@ -155,18 +155,18 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 
 // Check nested if lowering (function computes scalar Sign).
 func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
-  %0 = "onnx.Constant"() {value = dense<0.0> : tensor<1xf32>} : () -> tensor<f32>
+  %0 = onnx.Constant {value = dense<0.0> : tensor<1xf32>} : tensor<f32>
   %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
   %2 = "onnx.If"(%1) ({
-    %3 = "onnx.Constant"() {value = dense<-1> : tensor<1xi32>} : () -> tensor<i32>
+    %3 = onnx.Constant {value = dense<-1> : tensor<1xi32>} : tensor<i32>
     onnx.Return %3 : tensor<i32>
   }, {
     %4 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
     %5 = "onnx.If"(%4) ({
-      %6 = "onnx.Constant"() {value = dense<1> : tensor<1xi32>} : () -> tensor<i32>
+      %6 = onnx.Constant {value = dense<1> : tensor<1xi32>} : tensor<i32>
       onnx.Return %6 : tensor<i32>
     }, {
-      %7 = "onnx.Constant"() {value = dense<0> : tensor<1xi32>} : () -> tensor<i32>
+      %7 = onnx.Constant {value = dense<0> : tensor<1xi32>} : tensor<i32>
       onnx.Return %7 : tensor<i32>
     }) : (tensor<i1>) -> tensor<i32>
     onnx.Return %5 : tensor<i32>
