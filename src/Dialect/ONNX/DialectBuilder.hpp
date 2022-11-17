@@ -30,7 +30,7 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  ~OnnxBuilder(){};
+  virtual ~OnnxBuilder(){};
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -145,7 +145,7 @@ struct IndexExprBuilderForAnalysis : IndexExprBuilder {
       : IndexExprBuilder(b, loc) {}
   IndexExprBuilderForAnalysis(const DialectBuilder &db)
       : IndexExprBuilder(db) {}
-  ~IndexExprBuilderForAnalysis() {}
+  virtual ~IndexExprBuilderForAnalysis() {}
 
 protected:
   mlir::DenseElementsAttr getConst(mlir::Value value) final;
