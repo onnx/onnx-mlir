@@ -308,6 +308,11 @@ def warning(msg):
 
 
 def main():
+    if not(args.model or args.load_so):
+        print("error: no input model, use argument --model and/or --load-so.")
+        print(parser.format_usage())
+        exit(1)
+
     # Get shape information if given.
     # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
     input_shapes = {}
