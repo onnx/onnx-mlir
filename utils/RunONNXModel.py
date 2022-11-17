@@ -207,11 +207,8 @@ def get_names_in_signature(signature):
     names = []
     # Load the input signature.
     signature_dict = json.loads(signature)
-    for i, sig in enumerate(signature_dict):
-        name = 'input_{}'.format(i)
-        if sig['name']:
-            name = sig['name']
-        names.append(name)
+    for sig in signature_dict:
+        names.append(sig['name'])
     return names
 
 
