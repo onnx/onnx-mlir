@@ -14,3 +14,18 @@
 
 #define GET_ATTRDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXAttributes.hpp.inc"
+
+namespace mlir {
+class ElementsAttr;
+}
+
+namespace onnx_mlir {
+
+// Prints elements the same way as DenseElementsAttr.
+void printIntOrFPElementsAttrAsDense(
+    mlir::ElementsAttr attr, llvm::raw_ostream &os);
+
+void printIntOrFPElementsAttrAsDenseWithoutType(
+    mlir::ElementsAttr attr, llvm::raw_ostream &os);
+
+} // namespace onnx_mlir
