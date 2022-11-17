@@ -330,7 +330,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyPartialConversion(function, target, std::move(patterns))))
+  if (failed(applyFullConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
 
