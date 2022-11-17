@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Version/Version.hpp"
+#include "src/Version/VersionOnnx.h"
 
 #include "VCSVersion.inc"
 #include "llvm/Support/Host.h"
@@ -70,14 +71,18 @@ std::string getLLVMRevision() {
 std::string getOnnxMlirFullRepositoryVersion(bool toIncludeLLVM) {
   std::string buf;
   llvm::raw_string_ostream os(buf);
-  std::string OnnxPath = getOnnxRepositoryPath();
-  std::string OnnxRevision = getOnnxRevision();
   std::string OnnxMlirPath = getOnnxMlirRepositoryPath();
   std::string OnnxMlirRevision = getOnnxMlirRevision();
+  std::string OnnxPath = getOnnxRepositoryPath();
+  std::string OnnxRevision = getOnnxRevision();
   std::string LLVMPath = getLLVMRepositoryPath();
   std::string LLVMRevision = getLLVMRevision();
   if (!OnnxMlirPath.empty() && !OnnxMlirRevision.empty()) {
     os << '(' << OnnxMlirPath << ' ' << OnnxMlirRevision;
+    // TESTING
+    if (!OnnxPath.empty() || !OnnxRevision.empty())
+      os << ", " << OnnxPath << ' ' << OnnxRevision;
+    os << ')';
     if (toIncludeLLVM && !LLVMPath.empty() && !LLVMRevision.empty())
       os << ", " << LLVMPath << ' ' << LLVMRevision;
     os << ')';
