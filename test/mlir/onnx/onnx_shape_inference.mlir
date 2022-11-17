@@ -583,7 +583,7 @@ func.func @test_Pad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
 
 /// Test ConstantOp shape inference for 1-D dense tensor.
 func.func @test_constant_dense_1d_value() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0.0, 1.0, 2.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {value = dense<[0.0, 1.0, 2.0]> : tensor<3xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_dense_1d_value
@@ -595,7 +595,7 @@ func.func @test_constant_dense_1d_value() -> tensor<*xf32> {
 
 /// Test ConstantOp shape inference for 2-D dense tensor.
 func.func @test_constant_dense_2d_value() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_dense_2d_value
@@ -607,7 +607,7 @@ func.func @test_constant_dense_2d_value() -> tensor<*xf32> {
 
 /// Test ConstantOp shape inference for 1-D sparse tensor.
 func.func @test_constant_sparse_1d_value() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {sparse_value = sparse<[[0]], [1.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {sparse_value = sparse<[[0]], [1.0]> : tensor<3xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_sparse_1d_value
@@ -619,7 +619,7 @@ func.func @test_constant_sparse_1d_value() -> tensor<*xf32> {
 
 /// Test ConstantOp shape inference for 2-D sparse tensor.
 func.func @test_constant_sparse_2d_value() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {sparse_value = sparse<[[0, 1]], [2.0]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {sparse_value = sparse<[[0, 1]], [2.0]> : tensor<3x2xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_sparse_2d_value
@@ -3184,14 +3184,14 @@ func.func @test_bernoulli_2(%arg0 : tensor<8x8xf16>) -> tensor<*xf16> {
 
 func.func @test_if_1(%arg0: tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor<*xui8>) {
   %0, %1, %2 = "onnx.If"(%arg0) ({
-    %3 = "onnx.Constant"() {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<*xf32>
-    %4 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi16>} : () -> tensor<*xi16>
-    %5 = "onnx.Constant"() {value = dense<1> : tensor<2x3xui8>} : () -> tensor<*xui8>
+    %3 = onnx.Constant {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : tensor<*xf32>
+    %4 = onnx.Constant {value = dense<[1, 2]> : tensor<2xi16>} : tensor<*xi16>
+    %5 = onnx.Constant {value = dense<1> : tensor<2x3xui8>} : tensor<*xui8>
     onnx.Return %3, %4, %5 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>
   }, {
-    %3 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<*xf32>
-    %4 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi16>} : () -> tensor<*xi16>
-    %5 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xui8>} : () -> tensor<*xui8>
+    %3 = onnx.Constant {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : tensor<*xf32>
+    %4 = onnx.Constant {value = dense<[1, 2, 3]> : tensor<3xi16>} : tensor<*xi16>
+    %5 = onnx.Constant {value = dense<[1, 2, 3]> : tensor<3xui8>} : tensor<*xui8>
     onnx.Return %3, %4, %5 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>
   }) : (tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor<*xui8>)
   return %0, %1, %2 : tensor<*xf32>, tensor<*xi16>, tensor<*xui8>

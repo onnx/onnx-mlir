@@ -595,7 +595,7 @@ func.func @test_gemm_c_dyn(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %
 
 // Test tile with constant repeats
 func.func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[3, 2]> : tensor<2xi64>
   %1 = "onnx.Tile"(%arg0, %0) : (tensor<4x8xf32>, tensor<2xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32>
 
@@ -2525,7 +2525,7 @@ func.func @test_expand_with_arith_constant(%arg0 : tensor<2x1x6x1xf32>) -> tenso
 // -----
 
 func.func @test_cumsum_constant_axis(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2576,7 +2576,7 @@ func.func @test_cumsum_constant_axis(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
 // -----
 
 func.func @test_cumsum_constant_axis_reverse_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {reverse = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2628,7 +2628,7 @@ func.func @test_cumsum_constant_axis_reverse_mode(%arg0: tensor<2x3xf64>) -> ten
 
 
 func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {exclusive = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2685,7 +2685,7 @@ func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> t
 
 
 func.func @test_cumsum_constant_axis_exclusive_reverse_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {exclusive = 1 : si64, reverse = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 

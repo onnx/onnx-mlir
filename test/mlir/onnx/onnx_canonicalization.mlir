@@ -201,8 +201,8 @@ func.func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x
 
 // CHECK-LABEL: func @test_reshape_removal_with_matmul_4D(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<3x5x10x1xf32> {
 func.func @test_reshape_removal_with_matmul_4D(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<3x5x10x1xf32> {
-  %shape1 = "onnx.Constant"() { value = dense<[150, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %shape2 = "onnx.Constant"() { value = dense<[3, 5, 10, 1]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %shape2 = onnx.Constant dense<[3, 5, 10, 1]> : tensor<4xi64>
   %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
   %1 = "onnx.MatMul"(%0, %arg1) : (tensor<150x20xf32>, tensor<20x1xf32>) -> tensor<150x1xf32>
   %2 = "onnx.Reshape"(%1, %shape2)  : (tensor<150x1xf32>, tensor<4xi64>) -> tensor<3x5x10x1xf32>
@@ -218,8 +218,8 @@ func.func @test_reshape_removal_with_matmul_4D(%arg0: tensor<3x5x10x20xf32>, %ar
 
 // CHECK-LABEL: func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<15x10x1xf32> {
 func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<15x10x1xf32> {
-  %shape1 = "onnx.Constant"() { value = dense<[150, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %shape2 = "onnx.Constant"() { value = dense<[15, 10, 1]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %shape2 = onnx.Constant dense<[15, 10, 1]> : tensor<3xi64>
   %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
   %1 = "onnx.MatMul"(%0, %arg1) : (tensor<150x20xf32>, tensor<20x1xf32>) -> tensor<150x1xf32>
   %2 = "onnx.Reshape"(%1, %shape2)  : (tensor<150x1xf32>, tensor<3xi64>) -> tensor<15x10x1xf32>
@@ -325,7 +325,7 @@ func.func @test_shape1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: @test_shape1
-  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<[2, 4, 8, 16]> : tensor<4xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 = onnx.Constant {value = dense<[2, 4, 8, 16]> : tensor<4xi64>} : tensor<*xi64>
   // CHECK-NEXT: %0 : tensor<*xi64>
 }
 
@@ -348,7 +348,7 @@ func.func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: @test_size1
-  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<1024> : tensor<1xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 = onnx.Constant {value = dense<1024> : tensor<1xi64>} : tensor<*xi64>
   // CHECK-NEXT: %0 : tensor<*xi64>
 }
 
@@ -628,11 +628,11 @@ func.func @test_constant_2() -> tensor<f32> {
 // -----
 
 func.func @test_constant_1() -> tensor<?xi64> {
-  %0 = "onnx.Constant"() {value_ints = [1, 2, 3] } : () -> tensor<?xi64>
+  %0 = onnx.Constant {value_ints = [1, 2, 3] } : tensor<?xi64>
   return %0 : tensor<?xi64>
 // CHECK-LABEL:       func @test_constant_1       
 // CHECK-SAME:     () -> tensor<?xi64> {
-// CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi64>} : () -> tensor<?xi64>
+// CHECK:           [[VAR_0:%.+]] = onnx.Constant {value = dense<[1, 2, 3]> : tensor<3xi64>} : tensor<?xi64>
 // CHECK:           return [[VAR_0]] : tensor<?xi64>
 }
 
