@@ -212,7 +212,7 @@ static bool isConcatFuseMatched(
     Operation *op, ONNXShapeOp &shapeOp, ONNXTransposeOp &transposeOp) {
   shapeOp = NULL;
   transposeOp = NULL;
-  bool failed;
+  bool failed = false;
   for (Operation *user : op->getUsers()) {
     if (isa<ONNXShapeOp>(user) && !shapeOp)
       shapeOp = cast<ONNXShapeOp>(user);
@@ -330,7 +330,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  if (failed(applyFullConversion(function, target, std::move(patterns))))
+  if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
 
