@@ -95,6 +95,12 @@ NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
 }
 
 template <class OP>
+NewONNXOpShapeHelper<OP>::~NewONNXOpShapeHelper() {
+  if (ownScope)
+    delete scope;
+}
+
+template <class OP>
 void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   outputsDims[n] = inferredDims;
   // Try to refine outputsDims[n] using the output's shape if possible. For

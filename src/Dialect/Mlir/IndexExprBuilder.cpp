@@ -111,14 +111,14 @@ IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
 }
 
 void IndexExprBuilder::getIntArrayAsSymbols(
-    Value intArrayVal, IndexExprList &list, int64_t listSize) {
+    Value intArrayVal, IndexExprList &list, int64_t len) {
   list.clear();
   uint64_t size = getIntArraySize(intArrayVal);
-  if (listSize == -1) // Meaning pick up the full size of the list.
-    listSize = size;
+  if (len == -1) // Meaning pick up the full size of the list.
+    len = size;
   else
-    assert((uint64_t)listSize <= size && "requesting too many elements");
-  for (uint64_t i = 0; i < (uint64_t)listSize; ++i) {
+    assert((uint64_t)len <= size && "requesting too many elements");
+  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);

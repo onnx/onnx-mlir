@@ -44,7 +44,7 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
 
   // Inferred shape is getting from the input's shape.
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();

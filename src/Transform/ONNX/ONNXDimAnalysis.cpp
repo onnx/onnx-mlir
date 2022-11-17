@@ -120,7 +120,7 @@ void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
-      shapeHelper.dimsForOutput()[dim.second];
+      shapeHelper.getOutputDims()[dim.second];
   findAndAddSameDim(qmOuputIE, op->getOperands(), sameDims);
 }
 

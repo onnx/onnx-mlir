@@ -857,7 +857,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     // Insert an allocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -925,7 +925,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -937,8 +937,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (uint64_t i = 0; i < outputRank; ++i)
-              outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
+            getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;

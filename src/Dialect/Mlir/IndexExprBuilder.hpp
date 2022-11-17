@@ -109,10 +109,10 @@ struct IndexExprBuilder : DialectBuilder {
   // defaultVal.
   IndexExpr getIntArrayAsSymbol(
       mlir::Value intArrayVal, uint64_t i, int64_t defaultVal);
-  // Same as above, but get a list of up to listSize values. Assert when
-  // listSize exceed the array bounds.
+  // Same as above, but get a list of up to len values. Assert when
+  // len exceed the array bounds.
   void getIntArrayAsSymbols(
-      mlir::Value intArrayVal, IndexExprList &list, int64_t listSize = -1);
+      mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
 
   //===--------------------------------------------------------------------===//
   // Get info from tensor/memref shape. Return literal index expressions when
