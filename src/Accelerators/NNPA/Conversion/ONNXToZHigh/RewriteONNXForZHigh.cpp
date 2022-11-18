@@ -30,6 +30,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -61,12 +62,6 @@ Value getSqrtResultBatchNormA(
 Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   return create.onnx.reshapeToNDim(val, 3, /*collapseMostSignificant*/ true);
-}
-
-// Reshape: B1xB2x...xBkxM to BxM
-Value reshapeTo2DKeepLast(PatternRewriter &rewriter, Location loc, Value val) {
-  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  return create.onnx.reshapeToNDim(val, 2, /*collapseMostSignificant*/ true);
 }
 
 // Get a value that store the shape of the matmul result.
@@ -408,6 +403,11 @@ public:
 void RewriteONNXForZHighPass::runOnOperation() {
   ModuleOp module = getOperation();
 
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
+
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
@@ -420,7 +420,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, nullptr, execNodesOnCpu);
+      &target, &dimAnalysis, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be
@@ -454,11 +454,11 @@ void RewriteONNXForZHighPass::runOnOperation() {
   });
 
   // Illegalize MatMulOp if
-  // - both inputs are *the same* N-D, N > 3, or
+  // - both inputs are *the same* N-D, N > 3 and there is no broadcasting, or
   // - one input is N-D, N > 3 and the other is 2-D.
   // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
   // will become 3-D.
-  target.addDynamicallyLegalOp<ONNXMatMulOp>([](ONNXMatMulOp op) {
+  target.addDynamicallyLegalOp<ONNXMatMulOp>([&dimAnalysis](ONNXMatMulOp op) {
     Type aType = op.A().getType();
     Type bType = op.B().getType();
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
@@ -466,13 +466,27 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
+
+    // - one input is N-D, N > 3 and the other is 2-D.
     if (aRank == 2 && bRank > 3)
       return false;
     if (bRank == 2 && aRank > 3)
       return false;
-    if (aRank > 3 && (aRank == bRank))
-      return false;
 
+    // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
+    if (aRank > 3 && (aRank == bRank)) {
+      bool sameBatchDims = true;
+      ArrayRef<int64_t> aShape = getShape(aType);
+      ArrayRef<int64_t> bShape = getShape(bType);
+      for (int64_t i = 0; i < aRank - 2; ++i) {
+        sameBatchDims &= (aShape[i] == bShape[i]);
+        if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
+          sameBatchDims = dimAnalysis.sameUnknownDim(op.A(), i, op.B(), i);
+      }
+      return !sameBatchDims;
+    }
+
+    // Make other cases legal.
     return true;
   });
 
@@ -485,11 +499,11 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // Illegalize SoftmaxOp if
   // - axis is the last dimension.
-  // This SoftmaxOp will be rewritten in which its input is reshaped to 2D.
+  // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
     Value input = op.input();
     if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
-      if ((shapedType.getRank() > 2) &&
+      if ((shapedType.getRank() > 3) &&
           ((op.axis() == shapedType.getRank() - 1) || (op.axis() == -1))) {
         return false;
       }

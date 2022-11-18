@@ -28,14 +28,14 @@ With this entry, the script will generate the operation definition for ONNX dial
 # Customization <a name="customize"></a>
 
 ## Add Interface and Trait
-* By default, all operation has shape inference interface and `NoSideEffect` trait.
+* By default, all operation has shape inference interface and `Pure` trait.
 * If an operation has `ResultTypeInferenceOpInterface`, add it to dictionary `OpsWithResultTypeInference`.
 This interface infers the type of result tensor, not shape.
 * If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`.
 This attribute is inferred from the ONNX operation definition.
 * You can define helper function for an operation with dictionary `OpsWithHelpers`.
 
-By default, all operation has shape inference interface and `NoSideEffect` trait.
+By default, all operation has shape inference interface and `Pure` trait.
 If an operation has `ResultTypeInferenceOpInterface`, use dictionary `OpsWithResultTypeInference`.
 This interface infers the type of result tensor, not shape.
 If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`.

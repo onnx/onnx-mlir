@@ -18,12 +18,14 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
-  ONNXOps/ShapeHelper.cpp  
+  ONNXOps/ShapeHelper.cpp
+  ONNXOps/NewShapeHelper.cpp
   ONNXTypes.cpp
   Rewrite.cpp
   
   # Support for shape inference and verifiers
   ONNXOps/Additional/CallOp.cpp
+  ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp

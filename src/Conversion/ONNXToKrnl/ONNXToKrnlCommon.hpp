@@ -54,9 +54,11 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 
 struct OnnxToKrnlBuilder : public OnnxBuilder {
+  OnnxToKrnlBuilder(mlir::Location loc) : OnnxBuilder(loc) {}
   OnnxToKrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : OnnxBuilder(b, loc) {}
   OnnxToKrnlBuilder(DialectBuilder &db) : OnnxBuilder(db) {}
+  virtual ~OnnxToKrnlBuilder() {}
 
   // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
   // is provided by 'shapeDims'.
@@ -361,6 +363,8 @@ void populateLoweringONNXConstantOfShapeOpPattern(
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
