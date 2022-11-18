@@ -615,7 +615,7 @@ LogicalResult ZHighLSTMOp::verify() {
   // Verify hidden size in W.
   if (hasRankedType(W)) {
     int64_t dim2 = W.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim2 != -1 && dim2 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 4))
       return failure();
   }
 
@@ -623,23 +623,23 @@ LogicalResult ZHighLSTMOp::verify() {
   if (hasRankedType(R)) {
     int64_t dim1 = R.getType().cast<RankedTensorType>().getShape()[1];
     int64_t dim2 = R.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim1 != -1 && dim1 != hiddenSize)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize))
       return failure();
-    if (dim2 != -1 && dim2 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 4))
       return failure();
   }
 
   // Verify hidden size in WB.
   if (!WB.getType().isa<NoneType>() && hasRankedType(WB)) {
     int64_t dim1 = WB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 4))
       return failure();
   }
 
   // Verify hidden size in RB.
   if (!RB.getType().isa<NoneType>() && hasRankedType(RB)) {
     int64_t dim1 = RB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 4))
       return failure();
   }
 
@@ -686,7 +686,7 @@ LogicalResult ZHighGRUOp::verify() {
   // Verify hidden size in W.
   if (hasRankedType(W)) {
     int64_t dim2 = W.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim2 != -1 && dim2 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 3))
       return failure();
   }
 
@@ -694,23 +694,23 @@ LogicalResult ZHighGRUOp::verify() {
   if (hasRankedType(R)) {
     int64_t dim1 = R.getType().cast<RankedTensorType>().getShape()[1];
     int64_t dim2 = R.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim1 != -1 && dim1 != hiddenSize)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize))
       return failure();
-    if (dim2 != -1 && dim2 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 3))
       return failure();
   }
 
   // Verify hidden size in WB.
   if (!WB.getType().isa<NoneType>() && hasRankedType(WB)) {
     int64_t dim1 = WB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 3))
       return failure();
   }
 
   // Verify hidden size in RB.
   if (!RB.getType().isa<NoneType>() && hasRankedType(RB)) {
     int64_t dim1 = RB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 3))
       return failure();
   }
 
@@ -762,8 +762,8 @@ LogicalResult ZHighConv2DOp::verify() {
   if (!B.getType().isa<NoneType>() && hasRankedType(B) && hasRankedType(K)) {
     int64_t channelOutB = B.getType().cast<RankedTensorType>().getShape()[0];
     int64_t channelOutK = K.getType().cast<RankedTensorType>().getShape()[3];
-    if ((channelOutB != -1) && (channelOutK != -1) &&
-        (channelOutB != channelOutK))
+    if (!ShapedType::isDynamic(channelOutB) &&
+        !ShapedType::isDynamic(channelOutK) && (channelOutB != channelOutK))
       return failure();
   }
 
@@ -774,9 +774,9 @@ LogicalResult ZHighConv2DOp::verify() {
   if (hasRankedType(K)) {
     int64_t KH = K.getType().cast<RankedTensorType>().getShape()[0];
     int64_t KW = K.getType().cast<RankedTensorType>().getShape()[1];
-    if (KH != -1 && KH != attrKH)
+    if (!ShapedType::isDynamic(KH) && KH != attrKH)
       return failure();
-    if (KW != -1 && KW != attrKW)
+    if (!ShapedType::isDynamic(KW) && KW != attrKW)
       return failure();
   }
 

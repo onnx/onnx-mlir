@@ -291,7 +291,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
   AffineMap dimMap = getConvDimMap(builder, ceilMode);
   for (unsigned int i = 0; i < spatialRank; ++i) {
     int64_t res = -1;
-    if (xShape[spatialOffset + i] != -1) {
+    if (!ShapedType::isDynamic(xShape[spatialOffset + i])) {
       auto inputSize = xShape[spatialOffset + i];
       auto kernelSize = ArrayAttrIntVal(kernelShape, i);
       auto sumOfPads = ArrayAttrIntVal(padsOpt, i) +
@@ -563,8 +563,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 
   // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
   // condition holds.
-  if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
-      xShape[1] % group != 0) {
+  if (!ShapedType::isDynamic(xShape[1]) && !ShapedType::isDynamic(inChannels) &&
+      xShape[1] != inChannels && xShape[1] % group != 0) {
     return emitOpError("Channel dimension mismatch")
            << xTy << " " << weightTy << " " << group;
   }
@@ -693,7 +693,8 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     groupAttr(builder.getI64IntegerAttr(group));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
+  if (!ShapedType::isDynamic(xShape[1]) &&
+      !ShapedType::isDynamic(weightShape[1]) &&
       xShape[1] != (weightShape[1] * group))
     return emitError("Channel dimension mismatch");
 
@@ -799,7 +800,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
         APInt(64, 1, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
+  if (!ShapedType::isDynamic(xShape[1]) &&
+      !ShapedType::isDynamic(weightShape[1]) &&
       xShape[1] != (weightShape[1] * group)) {
     return emitOpError("Channel dimension mismatch");
   }

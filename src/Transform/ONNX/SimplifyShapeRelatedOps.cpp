@@ -190,8 +190,9 @@ public:
 
     SmallVector<Value, 4> dimValues;
     for (unsigned i = start; i < end; ++i) {
-      Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
-                                     : create.onnx.dim(data, i);
+      Value dimVal = (ShapedType::isDynamic(dims[i]))
+                         ? create.onnx.dim(data, i)
+                         : create.onnx.constantInt64({dims[i]});
       dimValues.emplace_back(dimVal);
     }
     Value replacedValue = emitConcatOpForDims(create, dimValues, outputType);
