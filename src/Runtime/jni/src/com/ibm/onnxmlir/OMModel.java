@@ -138,7 +138,7 @@ public class OMModel {
 
 			// z/OS USS requires "x" permission bit
 			Files.setPosixFilePermissions(lib,
-			      PosixFilePermissions.fromString("rwxr-xr-x"));
+			      PosixFilePermissions.fromString("rwx------"));
 
 			// Load the temporary .so copy
 			System.load(lib.toString());

@@ -173,8 +173,6 @@ mlir::Value createNoneFloatConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 
 bool isFromNone(mlir::Value value);
-mlir::Type getBroadcastedRankedType(
-    mlir::Type type1, mlir::Type type2, mlir::Type elementType = nullptr);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -271,10 +269,22 @@ mlir::Type convertONNXTypeToMLIRType(
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
-} // namespace onnx_mlir
+//===----------------------------------------------------------------------===//
+// Support for dim operations.
+//===----------------------------------------------------------------------===//
 
-#define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() +                                                        \
-      ": is not supported at this time. Please open an issue on "              \
-      "https://github.com/onnx/onnx-mlir and/or consider contributing code. "  \
-      "Error encountered in shape inference.")
+/// Check the defining operation of a value.
+template <typename OP>
+bool definedBy(mlir::Value v);
+
+/// Check if a value is to store dimensions, meaning it is defined by
+/// Dim/Constant/Cast/Concat.
+bool areDims(mlir::Value val);
+
+/// Check if a value is defined by Concat to store dimensions.
+bool areDimsFromConcat(mlir::Value val);
+
+/// Get all dimensions that are stored by the value.
+void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
+} // namespace onnx_mlir

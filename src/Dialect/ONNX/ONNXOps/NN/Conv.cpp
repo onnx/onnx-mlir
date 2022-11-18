@@ -291,7 +291,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
   AffineMap dimMap = getConvDimMap(builder, ceilMode);
   for (unsigned int i = 0; i < spatialRank; ++i) {
     int64_t res = -1;
-    if (xShape[spatialOffset + i] != -1) {
+    if (!ShapedType::isDynamic(xShape[spatialOffset + i])) {
       auto inputSize = xShape[spatialOffset + i];
       auto kernelSize = ArrayAttrIntVal(kernelShape, i);
       auto sumOfPads = ArrayAttrIntVal(padsOpt, i) +
@@ -469,6 +469,46 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
+static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
+    llvm::StringRef autoPad, ArrayRef<int64_t> xShape,
+    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> padsOpt,
+    Optional<ArrayAttr> stridesOpt, Optional<ArrayAttr> outputPadsOpt,
+    Optional<ArrayAttr> outputShapeOpt,
+    Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
+  auto xRank = xShape.size();
+  auto spatialRank = ArrayAttrSize(kernelShape);
+  auto spatialOffset = xRank - spatialRank;
+
+  int64_t dilationVal = 1;
+  int64_t outputPadsVal = 0;
+  // total_padding[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
+  // ((kernel_shape[i] - 1) * dilations[i] + 1) - output_shape[i]
+  // If (auto_pads == SAME_UPPER): pads[start_i] = total_padding[i]/2;
+  // pads[end_i] = total_padding[i] - (total_padding[i]/2)
+  // Else: pads[start_i] = total_padding[i] - (total_padding[i]/2);
+  // pads[end_i] = (total_padding[i]/2)
+  inferedPads.resize(spatialRank * 2);
+  for (unsigned int i = 0; i < spatialRank; ++i) {
+    auto inputSize = xShape[spatialOffset + i];
+    auto outputSize = ArrayAttrIntVal(outputShapeOpt, spatialOffset + i);
+    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
+    if (dilationsOpt.has_value())
+      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
+    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
+    if (outputPadsOpt.has_value())
+      outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
+    int64_t totalPadding = strideVal * (inputSize - 1) + outputPadsVal +
+                           ((kernelSize - 1) * dilationVal + 1) - outputSize;
+    int64_t beginPad = totalPadding / 2;
+    int64_t endPad = totalPadding - beginPad;
+    if (autoPad != "SAME_UPPER") {
+      std::swap(beginPad, endPad);
+    }
+    inferedPads[i] = beginPad;
+    inferedPads[spatialRank + i] = endPad;
+  }
+}
+
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.
@@ -523,8 +563,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 
   // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
   // condition holds.
-  if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
-      xShape[1] % group != 0) {
+  if (!ShapedType::isDynamic(xShape[1]) && !ShapedType::isDynamic(inChannels) &&
+      xShape[1] != inChannels && xShape[1] % group != 0) {
     return emitOpError("Channel dimension mismatch")
            << xTy << " " << weightTy << " " << group;
   }
@@ -575,28 +615,40 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto padsOpt = pads();
   auto outputPads = output_padding();
   auto outputShape = output_shape();
-  // TODO: handle the spatial dimension computation if output shape is
-  // specified
-  assert(!outputShape.has_value() && "unhandled option in ConvTranspose");
+  llvm::SmallVector<int64_t, 4> outputShapeFinal;
 
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels *
-  // groups).
-  outputDims.emplace_back(outChannels);
-  // Compute and insert spatial dims.
-  insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
-      stridesOpt, outputPads, outputShape, dilationsOpt);
-
-  // Set the output shape if it's not already set
-  if (!outputShape.has_value()) {
-    output_shapeAttr(builder.getI64ArrayAttr(outputDims));
+  if (outputShape.has_value()) {
+    if (xShape[0] != ArrayAttrIntVal(outputShape, 0)) {
+      return emitOpError("mismatch in batch size");
+    }
+    if (outChannels != ArrayAttrIntVal(outputShape, 1)) {
+      return emitOpError("mismatch in output channel size");
+    }
+    SmallVector<int64_t, 4> inferedPads;
+    // Determine padding values based on output shape.
+    auto autoPad = auto_pad();
+    insertConvTransposePads(inferedPads, autoPad, xShape, kernelShape, padsOpt,
+        stridesOpt, outputPads, outputShape, dilationsOpt);
+    padsAttr(builder.getI64ArrayAttr(inferedPads));
+    for (uint64_t i = 0; i < xShape.size(); ++i) {
+      outputShapeFinal.emplace_back(ArrayAttrIntVal(outputShape, i));
+    }
+  } else {
+    // First two output dimensions consist of the number of batches and the
+    // number of kernels being applied.
+    // Insert batch size.
+    outputShapeFinal.emplace_back(xShape[0]);
+    // Insert number of filters being applied (number of output channels *
+    // groups).
+    outputShapeFinal.emplace_back(outChannels);
+    // Compute and insert spatial dims.
+    insertConvTransposeSpatialDim(outputShapeFinal, xShape, kernelShape,
+        padsOpt, stridesOpt, outputPads, outputShape, dilationsOpt);
+    output_shapeAttr(builder.getI64ArrayAttr(outputShapeFinal));
   }
+  getResult().setType(
+      RankedTensorType::get(outputShapeFinal, xTy.getElementType()));
 
-  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
 
@@ -641,7 +693,8 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
     groupAttr(builder.getI64IntegerAttr(group));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
+  if (!ShapedType::isDynamic(xShape[1]) &&
+      !ShapedType::isDynamic(weightShape[1]) &&
       xShape[1] != (weightShape[1] * group))
     return emitError("Channel dimension mismatch");
 
@@ -747,7 +800,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
         APInt(64, 1, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
+  if (!ShapedType::isDynamic(xShape[1]) &&
+      !ShapedType::isDynamic(weightShape[1]) &&
       xShape[1] != (weightShape[1] * group)) {
     return emitOpError("Channel dimension mismatch");
   }

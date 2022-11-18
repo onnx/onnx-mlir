@@ -19,7 +19,7 @@ func.func @main_graph(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attribut
 // CHECK-NEXT:        ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
 // CHECK-NEXT:          [[VAR_23_:%.+]] = mhlo.maximum %arg1, %arg2 : tensor<f32>
 // CHECK-NEXT:          mhlo.return [[VAR_23_]] : tensor<f32>
-// CHECK-NEXT:        }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : vector<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : vector<4xi64>, window_strides = dense<[1, 1, 2, 2]> : vector<4xi64>} : (tensor<1x1x28x28xf32>, tensor<f32>) -> tensor<1x1x14x14xf32>
+// CHECK-NEXT:        }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = dense<1> : tensor<4xi64>, window_dimensions = dense<[1, 1, 2, 2]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (tensor<1x1x28x28xf32>, tensor<f32>) -> tensor<1x1x14x14xf32>
 // CHECK-DAG:     [[VAR_8_:%.+]] = mhlo.reshape [[VAR_7_]] : (tensor<1x1x14x14xf32>) -> tensor<1x196xf32>
 // CHECK-DAG:     [[VAR_9_:%.+]] = "mhlo.transpose"([[VAR_6_:%.+]]) {permutation = dense<[1, 0]> : vector<2xi64>} : (tensor<128x196xf32>) -> tensor<196x128xf32>
 // CHECK:         [[VAR_10_:%.+]] = "mhlo.dot"([[VAR_8_]], [[VAR_9_]]) : (tensor<1x196xf32>, tensor<196x128xf32>) -> tensor<1x128xf32>

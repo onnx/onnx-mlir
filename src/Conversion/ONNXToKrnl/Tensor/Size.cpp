@@ -52,7 +52,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     int64_t staticNumElement = 1;
     bool allStaticDimensions = true;
     for (unsigned i = 0; i < dataShape.size(); i++) {
-      if (dataShape[i] != -1)
+      if (!ShapedType::isDynamic(dataShape[i]))
         staticNumElement *= dataShape[i];
       else
         allStaticDimensions = false;
@@ -64,7 +64,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     if (!allStaticDimensions) {
       MemRefBuilder createMemRef(rewriter, loc);
       for (size_t i = 0; i < dataShape.size(); i++) {
-        if (dataShape[i] == -1) {
+        if (ShapedType::isDynamic(dataShape[i])) {
           Value index = createMemRef.dim(data, i);
           Value dim = createMath.cast(memRefType.getElementType(), index);
           noElements = createMath.mul(noElements, dim);

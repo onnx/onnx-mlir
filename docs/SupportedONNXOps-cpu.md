@@ -30,6 +30,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
+| **BlackmanWindow** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
 | **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
@@ -48,6 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Cos** |7 | | |
 | **Cosh** |9 | | |
 | **CumSum** |14 | | |
+| **DFT** | |unsupported | |
 | **DepthToSpace** |13 | | |
 | **DequantizeLinear** | |unsupported | |
 | **Det** | |unsupported | |
@@ -76,6 +78,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Gradient** | |unsupported | |
 | **Greater** |13 | | |
 | **GreaterOrEqual** |16 | | |
+| **GridSample** | |unsupported | |
+| **HammingWindow** | |unsupported | |
+| **HannWindow** | |unsupported | |
 | **HardSigmoid** |6 | | |
 | **HardSwish** | |unsupported | |
 | **Hardmax** |13 | | |
@@ -88,6 +93,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **LRN** |13 | | |
 | **LSTM** |14 | | |
 | **LabelEncoder** | |unsupported | |
+| **LayerNormalization** | |unsupported | |
 | **LeakyRelu** |16 | | |
 | **Less** |13 | | |
 | **LessOrEqual** |16 | | |
@@ -106,6 +112,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **MaxUnpool** | |unsupported | |
 | **Mean** |13 | | |
 | **MeanVarianceNormalization** | |unsupported | |
+| **MelWeightMatrix** | |unsupported | |
 | **Min** |13 |Does not support short floats and unsigned numbers. | |
 | **Mod** |13 |Support float and double only. | |
 | **Momentum** | |unsupported | |
@@ -152,12 +159,13 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **ReverseSequence** |10 | | |
 | **RoiAlign** | |unsupported | |
 | **Round** |11 | | |
+| **STFT** | |unsupported | |
 | **SVMClassifier** | |unsupported | |
 | **SVMRegressor** | |unsupported | |
 | **Scaler** | |unsupported | |
 | **Scan** |16 |Does not support dynamic shapes. |Precision issue with newer opset, maybe just unsupported. Dynamic shape?. |
 | **Scatter** | |unsupported | |
-| **ScatterElements** |13 |Does not support duplicate indices. | |
+| **ScatterElements** |16 |Does not support duplicate indices. | |
 | **ScatterND** |16 |Does not support scatternd add/multiply. | |
 | **Selu** |6 | | |
 | **SequenceAt** | |unsupported | |
@@ -166,6 +174,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **SequenceErase** | |unsupported | |
 | **SequenceInsert** |11 |Does not support unranked sequence element. | |
 | **SequenceLength** | |unsupported | |
+| **SequenceMap** | |unsupported | |
 | **Shape** |15 |Does not support start and end attributes. | |
 | **Shrink** | |unsupported | |
 | **Sigmoid** |13 | | |

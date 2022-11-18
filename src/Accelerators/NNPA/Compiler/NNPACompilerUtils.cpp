@@ -29,6 +29,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -44,26 +45,6 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace onnx_mlir {
-extern llvm::cl::OptionCategory OnnxMlirOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
-
-llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
-    llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
-                   "(once selected it will cancel the other targets):"),
-    llvm::cl::values(
-        clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
-        clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
-    llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
-    llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                   "specified nodes are forced to run on the CPU instead of "
-                   "using the zDNN. The node name is an optional attribute "
-                   "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-    llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
-    llvm::cl::cat(OnnxMlirOptions)};
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
@@ -77,9 +58,9 @@ void addONNXToZHighPasses(
   }
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-zhigh",
-          instrumentOps, instrumentControlBits.getBits()));
+  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -126,16 +107,16 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
+    // Insert an instrumentation after lowering onnx to zhigh to get profiling
+    // for onnx and zhigh ops.
+    if (instrumentStage == onnx_mlir::InstrumentStages::ZHigh)
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          instrumentOps, instrumentControlBits.getBits()));
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Insert an instrumentation before lowering onnx to krnl to get profiling
-      // for onnx and zhigh ops.
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createInstrumentPass("nnpa-before-onnx-to-krnl",
-              instrumentOps, instrumentControlBits.getBits()));
 
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
@@ -168,11 +149,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
-      // Insert an instrumentation before lowering krnl to llvm to get profiling
+      // Insert an instrumentation after lowering zhigh to zlow to get profiling
       // for zlow ops
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createInstrumentPass("nnpa-before-krnl-to-llvm",
-              instrumentOps, instrumentControlBits.getBits()));
+      if (instrumentStage == onnx_mlir::InstrumentStages::ZLow)
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+            instrumentOps, instrumentControlBits.getBits()));
     }
   }
 

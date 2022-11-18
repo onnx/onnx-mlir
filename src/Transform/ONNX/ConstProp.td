@@ -131,6 +131,9 @@ def CreateExpandOfConst:
 def CreateGatherOfConst:
    NativeCodeCall<"ConstPropGather($_builder, $0, $1, $2)">;
 
+def CreateReshapeOfConst:
+   NativeCodeCall<"ConstPropReshape($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -430,5 +433,19 @@ def GatherofConst :  Pat<
     // To c' where c' is the gathered value.
     (CreateGatherOfConst $resOp, $input, $indices),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Reshape operations.
+//===----------------------------------------------------------------------===//
+
+def ReshapeofConst :  Pat<
+    // From Reshape (x, shape)
+    (ONNXReshapeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                          (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_),
+                          $_),
+    // To c where c is the reshaped value.
+    (CreateReshapeOfConst $resOp, $input),
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+     (HasStaticShape:$resOp)]>;
 
 #endif // ONNX_CONSTPROP

@@ -29,7 +29,7 @@ namespace onnx_mlir {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-/// Refine `inferredDims` using the output's shape if possbile. For example,
+/// Refine `inferredDims` using the output's shape if possible. For example,
 /// replacing a dynamic dim in `inferredDims` by a static dim in the output's
 /// shape.
 static void refineDims(DimsExpr &inferredDims, Value output) {
@@ -50,7 +50,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    if (ShapedType::isDynamic(existingDims[i]))
       continue;
 
     // inferredDim is unknown at shape inference: update it.
@@ -58,12 +58,12 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
     }
-    // inferredDim is unknown at lowering: use exising dim for efficiency.
+    // inferredDim is unknown at lowering: use existing dim for efficiency.
     if (!inferredDims[i].isLiteral()) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
     }
-    // inferedDim is different from existingDim. Believe in existingDim.
+    // inferredDim is different from existingDim. Believe in existingDim.
     if (inferredDims[i].isLiteral() &&
         (existingDims[i] != inferredDims[i].getLiteral())) {
       // Warning for users.
@@ -121,7 +121,7 @@ Value ONNXOpShapeHelper<Operation>::getOutput(int n) {
 template <class OP>
 void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   outputsDims[n] = inferredDims;
-  // Try to refine outputsDims[n] using the output's shape if possbile. For
+  // Try to refine outputsDims[n] using the output's shape if possible. For
   // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
   // output's shape.
   Value output = getOutput(n);
@@ -229,8 +229,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
   // stands for anything but a literal. When we are allowed to generate code,
   // there should be no more QuestionMarks as we are allowed to generate
   // affine/symbols/dims/non-affine expressions. Since this code predominantly
-  // runs when we can gen code (as it actually does gen max ops), we should use
-  // !isLiteral() for anything that is runtime. The comments were left
+  // runs when we can gen code (as it actually does gen max ops), we should
+  // use !isLiteral() for anything that is runtime. The comments were left
   // unchanged.
 
   //  Now compute each broadcasted dimension for the output. folding over the
@@ -492,11 +492,11 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     Attribute encoding, bool refineShape) {
-  // Try to combine the given shape and the output's shape if possbile.
+  // Try to combine the given shape and the output's shape if possible.
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
   for (int64_t d : shape) {
-    if (d == -1)
+    if (ShapedType::isDynamic(d))
       inferredDims.emplace_back(QuestionmarkIndexExpr());
     else
       inferredDims.emplace_back(LiteralIndexExpr(d));
@@ -537,6 +537,7 @@ template struct ONNXOpShapeHelper<ONNXCategoryMapperOp>;
 template struct ONNXOpShapeHelper<ONNXClipOp>;
 template struct ONNXOpShapeHelper<ONNXCompressOp>;
 template struct ONNXOpShapeHelper<ONNXConcatOp>;
+template struct ONNXOpShapeHelper<ONNXConcatShapeTransposeOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
 template struct ONNXOpShapeHelper<ONNXDepthToSpaceOp>;
 template struct ONNXOpShapeHelper<ONNXExpandOp>;

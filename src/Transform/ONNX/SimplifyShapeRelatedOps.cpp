@@ -56,7 +56,9 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -65,62 +67,11 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#define DEBUG_TYPE "simplify_shape_related_ops"
+
 using namespace mlir;
 
 namespace onnx_mlir {
-
-/// Check the defining operation of a value.
-template <typename OP>
-bool definedBy(Value v) {
-  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
-}
-
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
-bool areDims(Value val) {
-  // Value must be a 1D tensor.
-  Type vType = val.getType();
-  if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
-    return false;
-
-  // Base case.
-  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
-      definedBy<ONNXCastOp>(val)) {
-    // Value must be a 1D tensor of one element.
-    return (getShape(vType)[0] == 1);
-  }
-
-  // Recursion case.
-  if (definedBy<ONNXConcatOp>(val)) {
-    // Recursively check.
-    for (Value v : val.getDefiningOp()->getOperands())
-      if (!areDims(v))
-        return false;
-    return true;
-  }
-
-  // Not Dim/Constant/Cast/Concat.
-  return false;
-}
-
-/// Check if a value is defined by Concat to store dimensions.
-bool areDimsFromConcat(Value val) {
-  return (areDims(val) && definedBy<ONNXConcatOp>(val));
-}
-
-/// Get all dimensions that are stored by the value.
-void getDims(Value val, SmallVectorImpl<Value> &dims) {
-  assert(areDims(val) && "Value does not store dimensions");
-  if (definedBy<ONNXConcatOp>(val)) {
-    for (Value v : val.getDefiningOp()->getOperands()) {
-      SmallVector<Value, 4> inputs;
-      getDims(v, inputs);
-      for (Value i : inputs)
-        dims.emplace_back(i);
-    }
-  } else
-    dims.emplace_back(val);
-}
 
 /// Get all dimensions in I64 (-1 for unknown) that are stored by the value.
 void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
@@ -177,6 +128,24 @@ void updateFunctionSignature(Operation *op) {
   }
 }
 
+/// Update the output shape using userDims.
+/// Return success if the output shape is updated. Otherwise, return failure.
+LogicalResult updateOutputType(
+    Value output, const SmallVectorImpl<int64_t> &userDims) {
+  // Try to update the output shape using userDims.
+  Type oldOutputType = output.getType();
+  updateType(output, userDims);
+  Type newOutputType = output.getType();
+
+  // No new output type is inferred.
+  if (newOutputType == oldOutputType)
+    return failure();
+
+  // Update the function signature if the output type changed.
+  updateFunctionSignature(output.getDefiningOp());
+  return success();
+}
+
 /// Rewrite onnx.Shape into onnx.Dim and onnx.Concat.
 //
 /// For example, the folowing onnx.Shape:
@@ -221,8 +190,9 @@ public:
 
     SmallVector<Value, 4> dimValues;
     for (unsigned i = start; i < end; ++i) {
-      Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
-                                     : create.onnx.dim(data, i);
+      Value dimVal = (ShapedType::isDynamic(dims[i]))
+                         ? create.onnx.dim(data, i)
+                         : create.onnx.constantInt64({dims[i]});
       dimValues.emplace_back(dimVal);
     }
     Value replacedValue = emitConcatOpForDims(create, dimValues, outputType);
@@ -470,11 +440,7 @@ public:
       return failure();
 
     // Rewrite
-    updateType(output, userDims);
-    // Update the function signature.
-    updateFunctionSignature(reshapeOp.getOperation());
-
-    return success();
+    return updateOutputType(output, userDims);
   }
 };
 
@@ -500,11 +466,7 @@ public:
       return failure();
 
     // Rewrite
-    updateType(output, userDims);
-    // Update the function signature.
-    updateFunctionSignature(cosOp.getOperation());
-
-    return success();
+    return updateOutputType(output, userDims);
   }
 };
 
@@ -545,7 +507,7 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
   patterns.insert<onnx_mlir::PassThroughGatherPattern>(context);
   patterns.insert<onnx_mlir::PassThroughSlicePattern>(context);
 
-  // Update Reshape's output shape using inferred dimensions.
+  // Update the output shape of the followring ops using inferred dimensions.
   patterns.insert<onnx_mlir::UpdateReshapePattern>(context);
   patterns.insert<onnx_mlir::UpdateConstantOfShapePattern>(context);
 

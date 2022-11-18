@@ -22,7 +22,7 @@ func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 // CHECK-SAME{LITERAL}: dense<[[false, true], [false, false]]> : tensor<2x2xi1>
 // CHECK-DAG:    [[VAR_2_:%.+]] = mhlo.constant
 // CHECK-SAME{LITERAL}: dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>
-// CHECK-NEXT:   [[VAR_3_:%.+]] = "mhlo.select"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) : (tensor<2x2xi1>, tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi64>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.select [[VAR_1_]], [[VAR_0_]], [[VAR_2_]] : tensor<2x2xi1>, tensor<2x2xi64>
 // CHECK-NEXT:   [[VAR_4_:%.+]] = "mhlo.torch_index_select"([[PARAM_0_]], [[VAR_3_]]) {batch_dims = 0 : i64, dim = 0 : i64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
 }
 
