@@ -110,7 +110,6 @@ add_onnx_mlir_library(OMONNXReplaceNoValue
   LINK_LIBS PUBLIC
   OMONNXOps
   OMONNXRewrite
-  OMShapeInference
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms

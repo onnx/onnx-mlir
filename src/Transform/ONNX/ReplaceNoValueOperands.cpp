@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file replace onnx.NoValue ops with the standard value constant
+// This pass replaces onnx.NoValue ops with the standard value constant
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,7 +43,7 @@ struct ReplaceNoValuePass : public mlir::PassWrapper<ReplaceNoValuePass,
   StringRef getArgument() const override { return "onnx-replace-novalue"; }
 
   StringRef getDescription() const override {
-    return "Replaces to NoValue op with an constant op of the standard shape "
+    return "Replaces NoValue op with a constant op of the default shape "
            "and value for the op.";
   }
   void runOnOperation() final;
