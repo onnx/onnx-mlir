@@ -34,7 +34,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
 
   SmallVector<Value, 4> allocOperands;
   for (size_t i = 0; i < inputRank; ++i) {
-    if (outputShape[i] == -1) {
+    if (ShapedType::isDynamic(outputShape[i])) {
       Value indexVal = create.math.constantIndex(i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       Value repeatsLoadVal = create.krnl.load(repeatsOperand, repeatsMemRefVal);
@@ -180,7 +180,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     SmallVector<Value, 4> outputMemRefVal;
     for (int64_t i = 0; i < inputRank; ++i) {
       Value inputDimSizeVal = create.mem.dim(input, i);
-      if (inputShape[i] != -1) {
+      if (!ShapedType::isDynamic(inputShape[i])) {
         AffineExpr inputIndexAE = rewriter.getAffineDimExpr(0);
         AffineExpr repeatsIndexAE = rewriter.getAffineDimExpr(1);
         AffineExpr inputDimAE = rewriter.getAffineSymbolExpr(0);
