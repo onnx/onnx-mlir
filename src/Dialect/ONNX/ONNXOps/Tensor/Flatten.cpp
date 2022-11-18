@@ -41,7 +41,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
   // Compute outputDims.
   DimsExpr outputDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
   for (int64_t i = 0; i < axis; ++i) {
-    if (inputShape[i] == -1) {
+    if (ShapedType::isDynamic(inputShape[i])) {
       outputDims[0] = QuestionmarkIndexExpr();
       break;
     }
@@ -49,7 +49,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape(
   }
 
   for (int64_t i = axis; i < inputRank; ++i) {
-    if (inputShape[i] == -1) {
+    if (ShapedType::isDynamic(inputShape[i])) {
       outputDims[1] = QuestionmarkIndexExpr();
       break;
     }
