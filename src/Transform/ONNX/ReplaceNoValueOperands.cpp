@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op-----------===//
+//===--------- ReplaceNoValueOperands.cpp - ReplaceNoValueOperands Op------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -14,7 +14,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
@@ -43,9 +43,54 @@ struct ReplaceNoValuePass : public mlir::PassWrapper<ReplaceNoValuePass,
   StringRef getArgument() const override { return "onnx-replace-novalue"; }
 
   StringRef getDescription() const override {
-    return "Invoke passes iteratively that transform ONNX operation.";
+    return "Replaces to NoValue op with an constant op of the standard shape "
+           "and value for the op.";
   }
   void runOnOperation() final;
+};
+
+bool isNotNoValue(Value &value) { return !value.getType().isa<NoneType>(); }
+
+Value createONNXConstFromFloatValue(PatternRewriter &rewriter,
+    const Location &loc, ArrayRef<int64_t> shape, float floatValue) {
+  DenseElementsAttr newConstantAttr = DenseElementsAttr::get(
+      RankedTensorType::get(shape, rewriter.getF32Type()), {floatValue});
+  auto constOp =
+      createONNXConstantOpWithDenseAttr(rewriter, loc, newConstantAttr);
+  return constOp;
+}
+
+class PadReplaceNoValue : public OpRewritePattern<ONNXPadOp> {
+public:
+  using OpRewritePattern<ONNXPadOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXPadOp op, PatternRewriter &rewriter) const override {
+    auto constValue = op.constant_value();
+    if (isNotNoValue(constValue)) {
+      return success();
+    }
+
+    constValue =
+        createONNXConstFromFloatValue(rewriter, op.getLoc(), {1}, 0.0F);
+    op.setOperand(2, constValue);
+    return success();
+  }
+};
+
+class GemmReplaceNoValue : public OpRewritePattern<ONNXGemmOp> {
+public:
+  using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXGemmOp op, PatternRewriter &rewriter) const override {
+    auto matrixC = op.C();
+    if (isNotNoValue(matrixC)) {
+      return success();
+    }
+
+    matrixC = createONNXConstFromFloatValue(rewriter, op.getLoc(), {1}, 0.0F);
+    op.setOperand(2, matrixC);
+    return success();
+  }
 };
 
 class Conv2DReplaceNoValue : public OpRewritePattern<ONNXConvOp> {
@@ -55,7 +100,7 @@ public:
       ONNXConvOp op, PatternRewriter &rewriter) const override {
 
     auto bias = op.B();
-    if (!bias.getType().isa<NoneType>()) {
+    if (isNotNoValue(bias)) {
       return success();
     }
 
@@ -63,10 +108,8 @@ public:
     auto weightType = weight.getType().cast<ShapedType>();
     auto weightShape = weightType.getShape();
 
-    DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
-        RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()), {0.0F});
-    bias =
-        createONNXConstantOpWithDenseAttr(rewriter, op->getLoc(), newBiasAttr);
+    bias = createONNXConstFromFloatValue(
+        rewriter, op.getLoc(), {weightShape[0]}, 0.0F);
 
     op->setOperand(2, bias);
     return success();
@@ -78,7 +121,8 @@ void ReplaceNoValuePass::runOnOperation() {
 
   MLIRContext *context = &getContext();
   RewritePatternSet patterns(context);
-  patterns.insert<Conv2DReplaceNoValue>(context);
+  patterns.insert<Conv2DReplaceNoValue, GemmReplaceNoValue, PadReplaceNoValue>(
+      context);
 
   // Define pattern rewriter
   mlir::GreedyRewriteConfig config;
