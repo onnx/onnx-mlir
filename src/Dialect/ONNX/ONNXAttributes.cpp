@@ -138,9 +138,8 @@ void ONNXDialect::printAttribute(
 namespace onnx_mlir {
 
 namespace {
-using EltFn = function_ref<void(unsigned)>;
-
 // Copied from mlir/lib/IR/AsmPrinter.cpp:
+template <typename EltFn>
 void printDenseElementsAttrImpl(
     bool isSplat, ShapedType type, raw_ostream &os, EltFn printEltFn) {
   // Special case for 0-d and splat tensors.
@@ -208,30 +207,37 @@ void printIntOrFPElementsAttrAsDenseWithoutType(
     auto dtype = disposable.getDType();
     auto buf = disposable.getWideNums();
     auto nums = buf.get();
-    EltFn b = [&](unsigned idx) { os << (nums[idx].u64 ? "true" : "false"); };
-    EltFn u = [&](unsigned idx) { os << nums[idx].u64; };
-    EltFn s = [&](unsigned idx) { os << nums[idx].i64; };
-    EltFn f = [&](unsigned idx) { printer << nums[idx].toAPFloat(dtype); };
-    printDenseElementsAttrImpl(attr.isSplat(), type, os,
-        elTy.isIntOrIndex()
-            ? elTy.isInteger(1) ? b : (elTy.isUnsignedInteger() ? u : s)
-            : f);
+    if (isFloatDType(dtype))
+      printDenseElementsAttrImpl(attr.isSplat(), type, os,
+          [&](unsigned idx) { printer << nums[idx].toAPFloat(dtype); });
+    else if (dtype == DType::BOOL)
+      printDenseElementsAttrImpl(attr.isSplat(), type, os,
+          [&](unsigned idx) { os << (nums[idx].u64 ? "true" : "false"); });
+    else if (isUnsignedIntDType(dtype))
+      printDenseElementsAttrImpl(
+          attr.isSplat(), type, os, [&](unsigned idx) { os << nums[idx].u64; });
+    else
+      printDenseElementsAttrImpl(
+          attr.isSplat(), type, os, [&](unsigned idx) { os << nums[idx].i64; });
 #endif
   } else {
     if (elTy.isIntOrIndex()) {
       auto it = attr.value_begin<APInt>();
-      EltFn b = [&](unsigned idx) {
-        os << ((*(it + idx)).getBoolValue() ? "true" : "false");
-      };
-      EltFn u = [&](unsigned idx) { os << (*(it + idx)).getZExtValue(); };
-      EltFn s = [&](unsigned idx) { os << (*(it + idx)).getSExtValue(); };
-      printDenseElementsAttrImpl(attr.isSplat(), type, os,
-          elTy.isInteger(1) ? b : (elTy.isUnsignedInteger() ? u : s));
+      if (elTy.isInteger(1))
+        printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned idx) {
+          os << ((*(it + idx)).getBoolValue() ? "true" : "false");
+        });
+      else if (elTy.isUnsignedInteger())
+        printDenseElementsAttrImpl(attr.isSplat(), type, os,
+            [&](unsigned idx) { os << (*(it + idx)).getZExtValue(); });
+      else
+        printDenseElementsAttrImpl(attr.isSplat(), type, os,
+            [&](unsigned idx) { os << (*(it + idx)).getSExtValue(); });
     } else {
       assert(elTy.isa<FloatType>() && "unexpected element type");
       auto it = attr.value_begin<APFloat>();
-      EltFn f = [&](unsigned idx) { printer << *(it + idx); };
-      printDenseElementsAttrImpl(attr.isSplat(), type, os, f);
+      printDenseElementsAttrImpl(attr.isSplat(), type, os,
+          [&](unsigned idx) { printer << *(it + idx); });
     }
   }
   printer << '>';
