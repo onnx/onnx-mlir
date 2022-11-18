@@ -207,17 +207,26 @@ void printIntOrFPElementsAttrAsDenseWithoutType(
   os << "dense<";
   auto type = attr.getType();
   auto elementType = type.getElementType();
-  if (elementType.isIntOrIndex()) {
-    auto valueIt = attr.value_begin<APInt>();
-    printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
-      printDenseIntElement(*(valueIt + index), os, elementType);
-    });
-  } else {
-    assert(elementType.isa<FloatType>() && "unexpected element type");
-    auto valueIt = attr.value_begin<APFloat>();
-    printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
-      printDenseFloatElement(*(valueIt + index), os, elementType);
-    });
+#if 0
+  if (auto disposable = attr.dyn_cast<DisposableElementsAttr>()) {
+  // Sadly, iteration over DisposableElementsAttr is too slow, so we print hex.
+    auto bytes = disposable.getRawBytes();
+    os << "\"0x" << llvm::toHex(asStringRef(bytes.get())) << "\"";
+  } else
+#endif
+  {
+    if (elementType.isIntOrIndex()) {
+      auto valueIt = attr.value_begin<APInt>();
+      printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
+        printDenseIntElement(*(valueIt + index), os, elementType);
+      });
+    } else {
+      assert(elementType.isa<FloatType>() && "unexpected element type");
+      auto valueIt = attr.value_begin<APFloat>();
+      printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
+        printDenseFloatElement(*(valueIt + index), os, elementType);
+      });
+    }
   }
   os << '>';
 }
