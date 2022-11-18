@@ -131,28 +131,18 @@ void ONNXDialect::printAttribute(
   if (succeeded(generatedAttributePrinter(attr, printer)))
     return;
   if (auto elements = attr.dyn_cast<DisposableElementsAttr>()) {
-    elements.printWithoutType(printer.getStream());
+    elements.printWithoutType(printer);
   }
 }
 
 namespace onnx_mlir {
 
 namespace {
-void printDenseFloatElement(const APFloat &value, raw_ostream &os, Type type) {
-  FloatAttr::get(type, value).print(os, /*elideType=*/true);
-}
+using EltFn = function_ref<void(unsigned)>;
 
 // Copied from mlir/lib/IR/AsmPrinter.cpp:
-void printDenseIntElement(const APInt &value, raw_ostream &os, Type type) {
-  if (type.isInteger(1))
-    os << (value.getBoolValue() ? "true" : "false");
-  else
-    value.print(os, !type.isUnsignedInteger());
-}
-
-// Copied from mlir/lib/IR/AsmPrinter.cpp:
-void printDenseElementsAttrImpl(bool isSplat, ShapedType type, raw_ostream &os,
-    function_ref<void(unsigned)> printEltFn) {
+void printDenseElementsAttrImpl(
+    bool isSplat, ShapedType type, raw_ostream &os, EltFn printEltFn) {
   // Special case for 0-d and splat tensors.
   if (isSplat)
     return printEltFn(0);
@@ -203,37 +193,53 @@ void printDenseElementsAttrImpl(bool isSplat, ShapedType type, raw_ostream &os,
 
 // adapted from AsmPrinter::Impl::printDenseIntOrFPElementsAttr:
 void printIntOrFPElementsAttrAsDenseWithoutType(
-    ElementsAttr attr, raw_ostream &os) {
-  os << "dense<";
+    ElementsAttr attr, AsmPrinter &printer) {
+  printer << "dense<";
+  auto &os = printer.getStream();
   auto type = attr.getType();
-  auto elementType = type.getElementType();
-#if 0
+  auto elTy = type.getElementType();
   if (auto disposable = attr.dyn_cast<DisposableElementsAttr>()) {
-  // Sadly, iteration over DisposableElementsAttr is too slow, so we print hex.
+    // Sadly DisposableElementsAttr::value_begin() is too slow so we need to
+    // access the data in bulk with getWideNums() or getRawBytes().
+#ifdef DISPOSABLE_ELEMENTS_ATTR_ALLOW_HEX_PRINT
     auto bytes = disposable.getRawBytes();
     os << "\"0x" << llvm::toHex(asStringRef(bytes.get())) << "\"";
-  } else
+#else
+    auto dtype = disposable.getDType();
+    auto buf = disposable.getWideNums();
+    auto nums = buf.get();
+    EltFn b = [&](unsigned idx) { os << (nums[idx].u64 ? "true" : "false"); };
+    EltFn u = [&](unsigned idx) { os << nums[idx].u64; };
+    EltFn s = [&](unsigned idx) { os << nums[idx].i64; };
+    EltFn f = [&](unsigned idx) { printer << nums[idx].toAPFloat(dtype); };
+    printDenseElementsAttrImpl(attr.isSplat(), type, os,
+        elTy.isIntOrIndex()
+            ? elTy.isInteger(1) ? b : (elTy.isUnsignedInteger() ? u : s)
+            : f);
 #endif
-  {
-    if (elementType.isIntOrIndex()) {
-      auto valueIt = attr.value_begin<APInt>();
-      printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
-        printDenseIntElement(*(valueIt + index), os, elementType);
-      });
+  } else {
+    if (elTy.isIntOrIndex()) {
+      auto it = attr.value_begin<APInt>();
+      EltFn b = [&](unsigned idx) {
+        os << ((*(it + idx)).getBoolValue() ? "true" : "false");
+      };
+      EltFn u = [&](unsigned idx) { os << (*(it + idx)).getZExtValue(); };
+      EltFn s = [&](unsigned idx) { os << (*(it + idx)).getSExtValue(); };
+      printDenseElementsAttrImpl(attr.isSplat(), type, os,
+          elTy.isInteger(1) ? b : (elTy.isUnsignedInteger() ? u : s));
     } else {
-      assert(elementType.isa<FloatType>() && "unexpected element type");
-      auto valueIt = attr.value_begin<APFloat>();
-      printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
-        printDenseFloatElement(*(valueIt + index), os, elementType);
-      });
+      assert(elTy.isa<FloatType>() && "unexpected element type");
+      auto it = attr.value_begin<APFloat>();
+      EltFn f = [&](unsigned idx) { printer << *(it + idx); };
+      printDenseElementsAttrImpl(attr.isSplat(), type, os, f);
     }
   }
-  os << '>';
+  printer << '>';
 }
 
-void printIntOrFPElementsAttrAsDense(ElementsAttr attr, raw_ostream &os) {
-  printIntOrFPElementsAttrAsDenseWithoutType(attr, os);
-  os << " : " << attr.getType();
+void printIntOrFPElementsAttrAsDense(ElementsAttr attr, AsmPrinter &printer) {
+  printIntOrFPElementsAttrAsDenseWithoutType(attr, printer);
+  printer << " : " << attr.getType();
 }
 
 } // namespace onnx_mlir

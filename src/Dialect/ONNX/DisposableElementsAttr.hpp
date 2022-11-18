@@ -253,7 +253,7 @@ public:
   template <typename X>
   onnx_mlir::ArrayBuffer<X> getArray() const;
 
-  void printWithoutType(raw_ostream &os) const;
+  void printWithoutType(AsmPrinter &printer) const;
 
 private:
   // TODO: move the following to ElementsAttrBuilder

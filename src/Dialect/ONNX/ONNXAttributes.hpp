@@ -23,9 +23,9 @@ namespace onnx_mlir {
 
 // Prints elements the same way as DenseElementsAttr.
 void printIntOrFPElementsAttrAsDense(
-    mlir::ElementsAttr attr, llvm::raw_ostream &os);
+    mlir::ElementsAttr attr, mlir::AsmPrinter &printer);
 
 void printIntOrFPElementsAttrAsDenseWithoutType(
-    mlir::ElementsAttr attr, llvm::raw_ostream &os);
+    mlir::ElementsAttr attr, mlir::AsmPrinter &printer);
 
 } // namespace onnx_mlir

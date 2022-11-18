@@ -220,8 +220,8 @@ ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
   return std::move(vec);
 }
 
-void DisposableElementsAttr::printWithoutType(raw_ostream &os) const {
-  printIntOrFPElementsAttrAsDenseWithoutType(*this, os);
+void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
+  printIntOrFPElementsAttrAsDenseWithoutType(*this, printer);
 }
 
 // TODO: move all the following to ElementsAttrBuilder

@@ -157,8 +157,7 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     if (elements.getType() == type) {
       // NOTE: we print every elements attribute as a DenseElementsAttr.
       odsPrinter << ' ';
-      onnx_mlir::printIntOrFPElementsAttrAsDense(
-          elements, odsPrinter.getStream());
+      onnx_mlir::printIntOrFPElementsAttrAsDense(elements, odsPrinter);
       return;
     }
   }
