@@ -70,7 +70,3 @@ target_link_libraries(MhloDialect PUBLIC
 target_link_libraries(StablehloTypeInference PUBLIC
   StablehloBase
   )
-
-target_link_libraries(StablehloTypeInference PUBLIC
-  StablehloBase
-  )
