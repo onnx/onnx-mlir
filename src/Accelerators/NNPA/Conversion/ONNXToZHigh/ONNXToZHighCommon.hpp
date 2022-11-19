@@ -46,7 +46,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
             // Check if static dimension size exceeds zDNN limitations
             llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
             if (llvm::any_of(valueShape, [](int64_t dim) {
-                  return (dim != -1) &&
+                  return (!mlir::ShapedType::isDynamic(dim)) &&
                          (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
                 }))
               return true;

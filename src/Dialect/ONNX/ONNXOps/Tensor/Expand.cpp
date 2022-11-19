@@ -36,7 +36,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
   ShapedType shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
   if (!shapeType)
     return op->emitError("expected shape parameter to be defined");
-  if (shapeType.getShape()[0] == -1)
+  if (ShapedType::isDynamic(shapeType.getShape()[0]))
     return op->emitError("expected size of shape parameter to be defined");
 
   if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {

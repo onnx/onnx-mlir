@@ -15,19 +15,22 @@
 #pragma once
 
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
 struct OnnxBuilder : onnx_mlir::DialectBuilder {
+  OnnxBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-
+  virtual ~OnnxBuilder(){};
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -127,6 +130,27 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
+};
+
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// This class is not meant to work with the MultiDialectBuilder as it is not
+// used for building, only for analysis.
+
+struct IndexExprBuilderForAnalysis : IndexExprBuilder {
+  IndexExprBuilderForAnalysis(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForAnalysis(const DialectBuilder &db)
+      : IndexExprBuilder(db) {}
+  virtual ~IndexExprBuilderForAnalysis() {}
+
+protected:
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir

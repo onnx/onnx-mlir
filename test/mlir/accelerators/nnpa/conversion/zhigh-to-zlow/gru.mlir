@@ -6,12 +6,12 @@ func.func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{da
 
   "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, (d1 + (d1 floordiv 9) * 55) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-LABEL:  func @gru_return_single_step
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x5x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<1x1x5x9xf16, #map3> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>, [[PARAM_1_:%.+]]: memref<1x5x9xf16, #map>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<1x1x5x9xf16, #map3> {
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -30,7 +30,7 @@ func.func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.encoding<{da
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<57344xi8>
-// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = 0 : si64} : (memref<3x5x7xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<57344xi8>, memref<5xi64>, memref<1x1x5x9xf16, #map3>) -> ()
+// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = 0 : si64} : (memref<3x5x7xf16, #map>, memref<1x5x9xf16, #map>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<57344xi8>, memref<5xi64>, memref<1x1x5x9xf16, #map3>) -> ()
 // CHECK:           return [[RES_]] : memref<1x1x5x9xf16, #map3>
 // CHECK:         }
 }
@@ -43,12 +43,12 @@ func.func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{data
 
   "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, (d1 + (d1 floordiv 9) * 55) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-LABEL:  func @gru_return_all_steps
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x5x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<3x1x5x9xf16, #map3> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>, [[PARAM_1_:%.+]]: memref<1x5x9xf16, #map>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<3x1x5x9xf16, #map3> {
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -67,7 +67,7 @@ func.func @gru_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{data
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<57344xi8>
-// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<57344xi8>, memref<5xi64>, memref<3x1x5x9xf16, #map3>) -> ()
+// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map>, memref<1x5x9xf16, #map>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<57344xi8>, memref<5xi64>, memref<3x1x5x9xf16, #map3>) -> ()
 // CHECK:           return [[RES_]] : memref<3x1x5x9xf16, #map3>
 // CHECK:         }
 }
@@ -82,14 +82,14 @@ func.func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayo
   "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, (d1 + (d1 floordiv 9) * 55) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map4 = affine_map<()[s0] -> (s0 * 3 + 5)>
 // CHECK-DAG: #map5 = affine_map<()[s0] -> ((s0 + 31) floordiv 32)>
 // CHECK-LABEL:  func.func @gru_unknown_dims
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x?x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<?x1x?x9xf16, #map3> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map>, [[PARAM_1_:%.+]]: memref<1x?x9xf16, #map>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_4_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_5_:%.+]]: memref<1x27xf16, #map2>) -> memref<?x1x?x9xf16, #map3> {
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c7_i64_:%.+]] = arith.constant 7 : i64
 // CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
@@ -100,8 +100,8 @@ func.func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayo
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_]]_0) {{.*}}: memref<?x1x?x9xf16, #map3>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<5xi64>
@@ -112,15 +112,15 @@ func.func @gru_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayo
 // CHECK:           krnl.store [[VAR_1_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #map4(){{.}}[[VAR_dim_2_]]{{.}}
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #map5(){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK:           [[VAR_4_:%.+]] = arith.muli [[VAR_2_]], [[VAR_3_]] : index
 // CHECK:           [[VAR_5_:%.+]] = arith.muli [[VAR_4_]], [[VAR_c4096_]] : index
 // CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?xi8>
-// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map0>, memref<1x?x9xf16, #map0>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map3>) -> ()
+// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map>, memref<1x?x9xf16, #map>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map3>) -> ()
 // CHECK:           return [[RES_]] : memref<?x1x?x9xf16, #map3>
 // CHECK:         }
 }
@@ -135,14 +135,14 @@ func.func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayou
   "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, (d1 + (d1 floordiv 9) * 55) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map4 = affine_map<()[s0] -> (s0 * 3 + 5)>
 // CHECK-DAG: #map5 = affine_map<()[s0] -> ((s0 + 31) floordiv 32)>
 // CHECK-LABEL:  func.func @gru_no_intial_h
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_2_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_3_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_4_:%.+]]: memref<1x27xf16, #map2>) -> memref<?x1x?x9xf16, #map3> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map>, [[PARAM_1_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_2_:%.+]]: memref<1x27xf16, #map2>, [[PARAM_3_:%.+]]: memref<1x9x27xf16, #map1>, [[PARAM_4_:%.+]]: memref<1x27xf16, #map2>) -> memref<?x1x?x9xf16, #map3> {
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c7_i64_:%.+]] = arith.constant 7 : i64
 // CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
@@ -154,8 +154,8 @@ func.func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayou
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_]]_0) {{.*}}: memref<?x1x?x9xf16, #map3>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<5xi64>
@@ -166,17 +166,17 @@ func.func @gru_no_intial_h(%input : tensor<?x?x7xf32, #zhigh.encoding<{dataLayou
 // CHECK:           krnl.store [[VAR_1_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_dim_0_]]) {{.*}}: memref<1x?x9xf16, #map0>
-// CHECK:           krnl.memset [[RES_2_]], [[VAR_cst_]] {delayed = true} : memref<1x?x9xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_4_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_dim_0_]]) {{.*}}: memref<1x?x9xf16, #map>
+// CHECK:           krnl.memset [[RES_2_]], [[VAR_cst_]] {delayed = true} : memref<1x?x9xf16, #map>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_4_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #map4(){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #map5(){{.}}[[VAR_dim_4_]]{{.}}
 // CHECK:           [[VAR_4_:%.+]] = arith.muli [[VAR_2_]], [[VAR_3_]] : index
 // CHECK:           [[VAR_5_:%.+]] = arith.muli [[VAR_4_]], [[VAR_c4096_]] : index
 // CHECK:           [[RES_3_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?xi8>
-// CHECK:           "zlow.gru"([[PARAM_0_]], [[RES_2_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[RES_3_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map0>, memref<1x?x9xf16, #map0>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map3>) -> ()
+// CHECK:           "zlow.gru"([[PARAM_0_]], [[RES_2_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[RES_3_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map>, memref<1x?x9xf16, #map>, memref<1x7x27xf16, #map1>, memref<1x27xf16, #map2>, memref<1x9x27xf16, #map1>, memref<1x27xf16, #map2>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map3>) -> ()
 // CHECK:           return [[RES_]] : memref<?x1x?x9xf16, #map3>
 // CHECK:         }
 }
@@ -191,13 +191,13 @@ func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.enco
   "func.return"(%hn_output) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
 // CHECK-DAG: #map2 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map3 = affine_map<()[s0] -> (s0 * 3 + 5)>
 // CHECK-DAG: #map4 = affine_map<()[s0] -> ((s0 + 31) floordiv 32)>
 // CHECK-LABEL:  func.func @gru_no_input_and_hidden_biases
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x?x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x9x27xf16, #map1>) -> memref<?x1x?x9xf16, #map2> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, #map>, [[PARAM_1_:%.+]]: memref<1x?x9xf16, #map>, [[PARAM_2_:%.+]]: memref<1x7x27xf16, #map1>, [[PARAM_3_:%.+]]: memref<1x9x27xf16, #map1>) -> memref<?x1x?x9xf16, #map2> {
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c7_i64_:%.+]] = arith.constant 7 : i64
 // CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
@@ -208,8 +208,8 @@ func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.enco
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_]]_0) {{.*}}: memref<?x1x?x9xf16, #map2>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<5xi64>
@@ -222,15 +222,15 @@ func.func @gru_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.enco
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 3, 1, 1, 32, 64], value = dense_resource<zhigh_1> : tensor<12288xi8>} : () -> memref<1x3x1x1x32x64xf16>
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map0>
-// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map0>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x7xf16, #map>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x7xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_4_:%.+]] = affine.apply #map3(){{.}}[[VAR_dim_2_]]{{.}}
 // CHECK-DAG:       [[VAR_5_:%.+]] = affine.apply #map4(){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK:           [[VAR_6_:%.+]] = arith.muli [[VAR_4_]], [[VAR_5_]] : index
 // CHECK:           [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[VAR_c4096_]] : index
 // CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_7_]]) {{.*}}: memref<?xi8>
-// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_2_]], [[PARAM_3_]], [[VAR_3_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map0>, memref<1x?x9xf16, #map0>, memref<1x7x27xf16, #map1>, memref<1x3x1x1x32x64xf16>, memref<1x9x27xf16, #map1>, memref<1x3x1x1x32x64xf16>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map2>) -> ()
+// CHECK:           "zlow.gru"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_2_]], [[PARAM_3_]], [[VAR_3_]], [[RES_2_]], [[RES_1_]], [[RES_]]) {direction = "forward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, #map>, memref<1x?x9xf16, #map>, memref<1x7x27xf16, #map1>, memref<1x3x1x1x32x64xf16>, memref<1x9x27xf16, #map1>, memref<1x3x1x1x32x64xf16>, memref<?xi8>, memref<5xi64>, memref<?x1x?x9xf16, #map2>) -> ()
 // CHECK:           return [[RES_]] : memref<?x1x?x9xf16, #map2>
 // CHECK:         }
 }

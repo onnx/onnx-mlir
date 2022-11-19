@@ -31,7 +31,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   auto inputShape = input.getType().cast<RankedTensorType>().getShape();
   if (inputShape.size() != 1)
     return emitOpError("Input tensor must be a 1D tensor");
-  if (inputShape[0] == -1)
+  if (ShapedType::isDynamic(inputShape[0]))
     return emitOpError("Input tensor must have static shape");
 
   // Calculate output dimensions.

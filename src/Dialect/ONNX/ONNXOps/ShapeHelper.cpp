@@ -50,7 +50,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    if (ShapedType::isDynamic(existingDims[i]))
       continue;
 
     // inferredDim is unknown at shape inference: update it.
@@ -229,8 +229,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
   // stands for anything but a literal. When we are allowed to generate code,
   // there should be no more QuestionMarks as we are allowed to generate
   // affine/symbols/dims/non-affine expressions. Since this code predominantly
-  // runs when we can gen code (as it actually does gen max ops), we should use
-  // !isLiteral() for anything that is runtime. The comments were left
+  // runs when we can gen code (as it actually does gen max ops), we should
+  // use !isLiteral() for anything that is runtime. The comments were left
   // unchanged.
 
   //  Now compute each broadcasted dimension for the output. folding over the
@@ -496,7 +496,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
   for (int64_t d : shape) {
-    if (d == -1)
+    if (ShapedType::isDynamic(d))
       inferredDims.emplace_back(QuestionmarkIndexExpr());
     else
       inferredDims.emplace_back(LiteralIndexExpr(d));
@@ -537,6 +537,7 @@ template struct ONNXOpShapeHelper<ONNXCategoryMapperOp>;
 template struct ONNXOpShapeHelper<ONNXClipOp>;
 template struct ONNXOpShapeHelper<ONNXCompressOp>;
 template struct ONNXOpShapeHelper<ONNXConcatOp>;
+template struct ONNXOpShapeHelper<ONNXConcatShapeTransposeOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
 template struct ONNXOpShapeHelper<ONNXDepthToSpaceOp>;
 template struct ONNXOpShapeHelper<ONNXExpandOp>;
