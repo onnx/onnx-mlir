@@ -536,6 +536,20 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // SliceOp
+  if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
+    exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
+        dim, sliceOp, sameDims);
+    return;
+  }
+
+  // SplitOp
+  if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
+    exploreSameInputDims<ONNXSplitOp, ONNXSplitOpShapeHelper>(
+        dim, splitOp, sameDims);
+    return;
+  }
+
   // SqueezeOp
   if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
     exploreSameInputDims<ONNXSqueezeOp, ONNXSqueezeOpShapeHelper>(
