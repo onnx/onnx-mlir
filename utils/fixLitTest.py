@@ -37,7 +37,7 @@ def print_usage():
     dprint('  -f,--func <func-name>: Perform test/repair only on given function.')
     dprint('  -p/--print  : Print original lit-test files for the individual.')
     dprint('                functions that were not repaired. Useful only when used')
-    dprint('                in combination with \"-r -f <func-name>.\"')
+    dprint('                in combination with \"-r -f <func-name>\".')
     dprint('  -h/--help   : Print help.')
     dprint('  -d/--help   : Print debug info.')
     dprint("")
