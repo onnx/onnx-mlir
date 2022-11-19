@@ -5,7 +5,7 @@
 //===-------------------- LineForwardingRawOstream.cpp --------------------===//
 //
 // Output stream that forwards the data line by line to a sink.
-// This can be used to process the output of the mlir assembly printer.
+// This can be used to post-process the output of the mlir assembly printer.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,9 +15,8 @@
 
 namespace onnx_mlir {
 
-LineForwardingRawOstream::LineForwardingRawOstream(
-    llvm::raw_ostream &out, LineForwarder fwd)
-    : out(out), fwd(std::move(fwd)) {
+LineForwardingRawOstream::LineForwardingRawOstream(llvm::raw_ostream &out)
+    : out(out) {
   SetUnbuffered();
 }
 

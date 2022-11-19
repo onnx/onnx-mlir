@@ -15,6 +15,8 @@
 #include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
 
+#include "llvm/ADT/StringExtras.h"
+
 using namespace onnx_mlir;
 
 MLIR_DEFINE_EXPLICIT_TYPE_ID(::mlir::DisposableElementsAttr)
@@ -39,15 +41,15 @@ auto getIdentityReader(DType dtype) {
 } // namespace
 
 /*static*/
-DisposableElementsAttr DisposableElementsAttr::get(
-    ShapedType type, size_t id, const Buffer &buffer, Optional<Strides> optionalStrides) {
+DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
+    const Buffer &buffer, Optional<Strides> optionalStrides) {
   DType dtype = dtypeOfMlirType(type.getElementType());
   return get(type, id, buffer, optionalStrides, dtype);
 }
 
 /*static*/
-DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
-    size_t id, const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
+DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
+    const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
     Reader reader) {
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
@@ -60,7 +62,8 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
-    size_t id, const Buffer &buffer, Strides strides, DType bufferDType, Reader reader) {
+    size_t id, const Buffer &buffer, Strides strides, DType bufferDType,
+    Reader reader) {
   DType dtype = dtypeOfMlirType(type.getElementType());
   assert((reader != nullptr ||
              wideDTypeOfDType(bufferDType) == wideDTypeOfDType(dtype)) &&
@@ -77,6 +80,8 @@ DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
 auto DisposableElementsAttr::getStrides() const -> Strides {
   return getImpl()->strides;
 }
+
+size_t DisposableElementsAttr::getId() const { return getImpl()->id; }
 
 auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   assert(!isDisposed());
@@ -221,14 +226,21 @@ ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
 }
 
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
-#ifdef DISPOSABLE_ELEMENTS_ATTR_PRINT_AS_DENSE
-  printIntOrFPElementsAttrAsDenseWithoutType(*this, printer);
-#elifdef DISPOSABLE_ELEMENTS_ATTR_ALLOW_HEX_PRINT
-  auto bytes = getRawBytes();
-  os << "\"0x" << llvm::toHex(asStringRef(bytes.get())) << "\"";
-#else
-  printer << "dense<" << getImpl()->id << ">";
-#endif
+  // It would be ideal if we could read the printer flags from printer instead
+  // of constructing them here, because printer may have been constructed with
+  // an override of elideLargeElementsAttrs which we cannot see here.
+  // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
+  // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
+  static OpPrintingFlags printerFlags{};
+  printer << "dense_disposable<#" << getImpl()->id << ":";
+  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
+    auto bytes = getRawBytes();
+    StringRef s = asStringRef(bytes.get());
+    printer << "\"0x" << llvm::toHex(s) << "\"";
+  } else {
+    printer << "__elided__";
+  }
+  printer << ">";
 }
 
 // TODO: move all the following to ElementsAttrBuilder

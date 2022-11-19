@@ -41,9 +41,9 @@ llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> printVerboseONNXConstants("printVerboseONNXConstants",
-    llvm::cl::desc("print \"onnx.Constant\" verbosely:"), llvm::cl::init(true),
-    llvm::cl::cat(OnnxMlirCommonOptions));
+llvm::cl::opt<bool> scrubAssemblyPrintout("scrubAssemblyPrintout",
+    llvm::cl::desc("hide some custom attributes from assembly printout"),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
     llvm::cl::desc(

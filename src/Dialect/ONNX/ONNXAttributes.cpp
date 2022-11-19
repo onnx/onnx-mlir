@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
+
 #include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -130,117 +131,6 @@ void ONNXDialect::printAttribute(
   // generatedAttributePrinter is generated in ONNXAttributes.cpp.inc
   if (succeeded(generatedAttributePrinter(attr, printer)))
     return;
-  if (auto elements = attr.dyn_cast<DisposableElementsAttr>()) {
+  if (auto elements = attr.dyn_cast<DisposableElementsAttr>())
     elements.printWithoutType(printer);
-  }
 }
-
-namespace onnx_mlir {
-
-namespace {
-// Copied from mlir/lib/IR/AsmPrinter.cpp:
-template <typename EltFn>
-void printDenseElementsAttrImpl(
-    bool isSplat, ShapedType type, raw_ostream &os, EltFn printEltFn) {
-  // Special case for 0-d and splat tensors.
-  if (isSplat)
-    return printEltFn(0);
-
-  // Special case for degenerate tensors.
-  auto numElements = type.getNumElements();
-  if (numElements == 0)
-    return;
-
-  // We use a mixed-radix counter to iterate through the shape. When we bump a
-  // non-least-significant digit, we emit a close bracket. When we next emit an
-  // element we re-open all closed brackets.
-
-  // The mixed-radix counter, with radices in 'shape'.
-  int64_t rank = type.getRank();
-  SmallVector<unsigned, 4> counter(rank, 0);
-  // The number of brackets that have been opened and not closed.
-  unsigned openBrackets = 0;
-
-  auto shape = type.getShape();
-  auto bumpCounter = [&] {
-    // Bump the least significant digit.
-    ++counter[rank - 1];
-    // Iterate backwards bubbling back the increment.
-    for (unsigned i = rank - 1; i > 0; --i)
-      if (counter[i] >= shape[i]) {
-        // Index 'i' is rolled over. Bump (i-1) and close a bracket.
-        counter[i] = 0;
-        ++counter[i - 1];
-        --openBrackets;
-        os << ']';
-      }
-  };
-
-  for (unsigned idx = 0, e = numElements; idx != e; ++idx) {
-    if (idx != 0)
-      os << ", ";
-    while (openBrackets++ < rank)
-      os << '[';
-    openBrackets = rank;
-    printEltFn(idx);
-    bumpCounter();
-  }
-  while (openBrackets-- > 0)
-    os << ']';
-}
-} // namespace
-
-// adapted from AsmPrinter::Impl::printDenseIntOrFPElementsAttr:
-void printIntOrFPElementsAttrAsDenseWithoutType(
-    ElementsAttr attr, AsmPrinter &printer) {
-  auto &os = printer.getStream();
-  os << "dense<";
-  auto type = attr.getType();
-  auto elTy = type.getElementType();
-  if (auto disposable = attr.dyn_cast<DisposableElementsAttr>()) {
-    // Sadly DisposableElementsAttr::value_begin() is too slow so we need to
-    // access the data in bulk with getWideNums() or getRawBytes().
-    auto dtype = disposable.getDType();
-    auto buf = disposable.getWideNums();
-    auto nums = buf.get();
-    if (isFloatDType(dtype))
-      printDenseElementsAttrImpl(attr.isSplat(), type, os,
-          [&](unsigned idx) { printer << nums[idx].toAPFloat(dtype); });
-    else if (dtype == DType::BOOL)
-      printDenseElementsAttrImpl(attr.isSplat(), type, os,
-          [&](unsigned idx) { os << (nums[idx].u64 ? "true" : "false"); });
-    else if (isUnsignedIntDType(dtype))
-      printDenseElementsAttrImpl(
-          attr.isSplat(), type, os, [&](unsigned idx) { os << nums[idx].u64; });
-    else
-      printDenseElementsAttrImpl(
-          attr.isSplat(), type, os, [&](unsigned idx) { os << nums[idx].i64; });
-  } else {
-    if (elTy.isIntOrIndex()) {
-      auto it = attr.value_begin<APInt>();
-      if (elTy.isInteger(1))
-        printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned idx) {
-          os << ((*(it + idx)).getBoolValue() ? "true" : "false");
-        });
-      else if (elTy.isUnsignedInteger())
-        printDenseElementsAttrImpl(attr.isSplat(), type, os,
-            [&](unsigned idx) { os << (*(it + idx)).getZExtValue(); });
-      else
-        printDenseElementsAttrImpl(attr.isSplat(), type, os,
-            [&](unsigned idx) { os << (*(it + idx)).getSExtValue(); });
-    } else {
-      assert(elTy.isa<FloatType>() && "unexpected element type");
-      auto it = attr.value_begin<APFloat>();
-      printDenseElementsAttrImpl(attr.isSplat(), type, os,
-          [&](unsigned idx) { printer << *(it + idx); });
-    }
-  }
-  os << '>';
-}
-
-void printIntOrFPElementsAttrAsDense(ElementsAttr attr, AsmPrinter &printer) {
-  printIntOrFPElementsAttrAsDenseWithoutType(attr, printer);
-  printer << " : " << attr.getType();
-}
-
-} // namespace onnx_mlir

@@ -191,11 +191,14 @@ int main(int argc, char **argv) {
     return failed(LogicalResult::failure());
   }
 
+  LineForwardingRawOstream fwd(output->os());
   auto passManagerSetupFn = [&](PassManager &pm) {
 #ifndef DISABLE_DISPOSABLE_POOL
-    DisposablePool &disposablePool = DisposablePool::create(pm.getContext());
+    mlir::MLIRContext *ctx = pm.getContext();
+    DisposablePool &disposablePool = DisposablePool::create(ctx);
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(disposablePool));
+    fwd.setForwarder(assemblyPrintoutScrubber(*ctx, mlir::OpPrintingFlags()));
 #endif
     auto errorHandler = [&](const Twine &msg) {
       emitError(UnknownLoc::get(pm.getContext())) << msg;
@@ -203,10 +206,9 @@ int main(int argc, char **argv) {
     };
     return passPipeline.addToPipeline(pm, errorHandler);
   };
-  LineForwardingRawOstream fwd(output->os(),
-      printVerboseONNXConstants ? translateLegacyOnnxConstant : nullptr);
+  llvm::raw_ostream &out = scrubAssemblyPrintout ? fwd.os() : output->os();
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  return failed(mlir::MlirOptMain(fwd.os(), std::move(file), passManagerSetupFn,
+  return failed(mlir::MlirOptMain(out, std::move(file), passManagerSetupFn,
       registry, split_input_file, verify_diagnostics, verify_passes,
       allowUnregisteredDialects, /*preloadDialectsInContext=*/true,
       /*emitBytecode=*/false, /*implicitModule=*/true));

@@ -5,7 +5,7 @@
 //===-------------------- LineForwardingRawOstream.hpp --------------------===//
 //
 // Output stream that forwards the data line by line to a sink.
-// This can be used to process the output of the mlir assembly printer.
+// This can be used to post-process the output of the mlir assembly printer.
 //
 //===----------------------------------------------------------------------===//
 
@@ -23,10 +23,12 @@ public:
   using LineForwarder =
       std::function<void(llvm::StringRef, llvm::raw_ostream &)>;
 
-  explicit LineForwardingRawOstream(llvm::raw_ostream &out, LineForwarder fwd);
+  explicit LineForwardingRawOstream(llvm::raw_ostream &out);
   ~LineForwardingRawOstream() override;
 
-  llvm::raw_ostream &os() { return fwd ? *this : out; }
+  void setForwarder(LineForwarder fwd) { this->fwd = std::move(fwd); }
+
+  llvm::raw_ostream &os() { return *this; }
 
 private:
   void write_impl(const char *ptr, size_t size) override;

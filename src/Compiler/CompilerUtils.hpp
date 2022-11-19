@@ -88,7 +88,11 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
 onnx_mlir::InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 
-void translateLegacyOnnxConstant(llvm::StringRef line, llvm::raw_ostream &os);
+// Post-processes the output of the mlir assembly printer to translate custom
+// attributes to builtin ones to hide implementation from lit tests.
+std::function<void(llvm::StringRef, llvm::raw_ostream &)>
+assemblyPrintoutScrubber(
+    mlir::MLIRContext &context, mlir::OpPrintingFlags printerFlags);
 
 // Returns 0 on success, OnnxMlirCompilerErrorCodes on failure.
 int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,

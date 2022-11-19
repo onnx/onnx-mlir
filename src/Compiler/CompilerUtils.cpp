@@ -33,10 +33,12 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Compiler/LineForwardingRawOstream.hpp"
+#include "src/Dialect/ONNX/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
+#include <charconv>
 #include <regex>
 
 #define DEBUG_TYPE "compiler_utils"
@@ -681,45 +683,55 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
       onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
 
-void translateLegacyOnnxConstant(StringRef line, raw_ostream &os) {
+static void translateDisposableElementsAttr(StringRef line, raw_ostream &os,
+    const DisposablePool &disposablePool,
+    const mlir::OpPrintingFlags &printerFlags) {
   const char *eol = line.end() - line.endswith("\n");
 
-  std::regex pattern("(.*)onnx\\.Constant (.*) ?: (.*)");
+  std::regex pattern("(.*)#onnx.dense_disposable<#([0-9]*):[^>]*>(.*)");
   std::cmatch match;
   if (!std::regex_match(line.begin(), eol, match, pattern)) {
     // No match.
     os << line;
     return;
   }
-  assert(match.size() == 4 && "0: whole line, 1: prefix, 2: attr, 3: type");
+  assert(match.size() == 4 && "0: whole line, 1: prefix, 2: id, 3: suffix");
 
   std::csub_match prefixGroup = match[1];
   StringRef prefix(prefixGroup.first, prefixGroup.length());
-  assert(!prefix.empty() && "onnx.Constant cannot start at line begin");
+  assert(!prefix.empty() && "#onnx.dense_disposable<..> cannot begin line");
+  os << prefix;
 
-  std::csub_match attrGroup = match[2];
-  StringRef attr(attrGroup.first, attrGroup.length());
+  std::csub_match idGroup = match[2];
+  StringRef idStr(idGroup.first, idGroup.length());
+  size_t id = 0;
+  auto parseResult = std::from_chars(idStr.begin(), idStr.end(), id);
+  assert(parseResult.ptr == idStr.end() && parseResult.ec == std::errc() &&
+         "illformed DisposableElementsAttr id");
+  mlir::DisposableElementsAttr disposable = disposablePool.lookup(id);
+  mlir::AsmState asmState(disposable.getContext(), printerFlags);
+  toDenseElementsAttr(disposable).print(os, asmState, /*elideType=*/true);
 
-  std::csub_match typeGroup = match[3];
-  StringRef type(typeGroup.first, typeGroup.length());
-  assert(!type.empty() && "onnx.Constant must have a type");
-
-  os << prefix << "\"onnx.Constant\"()";
-  if (attr.startswith("dense")) {
-    os << " {value = " << attr << " : " << type << "}";
-  } else if (attr.startswith("sparse")) {
-    os << " {sparse_value = " << attr << " : " << type << "}";
-  } else if (attr.empty()) {
-    // There is no attribute when we elide constants.
-  } else if (attr.startswith("{")) {
-    // Attributes were already a dictionary, no translation needed.
-    os << ' ' << attr;
-  } else {
-    llvm_unreachable("unrecognized onnx.Constant attribute");
-  }
-  os << " : () -> " << type;
+  std::csub_match suffixGroup = match[3];
+  StringRef suffix(suffixGroup.first, suffixGroup.length());
+  assert(!suffix.empty() && "#onnx.dense_disposable<..> cannot end line");
+  // Recurse in case there are more things to translate in the suffix.
+  translateDisposableElementsAttr(suffix, os, disposablePool, printerFlags);
 
   os << line.take_back(line.end() - eol); // any trailing '\n'
+}
+
+std::function<void(llvm::StringRef, llvm::raw_ostream &)>
+assemblyPrintoutScrubber(
+    mlir::MLIRContext &context, mlir::OpPrintingFlags printerFlags) {
+  if (scrubAssemblyPrintout)
+    if (DisposablePool *disposablePool = DisposablePool::get(&context))
+      return [disposablePool, printerFlags = std::move(printerFlags)](
+                 StringRef line, raw_ostream &os) {
+        translateDisposableElementsAttr(
+            line, os, *disposablePool, printerFlags);
+      };
+  return [](StringRef line, raw_ostream &os) { os << line; };
 }
 
 static void outputModule(mlir::OwningOpRef<ModuleOp> &module, raw_ostream &os,
@@ -729,9 +741,10 @@ static void outputModule(mlir::OwningOpRef<ModuleOp> &module, raw_ostream &os,
     flags.enableDebugInfo();
   if (largeElementLimit >= 0)
     flags.elideLargeElementsAttrs(largeElementLimit);
-  LineForwardingRawOstream fwd(
-      os, printVerboseONNXConstants ? translateLegacyOnnxConstant : nullptr);
-  module->print(fwd.os(), flags);
+  LineForwardingRawOstream fwd(os);
+  fwd.setForwarder(assemblyPrintoutScrubber(*module->getContext(), flags));
+  raw_ostream &out = scrubAssemblyPrintout ? fwd.os() : os;
+  module->print(out, flags);
 }
 
 // Return 0 on success, error code on error.

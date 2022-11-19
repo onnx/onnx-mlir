@@ -100,17 +100,18 @@ public:
   friend class onnx_mlir::ElementsAttrBuilder;
 
 private:
-  static DisposableElementsAttr get(ShapedType type, size_t id, const Buffer &buffer,
-      Optional<Strides> optionalStrides = None);
+  static DisposableElementsAttr get(ShapedType type, size_t id,
+      const Buffer &buffer, Optional<Strides> optionalStrides = None);
 
   // Assumes isTransformed if reader != nullptr.
-  static DisposableElementsAttr get(ShapedType type, size_t id, const Buffer &buffer,
-      Optional<Strides> optionalStrides, DType bufferDType,
-      Reader reader = nullptr);
+  static DisposableElementsAttr get(ShapedType type, size_t id,
+      const Buffer &buffer, Optional<Strides> optionalStrides,
+      DType bufferDType, Reader reader = nullptr);
 
   // Internal method called by get(..) methods.
-  static DisposableElementsAttr create(ShapedType type, size_t id, const Buffer &buffer,
-      Strides strides, DType bufferDType, Reader reader /*= nullptr*/);
+  static DisposableElementsAttr create(ShapedType type, size_t id,
+      const Buffer &buffer, Strides strides, DType bufferDType,
+      Reader reader /*= nullptr*/);
 
 public:
   DisposableElementsAttr(std::nullptr_t) {}
@@ -125,6 +126,8 @@ public:
   //===----------------------------------------------------------------------===//
 private:
   Strides getStrides() const;
+
+  size_t getId() const;
 
   const Buffer &getBuffer() const;
 

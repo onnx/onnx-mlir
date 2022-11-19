@@ -38,7 +38,7 @@ constexpr bool shouldSwapLEBytes =
     sizeof(T) > 1 && llvm::support::endian::system_endianness() !=
                          llvm::support::endianness::little;
 
-#ifdef ENABLE_DISPOSABLE_POOL
+#ifndef DISABLE_DISPOSABLE_POOL
 struct ElementsAttrFactory {
   template <typename T>
   static mlir::ElementsAttr get(
@@ -57,7 +57,8 @@ mlir::ElementsAttr createElementsAttrFromMemoryBuffer(
   if (shouldSwapLEBytes<T>) {
     // TODO: swap bytes into MemoryBuffer and create ElementsAttr from that
   } else {
-    return onnx_mlir::ElementsAttrBuilder(ctx).fromMemoryBuffer(type, std::move(membuf));
+    return onnx_mlir::ElementsAttrBuilder(ctx).fromMemoryBuffer(
+        type, std::move(membuf));
   }
 }
 #else

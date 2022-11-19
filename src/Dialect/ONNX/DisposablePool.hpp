@@ -42,6 +42,13 @@ public:
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
+  mlir::DisposableElementsAttr lookup(size_t id) const {
+    auto found = map.find(id);
+    if (found == map.end())
+      return nullptr;
+    return found->second;
+  }
+
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
   void garbageCollectUnreachable(mlir::ModuleOp moduleOp);
@@ -58,6 +65,8 @@ private:
   using Pool = std::unordered_set<Item>;
   using Scrubbed = std::unordered_map<Item, mlir::DenseElementsAttr>;
 
+  using Map = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
+
   void insert(mlir::DisposableElementsAttr disposable);
 
   static Scrubbed doScrub(mlir::ModuleOp moduleOp);
@@ -66,7 +75,8 @@ private:
 
   void eraseUnreachable(const Pool &reachable);
 
-  Pool pool;
+  Pool pool; // TODO: remove pool and just use map for everything
+  Map map;
   bool active = true;
 };
 

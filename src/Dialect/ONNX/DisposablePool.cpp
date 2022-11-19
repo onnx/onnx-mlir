@@ -40,6 +40,7 @@ void DisposablePool::insert(DisposableElementsAttr disposable) {
   auto insertion = pool.insert(disposable.getImpl());
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
+  map.emplace(disposable.getId(), disposable);
 }
 
 void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
@@ -56,7 +57,8 @@ void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
 }
 
 /*static*/
-void DisposablePool::scrub(mlir::ModuleOp moduleOp, DisposablePool *disposablePool) {
+void DisposablePool::scrub(
+    mlir::ModuleOp moduleOp, DisposablePool *disposablePool) {
   Scrubbed scrubbed = doScrub(moduleOp);
   if (disposablePool)
     disposablePool->flushAfterScrub(scrubbed);
@@ -80,8 +82,9 @@ auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
 }
 
 void DisposablePool::flushAfterScrub(const Scrubbed &scrubbed) {
-  for (const auto& s : scrubbed)
-    assert(pool.count(s.first) == 1 && "scrubbed disposables must be in the pool");
+  for (const auto &s : scrubbed)
+    assert(
+        pool.count(s.first) == 1 && "scrubbed disposables must be in the pool");
   eraseUnreachable({});
 }
 
@@ -89,6 +92,7 @@ void DisposablePool::eraseUnreachable(const Pool &reachable) {
   for (Pool::iterator it = pool.begin(); it != pool.end();) {
     DisposableElementsAttributeStorage *p = *it;
     if (reachable.count(p) == 0) {
+      map.erase(p->id);
       // p is unreachable, so we reset the buffer payload shared_ptr
       // which decreases the reference count and, if it reached zero,
       // frees or closes the underlying MemoryBuffer's heap allocation or file.
