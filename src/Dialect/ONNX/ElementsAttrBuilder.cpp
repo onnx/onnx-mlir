@@ -50,14 +50,20 @@ bool testRawBytesValidityAndSplatness(
 
 } // namespace
 
+std::atomic<size_t> ElementsAttrBuilder::counter{0};
+
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
     : disposablePool(disposablePool) {}
 
-ElementsAttrBuilder::ElementsAttrBuilder(mlir::MLIRContext *context)
+ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
     : disposablePool(*DisposablePool::get(context)) {}
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
-    mlir::ElementsAttr elements) {
+DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  return create(type, std::move(membuf));
+}
+
+DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
+    ElementsAttr elements) {
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
     return disposable;
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
@@ -83,7 +89,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
+DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, DType bufferDType, ArrayRef<char> bytes, bool mustCopy) {
   bool isSplat = testRawBytesValidityAndSplatness(type, bufferDType, bytes);
   std::unique_ptr<llvm::MemoryBuffer> buffer;
@@ -102,7 +108,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   return create(type, std::move(buffer), None, bufferDType);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
+DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, DType bufferDType, const Filler<char> &bytesFiller) {
   size_t size = type.getNumElements() * bytewidthOfDType(bufferDType);
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
@@ -112,15 +118,15 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   return create(type, std::move(writeBuffer), None, bufferDType);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
-    mlir::ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy) {
+DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
+    ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy) {
   DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
   return fromRawBytes(
       type, bufferDType, castArrayRef<char>(wideData), mustCopy);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
-    mlir::ShapedType type, const Filler<WideNum> &wideDataFiller) {
+DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
+    ShapedType type, const Filler<WideNum> &wideDataFiller) {
   DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
   return fromRawBytes(
       type, bufferDType, [&wideDataFiller](llvm::MutableArrayRef<char> bytes) {
@@ -128,30 +134,30 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
       });
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::transform(
-    mlir::DisposableElementsAttr elms, Type transformedElementType,
+DisposableElementsAttr ElementsAttrBuilder::transform(
+    DisposableElementsAttr elms, Type transformedElementType,
     Transformer transformer) {
   return elms.transform(*this, transformedElementType, transformer);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::castElementType(
-    mlir::DisposableElementsAttr elms, Type newElementType) {
+DisposableElementsAttr ElementsAttrBuilder::castElementType(
+    DisposableElementsAttr elms, Type newElementType) {
   return elms.castElementType(*this, newElementType);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::transpose(
-    mlir::DisposableElementsAttr elms, ArrayRef<uint64_t> perm) {
+DisposableElementsAttr ElementsAttrBuilder::transpose(
+    DisposableElementsAttr elms, ArrayRef<uint64_t> perm) {
   return elms.transpose(*this, perm);
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::reshape(
-    mlir::DisposableElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
+DisposableElementsAttr ElementsAttrBuilder::reshape(
+    DisposableElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
   return elms.reshape(*this, reshapedShape);
 }
 
 // Broadcasts like the ONNX Expand op.
 DisposableElementsAttr ElementsAttrBuilder::expand(
-    mlir::DisposableElementsAttr elms, ArrayRef<int64_t> expandedShape) {
+    DisposableElementsAttr elms, ArrayRef<int64_t> expandedShape) {
   return elms.expand(*this, expandedShape);
 }
 

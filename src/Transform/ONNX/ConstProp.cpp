@@ -800,7 +800,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 
-#ifdef SCRUB_DISPOSABLE_ATTR_AFTER_CONST_PROP
+#ifndef DISABLE_SCRUB_DISPOSABLE_ATTR_AFTER_CONST_PROP
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
     if (auto disposable =

@@ -155,9 +155,13 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     auto elements = attr->cast<ElementsAttr>();
     assert(!elements.isa<SparseElementsAttr>());
     if (elements.getType() == type) {
-      // NOTE: we print every elements attribute as a DenseElementsAttr.
       odsPrinter << ' ';
+#ifdef ELEMENTS_ATTR_PRINT_AS_DENSE
+      // NOTE: we print every elements attribute as a DenseElementsAttr.
       onnx_mlir::printIntOrFPElementsAttrAsDense(elements, odsPrinter);
+#else
+      odsPrinter.printAttribute(elements);
+#endif
       return;
     }
   }

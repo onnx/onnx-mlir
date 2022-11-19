@@ -40,14 +40,14 @@ auto getIdentityReader(DType dtype) {
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(
-    ShapedType type, const Buffer &buffer, Optional<Strides> optionalStrides) {
+    ShapedType type, size_t id, const Buffer &buffer, Optional<Strides> optionalStrides) {
   DType dtype = dtypeOfMlirType(type.getElementType());
-  return get(type, buffer, optionalStrides, dtype);
+  return get(type, id, buffer, optionalStrides, dtype);
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
-    const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
+    size_t id, const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
     Reader reader) {
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
@@ -55,19 +55,19 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type,
   } else {
     strides = getDefaultStrides(type.getShape());
   }
-  return create(type, buffer, strides, bufferDType, std::move(reader));
+  return create(type, id, buffer, strides, bufferDType, std::move(reader));
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
-    const Buffer &buffer, Strides strides, DType bufferDType, Reader reader) {
+    size_t id, const Buffer &buffer, Strides strides, DType bufferDType, Reader reader) {
   DType dtype = dtypeOfMlirType(type.getElementType());
   assert((reader != nullptr ||
              wideDTypeOfDType(bufferDType) == wideDTypeOfDType(dtype)) &&
          "buffer wide type mismatch requires transforming reader");
   bool isContiguous = areStridesContiguous(type.getShape(), strides);
   DisposableElementsAttr a = Base::get(
-      type.getContext(), type, strides, bufferDType, dtype, isContiguous);
+      type.getContext(), type, strides, bufferDType, dtype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
   s.reader = std::move(reader);
@@ -221,7 +221,14 @@ ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
 }
 
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
+#ifdef DISPOSABLE_ELEMENTS_ATTR_PRINT_AS_DENSE
   printIntOrFPElementsAttrAsDenseWithoutType(*this, printer);
+#elifdef DISPOSABLE_ELEMENTS_ATTR_ALLOW_HEX_PRINT
+  auto bytes = getRawBytes();
+  os << "\"0x" << llvm::toHex(asStringRef(bytes.get())) << "\"";
+#else
+  printer << "dense<" << getImpl()->id << ">";
+#endif
 }
 
 // TODO: move all the following to ElementsAttrBuilder

@@ -24,38 +24,42 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
   using KeyTy =
-      std::tuple<ShapedType, Strides, onnx_mlir::DType, onnx_mlir::DType, bool>;
+      std::tuple<ShapedType, Strides, onnx_mlir::DType, onnx_mlir::DType, bool, size_t>;
+  static constexpr int TYPE = 0;
+  static constexpr int STRIDES = 1;
+  static constexpr int BUFFER_DTYPE = 2;
+  static constexpr int DTYPE = 3;
+  static constexpr int IS_CONTIGUOUS = 4;
+  static constexpr int ID = 5;
 
   // Constructs only type and strides and properties while the caller sets
   // buffer and reader after construction to minimize copying.
   DisposableElementsAttributeStorage(ShapedType type, Strides strides,
-      onnx_mlir::DType bufferDType, onnx_mlir::DType dtype, bool isContiguous)
+      onnx_mlir::DType bufferDType, onnx_mlir::DType dtype, bool isContiguous, size_t id)
       : type(type), strides(strides), bufferDType(bufferDType), dtype(dtype),
-        isContiguous(isContiguous) {}
+        isContiguous(isContiguous), id(id) {}
 
   // Equality and hashKey are engineered to defeat the storage uniquer.
   // We don't want uniqueing because we can't compare readers for equality
   // and we could be in a sitation later where we have the same data or the
   // same buffer address but there is an undetectable mismatch because the
   // buffer and reader were disposed by garbage collection.
-  bool operator==(const KeyTy &key) const { return false; }
+  bool operator==(const KeyTy &key) const { return id == std::get<ID>(key); }
   static llvm::hash_code hashKey(const KeyTy &key) {
-    // Generates a unique number on each call to defeat the storage
-    // uniquer.
-    static std::atomic<size_t> counter{0};
-    return ++counter;
+    return std::get<ID>(key);
   }
 
   static DisposableElementsAttributeStorage *construct(
       AttributeStorageAllocator &allocator, const KeyTy &key) {
-    ShapedType type = std::get<0>(key);
-    Strides strides = std::get<1>(key);
-    onnx_mlir::DType bufferDType = std::get<2>(key);
-    onnx_mlir::DType dtype = std::get<3>(key);
-    bool isContiguous = std::get<4>(key);
+    ShapedType type = std::get<TYPE>(key);
+    Strides strides = std::get<STRIDES>(key);
+    onnx_mlir::DType bufferDType = std::get<BUFFER_DTYPE>(key);
+    onnx_mlir::DType dtype = std::get<DTYPE>(key);
+    bool isContiguous = std::get<IS_CONTIGUOUS>(key);
+    size_t id = std::get<ID>(key);
     return new (allocator.allocate<DisposableElementsAttributeStorage>())
         DisposableElementsAttributeStorage(type, allocator.copyInto(strides),
-            bufferDType, dtype, isContiguous);
+            bufferDType, dtype, isContiguous, id);
   }
 
   // The tensor shape and element type that this object represents.
@@ -74,12 +78,17 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   onnx_mlir::DType bufferDType;
 
   // Data type (BOOL, INT8, FLOAT16, etc) of the type's elements.
-  // dtype == dtypeOfMlirType(type.getElementType())
+  // Redundant as dtype == dtypeOfMlirType(type.getElementType())
+  // but we store it for fast access.
   onnx_mlir::DType dtype;
 
   // Do the strides match the type's shape?
-  // isContiguous == areStridedContiguous(type.getShape(), strides)
+  // Redundant as isContiguous == areStridesContiguous(type.getShape(), strides)
+  // but we store it for fast access.
   bool isContiguous;
+
+  // Serial number that distinguishes instances.
+  size_t id;
 
   // shared_ptr to an underlying MemoryBuffer which can be either heap allocated
   // or a mmap'ed file or point to the raw data of a DenseElementsAttr.

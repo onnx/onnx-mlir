@@ -193,17 +193,13 @@ void printDenseElementsAttrImpl(
 // adapted from AsmPrinter::Impl::printDenseIntOrFPElementsAttr:
 void printIntOrFPElementsAttrAsDenseWithoutType(
     ElementsAttr attr, AsmPrinter &printer) {
-  printer << "dense<";
   auto &os = printer.getStream();
+  os << "dense<";
   auto type = attr.getType();
   auto elTy = type.getElementType();
   if (auto disposable = attr.dyn_cast<DisposableElementsAttr>()) {
     // Sadly DisposableElementsAttr::value_begin() is too slow so we need to
     // access the data in bulk with getWideNums() or getRawBytes().
-#ifdef DISPOSABLE_ELEMENTS_ATTR_ALLOW_HEX_PRINT
-    auto bytes = disposable.getRawBytes();
-    os << "\"0x" << llvm::toHex(asStringRef(bytes.get())) << "\"";
-#else
     auto dtype = disposable.getDType();
     auto buf = disposable.getWideNums();
     auto nums = buf.get();
@@ -219,7 +215,6 @@ void printIntOrFPElementsAttrAsDenseWithoutType(
     else
       printDenseElementsAttrImpl(
           attr.isSplat(), type, os, [&](unsigned idx) { os << nums[idx].i64; });
-#endif
   } else {
     if (elTy.isIntOrIndex()) {
       auto it = attr.value_begin<APInt>();
@@ -240,7 +235,7 @@ void printIntOrFPElementsAttrAsDenseWithoutType(
           [&](unsigned idx) { printer << *(it + idx); });
     }
   }
-  printer << '>';
+  os << '>';
 }
 
 void printIntOrFPElementsAttrAsDense(ElementsAttr attr, AsmPrinter &printer) {
