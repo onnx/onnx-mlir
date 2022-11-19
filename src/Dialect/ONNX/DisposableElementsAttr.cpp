@@ -77,11 +77,18 @@ DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
   return a;
 }
 
+void DisposableElementsAttr::dispose() {
+  getImpl()->buffer.reset();
+  getImpl()->reader = nullptr;
+}
+
+bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
+
+size_t DisposableElementsAttr::getId() const { return getImpl()->id; }
+
 auto DisposableElementsAttr::getStrides() const -> Strides {
   return getImpl()->strides;
 }
-
-size_t DisposableElementsAttr::getId() const { return getImpl()->id; }
 
 auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   assert(!isDisposed());
@@ -100,8 +107,6 @@ auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
   assert(!isDisposed());
   return getImpl()->reader;
 }
-
-bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
 
 bool DisposableElementsAttr::isContiguous() const {
   return getImpl()->isContiguous;

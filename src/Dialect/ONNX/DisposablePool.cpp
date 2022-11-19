@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
-#include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
 
 #include "src/Dialect/ONNX/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -37,20 +36,26 @@ DisposablePool::~DisposablePool() {}
 
 void DisposablePool::insert(DisposableElementsAttr disposable) {
   // TODO: make this thread safe
-  auto insertion = pool.insert(disposable.getImpl());
+  auto insertion = pool.try_emplace(disposable.getId(), disposable);
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
-  map.emplace(disposable.getId(), disposable);
+}
+
+DisposableElementsAttr DisposablePool::lookup(size_t id) const {
+  auto found = pool.find(id);
+  if (found == pool.end())
+    return nullptr;
+  return found->second;
 }
 
 void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
   Pool reachable;
   moduleOp.walk([&reachable, this](ONNXConstantOp constOp) {
     if (auto attr = constOp.value())
-      if (auto elements = attr->dyn_cast<DisposableElementsAttr>()) {
-        assert(this->pool.count(elements.getImpl()) == 1 &&
+      if (auto disposable = attr->dyn_cast<DisposableElementsAttr>()) {
+        assert(this->pool.count(disposable.getId()) == 1 &&
                "reachable disposables must be in the pool");
-        reachable.insert(elements.getImpl());
+        reachable.try_emplace(disposable.getId(), disposable);
       }
   });
   eraseUnreachable(reachable);
@@ -70,9 +75,9 @@ auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
   moduleOp.walk([&scrubbed](ONNXConstantOp constOp) {
     if (auto attr = constOp.value())
       if (auto disposable = attr->dyn_cast<DisposableElementsAttr>()) {
-        auto insertion = scrubbed.emplace(disposable.getImpl(), nullptr);
+        auto insertion = scrubbed.try_emplace(disposable.getId(), nullptr);
         auto iter = insertion.first;
-        if (insertion.second) { // disposable were inserted
+        if (insertion.second) { // disposable was inserted
           iter->second = toDenseElementsAttr(disposable);
         }
         constOp.valueAttr(iter->second);
@@ -90,14 +95,11 @@ void DisposablePool::flushAfterScrub(const Scrubbed &scrubbed) {
 
 void DisposablePool::eraseUnreachable(const Pool &reachable) {
   for (Pool::iterator it = pool.begin(); it != pool.end();) {
-    DisposableElementsAttributeStorage *p = *it;
-    if (reachable.count(p) == 0) {
-      map.erase(p->id);
-      // p is unreachable, so we reset the buffer payload shared_ptr
+    if (reachable.count(it->first) == 0) {
+      // The attribute is unreachable, so we reset the buffer payload shared_ptr
       // which decreases the reference count and, if it reached zero,
       // frees or closes the underlying MemoryBuffer's heap allocation or file.
-      p->buffer.reset();
-      p->reader = nullptr;
+      it->second.dispose();
       it = pool.erase(it);
     } else {
       ++it;

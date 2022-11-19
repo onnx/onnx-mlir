@@ -92,8 +92,8 @@ class DisposableElementsAttr
   // ElementsAttrBuilder. Call ElementsAttrBuilder::create(..)
   // to instantiate DisposableElementsAttr.
   //
-  // DisposablePool needs access to the private getImpl() method
-  // to dispose instances.
+  // DisposablePool needs access to the private dispose() and getId() methods
+  // to track and dispose instances.
   //===----------------------------------------------------------------------===//
 public:
   friend class onnx_mlir::DisposablePool;
@@ -113,6 +113,11 @@ private:
       const Buffer &buffer, Strides strides, DType bufferDType,
       Reader reader /*= nullptr*/);
 
+  // Clear the buffer payload shared_ptr which decreases the reference count
+  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
+  // heap allocation or file.
+  void dispose();
+
 public:
   DisposableElementsAttr(std::nullptr_t) {}
 
@@ -125,17 +130,17 @@ public:
   // Instance properties:
   //===----------------------------------------------------------------------===//
 private:
-  Strides getStrides() const;
+  bool isDisposed() const;
 
   size_t getId() const;
+
+  Strides getStrides() const;
 
   const Buffer &getBuffer() const;
 
   Reader getReader() const;
 
   Reader getReaderOrNull() const;
-
-  bool isDisposed() const;
 
   bool isContiguous() const;
 

@@ -24,7 +24,6 @@
 #include "mlir/IR/DialectInterface.h"
 
 #include <unordered_map>
-#include <unordered_set>
 
 namespace onnx_mlir {
 
@@ -42,12 +41,7 @@ public:
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
-  mlir::DisposableElementsAttr lookup(size_t id) const {
-    auto found = map.find(id);
-    if (found == map.end())
-      return nullptr;
-    return found->second;
-  }
+  mlir::DisposableElementsAttr lookup(size_t id) const;
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
@@ -61,11 +55,8 @@ public:
   bool isActive() const { return active; }
 
 private:
-  using Item = mlir::DisposableElementsAttributeStorage *;
-  using Pool = std::unordered_set<Item>;
-  using Scrubbed = std::unordered_map<Item, mlir::DenseElementsAttr>;
-
-  using Map = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
+  using Pool = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
+  using Scrubbed = std::unordered_map<size_t, mlir::DenseElementsAttr>;
 
   void insert(mlir::DisposableElementsAttr disposable);
 
@@ -75,8 +66,7 @@ private:
 
   void eraseUnreachable(const Pool &reachable);
 
-  Pool pool; // TODO: remove pool and just use map for everything
-  Map map;
+  Pool pool;
   bool active = true;
 };
 
