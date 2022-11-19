@@ -55,6 +55,8 @@ public:
   bool isActive() const { return active; }
 
 private:
+  // TODO: Change to unordered_set with C++20 where we can key set members by
+  //       id and find set members by id without constructing a member object.
   using Pool = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
   using Scrubbed = std::unordered_map<size_t, mlir::DenseElementsAttr>;
 
