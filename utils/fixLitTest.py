@@ -51,7 +51,7 @@ def print_usage():
     dprint(" * If errors, test a given func X: \"fixLitTest -t -f X test.mlir\".")
     dprint(" * You may inspect the \"flt_*.mlir\" files in the current dir for more info.")
     dprint(" * Spurious error, repair func X:  \"fixLitTest -t -r -f X test.mlir\".")
-    dprint(" * If good, save fix for X:  \"fixLitTest -r -f -p X test.mlir > test.mlir\".")
+    dprint(" * If good, save fix for X:  \"fixLitTest -r -f X -p test.mlir > test.mlir\".")
     dprint("")
     sys.exit()
 
