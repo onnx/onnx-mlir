@@ -11,7 +11,6 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "src/Dialect/ONNX/AttributesHelper.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 
 using namespace mlir;
