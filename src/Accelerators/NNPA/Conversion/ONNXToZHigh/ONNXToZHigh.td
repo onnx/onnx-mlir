@@ -466,8 +466,8 @@ def IsMatMulLegalForZDNN: Constraint<
 
 // Be careful, this check is very specific to '$0' of rank 2 and '$1' of rank 1.
 def HaveSameLastDimR2R1: Constraint<
-  CPred<"($0.getType().cast<ShapedType>().getShape()[1] != -1)" #
-        " && ($1.getType().cast<ShapedType>().getShape()[0] != -1)" #
+  CPred<"(!$0.getType().cast<ShapedType>().isDynamicDim(1))" #
+        " && (!$1.getType().cast<ShapedType>().isDynamicDim(0))" #
         " && ($0.getType().cast<ShapedType>().getShape()[1]" # 
               " == $1.getType().cast<ShapedType>().getShape()[0])">,
   "Have the same last dimension"

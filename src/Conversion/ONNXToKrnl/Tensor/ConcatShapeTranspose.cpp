@@ -84,8 +84,8 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     outputConcatDims[axis] = cumulativeAxisSize;
 
     // Shape for Shape
-    uint64_t start = operandAdaptor.start();
-    uint64_t end = rank;
+    int64_t start = operandAdaptor.start();
+    int64_t end = rank;
     if (operandAdaptor.end().has_value()) {
       end = operandAdaptor.end().value();
     }
@@ -104,7 +104,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     Value shapeAlloc = insertAllocAndDeallocSimple(
         rewriter, op, convertedShapeType, loc, shapeHelper.dimsForOutput());
     Type elementType = convertedShapeType.getElementType();
-    for (uint64_t i = start; i < end; i++) {
+    for (int64_t i = start; i < end; i++) {
       Value intVal =
           create.math.cast(elementType, outputConcatDims[i].getValue());
       create.krnl.store(

@@ -27,18 +27,31 @@ def dprint(msg):
 
 def print_usage():
     dprint("")
-    dprint('Fixes lit test file.')
+    dprint('Fixes and tests lit-test file. Repairs are done by \"utils/mlir2FileCHeck\"')
+    dprint("utility.")
     dprint("")
-    dprint('fixLitTest  [-adh] [-f <function name> <lit test file name>')
-    dprint('  -a,--all   : fix all models (cannot use with -f option),')
-    dprint('  -d,--debug : print debug info,')
-    dprint('  -f,--fct <function name>: Fix this function, others unchanged,')
-    dprint('  -h,--help  : Print help.')
+    dprint('fixLitTest [-dhprt] [-f <func-name> <lit-test-filename>')
+    dprint('  -t/--test   : Run FileCheck on each function individually.')
+    dprint('                When combined with \"--repair\", test repaired lit test.')
+    dprint('  -r/--repair : Repair lit test for each function individually.')    
+    dprint('  -f,--func <func-name>: Perform test/repair only on given function.')
+    dprint('  -p/--print  : Print original lit-test files for the individual.')
+    dprint('                functions that were not repaired. Useful only when used')
+    dprint('                in combination with \"-r -f <func-name>\".')
+    dprint('  -h/--help   : Print help.')
+    dprint('  -d/--help   : Print dgit ebug info.')
     dprint("")
-    dprint('File format for input test file:')
-    dprint('  * A single "// RUN:" comment')
-    dprint('  * A "// -----" comment')
-    dprint('  * Subsequent functions separated by a "// -----" comment')    
+    dprint('File format for input list-test files:')
+    dprint(' * A single "// RUN:" comment')
+    dprint(' * A "// -----" comment')
+    dprint(' * Subsequent functions separated by a "// -----" comment')    
+    dprint("")
+    dprint("Workflow for debugging test.mlir:")
+    dprint(" * Test original file: \"fixLitTest -t test.mlir\".")
+    dprint(" * If errors, test a given func X: \"fixLitTest -t -f X test.mlir\".")
+    dprint(" * You may inspect the \"flt_*.mlir\" files in the current dir for more info.")
+    dprint(" * Spurious error, repair func X:  \"fixLitTest -t -r -f X test.mlir\".")
+    dprint(" * If good, save fix for X:  \"fixLitTest -r -f -p X test.mlir > test.mlir\".")
     dprint("")
     sys.exit()
 
@@ -189,7 +202,7 @@ def main(argv):
     has_print = False
     try:
         opts, args = getopt.getopt(
-            argv, "rtdf:hp", ["repair", "test", "debug", "fct=", "help", "print"])
+            argv, "rtdf:hp", ["repair", "test", "debug", "func=", "help", "print"])
     except getopt.GetoptError:
         dprint("Error: unknown options")
         print_usage()
@@ -202,7 +215,7 @@ def main(argv):
             has_print = 1
         elif opt in ('-d', "--debug"):
             debug = 1
-        elif opt in ("-f", "--fct"):
+        elif opt in ("-f", "--func"):
             fix_fct_name = arg
             has_fct = True
         elif opt in ('-h', "--help"):
@@ -306,7 +319,7 @@ def main(argv):
                 emit_modified_segment(i, has_test)
             elif has_test:
                 test_orig_model(i)
-        elif has_fct and segzment_fct_name[i] != fix_fct_name:
+        elif has_fct and segment_fct_name[i] != fix_fct_name:
             # Specified a function, but does not have it.
             # Print through if requested
             if has_print:

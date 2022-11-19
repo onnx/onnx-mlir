@@ -199,6 +199,60 @@ void populateDecomposingONNXBeforeMhloPatterns(
 }
 #endif
 
+// Special Op fusion for the following pattern:
+//   %1 = Concat(inputs, axis)
+//   %2 = Shape(%1, start, end)
+//   %3 = Transpose(%1, perm)
+// into a special Op
+//   %2, %3 = ConcatShapeTranspose(inputs, axis, start, end, perm)
+// This fusion is an experimental work for performance
+
+// Helper function: is the ConcatOp matched to the fusion pattern?
+static bool isConcatFuseMatched(
+    Operation *op, ONNXShapeOp &shapeOp, ONNXTransposeOp &transposeOp) {
+  shapeOp = NULL;
+  transposeOp = NULL;
+  bool failed = false;
+  for (Operation *user : op->getUsers()) {
+    if (isa<ONNXShapeOp>(user) && !shapeOp)
+      shapeOp = cast<ONNXShapeOp>(user);
+    else if (isa<ONNXTransposeOp>(user) && !transposeOp)
+      transposeOp = cast<ONNXTransposeOp>(user);
+    else
+      failed = true;
+  }
+  return (shapeOp && transposeOp && !failed);
+}
+
+struct ConcatFusePattern : public ConversionPattern {
+  ConcatFusePattern(MLIRContext *context)
+      : ConversionPattern(ONNXConcatOp::getOperationName(), 4, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+
+    ONNXConcatOp concatOp = ::llvm::dyn_cast<ONNXConcatOp>(op);
+
+    // Match
+    ONNXShapeOp shapeOp = NULL;
+    ONNXTransposeOp transposeOp = NULL;
+    if (!isConcatFuseMatched(op, shapeOp, transposeOp))
+      return failure();
+
+    // Rewrite
+    SmallVector<Type, 2> outputTypes;
+    outputTypes.emplace_back(shapeOp.getResult().getType());
+    outputTypes.emplace_back(transposeOp.getResult().getType());
+
+    auto fusedV = rewriter.create<ONNXConcatShapeTransposeOp>(op->getLoc(),
+        outputTypes, operands, concatOp.axisAttr(), shapeOp.endAttr(),
+        shapeOp.startAttr(), transposeOp.permAttr());
+    rewriter.replaceOp(shapeOp.getOperation(), fusedV.getResults()[0]);
+    rewriter.replaceOp(transposeOp.getOperation(), fusedV.getResults()[1]);
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -258,10 +312,16 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
   target.addIllegalOp<ONNXUnsqueezeV11Op>();
+  target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
+    ONNXShapeOp shapeOp = NULL;
+    ONNXTransposeOp transposeOp = NULL;
+    return !isConcatFuseMatched(op, shapeOp, transposeOp);
+  });
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
+  patterns.insert<ConcatFusePattern>(&getContext());
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
   if (this->target == "mhlo") {

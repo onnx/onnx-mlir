@@ -118,7 +118,8 @@ LogicalResult ONNXConcatOp::verify() {
     for (int64_t dim = 0; dim < commonRank; ++dim) {
       if (dim == axisIndex)
         continue;
-      if (operandShape[dim] != -1 && commonShape[dim] != -1 &&
+      if (!ShapedType::isDynamic(operandShape[dim]) &&
+          !ShapedType::isDynamic(commonShape[dim]) &&
           operandShape[dim] != commonShape[dim])
         return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
             *this->getOperation(), operand, dim, operandShape[dim],
