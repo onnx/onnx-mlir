@@ -27,7 +27,8 @@ def dprint(msg):
 
 def print_usage():
     dprint("")
-    dprint('Fixes and tests lit-test file.')
+    dprint('Fixes and tests lit-test file. Repairs are done by \"utils/mlir2FileCHeck\"')
+    dprint("utility.")
     dprint("")
     dprint('fixLitTest [-dhprt] [-f <func-name> <lit-test-filename>')
     dprint('  -t/--test   : Run FileCheck on each function individually.')
