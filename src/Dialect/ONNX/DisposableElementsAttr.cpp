@@ -350,14 +350,17 @@ DisposableElementsAttr DisposableElementsAttr::reshape(
         makeArrayRef(*reshapedStrides), getBufferDType(), getReaderOrNull());
   }
 
-  // TODO: Consider reshaping without transforming (just carry over the
-  //       reader) when getNumBufferElements() == getNumElements(), i.e.
-  //       strides have no zeros.
+  if (!isTransformed()) { // Skip WideNums if there's no element-wise transform.
+    return elmsBuilder.fromRawBytes(
+        reshapedType, getBufferDType(), [this](MutableArrayRef<char> dst) {
+          auto src = getBufferBytes();
+          restrideArray(getBufferElementBytewidth(), getShape(),
+              {getStrides(), src}, dst);
+        });
+  }
 
-  return elmsBuilder.fromWideNums(
-      reshapedType, [this](MutableArrayRef<WideNum> wideData) {
-        this->readWideNums(wideData);
-      });
+  return elmsBuilder.fromWideNums(reshapedType,
+      [this](MutableArrayRef<WideNum> wideData) { readWideNums(wideData); });
 }
 
 DisposableElementsAttr DisposableElementsAttr::expand(
