@@ -64,11 +64,77 @@ SmallVector<int64_t, 4> getDefaultStrides(ArrayRef<int64_t> shape) {
 
 Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> reshapedShape) {
-  // TODO: refine logic to figure out strides in more situations, see:
-  //       https://pytorch.org/docs/stable/generated/torch.Tensor.view.html
-  if (!areStridesContiguous(shape, strides))
-    return None;
-  return getDefaultStrides(reshapedShape);
+  assert(shape.size() == strides.size());
+  assert(ShapedType::getNumElements(shape) == ShapedType::getNumElements(reshapedShape));
+
+  if (areStridesContiguous(shape, strides))
+    return getDefaultStrides(reshapedShape);
+
+  assert(ShapedType::getNumElements(shape) > 1 && "sizes < 2 are always contiguous");
+
+  // TODO: Test the following logic.
+
+  // Squeeze shape and strides.
+  SmallVector<int64_t, 4> shape1;
+  SmallVector<int64_t, 4> strides1;
+  size_t rank = shape.size();
+  for (size_t a = 0; a < rank; ++a) {
+    if (shape[a] != 1) {
+      shape1.push_back(shape[a]);
+      strides1.push_back(strides[a]);
+    }
+  }
+
+  size_t rank1 = shape1.size(), rank2 = reshapedShape.size();
+  size_t a1 = 0, a2 = 0;
+  SmallVector<int64_t, 4> reshapedStrides;
+  do {
+    assert(a2 == reshapedStrides.size());
+
+    // Multiply dimSizes of leading axes with zero strides.
+    int64_t m = 1;
+    while (a1 < rank1 && strides1[a1] == 0) {
+      m *= shape1[a1];
+      ++a1;
+    }
+    // Add zero strides for axes in reshapedShape with dimSizes product m.
+    int64_t m2 = 1;
+    while (a2 < rank2 && m2 * reshapedShape[a2] <= m) {
+      m2 *= reshapedShape[a2];
+      reshapedStrides.push_back(0);
+      ++a2;
+    }
+    if (m2 < m)
+      return None;
+    if (a1 == rank1)
+      break;
+
+    assert(a2 == reshapedStrides.size());
+
+    // Multiply dimSizes of contiguous leading axes. See:
+    // https://pytorch.org/docs/stable/generated/torch.Tensor.view.html
+    int64_t n = 1;
+    int64_t s = strides1[a1] * shape1[a1];
+    do {
+      n *= shape1[a1];
+      ++a1;
+    } while (a1 < rank1 && strides1[a1 - 1] == shape1[a1] * strides1[a1]);
+    assert(s == n * strides1[a1 - 1]);
+    // Add contiguous strides for axes in reshapedShape with dimSizes product n.
+    int64_t n2 = 1;
+    while (a2 < rank2 && n2 * reshapedShape[a2] <= n) {
+      n2 *= reshapedShape[a2];
+      s /= reshapedShape[a2];
+      reshapedStrides.push_back(s);
+      ++a2;
+    }
+    if (n2 < n)
+      return None;
+    assert(strides1[a1 - 1] == reshapedStrides[a2 - 1]);
+  } while (a1 < rank1);
+  assert(a2 == rank2);
+  assert(a2 == reshapedStrides.size());
+  return reshapedStrides;
 }
 
 SmallVector<int64_t, 4> expandStrides(
