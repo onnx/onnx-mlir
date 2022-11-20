@@ -40,6 +40,7 @@
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include <math.h>
+#include <numeric>
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -334,12 +335,12 @@ Value ConstPropSqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
-void SplitImpl(ArrayRef<WideNum> inputData, size_t start, size_t end,
+void SplitImpl(ArrayRef<WideNum> inputData, size_t start, size_t len,
     size_t stride, MutableArrayRef<WideNum> outputData) {
   auto in = inputData.begin();
   auto out = outputData.begin();
   for (size_t offset = start; offset < inputData.size(); offset += stride)
-    out = std::copy_n(in + offset, end - start, out);
+    out = std::copy_n(in + offset, len, out);
   assert(out == outputData.end() && "result num elements mismatch");
 }
 
@@ -347,55 +348,47 @@ template <typename Op>
 LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     llvm::Optional<ArrayAttr> splitAttr) {
   // Basic info.
-  unsigned numOfResults = splitOp.getNumResults();
+  unsigned numResults = splitOp.getNumResults();
   Value input = splitOp.input();
   if (!isFromDenseONNXConstantOp(input))
     return failure();
   ShapedType inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
-  // Split axis.
   uint64_t splitAxis = splitOp.axis();
-  // Compute split offsets.
-  SmallVector<int64_t, 4> splitOffsets;
-  {
-    if (!splitAttr.has_value())
-      // If split attribute is not specified, split size is equally divided.
-      assert(inputShape[splitAxis] % numOfResults == 0 &&
-             "The dimension at the split axis is expected to be divisible by "
-             "the number of results");
-    int64_t offset = 0;
-    for (unsigned int i = 0; i < numOfResults; ++i) {
-      splitOffsets.emplace_back(offset);
-      if (splitAttr.has_value())
-        offset += splitAttr.value()[i].cast<IntegerAttr>().getInt();
-      else
-        offset += inputShape[splitAxis] / numOfResults;
-    }
-    splitOffsets.emplace_back(offset);
-    assert(offset == inputShape[splitAxis]);
+  if (splitAttr.has_value()) {
+    // splitAttr must have numResults entries that add up to
+    // inputShape[splitAxis]
+  } else {
+    // If split attribute is not specified, split size is equally divided.
+    assert(inputShape[splitAxis] % numResults == 0 &&
+           "The dimension at the split axis is expected to be divisible by "
+           "the number of results");
   }
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   DisposableElementsAttr inputElements =
       getConstValueAsDisposableElements(elementsBuilder, input);
   ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
-  size_t numElements = inputElements.getNumElements();
-  auto strides = getDefaultStrides(inputShape);
-  size_t dataStride = splitAxis == 0 ? numElements : strides[splitAxis - 1];
+  size_t stride = ShapedType::getNumElements(inputShape.drop_front(splitAxis));
+  size_t substride = stride / inputShape[splitAxis];
+  size_t offset = 0;
   std::vector<Value> resValues;
-  for (unsigned int i = 0; i < numOfResults; ++i) {
+  for (unsigned int i = 0; i < numResults; ++i) {
     Value replacingValue = splitOp.getResults()[i];
-    size_t dataStart = splitOffsets[i] * strides[splitAxis];
-    size_t dataEnd = splitOffsets[i + 1] * strides[splitAxis];
+    size_t len = substride; // Multiply split length by substride.
+    if (splitAttr.has_value())
+      len *= ArrayAttrIntVal(splitAttr, i);
+    else
+      len *= inputShape[splitAxis] / numResults;
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
         replacingValue.getType(), [&](MutableArrayRef<WideNum> outputData) {
-          SplitImpl(
-              inputData.get(), dataStart, dataEnd, dataStride, outputData);
+          SplitImpl(inputData.get(), offset, len, stride, outputData);
         });
     resValues.push_back(
         createReplacingConstantOp(rewriter, replacingValue, splitElements)
             .getResult());
+    offset += len;
   }
 
   rewriter.replaceOp(splitOp, resValues);
