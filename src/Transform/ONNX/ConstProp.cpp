@@ -445,49 +445,32 @@ public:
 void ScatterNDImpl(DisposableElementsAttr dataElements,
     DisposableElementsAttr indicesElements,
     DisposableElementsAttr updatesElements,
-    MutableArrayRef<WideNum> output_data) {
-  dataElements.readWideNums(output_data);
-  ArrayBuffer<int64_t> indices_data = indicesElements.getArray<int64_t>();
-  ArrayBuffer<WideNum> updates_data = updatesElements.getWideNums();
+    MutableArrayRef<WideNum> output) {
+  dataElements.readWideNums(output);
+  ArrayBuffer<int64_t> indicesBuffer = indicesElements.getArray<int64_t>();
+  ArrayRef<int64_t> indices = indicesBuffer.get();
+  ArrayBuffer<WideNum> updatesBuffer = updatesElements.getWideNums();
+  ArrayRef<WideNum> updates = updatesBuffer.get();
 
-  auto data_shape = dataElements.getShape();
-  auto indices_shape = indicesElements.getShape();
-  auto updates_shape = updatesElements.getShape();
+  auto dataShape = dataElements.getShape();
+  auto indicesShape = indicesElements.getShape();
+  auto updatesShape = updatesElements.getShape();
 
-  int64_t n_slices = 1;
-  int64_t slice_size = 1;
+  int64_t indices_nd = indicesShape.back();
+  auto outer = indicesShape.drop_back();
+  int64_t n_slices = ShapedType::getNumElements(outer);
+  int64_t slice_size = ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
+  auto dataStrides = getStrides(dataShape);
+  auto sliceStrides = llvm::makeArrayRef(dataStrides).take_front(indices_nd);
 
-  int64_t outer_dims = indices_shape.size() - 1;
-  int64_t indices_nd = indices_shape[outer_dims];
-  int64_t updates_dims = updates_shape.size();
-
-  for (int64_t i = 0; i < outer_dims; i++) {
-    n_slices *= indices_shape[i];
-  }
-
-  for (int64_t i = outer_dims; i < updates_dims; i++) {
-    slice_size *= updates_shape[i];
-  }
-
-  int64_t output_flat_size = ShapedType::getNumElements(data_shape);
-  int64_t remain_flat_size = output_flat_size;
-  std::vector<int64_t> dims_to_count(indices_nd, 0);
-
-  for (int64_t i = 0; i < indices_nd; ++i) {
-    dims_to_count[i] = remain_flat_size / data_shape[i];
-    remain_flat_size = dims_to_count[i];
-  }
-
+  auto indicesIter = indices.begin();
+  auto updatesIter = updates.begin();
   for (int64_t i = 0; i < n_slices; ++i) {
-    int64_t to_pos = 0;
-    for (int64_t j = 0; j < indices_nd; ++j) {
-      int64_t idx = indices_data.get()[i * indices_nd + j];
-      // assert(0 <= idx && idx < data_shape[j]);
-      to_pos += idx * dims_to_count[j];
-    }
-    for (int64_t j = 0; j < slice_size; j++) {
-      output_data[to_pos + j] = updates_data.get()[i * slice_size + j];
-    }
+    ArrayRef<int64_t> idxs(indicesIter, indices_nd);
+    int64_t pos = getLinearAccessIndex(idxs, sliceStrides);
+    std::copy_n(updatesIter, slice_size, output.begin() + pos);
+    indicesIter += indices_nd;
+    updatesIter += slice_size;
   }
 }
 

@@ -29,7 +29,7 @@ int64_t getStridesNumElements(
 
 size_t getStridesPosition(
     ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
-  assert(indices.size() >= strides.size());
+  // assert(indices.size() == strides.size());
   size_t pos = 0;
   for (int a = indices.size() - 1, s = strides.size() - 1; s >= 0; --a, --s)
     pos += indices[a] * strides[s];
