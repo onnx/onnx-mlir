@@ -74,8 +74,6 @@ Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
   assert(ShapedType::getNumElements(shape) > 1 &&
          "sizes < 2 are always contiguous");
 
-  // TODO: Test the following logic.
-
   size_t rank1 = shape.size(), rank2 = reshapedShape.size();
   size_t a1 = 0, a2 = 0;
   SmallVector<int64_t, 4> reshapedStrides;
