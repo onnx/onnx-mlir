@@ -170,9 +170,9 @@ class SignatureExecutionSession(object):
 
     def run(self, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from PyRuntime import ExecutionSession
+        from PyRuntime import OMExecutionSession
 
-        session = ExecutionSession(self.exec_name)
+        session = OMExecutionSession(self.exec_name)
         output = session.input_signature()
         return output
 

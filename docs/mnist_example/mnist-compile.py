@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyCompile import PyOMCompileSession
+from PyCompile import OMCompileSession
 
-# Load onnx model and create PyOMCompileSession object.
+# Load onnx model and create OMCompileSession object.
 file = './mnist.onnx'
-compiler = PyOMCompileSession(file)
+compiler = OMCompileSession(file)
 # Generate the library file. Success when rc == 0 while set the opt as "-O3"
 rc = compiler.compile("-O3")
 # Get the output file name
