@@ -94,8 +94,8 @@ inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
   assert(lhs.strides.size() == shape.size() && "lhs strides must be expanded");
   assert(rhs.strides.size() == shape.size() && "rhs strides must be expanded");
   assert(dst.strides.size() == shape.size() && "dst strides must be full rank");
-  int64_t rank = shape.size();
-  auto traverse = [=](int64_t axis, size_t lhsPos, size_t rhsPos, size_t dstPos,
+  size_t rank = shape.size();
+  auto traverse = [=](size_t axis, size_t lhsPos, size_t rhsPos, size_t dstPos,
                       const auto &recurse) -> void {
     if (axis == rank) {
       dst.data[dstPos] = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
