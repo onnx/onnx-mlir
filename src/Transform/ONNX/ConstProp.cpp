@@ -334,13 +334,13 @@ Value ConstPropSqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
-void SplitImpl(ArrayRef<WideNum> input, size_t start, size_t end, size_t stride,
-    MutableArrayRef<WideNum> output) {
-  auto in = input.begin();
-  auto out = output.begin();
-  for (size_t offset = start; offset < input.size(); offset += stride)
+void SplitImpl(ArrayRef<WideNum> inputData, size_t start, size_t end,
+    size_t stride, MutableArrayRef<WideNum> outputData) {
+  auto in = inputData.begin();
+  auto out = outputData.begin();
+  for (size_t offset = start; offset < inputData.size(); offset += stride)
     out = std::copy_n(in + offset, end - start, out);
-  assert(out == output.end() && "result type num elements mismatch");
+  assert(out == outputData.end() && "result num elements mismatch");
 }
 
 template <typename Op>
@@ -389,8 +389,9 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     size_t dataStart = splitOffsets[i] * strides[splitAxis];
     size_t dataEnd = splitOffsets[i + 1] * strides[splitAxis];
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
-        replacingValue.getType(), [&](MutableArrayRef<WideNum> output) {
-          SplitImpl(inputData.get(), dataStart, dataEnd, dataStride, output);
+        replacingValue.getType(), [&](MutableArrayRef<WideNum> outputData) {
+          SplitImpl(
+              inputData.get(), dataStart, dataEnd, dataStride, outputData);
         });
     resValues.push_back(
         createReplacingConstantOp(rewriter, replacingValue, splitElements)
@@ -444,8 +445,7 @@ public:
  */
 void ScatterNDImpl(DisposableElementsAttr dataElements,
     DisposableElementsAttr indicesElements,
-    DisposableElementsAttr updatesElements,
-    MutableArrayRef<WideNum> output) {
+    DisposableElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
   dataElements.readWideNums(output);
   ArrayBuffer<int64_t> indicesBuffer = indicesElements.getArray<int64_t>();
   ArrayRef<int64_t> indices = indicesBuffer.get();
@@ -459,7 +459,8 @@ void ScatterNDImpl(DisposableElementsAttr dataElements,
   int64_t indices_nd = indicesShape.back();
   auto outer = indicesShape.drop_back();
   int64_t n_slices = ShapedType::getNumElements(outer);
-  int64_t slice_size = ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
+  int64_t slice_size =
+      ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
   auto dataStrides = getStrides(dataShape);
   auto sliceStrides = llvm::makeArrayRef(dataStrides).take_front(indices_nd);
 
@@ -590,33 +591,20 @@ void ConstPropConcatImpl(ShapedType outputType,
     ArrayRef<DisposableElementsAttr> inputElements, int64_t axis,
     MutableArrayRef<WideNum> outputData) {
   ArrayRef<int64_t> outputShape = outputType.getShape();
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
-
-  // If concatenation is on the outermost dimension, do memcpy for better
-  // performance. Otherwise, copy elements one-by-one.
-  if (axis == 0) {
-    auto outputIterator = outputData.begin();
-    for (uint64_t i = 0; i < inputElements.size(); ++i) {
-      ArrayBuffer<WideNum> inputData = inputElements[i].getWideNums();
-      outputIterator = std::copy(
-          inputData.get().begin(), inputData.get().end(), outputIterator);
+  size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
+  size_t start = 0;
+  auto out = outputData.begin();
+  for (DisposableElementsAttr input : inputElements) {
+    ArrayRef<int64_t> inputShape = input.getShape();
+    size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
+    ArrayBuffer<WideNum> inputData = input.getWideNums();
+    auto in = inputData.get().begin();
+    for (size_t offset = start; offset < outputData.size(); offset += stride) {
+      std::copy_n(in, len, out + offset);
+      in += len;
     }
-  } else {
-    int64_t dimAtAxis = 0;
-    for (uint64_t i = 0; i < inputElements.size(); ++i) {
-      ArrayBuffer<WideNum> inputData = inputElements[i].getWideNums();
-      ArrayRef<int64_t> inputShape = inputElements[i].getShape();
-      std::vector<int64_t> inputStrides = getStrides(inputShape);
-      for (size_t k = 0; k < inputData.get().size(); ++k) {
-        std::vector<int64_t> inputIndices = getAccessIndex(k, inputStrides);
-        std::vector<int64_t> outputIndices(inputIndices);
-        outputIndices[axis] += dimAtAxis;
-        int64_t outputOffset =
-            getLinearAccessIndex(outputIndices, outputStrides);
-        outputData[outputOffset] = inputData.get()[k];
-      }
-      dimAtAxis += inputShape[axis];
-    }
+    assert(in == inputData.get().end() && "input num elements mismatch");
+    start += len;
   }
 }
 
