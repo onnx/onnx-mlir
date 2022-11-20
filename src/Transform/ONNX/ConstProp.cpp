@@ -334,6 +334,15 @@ Value ConstPropSqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
+void SplitImpl(ArrayRef<WideNum> input, size_t start, size_t end, size_t stride,
+    MutableArrayRef<WideNum> output) {
+  auto in = input.begin();
+  auto out = output.begin();
+  for (size_t offset = start; offset < input.size(); offset += stride)
+    out = std::copy_n(in + offset, end - start, out);
+  assert(out == output.end() && "result type num elements mismatch");
+}
+
 template <typename Op>
 LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     llvm::Optional<ArrayAttr> splitAttr) {
@@ -363,35 +372,25 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
       else
         offset += inputShape[splitAxis] / numOfResults;
     }
+    splitOffsets.emplace_back(offset);
+    assert(offset == inputShape[splitAxis]);
   }
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   DisposableElementsAttr inputElements =
       getConstValueAsDisposableElements(elementsBuilder, input);
-  ArrayBuffer<WideNum> inputNums = inputElements.getWideNums();
+  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
   size_t numElements = inputElements.getNumElements();
   auto strides = getDefaultStrides(inputShape);
-  size_t iterationOffset =
-      splitAxis == 0 ? numElements : strides[splitAxis - 1];
-  size_t iterations = numElements / iterationOffset;
+  size_t dataStride = splitAxis == 0 ? numElements : strides[splitAxis - 1];
   std::vector<Value> resValues;
   for (unsigned int i = 0; i < numOfResults; ++i) {
     Value replacingValue = splitOp.getResults()[i];
+    size_t dataStart = splitOffsets[i] * strides[splitAxis];
+    size_t dataEnd = splitOffsets[i + 1] * strides[splitAxis];
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
-        replacingValue.getType(), [&](MutableArrayRef<WideNum> dstNums) {
-          auto dstIterator = dstNums.begin();
-          size_t start = splitOffsets[i];
-          size_t stop = i == numOfResults - 1 ? inputShape[splitAxis]
-                                              : splitOffsets[i + 1];
-          auto splitBegin =
-              inputNums.get().begin() + (strides[splitAxis] * start);
-          size_t splitSize = strides[splitAxis] * (stop - start);
-          for (size_t j = 0; j < iterations; ++j) {
-            dstIterator = std::copy_n(splitBegin, splitSize, dstIterator);
-            splitBegin += iterationOffset;
-          }
-          assert(dstIterator == dstNums.end() &&
-                 "result type num elements mismatch");
+        replacingValue.getType(), [&](MutableArrayRef<WideNum> output) {
+          SplitImpl(inputData.get(), dataStart, dataEnd, dataStride, output);
         });
     resValues.push_back(
         createReplacingConstantOp(rewriter, replacingValue, splitElements)
