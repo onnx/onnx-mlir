@@ -16,7 +16,7 @@ add_onnx_mlir_executable(onnx-mlir
   onnx-mlir.cpp
 
   LINK_LIBS PRIVATE
-  CompilerOptions
-  CompilerUtils
+  OMCompilerOptions
+  OMCompilerUtils
   )
   
