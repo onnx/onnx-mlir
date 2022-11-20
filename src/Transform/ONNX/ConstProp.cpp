@@ -356,12 +356,12 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
   uint64_t splitAxis = splitOp.axis();
+  size_t splitAxisSize = inputShape[splitAxis];
   if (splitAttr.has_value()) {
-    // splitAttr must have numResults entries that add up to
-    // inputShape[splitAxis]
+    // splitAttr must have numResults entries that add up to splitAxisSize.
   } else {
     // If split attribute is not specified, split size is equally divided.
-    assert(inputShape[splitAxis] % numResults == 0 &&
+    assert(splitAxisSize % numResults == 0 &&
            "The dimension at the split axis is expected to be divisible by "
            "the number of results");
   }
@@ -371,7 +371,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
       getConstValueAsDisposableElements(elementsBuilder, input);
   ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
   size_t stride = ShapedType::getNumElements(inputShape.drop_front(splitAxis));
-  size_t substride = stride / inputShape[splitAxis];
+  size_t substride = stride / splitAxisSize;
   size_t offset = 0;
   std::vector<Value> resValues;
   for (unsigned int i = 0; i < numResults; ++i) {
@@ -380,7 +380,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     if (splitAttr.has_value())
       len *= ArrayAttrIntVal(splitAttr, i);
     else
-      len *= inputShape[splitAxis] / numResults;
+      len *= splitAxisSize / numResults;
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
         replacingValue.getType(), [&](MutableArrayRef<WideNum> outputData) {
           SplitImpl(inputData.get(), offset, len, stride, outputData);
@@ -654,49 +654,30 @@ Value ConstPropExpand(
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
+
 void ConstPropGatherImpl(ShapedType outputType,
     DisposableElementsAttr inputElements,
     DisposableElementsAttr indicesElements, int64_t axis,
     MutableArrayRef<WideNum> outputData) {
-  std::vector<int64_t> outputStrides = getStrides(outputType.getShape());
-  ArrayRef<int64_t> inputShape = inputElements.getShape();
-  ArrayRef<int64_t> indicesShape = indicesElements.getShape();
-  std::vector<int64_t> inputStrides = getStrides(inputShape);
-  std::vector<int64_t> indicesStrides = getStrides(indicesShape);
-  int64_t inputRank = inputShape.size();
-  int64_t indicesRank = indicesShape.size();
-  int64_t axisDim = inputShape[axis];
-
   ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
   ArrayBuffer<int64_t> indicesData = indicesElements.getArray<int64_t>();
-
-  // Iterate over the output index space.
-  for (size_t ii = 0; ii < outputData.size(); ++ii) {
-    std::vector<int64_t> outputIndices = getAccessIndex(ii, outputStrides);
-    SmallVector<int64_t, 4> inputIndices, indicesIndices;
-    // Compute tensor access indices for indices: indices[jj].
-    for (int j = 0; j < indicesRank; ++j)
-      indicesIndices.emplace_back(outputIndices[axis + j]);
-    int64_t indicesOffset =
-        getLinearAccessIndex(indicesIndices, indicesStrides);
-    // Get indices.
-    int64_t axisIndex = indicesData.get()[indicesOffset];
-    if (axisIndex < 0)
-      axisIndex += axisDim;
-
-    // Compute tensor access indices for input: input[ii + (indices[jj],) + kk]
-    // First add indices ii
-    for (int i = 0; i < axis; ++i)
-      inputIndices.emplace_back(outputIndices[i]);
-    // Then add indices[jj] at axis.
-    inputIndices.emplace_back(axisIndex);
-    // Then add kk.
-    for (int k = axis + 1; k < inputRank; ++k)
-      inputIndices.emplace_back(outputIndices[indicesRank - 1 + k]);
-
-    // Copy values.
-    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    outputData[ii] = inputData.get()[inputOffset];
+  auto inputShape = inputElements.getShape();
+  size_t axisSize = inputShape[axis];
+  size_t inputStride = ShapedType::getNumElements(inputShape.drop_front(axis));
+  size_t len = inputStride / axisSize;
+  auto outputShape = outputType.getShape();
+  size_t outputStride = ShapedType::getNumElements(outputShape.drop_front(axis));
+  assert(outputStride == indicesData.get().size() * len);
+  size_t start = 0;
+  auto out = outputData.begin();
+  for (int64_t idx : indicesData.get()) {
+    int64_t adjustedIdx = idx < 0 ? idx + axisSize : idx;
+    auto in = inputData.get().begin() + adjustedIdx * len;
+    for (size_t offset = start; offset < outputData.size(); offset += outputStride) {
+      std::copy_n(in, len, out + offset);
+      in += inputStride;
+    }
+    start += len;
   }
 }
 
