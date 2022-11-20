@@ -538,24 +538,34 @@ Value ConstPropCast(
 void ConstPropSliceImpl(ShapedType outputType,
     const NewONNXSliceOpShapeHelper &shapeHelper,
     DisposableElementsAttr inputElements, MutableArrayRef<WideNum> outputData) {
-  std::vector<int64_t> outputStrides = getStrides(outputType.getShape());
+  size_t rank = outputType.getRank();
+  auto outputShape = outputType.getShape();
+  std::vector<int64_t> outputStrides = getStrides(outputShape);
   std::vector<int64_t> inputStrides = getStrides(inputElements.getShape());
-  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
-  // Iterate over the output index space.
-  for (size_t i = 0; i < outputData.size(); ++i) {
-    // Input index: "ii * step + start" for all dim.
-    // Output index: "ii" for all dims.
-    // where `ii` is a tensor index.
-    std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
-    SmallVector<int64_t, 4> inputIndices;
-    for (unsigned k = 0; k < outputIndices.size(); ++k) {
-      int64_t ii = outputIndices[k];
-      inputIndices.emplace_back(ii * shapeHelper.steps[k].getLiteral() +
-                                shapeHelper.starts[k].getLiteral());
-    }
-    int64_t inputOffset = getLinearAccessIndex(inputIndices, inputStrides);
-    outputData[i] = inputData.get()[inputOffset];
+  size_t start = 0;
+  SmallVector<size_t, 4> steps(rank, 0);
+  for (size_t axis = 0; axis < rank; ++axis) {
+    start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
+    steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
+  ArrayBuffer<WideNum> inputBuffer = inputElements.getWideNums();
+  ArrayRef<WideNum> inputData = inputBuffer.get();
+  auto traverse = [&](size_t axis, size_t srcPos, size_t dstPos,
+                      const auto &recurse) -> void {
+    if (axis == rank) {
+      outputData[dstPos] = inputData[srcPos];
+    } else {
+      size_t srcStep = steps[axis];
+      size_t dstStride = outputStrides[axis];
+      size_t dimSize = outputShape[axis];
+      for (size_t i = 0; i < dimSize; ++i) {
+        recurse(axis + 1, srcPos, dstPos, recurse);
+        srcPos += srcStep;
+        dstPos += dstStride;
+      }
+    }
+  };
+  traverse(0, start, 0, traverse);
 }
 
 Value ConstPropSlice(
