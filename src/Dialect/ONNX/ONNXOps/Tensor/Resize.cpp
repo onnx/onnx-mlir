@@ -62,7 +62,7 @@ LogicalResult ONNXResizeOp::inferShapes(
     SmallVector<int64_t, 4> dims;
     for (int i = 0; i < inputTy.getRank(); i++) {
       int newDim;
-      if (inputTy.getShape()[i] == -1)
+      if (ShapedType::isDynamic(inputTy.getShape()[i]))
         newDim = -1;
       else
         newDim = inputTy.getShape()[i] * scalesConstant[i];

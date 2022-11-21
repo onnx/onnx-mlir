@@ -48,7 +48,7 @@ public:
     Value outputSeq = thisOp.getResult();
     auto outputType = outputSeq.getType().cast<MemRefType>();
     Value alloc;
-    if (outputType.getShape()[0] == -1)
+    if (outputType.isDynamicDim(0))
       alloc = create.mem.alloc(outputType, operandAdaptor.length());
     else
       alloc = create.mem.alloc(outputType);

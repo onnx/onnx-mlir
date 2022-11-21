@@ -27,6 +27,18 @@ namespace onnx_mlir {
 
 namespace einsum {
 
+// Beware that this is only a reference and cannot store a lambda. Don't do:
+//
+//   einsum::ErrorFn fn = [this]() { return this->emitOpError(".."); };
+//
+// Instead do:
+//
+//   auto fn = [this]() { .. };
+//
+// or don't name it:
+//
+//   verifyEquation(eqn, n, [this]() { ... })
+//
 typedef llvm::function_ref<mlir::InFlightDiagnostic()> ErrorFn;
 
 mlir::LogicalResult verifyEquation(
