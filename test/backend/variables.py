@@ -228,7 +228,7 @@ def get_runtime_vars():
 
     # No need to depend on PyRuntime if we are simply listing nodes/models
     if not args.list:
-        from PyRuntime import ExecutionSession
+        from PyRuntime import OMExecutionSession
 
     return result_dir, RUNTIME_DIR, TEST_DRIVER
 

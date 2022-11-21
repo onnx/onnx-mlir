@@ -7,8 +7,8 @@ add_onnx_mlir_executable(onnx-mlir-reduce
 
   LINK_LIBS PRIVATE
   ${OMLibs}
-  Accelerator
-  InitAccelerators
+  OMAccelerator
+  OMInitAccelerators
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRReduceLib

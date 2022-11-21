@@ -23,7 +23,7 @@ as a shared library to `build/Debug/lib/PyRuntime.cpython-<target>.so`.
 3. The library to compile and run onnx-mlir models is generated
 by by `PyOMCompileExecutionSession` (src/Runtime/PyOMCompileExecutionSession.hpp) and built
 as a shared library to `build/Debug/lib/PyCompileAndRuntime.cpython-<target>.so`. 
-This lobrary takes an .onnx file and the options as inputs, it will load it and then compile and run it.
+This library takes an .onnx file and the options as inputs, it will load it and then compile and run it.
 
 The module can be imported normally by the Python interpreter as long as it is in your
 PYTHONPATH. Another alternative is to create a symbolic link to it in your working directory.
@@ -46,12 +46,12 @@ inference for a model that has a single entry point.
 
 ```python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 model = 'model.so' # LeNet from ONNX Zoo compiled with onnx-mlir
 
 # Create a session for this model.
-session = ExecutionSession(shared_lib_path=model)
+session = OMExecutionSession(shared_lib_path=model)
 # Input and output signatures of the default entry point.
 print("input signature in json", session.input_signature())
 print("output signature in json",session.output_signature())
@@ -68,12 +68,12 @@ entry point to do inference. Below is an example of doing inference with multipl
 entry points.
 ```python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 model = 'multi-entry-points-model.so'
 
 # Create a session for this model.
-session = ExecutionSession(shared_lib_path=model, use_default_entry_point=False) # False to manually set an entry point.
+session = OMExecutionSession(shared_lib_path=model, use_default_entry_point=False) # False to manually set an entry point.
 
 # Query entry points in the model.
 entry_points = session.entry_points()
@@ -93,7 +93,7 @@ for entry_point in entry_points:
 ```
 
 ## PyRuntime model API
-The complete interface to ExecutionSession can be seen in the sources mentioned previously.
+The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
 
 ```python
@@ -144,15 +144,15 @@ def set_entry_point(self, name: str):
 
 An ONNX model can be compiled directly from the command line. The resulting library can then be executed using Python as shown in the previous sections. At times, it might be convenient to also compile a model directly in Python. This section explores the Python methods to do so.
 
-The PyOMCompileSession object will take a file name while constructing. For the compilation, `compile()` will take a `flags` string as an input which will override any default options set from the env var.
+The OMCompileSession object will take a file name while constructing. For the compilation, `compile()` will take a `flags` string as an input which will override any default options set from the env var.
 
 ```python
 import numpy as np
-from PyCompile import PyOMCompileSession
+from PyCompile import OMCompileSession
 
-# Load onnx model and create PyOMCompileSession object.
+# Load onnx model and create OMCompileSession object.
 file = './mnist.onnx'
-compiler = PyOMCompileSession(file)
+compiler = OMCompileSession(file)
 # Generate the library file. Success when rc == 0 while set the opt as "-O3"
 rc = compiler.compile("-O3")
 # Get the output file name
@@ -163,7 +163,7 @@ if rc:
 print("Compiled onnx file", file, "to", model, "with rc", rc)
 ```
 
-The `PyCompile` module exports the `PyOMCompileSession` class to drive the
+The `PyCompile` module exports the `OMCompileSession` class to drive the
 compilation of a ONNX model into an executable model.
 Typically, a compiler object is created for a given model by giving it the file name of the ONNX model.
 Then, all the compiler options can be set as a whole `std::string` to generate the desired executable.
@@ -233,14 +233,14 @@ def get_error_message(self):
 
 ```python
 import numpy as np
-from PyCompileAndRuntime import PyOMCompileExecutionSession
+from PyCompileAndRuntime import OMCompileExecutionSession
 
-# Load onnx model and create CompileExecutionSession object.
+# Load onnx model and create OMCompileExecutionSession object.
 inputFileName = './mnist.onnx'
 # Set the full name of compiled model
 sharedLibPath = './mnist.so'
 # Set the compile option as "-O3"
-session = PyOMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
+session = OMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
 
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.

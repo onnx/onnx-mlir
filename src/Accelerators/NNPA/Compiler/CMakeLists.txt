@@ -1,6 +1,6 @@
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-add_onnx_mlir_library(NNPACompilerOptions
+add_onnx_mlir_library(OMNNPACompilerOptions
   NNPACompilerOptions.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -13,14 +13,14 @@ add_onnx_mlir_library(NNPACompilerOptions
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  CompilerOptions
+  OMCompilerOptions
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}
   ${NNPA_ONNX_MLIR_BIN_ROOT}
   )
 
-add_onnx_mlir_library(NNPACompilerUtils
+add_onnx_mlir_library(OMNNPACompilerUtils
   NNPACompilerUtils.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -33,8 +33,8 @@ add_onnx_mlir_library(NNPACompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  NNPACompilerOptions
-  CompilerPasses
+  OMNNPACompilerOptions
+  OMCompilerPasses
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}

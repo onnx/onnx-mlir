@@ -254,15 +254,15 @@ First, we include the necessary Python runtime library. The library path can be 
 
 ``` Python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 ```
 
-The runtime use an `ExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
+The runtime use an `OMExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
 
 ``` Python
 #Load the model mnist.so compiled with onnx-mlir.
 model = 'mnist.so'
-session = ExecutionSession(model)
+session = OMExecutionSession(model)
 #Print the models input / output signature, for display.
 #If there are problems with the signature functions,                           \
     they can be simply commented out.

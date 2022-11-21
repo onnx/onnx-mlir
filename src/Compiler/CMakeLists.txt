@@ -29,13 +29,13 @@ if (ONNX_MLIR_VENDOR)
 endif()
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
-add_onnx_mlir_library(CompilerOptions
+add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-  Accelerator
+  OMAccelerator
   ExternalUtil
   AcceleratorsInc
 
@@ -47,10 +47,10 @@ add_onnx_mlir_library(CompilerOptions
 
   LINK_LIBS PUBLIC
   MLIRIR
-  Accelerator
+  OMAccelerator
   )
 
-add_onnx_mlir_library(CompilerPasses
+add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -66,7 +66,7 @@ add_onnx_mlir_library(CompilerPasses
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  CompilerOptions
+  OMCompilerOptions
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
@@ -123,7 +123,7 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
-add_onnx_mlir_library(CompilerUtils
+add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -142,12 +142,13 @@ add_onnx_mlir_library(CompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  CompilerPasses
-  Accelerator
-  InitAccelerators
+  OMCompilerPasses
+  OMAccelerator
+  OMInitAccelerators
   OMVersion
 
-  # Link LLVM libraries necessary to query which target architectures are configured.
+  # Link LLVM libraries necessary to query which target architectures
+  # are configured.
   LINK_COMPONENTS PRIVATE
   AllTargetsAsmParsers
   AllTargetsCodeGens
@@ -156,18 +157,19 @@ add_onnx_mlir_library(CompilerUtils
   MC
   )
 
-# CompilerUtils does not require cruntime or jniruntime to build, however, they are
-# required for execution when using the EmitLib or EmitJNI options
-add_dependencies(CompilerUtils cruntime)
+# CompilerUtils does not require cruntime or jniruntime to build,
+# however, they are required for execution when using the EmitLib or EmitJNI
+# options
+add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
-  add_dependencies(CompilerUtils jniruntime)
+  add_dependencies(OMCompilerUtils jniruntime)
 endif()
 
-add_onnx_mlir_library(OnnxMlirCompiler
+add_onnx_mlir_library(OMCompiler
   OnnxMlirCompiler.cpp
 
   DEPENDS
-  CompilerUtils
+  OMCompilerUtils
   ExternalUtil
 
   INCLUDE_DIRS PRIVATE
@@ -179,11 +181,11 @@ add_onnx_mlir_library(OnnxMlirCompiler
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PRIVATE
-  CompilerUtils
+  OMCompilerUtils
   )
 
 if (NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
+  target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
 
 pybind11_add_module(PyCompile PyOMCompileSession.cpp)
@@ -203,7 +205,7 @@ target_include_directories(PyCompile
   )
 target_link_libraries(PyCompile
   PRIVATE
-  OnnxMlirCompiler
+  OMCompiler
   )
 
 install(TARGETS PyCompile

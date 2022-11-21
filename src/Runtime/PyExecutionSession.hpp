@@ -37,7 +37,7 @@ public:
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyRuntime, m) {
-  py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
+  py::class_<onnx_mlir::PyExecutionSession>(m, "OMExecutionSession")
       .def(py::init<const std::string &>(), py::arg("shared_lib_path"))
       .def(py::init<const std::string &, const bool>(),
           py::arg("shared_lib_path"), py::arg("use_default_entry_point"))
