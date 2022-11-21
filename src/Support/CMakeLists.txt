@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(Diagnostic
+add_onnx_mlir_library(OMDiagnostic
   Diagnostic.cpp
 
   INCLUDE_DIRS PUBLIC
