@@ -43,7 +43,7 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
-std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<mlir::Pass> createElideConstantValuePass();
@@ -58,7 +58,8 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
+    bool report = false);
 
 /// Pass for analysing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();

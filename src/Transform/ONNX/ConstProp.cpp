@@ -41,6 +41,7 @@
 
 #include <math.h>
 #include <numeric>
+#include <unordered_map>
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -63,6 +64,35 @@ namespace {
 // Then you need to add rules on how to transform the patterns; look into
 // ConstProp.td for example.
 //
+
+struct ConstPropCounters {
+  size_t invocations = 0;
+  size_t input_elms = 0;
+
+  static void count(const std::string &name, ValueRange operands) {
+    auto &counters = map[name];
+    counters.invocations += 1;
+    for (auto oprnd : operands)
+      counters.input_elms += getNumberOfElements(oprnd.getType());
+  }
+
+  static void dump(llvm::raw_ostream &os) {
+    size_t total_invocations = 0, total_input_elms = 0;
+    for (auto &entry : map)
+      total_invocations += entry.second.invocations,
+          total_input_elms += entry.second.input_elms;
+    os << "constprop report (cumulative), entries: " << map.size()
+       << ", total invocations:" << total_invocations
+       << ", total input elements:" << total_input_elms << "\n";
+    for (auto &entry : map)
+      os << "  " << entry.first << " invocations:" << entry.second.invocations
+         << " input elements:" << entry.second.input_elms << "\n";
+  }
+
+  static std::unordered_map<std::string, ConstPropCounters> map;
+};
+
+std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
 /// A helper function to construct a RankedTensorType from a ShapedType.
 ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
@@ -208,6 +238,7 @@ auto combinerOfElementwiseBinaryOp(DType operandsDType) {
 template <typename ElementwiseBinaryOp>
 Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
     Value replacingValue, Value lhsValue, Value rhsValue) {
+  ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
   Type replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -269,6 +300,7 @@ ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
 template <typename ElementwiseUnaryOp>
 Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("ElementwiseUnary", {constValue});
   Type replacingElemType =
       replacingValue.getType().cast<ShapedType>().getElementType();
 
@@ -290,6 +322,7 @@ Value ConstPropElementwiseUnary(
 
 Value ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("Transpose", {constValue});
   // TODO: figure out if default may be omitted and what to do in that case
   ArrayAttr permAttr =
       replacingValue.getDefiningOp()->getAttr("perm").cast<ArrayAttr>();
@@ -311,6 +344,7 @@ Value ConstPropTranspose(
 
 Value ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
+  ConstPropCounters::count("Unsqueeze", {input});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -324,6 +358,7 @@ Value ConstPropUnsqueeze(
 
 Value ConstPropSqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
+  ConstPropCounters::count("Squeeze", {input});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -350,6 +385,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   // Basic info.
   unsigned numResults = splitOp.getNumResults();
   Value input = splitOp.input();
+  ConstPropCounters::count("Split", {input});
   if (!isFromDenseONNXConstantOp(input))
     return failure();
   ShapedType inputType = input.getType().cast<ShapedType>();
@@ -613,6 +649,7 @@ void ConstPropConcatImpl(ShapedType outputType,
 
 Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
+  ConstPropCounters::count("Concat", operands);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
   int64_t axis = axisAttr.getValue().getSExtValue();
   if (axis < 0)
@@ -639,6 +676,7 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropExpand(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("Expand", {constValue});
   ArrayRef<int64_t> expandedShape = getShape(replacingValue.getType());
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -654,7 +692,6 @@ Value ConstPropExpand(
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
-
 void ConstPropGatherImpl(ShapedType outputType,
     DisposableElementsAttr inputElements,
     DisposableElementsAttr indicesElements, int64_t axis,
@@ -666,14 +703,16 @@ void ConstPropGatherImpl(ShapedType outputType,
   size_t inputStride = ShapedType::getNumElements(inputShape.drop_front(axis));
   size_t len = inputStride / axisSize;
   auto outputShape = outputType.getShape();
-  size_t outputStride = ShapedType::getNumElements(outputShape.drop_front(axis));
+  size_t outputStride =
+      ShapedType::getNumElements(outputShape.drop_front(axis));
   assert(outputStride == indicesData.get().size() * len);
   size_t start = 0;
   auto out = outputData.begin();
   for (int64_t idx : indicesData.get()) {
     int64_t adjustedIdx = idx < 0 ? idx + axisSize : idx;
     auto in = inputData.get().begin() + adjustedIdx * len;
-    for (size_t offset = start; offset < outputData.size(); offset += outputStride) {
+    for (size_t offset = start; offset < outputData.size();
+         offset += outputStride) {
       std::copy_n(in, len, out + offset);
       in += inputStride;
     }
@@ -683,6 +722,7 @@ void ConstPropGatherImpl(ShapedType outputType,
 
 Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     Value inputValue, Value indicesValue) {
+  ConstPropCounters::count("Gather", {inputValue, indicesValue});
   Operation *op = replacingValue.getDefiningOp();
   ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
   int64_t axis = gatherOp.axis();
@@ -710,6 +750,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropReshape(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("Reshape", {constValue});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
@@ -738,7 +779,12 @@ struct ConstPropONNXToONNXPass
            "other ONNX operations.";
   }
 
+  ConstPropONNXToONNXPass(bool report) : report(report) {}
+
   void runOnOperation() final;
+
+private:
+  bool report;
 };
 } // end anonymous namespace.
 
@@ -766,11 +812,15 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   // TODO: determine if we should call DisposablePool::garbageCollectUnreachable
   //       (what's the relationship between function and the ModuleOp?)
 #endif
+
+  if (report)
+    ConstPropCounters::dump(llvm::outs());
 }
 
 /*!
  * Create a ConstPropONNX pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass() {
-  return std::make_unique<ConstPropONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass(
+    bool report) {
+  return std::make_unique<ConstPropONNXToONNXPass>(report);
 }

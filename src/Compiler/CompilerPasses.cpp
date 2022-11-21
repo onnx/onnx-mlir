@@ -33,16 +33,15 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
-    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt) {
+void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -67,29 +66,30 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayoutOpt));
+        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayout));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
 
-  if (transformThreshold > 0) {
+  if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(transformThreshold,
-        transformReport, targetCPU, enableSimdDataLayoutOpt));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
+        onnxOpTransformReport, targetCPU, enableSimdDataLayout));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass());
+          onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
     }
   }
 
   // Simplify shape-related ops.
-  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
@@ -213,8 +213,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty(), enableSimdDataLayout);
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)

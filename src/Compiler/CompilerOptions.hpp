@@ -70,6 +70,7 @@ extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
+extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 
