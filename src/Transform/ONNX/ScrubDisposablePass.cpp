@@ -42,7 +42,7 @@ struct ScrubDisposablePass
     return disposablePool ? disposablePool : DisposablePool::get(&getContext());
   }
 
-  DisposablePool * const disposablePool;
+  DisposablePool *const disposablePool;
   const bool closeAfter;
 };
 

@@ -62,6 +62,12 @@ private:
 
   void insert(mlir::DisposableElementsAttr disposable);
 
+  template <typename CONST_OP>
+  static void collectReachable(mlir::ModuleOp moduleOp, Pool &reachable);
+
+  template <typename CONST_OP>
+  static void scrubConstants(mlir::ModuleOp moduleOp, Scrubbed &scrubbed);
+
   static Scrubbed doScrub(mlir::ModuleOp moduleOp);
 
   void flushAfterScrub(const Scrubbed &scrubbed);

@@ -48,16 +48,24 @@ DisposableElementsAttr DisposablePool::lookup(size_t id) const {
   return found->second;
 }
 
-void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
-  Pool reachable;
-  moduleOp.walk([&reachable, this](ONNXConstantOp constOp) {
+/*static*/
+template <typename CONST_OP>
+void DisposablePool::collectReachable(ModuleOp moduleOp, Pool &reachable) {
+  moduleOp.walk([&reachable](CONST_OP constOp) {
     if (auto attr = constOp.value())
-      if (auto disposable = attr->dyn_cast<DisposableElementsAttr>()) {
-        assert(this->pool.count(disposable.getId()) == 1 &&
-               "reachable disposables must be in the pool");
+      if (auto disposable = attr->template dyn_cast<DisposableElementsAttr>()) {
         reachable.try_emplace(disposable.getId(), disposable);
       }
   });
+}
+
+void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
+  Pool reachable;
+  collectReachable<ONNXConstantOp>(moduleOp, reachable);
+  collectReachable<ONNXConstantOfShapeOp>(moduleOp, reachable);
+  for (auto &entry : reachable)
+    assert(this->pool.count(entry.first) == 1 &&
+           "reachable disposables must be in the pool");
   eraseUnreachable(reachable);
 }
 
@@ -70,11 +78,11 @@ void DisposablePool::scrub(
 }
 
 /*static*/
-auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
-  Scrubbed scrubbed;
-  moduleOp.walk([&scrubbed](ONNXConstantOp constOp) {
+template <typename CONST_OP>
+void DisposablePool::scrubConstants(ModuleOp moduleOp, Scrubbed &scrubbed) {
+  moduleOp.walk([&scrubbed](CONST_OP constOp) {
     if (auto attr = constOp.value())
-      if (auto disposable = attr->dyn_cast<DisposableElementsAttr>()) {
+      if (auto disposable = attr->template dyn_cast<DisposableElementsAttr>()) {
         auto insertion = scrubbed.try_emplace(disposable.getId(), nullptr);
         auto iter = insertion.first;
         if (insertion.second) { // disposable was inserted
@@ -83,6 +91,13 @@ auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
         constOp.valueAttr(iter->second);
       }
   });
+}
+
+/*static*/
+auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
+  Scrubbed scrubbed;
+  scrubConstants<ONNXConstantOp>(moduleOp, scrubbed);
+  scrubConstants<ONNXConstantOfShapeOp>(moduleOp, scrubbed);
   return scrubbed;
 }
 
