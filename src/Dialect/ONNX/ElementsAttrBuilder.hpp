@@ -25,7 +25,7 @@ public:
   // Create a DisposableElementsAttr and put it in the pool.
   // TODO: Make this private.
   template <typename... Args>
-  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&...args) {
+  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args) {
     size_t id = ++counter;
     auto d = mlir::DisposableElementsAttr::get(
         type, id, std::forward<Args>(args)...);

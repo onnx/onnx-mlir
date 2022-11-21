@@ -227,7 +227,7 @@ struct BytewidthToken {
 };
 
 template <typename Action, typename... Args>
-auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&...args) {
+auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&... args) {
   // clang-format off
   switch (bytewidth) {
   case 1: return act(BytewidthToken<1>{}, std::forward<Args>(args)...);
