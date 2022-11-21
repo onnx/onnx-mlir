@@ -69,8 +69,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
   if (value().has_value()) {
-    elementType =
-        valueAttr().cast<ElementsAttr>().getType().getElementType();
+    elementType = valueAttr().cast<ElementsAttr>().getType().getElementType();
   } else {
     // If 'value' attribute is not specified, it defaults to a tensor of
     // value 0 and datatype float32.

@@ -58,7 +58,8 @@ ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
 ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
     : disposablePool(*DisposablePool::get(context)) {}
 
-DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
+    ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   return create(type, std::move(membuf));
 }
 

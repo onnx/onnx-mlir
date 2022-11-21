@@ -27,12 +27,14 @@ public:
   template <typename... Args>
   mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&...args) {
     size_t id = ++counter;
-    auto d = mlir::DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
+    auto d = mlir::DisposableElementsAttr::get(
+        type, id, std::forward<Args>(args)...);
     disposablePool.insert(d);
     return d;
   }
 
-  mlir::DisposableElementsAttr fromMemoryBuffer(mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
+  mlir::DisposableElementsAttr fromMemoryBuffer(
+      mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   // Makes a DisposableElementsAttr that points to elements' raw data if
   // elements is DenseElementsAttr, except if the element type is bool, then

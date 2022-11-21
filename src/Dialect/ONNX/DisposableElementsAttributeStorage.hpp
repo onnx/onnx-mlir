@@ -23,8 +23,8 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   using Strides = ArrayRef<int64_t>;
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
-  using KeyTy =
-      std::tuple<ShapedType, Strides, onnx_mlir::BType, onnx_mlir::BType, bool, size_t>;
+  using KeyTy = std::tuple<ShapedType, Strides, onnx_mlir::BType,
+      onnx_mlir::BType, bool, size_t>;
   static constexpr int TYPE = 0;
   static constexpr int STRIDES = 1;
   static constexpr int BUFFER_BTYPE = 2;
@@ -35,7 +35,8 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // Constructs only type and strides and properties while the caller sets
   // buffer and reader after construction to minimize copying.
   DisposableElementsAttributeStorage(ShapedType type, Strides strides,
-      onnx_mlir::BType bufferBType, onnx_mlir::BType btype, bool isContiguous, size_t id)
+      onnx_mlir::BType bufferBType, onnx_mlir::BType btype, bool isContiguous,
+      size_t id)
       : type(type), strides(strides), bufferBType(bufferBType), btype(btype),
         isContiguous(isContiguous), id(id) {}
 
@@ -45,9 +46,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // same buffer address but there is an undetectable mismatch because the
   // buffer and reader were disposed by garbage collection.
   bool operator==(const KeyTy &key) const { return id == std::get<ID>(key); }
-  static llvm::hash_code hashKey(const KeyTy &key) {
-    return std::get<ID>(key);
-  }
+  static llvm::hash_code hashKey(const KeyTy &key) { return std::get<ID>(key); }
 
   static DisposableElementsAttributeStorage *construct(
       AttributeStorageAllocator &allocator, const KeyTy &key) {
