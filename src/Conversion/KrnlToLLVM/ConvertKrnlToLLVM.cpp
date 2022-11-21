@@ -494,6 +494,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlStrlenOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlUnaryMathOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStrncmpOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlSortOpPattern(typeConverter, patterns, ctx);
 }
 
 } // namespace krnl

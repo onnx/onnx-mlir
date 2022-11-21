@@ -1256,3 +1256,16 @@ def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable]> {
 
   let arguments = (ins StrAttr:$format, Optional<AnyType>:$input);
 } 
+
+def KrnlSortOp : Op<Krnl_Dialect, "sort", [MemRefsNormalizable]> {
+  let summary = "Sort a list.";
+  let description = [{
+    This operation can be used to sort a list.
+  }];
+
+  let arguments = (ins AnyTypeOf<[MemRefOf<[Index]>]>:$order,
+    AnyMemRef:$input,
+    I64Attr:$axis,
+    DefaultValuedAttr<BoolAttr, "true">:$ascending,
+    DefaultValuedAttr<I64Attr, "0">:$algorithm);
+}

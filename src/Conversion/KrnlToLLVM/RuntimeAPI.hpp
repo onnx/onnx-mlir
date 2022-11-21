@@ -46,6 +46,7 @@ public:
     GET_OMT_ARRAY,
     PRINT_OMTENSOR,
     GET_OMTENSOR_LIST_SIZE,
+    SORT,
   };
 
   // Call the runtime API identified by \p apiId, return the SSA value

@@ -499,12 +499,13 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending) {
+    Value input, int64_t axis, bool ascending, int64_t algorithm) {
   KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope scope(createKrnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
   Type indexType = rewriter.getIndexType();
+  Type intType = rewriter.getIntegerType(64);
   int64_t rank = inputMemRefType.getRank();
   assert(axis >= 0 && axis < rank && "axis is out of bound");
   LiteralIndexExpr zeroIE(0), oneIE(1);
@@ -525,6 +526,15 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
         createKrnl.store(loopInd[axis], order, loopInd);
       });
 
+  // Do sorting in the specifed order of input and return their indices.
+  // If algorithm is set, use the specified sort algorithm.
+  if ((algorithm != 0) && (rank == 3) && (axis == (rank - 1))) {
+    // Emit krnl.Sort
+    rewriter.create<KrnlSortOp>(loc, order, input,
+        rewriter.getIntegerAttr(intType, axis), rewriter.getBoolAttr(ascending),
+        rewriter.getIntegerAttr(intType, algorithm));
+    return order;
+  }
   // Do sorting in the descending order of input and return their indices.
   // Using bubble sort.
   SmallVector<IndexExpr, 4> outerUbs(ubs);
