@@ -46,7 +46,7 @@ private:
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyCompile, m) {
-  py::class_<onnx_mlir::PyOMCompileSession>(m, "PyOMCompileSession")
+  py::class_<onnx_mlir::PyOMCompileSession>(m, "OMCompileSession")
       .def(py::init<std::string &>(), py::arg("file_name"))
       .def(py::init<void *, int64_t>(), py::arg("input_buffer"),
           py::arg("buffer_size"))

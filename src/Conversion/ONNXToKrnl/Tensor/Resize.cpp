@@ -96,7 +96,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else if (fromScale) {
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value inputDim = dataBounds.getDim(i).getValue();
@@ -113,7 +113,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     } else {
       // Output is determined by sizes()
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value indexValue = create.math.constantIndex(i);

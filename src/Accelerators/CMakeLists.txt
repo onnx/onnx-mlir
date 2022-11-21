@@ -3,6 +3,7 @@
 # Populate the accelerator list and add the accelerator subdirectories.
 # ONNX_MLIR_ACCELERATORS is the list of accelerators user specified
 # ACCEL_TARGET_LIST is the list of cmake targets
+# ACCEL_LINK_LIST is the lists of accelerator libraries
 # ACCEL_INCLUDE_LIST is the list passed to inc generator
 if (ONNX_MLIR_ACCELERATORS)
   foreach(t ${ONNX_MLIR_ACCELERATORS})
@@ -11,6 +12,7 @@ if (ONNX_MLIR_ACCELERATORS)
     # If the accelerator can be built
     if (${t}_ENABLED)
       list(APPEND ACCEL_TARGET_LIST "${t}Accel")
+      list(APPEND ACCEL_LINK_LIST "OM${t}Accel")
       list(APPEND ACCEL_INCLUDE_LIST "${t}")
     endif()
   endforeach(t)
@@ -36,7 +38,7 @@ set_source_files_properties("${accelerators_inc}"
   )
 add_custom_target(AcceleratorsInc ALL DEPENDS ${accelerators_inc})
 
-add_onnx_mlir_library(InitAccelerators
+add_onnx_mlir_library(OMInitAccelerators
   InitAccelerators.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -46,11 +48,11 @@ add_onnx_mlir_library(InitAccelerators
     MLIRIR
 
   LINK_LIBS PUBLIC
-    ${ACCEL_TARGET_LIST}
+    ${ACCEL_LINK_LIST}
     LLVMSupport
   )
 
-add_onnx_mlir_library(Accelerator
+add_onnx_mlir_library(OMAccelerator
   Accelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS

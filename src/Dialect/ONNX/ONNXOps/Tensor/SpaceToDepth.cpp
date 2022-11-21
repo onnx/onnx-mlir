@@ -87,10 +87,10 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
   int64_t H = inputShape[2];
   int64_t W = inputShape[3];
 
-  if (H != -1 && H % blocksize != 0)
+  if (!ShapedType::isDynamic(H) && H % blocksize != 0)
     return emitOpError(
         "The input tensor height must be divisible by the block size");
-  if (W != -1 && W % blocksize != 0)
+  if (!ShapedType::isDynamic(W) && W % blocksize != 0)
     return emitOpError(
         "The input tensor width must be divisible by the block size");
 

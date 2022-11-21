@@ -80,8 +80,8 @@ add_onnx_mlir_executable(OMRuntimeTest
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OnnxMlirCompiler
-  ExecutionSession
+  OMCompiler
+  OMExecutionSession
   )
 
 

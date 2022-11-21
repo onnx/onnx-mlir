@@ -386,7 +386,8 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
         res64 = b.getAffineDimExpr(e1) % constExpr64;
       } else if (layout == ZTensorEncodingAttr::DataLayout::FICO) {
         // (e4, e3, e2, e1) -> (e4, 4*ceil(e1/4/64), e3, ceil(e2/32), 32, 64)
-        assert(shape[rank - 1] != -1 && (shape[rank - 1] % 4) == 0 &&
+        assert(!ShapedType::isDynamic(shape[rank - 1]) &&
+               (shape[rank - 1] % 4) == 0 &&
                "wrong concatenated dimension size");
         int64_t s = shape[rank - 1] / 4;
         // ((s + 64 - 1) / 64) * 64;
