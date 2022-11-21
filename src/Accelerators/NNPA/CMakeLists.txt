@@ -42,7 +42,7 @@ add_subdirectory(Transform)
 add_subdirectory(Compiler)
 add_subdirectory(Runtime)
 
-add_onnx_mlir_library(NNPAAccel
+add_onnx_mlir_library(OMNNPAAccel
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -61,8 +61,8 @@ add_onnx_mlir_library(NNPAAccel
 
   LINK_LIBS PUBLIC
   onnx
-  NNPACompilerUtils
-  Accelerator
+  OMNNPACompilerUtils
+  OMAccelerator
   OMZHighOps
   OMZHighToZLow
   OMZLowOps

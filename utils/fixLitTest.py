@@ -39,7 +39,7 @@ def print_usage():
     dprint('                functions that were not repaired. Useful only when used')
     dprint('                in combination with \"-r -f <func-name>\".')
     dprint('  -h/--help   : Print help.')
-    dprint('  -d/--help   : Print dgit ebug info.')
+    dprint('  -d/--help   : Print debug info.')
     dprint("")
     dprint('File format for input list-test files:')
     dprint(' * A single "// RUN:" comment')
@@ -51,7 +51,7 @@ def print_usage():
     dprint(" * If errors, test a given func X: \"fixLitTest -t -f X test.mlir\".")
     dprint(" * You may inspect the \"flt_*.mlir\" files in the current dir for more info.")
     dprint(" * Spurious error, repair func X:  \"fixLitTest -t -r -f X test.mlir\".")
-    dprint(" * If good, save fix for X:  \"fixLitTest -r -f -p X test.mlir > test.mlir\".")
+    dprint(" * If good, save fix for X:  \"fixLitTest -r -f X -p test.mlir > test.mlir\".")
     dprint("")
     sys.exit()
 
