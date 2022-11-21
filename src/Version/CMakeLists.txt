@@ -13,10 +13,6 @@ set(vcs_depends "${generate_vcs_version_script}")
 find_first_existing_vc_file("${ONNX_MLIR_SRC_ROOT}" onnx_mlir_vc)
 list(APPEND vcs_depends "${onnx_mlir_vc}")
 
-find_first_existing_vc_file("${ONNX_MLIR_SRC_ROOT}/third_party/onnx/" onnx_vc)
-list(APPEND vcs_depends "${onnx_vc}")
-message(STATUS "Onnx repo and commit: ${onnx_vc}")
-
 if (LLVM_APPEND_VC_REV)
   set(onnx_mlir_source_dir ${ONNX_MLIR_SRC_ROOT})
   set(llvm_source_dir ${LLVM_BUILD_MAIN_SRC_DIR})
@@ -64,6 +60,28 @@ add_onnx_mlir_library(OMVersion
   LINK_LIBS PUBLIC
     LLVMSupport
 )
+
+# Obtain the commit hash of a specific repo
+function(get_short_hash path)
+  if(NOT EXISTS "${path}")
+    return()
+  endif()
+  find_package(Git)
+  if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD --git-dir
+      WORKING_DIRECTORY ${path}
+      RESULT_VARIABLE SHORT_HASH_RESULT
+      OUTPUT_VARIABLE SHORT_HASH_OUTPUT
+      ERROR_QUIET)
+    endif()
+  endif()
+endfunction()
+
+# Testing
+get_short_hash("${ONNX_MLIR_SRC_ROOT}")
+list(APPEND DEFINITIONS "ONNX_MLIR_SHA=\"${SHORT_HASH_OUTPUT}\"")
+message(ONNX MLIR SHA "ONNX_MLIR_SHA=\"${SHORT_HASH_OUTPUT}\"" )
+message(ONNX MLIR SHA "ONNX_MLIR_SHA_RESULT=\"${SHORT_HASH_RESULT}\"" )
 
 file(READ "${ONNX_MLIR_SRC_ROOT}/VERSION_NUMBER" ONNX_MLIR_VERSION)
 string(STRIP "${ONNX_MLIR_VERSION}" ONNX_MLIR_VERSION)

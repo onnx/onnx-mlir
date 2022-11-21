@@ -18,8 +18,6 @@
 #include <string>
 
 namespace onnx_mlir {
-/// Retrieves the repository path from which onnx was built.
-std::string getOnnxRepositoryPath();
 
 /// Retrieves the repository path from which onnx-mlir was built.
 std::string getOnnxMlirRepositoryPath();
@@ -27,9 +25,9 @@ std::string getOnnxMlirRepositoryPath();
 /// Retrieves the repository path from which LLVM was built.
 std::string getLLVMRepositoryPath();
 
-/// Retrieves the repository revision number (or identifier) from which
-/// this onnx was built.
-std::string getOnnxRevision();
+/// Retrieves the repository commit hash from which
+/// this onnx-mlir was built.
+std::string getOnnxMlirCommit();
 
 /// Retrieves the repository revision number (or identifier) from which
 /// this onnx-mlir was built.
