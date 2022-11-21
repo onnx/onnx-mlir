@@ -15,7 +15,7 @@ add_onnx_mlir_executable(TestInstrumentation
 add_test(NAME TestInstrumentation COMMAND TestInstrumentation)
 
 add_subdirectory(DisposableElementsAttr)
-add_subdirectory(DType)
+add_subdirectory(BType)
 add_subdirectory(Einsum)
 add_subdirectory(Runtime)
 add_subdirectory(Strides)

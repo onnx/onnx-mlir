@@ -35,7 +35,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
@@ -221,10 +221,10 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
 };
 
 template <typename ElementwiseBinaryOp>
-auto combinerOfElementwiseBinaryOp(DType operandsDType) {
+auto combinerOfElementwiseBinaryOp(BType operandsBType) {
   using Combiner = std::function<WideNum(WideNum, WideNum)>;
-  return dispatchByDType(operandsDType, [](auto dtype) -> Combiner {
-    using W = WideDType<dtype>;
+  return dispatchByBType(operandsBType, [](auto btype) -> Combiner {
+    using W = WideBType<btype>;
     using OpImpl =
         ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
     return [](WideNum lhs, WideNum rhs) -> WideNum {
@@ -246,10 +246,10 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
       getConstValueAsDisposableElements(elementsBuilder, lhsValue);
   DisposableElementsAttr rhs =
       getConstValueAsDisposableElements(elementsBuilder, rhsValue);
-  DType operandsDType = lhs.getDType();
-  assert(operandsDType == rhs.getDType());
+  BType operandsBType = lhs.getBType();
+  assert(operandsBType == rhs.getBType());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
-      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsDType));
+      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsBType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
       .getResult();
 }
@@ -285,8 +285,8 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 template <typename OP>
 ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
   return dispatchByMlirType(
-      elemType, [](auto dtype) -> ElementsAttrBuilder::Transformer {
-        using W = WideDType<dtype>;
+      elemType, [](auto btype) -> ElementsAttrBuilder::Transformer {
+        using W = WideBType<btype>;
         using OpImpl = ElementWiseUnaryOpImpl<OP, typename W::type>;
         return ElementsAttrBuilder::functionTransformer(
             [](WideNum n) -> WideNum {

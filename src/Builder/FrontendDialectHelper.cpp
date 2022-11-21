@@ -23,7 +23,7 @@
 #include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/Arrays.hpp"
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 
 // TODO: put everything in namespace onnx_mlir, and add 'using namespace mlir'
 
@@ -264,12 +264,12 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
 mlir::ElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   // Tensor dimensions.
-  DType dtype = dtypeOfOnnxDataType(tp.data_type());
-  mlir::Type elmType = mlirTypeOfDType(dtype, builder.getContext());
+  BType btype = btypeOfOnnxDataType(tp.data_type());
+  mlir::Type elmType = mlirTypeOfBType(btype, builder.getContext());
   llvm::ArrayRef<int64_t> tensorDims(tp.dims().data(), tp.dims().size());
   auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-  return dispatchByDType(dtype, [&](auto dtype) {
-    using cpptype = CppType<dtype>;
+  return dispatchByBType(btype, [&](auto btype) {
+    using cpptype = CppType<btype>;
     return createDenseElmAttr<cpptype>(externalDataDir, tp, tensorType);
   });
 }

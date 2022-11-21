@@ -43,10 +43,10 @@ public:
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;
 
   mlir::DisposableElementsAttr fromRawBytes(mlir::ShapedType type,
-      DType bufferDType, llvm::ArrayRef<char> bytes, bool mustCopy);
+      BType bufferBType, llvm::ArrayRef<char> bytes, bool mustCopy);
 
   mlir::DisposableElementsAttr fromRawBytes(mlir::ShapedType type,
-      DType bufferDType, const Filler<char> &bytesFiller);
+      BType bufferBType, const Filler<char> &bytesFiller);
 
   mlir::DisposableElementsAttr fromWideNums(
       mlir::ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy);
@@ -108,7 +108,7 @@ private:
 template <typename T>
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
     mlir::ShapedType type, llvm::ArrayRef<T> array, bool mustCopy) {
-  return fromRawBytes(type, toDType<T>, castArrayRef<char>(array), mustCopy);
+  return fromRawBytes(type, toBType<T>, castArrayRef<char>(array), mustCopy);
 }
 
 /*static*/

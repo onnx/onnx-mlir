@@ -23,60 +23,60 @@ using llvm::MutableArrayRef;
 
 namespace onnx_mlir {
 
-APFloat WideNum::toAPFloat(DType tag) const {
+APFloat WideNum::toAPFloat(BType tag) const {
   switch (tag) {
-  case DType::DOUBLE:
+  case BType::DOUBLE:
     return APFloat(dbl);
-  case DType::FLOAT:
+  case BType::FLOAT:
     return APFloat(static_cast<float>(dbl));
-  case DType::FLOAT16:
+  case BType::FLOAT16:
     return float_16(dbl).toAPFloat();
-  case DType::BFLOAT16:
+  case BType::BFLOAT16:
     return bfloat_16(dbl).toAPFloat();
   default:
-    llvm_unreachable("DType must be a float");
+    llvm_unreachable("BType must be a float");
   }
 }
 
-APInt WideNum::toAPInt(DType tag) const {
-  unsigned bitwidth = bitwidthOfDType(tag);
-  if (isSignedIntDType(tag))
+APInt WideNum::toAPInt(BType tag) const {
+  unsigned bitwidth = bitwidthOfBType(tag);
+  if (isSignedIntBType(tag))
     // Actually, isSigned flag is ignored because bitwidth <= 64.
     return APInt(bitwidth, i64, /*isSigned=*/true);
-  if (isUnsignedIntDType(tag))
+  if (isUnsignedIntBType(tag))
     return APInt(bitwidth, u64);
-  llvm_unreachable("DType must be an integer");
+  llvm_unreachable("BType must be an integer");
 }
 
 /*static*/
-WideNum WideNum::fromAPFloat(DType tag, APFloat x) {
-  assert(isFloatDType(tag) && "DType must be an integer");
+WideNum WideNum::fromAPFloat(BType tag, APFloat x) {
+  assert(isFloatBType(tag) && "BType must be an integer");
   return {.dbl = x.convertToDouble()};
 }
 
 /*static*/
-WideNum WideNum::fromAPInt(DType tag, APInt x) {
-  if (isSignedIntDType(tag))
+WideNum WideNum::fromAPInt(BType tag, APInt x) {
+  if (isSignedIntBType(tag))
     return {.i64 = x.getSExtValue()};
-  if (isUnsignedIntDType(tag))
+  if (isUnsignedIntBType(tag))
     return {.u64 = x.getZExtValue()};
-  llvm_unreachable("DType must be an integer");
+  llvm_unreachable("BType must be an integer");
 }
 
-void WideNum::store(DType dtag, MutableArrayRef<char> memory) const {
-  dispatchByDType(dtag, [memory, this](auto dtype) {
-    using X = CppType<dtype>;
+void WideNum::store(BType dtag, MutableArrayRef<char> memory) const {
+  dispatchByBType(dtag, [memory, this](auto btype) {
+    using X = CppType<btype>;
     assert(memory.size() == sizeof(X));
-    *castMutableArrayRef<X>(memory).begin() = this->to<X>(dtype);
+    *castMutableArrayRef<X>(memory).begin() = this->to<X>(btype);
   });
 }
 
 /*static*/
-WideNum WideNum::load(DType dtag, ArrayRef<char> memory) {
-  return dispatchByDType(dtag, [memory](auto dtype) {
-    using X = CppType<dtype>;
+WideNum WideNum::load(BType dtag, ArrayRef<char> memory) {
+  return dispatchByBType(dtag, [memory](auto btype) {
+    using X = CppType<btype>;
     assert(memory.size() == sizeof(X));
-    return from<X>(dtype, *castArrayRef<X>(memory).begin());
+    return from<X>(btype, *castArrayRef<X>(memory).begin());
   });
 }
 

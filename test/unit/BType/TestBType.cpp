@@ -2,14 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===============================-- TestDType.cpp ---=========================//
+//===============================-- TestBType.cpp ---=========================//
 //
-// Tests DType.
+// Tests BType.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 #include "src/Support/WideNum.hpp"
 
 #include "mlir/IR/Builders.h"
@@ -46,45 +46,45 @@ public:
     return IntegerType::get(ctx, width, IntegerType::Unsigned);
   }
 
-  int test_dispatchByDType() {
-    std::cout << "test_dispatchByDType:" << std::endl;
+  int test_dispatchByBType() {
+    std::cout << "test_dispatchByBType:" << std::endl;
 
-    for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
-         d = static_cast<DType>(static_cast<int>(d) + 1)) {
-      if (d == DType::UNDEFINED || d == DType::STRING ||
-          d == DType::COMPLEX64 || d == DType::COMPLEX128)
+    for (BType d = static_cast<BType>(0); d <= BType::MAX_DTYPE;
+         d = static_cast<BType>(static_cast<int>(d) + 1)) {
+      if (d == BType::UNDEFINED || d == BType::STRING ||
+          d == BType::COMPLEX64 || d == BType::COMPLEX128)
         continue;
 
-      if (isIntOrFloatDType(d)) {
-        if (isFloatDType(d)) {
-          assert(!isSignedIntDType(d));
-          assert(!isUnsignedIntDType(d));
+      if (isIntOrFloatBType(d)) {
+        if (isFloatBType(d)) {
+          assert(!isSignedIntBType(d));
+          assert(!isUnsignedIntBType(d));
         } else {
-          assert(isSignedIntDType(d) ^ isUnsignedIntDType(d));
+          assert(isSignedIntBType(d) ^ isUnsignedIntBType(d));
         }
       }
 
-      auto dty = dispatchByDType(d, [d, this](auto dtype) -> DType {
-        assert(d == dtype);
+      auto dty = dispatchByBType(d, [d, this](auto btype) -> BType {
+        assert(d == btype);
 
-        using Q = DTypeTrait<dtype>;
-        assert(isFloatDType(dtype) == Q::isFloat);
-        assert(isIntOrFloatDType(dtype) == Q::isIntOrFloat);
-        assert(isSignedIntDType(dtype) == Q::isSignedInt);
-        assert(isUnsignedIntDType(dtype) == Q::isUnsignedInt);
+        using Q = BTypeTrait<btype>;
+        assert(isFloatBType(btype) == Q::isFloat);
+        assert(isIntOrFloatBType(btype) == Q::isIntOrFloat);
+        assert(isSignedIntBType(btype) == Q::isSignedInt);
+        assert(isUnsignedIntBType(btype) == Q::isUnsignedInt);
 
-        using cpptype = CppType<dtype>;
+        using cpptype = CppType<btype>;
         assert(sizeof(cpptype) == Q::bytewidth);
-        assert(d == toDType<cpptype>);
+        assert(d == toBType<cpptype>);
         Type t = toMlirType<cpptype>(ctx);
-        assert(d == dtypeOfMlirType(t));
+        assert(d == btypeOfMlirType(t));
 
-        return dtype;
+        return btype;
       });
       assert(dty == d);
 
-      Type t = mlirTypeOfDType(d, ctx);
-      assert(d == dtypeOfMlirType(t));
+      Type t = mlirTypeOfBType(d, ctx);
+      assert(d == btypeOfMlirType(t));
     }
 
     return 0;
@@ -104,15 +104,15 @@ public:
     // Test that constexpr works for all these:
     constexpr float_16 f16z = float_16();
     constexpr bfloat_16 bf16z = bfloat_16();
-    constexpr DType df16 = toDType<decltype(f16z)>;
-    constexpr DType dbf16 = toDType<decltype(bf16z)>;
-    assert(df16 == toDType<float_16>);
-    assert(dbf16 == toDType<bfloat_16>);
+    constexpr BType df16 = toBType<decltype(f16z)>;
+    constexpr BType dbf16 = toBType<decltype(bf16z)>;
+    assert(df16 == toBType<float_16>);
+    assert(dbf16 == toBType<bfloat_16>);
     assert((std::is_same_v<CppType<df16>, float_16>));
     assert((std::is_same_v<CppType<dbf16>, bfloat_16>));
-    assert((std::is_same_v<CppType<toDType<float>>, float>));
+    assert((std::is_same_v<CppType<toBType<float>>, float>));
 
-    constexpr WideNum n = WideNum::from(toDType<float_16>, true);
+    constexpr WideNum n = WideNum::from(toBType<float_16>, true);
     assert(n.dbl == 1.0);
 
     return 0;
@@ -124,7 +124,7 @@ public:
 int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
-  failures += test.test_dispatchByDType();
+  failures += test.test_dispatchByBType();
   failures += test.test_FloatingPoint16();
   if (failures != 0) {
     std::cerr << failures << " test failures\n";

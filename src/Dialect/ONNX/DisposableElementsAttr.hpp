@@ -11,7 +11,7 @@
 #pragma once
 
 #include "src/Support/Arrays.hpp"
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 #include "src/Support/Strides.hpp"
 #include "src/Support/WideNum.hpp"
 
@@ -75,9 +75,9 @@ class DisposableElementsAttr
           TypedAttr::Trait> {
   using Base::Base;
 
-  // DType and WideNum are ubiquitous in the class definition and these using
+  // BType and WideNum are ubiquitous in the class definition and these using
   // statements are convenient as they let us omit their namespace qualifier.
-  using DType = onnx_mlir::DType;
+  using BType = onnx_mlir::BType;
   using WideNum = onnx_mlir::WideNum;
 
   using Strides = ArrayRef<int64_t>;
@@ -106,11 +106,11 @@ private:
   // Assumes isTransformed if reader != nullptr.
   static DisposableElementsAttr get(ShapedType type, size_t id,
       const Buffer &buffer, Optional<Strides> optionalStrides,
-      DType bufferDType, Reader reader = nullptr);
+      BType bufferBType, Reader reader = nullptr);
 
   // Internal method called by get(..) methods.
   static DisposableElementsAttr create(ShapedType type, size_t id,
-      const Buffer &buffer, Strides strides, DType bufferDType,
+      const Buffer &buffer, Strides strides, BType bufferBType,
       Reader reader /*= nullptr*/);
 
   // Clear the buffer payload shared_ptr which decreases the reference count
@@ -148,7 +148,7 @@ private:
 
   bool isTransformedOrCast() const;
 
-  DType getBufferDType() const;
+  BType getBufferBType() const;
 
   unsigned getBufferElementBytewidth() const;
 
@@ -160,8 +160,8 @@ public:
   // Can return false even if all elements are identical.
   bool isSplat() const;
 
-  // Same as dtypeOfMlirType(getElementType()).
-  DType getDType() const;
+  // Same as btypeOfMlirType(getElementType()).
+  BType getBType() const;
 
   ShapedType getType() const;
 
@@ -192,7 +192,7 @@ private:
 public:
   // All the iterable types are listed as NonContiguous here as no type
   // is guaranteed to be represented contiguously in the underlying buffer
-  // because of strides and the possibility that bufferDType != dtype.
+  // because of strides and the possibility that bufferBType != btype.
   using NonContiguousIterableTypesT =
       std::tuple<Attribute, IntegerAttr, FloatAttr, APInt, APFloat, WideNum,
           bool, int8_t, uint8_t, int16_t, int8_t, int32_t, uint32_t, int64_t,
@@ -300,15 +300,15 @@ constexpr bool isIterableType =
     std::is_same_v<T, Attribute> || std::is_same_v<T, IntegerAttr> ||
     std::is_same_v<T, FloatAttr> || std::is_same_v<T, APInt> ||
     std::is_same_v<T, APFloat> || std::is_same_v<T, onnx_mlir::WideNum> ||
-    (onnx_mlir::CppTypeTrait<T>::dtype != onnx_mlir::DType::UNDEFINED &&
+    (onnx_mlir::CppTypeTrait<T>::btype != onnx_mlir::BType::UNDEFINED &&
         onnx_mlir::CppTypeTrait<T>::isIntOrFloat);
 
 // Supports all the types T in NonContiguousIterableTypesT.
 template <typename T>
-T getNumber(Type elementType, onnx_mlir::DType tag, onnx_mlir::WideNum n) {
+T getNumber(Type elementType, onnx_mlir::BType tag, onnx_mlir::WideNum n) {
   static_assert(isIterableType<T>);
   if constexpr (std::is_same_v<T, Attribute>)
-    if (isFloatDType(tag))
+    if (isFloatBType(tag))
       return FloatAttr::get(elementType, n.toAPFloat(tag));
     else
       return IntegerAttr::get(elementType, n.toAPInt(tag));
@@ -317,9 +317,9 @@ T getNumber(Type elementType, onnx_mlir::DType tag, onnx_mlir::WideNum n) {
   else if constexpr (std::is_same_v<T, FloatAttr>)
     return FloatAttr::get(elementType, n.toAPFloat(tag)); // fails if !float
   else if constexpr (std::is_same_v<T, APInt>)
-    return n.toAPInt(tag); // fails if isFloatDType(tag)
+    return n.toAPInt(tag); // fails if isFloatBType(tag)
   else if constexpr (std::is_same_v<T, APFloat>)
-    return n.toAPFloat(tag); // fails unless isFloatDType(tag)
+    return n.toAPFloat(tag); // fails unless isFloatBType(tag)
   else if constexpr (std::is_same_v<T, onnx_mlir::WideNum>)
     return n;
   else
@@ -329,19 +329,19 @@ T getNumber(Type elementType, onnx_mlir::DType tag, onnx_mlir::WideNum n) {
 
 template <typename X>
 inline X DisposableElementsAttr::getSplatValue() const {
-  return detail::getNumber<X>(getElementType(), getDType(), getSplatWideNum());
+  return detail::getNumber<X>(getElementType(), getBType(), getSplatWideNum());
 }
 
 template <typename X>
 inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
     -> FailureOr<iterator<X>> {
   if constexpr (detail::isIterableType<X>) {
-    DType dtype = getDType();
+    BType btype = getBType();
     if constexpr (std::is_same_v<X, llvm::APFloat>) {
-      if (!isFloatDType(dtype))
+      if (!isFloatBType(btype))
         return failure();
     } else if constexpr (std::is_same_v<X, llvm::APInt>) {
-      if (isFloatDType(dtype))
+      if (isFloatBType(btype))
         return failure();
     }
     // Translate "this" to a DisposableElementsAttr to work around that "this"
@@ -349,9 +349,9 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
     // via interfaces from the original call to this->value_end()/getValues().
     DisposableElementsAttr attr = *this;
     auto range = llvm::seq<size_t>(0, getNumElements());
-    return iterator<X>(range.begin(), [dtype, attr](size_t flatIndex) -> X {
+    return iterator<X>(range.begin(), [btype, attr](size_t flatIndex) -> X {
       WideNum n = attr.readFlatIndex(flatIndex);
-      return detail::getNumber<X>(attr.getElementType(), dtype, n);
+      return detail::getNumber<X>(attr.getElementType(), btype, n);
     });
   } else {
     return failure();
@@ -360,7 +360,7 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
 
 template <typename X>
 inline onnx_mlir::ArrayBuffer<X> DisposableElementsAttr::getArray() const {
-  assert(onnx_mlir::toDType<X> == getDType());
+  assert(onnx_mlir::toBType<X> == getBType());
   if (!isTransformedOrCast() && isContiguous())
     return onnx_mlir::castArrayRef<X>(getBufferBytes());
   typename onnx_mlir::ArrayBuffer<X>::Vector vec;

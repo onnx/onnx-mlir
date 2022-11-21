@@ -22,7 +22,7 @@ add_onnx_mlir_library(OMSupport
 
 add_onnx_mlir_library(OMMlirUtilities
   Arrays.cpp
-  DType.cpp
+  BType.cpp
   FloatingPoint16.cpp
   Strides.cpp
   TypeUtilities.cpp

@@ -10,7 +10,7 @@
 
 #include "src/Support/Arrays.hpp"
 
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Support/WideNum.hpp"
 
@@ -22,8 +22,8 @@ namespace onnx_mlir {
 
 void widenArray(
     Type elementType, ArrayRef<char> bytes, MutableArrayRef<WideNum> wideData) {
-  dispatchByMlirType(elementType, [bytes, wideData](auto dtype) {
-    using W = WideDType<dtype>;
+  dispatchByMlirType(elementType, [bytes, wideData](auto btype) {
+    using W = WideBType<btype>;
     auto src = castArrayRef<typename W::narrowtype>(bytes);
     std::transform(src.begin(), src.end(), wideData.begin(), W::widen);
   });
@@ -31,8 +31,8 @@ void widenArray(
 
 void narrowArray(
     Type elementType, ArrayRef<WideNum> wideData, MutableArrayRef<char> bytes) {
-  dispatchByMlirType(elementType, [wideData, bytes](auto dtype) {
-    using W = WideDType<dtype>;
+  dispatchByMlirType(elementType, [wideData, bytes](auto btype) {
+    using W = WideBType<btype>;
     auto dst = castMutableArrayRef<typename W::narrowtype>(bytes);
     std::transform(wideData.begin(), wideData.end(), dst.begin(), W::narrow);
   });

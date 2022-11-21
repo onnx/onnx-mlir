@@ -12,7 +12,7 @@
 #include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Support/DType.hpp"
+#include "src/Support/BType.hpp"
 
 #include "mlir/IR/Builders.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -36,12 +36,12 @@ bool eq(CPPTY a, CPPTY b) {
     return a == b;
 }
 
-bool forAllDTypes(std::function<bool(DType)> predicate) {
+bool forAllBTypes(std::function<bool(BType)> predicate) {
   bool result = true;
-  for (DType d = static_cast<DType>(0); d <= DType::MAX_DTYPE;
-       d = static_cast<DType>(static_cast<int>(d) + 1)) {
-    if (d == DType::UNDEFINED || d == DType::STRING || d == DType::COMPLEX64 ||
-        d == DType::COMPLEX128)
+  for (BType d = static_cast<BType>(0); d <= BType::MAX_DTYPE;
+       d = static_cast<BType>(static_cast<int>(d) + 1)) {
+    if (d == BType::UNDEFINED || d == BType::STRING || d == BType::COMPLEX64 ||
+        d == BType::COMPLEX128)
       continue;
     result &= predicate(d);
   }
@@ -93,11 +93,11 @@ public:
   int test_splat() {
     std::cout << "test_splat:" << std::endl;
 
-    bool all = forAllDTypes([this](DType d) {
-      return dispatchByDType(d, [this](auto dtype) {
-        using cpptype = CppType<dtype>;
+    bool all = forAllBTypes([this](BType d) {
+      return dispatchByBType(d, [this](auto btype) {
+        using cpptype = CppType<btype>;
 
-        Type elementType = mlirTypeOfDType(dtype, ctx);
+        Type elementType = mlirTypeOfBType(btype, ctx);
         ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
         std::vector<int64_t> zerosStrides(2, 0);
@@ -113,12 +113,12 @@ public:
         auto b = i.value_begin<cpptype>();
         assert(eq<cpptype>(*b, one));
 
-        if (isFloatDType(dtype)) {
+        if (isFloatBType(btype)) {
           auto apf = i.getSplatValue<APFloat>();
           assert(near(apf.convertToDouble(), static_cast<double>(one)));
         } else {
           auto api = i.getSplatValue<APInt>();
-          auto x = WideNum::fromAPInt(dtype, api).template to<cpptype>(dtype);
+          auto x = WideNum::fromAPInt(btype, api).template to<cpptype>(btype);
           assert(eq<cpptype>(x, one));
         }
 

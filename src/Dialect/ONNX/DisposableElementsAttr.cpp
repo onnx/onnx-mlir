@@ -25,16 +25,16 @@ namespace mlir {
 namespace {
 
 // TODO: share implementation with widenArray
-template <DType DTYPE>
+template <BType DTYPE>
 void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
-  using W = WideDType<DTYPE>;
+  using W = WideBType<DTYPE>;
   auto src = asArrayRef<typename W::narrowtype>(s);
   std::transform(src.begin(), src.end(), dst.begin(), W::widen);
 }
 
-auto getIdentityReader(DType dtype) {
-  return dispatchByDType(
-      dtype, [](auto staticDType) { return identityReader<staticDType>; });
+auto getIdentityReader(BType btype) {
+  return dispatchByBType(
+      btype, [](auto staticBType) { return identityReader<staticBType>; });
 }
 
 } // namespace
@@ -42,13 +42,13 @@ auto getIdentityReader(DType dtype) {
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
     const Buffer &buffer, Optional<Strides> optionalStrides) {
-  DType dtype = dtypeOfMlirType(type.getElementType());
-  return get(type, id, buffer, optionalStrides, dtype);
+  BType btype = btypeOfMlirType(type.getElementType());
+  return get(type, id, buffer, optionalStrides, btype);
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
-    const Buffer &buffer, Optional<Strides> optionalStrides, DType bufferDType,
+    const Buffer &buffer, Optional<Strides> optionalStrides, BType bufferBType,
     Reader reader) {
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
@@ -56,20 +56,20 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
   } else {
     strides = getDefaultStrides(type.getShape());
   }
-  return create(type, id, buffer, strides, bufferDType, std::move(reader));
+  return create(type, id, buffer, strides, bufferBType, std::move(reader));
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
-    size_t id, const Buffer &buffer, Strides strides, DType bufferDType,
+    size_t id, const Buffer &buffer, Strides strides, BType bufferBType,
     Reader reader) {
-  DType dtype = dtypeOfMlirType(type.getElementType());
+  BType btype = btypeOfMlirType(type.getElementType());
   assert((reader != nullptr ||
-             wideDTypeOfDType(bufferDType) == wideDTypeOfDType(dtype)) &&
+             wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
          "buffer wide type mismatch requires transforming reader");
   bool isContiguous = areStridesContiguous(type.getShape(), strides);
   DisposableElementsAttr a = Base::get(
-      type.getContext(), type, strides, bufferDType, dtype, isContiguous, id);
+      type.getContext(), type, strides, bufferBType, btype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
   s.reader = std::move(reader);
@@ -99,7 +99,7 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
 //       and can return const& from getReader().
 auto DisposableElementsAttr::getReader() const -> Reader {
   const auto &reader = getReaderOrNull();
-  return reader ? reader : getIdentityReader(getBufferDType());
+  return reader ? reader : getIdentityReader(getBufferBType());
 }
 
 auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
@@ -116,15 +116,15 @@ bool DisposableElementsAttr::isTransformed() const {
 }
 
 bool DisposableElementsAttr::isTransformedOrCast() const {
-  return isTransformed() || getDType() != getBufferDType();
+  return isTransformed() || getBType() != getBufferBType();
 }
 
-DType DisposableElementsAttr::getBufferDType() const {
-  return getImpl()->bufferDType;
+BType DisposableElementsAttr::getBufferBType() const {
+  return getImpl()->bufferBType;
 }
 
 unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
-  return bytewidthOfDType(getBufferDType());
+  return bytewidthOfBType(getBufferBType());
 }
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
@@ -143,7 +143,7 @@ bool DisposableElementsAttr::isSplat() const {
   return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
 }
 
-DType DisposableElementsAttr::getDType() const { return getImpl()->dtype; }
+BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
 
 ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
 
@@ -205,7 +205,7 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
 }
 
 void DisposableElementsAttr::readRawBytes(MutableArrayRef<char> dst) const {
-  unsigned attrBytewidth = bytewidthOfDType(getDType());
+  unsigned attrBytewidth = bytewidthOfBType(getBType());
   if (!isTransformedOrCast()) {
     auto src = getBufferBytes();
     restrideArray(attrBytewidth, getShape(), {getStrides(), src}, dst);
@@ -222,7 +222,7 @@ void DisposableElementsAttr::readRawBytes(MutableArrayRef<char> dst) const {
 ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
   if (!isTransformedOrCast() && isContiguous())
     return getBufferBytes();
-  unsigned attrBytewidth = bytewidthOfDType(getDType());
+  unsigned attrBytewidth = bytewidthOfBType(getBType());
   ArrayBuffer<char>::Vector vec;
   vec.resize_for_overwrite(getNumElements() * attrBytewidth);
   readRawBytes(vec);
@@ -260,16 +260,16 @@ auto composeReadTransform(
   };
 }
 
-template <DType SRC_TAG, DType DST_TAG>
+template <BType SRC_TAG, BType DST_TAG>
 void wideCaster(MutableArrayRef<WideNum> nums) {
-  using S = WideDType<SRC_TAG>;
-  using D = WideDType<DST_TAG>;
+  using S = WideBType<SRC_TAG>;
+  using D = WideBType<DST_TAG>;
   for (WideNum &n : nums)
     n = D::pack(static_cast<typename D::type>(S::unpack(n)));
 }
 
-ElementsAttrBuilder::Transformer wideCaster(DType src, DType dst) {
-  constexpr DType DBL = DType::DOUBLE, I64 = DType::INT64, U64 = DType::UINT64;
+ElementsAttrBuilder::Transformer wideCaster(BType src, BType dst) {
+  constexpr BType DBL = BType::DOUBLE, I64 = BType::INT64, U64 = BType::UINT64;
   // clang-format off
   if (src == DBL && dst == I64) return wideCaster<DBL, I64>;
   if (src == DBL && dst == U64) return wideCaster<DBL, U64>;
@@ -287,7 +287,7 @@ DisposableElementsAttr DisposableElementsAttr::transform(
     Transformer transformer) const {
   ShapedType transformedType = getType().clone(transformedElementType);
   return elmsBuilder.create(transformedType, getBuffer(), getStrides(),
-      dtypeOfMlirType(transformedElementType),
+      btypeOfMlirType(transformedElementType),
       composeReadTransform(getReader(), std::move(transformer)));
 }
 
@@ -297,18 +297,18 @@ DisposableElementsAttr DisposableElementsAttr::castElementType(
     return *this;
 
   ShapedType newType = getType().clone(newElementType);
-  DType newDType = dtypeOfMlirType(newElementType);
-  DType newWideType = wideDTypeOfDType(newDType);
-  DType oldWideType = wideDTypeOfDType(getDType());
+  BType newBType = btypeOfMlirType(newElementType);
+  BType newWideType = wideBTypeOfBType(newBType);
+  BType oldWideType = wideBTypeOfBType(getBType());
 
   if (oldWideType == newWideType)
     return elmsBuilder.create(newType, getBuffer(), getStrides(),
-        getBufferDType(), getReaderOrNull());
+        getBufferBType(), getReaderOrNull());
 
   Transformer transformer = wideCaster(oldWideType, newWideType);
   Reader reader = composeReadTransform(getReader(), std::move(transformer));
   return elmsBuilder.create(
-      newType, getBuffer(), getStrides(), getBufferDType(), std::move(reader));
+      newType, getBuffer(), getStrides(), getBufferBType(), std::move(reader));
 }
 
 namespace {
@@ -333,7 +333,7 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   auto strides = getStrides();
   auto transposedStrides = transposeDims(strides, perm);
   return elmsBuilder.create(transposedType, getBuffer(),
-      makeArrayRef(transposedStrides), getBufferDType(), getReaderOrNull());
+      makeArrayRef(transposedStrides), getBufferBType(), getReaderOrNull());
 }
 
 DisposableElementsAttr DisposableElementsAttr::reshape(
@@ -347,12 +347,12 @@ DisposableElementsAttr DisposableElementsAttr::reshape(
   auto strides = getStrides();
   if (auto reshapedStrides = reshapeStrides(shape, strides, reshapedShape)) {
     return elmsBuilder.create(reshapedType, getBuffer(),
-        makeArrayRef(*reshapedStrides), getBufferDType(), getReaderOrNull());
+        makeArrayRef(*reshapedStrides), getBufferBType(), getReaderOrNull());
   }
 
   if (!isTransformed()) { // Skip WideNums if there's no element-wise transform.
     return elmsBuilder.fromRawBytes(
-        reshapedType, getBufferDType(), [this](MutableArrayRef<char> dst) {
+        reshapedType, getBufferBType(), [this](MutableArrayRef<char> dst) {
           auto src = getBufferBytes();
           restrideArray(getBufferElementBytewidth(), getShape(),
               {getStrides(), src}, dst);
@@ -372,7 +372,7 @@ DisposableElementsAttr DisposableElementsAttr::expand(
   ShapedType expandedType = type.clone(expandedShape);
   auto expandedStrides = expandStrides(getStrides(), expandedShape);
   return elmsBuilder.create(expandedType, getBuffer(),
-      makeArrayRef(expandedStrides), getBufferDType(), getReaderOrNull());
+      makeArrayRef(expandedStrides), getBufferBType(), getReaderOrNull());
 }
 
 } // namespace mlir

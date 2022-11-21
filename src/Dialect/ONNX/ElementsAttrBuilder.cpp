@@ -30,18 +30,18 @@ bool testBoolsValidityAndSplatness(ArrayRef<char> bytes) {
 
 // Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
 bool testRawBytesValidityAndSplatness(
-    ShapedType type, DType bufferDType, ArrayRef<char> bytes) {
-  DType dtype = dtypeOfMlirType(type.getElementType());
-  assert(wideDTypeOfDType(dtype) == wideDTypeOfDType(bufferDType));
-  if (bufferDType == DType::BOOL) {
+    ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
+  BType btype = btypeOfMlirType(type.getElementType());
+  assert(wideBTypeOfBType(btype) == wideBTypeOfBType(bufferBType));
+  if (bufferBType == BType::BOOL) {
     size_t numElements = type.getNumElements();
     assert(bytes.size() == numElements || bytes.size() == 1);
     return testBoolsValidityAndSplatness(bytes);
   }
   ShapedType bufferType =
-      dtype == bufferDType
+      btype == bufferBType
           ? type
-          : type.clone(mlirTypeOfDType(bufferDType, type.getContext()));
+          : type.clone(mlirTypeOfBType(bufferBType, type.getContext()));
   bool isSplat;
   if (!DenseElementsAttr::isValidRawBuffer(bufferType, bytes, isSplat))
     llvm_unreachable("invalid dense int or fps raw buffer");
@@ -68,21 +68,21 @@ DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
     return disposable;
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
     ShapedType type = dense.getType();
-    DType dtype = dtypeOfMlirType(type.getElementType());
+    BType btype = btypeOfMlirType(type.getElementType());
     std::unique_ptr<llvm::MemoryBuffer> buffer;
-    if (dtype == DType::BOOL) {
+    if (btype == BType::BOOL) {
       if (dense.isSplat()) {
         char b = dense.getSplatValue<bool>();
         return fromRawBytes(
-            type, dtype, llvm::makeArrayRef(b), /*mustCopy=*/true);
+            type, btype, llvm::makeArrayRef(b), /*mustCopy=*/true);
       } else {
-        return fromRawBytes(type, dtype, [dense](MutableArrayRef<char> dst) {
+        return fromRawBytes(type, btype, [dense](MutableArrayRef<char> dst) {
           std::copy_n(
               dense.value_begin<bool>(), dense.getNumElements(), dst.begin());
         });
       }
     } else {
-      return fromRawBytes(type, dtype, dense.getRawData(), /*mustCopy=*/false);
+      return fromRawBytes(type, btype, dense.getRawData(), /*mustCopy=*/false);
     }
   }
   // TODO: consider supporting more ElementsAttr types
@@ -90,8 +90,8 @@ DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
-    ShapedType type, DType bufferDType, ArrayRef<char> bytes, bool mustCopy) {
-  bool isSplat = testRawBytesValidityAndSplatness(type, bufferDType, bytes);
+    ShapedType type, BType bufferBType, ArrayRef<char> bytes, bool mustCopy) {
+  bool isSplat = testRawBytesValidityAndSplatness(type, bufferBType, bytes);
   std::unique_ptr<llvm::MemoryBuffer> buffer;
   StringRef s = asStringRef(bytes);
   if (mustCopy) {
@@ -103,33 +103,33 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   if (isSplat) {
     SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
     return create(
-        type, std::move(buffer), makeArrayRef(zerosStrides), bufferDType);
+        type, std::move(buffer), makeArrayRef(zerosStrides), bufferBType);
   }
-  return create(type, std::move(buffer), None, bufferDType);
+  return create(type, std::move(buffer), None, bufferBType);
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
-    ShapedType type, DType bufferDType, const Filler<char> &bytesFiller) {
-  size_t size = type.getNumElements() * bytewidthOfDType(bufferDType);
+    ShapedType type, BType bufferBType, const Filler<char> &bytesFiller) {
+  size_t size = type.getNumElements() * bytewidthOfBType(bufferBType);
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
   // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
-  return create(type, std::move(writeBuffer), None, bufferDType);
+  return create(type, std::move(writeBuffer), None, bufferBType);
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, llvm::ArrayRef<WideNum> wideData, bool mustCopy) {
-  DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
+  BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
   return fromRawBytes(
-      type, bufferDType, castArrayRef<char>(wideData), mustCopy);
+      type, bufferBType, castArrayRef<char>(wideData), mustCopy);
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, const Filler<WideNum> &wideDataFiller) {
-  DType bufferDType = wideDTypeOfDType(dtypeOfMlirType(type.getElementType()));
+  BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
   return fromRawBytes(
-      type, bufferDType, [&wideDataFiller](llvm::MutableArrayRef<char> bytes) {
+      type, bufferBType, [&wideDataFiller](llvm::MutableArrayRef<char> bytes) {
         wideDataFiller(castMutableArrayRef<WideNum>(bytes));
       });
 }
