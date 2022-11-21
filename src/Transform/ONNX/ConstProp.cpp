@@ -34,8 +34,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/Common.hpp"
 #include "src/Support/BType.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
@@ -392,11 +392,16 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
   uint64_t splitAxis = splitOp.axis();
-  size_t splitAxisSize = inputShape[splitAxis];
+  int64_t splitAxisSize = inputShape[splitAxis];
+  std::vector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
   if (splitAttr.has_value()) {
-    // splitAttr must have numResults entries that add up to splitAxisSize.
+    for (unsigned int i = 0; i < numResults; ++i)
+      splitSizes[i] = ArrayAttrIntVal(splitAttr, i);
+    assert(splitAxisSize == std::reduce(splitSizes.begin(), splitSizes.end()) &&
+           "split values must sum to axis size");
   } else {
     // If split attribute is not specified, split size is equally divided.
+    // TODO: Follow the onnx spec which is more relaxed (albeit incomplete).
     assert(splitAxisSize % numResults == 0 &&
            "The dimension at the split axis is expected to be divisible by "
            "the number of results");
@@ -412,11 +417,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   std::vector<Value> resValues;
   for (unsigned int i = 0; i < numResults; ++i) {
     Value replacingValue = splitOp.getResults()[i];
-    size_t len = substride; // Multiply split length by substride.
-    if (splitAttr.has_value())
-      len *= ArrayAttrIntVal(splitAttr, i);
-    else
-      len *= splitAxisSize / numResults;
+    size_t len = splitSizes[i] * substride;
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
         replacingValue.getType(), [&](MutableArrayRef<WideNum> outputData) {
           SplitImpl(inputData.get(), offset, len, stride, outputData);
@@ -523,7 +524,8 @@ public:
     if (!isFromDenseONNXConstantOp(scatterNdOp.updates()))
       return failure();
 
-    ConstPropCounters::count("Scatter", {scatterNdOp.data(), scatterNdOp.indices(), scatterNdOp.updates()});
+    ConstPropCounters::count("Scatter",
+        {scatterNdOp.data(), scatterNdOp.indices(), scatterNdOp.updates()});
 
     ElementsAttrBuilder elementsBuilder(rewriter.getContext());
     DisposableElementsAttr dataElements =
