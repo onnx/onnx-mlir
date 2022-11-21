@@ -25,9 +25,9 @@ namespace mlir {
 namespace {
 
 // TODO: share implementation with widenArray
-template <BType DTYPE>
+template <BType BTYPE>
 void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
-  using W = WideBType<DTYPE>;
+  using W = WideBType<BTYPE>;
   auto src = asArrayRef<typename W::narrowtype>(s);
   std::transform(src.begin(), src.end(), dst.begin(), W::widen);
 }

@@ -27,8 +27,8 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
       std::tuple<ShapedType, Strides, onnx_mlir::BType, onnx_mlir::BType, bool, size_t>;
   static constexpr int TYPE = 0;
   static constexpr int STRIDES = 1;
-  static constexpr int BUFFER_DTYPE = 2;
-  static constexpr int DTYPE = 3;
+  static constexpr int BUFFER_BTYPE = 2;
+  static constexpr int BTYPE = 3;
   static constexpr int IS_CONTIGUOUS = 4;
   static constexpr int ID = 5;
 
@@ -53,8 +53,8 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
       AttributeStorageAllocator &allocator, const KeyTy &key) {
     ShapedType type = std::get<TYPE>(key);
     Strides strides = std::get<STRIDES>(key);
-    onnx_mlir::BType bufferBType = std::get<BUFFER_DTYPE>(key);
-    onnx_mlir::BType btype = std::get<DTYPE>(key);
+    onnx_mlir::BType bufferBType = std::get<BUFFER_BTYPE>(key);
+    onnx_mlir::BType btype = std::get<BTYPE>(key);
     bool isContiguous = std::get<IS_CONTIGUOUS>(key);
     size_t id = std::get<ID>(key);
     return new (allocator.allocate<DisposableElementsAttributeStorage>())

@@ -98,10 +98,10 @@ union WideNum {
 };
 static_assert(sizeof(WideNum) * CHAR_BIT == 64, "WideNum is 64 bits wide");
 
-template <BType DTYPE>
+template <BType BTYPE>
 struct WideBType {
-  using narrowtype = CppType<DTYPE>;
-  using type = typename BTypeTrait<DTYPE>::widetype;
+  using narrowtype = CppType<BTYPE>;
+  using type = typename BTypeTrait<BTYPE>::widetype;
   static constexpr BType btype = toBType<type>;
   static constexpr type unpack(WideNum n) { return n.to<type>(btype); }
   static constexpr WideNum pack(type x) {

@@ -49,7 +49,7 @@ public:
   int test_dispatchByBType() {
     std::cout << "test_dispatchByBType:" << std::endl;
 
-    for (BType d = static_cast<BType>(0); d <= BType::MAX_DTYPE;
+    for (BType d = static_cast<BType>(0); d <= BType::MAX_BTYPE;
          d = static_cast<BType>(static_cast<int>(d) + 1)) {
       if (d == BType::UNDEFINED || d == BType::STRING ||
           d == BType::COMPLEX64 || d == BType::COMPLEX128)

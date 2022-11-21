@@ -55,7 +55,7 @@ enum class BType : int8_t {
   BFLOAT16 = 16,
   // clang-format on
 
-  MAX_DTYPE = 16 // TODO: update this if more types are added to the enum
+  MAX_BTYPE = 16 // TODO: update this if more types are added to the enum
 };
 
 // BType and enum onnx::TensorProto_DataType convert to each other with
@@ -74,9 +74,9 @@ constexpr BType btypeOfOnnxDataType(int onnxDataType) {
 }
 
 namespace detail {
-template <BType DTYPE, typename CPPTY>
+template <BType BTYPE, typename CPPTY>
 struct BTypeTraitBase {
-  static constexpr BType btype = DTYPE;
+  static constexpr BType btype = BTYPE;
   static constexpr bool isFloat =
       std::is_floating_point_v<CPPTY> || isFP16Type<CPPTY>;
   static constexpr bool isIntOrFloat = std::is_integral_v<CPPTY> || isFloat;
@@ -93,17 +93,17 @@ struct BTypeTraitBase {
 };
 } // namespace detail
 
-template <BType DTYPE>
-struct BTypeTrait : public detail::BTypeTraitBase<DTYPE, void> {};
+template <BType BTYPE>
+struct BTypeTrait : public detail::BTypeTraitBase<BTYPE, void> {};
 
 template <typename CPPTY>
 struct CppTypeTrait : public detail::BTypeTraitBase<BType::UNDEFINED, CPPTY> {};
 
-#define DEFINE_BTypeCppTypeTraits(DTYPE, CPPTY)                                \
+#define DEFINE_BTypeCppTypeTraits(BTYPE, CPPTY)                                \
   template <>                                                                  \
-  struct BTypeTrait<DTYPE> : public detail::BTypeTraitBase<DTYPE, CPPTY> {};   \
+  struct BTypeTrait<BTYPE> : public detail::BTypeTraitBase<BTYPE, CPPTY> {};   \
   template <>                                                                  \
-  struct CppTypeTrait<CPPTY> : public BTypeTrait<DTYPE> {};
+  struct CppTypeTrait<CPPTY> : public BTypeTrait<BTYPE> {};
 
 DEFINE_BTypeCppTypeTraits(BType::BOOL, bool);
 DEFINE_BTypeCppTypeTraits(BType::INT8, int8_t);
@@ -122,8 +122,8 @@ DEFINE_BTypeCppTypeTraits(BType::BFLOAT16, bfloat_16);
 #undef DEFINE_BTypeCppTypeTraits
 
 // Compile time mapping from BType to cpp type.
-template <BType DTYPE>
-using CppType = typename BTypeTrait<DTYPE>::cpptype;
+template <BType BTYPE>
+using CppType = typename BTypeTrait<BTYPE>::cpptype;
 
 // Compile time mapping from cpp type to BType. It is "compile time" because
 // it's a constexpr which can be used in template arguments like
@@ -181,15 +181,15 @@ unsigned bytewidthOfBType(BType);
 // == toBType<BTypeTrait<btype>::widetype> if btype is constexpr
 BType wideBTypeOfBType(BType btype);
 
-template <BType DTYPE>
+template <BType BTYPE>
 struct BTypeToken {
   constexpr BTypeToken() {}
-  constexpr operator BType() const { return DTYPE; }
+  constexpr operator BType() const { return BTYPE; }
 };
 
 template <typename Action>
 auto dispatchByBType(BType btype, Action &&act) {
-#define ACT(DTYPE) act(BTypeToken<DTYPE>{})
+#define ACT(BTYPE) act(BTypeToken<BTYPE>{})
   // clang-format off
   switch (btype) {
   case BType::BOOL     : return ACT(BType::BOOL);
