@@ -67,7 +67,7 @@ public:
       ONNXPadOp op, PatternRewriter &rewriter) const override {
     auto constValue = op.constant_value();
     if (isNotNoValue(constValue)) {
-      return success();
+      return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
 
     constValue =
@@ -84,7 +84,7 @@ public:
       ONNXGemmOp op, PatternRewriter &rewriter) const override {
     auto matrixC = op.C();
     if (isNotNoValue(matrixC)) {
-      return success();
+      return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
 
     matrixC = createONNXConstFromFloatValue(rewriter, op.getLoc(), {1}, 0.0F);
@@ -101,7 +101,7 @@ public:
 
     auto bias = op.B();
     if (isNotNoValue(bias)) {
-      return success();
+      return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
 
     auto weight = op.W();
@@ -124,12 +124,9 @@ void ReplaceNoValuePass::runOnOperation() {
   patterns.insert<Conv2DReplaceNoValue, GemmReplaceNoValue, PadReplaceNoValue>(
       context);
 
-  // Define pattern rewriter
-  mlir::GreedyRewriteConfig config;
-  config.useTopDownTraversal = true;
-  config.maxIterations = 1;
-
-  (void)applyPatternsAndFoldGreedily(module, std::move(patterns), config);
+  if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
+    signalPassFailure();
+  }
 }
 } // namespace
 } // namespace onnx_mlir
