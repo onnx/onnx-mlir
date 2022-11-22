@@ -62,9 +62,8 @@ MLIRContext *createCtx() {
 }
 
 template <typename T>
-std::shared_ptr<llvm::MemoryBuffer> buffer(ArrayRef<T> data) {
-  return std::shared_ptr<llvm::MemoryBuffer>(
-      llvm::MemoryBuffer::getMemBufferCopy(asStringRef(data)));
+std::unique_ptr<llvm::MemoryBuffer> buffer(ArrayRef<T> data) {
+  return llvm::MemoryBuffer::getMemBufferCopy(asStringRef(data));
 }
 
 class Test {
@@ -100,9 +99,8 @@ public:
         Type elementType = mlirTypeOfBType(btype, ctx);
         ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
-        std::vector<int64_t> zerosStrides(2, 0);
-        Attribute a = elmsBuilder.create(
-            type, buffer<cpptype>({one}), llvm::makeArrayRef(zerosStrides));
+        Attribute a =
+            elmsBuilder.fromSplatMemoryBuffer(type, buffer<cpptype>({one}));
         ElementsAttr e = a.cast<ElementsAttr>();
         assert(e.isSplat());
         DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
@@ -138,7 +136,7 @@ public:
 
     ShapedType type = RankedTensorType::get({2, 3, 5}, getUInt(8));
     auto elms = nums<uint8_t>(std::make_integer_sequence<uint8_t, 30>{});
-    auto e = elmsBuilder.create(type, buffer<uint8_t>(elms));
+    auto e = elmsBuilder.fromMemoryBuffer(type, buffer<uint8_t>(elms));
     assert(e.getValues<uint8_t>()[0] == 0);
     assert(e.getValues<uint8_t>()[1] == 1);
     assert(e.getValues<uint8_t>()[28] == 28);
@@ -157,7 +155,7 @@ public:
     std::cout << "test_cast:" << std::endl;
 
     ShapedType type = RankedTensorType::get({1}, I64);
-    auto e = elmsBuilder.create(type, buffer<int64_t>({256}));
+    auto e = elmsBuilder.fromMemoryBuffer(type, buffer<int64_t>({256}));
     assert(e.getSplatValue<int64_t>() == 256);
 
     auto c = elmsBuilder.castElementType(e, F32);

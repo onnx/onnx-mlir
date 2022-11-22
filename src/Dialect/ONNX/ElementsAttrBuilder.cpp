@@ -61,6 +61,12 @@ DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
   return create(type, std::move(membuf));
 }
 
+DisposableElementsAttr ElementsAttrBuilder::fromSplatMemoryBuffer(
+    ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
+  return create(type, std::move(membuf), llvm::makeArrayRef(zerosStrides));
+}
+
 DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
     ElementsAttr elements) {
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
