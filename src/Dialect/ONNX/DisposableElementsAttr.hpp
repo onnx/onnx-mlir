@@ -306,6 +306,7 @@ constexpr bool isIterableType =
 template <typename T>
 T getNumber(Type elementType, onnx_mlir::BType tag, onnx_mlir::WideNum n) {
   static_assert(isIterableType<T>);
+  (void)elementType; // Suppresses compiler warning.
   if constexpr (std::is_same_v<T, Attribute>)
     if (isFloatBType(tag))
       return FloatAttr::get(elementType, n.toAPFloat(tag));
