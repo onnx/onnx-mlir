@@ -11,6 +11,7 @@ func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // -----
+
 func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -22,6 +23,7 @@ func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func @test_neg(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Neg"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -31,6 +33,7 @@ func.func @test_neg(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // -----
+
 func.func @test_floor(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Floor"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -41,6 +44,7 @@ func.func @test_floor(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 
 // -----
+
 func.func @test_add(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
@@ -50,6 +54,7 @@ func.func @test_add(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> t
 }
 
 // -----
+
 func.func @test_add_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
@@ -60,6 +65,7 @@ func.func @test_add_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 
 
 // -----
+
 func.func @test_sub(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
@@ -69,6 +75,7 @@ func.func @test_sub(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> t
 }
 
 // -----
+
 func.func @test_sub_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
