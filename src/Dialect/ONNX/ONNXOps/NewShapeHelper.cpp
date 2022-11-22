@@ -91,7 +91,11 @@ NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
     assert(scope && "failed to create a new scope");
   }
-  setNumberOfOutputs(op->getNumResults());
+  setNumberOfOutputs(op);
+  // if (typeid(OP) == typeid(mlir::Operation))
+  //  setNumberOfOutputs(op->getNumResults());
+  // else
+  //  setNumberOfOutputs(op->getNumberOfResults());
 }
 
 template <class OP>
@@ -108,6 +112,19 @@ void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   // output's shape.
   Value output = getOutput(n);
   refineDims(outputsDims[n], output);
+}
+
+// Because we use NewONNXOpShapeHelper with concrete ops like ONNXAddOp or
+// generic ops like Operation, we cannot use the same method to get the generic
+// Operation; use template specialization to handle these two different cases.
+template <>
+mlir::Operation *NewONNXOpShapeHelper<mlir::Operation>::getOperation() {
+  return op;
+}
+
+template <class OP>
+mlir::Operation *NewONNXOpShapeHelper<OP>::getOperation() {
+  return op->getOperation();
 }
 
 //===----------------------------------------------------------------------===//
@@ -135,17 +152,16 @@ LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 template <class OP>
-NewONNXOpBroadcastedShapeHelper<OP>::NewONNXOpBroadcastedShapeHelper(
-    Operation *op, ValueRange operands, DimsExpr *additionalOperand,
-    IndexExprBuilder *ieBuilder, IndexExprScope *scope, bool hasUniBroadcasting,
-    bool hasNoBroadcasting)
+NewONNXOpBroadcastedShapeHelper<OP>::NewONNXOpBroadcastedShapeHelper(OP *op,
+    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
+    bool hasUniBroadcasting, bool hasNoBroadcasting)
     : NewONNXOpShapeHelper<OP>(op, operands, ieBuilder, scope), inputsDims(),
-      outputRank(0), additionalOperand(additionalOperand),
-      hasUniBroadcasting(hasUniBroadcasting),
+      outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
       hasNoBroadcasting(hasNoBroadcasting) {}
 
 template <class OP>
-LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape() {
+LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape(
+    DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
@@ -283,18 +299,18 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 // Generic broadcast
 //===----------------------------------------------------------------------===//
 
-NewONNXGenericOpBroadcastedShapeHelper::NewONNXGenericOpBroadcastedShapeHelper(
-    Operation *op, ValueRange operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope, bool uniBroadcasting, bool noBroadcasting)
-    : NewONNXOpBroadcastedShapeHelper(op, operands, nullptr, ieBuilder, scope,
-          uniBroadcasting, noBroadcasting) {}
+//===----------------------------------------------------------------------===//
+// Expand broadcast
+//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
 
 template struct NewONNXOpShapeHelper<Operation>;
+template struct NewONNXOpShapeHelper<ONNXExpandOp>;
+
 template struct NewONNXOpBroadcastedShapeHelper<Operation>;
-// template struct NewONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
+template struct NewONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
 
 } // namespace onnx_mlir
