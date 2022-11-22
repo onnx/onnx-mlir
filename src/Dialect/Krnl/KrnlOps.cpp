@@ -100,8 +100,10 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   } else {
     std::vector<NamedAttribute> attributes;
     attributes.emplace_back(namedAttr);
-    for (auto namedAttr : op->getAttrs()) {
-      attributes.emplace_back(namedAttr);
+    if (op) {
+      for (auto namedAttr : op->getAttrs()) {
+        attributes.emplace_back(namedAttr);
+      }
     }
     build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
   }

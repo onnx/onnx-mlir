@@ -505,7 +505,6 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
   Type indexType = rewriter.getIndexType();
-  Type intType = rewriter.getIntegerType(64);
   int64_t rank = inputMemRefType.getRank();
   assert(axis >= 0 && axis < rank && "axis is out of bound");
   LiteralIndexExpr zeroIE(0), oneIE(1);
@@ -529,10 +528,15 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   // Do sorting in the specifed order of input and return their indices.
   // If algorithm is set, use the specified sort algorithm.
   if ((algorithm != 0) && (rank == 3) && (axis == (rank - 1))) {
-    // Emit krnl.Sort
-    rewriter.create<KrnlSortOp>(loc, order, input,
-        rewriter.getIntegerAttr(intType, axis), rewriter.getBoolAttr(ascending),
-        rewriter.getIntegerAttr(intType, algorithm));
+    // Emit krnl.Call to call omTensorSort API
+    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+    Operation *op = NULL;
+    Type intType = rewriter.getIntegerType(64);
+    Value valAxis = create.math.constant(intType, axis);
+    Value valAscending = create.math.constant(intType, (int64_t)ascending);
+    Value valAlgorithm = create.math.constant(intType, algorithm);
+    ArrayRef<Value> operands = {input, valAxis, valAscending, valAlgorithm};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, op, operands, true);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
