@@ -201,6 +201,7 @@ func.func @onnx_concat_layout_propagation_4d(%arg0: tensor<?x4x4x192xf32, #zhigh
 
 // -----
 
+// TODO: enable this once DLFLOAT16-based calculation is supported.
 // Data layout propagation for ONNX operations.
 // Take ONNXSqrtOp as the representative of unary element-wise ops.
 // COM: func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
