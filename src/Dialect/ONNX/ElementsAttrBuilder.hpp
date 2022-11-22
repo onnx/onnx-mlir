@@ -14,6 +14,8 @@
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Support/WideNum.hpp"
 
+#include <atomic>
+
 namespace onnx_mlir {
 
 class ElementsAttrBuilder {
@@ -21,17 +23,6 @@ public:
   ElementsAttrBuilder(DisposablePool &disposablePool);
 
   ElementsAttrBuilder(mlir::MLIRContext *context);
-
-  // Create a DisposableElementsAttr and put it in the pool.
-  // TODO: Make this private.
-  template <typename... Args>
-  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args) {
-    size_t id = ++counter;
-    auto d = mlir::DisposableElementsAttr::get(
-        type, id, std::forward<Args>(args)...);
-    disposablePool.insert(d);
-    return d;
-  }
 
   mlir::DisposableElementsAttr fromMemoryBuffer(
       mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
@@ -94,7 +85,18 @@ public:
     return expand(transformed, resultType.getShape());
   }
 
+  // Called only from DisposableElementsAttr internal builder methods.
+  // TODO: Remove this and move those methods into ElementsAttrBuilder.
+  mlir::DisposableElementsAttr cloneMemoryBuffer(mlir::ShapedType type,
+      const mlir::DisposableElementsAttr::Buffer &buffer,
+      mlir::DisposableElementsAttr::Strides strides, BType bufferBType,
+      mlir::DisposableElementsAttr::Reader reader);
+
 private:
+  // Create a DisposableElementsAttr and put it in the pool.
+  template <typename... Args>
+  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args);
+
   static std::atomic<size_t> counter;
 
   DisposablePool &disposablePool;

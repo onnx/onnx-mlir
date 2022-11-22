@@ -50,6 +50,16 @@ bool testRawBytesValidityAndSplatness(
 
 } // namespace
 
+template <typename... Args>
+DisposableElementsAttr ElementsAttrBuilder::create(
+    mlir::ShapedType type, Args &&... args) {
+  size_t id = ++counter;
+  auto d =
+      mlir::DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
+  disposablePool.insert(d);
+  return d;
+}
+
 std::atomic<size_t> ElementsAttrBuilder::counter{0};
 
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)

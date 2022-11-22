@@ -103,7 +103,6 @@ private:
   static DisposableElementsAttr get(ShapedType type, size_t id,
       const Buffer &buffer, Optional<Strides> optionalStrides = None);
 
-  // Assumes isTransformed if reader != nullptr.
   static DisposableElementsAttr get(ShapedType type, size_t id,
       const Buffer &buffer, Optional<Strides> optionalStrides,
       BType bufferBType, Reader reader = nullptr);

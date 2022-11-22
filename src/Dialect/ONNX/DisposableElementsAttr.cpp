@@ -286,8 +286,8 @@ DisposableElementsAttr DisposableElementsAttr::transform(
     ElementsAttrBuilder &elmsBuilder, Type transformedElementType,
     Transformer transformer) const {
   ShapedType transformedType = getType().clone(transformedElementType);
-  return elmsBuilder.create(transformedType, getBuffer(), getStrides(),
-      btypeOfMlirType(transformedElementType),
+  return elmsBuilder.cloneMemoryBuffer(transformedType, getBuffer(),
+      getStrides(), btypeOfMlirType(transformedElementType),
       composeReadTransform(getReader(), std::move(transformer)));
 }
 
@@ -302,12 +302,12 @@ DisposableElementsAttr DisposableElementsAttr::castElementType(
   BType oldWideType = wideBTypeOfBType(getBType());
 
   if (oldWideType == newWideType)
-    return elmsBuilder.create(newType, getBuffer(), getStrides(),
+    return elmsBuilder.cloneMemoryBuffer(newType, getBuffer(), getStrides(),
         getBufferBType(), getReaderOrNull());
 
   Transformer transformer = wideCaster(oldWideType, newWideType);
   Reader reader = composeReadTransform(getReader(), std::move(transformer));
-  return elmsBuilder.create(
+  return elmsBuilder.cloneMemoryBuffer(
       newType, getBuffer(), getStrides(), getBufferBType(), std::move(reader));
 }
 
@@ -332,7 +332,7 @@ DisposableElementsAttr DisposableElementsAttr::transpose(
   ShapedType transposedType = type.clone(transposedShape);
   auto strides = getStrides();
   auto transposedStrides = transposeDims(strides, perm);
-  return elmsBuilder.create(transposedType, getBuffer(),
+  return elmsBuilder.cloneMemoryBuffer(transposedType, getBuffer(),
       makeArrayRef(transposedStrides), getBufferBType(), getReaderOrNull());
 }
 
@@ -346,7 +346,7 @@ DisposableElementsAttr DisposableElementsAttr::reshape(
   ShapedType reshapedType = type.clone(reshapedShape);
   auto strides = getStrides();
   if (auto reshapedStrides = reshapeStrides(shape, strides, reshapedShape)) {
-    return elmsBuilder.create(reshapedType, getBuffer(),
+    return elmsBuilder.cloneMemoryBuffer(reshapedType, getBuffer(),
         makeArrayRef(*reshapedStrides), getBufferBType(), getReaderOrNull());
   }
 
@@ -371,7 +371,7 @@ DisposableElementsAttr DisposableElementsAttr::expand(
 
   ShapedType expandedType = type.clone(expandedShape);
   auto expandedStrides = expandStrides(getStrides(), expandedShape);
-  return elmsBuilder.create(expandedType, getBuffer(),
+  return elmsBuilder.cloneMemoryBuffer(expandedType, getBuffer(),
       makeArrayRef(expandedStrides), getBufferBType(), getReaderOrNull());
 }
 
