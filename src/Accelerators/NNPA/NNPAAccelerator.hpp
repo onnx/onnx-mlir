@@ -44,18 +44,33 @@ public:
   static bool classof(const NNPAAccelerator *) { return true; }
 
   uint64_t getVersionNumber() const final;
+
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir-opt driver
+  //===--------------------------------------------------------------------===//
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const final;
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const final;
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir-opt driver
+  //===--------------------------------------------------------------------===//
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
   virtual void initPasses(int optLevel) const final;
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-to-krnl pass
+  //===--------------------------------------------------------------------===//
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
       const mlir::TensorType tensorType) const final;
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
+  virtual int64_t getDefaultAllocAlignment(
+      const mlir::TensorType tensorType) const final;
+  //===--------------------------------------------------------------------===//
+  // Hooks for krnl-to-llvm pass
+  //===--------------------------------------------------------------------===//
   virtual void conversionTargetKrnlToLLVM(
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
