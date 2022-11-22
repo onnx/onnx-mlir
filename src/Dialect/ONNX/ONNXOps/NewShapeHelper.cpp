@@ -300,7 +300,7 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 //===----------------------------------------------------------------------===//
 
 mlir::LogicalResult NewONNXGenericOpBroadcastedShapeHelper::computeShape() {
-  return computeShape(nullptr);
+  return NewONNXOpBroadcastedShapeHelper<mlir::Operation>::computeShape(nullptr);
 }
 
 //===----------------------------------------------------------------------===//
