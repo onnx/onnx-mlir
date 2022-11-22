@@ -50,18 +50,6 @@ bool testRawBytesValidityAndSplatness(
 
 } // namespace
 
-template <typename... Args>
-DisposableElementsAttr ElementsAttrBuilder::create(
-    mlir::ShapedType type, Args &&... args) {
-  size_t id = ++counter;
-  auto d =
-      mlir::DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
-  disposablePool.insert(d);
-  return d;
-}
-
-std::atomic<size_t> ElementsAttrBuilder::counter{0};
-
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
     : disposablePool(disposablePool) {}
 
@@ -166,10 +154,27 @@ DisposableElementsAttr ElementsAttrBuilder::reshape(
   return elms.reshape(*this, reshapedShape);
 }
 
-// Broadcasts like the ONNX Expand op.
 DisposableElementsAttr ElementsAttrBuilder::expand(
     DisposableElementsAttr elms, ArrayRef<int64_t> expandedShape) {
   return elms.expand(*this, expandedShape);
 }
+
+DisposableElementsAttr ElementsAttrBuilder::cloneMemoryBuffer(ShapedType type,
+    const DisposableElementsAttr::Buffer &buffer,
+    DisposableElementsAttr::Strides strides, BType bufferBType,
+    DisposableElementsAttr::Reader reader) {
+  return create(type, buffer, strides, bufferBType, reader);
+}
+
+template <typename... Args>
+DisposableElementsAttr ElementsAttrBuilder::create(
+    ShapedType type, Args &&... args) {
+  size_t id = ++counter;
+  auto d = DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
+  disposablePool.insert(d);
+  return d;
+}
+
+std::atomic<size_t> ElementsAttrBuilder::counter{0};
 
 } // namespace onnx_mlir
