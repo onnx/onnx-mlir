@@ -44,7 +44,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     unsigned int inputNum = operands.size();
 
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type outputTensorType = *op->result_type_begin();
+    Type convertedType = typeConverter->convertType(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
@@ -52,8 +53,10 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     unsigned int rank = resultShape.size();
 
     // Alloc and dealloc.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+    int64_t alignment =
+        KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+        loc, shapeHelper.dimsForOutput(), alignment);
 
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
