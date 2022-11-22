@@ -19,7 +19,7 @@ class DisposablePool;
 struct DisposableGarbageCollector : public mlir::PassInstrumentation {
   DisposableGarbageCollector(DisposablePool &disposablePool)
       : disposablePool(disposablePool) {}
-  ~DisposableGarbageCollector() override = default;
+  ~DisposableGarbageCollector() override;
 
   void runAfterPass(mlir::Pass *pass, mlir::Operation *op) override;
 

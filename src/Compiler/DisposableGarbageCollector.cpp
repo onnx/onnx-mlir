@@ -18,6 +18,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+DisposableGarbageCollector::~DisposableGarbageCollector() {}
+
 void DisposableGarbageCollector::runAfterPass(Pass *pass, Operation *op) {
   if (!disposablePool.isActive())
     return;
