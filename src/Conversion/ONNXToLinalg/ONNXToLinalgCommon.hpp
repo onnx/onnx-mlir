@@ -86,8 +86,8 @@ void populateONNXToLinalgConversionPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 
 // `Math` directory methods:
-void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
+void populateLoweringONNXMatMulOpLinalgPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *);
 
 
 } // namespace onnx_mlir

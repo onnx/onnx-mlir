@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====----- ONNXToLinaglCommon.cpp - ONNX dialects to Linagl lowering ---------===//
+//====----- ONNXToLinalgCommon.cpp - ONNX dialects to Linalg lowering ---------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -13,23 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToLinagl/ONNXToLinaglCommon.hpp"
+#include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Accelerators/Accelerator.hpp"
-#include "src/Dialect/Linagl/DialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
-bool ONNXToLinagl_gEmitDealloc = false;
+bool ONNXToLinalg_gEmitDealloc = false;
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// Type conversion from Onnx types to Linagl types.
+// Type conversion from Onnx types to Linalg types.
 //===----------------------------------------------------------------------===//
 
-LinaglTypeConverter::LinaglTypeConverter() {
+LinalgTypeConverter::LinalgTypeConverter() {
   // The order of type conversion is important: later ones are tried earlier.
   addConversion([](Type type) { return type; });
 
@@ -39,20 +39,7 @@ LinaglTypeConverter::LinaglTypeConverter() {
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<ONNXStringType>()) {
-      Type elementType = krnl::StringType::get(tensorType.getContext());
-      return MemRefType::get(tensorType.getShape(), elementType);
-    }
-    // Accelerators may have special versions of TensorType. Call the
-    // conversions of accelerators.
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
-      if (memRefType)
-        return memRefType;
-    }
-    if (hasCustomONNXTensorDataLayout(tensorType))
-      return convertTypeWithCustomONNXDataLayoutToMemRef(tensorType);
-    return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+    return tensorType;
   });
 
   addConversion([](SeqType seqType) {

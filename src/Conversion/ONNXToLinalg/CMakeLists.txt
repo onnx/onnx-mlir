@@ -2,8 +2,8 @@
 
 # Please keep in alphabetical order.
 add_onnx_mlir_library(OMONNXToLinalg
-  ConvertONNXToLinagl.cpp
-  ONNXToLinaglCommon.cpp
+  ConvertONNXToLinalg.cpp
+  ONNXToLinalgCommon.cpp
   Math/MatMul.cpp
 
   LINK_LIBS PUBLIC
