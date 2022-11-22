@@ -256,6 +256,15 @@ Note that in both case, runtime values may be "question marks" during the shape
 inference part as no code may be generated during such phases.
 */
 
+/* Dialect use in Index Expression stack (when generating ops)
+   IndexExpr.cpp: 
+     Arithmetic: cmp, add, sub, mul, floor/ceil div, rem, and, or, select
+     Affine: affine min/max
+   IndexExprImpl.cpp:
+     Arithmetic: constant, constant index, index cast.
+     Affine: affine apply
+*/
+
 #pragma once
 
 #include "mlir/Dialect/Arith/IR/Arith.h"

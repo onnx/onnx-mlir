@@ -131,14 +131,17 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   Value A = op->getOperands()[0];
   Value B = op->getOperands()[1];
-  onnx_mlir::ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, nullptr);
-  onnx_mlir::DimsExpr empty;
-  auto shapeComputed = shapeHelper.computeShape(ArrayRef<Value>({A, B}), empty);
+
+  // Build shape helper
+  onnx_mlir::IndexExprBuilderForAnalysis createAnalysisIE(op->getLoc());
+  onnx_mlir::NewONNXGenericOpBroadcastedShapeHelper shapeHelper(
+      op, ArrayRef<Value>({A, B}), (onnx_mlir::IndexExprBuilder *)&createAnalysisIE);
+  auto shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
-      shapeHelper.dimsForOutput()[dim.second];
+      shapeHelper.getOutputDims()[dim.second];
   findAndAddSameDim(qmOuputIE, op->getOperands(), sameDims);
 }
 

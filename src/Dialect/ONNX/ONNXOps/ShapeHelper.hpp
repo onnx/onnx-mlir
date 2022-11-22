@@ -187,6 +187,8 @@ protected:
   bool isNoBroadcasting;
 };
 
+#if DEPRACATED
+
 struct ONNXGenericOpBroadcastedShapeHelper
     : public ONNXOpBroadcastedShapeHelper<mlir::Operation> {
   ONNXGenericOpBroadcastedShapeHelper(mlir::Operation *newOp,
@@ -199,6 +201,7 @@ struct ONNXGenericOpBroadcastedShapeHelper
       IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
       bool noBroadcasting = false);
 };
+#endif
 
 // Shape for generic pooling/conv ops.
 template <typename OP_TYPE, typename OP_ADAPTOR>

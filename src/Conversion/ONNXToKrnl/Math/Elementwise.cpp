@@ -1004,24 +1004,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXGenericOpBroadcastedShapeHelper shapeHelper(op, operands,
-        (IndexExprBuilder *)&create.krnlIE);
+    NewONNXGenericOpBroadcastedShapeHelper shapeHelper(
+        op, operands, (IndexExprBuilder *)&create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
-
-#if 0
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-
-    // The following call is used to force no broadcasting check at runtime
-    // Even when the dim is unknown at compile time
-    DimsExpr empty;
-    LogicalResult shapeComputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
-    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
-#endif
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -1031,9 +1017,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     if (!hasAllScalarValues(operands)) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-      //// MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      //// allocBounds.getDimList(ubs);
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -1041,10 +1025,6 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
             getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
-
-            //SmallVector<IndexExpr, 4> outputAccessExprs;
-            //for (uint64_t i = 0; i < outputRank; ++i)
-            //  outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
 
             // Fold over operands for each of their scalar values.
             // Obtain the first operand.
@@ -1114,35 +1094,31 @@ struct ONNXWhereOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     uint64_t outputRank = outputMemRefType.getRank();
-
     ONNXWhereOpAdaptor operandAdaptor(operands);
+
     // Shape helper.
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    DimsExpr empty;
-    auto shapeComputed = shapeHelper.computeShape(operands, empty);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
+        rewriter, loc);
+    NewONNXGenericOpBroadcastedShapeHelper shapeHelper(
+        op, operands, (IndexExprBuilder *)&create.krnlIE);
+    auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
-    // Scope for krnl ops
-    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      ValueRange loopDef = createKrnl.defineLoops(outputRank);
+      ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      allocBounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(alloc, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
             SmallVector<IndexExpr, 4> outputAccessExprs;
-            for (uint64_t i = 0; i < outputRank; ++i)
-              outputAccessExprs.emplace_back(DimIndexExpr(loopInd[i]));
+            getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
 
             // Load the condition value.
             SmallVector<IndexExpr, 4> condAccessExprs;
@@ -1176,19 +1152,19 @@ struct ONNXWhereOpLowering : public ConversionPattern {
           });
     } else {
       // Load the condition value.
-      Value cond = createKrnl.load(operandAdaptor.condition());
+      Value cond = create.krnl.load(operandAdaptor.condition());
 
       // Load the first value.
-      Value lhs = createKrnl.load(operandAdaptor.X());
+      Value lhs = create.krnl.load(operandAdaptor.X());
 
       // Load the second value.
-      Value rhs = createKrnl.load(operandAdaptor.Y());
+      Value rhs = create.krnl.load(operandAdaptor.Y());
 
       // Return lhs if cond is true else rhs.
       Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
 
       // Store result in the resulting array.
-      createKrnl.store(result, alloc);
+      create.krnl.store(result, alloc);
     }
 
     rewriter.replaceOp(op, alloc);

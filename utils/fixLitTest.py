@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -279,7 +279,7 @@ def main(argv):
         if m is not None:
             curr_segment_fct_name = m.group(1)
             if fct_between_delimiters > 0:
-                dprint('Got too many function bodies between "// ----" command starting with', curr_segment_fct_name)
+                dprint('Got too many function bodies between "// ----" command starting with ' + curr_segment_fct_name)
                 print_usage()
             fct_between_delimiters = 1
             if has_fct and curr_segment_fct_name == fix_fct_name:

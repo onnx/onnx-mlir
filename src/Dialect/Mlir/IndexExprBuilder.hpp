@@ -30,33 +30,39 @@
 
 namespace onnx_mlir {
 
-//===----------------------------------------------------------------------===//
-// IndexShapeBuilder
-//===----------------------------------------------------------------------===//
+// ===----------------------------------------------------------------------===//
+//  IndexShapeBuilder
+// ===----------------------------------------------------------------------===/
 
-// IndexExprBuilder is used to extract index expressions for computations
-// typically related to shapes. This class defines all the algorithms but rely
-// on subclass to extract "runtime" values. Methods are provided to return
-// literal/symbol/dim index expressions related to operation attributes,
-// operation operands, and the shape of operands.
+/*
+  IndexExprBuilder is used to extract index expressions for computations
+  typically related to shapes. This class defines all the algorithms but rely
+  on subclass to extract "runtime" values. Methods are provided to return
+  literal/symbol/dim index expressions related to operation attributes,
+  operation operands, and the shape of operands
+  Recall that literals are compile-time integer values, and symbol and dim are
+  runtime values. The difference between symbol/dim related to affine
+  expression; symbol is not changing in the given context (e.g. batch size in a
+  given loop), and dim are changing (e.g. the loop index inside a given loop).
 
-// Recall that literals are compile-time integer values, and symbol and dim are
-// runtime values. The difference between symbol/dim related to affine
-// expression; symbol is not changing in the given context (e.g. batch size in a
-// given loop), and dim are changing (e.g. the loop index inside a given loop).
-//
-// This class cannot be directly used, and must be refined by subclasses.
-//
-// A first subclass is IndexExprBuilderForAnalysis and is used during the
-// analysis phase; runtime values are described by questionmark index
-// expressions.
-//
-// Other subclasses (e.g. IndexExprBuilderForKrnl) generate dialect operations
-// (e.g. Krnl ops) to generate code that compute runtime values.
-//
-// Subclasses simply have to define three virtual functions: getConst, getVal,
-// and getShape to provide the proper values for the methods defined in this
-// class.
+  This class cannot be directly used, and must be refined by subclasses.
+
+  A first subclass is IndexExprBuilderForAnalysis and is used during the
+  analysis phase; runtime values are described by questionmark index
+  expressions.
+
+  Other subclasses (e.g. IndexExprBuilderForKrnl) generate dialect operations
+  (e.g. Krnl ops) to generate code that compute runtime values.
+
+  Subclasses simply have to define three virtual functions: getConst, getVal,
+  and getShape to provide the proper values for the methods defined in this
+  class.
+*/
+
+/* Dialect use:
+   None here except for what is possibly generated in the virtual subclass
+   method implementation for getConst, getVal, getShapeVal.
+*/
 
 struct IndexExprBuilder : DialectBuilder {
   // Constructor for analysis (no code generation).

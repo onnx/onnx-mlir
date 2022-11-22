@@ -334,4 +334,30 @@ Value IndexExprBuilderForAnalysis::getShapeVal(
   return nullptr;
 }
 
+// =============================================================================
+// IndexExpr Builder for Lowering using Shape Dialect.
+// =============================================================================
+
+// Return null if none is found.
+// Copy from getDenseElementAttributeFromConstantValue
+DenseElementsAttr IndexExprBuilderForShape::getConst(mlir::Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+Value IndexExprBuilderForShape::getVal(Value intArrayVal, uint64_t i) {
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  llvm_unreachable("unimplemented (see IndexExprBuilderForKrnl for functionality).");
+}
+
+Value IndexExprBuilderForShape::getShapeVal(
+    Value tensorOrMemrefValue, uint64_t i) {
+  ShapeBuilder createShape(*this);
+  return createShape.dim(tensorOrMemrefValue, i);
+}
+
 } // namespace onnx_mlir

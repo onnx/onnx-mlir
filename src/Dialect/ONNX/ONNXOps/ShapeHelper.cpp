@@ -330,6 +330,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 //===----------------------------------------------------------------------===//
 // ONNX Generic Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
+#if DEPRACATED
 
 ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
     Operation *newOp, IndexExprScope *inScope, bool uniBroadcasting,
@@ -344,6 +345,8 @@ ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
     bool uniBroadcasting, bool noBroadcasting)
     : ONNXOpBroadcastedShapeHelper<Operation>(newOp, rewriter, fGetDenseVal,
           fLoadVal, inScope, uniBroadcasting, noBroadcasting) {}
+
+#endif
 
 //===----------------------------------------------------------------------===//
 // ONNX Generic Pool Op Shape Helper
