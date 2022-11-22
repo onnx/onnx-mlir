@@ -81,10 +81,10 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 //===----------------------------------------------------------------------===//
 
 template <class OP>
-NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
-    IndexExprBuilder *ieBuilder, IndexExprScope *inputScope)
-    : op(op), operands(operands), createIE(ieBuilder), scope(inputScope),
-      outputsDims(), ownScope(inputScope == nullptr) {
+NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(
+    OP *op, IndexExprBuilder *ieBuilder, IndexExprScope *inputScope)
+    : op(op), createIE(ieBuilder), scope(inputScope), outputsDims(),
+      ownScope(inputScope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
   if (ownScope) {
@@ -92,10 +92,6 @@ NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
     assert(scope && "failed to create a new scope");
   }
   setNumberOfOutputs(op);
-  // if (typeid(OP) == typeid(mlir::Operation))
-  //  setNumberOfOutputs(op->getNumResults());
-  // else
-  //  setNumberOfOutputs(op->getNumberOfResults());
 }
 
 template <class OP>
@@ -132,17 +128,18 @@ mlir::Operation *NewONNXOpShapeHelper<OP>::getOperation() {
 //===----------------------------------------------------------------------===//
 
 NewONNXGenericOpUnaryShapeHelper::NewONNXGenericOpUnaryShapeHelper(
-    Operation *op, ValueRange operands, IndexExprBuilder *ieBuilder,
+    Operation *op, Value operand, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
-    : NewONNXOpShapeHelper<mlir::Operation>(op, operands, ieBuilder, scope) {}
+    : NewONNXOpShapeHelper<mlir::Operation>(op, ieBuilder, scope),
+      operand(operand) {}
 
 LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = createIE->getShapeRank(operands[0]);
+  uint64_t rank = createIE->getShapeRank(operand);
   DimsExpr outputDims;
   for (uint64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(createIE->getShapeAsDim(operands[0], i));
+    outputDims.emplace_back(createIE->getShapeAsDim(operand, i));
   setOutputDims(outputDims);
   return success();
 }
@@ -155,8 +152,8 @@ template <class OP>
 NewONNXOpBroadcastedShapeHelper<OP>::NewONNXOpBroadcastedShapeHelper(OP *op,
     ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
     bool hasUniBroadcasting, bool hasNoBroadcasting)
-    : NewONNXOpShapeHelper<OP>(op, operands, ieBuilder, scope), inputsDims(),
-      outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
+    : NewONNXOpShapeHelper<OP>(op, ieBuilder, scope), inputsDims(),
+      outputRank(0), operands(operands), hasUniBroadcasting(hasUniBroadcasting),
       hasNoBroadcasting(hasNoBroadcasting) {}
 
 template <class OP>
@@ -300,7 +297,8 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 //===----------------------------------------------------------------------===//
 
 mlir::LogicalResult NewONNXGenericOpBroadcastedShapeHelper::computeShape() {
-  return NewONNXOpBroadcastedShapeHelper<mlir::Operation>::computeShape(nullptr);
+  return NewONNXOpBroadcastedShapeHelper<mlir::Operation>::computeShape(
+      nullptr);
 }
 
 //===----------------------------------------------------------------------===//

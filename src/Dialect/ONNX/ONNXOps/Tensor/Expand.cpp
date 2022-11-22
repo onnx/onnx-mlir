@@ -26,8 +26,12 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#if DEPRACATED
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
+#else
+LogicalResult NewONNXExpandOpBroadcastedShapeHelper::computeShape() {
+#endif
   // Get info about input operands.
   Value input = operandAdaptor.input();
   Value shape = operandAdaptor.shape();

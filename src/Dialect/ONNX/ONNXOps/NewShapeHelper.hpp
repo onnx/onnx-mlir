@@ -41,8 +41,8 @@ using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 template <class OP>
 struct NewONNXOpShapeHelper {
   // Constructor for shape inference.
-  NewONNXOpShapeHelper(OP *op, mlir::ValueRange operands,
-      IndexExprBuilder *ieBuilder, IndexExprScope *scope);
+  NewONNXOpShapeHelper(
+      OP *op, IndexExprBuilder *ieBuilder, IndexExprScope *scope);
   virtual ~NewONNXOpShapeHelper();
 
   // Every child class is expected to create a computeShape with the following
@@ -76,7 +76,6 @@ protected:
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `computeShape` function.
   OP *op;
-  mlir::ValueRange operands;
   IndexExprBuilder *createIE;
   IndexExprScope *scope;
 
@@ -93,12 +92,14 @@ private:
 /// input of an unary element-wise operation have the same shape.
 struct NewONNXGenericOpUnaryShapeHelper
     : public NewONNXOpShapeHelper<mlir::Operation> {
-  NewONNXGenericOpUnaryShapeHelper(mlir::Operation *op,
-      mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr);
+  NewONNXGenericOpUnaryShapeHelper(mlir::Operation *op, mlir::Value operand,
+      IndexExprBuilder *ieBuilder, IndexExprScope *scope = nullptr);
   ~NewONNXGenericOpUnaryShapeHelper() {}
 
   mlir::LogicalResult computeShape() final;
+
+protected:
+  mlir::Value operand;
 };
 
 //===----------------------------------------------------------------------===//
@@ -114,6 +115,8 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
       bool hasUniBroadcasting = false, bool hasNoBroadcasting = false);
   ~NewONNXOpBroadcastedShapeHelper() {}
 
+  // Because this a helper/non-final class, this compute shape method can have
+  // additional arguments.
   mlir::LogicalResult computeShape(DimsExpr *additionalOperand);
 
   // Compute access indices to load/store value from/to a given 'operand'.
@@ -139,7 +142,8 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
 protected:
   // Because of templates, have to be specific about vars from parent class.
   using NewONNXOpShapeHelper<OP>::createIE;
-  using NewONNXOpShapeHelper<OP>::operands;
+
+  mlir::ValueRange operands;
 
   // When unidirectional broadcasting is true, the other operands are always
   // unidirectional broadcastable to the first operand.
@@ -156,8 +160,8 @@ struct NewONNXGenericOpBroadcastedShapeHelper
       mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr, bool uniBroadcasting = false,
       bool noBroadcasting = false)
-      : NewONNXOpBroadcastedShapeHelper<mlir::Operation>(op, operands,
-            ieBuilder, scope, uniBroadcasting, noBroadcasting) {}
+      : NewONNXOpBroadcastedShapeHelper<mlir::Operation>(
+            op, operands, ieBuilder, scope, uniBroadcasting, noBroadcasting) {}
   ~NewONNXGenericOpBroadcastedShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
@@ -165,12 +169,16 @@ struct NewONNXGenericOpBroadcastedShapeHelper
 struct NewONNXExpandOpBroadcastedShapeHelper
     : public NewONNXOpBroadcastedShapeHelper<mlir::ONNXExpandOp> {
   NewONNXExpandOpBroadcastedShapeHelper(mlir::ONNXExpandOp *op,
-      mlir::ValueRange operands, IndexExprBuilder *ieBuilder,
+      mlir::ONNXExpandOpAdaptor operandAdaptor, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
       : NewONNXOpBroadcastedShapeHelper<mlir::ONNXExpandOp>(
-            op, operands, ieBuilder, scope) {}
+            op, operandAdaptor.getOperands(), ieBuilder, scope),
+        operandAdaptor(operandAdaptor) {}
   ~NewONNXExpandOpBroadcastedShapeHelper() {}
   mlir::LogicalResult computeShape() final;
+
+protected:
+  mlir::ONNXExpandOpAdaptor operandAdaptor;
 };
 
 } // namespace onnx_mlir
