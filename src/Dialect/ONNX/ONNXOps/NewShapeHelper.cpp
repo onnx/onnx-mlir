@@ -299,6 +299,10 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 // Generic broadcast
 //===----------------------------------------------------------------------===//
 
+mlir::LogicalResult NewONNXGenericOpBroadcastedShapeHelper::computeShape() {
+  return computeShape(nullptr);
+}
+
 //===----------------------------------------------------------------------===//
 // Expand broadcast
 //===----------------------------------------------------------------------===//

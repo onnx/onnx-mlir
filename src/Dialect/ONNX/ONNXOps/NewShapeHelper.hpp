@@ -114,7 +114,7 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper<OP> {
       bool hasUniBroadcasting = false, bool hasNoBroadcasting = false);
   ~NewONNXOpBroadcastedShapeHelper() {}
 
-  mlir::LogicalResult computeShape(DimsExpr *additionalOperand = nullptr);
+  mlir::LogicalResult computeShape(DimsExpr *additionalOperand);
 
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
@@ -159,6 +159,7 @@ struct NewONNXGenericOpBroadcastedShapeHelper
       : NewONNXOpBroadcastedShapeHelper<mlir::Operation>(op, operands,
             ieBuilder, scope, uniBroadcasting, noBroadcasting) {}
   ~NewONNXGenericOpBroadcastedShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
 };
 
 struct NewONNXExpandOpBroadcastedShapeHelper
