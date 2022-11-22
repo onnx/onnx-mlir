@@ -61,8 +61,8 @@ add_onnx_mlir_library(OMVersion
     LLVMSupport
 )
 
-# Obtain the commit hash of a specific repo
-function(get_short_hash path)
+# Obtain the commit hash of a specific repo. You must specify the path and the variable name.
+function(get_short_hash path out_var)
   if(NOT EXISTS "${path}")
     return()
   endif()
@@ -73,15 +73,13 @@ function(get_short_hash path)
       RESULT_VARIABLE SHORT_HASH_RESULT
       OUTPUT_VARIABLE SHORT_HASH_OUTPUT
       ERROR_QUIET)
-    endif()
+    string(REPLACE ".git" "" SHORT_HASH_OUTPUT_STRIPPED "${SHORT_HASH_OUTPUT}")
+    string(STRIP "${SHORT_HASH_OUTPUT_STRIPPED}" SHORT_HASH_OUTPUT_STRIPPED)
+    list(APPEND DEFINITIONS "${out_var}=\"${SHORT_HASH_OUTPUT_STRIPPED}\"")
   endif()
 endfunction()
 
-# Testing
-get_short_hash("${ONNX_MLIR_SRC_ROOT}")
-list(APPEND DEFINITIONS "ONNX_MLIR_SHA=\"${SHORT_HASH_OUTPUT}\"")
-message(ONNX MLIR SHA "ONNX_MLIR_SHA=\"${SHORT_HASH_OUTPUT}\"" )
-message(ONNX MLIR SHA "ONNX_MLIR_SHA_RESULT=\"${SHORT_HASH_RESULT}\"" )
+get_short_hash("${ONNX_MLIR_SRC_ROOT}" ONNX_MLIR_SHA)
 
 file(READ "${ONNX_MLIR_SRC_ROOT}/VERSION_NUMBER" ONNX_MLIR_VERSION)
 string(STRIP "${ONNX_MLIR_VERSION}" ONNX_MLIR_VERSION)
