@@ -284,7 +284,6 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
   llvm::Metadata *identNode[] = {
-      //llvm::MDString::get(ctx, getOnnxMlirFullVersion(false))};
       llvm::MDString::get(ctx, getOnnxMlirCommitVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
