@@ -84,7 +84,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending, uint64_t algorithm) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
-  assert(rank < 6 && "omTensorSort assumes rank < 6");
+  assert(rank <= 6 && "omTensorSort assumes rank <= 6");
   assert(axis == (rank - 1) && "omTensorSort assumes axis == (rank - 1)");
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
@@ -93,8 +93,10 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   int64_t *order = (int64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
 
-  // If the input rank < 6, temporary upgrade the rank to 6, and
-  // the axis to be sort is changed to 5.
+  // To support input Tensor with various ranks in a uniform way.
+  // If the input rank < 6, upgrade the rank to 6 virtually without changing
+  // the physical memory layout by inserting length=1 ranks at lower ranks.
+  // The sort axis is changed to 5 always.
   int64_t shape[6] = {1, 1, 1, 1, 1, 1};
   int64_t strides[6] = {0, 0, 0, 0, 0, 0};
   for (uint64_t i = 0; i < rank; i++) {
@@ -102,7 +104,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     strides[i + (6 - rank)] = inputStrides[i];
   }
 
-  // Sort the the 5th axis
+  // Sort the the 6th axis in the outer 5 loops
   int64_t sort_elems = inputShape[axis];
   for (int dim0 = 0; dim0 < shape[0]; dim0++) {
     for (int dim1 = 0; dim1 < shape[1]; dim1++) {
