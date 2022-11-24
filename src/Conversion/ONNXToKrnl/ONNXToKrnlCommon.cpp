@@ -527,7 +527,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 
   // Do sorting in the specifed order of input and return their indices.
   // If algorithm is set, use the specified sort algorithm.
-  if ((algorithm != 0) && (rank == 3) && (axis == (rank - 1))) {
+  if ((algorithm != 0) && (rank < 6) && (axis == (rank - 1))) {
     // Emit krnl.Call to call omTensorSort API
     MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Operation *op = NULL;
