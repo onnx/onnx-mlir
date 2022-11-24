@@ -36,7 +36,7 @@ LogicalResult ONNXConstantOp::inferShapes(
   if (sparse_value().has_value())
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = valueAttr().cast<DenseElementsAttr>();
+    valAttr = valueAttr().cast<ElementsAttr>();
   getResult().setType(valAttr.getType());
   return success();
 }
