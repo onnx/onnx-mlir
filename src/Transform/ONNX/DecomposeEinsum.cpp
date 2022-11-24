@@ -559,7 +559,7 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
 
   Location loc = einsumOp.getLoc();
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
-  einsum::ErrorFn errorFn = [&einsumOp]() {
+  auto errorFn = [&einsumOp]() {
     return einsumOp.emitOpError()
            << "equation '" << einsumOp.equation() << "': ";
   };
