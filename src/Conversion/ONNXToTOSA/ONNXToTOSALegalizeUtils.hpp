@@ -60,7 +60,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
-      dyn_cast<mlir::InferShapedTypeOpInterface>(op.getOperation());
+      llvm::dyn_cast<mlir::InferShapedTypeOpInterface>(op.getOperation());
   if (!shapeInterface)
     return op;
 
