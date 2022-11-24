@@ -1,6 +1,5 @@
 // RUN: onnx-mlir --preserveBitcode %s -o %t
 // RUN: llvm-dis %t.bc -o %t.ll
-// RUN: cat %t.ll | FileCheck %s
 
 module {
   func.func @main_graph(%arg0: tensor<1x1xf32>, %arg1: tensor<1x1xf32>) -> tensor<1x1xf32> {
