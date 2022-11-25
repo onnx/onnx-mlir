@@ -96,8 +96,7 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape(
   // constant get lowered to global constants.
   if (auto splitConstOp = getONNXConstantOp(split)) {
     ArrayValueIndexCapture splitCapture(split, fGetDenseVal, fLoadVal);
-    auto splitRank =
-        splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
+    auto splitRank = splitConstOp.valueAttr().cast<ElementsAttr>().size();
     splitCapture.getSymbolList(splitRank, indexExprArray);
   } else if (!split.getType().template isa<NoneType>()) {
     llvm_unreachable("dynamic split not yet supported");
