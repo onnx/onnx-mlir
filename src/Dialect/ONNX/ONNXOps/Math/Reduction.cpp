@@ -66,8 +66,7 @@ static RankedTensorType getReductionOutputType(
 // Reduction with axes is from ConstantOp.
 // Only ReduceSum call this function now.
 static RankedTensorType getReductionOutputType(ShapedType operandTy,
-    DenseElementsAttr axesAttrs, uint64_t keepdims,
-    uint64_t noop_with_empty_axes) {
+    ElementsAttr axesAttrs, uint64_t keepdims, uint64_t noop_with_empty_axes) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
@@ -221,16 +220,14 @@ LogicalResult ONNXReduceSumOp::inferShapes(
    *    interface of getReductionOutputType is kept.
    *    An array attribute is generated from the constant input
    **/
-  DenseElementsAttr constAxes;
+  ElementsAttr constAxes;
   if (isFromNone(axes())) {
     // constAxes should just be NULL
     // Default value will be given in getReductionOutputType
-  } else if (getONNXConstantOp(axes())) {
-    constAxes = getONNXConstantOp(axes())
-                    .valueAttr()
-                    .dyn_cast_or_null<mlir::DenseElementsAttr>();
+  } else if (ONNXConstantOp constOp = getONNXConstantOp(axes())) {
+    constAxes = constOp.valueAttr().dyn_cast_or_null<ElementsAttr>();
     if (!constAxes) {
-      return emitError("ReduceSum: expect dense value for axes ");
+      return emitError("ReduceSum: expected elements value for axes");
     }
   } else {
     // When the axis is dynamic, try to infer the rank of output tensor
