@@ -68,28 +68,35 @@ union WideNum {
     }
   }
 
+  // TODO: With C++20 use designated initializers, {.u64 = ..} etc,
+  //       to make from() constexpr.
   template <typename T>
-  static constexpr WideNum from(BType dtag, T x) {
+  static WideNum from(BType dtag, T x) {
+    WideNum w;
     switch (dtag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
     case BType::UINT32:
     case BType::UINT64:
-      return {.u64 = static_cast<uint64_t>(x)};
+      w.u64 = static_cast<uint64_t>(x);
+      break;
     case BType::INT8:
     case BType::INT16:
     case BType::INT32:
     case BType::INT64:
-      return {.i64 = static_cast<int64_t>(x)};
+      w.i64 = static_cast<int64_t>(x);
+      break;
     case BType::DOUBLE:
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
-      return {.dbl = static_cast<double>(x)};
+      w.dbl = static_cast<double>(x);
+      break;
     default:
       llvm_unreachable("from unsupported btype");
     }
+    return w;
   }
 
   void store(BType dtag, llvm::MutableArrayRef<char> memory) const;
