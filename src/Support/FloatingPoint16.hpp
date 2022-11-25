@@ -26,10 +26,10 @@ public:
   using bitcasttype = uint16_t;
 
   constexpr FP16Base() : u16() {}
-  constexpr explicit FP16Base(FP16 f16) : u16(f16.u16) {}
+  constexpr explicit FP16Base(const FP16 &f16) : u16(f16.u16) {}
   // Support static_cast<FP16>(X) for any x that is convertible to float.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP16>>>
-  explicit FP16Base(T x)
+  explicit FP16Base(const T &x)
       : u16(fromAPFloat(llvm::APFloat(static_cast<float>(x))).u16) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
