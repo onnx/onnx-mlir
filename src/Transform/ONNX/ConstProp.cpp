@@ -397,7 +397,10 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   if (splitAttr.has_value()) {
     for (unsigned int i = 0; i < numResults; ++i)
       splitSizes[i] = ArrayAttrIntVal(splitAttr, i);
-    assert(splitAxisSize == std::reduce(splitSizes.begin(), splitSizes.end()) &&
+    // TODO: Figure out why std::reduce() doesn't work on Linux s390x. Until
+    //       then we're using std::accumulate() instead.
+    assert(splitAxisSize ==
+               std::accumulate(splitSizes.begin(), splitSizes.end(), 0) &&
            "split values must sum to axis size");
   } else {
     // If split attribute is not specified, split size is equally divided.
