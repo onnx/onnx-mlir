@@ -68,40 +68,46 @@ union WideNum {
     }
   }
 
-  // TODO: With C++20 use designated initializers, {.u64 = ..} etc,
-  //       to make from() constexpr.
   template <typename T>
-  static WideNum from(BType dtag, T x) {
-    WideNum w;
+  static constexpr WideNum from(BType dtag, T x) {
     switch (dtag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
     case BType::UINT32:
     case BType::UINT64:
-      w.u64 = static_cast<uint64_t>(x);
-      break;
+      return WideNum(static_cast<uint64_t>(x)); // .u64
     case BType::INT8:
     case BType::INT16:
     case BType::INT32:
     case BType::INT64:
-      w.i64 = static_cast<int64_t>(x);
-      break;
+      return WideNum(static_cast<int64_t>(x)); // .i64
     case BType::DOUBLE:
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
-      w.dbl = static_cast<double>(x);
-      break;
+      return WideNum(static_cast<double>(x)); // .dbl
     default:
       llvm_unreachable("from unsupported btype");
     }
-    return w;
   }
 
   void store(BType dtag, llvm::MutableArrayRef<char> memory) const;
 
   static WideNum load(BType dtag, llvm::ArrayRef<char> memory);
+
+private:
+  // TODO: With C++20 eliminate these constructors and replace all uses
+  //       with designated initializers {.u64 = ..}, {.i64 = ..}, etc.
+  //       and the default constructors and assignment below become implicit.
+  constexpr explicit WideNum(uint64_t u64) : u64(u64) {}
+  constexpr explicit WideNum(int64_t i64) : i64(i64) {}
+  constexpr explicit WideNum(double dbl) : dbl(dbl) {}
+
+public:
+  WideNum() = default;
+  constexpr WideNum(const WideNum &) = default;
+  WideNum &operator=(const WideNum &) = default;
 };
 static_assert(sizeof(WideNum) * CHAR_BIT == 64, "WideNum is 64 bits wide");
 

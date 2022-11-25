@@ -112,8 +112,7 @@ public:
     assert((std::is_same_v<CppType<dbf16>, bfloat_16>));
     assert((std::is_same_v<CppType<toBType<float>>, float>));
 
-    // TODO: With C++20 declare n constexpr. See WideNum.hpp.
-    WideNum n = WideNum::from(toBType<float_16>, true);
+    constexpr WideNum n = WideNum::from(toBType<float_16>, true);
     assert(n.dbl == 1.0);
 
     return 0;
