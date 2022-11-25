@@ -38,6 +38,15 @@ constexpr bool shouldSwapLEBytes =
     sizeof(T) > 1 && llvm::support::endian::system_endianness() !=
                          llvm::support::endianness::little;
 
+// Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
+template <typename T>
+T swappedBytes(T x) {
+  if constexpr (onnx_mlir::isFP16Type<T>)
+    return T::bitcastFromU16(llvm::sys::getSwappedBytes(x.bitcastToU16()));
+  else
+    return llvm::sys::getSwappedBytes(x);
+}
+
 #ifndef DISABLE_DISPOSABLE_POOL
 struct ElementsAttrFactory {
   template <typename T>
@@ -55,7 +64,14 @@ mlir::ElementsAttr createElementsAttrFromMemoryBuffer(
   mlir::MLIRContext *ctx = type.getContext();
   assert(type.getElementType() == onnx_mlir::toMlirType<T>(ctx));
   if (shouldSwapLEBytes<T>) {
-    // TODO: swap bytes into MemoryBuffer and create ElementsAttr from that
+    // TODO: Do swapping in a DisposableElementsAttr transform so it's done when
+    //       reading the attribute instead of up front here on construction.
+    llvm::ArrayRef<T> array = onnx_mlir::asArrayRef<T>(membuf->getBuffer());
+    return onnx_mlir::ElementsAttrBuilder(ctx).fromArray<T>(
+        type, [array](llvm::MutableArrayRef<T> copy) {
+          std::transform(
+              array.begin(), array.end(), copy.data(), swappedBytes<T>);
+        });
   } else {
     return onnx_mlir::ElementsAttrBuilder(ctx).fromMemoryBuffer(
         type, std::move(membuf));
@@ -195,15 +211,6 @@ mlir::ElementsAttr createDenseElmAttrFromProtoData(
   copy.resize_for_overwrite(data.size());
   std::transform(data.begin(), data.end(), copy.data(), deserializeDatum<T, U>);
   return ElementsAttrFactory::get(tensorType, llvm::makeArrayRef(copy));
-}
-
-// Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
-template <typename T>
-T swappedBytes(T x) {
-  if constexpr (onnx_mlir::isFP16Type<T>)
-    return T::bitcastFromU16(llvm::sys::getSwappedBytes(x.bitcastToU16()));
-  else
-    return llvm::sys::getSwappedBytes(x);
 }
 
 template <typename T>
