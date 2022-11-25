@@ -688,21 +688,31 @@ static void translateDisposableElementsAttr(StringRef line, raw_ostream &os,
     const mlir::OpPrintingFlags &printerFlags) {
   const char *eol = line.end() - line.endswith("\n");
 
-  std::regex pattern("(.*)#onnx.dense_disposable<#([0-9]*):[^>]*>(.*)");
+  std::regex pattern("#onnx.dense_disposable<#([0-9]*):");
   std::cmatch match;
-  if (!std::regex_match(line.begin(), eol, match, pattern)) {
-    // No match.
+  if (!std::regex_search(line.begin(), eol, match, pattern)) { // No match.
     os << line;
     return;
   }
-  assert(match.size() == 4 && "0: whole line, 1: prefix, 2: id, 3: suffix");
+  assert(match.size() == 2 && "0: whole pattern, 1: id");
+  // Set suffix to everything after #id:
+  StringRef suffix(match[0].second, eol - match[0].second);
+  // Find end of angle brackets. (We do this "manually", not with regex
+  // matching which overflows the stack when len is large.)
+  size_t len = suffix.find('>');
+  if (len == StringRef::npos) { // No match.
+    os << line;
+    return;
+  }
+  // Now set suffix to everything after angle brackets.
+  suffix = suffix.drop_front(len + 1);
+  assert(!suffix.empty() && "#onnx.dense_disposable<..> cannot end line");
 
-  std::csub_match prefixGroup = match[1];
-  StringRef prefix(prefixGroup.first, prefixGroup.length());
+  StringRef prefix(line.begin(), match[0].first - line.begin());
   assert(!prefix.empty() && "#onnx.dense_disposable<..> cannot begin line");
   os << prefix;
 
-  std::csub_match idGroup = match[2];
+  std::csub_match idGroup = match[1];
   StringRef idStr(idGroup.first, idGroup.length());
   size_t id = 0;
   auto parseResult = std::from_chars(idStr.begin(), idStr.end(), id);
@@ -712,9 +722,6 @@ static void translateDisposableElementsAttr(StringRef line, raw_ostream &os,
   mlir::AsmState asmState(disposable.getContext(), printerFlags);
   toDenseElementsAttr(disposable).print(os, asmState, /*elideType=*/true);
 
-  std::csub_match suffixGroup = match[3];
-  StringRef suffix(suffixGroup.first, suffixGroup.length());
-  assert(!suffix.empty() && "#onnx.dense_disposable<..> cannot end line");
   // Recurse in case there are more things to translate in the suffix.
   translateDisposableElementsAttr(suffix, os, disposablePool, printerFlags);
 
