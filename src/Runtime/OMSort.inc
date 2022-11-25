@@ -17,67 +17,92 @@
 #define TRUE 1
 #define FALSE 0
 
-static inline int compareElement(void *dataPtr, uint64_t off1, uint64_t off2,
-    uint64_t ascending, OM_DATA_TYPE dataType) {
-  int result = 0;
+// Declare comparation funcion for each type and sorting direction
+typedef int (compareFuncType(void *dataPtr, uint64_t off1, uint64_t off2));
+#define declare_compare_function(fname, typeName, direction, symbol) \
+int compare##fname##direction(void *dataPtr, uint64_t off1, uint64_t off2) { \
+  return ((typeName *)dataPtr)[off1] symbol ((typeName *)dataPtr)[off2]; \
+}
+#define compareFunction(fname, typeName, direction) compare##fname##direction
+// clang-format off
+// declare ascending functions
+declare_compare_function(Bool, bool, Ascending, >)
+declare_compare_function(Uint8, uint8_t, Ascending, >)
+declare_compare_function(Int8, int8_t, Ascending, >)
+declare_compare_function(Uint16, uint16_t, Ascending, >)
+declare_compare_function(Int16, int16_t, Ascending, >)
+declare_compare_function(Uint32, uint32_t, Ascending, >)
+declare_compare_function(Int32, int32_t, Ascending, >)
+declare_compare_function(Uint64, uint64_t, Ascending, >)
+declare_compare_function(Int64, int64_t, Ascending, >)
+declare_compare_function(Float, float, Ascending, >)
+declare_compare_function(Double, double, Ascending, >)
+// declare descending functions
+declare_compare_function(Bool, bool, Descending, <)
+declare_compare_function(Uint8, uint8_t, Descending, <)
+declare_compare_function(Int8, int8_t, Descending, <)
+declare_compare_function(Uint16, uint16_t, Descending, <)
+declare_compare_function(Int16, int16_t, Descending, <)
+declare_compare_function(Uint32, uint32_t, Descending, <)
+declare_compare_function(Int32, int32_t, Descending, <)
+declare_compare_function(Uint64, uint64_t, Descending, <)
+declare_compare_function(Int64, int64_t, Descending, <)
+declare_compare_function(Float, float, Descending, <)
+declare_compare_function(Double, double, Descending, <)
+// clang-format on
+
+compareFuncType *getCompareFunction(uint64_t ascending, OM_DATA_TYPE dataType) {
+  compareFuncType (*compFunc);
+
   switch (dataType) {
   case ONNX_TYPE_BOOL:
-    result = ascending ? (((bool *)dataPtr)[off1] > ((bool *)dataPtr)[off2])
-                       : (((bool *)dataPtr)[off1] < ((bool *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Bool, bool, Ascending)
+                         : compareFunction(Bool, bool, Descending);
     break;
   case ONNX_TYPE_UINT8:
-    result = ascending
-                 ? (((uint8_t *)dataPtr)[off1] > ((uint8_t *)dataPtr)[off2])
-                 : (((uint8_t *)dataPtr)[off1] < ((uint8_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Uint8, uint8_t, Ascending)
+                         : compareFunction(Uint8, uint8_t, Descending);
     break;
   case ONNX_TYPE_INT8:
-    result = ascending
-                 ? (((int8_t *)dataPtr)[off1] > ((int8_t *)dataPtr)[off2])
-                 : (((int8_t *)dataPtr)[off1] < ((int8_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Int8, int8_t, Ascending)
+                         : compareFunction(Int8, int8_t, Descending);
     break;
   case ONNX_TYPE_UINT16:
-    result = ascending
-                 ? (((uint16_t *)dataPtr)[off1] > ((uint16_t *)dataPtr)[off2])
-                 : (((uint16_t *)dataPtr)[off1] < ((uint16_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Uint16, uint16, Ascending)
+                         : compareFunction(Uint16, uint16, Descending);
     break;
   case ONNX_TYPE_INT16:
-    result = ascending
-                 ? (((int16_t *)dataPtr)[off1] > ((int16_t *)dataPtr)[off2])
-                 : (((int16_t *)dataPtr)[off1] < ((int16_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Int16, int16, Ascending)
+                         : compareFunction(Int16, int16, Descending);
     break;
   case ONNX_TYPE_UINT32:
-    result = ascending
-                 ? (((uint32_t *)dataPtr)[off1] > ((uint32_t *)dataPtr)[off2])
-                 : (((uint32_t *)dataPtr)[off1] < ((uint32_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Uint32, uint32, Ascending)
+                         : compareFunction(Uint32, uint32, Descending);
     break;
   case ONNX_TYPE_INT32:
-    result = ascending
-                 ? (((int32_t *)dataPtr)[off1] > ((int32_t *)dataPtr)[off2])
-                 : (((int32_t *)dataPtr)[off1] < ((int32_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Int32, int32, Ascending)
+                         : compareFunction(Int32, int32, Descending);
     break;
   case ONNX_TYPE_UINT64:
-    result = ascending
-                 ? (((uint64_t *)dataPtr)[off1] > ((uint64_t *)dataPtr)[off2])
-                 : (((uint64_t *)dataPtr)[off1] < ((uint64_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Uint64, uint64, Ascending)
+                         : compareFunction(Uint64, uint64, Descending);
     break;
   case ONNX_TYPE_INT64:
-    result = ascending
-                 ? (((int64_t *)dataPtr)[off1] > ((int64_t *)dataPtr)[off2])
-                 : (((int64_t *)dataPtr)[off1] < ((int64_t *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Int64, int64, Ascending)
+                         : compareFunction(Int64, int64, Descending);
     break;
   case ONNX_TYPE_FLOAT:
-    result = ascending ? (((float *)dataPtr)[off1] > ((float *)dataPtr)[off2])
-                       : (((float *)dataPtr)[off1] < ((float *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Float, float, Ascending)
+                         : compareFunction(Float, float, Descending);
     break;
   case ONNX_TYPE_DOUBLE:
-    result = ascending
-                 ? (((double *)dataPtr)[off1] > ((double *)dataPtr)[off2])
-                 : (((double *)dataPtr)[off1] < ((double *)dataPtr)[off2]);
+    compFunc = ascending ? compareFunction(Double, double, Ascending)
+                         : compareFunction(Double, double, Descending);
     break;
   default:
-    assert(false && "unexpected data type in compareElement");
+    assert(false && "unexpected data type in getCompareFunction");
   }
-  return result;
+  return compFunc;
 }
 
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
@@ -92,6 +117,9 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   void *orderPtr = omTensorGetDataPtr(orderTensor);
   int64_t *order = (int64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
+
+  // Choose the appropriate compare function in advance
+  compareFuncType (* cmpFunc) = getCompareFunction(ascending, dataType);
 
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
@@ -121,8 +149,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
               // bubble sort
               for (uint32_t i = 0; i < sort_elems; i++) {
                 for (uint32_t j = 0; j < sort_elems - 1; j++) {
-                  if (compareElement(
-                          dataPtr, idx[j], idx[j + 1], ascending, dataType)) {
+                  if (cmpFunc(dataPtr, idx[j], idx[j + 1])) {
                     int64_t tmp = idx[j];
                     idx[j] = idx[j + 1];
                     idx[j + 1] = tmp;
@@ -139,8 +166,26 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
                 gap = (gap < 1) ? 1 : gap;
                 swap = FALSE;
                 for (uint32_t i = 0; i < sort_elems - gap; i++) {
-                  if (compareElement(
-                          dataPtr, idx[i], idx[i + gap], ascending, dataType)) {
+                  if (cmpFunc(dataPtr, idx[i], idx[i + gap])) {
+                    int64_t tmp = idx[i];
+                    idx[i] = idx[i + gap];
+                    idx[i + gap] = tmp;
+                    swap = TRUE;
+                  }
+                }
+              }
+              break;
+            }
+            case -1: {
+              // comb sort
+              size_t gap = sort_elems;
+              int swap = TRUE;
+              while ((gap != 1) || swap) {
+                gap = gap / 1.3;
+                gap = (gap < 1) ? 1 : gap;
+                swap = FALSE;
+                for (uint32_t i = 0; i < sort_elems - gap; i++) {
+                  if (cmpFunc(dataPtr, idx[i], idx[i + gap])) {
                     int64_t tmp = idx[i];
                     idx[i] = idx[i + gap];
                     idx[i + gap] = tmp;
