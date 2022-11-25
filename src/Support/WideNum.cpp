@@ -51,16 +51,25 @@ APInt WideNum::toAPInt(BType tag) const {
 /*static*/
 WideNum WideNum::fromAPFloat(BType tag, APFloat x) {
   assert(isFloatBType(tag) && "BType must be an integer");
-  return {.dbl = x.convertToDouble()};
+  // C++20: return {.dbl = x.convertToDouble()};
+  WideNum w;
+  w.dbl = x.convertToDouble();
+  return w;
 }
 
 /*static*/
 WideNum WideNum::fromAPInt(BType tag, APInt x) {
-  if (isSignedIntBType(tag))
-    return {.i64 = x.getSExtValue()};
-  if (isUnsignedIntBType(tag))
-    return {.u64 = x.getZExtValue()};
-  llvm_unreachable("BType must be an integer");
+  WideNum w;
+  if (isSignedIntBType(tag)) {
+    // C++20: return {.i64 = x.getSExtValue()};
+    w.i64 = x.getSExtValue();
+  } else if (isUnsignedIntBType(tag)) {
+    // C++20: return {.u64 = x.getZExtValue()};
+    w.u64 = x.getZExtValue();
+  } else {
+    llvm_unreachable("BType must be an integer");
+  }
+  return w;
 }
 
 void WideNum::store(BType dtag, MutableArrayRef<char> memory) const {
