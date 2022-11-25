@@ -27,10 +27,6 @@ public:
   mlir::DisposableElementsAttr fromMemoryBuffer(
       mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
-  // TODO: Remove this. Only used in tests.
-  mlir::DisposableElementsAttr fromSplatMemoryBuffer(
-      mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
-
   // Makes a DisposableElementsAttr that points to elements' raw data if
   // elements is DenseElementsAttr, except if the element type is bool, then
   // it makes a deep copy because DisposableElementsAttr doesn't bit pack bools.

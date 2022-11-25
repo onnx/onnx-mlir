@@ -61,12 +61,6 @@ DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
   return create(type, std::move(membuf));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::fromSplatMemoryBuffer(
-    ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
-  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
-  return create(type, std::move(membuf), llvm::makeArrayRef(zerosStrides));
-}
-
 DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
     ElementsAttr elements) {
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
@@ -76,6 +70,8 @@ DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
     BType btype = btypeOfMlirType(type.getElementType());
     std::unique_ptr<llvm::MemoryBuffer> buffer;
     if (btype == BType::BOOL) {
+      // Don't use dense.rawData() which is bit packed, whereas
+      // DisposableElementsAttr represents bools with one byte per bool value.
       if (dense.isSplat()) {
         char b = dense.getSplatValue<bool>();
         return fromRawBytes(

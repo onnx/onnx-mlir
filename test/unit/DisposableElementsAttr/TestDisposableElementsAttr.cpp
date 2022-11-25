@@ -100,7 +100,7 @@ public:
         ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
         Attribute a =
-            elmsBuilder.fromSplatMemoryBuffer(type, buffer<cpptype>({one}));
+            elmsBuilder.fromArray<cpptype>(type, {one}, /*mustCopy=*/true);
         ElementsAttr e = a.cast<ElementsAttr>();
         assert(e.isSplat());
         DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
