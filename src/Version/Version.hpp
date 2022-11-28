@@ -54,10 +54,10 @@ std::string getLLVMFullRepositoryVersion();
 std::string getOnnxMlirFullVersion(bool toIncludeLLVM = true);
 
 /// Retrieves details about the full product version
-std:: string getProductFullVersion();
+std::string getProductFullVersion();
 
 /// Retrieves the full product version along with onnx-mlir short commit hash
-std:: string getOnnxMlirCommitVersion();
+std::string getOnnxMlirCommitVersion();
 
 /// Defines a version printer used to print out the version when –version is
 /// given on the command line.
