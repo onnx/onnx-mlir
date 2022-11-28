@@ -26,7 +26,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-#if DEPRACATED
+#if 1
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
 #else

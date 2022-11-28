@@ -38,9 +38,21 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   if (!hasShapeAndRank(input))
     return success();
 
+  //ONNXExpandOp expandOp = llvm::cast<ONNXExpandOp>(*op);
+  //ONNXExpandOpAdaptor adaptor(expandOp);
+  // does not works for Array<ref>:
+  // ArrayRef<Value> oper(adaptor.getOperands());
+  // ArrayRef<Value> oper(op->getOperands());
+  // ArrayRef<Value> oper(op->getOpOperands());
+  //llvm::SmallVector<Value, 4> operList(
+  //    op->getOperands().begin(), op->getOperands().end());
+  // ArrayRef<Value> oper = llvm::makeArrayRef<Value>(op->getOperands().begin(),
+  // op->getOperands().end());
+  // Value val = op->getOperands()[0];
+  // ArrayRef<Value> bidon;
   IndexExprBuilderForAnalysis createIE(op->getLoc());
-  NewONNXGenericOpUnaryShapeHelper shapeHelper(
-      op, op->getOperands(), (IndexExprBuilder *)&createIE);
+  NewONNXUnaryOpShapeHelper shapeHelper(
+      op, ArrayRef<Value>(), (IndexExprBuilder *)&createIE);
   if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   SmallVector<int64_t, 4> outputDims;

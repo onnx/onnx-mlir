@@ -113,8 +113,8 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   onnx_mlir::IndexExprBuilderForAnalysis createIE(op->getLoc());
-  onnx_mlir::NewONNXGenericOpUnaryShapeHelper shapeHelper(
-      op, op->getOperands(), (onnx_mlir::IndexExprBuilder *)&createIE);
+  onnx_mlir::NewONNXUnaryOpShapeHelper shapeHelper(
+      op, ArrayRef<Value>(), (onnx_mlir::IndexExprBuilder *)&createIE);
   auto shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
@@ -134,7 +134,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
 
   // Build shape helper
   onnx_mlir::IndexExprBuilderForAnalysis createAnalysisIE(op->getLoc());
-  onnx_mlir::NewONNXGenericOpBroadcastedShapeHelper shapeHelper(
+  onnx_mlir::NewONNXOpBroadcastedShapeHelper shapeHelper(
       op, ArrayRef<Value>({A, B}), (onnx_mlir::IndexExprBuilder *)&createAnalysisIE);
   auto shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");

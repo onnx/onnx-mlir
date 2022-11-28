@@ -76,32 +76,39 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   }
 }
 
-//===----------------------------------------------------------------------===//
+//==llvm::ArrayRef<mlir::Value>) \
+  llvm::SmallVector<mlir::Value, 4>((OP_)->getOperands().begin(), \
+  (OP_)->getOperands().end()))=----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-template <class OP>
-NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(
-    OP *op, IndexExprBuilder *ieBuilder, IndexExprScope *inputScope)
-    : op(op), createIE(ieBuilder), scope(inputScope), outputsDims(),
-      ownScope(inputScope == nullptr) {
+NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
+    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    IndexExprScope *inputScope)
+    : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
+      scope(inputScope), outputsDims(), ownScope(inputScope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
   if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
     assert(scope && "failed to create a new scope");
   }
-  setNumberOfOutputs(op);
+  outputsDims.resize(op->getNumResults());
+  // When we have no inputOperands, get them from the operation.
+  if (inputOperands.size()==0) {
+    printf("hi alex: get operands from op\n");
+    operandsCache = llvm::SmallVector<Value, 4>(
+        op->getOperands().begin(), op->getOperands().end());
+    operands = mlir::ArrayRef<Value>(operandsCache);
+  }
 }
 
-template <class OP>
-NewONNXOpShapeHelper<OP>::~NewONNXOpShapeHelper() {
+NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
   if (ownScope)
     delete scope;
 }
 
-template <class OP>
-void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
+void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
   outputsDims[n] = inferredDims;
   // Try to refine outputsDims[n] using the output's shape if possible. For
   // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
@@ -110,36 +117,17 @@ void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
   refineDims(outputsDims[n], output);
 }
 
-// Because we use NewONNXOpShapeHelper with concrete ops like ONNXAddOp or
-// generic ops like Operation, we cannot use the same method to get the generic
-// Operation; use template specialization to handle these two different cases.
-template <>
-mlir::Operation *NewONNXOpShapeHelper<mlir::Operation>::getOperation() {
-  return op;
-}
-
-template <class OP>
-mlir::Operation *NewONNXOpShapeHelper<OP>::getOperation() {
-  return op->getOperation();
-}
-
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
-NewONNXGenericOpUnaryShapeHelper::NewONNXGenericOpUnaryShapeHelper(
-    Operation *op, Value operand, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXOpShapeHelper<mlir::Operation>(op, ieBuilder, scope),
-      operand(operand) {}
-
-LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
+LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = createIE->getShapeRank(operand);
+  uint64_t rank = createIE->getShapeRank(operands[0]);
   DimsExpr outputDims;
   for (uint64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(createIE->getShapeAsDim(operand, i));
+    outputDims.emplace_back(createIE->getShapeAsDim(operands[0], i));
   setOutputDims(outputDims);
   return success();
 }
@@ -148,21 +136,12 @@ LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-template <class OP>
-NewONNXOpBroadcastedShapeHelper<OP>::NewONNXOpBroadcastedShapeHelper(OP *op,
-    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
-    bool hasUniBroadcasting, bool hasNoBroadcasting)
-    : NewONNXOpShapeHelper<OP>(op, ieBuilder, scope), inputsDims(),
-      outputRank(0), operands(operands), hasUniBroadcasting(hasUniBroadcasting),
-      hasNoBroadcasting(hasNoBroadcasting) {}
-
-template <class OP>
-LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape(
+LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
     DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
-  uint64_t numOfInputs = this->operands.size();
+  uint64_t numOfInputs = operands.size();
 
   // Compute rank of the output. Rank of the output is the maximum rank of all
   // operands.
@@ -253,8 +232,7 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::computeShape(
   return success();
 }
 
-template <class OP>
-LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
+LogicalResult NewONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
@@ -296,11 +274,6 @@ LogicalResult NewONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 // Generic broadcast
 //===----------------------------------------------------------------------===//
 
-mlir::LogicalResult NewONNXGenericOpBroadcastedShapeHelper::computeShape() {
-  return NewONNXOpBroadcastedShapeHelper<mlir::Operation>::computeShape(
-      nullptr);
-}
-
 //===----------------------------------------------------------------------===//
 // Expand broadcast
 //===----------------------------------------------------------------------===//
@@ -309,10 +282,10 @@ mlir::LogicalResult NewONNXGenericOpBroadcastedShapeHelper::computeShape() {
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
 
-template struct NewONNXOpShapeHelper<Operation>;
-template struct NewONNXOpShapeHelper<ONNXExpandOp>;
-
-template struct NewONNXOpBroadcastedShapeHelper<Operation>;
-template struct NewONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
+// template struct NewONNXOpShapeHelper<Operation>;
+// template struct NewONNXOpShapeHelper<ONNXExpandOp>;
+//
+// template struct NewONNXOpBroadcastedShapeHelper<Operation>;
+// template struct NewONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
 
 } // namespace onnx_mlir
