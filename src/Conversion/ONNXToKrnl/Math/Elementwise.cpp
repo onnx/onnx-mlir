@@ -850,8 +850,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXUnaryOpShapeHelper shapeHelper(
-        op, operands, (IndexExprBuilder *)&create.krnlIE);
+    NewONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -918,8 +917,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands,
-        (IndexExprBuilder *)&create.krnlIE, nullptr, isUniBroadcasting);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(
+        op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -941,14 +940,14 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            LogicalResult res = shapeHelper.GetAccessExprs(
+            LogicalResult res = shapeHelper.getAccessExprs(
                 operands[0], 0, outputAccessExprs, lhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.GetAccessExprs(
+            res = shapeHelper.getAccessExprs(
                 operands[1], 1, outputAccessExprs, rhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
@@ -1004,8 +1003,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(
-        op, operands, (IndexExprBuilder *)&create.krnlIE);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -1029,7 +1027,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             // Fold over operands for each of their scalar values.
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
-            LogicalResult res = shapeHelper.GetAccessExprs(
+            LogicalResult res = shapeHelper.getAccessExprs(
                 operands[0], 0, outputAccessExprs, oprdAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
@@ -1038,7 +1036,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             for (unsigned i = 1; i < numArgs; i++) {
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
-              LogicalResult res = shapeHelper.GetAccessExprs(
+              LogicalResult res = shapeHelper.getAccessExprs(
                   operands[i], i, outputAccessExprs, oprdAccessExprs);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
@@ -1099,8 +1097,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(
-        op, operands, (IndexExprBuilder *)&create.krnlIE);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -1123,7 +1120,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the condition value.
             SmallVector<IndexExpr, 4> condAccessExprs;
             LogicalResult res =
-                shapeHelper.GetAccessExprs(operandAdaptor.condition(), 0,
+                shapeHelper.getAccessExprs(operandAdaptor.condition(), 0,
                     outputAccessExprs, condAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value cond =
@@ -1131,14 +1128,14 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            res = shapeHelper.GetAccessExprs(
+            res = shapeHelper.getAccessExprs(
                 operandAdaptor.X(), 1, outputAccessExprs, lhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operandAdaptor.X(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.GetAccessExprs(
+            res = shapeHelper.getAccessExprs(
                 operandAdaptor.Y(), 2, outputAccessExprs, rhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operandAdaptor.Y(), rhsAccessExprs);

@@ -148,7 +148,7 @@ LogicalResult updateOutputType(
 
 /// Rewrite onnx.Shape into onnx.Dim and onnx.Concat.
 //
-/// For example, the folowing onnx.Shape:
+/// For example, the following onnx.Shape:
 /// %0 = "onnx.Shape"(%arg0) : (tensor<?x256xi64>) -> tensor<2xi64>
 ///
 /// will be rewritten into:

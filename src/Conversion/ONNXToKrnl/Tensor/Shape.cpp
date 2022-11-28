@@ -14,7 +14,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp" // hi alex
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,6 +28,40 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+#if 1
+    Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
+
+    // Get shape.
+    ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+    NewONNXShapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type elementType = outputMemRefType.getElementType();
+
+    // TODO: if the dimensions are known at compile time
+    // (shapeHelper.dimsForOutput literal), then we could use a constant array.
+    // Insert an allocation and deallocation for the output of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+
+    // Compute the data selected by the Shape operator.
+    DimsExpr selectedData = computeSelectedData(operandAdaptor);
+
+    // Iterate along the data shape storing dim value to result.
+    for (uint64_t i = 0; i < selectedData.size(); ++i) {
+      Value val = selectedData[i].getValue();
+      Value intVal = create.math.cast(elementType, val);
+      create.krnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
+    }
+#else
     // Get shape.
     ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
@@ -60,6 +95,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
       Value intVal = create.math.cast(elementType, val);
       create.krnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }
+#endif
     rewriter.replaceOp(op, alloc);
     return success();
   }

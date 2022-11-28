@@ -537,8 +537,6 @@ void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
 //===----------------------------------------------------------------------===//
 
 Value ShapeBuilder::dim(Value val, int64_t index) const {
-  // hi alex 
-  // return b().create<shape::DimOp>(loc(), val, index);
   Value inputShape = shapeOf(val);
   return getExtent(inputShape, index);
 }

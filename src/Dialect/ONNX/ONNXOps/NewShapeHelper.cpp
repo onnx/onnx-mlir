@@ -95,8 +95,10 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
   }
   outputsDims.resize(op->getNumResults());
   // When we have no inputOperands, get them from the operation.
-  if (inputOperands.size()==0) {
-    printf("hi alex: get operands from op\n");
+  if (inputOperands.size() == 0) {
+    // A operand cache is used here, as we don't want to rely on the live range
+    // of the passed parameter. Possibly a more elegant solution can be used, I
+    // could not find one at this time.
     operandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
     operands = mlir::ArrayRef<Value>(operandsCache);
@@ -232,7 +234,7 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
   return success();
 }
 
-LogicalResult NewONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
+LogicalResult NewONNXOpBroadcastedShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
@@ -270,22 +272,9 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// Generic broadcast
-//===----------------------------------------------------------------------===//
-
-//===----------------------------------------------------------------------===//
-// Expand broadcast
-//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
-
-// template struct NewONNXOpShapeHelper<Operation>;
-// template struct NewONNXOpShapeHelper<ONNXExpandOp>;
-//
-// template struct NewONNXOpBroadcastedShapeHelper<Operation>;
-// template struct NewONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
 
 } // namespace onnx_mlir

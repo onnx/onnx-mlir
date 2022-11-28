@@ -279,6 +279,7 @@ DECLARE_SHAPE_HELPER(ONNXUnsqueezeOp)
 DECLARE_SHAPE_HELPER(ONNXUnsqueezeV11Op)
 #undef DECLARE_SHAPE_HELPER
 
+#if 1 // hi alex: deprecate this
 // Compute a slice of the input tensor's shape. The slice starts from axis 0.
 // The axes up to the last one will be included. Negative axes indicate counting
 // back from the last axis.
@@ -305,6 +306,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
   // Additional data for ShapeOp.
   int64_t start, end;
 };
+#endif
 
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {

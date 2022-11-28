@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -69,6 +70,29 @@ std::pair<int64_t, int64_t> getDataShapeBounds(
       normalizeClampedPerSpec(start, rank), normalizeClampedPerSpec(end, rank));
 }
 
+#if 1
+LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
+  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOpAdaptor operandAdaptor(operands);
+  Value data = operandAdaptor.data();
+  int64_t rank = createIE->getShapeRank(data);
+  int64_t start = shapeOp.start();
+  start = normalizeClampedPerSpec(start, rank);
+  int64_t end =
+      shapeOp.end().has_value() ? shapeOp.end().value() : rank;
+  end = normalizeClampedPerSpec(end, rank);
+  if (start > end)
+    return op->emitError("Start must not be greater than end");
+
+  // Output is the actual number of values (1D)
+  DimsExpr outputDims(1, LiteralIndexExpr(end - start));
+  setOutputDims(outputDims);
+  return success();
+}
+#endif
+
+// hi alex: need to globally deprecate this
+#if 1 
 LogicalResult ONNXShapeOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor operandAdaptor) {
   Value data = operandAdaptor.data();
@@ -83,8 +107,10 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 
   return success();
 }
+#endif
 
 // Compute the data selected by the Shape operator.
+// hi alex: remove this
 DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
   MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
   int64_t start;

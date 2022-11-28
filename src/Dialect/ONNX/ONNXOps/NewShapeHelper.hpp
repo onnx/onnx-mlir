@@ -34,18 +34,48 @@ namespace onnx_mlir {
 
 using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 
-//#define GetOperandsAsArrayRef(OP_) ((llvm::ArrayRef<mlir::Value>) \
-//  llvm::SmallVector<mlir::Value, 4>((OP_)->getOperands().begin(), \
-//  (OP_)->getOperands().end()))
-
-#define GetOperandsAsArrayRef(OP_) ({})
-
 //===----------------------------------------------------------------------===//
 // Top shape helper class
 //===----------------------------------------------------------------------===//
 
 struct NewONNXOpShapeHelper {
-  // Constructor for shape inference.
+  /* Constructor for shape inference.
+
+   This class and its specialized subclasses are used in one of two situation:
+   1) For shape analysis (where no code is generated) during shape inference.
+   2) For shape generation (where runtime shapes are computed using generated
+   code) during lowering.
+
+   @param op Operation to be analyzed.
+
+   @param operands Operands of the operation to be analyzed. When passing an
+   empty list, the operands are taken from the operations. When passing an
+   explicit, non-empty list, these operands are used instead of the ones from
+   the operation.
+
+   The former option (empty list) is used during shape inference.
+
+   The later option (explicit list) is used during lowering, as typically there
+   are two sets of operands, the ones already lowered (explicit list) and the
+   original ones (contained within the op). Using shapes during lowering
+   typically deals with already-lowered operands.
+
+   @param ieBuilder Class that scans the operands to gather IndexExpr from them.
+   Typically used to gather shape and constant values.
+
+   During shape inference, we typically use IndexExprBuilderForAnalysis, which
+   uses questionmark for values unkown at compile time.
+
+   During lowering, we typically use and Index Expr Builder that generates code
+   for values unknown at compile time. Example of such subclasses are
+   IndexExprBuilderForKrnl (generates Krnl ops) or IndexExprBuilderForShape
+   (generates Shape ops).
+
+   @param scope Index expression scope to be used. If none is provided, a new
+   scope is created and stored internally. This scope will then be destructed
+   when the current object is destructed.
+
+   */
   NewONNXOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope);
@@ -71,15 +101,17 @@ struct NewONNXOpShapeHelper {
 
 protected:
   // Data that must be present for every ShapeHelper operation. Op and scope
-  // are initialized in the constructor, and outputsDims is computed by the
-  // child's struct `computeShape` function.
+  // are initialized in the constructor.
   mlir::Operation *op;
   mlir::ArrayRef<mlir::Value> operands;
   IndexExprBuilder *createIE;
   IndexExprScope *scope;
 
 private:
+  //  outputsDims is computed by the child's struct `computeShape` function. It
+  //  can be set using setOutputDims and retrieved using getOutputDims.
   llvm::SmallVector<DimsExpr, 1> outputsDims;
+  // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> operandsCache;
   bool ownScope;
 };
@@ -95,7 +127,7 @@ struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
-  ~NewONNXUnaryOpShapeHelper() {}
+  virtual ~NewONNXUnaryOpShapeHelper() {}
 
   mlir::LogicalResult computeShape() final;
 };
@@ -114,7 +146,7 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper {
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
         outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
         hasNoBroadcasting(hasNoBroadcasting) {}
-  ~NewONNXOpBroadcastedShapeHelper() {}
+  virtual ~NewONNXOpBroadcastedShapeHelper() {}
 
   // Custom shape compute which takes additional parameters.
   mlir::LogicalResult customComputeShape(DimsExpr *additionalOperand);
@@ -132,9 +164,7 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper {
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
-
-  // hi alex: rename getAccessExprs
-  mlir::LogicalResult GetAccessExprs(mlir::Value operand, uint64_t i,
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
@@ -155,21 +185,26 @@ protected:
   bool hasNoBroadcasting;
 };
 
-#if 0
-struct NewONNXExpandOpBroadcastedShapeHelper
-    : public NewONNXOpBroadcastedShapeHelper<mlir::ONNXExpandOp> {
-  NewONNXExpandOpBroadcastedShapeHelper(mlir::ONNXExpandOp *op,
-      mlir::ONNXExpandOpAdaptor operandAdaptor, IndexExprBuilder *ieBuilder,
+// Helper for ExpandOp
+struct NewONNXExpandOpHelper : public NewONNXOpBroadcastedShapeHelper {
+  NewONNXExpandOpHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
-      : NewONNXOpBroadcastedShapeHelper<mlir::ONNXExpandOp>(
-            op, operandAdaptor.getOperands(), ieBuilder, scope),
-        operandAdaptor(operandAdaptor) {}
-  ~NewONNXExpandOpBroadcastedShapeHelper() {}
+      : NewONNXOpBroadcastedShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXExpandOpHelper() {}
   mlir::LogicalResult computeShape() final;
-
-protected:
-  mlir::ONNXExpandOpAdaptor operandAdaptor;
 };
-#endif
+
+// Helper for ShapeOp.
+struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXShapeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
+      IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXShapeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for ShapeOp.
+  int64_t start, end;
+};
 
 } // namespace onnx_mlir

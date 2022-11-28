@@ -61,9 +61,9 @@ def print_usage():
 run_command = ""
 fix_fct_name = ""
 debug = 0
-test_error_num = 0
+test_error_functions = []
 
-# file names
+# File names.
 flt_orig_model_file_name = "flt_orig_model.mlir"
 flt_compiled_file_name = "flt_compiled.mlir"
 flt_new_model_file_name = "flt_new_model.mlir"
@@ -73,6 +73,7 @@ flt_new_model_file_name = "flt_new_model.mlir"
 segment_text = []
 segment_fct_name = []
 segment_mlir2FileCheck_command = []
+
 
 ################################################################################
 # Run commands.
@@ -115,7 +116,7 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
         f.write(res)
 
 def run_FileCheck(test_name, compiled_file_name, model_file_name):
-    global debug, test_error_num
+    global debug, test_error_functions
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
@@ -124,7 +125,7 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name):
     if len(res) == 0:
         dprint(">> Successful test of \"" + test_name + "\".")
     else:
-        test_error_num += 1
+        test_error_functions.append(test_name)
         dprint(">> Start failure report of test \"" + test_name + "\".")
         dprint(res)
         dprint(">> Stop failure report of test \"" + test_name + "\".")
@@ -180,7 +181,7 @@ def emit_modified_segment(i, has_test):
 
 
 def test_orig_model(i):
-    global run_command, debug, test_error_num
+    global run_command, debug
     global flt_orig_model_file_name, flt_compiled_file_name
 
     gen_orig_model(i, flt_orig_model_file_name)
@@ -326,11 +327,14 @@ def main(argv):
                 sys.stderr.write("// > print "+ segment_fct_name[i] + "\n")
                 emit_unmodified_segment(i)
 
+    test_error_num = len(test_error_functions)
     if has_test:
         if test_error_num == 0:
             dprint("\n>> Tested successfully without errors.")
         else:
-            dprint("\n>> Tested with " + str(test_error_num) + " errors.")
+            dprint("\n>> Tested with " + str(test_error_num) + " errors:")
+            for f in  test_error_functions:
+                dprint(">>   "+f)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
