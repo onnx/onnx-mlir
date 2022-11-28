@@ -89,15 +89,12 @@ std::string getProductFullVersion() {
 std::string getOnnxMlirCommitVersion() {
   std::string buf;
   llvm::raw_string_ostream os(buf);
-  std::string OnnxMlirPath = getOnnxMlirRepositoryPath();
-  std::string OnnxMlirCommit = getOnnxMlirCommit();
+  std::string onnxMlirCommit = getOnnxMlirCommit();
 #if defined(ONNX_MLIR_PRODUCT_VERSION)
   os << getProductFullVersion();
 #else
-  if (!OnnxMlirCommit.empty()) {
-    os << "onnx-mlir version " ONNX_MLIR_VERSION << ' ' << '('
-       << getOnnxMlirCommit() << ')';
-  }
+  os << "onnx-mlir version " ONNX_MLIR_VERSION << ' ' << '(' << onnxMlirCommit
+     << ')';
 #endif
   return buf;
 }
