@@ -76,9 +76,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   }
 }
 
-//==llvm::ArrayRef<mlir::Value>) \
-  llvm::SmallVector<mlir::Value, 4>((OP_)->getOperands().begin(), \
-  (OP_)->getOperands().end()))=----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
@@ -108,6 +106,34 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
 NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
   if (ownScope)
     delete scope;
+}
+
+mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
+    Type elementType) {
+  if (failed(computeShape())) // Invoke virtual compute.
+    return op->emitError(
+        "Failed to scan " + op->getName().getStringRef() + " parameters successfully");
+  llvm::SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(getOutputDims(), outputDims);
+  updateType(op->getResult(0), outputDims, elementType);
+  return mlir::success();
+}
+
+mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
+    TypeRange elementTypes) {
+  uint64_t resNum = op->getNumResults();
+  assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
+
+  if (failed(computeShape())) // Invoke virtual compute.
+    return op->emitError(
+        "Failed to scan " + op->getName().getStringRef() + " parameters successfully");
+  for (uint64_t i = 0; i < resNum; ++i) {
+    llvm::SmallVector<int64_t, 4> outputDims;
+    IndexExpr::getShape(getOutputDims(i), outputDims);
+    // hi alex: try op->getResult(i)
+    updateType(op->getResults()[i], outputDims, elementTypes[i]);
+  }
+  return mlir::success();
 }
 
 void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
@@ -271,7 +297,6 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::getAccessExprs(Value operand,
   }
   return success();
 }
-
 
 //===----------------------------------------------------------------------===//
 // Template instantiation (last).

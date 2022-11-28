@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -75,24 +76,32 @@ LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
+
+  // Compute and store start/end in NewONNXShapeOpShapeHelper object.
   int64_t rank = createIE->getShapeRank(data);
-  int64_t start = shapeOp.start();
+  start = shapeOp.start();
   start = normalizeClampedPerSpec(start, rank);
-  int64_t end =
-      shapeOp.end().has_value() ? shapeOp.end().value() : rank;
+  end = shapeOp.end().has_value() ? shapeOp.end().value() : rank;
   end = normalizeClampedPerSpec(end, rank);
   if (start > end)
     return op->emitError("Start must not be greater than end");
 
-  // Output is the actual number of values (1D)
+  // Output shape is a 1D vector with "end-start" values
   DimsExpr outputDims(1, LiteralIndexExpr(end - start));
   setOutputDims(outputDims);
+
+#if 0
+  // Store the selected values in selectedData
+  selectedDataShape.clear();
+  for (int64_t i = start; i < end; ++i)
+    selectedDataShape.emplace_back(createIE->getShapeAsDim(data, i));
+#endif
   return success();
 }
 #endif
 
 // hi alex: need to globally deprecate this
-#if 1 
+#if 1
 LogicalResult ONNXShapeOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor operandAdaptor) {
   Value data = operandAdaptor.data();
@@ -156,6 +165,12 @@ LogicalResult ONNXShapeOp::inferShapes(
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   auto elementType = IntegerType::get(getContext(), 64);
+#if 1
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   return shapeHelperInferShapes<ONNXShapeOpShapeHelper, ONNXShapeOp,
       ONNXShapeOpAdaptor>(*this, elementType);
+#endif
 }

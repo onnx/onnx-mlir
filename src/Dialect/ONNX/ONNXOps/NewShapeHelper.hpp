@@ -86,6 +86,9 @@ struct NewONNXOpShapeHelper {
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
 
+  mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
+  mlir::LogicalResult computeShapeAndUpdateType(mlir::TypeRange elementTypes);
+
   // Use the op to get attributes, and operandAdaptor to get the input/output
   // tensors.
 
@@ -204,7 +207,8 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   virtual ~NewONNXShapeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for ShapeOp.
-  int64_t start, end;
+  int64_t start, end;         // Start and end properly normalized.
+  DimsExpr selectedDataShape; // Shape of shape.data, only from start to end.
 };
 
 } // namespace onnx_mlir
