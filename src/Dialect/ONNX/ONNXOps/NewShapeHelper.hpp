@@ -86,8 +86,11 @@ struct NewONNXOpShapeHelper {
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
 
+  // Invoke the virtual computeShape, and on success, update the types of the
+  // original operation. First call is used for operations with one result,
+  // second for operations with one or more results.
   mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
-  mlir::LogicalResult computeShapeAndUpdateType(mlir::TypeRange elementTypes);
+  mlir::LogicalResult computeShapeAndUpdateTypes(mlir::TypeRange elementTypes);
 
   // Use the op to get attributes, and operandAdaptor to get the input/output
   // tensors.

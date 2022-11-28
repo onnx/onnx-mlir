@@ -119,7 +119,7 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
   return mlir::success();
 }
 
-mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
+mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypes) {
   uint64_t resNum = op->getNumResults();
   assert(elementTypes.size() == resNum && "Incorrect elementTypes size");

@@ -53,11 +53,14 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
+    #if 0
+    #else
     ONNXShapeOpShapeHelper shapeOpShapeHelper(
         &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
+    #endif
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
