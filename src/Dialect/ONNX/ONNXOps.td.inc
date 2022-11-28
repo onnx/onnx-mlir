@@ -4400,7 +4400,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -4426,6 +4426,24 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = dtypeAttr()) {
+      if (dtype() == 0) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF16(getContext())));
+      } else if (dtype() == 1) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF32(getContext())));
+      } else if (dtype() == 2) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF64(getContext())));
+      }
+    }
+    resultTypes.push_back(mlir::UnrankedTensorType::get(
+        FloatType::getF32(getContext())));
+      return resultTypes;
     }
   }];
 }
