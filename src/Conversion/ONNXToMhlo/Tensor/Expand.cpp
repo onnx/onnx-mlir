@@ -35,16 +35,10 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     Value input = expandOp.input();
     Value shape = expandOp.shape();
     Location loc = op->getLoc();
-#if 1
     IndexExprBuilderForMhlo createIE(rewriter, loc);
     NewONNXExpandOpShapeHelper shapeHelper(op, {}, &createIE);
     LogicalResult shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Failed to compute shape");
-#else
-    ONNXExpandOpShapeHelper shapeHelper(&expandOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Failed to compute shape");
-#endif
 
     // Convert the output type to MemRefType.
     Type inputType = input.getType();

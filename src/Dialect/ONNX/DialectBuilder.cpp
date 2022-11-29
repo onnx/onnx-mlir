@@ -334,40 +334,4 @@ Value IndexExprBuilderForAnalysis::getShapeVal(
   return nullptr;
 }
 
-#if 0
-// =============================================================================
-// IndexExpr Builder for Lowering using Shape Dialect.
-// =============================================================================
-
-// Return null if none is found.
-// Copy from getDenseElementAttributeFromConstantValue
-DenseElementsAttr IndexExprBuilderForShape::getConst(Value value) {
-  auto definingOp = value.getDefiningOp();
-  fprintf(stderr, "hi alex, defining op for lowering\n");
-  definingOp->dump();
-  fprintf(stderr, "hi alex, defining op for lowering done\n");
-
-  if (auto globalOp = dyn_cast_or_null<mhlo::ConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  else if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  }
-  return nullptr;
-}
-
-Value IndexExprBuilderForShape::getVal(Value intArrayVal, uint64_t i) {
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  llvm_unreachable("unimplemented (see IndexExprBuilderForKrnl for functionality).");
-}
-
-Value IndexExprBuilderForShape::getShapeVal(
-    Value tensorOrMemrefValue, uint64_t i) {
-  ShapeBuilder createShape(*this);
-  return createShape.dim(tensorOrMemrefValue, i);
-}
-
-#endif
-
 } // namespace onnx_mlir

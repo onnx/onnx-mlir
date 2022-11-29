@@ -153,34 +153,4 @@ protected:
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
-#if 0
-// =============================================================================
-// IndexExpr Builder for Shape lowering
-// =============================================================================
-
-struct IndexExprBuilderForShape : IndexExprBuilder {
-  IndexExprBuilderForShape(mlir::Location loc) : IndexExprBuilder(loc) {}
-  IndexExprBuilderForShape(mlir::OpBuilder &b, mlir::Location loc)
-      : IndexExprBuilder(b, loc) {}
-  IndexExprBuilderForShape(const DialectBuilder &db) : IndexExprBuilder(db) {}
-  virtual ~IndexExprBuilderForShape() {}
-
-protected:
-  mlir::DenseElementsAttr getConst(mlir::Value value) final;
-  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
-  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
-};
-
-// Recursive class specialized for AffineBuilder refereed to as affine.
-template <class... Ts>
-struct MultiDialectBuilder<IndexExprBuilderForShape, Ts...>
-    : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
-      : MultiDialectBuilder<Ts...>(b, loc), shapeIE(b, loc) {}
-  MultiDialectBuilder(const DialectBuilder &db)
-      : MultiDialectBuilder<Ts...>(db), shapeIE(db) {}
-  IndexExprBuilderForShape shapeIE;
-};
-#endif
-
 } // namespace onnx_mlir
