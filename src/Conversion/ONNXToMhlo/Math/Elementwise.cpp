@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "stablehlo/dialect/BroadcastUtils.h"
@@ -195,7 +195,7 @@ struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
     // Prior code here used the "analysis" version that did not generate code.
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
-    IndexExprBuilderForShape createShapeIE(rewriter, loc);
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
     NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -226,7 +226,7 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     // Prior code here used the "analysis" version that did not generate code.
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
-    IndexExprBuilderForShape createShapeIE(rewriter, loc);
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
     NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -256,7 +256,7 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     // Prior code here used the "analysis" version that did not generate code.
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
-    IndexExprBuilderForShape createShapeIE(rewriter, loc);
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
     NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");

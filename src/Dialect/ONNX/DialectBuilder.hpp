@@ -4,7 +4,7 @@
 
 //===----------- DialectBuilder.hpp - Builder for ONNX dialects -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -153,6 +153,7 @@ protected:
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
+#if 0
 // =============================================================================
 // IndexExpr Builder for Shape lowering
 // =============================================================================
@@ -180,5 +181,6 @@ struct MultiDialectBuilder<IndexExprBuilderForShape, Ts...>
       : MultiDialectBuilder<Ts...>(db), shapeIE(db) {}
   IndexExprBuilderForShape shapeIE;
 };
+#endif
 
 } // namespace onnx_mlir

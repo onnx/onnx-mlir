@@ -334,6 +334,7 @@ Value IndexExprBuilderForAnalysis::getShapeVal(
   return nullptr;
 }
 
+#if 0
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape Dialect.
 // =============================================================================
@@ -345,7 +346,11 @@ DenseElementsAttr IndexExprBuilderForShape::getConst(Value value) {
   fprintf(stderr, "hi alex, defining op for lowering\n");
   definingOp->dump();
   fprintf(stderr, "hi alex, defining op for lowering done\n");
-  if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
+
+  if (auto globalOp = dyn_cast_or_null<mhlo::ConstantOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  else if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
@@ -362,5 +367,7 @@ Value IndexExprBuilderForShape::getShapeVal(
   ShapeBuilder createShape(*this);
   return createShape.dim(tensorOrMemrefValue, i);
 }
+
+#endif
 
 } // namespace onnx_mlir

@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -36,8 +36,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     Value shape = expandOp.shape();
     Location loc = op->getLoc();
 #if 1
-    IndexExprBuilderForShape createIE(rewriter, loc);
-    NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    NewONNXExpandOpShapeHelper shapeHelper(op, {}, &createIE);
     LogicalResult shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Failed to compute shape");
 #else
