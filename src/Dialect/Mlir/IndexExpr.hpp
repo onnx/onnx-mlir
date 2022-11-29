@@ -257,7 +257,7 @@ inference part as no code may be generated during such phases.
 */
 
 /* Dialect use in Index Expression stack (when generating ops)
-   IndexExpr.cpp: 
+   IndexExpr.cpp:
      Arithmetic: cmp, add, sub, mul, floor/ceil div, rem, and, or, select
      Affine: affine min/max
    IndexExprImpl.cpp:

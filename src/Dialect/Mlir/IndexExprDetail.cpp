@@ -387,5 +387,4 @@ Value IndexExprImpl::getValue() {
   return value;
 }
 
-
 } // namespace onnx_mlir
