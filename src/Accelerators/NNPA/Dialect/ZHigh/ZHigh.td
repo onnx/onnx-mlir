@@ -592,19 +592,4 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let results = (outs AnyZTensor:$output);
 }
 
-def ZHighConcatOp:ZHigh_Op<"Concat", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh Concat operation to concatenate stickified tensors";
-  let description = [{
-    Concatenate a list of tensors into a single tensor. All input tensors must
-    have the same shape, except for the dimension size of the axis
-    to concatenate on. Users must ensure that it is safe to concatenate
-    stickified tensors for the given axis.
-  }];
-  let arguments = (ins Variadic<AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>>:$inputs,
-                       SI64Attr:$axis);
-  let results = (outs AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>:$concat_result);
-  let hasVerifier = 1;
-}
-
 #endif // ZHIGH_OPS
