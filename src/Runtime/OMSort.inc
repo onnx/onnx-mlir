@@ -4,8 +4,8 @@
 #include <assert.h>
 #endif
 
-#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
@@ -17,12 +17,14 @@
 #define TRUE 1
 #define FALSE 0
 
+//
 // Declare comparation funcions for data types and sorting directions
-typedef int (compareFuncType(void *dataPtr, uint64_t off1, uint64_t off2));
-#define declare_compare_function(fname, typeName, direction, symbol) \
-int compare##fname##direction(void *dataPtr, uint64_t off1, uint64_t off2) { \
-  return ((typeName *)dataPtr)[off1] symbol ((typeName *)dataPtr)[off2]; \
-}
+//
+typedef int(compareFuncType(void *dataPtr, uint64_t off1, uint64_t off2));
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(void *dataPtr, uint64_t off1, uint64_t off2) { \
+    return ((typeName *)dataPtr)[off1] symbol((typeName *)dataPtr)[off2];      \
+  }
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
 // declare ascending functions
@@ -49,29 +51,39 @@ declare_compare_function(Uint64, uint64_t, Descending, <)
 declare_compare_function(Int64, int64_t, Descending, <)
 declare_compare_function(Float, float, Descending, <)
 declare_compare_function(Double, double, Descending, <)
-// clang-format on
+    // clang-format on
 
-// Declare sort functions for sorting algorithms
-typedef void (sortFuncType(void *dataPtr, uint64_t *idx, uint64_t dataNum,
-    compareFuncType compFunc));
+    //
+    // Declare sort functions for sorting algorithms
+    //
+    typedef void(sortFuncType(void *dataPtr, uint64_t *idx, uint64_t dataNum,
+        compareFuncType compFunc));
+#define SWAP_INDEX(a, b)                                                       \
+  do {                                                                         \
+    uint64_t tmp = (a);                                                        \
+    (a) = (b);                                                                 \
+    (b) = tmp;                                                                 \
+  } while (0)
 
+//
 // Bubble sort
-void bubble_sort(void *dataPtr, uint64_t *idx, uint64_t dataNum,
-    compareFuncType compFunc) {
+//
+void bubble_sort(
+    void *dataPtr, uint64_t *idx, uint64_t dataNum, compareFuncType compFunc) {
   for (uint32_t i = 0; i < dataNum; i++) {
     for (uint32_t j = 0; j < dataNum - 1; j++) {
       if (compFunc(dataPtr, idx[j], idx[j + 1])) {
-        int64_t tmp = idx[j];
-        idx[j] = idx[j + 1];
-        idx[j + 1] = tmp;
+        SWAP_INDEX(idx[j], idx[j + 1]);
       }
     }
   }
 }
 
+//
 // Comb sort
-void comb_sort(void *dataPtr, uint64_t *idx, uint64_t dataNum,
-    compareFuncType compFunc) {
+//
+void comb_sort(
+    void *dataPtr, uint64_t *idx, uint64_t dataNum, compareFuncType compFunc) {
   size_t gap = dataNum;
   int swap = TRUE;
   while ((gap != 1) || swap) {
@@ -80,17 +92,106 @@ void comb_sort(void *dataPtr, uint64_t *idx, uint64_t dataNum,
     swap = FALSE;
     for (uint32_t i = 0; i < dataNum - gap; i++) {
       if (compFunc(dataPtr, idx[i], idx[i + gap])) {
-        int64_t tmp = idx[i];
-        idx[i] = idx[i + gap];
-        idx[i + gap] = tmp;
-        swap = TRUE;
+        SWAP_INDEX(idx[i], idx[i + gap]);
       }
     }
   }
 }
 
+//
+// Quick sort
+//
+// stack for index (uint64_t)
+typedef struct indexStack {
+  uint64_t *stackData;
+  int64_t stackSize;
+  int64_t stackTop;
+} indexStack;
+
+#define STACK_INIT(stack, stackSize)                                           \
+  do {                                                                         \
+    assert(stackSize > 0);                                                     \
+    stack.stackData = (uint64_t *)alloca(stackSize * sizeof(uint64_t));        \
+    assert(stack.stackData != NULL);                                           \
+    stack.stackSize = stackSize;                                               \
+    stack.stackTop = 0;                                                        \
+  } while (0)
+#define STACK_ISEMPTY(stack) (stack.stackTop == 0)
+#define STACK_PUSH(stack, begin, end)                                          \
+  do {                                                                         \
+    assert(stack.stackTop <= stack.stackSize - 2);                             \
+    stack.stackData[(stack.stackTop)++] = begin;                               \
+    stack.stackData[(stack.stackTop)++] = end;                                 \
+  } while (0)
+#define STACK_POP(stack, begin, end)                                           \
+  do {                                                                         \
+    assert(stack.stackTop >= 2);                                               \
+    end = stack.stackData[--(stack.stackTop)];                                 \
+    begin = stack.stackData[--(stack.stackTop)];                               \
+  } while (0)
+#define STACK_PRINT(stack)                                                     \
+  do {                                                                         \
+    assert(stack.stackTop >= 0);                                               \
+    fprintf(stderr, "indexStack: [");                                          \
+    for (int64_t i = 0; (i + 1) < stack.stackTop; i += 2) {                    \
+      fprintf(                                                                 \
+          stderr, "<%ld:%ld>, ", stack.stackData[i], stack.stackData[i + 1]);  \
+    }                                                                          \
+    fprintf(stderr, "]\n");                                                    \
+    fflush(stderr);                                                            \
+  } while (0)
+
+static int64_t log2u(uint64_t n) {
+  assert(n > 0);
+  int64_t b = 0;
+  for (; n > 0; b++)
+    n = n >> 2;
+  return b;
+}
+
+// Quick sort patition function
+static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
+    compareFuncType compFunc, int64_t begin, int64_t end) {
+  int64_t i = begin;
+  for (int64_t j = begin; j < end; j++) {
+    if (!compFunc(dataPtr, idx[j], idx[end])) {
+      SWAP_INDEX(idx[i], idx[j]);
+      i++;
+    }
+  }
+  SWAP_INDEX(idx[end], idx[i]);
+  return i;
+}
+
+// Quick sort main function
+void quick_sort(
+    void *dataPtr, uint64_t *idx, uint64_t dataNum, compareFuncType compFunc) {
+  // Calculate the theoritical maximum stack size for index
+  int64_t stackSize = (log2u(dataNum + 1) + 1) * 2;
+  indexStack stack;
+  STACK_INIT(stack, stackSize);
+  int64_t begin = 0;
+  int64_t end = dataNum - 1;
+
+  // push current job to the stack
+  STACK_PUSH(stack, begin, end);
+
+  while (!STACK_ISEMPTY(stack)) {
+    // pop current job from the stack
+    STACK_POP(stack, begin, end);
+    if (begin < end) {
+      int64_t pivotIdx =
+          quick_sort_partition(dataPtr, idx, compFunc, begin, end);
+      if (begin < pivotIdx - 1)
+        STACK_PUSH(stack, begin, pivotIdx - 1);
+      if (pivotIdx + 1 < end)
+        STACK_PUSH(stack, pivotIdx + 1, end);
+    }
+  }
+}
+
 compareFuncType *getCompareFunction(uint64_t ascending, OM_DATA_TYPE dataType) {
-  compareFuncType (*compFunc);
+  compareFuncType *compFunc;
 
   switch (dataType) {
   case ONNX_TYPE_BOOL:
@@ -155,18 +256,25 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   void *orderPtr = omTensorGetDataPtr(orderTensor);
   uint64_t *order = (uint64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
+  int64_t sort_elems = inputShape[axis];
+  // Sorting not necessary for empty array
+  if (sort_elems == 0)
+    return;
 
   // Choose the appropriate compare function
-  compareFuncType (* compareElements) = getCompareFunction(ascending, dataType);
+  compareFuncType *compareElements = getCompareFunction(ascending, dataType);
 
   // Choose the sorting function
-  sortFuncType (* sortFunc);
+  sortFuncType *sortFunc;
   switch (algorithm) {
-  case OMSORT_BUBBLE:
+  case OMSORT_BUBBLESORT:
     sortFunc = bubble_sort;
     break;
-  case OMSORT_COMB:
+  case OMSORT_COMBSORT:
     sortFunc = comb_sort;
+    break;
+  case OMSORT_QUICKSORT:
+    sortFunc = quick_sort;
     break;
   default:
     assert("invalid sorting algorithm");
@@ -184,15 +292,14 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   }
 
   // Sort the the 6th axis in the outer 5 loops
-  int64_t sort_elems = inputShape[axis];
   for (int dim0 = 0; dim0 < shape[0]; dim0++) {
     for (int dim1 = 0; dim1 < shape[1]; dim1++) {
       for (int dim2 = 0; dim2 < shape[2]; dim2++) {
         for (int dim3 = 0; dim3 < shape[3]; dim3++) {
           for (int dim4 = 0; dim4 < shape[4]; dim4++) {
             uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
-                          dim2 * strides[2] + dim3 * strides[3] +
-                          dim4 * strides[4];
+                           dim2 * strides[2] + dim3 * strides[3] +
+                           dim4 * strides[4];
             uint64_t *idx = order + off;
             sortFunc(dataPtr, idx, sort_elems, compareElements);
           }
