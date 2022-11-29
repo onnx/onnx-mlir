@@ -35,6 +35,14 @@ std::string getLLVMRepositoryPath() {
 #endif
 }
 
+std::string getOnnxMlirCommit() {
+#ifdef ONNX_MLIR_SHA
+  return ONNX_MLIR_SHA;
+#else
+  return "";
+#endif
+}
+
 std::string getOnnxMlirRevision() {
 #ifdef ONNX_MLIR_REVISION
   return ONNX_MLIR_REVISION;
@@ -64,6 +72,30 @@ std::string getOnnxMlirFullRepositoryVersion(bool toIncludeLLVM) {
       os << ", " << LLVMPath << ' ' << LLVMRevision;
     os << ')';
   }
+  return buf;
+}
+
+std::string getProductFullVersion() {
+  std::string buf;
+  llvm::raw_string_ostream os(buf);
+#if defined(ONNX_MLIR_VENDOR)
+  os << ONNX_MLIR_VENDOR << " " << PRODUCT_VERSION_MAJOR << '.';
+  os << PRODUCT_VERSION_MINOR << '.';
+  os << PRODUCT_VERSION_PATCH << '-' << PRODUCT_ID;
+#endif
+  return buf;
+}
+
+std::string getOnnxMlirCommitVersion() {
+  std::string buf;
+  llvm::raw_string_ostream os(buf);
+#if defined(ONNX_MLIR_PRODUCT_VERSION)
+  os << getProductFullVersion();
+#else
+  std::string onnxMlirCommit = getOnnxMlirCommit();
+  os << "onnx-mlir version " ONNX_MLIR_VERSION << ' ' << '(' << onnxMlirCommit
+     << ')';
+#endif
   return buf;
 }
 
@@ -115,10 +147,8 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
 #endif
 
 void getVersionPrinter(llvm::raw_ostream &os) {
-#if defined(ONNX_MLIR_VENDOR) && defined(ONNX_MLIR_PRODUCT_VERSION)
-  os << ONNX_MLIR_VENDOR << " " << PRODUCT_VERSION_MAJOR << '.';
-  os << PRODUCT_VERSION_MINOR << '.';
-  os << PRODUCT_VERSION_PATCH << '-' << PRODUCT_ID << '\n';
+#if defined(ONNX_MLIR_PRODUCT_VERSION)
+  os << getProductFullVersion() << "\n";
 #endif
   os << getOnnxMlirFullVersion(false) << "\n";
   os << "LLVM version " << LLVM_PACKAGE_VERSION << ' '
