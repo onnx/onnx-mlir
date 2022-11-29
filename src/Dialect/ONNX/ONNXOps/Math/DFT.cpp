@@ -26,15 +26,14 @@ using namespace std;
 namespace onnx_mlir {
 LogicalResult ONNXDFTOpShapeHelper::computeShape(
     ONNXDFTOpAdaptor operandAdaptor) {
-  //Value input = operandAdaptor.input();
 
   // Get info about input data operand.
   auto *op = shapeHelper.op;
   Value data = operandAdaptor.data();
+  Optional<int64_t> dftLength = op->dft_length();
+
   // Get the rank to compensate for N dimensions
   int64_t rank = data.getType().cast<ShapedType>().getRank();
-
-  Optional<int64_t> dftLength = op->dft_length();
 
   // axis is a required attribute and should have default value of 1.
   int64_t axis = op->axis();
