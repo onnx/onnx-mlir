@@ -21,8 +21,8 @@
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
@@ -53,6 +53,5 @@ struct MultiDialectBuilder<IndexExprBuilderForMhlo, Ts...>
       : MultiDialectBuilder<Ts...>(db), mhloIE(db) {}
   IndexExprBuilderForMhlo mhloIE;
 };
-
 
 } // namespace onnx_mlir

@@ -130,7 +130,6 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> outputDims;
     IndexExpr::getShape(getOutputDims(i), outputDims);
-    // hi alex: try op->getResult(i)
     updateType(op->getResults()[i], outputDims, elementTypes[i]);
   }
   return mlir::success();
@@ -234,7 +233,8 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
           return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) + " with " +
+                               std::to_string(currentDimExpr.getLiteral()) +
+                               " with " +
                                std::to_string(currentDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.

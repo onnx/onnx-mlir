@@ -47,27 +47,6 @@ static int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 
 } // namespace
 
-// Compute a slice of the input tensor's shape. The slice starts from axis 0.
-// The axes up to the last one will be included. Negative axes indicate counting
-// back from the last axis.
-std::pair<int64_t, int64_t> getShapeOpStartEnd(
-    ONNXShapeOpAdaptor &operandAdaptor) {
-  Value data = operandAdaptor.data();
-  ShapedType shapedType = data.getType().dyn_cast_or_null<ShapedType>();
-  assert(
-      shapedType && shapedType.hasRank() && "expected shaped type with rank");
-  int64_t rank = shapedType.getRank();
-
-  // Compute the normalized start/end. Negative value means counting
-  // dimensions from the back.
-  int64_t start = operandAdaptor.start();
-  int64_t end =
-      operandAdaptor.end().has_value() ? operandAdaptor.end().value() : rank;
-
-  return std::make_pair(
-      normalizeClampedPerSpec(start, rank), normalizeClampedPerSpec(end, rank));
-}
-
 LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
@@ -125,15 +104,8 @@ void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
 LogicalResult ONNXShapeOp::verify() {
   if (!data().getType().isa<RankedTensorType>())
     return success();
-#if 1
   int64_t start, end;
   NewONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
-#else
-  ONNXShapeOpAdaptor operandAdaptor(*this);
-  int64_t start;
-  int64_t end;
-  std::tie(start, end) = getShapeOpStartEnd(operandAdaptor);
-#endif
   if (start > end)
     return emitOpError() << "Start: " << start << " is after End: " << end;
   return success();

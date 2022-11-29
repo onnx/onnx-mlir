@@ -19,7 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/MHLO Dialect.
 // =============================================================================
@@ -39,7 +38,8 @@ DenseElementsAttr IndexExprBuilderForMhlo::getConst(Value value) {
 
 Value IndexExprBuilderForMhlo::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  llvm_unreachable("unimplemented (see IndexExprBuilderForKrnl for functionality).");
+  llvm_unreachable(
+      "unimplemented (see IndexExprBuilderForKrnl for functionality).");
 }
 
 Value IndexExprBuilderForMhlo::getShapeVal(
@@ -47,6 +47,5 @@ Value IndexExprBuilderForMhlo::getShapeVal(
   ShapeBuilder createShape(*this);
   return createShape.dim(tensorOrMemrefValue, i);
 }
-
 
 } // namespace onnx_mlir

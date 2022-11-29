@@ -20,9 +20,9 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -126,14 +126,8 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
 DenseElementsAttr createDenseElementsAttrFromShapeOp(
     PatternRewriter &rewriter, Operation *op) {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
-#if 1
   int64_t start, end;
   NewONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
-#else
-  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-  int64_t start, end;
-  std::tie(start, end) = getShapeOpStartEnd(operandAdaptor);
-#endif
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 
