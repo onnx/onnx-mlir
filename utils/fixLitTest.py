@@ -85,7 +85,7 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
-        print("//    onnx-mlir-opt command: \"", ' '.join(command), "\".")
+        print("//    onnx-mlir-opt command:", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -109,7 +109,7 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
     if debug:
-        print("//    mlir2FileCheck command: \"", ' '.join(command), "\".")
+        print("//    mlir2FileCheck command:", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -120,7 +120,7 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name):
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
-        print("//    FileCheck command: :\"", ' '.join(command), "\".")
+        print("//    FileCheck command:", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stderr
     if len(res) == 0:
         dprint(">> Successful test of \"" + test_name + "\".")
@@ -202,7 +202,7 @@ def main(argv):
     has_test = False
     has_print = False
     try:
-        opts, args = getopt.getopt(
+        opts, args = getopt.gnu_getopt(
             argv, "rtdf:hp", ["repair", "test", "debug", "func=", "help", "print"])
     except getopt.GetoptError:
         dprint("Error: unknown options")
@@ -272,8 +272,6 @@ def main(argv):
             # Strip the "%s" and "-split-input-file"
             run_command = run_command.replace("%s", "")
             run_command = run_command.replace("-split-input-file", "")
-            if debug:
-                print('//  Run command is "' + run_command + '".')
             continue
         # Handle function
         m = re.match(r'\s*func.*@(\w+)\(', line)

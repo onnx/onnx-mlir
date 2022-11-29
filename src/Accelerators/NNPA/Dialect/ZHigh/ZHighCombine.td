@@ -91,44 +91,6 @@ def StickUnstickRemovalPattern : Pat<
   [(SameLayout $arg, $stick)]
 >;
 
-def ProducedByUnstickOp: Constraint<
-  CPred<"areProducedByUnstickOp($_builder, $0, $1)">,
-  "all values are produced by ZHighUnstickOp with the given layout"
->;
-
-def HaveNoPadsWhenStickified: Constraint<
-  CPred<"haveNoPadsWhenStickified($0, $1, $2)">,
-  "there are no pads along the given axis when stickifying values by using the given layout"
->;
-
-def GetStickifiedInputs: NativeCodeCall<
-  "getStickifiedInputs($_builder, $_loc, $0)"
->;
-
-def GetStickifiedConcatAxis: NativeCodeCall<
-  "getStickifiedConcatAxis($_builder, $0, $1)"
->;
-
-// The pattern
-//   zhigh.Stick (onnx.Concat (zhigh.Unstick (%X1), zhigh.Unstick (%X2)) { axis })
-// can be replaced by
-//   zhigh.Concat (%X1, %X2) { axis }
-// where `zhigh.Concat` is an operation that concatenates stickified tensors.
-//
-// Constraints:
-//   - The stickified tensors does not have pads on the concatenation axis.
-//
-// `zhigh.Concat` is used instead of `onnx.Concat` because `onnx.Concat` cannot 
-// allocate a 4K-aligned buffer for the output stickified tensor.
-//
-// Note: Support 4D/NHWC layout only at this moment.
-def ReplaceONNXConcatByZHighConcatPattern: Pat<
-  (ZHighStickOp (ONNXConcatOp $inputs, $axis), $layout),
-  (ZHighConcatOp (GetStickifiedInputs $inputs), (GetStickifiedConcatAxis $layout, $axis)),
-  [(ProducedByUnstickOp $inputs, $layout),
-   (HaveNoPadsWhenStickified $inputs, $layout, $axis)]
->;
-
 // The pattern
 //   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
 // can be replaced by
