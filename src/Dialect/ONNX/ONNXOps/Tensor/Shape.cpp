@@ -99,6 +99,23 @@ void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
     selectedDataShape.emplace_back(createIE->getShapeAsDim(data, i));
 }
 
+/* static */ void NewONNXShapeOpShapeHelper::getStartEndValues(
+    ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal) {
+  // Get rank of data operand.
+  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
+  Value data = operandAdaptor.data();
+  ShapedType shapedType = data.getType().dyn_cast_or_null<ShapedType>();
+  assert(shapedType && shapedType.hasRank() && "need shaped type with rank");
+  int64_t rank = shapedType.getRank();
+  // Compute the normalized start/end. Negative value means counting
+  // dimensions from the back.
+  startVal = operandAdaptor.start();
+  startVal = normalizeClampedPerSpec(startVal, rank);
+  endVal =
+      operandAdaptor.end().has_value() ? operandAdaptor.end().value() : rank;
+  endVal = normalizeClampedPerSpec(endVal, rank);
+}
+
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
@@ -108,10 +125,15 @@ void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
 LogicalResult ONNXShapeOp::verify() {
   if (!data().getType().isa<RankedTensorType>())
     return success();
+#if 1
+  int64_t start, end;
+  NewONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
+#else
   ONNXShapeOpAdaptor operandAdaptor(*this);
   int64_t start;
   int64_t end;
   std::tie(start, end) = getShapeOpStartEnd(operandAdaptor);
+#endif
   if (start > end)
     return emitOpError() << "Start: " << start << " is after End: " << end;
   return success();

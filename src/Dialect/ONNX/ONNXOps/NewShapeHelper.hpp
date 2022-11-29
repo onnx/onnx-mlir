@@ -71,6 +71,11 @@ struct NewONNXOpShapeHelper {
    IndexExprBuilderForKrnl (generates Krnl ops) or IndexExprBuilderForMhlo
    (generates Shape/MHLO ops).
 
+   However, during lowering, it may be sometime advantageous to perform the
+   analysis of the index expressions in the "old" dialect, e.g. in ONNX instead
+   of the destination dialect. To enable this, just pass `{}` as operands and
+   the original operands associated with the unmodified operation will be used.
+
    @param scope Index expression scope to be used. If none is provided, a new
    scope is created and stored internally. This scope will then be destructed
    when the current object is destructed.
@@ -215,7 +220,9 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   // Compute the shape values of input data for dimensions between start and
   // end.
   void computeSelectedDataShape(DimsExpr &selectedDataShape);
-
+  // Compute start & end value without calls to computeShape.
+  static void getStartEndValues(
+      mlir::ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal);
   // Additional data for ShapeOp.
   int64_t start, end; // Start and end properly normalized (-1 is undef).
 };
