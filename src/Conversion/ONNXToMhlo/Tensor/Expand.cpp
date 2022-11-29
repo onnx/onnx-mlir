@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -33,9 +35,16 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     Value input = expandOp.input();
     Value shape = expandOp.shape();
     Location loc = op->getLoc();
+#if 1
+    IndexExprBuilderForShape createIE(rewriter, loc);
+    NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Failed to compute shape");
+#else
     ONNXExpandOpShapeHelper shapeHelper(&expandOp);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Failed to compute shape");
+#endif
 
     // Convert the output type to MemRefType.
     Type inputType = input.getType();

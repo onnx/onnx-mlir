@@ -221,7 +221,7 @@ Type OnnxBuilder::toTensor(Type input) const {
   assert(input.isa<MemRefType>() &&
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.cast<ShapedType>();
-  mlir::Type elementTy = aTy.getElementType();
+  Type elementTy = aTy.getElementType();
   if (elementTy.isa<IndexType>()) {
     elementTy = b().getIntegerType(64);
   }
@@ -320,7 +320,7 @@ Value OnnxBuilder::reshapeToNDim(
 // =============================================================================
 
 // Return null if none is found.
-DenseElementsAttr IndexExprBuilderForAnalysis::getConst(mlir::Value value) {
+DenseElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
   return getDenseElementAttributeFromONNXValue(value);
 }
 
@@ -340,9 +340,12 @@ Value IndexExprBuilderForAnalysis::getShapeVal(
 
 // Return null if none is found.
 // Copy from getDenseElementAttributeFromConstantValue
-DenseElementsAttr IndexExprBuilderForShape::getConst(mlir::Value value) {
+DenseElementsAttr IndexExprBuilderForShape::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+  fprintf(stderr, "hi alex, defining op for lowering\n");
+  definingOp->dump();
+  fprintf(stderr, "hi alex, defining op for lowering done\n");
+  if (auto globalOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }

@@ -280,7 +280,7 @@ def main(argv):
         if m is not None:
             curr_segment_fct_name = m.group(1)
             if fct_between_delimiters > 0:
-                dprint('Got too many function bodies between "// ----" command starting with ' + curr_segment_fct_name)
+                dprint('Got too many function bodies between "// -----" command starting with ' + curr_segment_fct_name)
                 print_usage()
             fct_between_delimiters = 1
             if has_fct and curr_segment_fct_name == fix_fct_name:
@@ -299,7 +299,7 @@ def main(argv):
 
     # Make sure we got what we were waiting for.
     if len(segment_text) < 2:
-        dprint('Expected at least 2 segments (text between "// ----"): one for RUN command and one for a function.')
+        dprint('Expected at least 2 segments (text between "// -----"): one for RUN command and one for a function.')
         print_usage()
     if has_fct and not found_fct_to_fix:
         dprint("Did not find function to fix: \'" + fix_fct_name + "\'.")

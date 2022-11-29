@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -125,8 +126,8 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
 
     // Now that we have the shape's actual computation
-    if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape({input},
-            &selectedData)))
+    if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape(
+            {input}, &selectedData)))
       return op->emitError("failed to broadcast 3");
 
     return success();
@@ -136,8 +137,8 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     return op->emitError("Expecting a shaped type");
   SmallVector<IndexExpr, 4> constVals;
   createIE->getIntArrayAsSymbols(shape, constVals);
-  if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape({input},
-          &constVals)))
+  if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape(
+          {input}, &constVals)))
     return op->emitError("failed to broadcast 4");
 
   return success();
@@ -175,6 +176,7 @@ LogicalResult ONNXExpandOp::inferShapes(
     return success();
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXExpandOpShapeHelper, ONNXExpandOp,
-      ONNXExpandOpAdaptor>(*this, elementType);
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  NewONNXExpandOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
