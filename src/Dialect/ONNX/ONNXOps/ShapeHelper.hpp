@@ -118,7 +118,7 @@ private:
   bool ownScope;
 };
 
-#if DEPRACATED
+#if DEPRECATED
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
 struct ONNXGenericOpUnaryShapeHelper
@@ -137,7 +137,6 @@ struct ONNXGenericOpUnaryShapeHelper
   // for the output.
   mlir::LogicalResult computeShape(mlir::Value operand);
 };
-#endif
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
@@ -190,8 +189,6 @@ protected:
   // There is no impact on static shape
   bool isNoBroadcasting;
 };
-
-#if DEPRACATED
 
 struct ONNXGenericOpBroadcastedShapeHelper
     : public ONNXOpBroadcastedShapeHelper<mlir::Operation> {
@@ -435,6 +432,7 @@ DECLARE_POOL_SHAPE_HELPER(ONNXConvOp)
 DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
 #undef DECLARE_POOL_SHAPE_HELPER
 
+#if DEPRECATED
 #define DECLARE_BROADCASTED_SHAPE_HELPER(OpName)                               \
   class OpName##ShapeHelper                                                    \
       : public ONNXOpBroadcastedShapeHelper<mlir::OpName> {                    \
@@ -452,6 +450,7 @@ DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
   };
 DECLARE_BROADCASTED_SHAPE_HELPER(ONNXExpandOp)
 #undef DECLARE_BROADCASTED_SHAPE_HELPER
+#endif
 
 /// Handle shape inference for unary element-wise operators.
 mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);

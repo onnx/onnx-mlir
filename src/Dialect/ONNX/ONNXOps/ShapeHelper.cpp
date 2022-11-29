@@ -132,7 +132,7 @@ void ONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
-#if DEPRACATED
+#if DEPRECATED
 ONNXGenericOpUnaryShapeHelper::ONNXGenericOpUnaryShapeHelper(
     Operation *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<Operation>(newOp, 1, inScope) {}
@@ -154,7 +154,6 @@ LogicalResult ONNXGenericOpUnaryShapeHelper::computeShape(Value operand) {
   setOutputDims(outputDims);
   return success();
 }
-#endif
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Broadcasting
@@ -330,7 +329,6 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
 //===----------------------------------------------------------------------===//
 // ONNX Generic Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
-#if DEPRACATED
 
 ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
     Operation *newOp, IndexExprScope *inScope, bool uniBroadcasting,
@@ -575,8 +573,10 @@ template struct ONNXOpShapeHelper<ONNXTransposeOp>;
 template struct ONNXOpShapeHelper<ONNXUnsqueezeOp>;
 template struct ONNXOpShapeHelper<ONNXUnsqueezeV11Op>;
 
+#if DEPRECATED
 template struct ONNXOpBroadcastedShapeHelper<Operation>;
 template struct ONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
+#endif
 
 template struct ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
     ONNXAveragePoolOpAdaptor>;
