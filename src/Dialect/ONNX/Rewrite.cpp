@@ -128,7 +128,7 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
   ONNXShapeOpAdaptor operandAdaptor(shapeOp);
 
   int64_t start, end;
-  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+  std::tie(start, end) = getShapeOpStartEnd(operandAdaptor);
 
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
