@@ -28,7 +28,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-
 LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
   // Get info about input operands.
   ONNXExpandOpAdaptor operandAdaptor(operands);
@@ -55,14 +54,14 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     // pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    NewONNXShapeOpShapeHelper shapeOpShapeHelper(
-        shapeOp.getOperation(), {}, createIE);
+    NewONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {}, createIE);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
-    if (failed(shapeOpShapeHelper.computeShape()))
+    if (failed(shapeHelper.computeShape()))
       return op->emitError("failed to get shape op shape");
 
     // Compute the data selected by the Shape operator.
-    DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
+    DimsExpr selectedData;
+    shapeHelper.computeSelectedDataShape(selectedData);
 
     // Now that we have the shape's actual computation
     if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape(

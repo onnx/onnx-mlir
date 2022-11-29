@@ -280,7 +280,6 @@ DECLARE_SHAPE_HELPER(ONNXUnsqueezeOp)
 DECLARE_SHAPE_HELPER(ONNXUnsqueezeV11Op)
 #undef DECLARE_SHAPE_HELPER
 
-#if 1 // hi alex: deprecate this
 // Compute a slice of the input tensor's shape. The slice starts from axis 0.
 // The axes up to the last one will be included. Negative axes indicate counting
 // back from the last axis.
@@ -289,6 +288,8 @@ std::pair<int64_t, int64_t> getDataShapeBounds(
 
 // Compute the data selected by the Shape operator.
 DimsExpr computeSelectedData(mlir::ONNXShapeOpAdaptor &operandAdaptor);
+
+#if DEPRECATED
 
 // Shape for ShapeOp.
 struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {

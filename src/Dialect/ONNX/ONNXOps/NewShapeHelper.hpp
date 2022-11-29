@@ -208,12 +208,16 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXShapeOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
-      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), start(-1),
+        end(-1) {}
   virtual ~NewONNXShapeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
+  // Compute the shape values of input data for dimensions between start and
+  // end.
+  void computeSelectedDataShape(DimsExpr &selectedDataShape);
+
   // Additional data for ShapeOp.
-  int64_t start, end;         // Start and end properly normalized.
-  DimsExpr selectedDataShape; // Shape of shape.data, only from start to end.
+  int64_t start, end; // Start and end properly normalized (-1 is undef).
 };
 
 } // namespace onnx_mlir

@@ -178,8 +178,7 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
-// Get start and end values.
-#if 1
+    // Get start and end values.
     IndexExprBuilderForAnalysis createIE(loc);
     NewONNXShapeOpShapeHelper shapeHelper(
         shapeOp.getOperation(), {}, &createIE);
@@ -189,15 +188,6 @@ public:
                         " parameters successfully");
       return failure();
     }
-#else
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
-    ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-    if (failed(shapeHelper.computeShape(operandAdaptor))) {
-      shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
-                        " parameters successfully");
-      return failure();
-    }
-#endif
     int64_t start = shapeHelper.start;
     int64_t end = shapeHelper.end;
 

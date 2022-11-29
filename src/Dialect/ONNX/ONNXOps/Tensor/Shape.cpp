@@ -71,7 +71,6 @@ std::pair<int64_t, int64_t> getDataShapeBounds(
       normalizeClampedPerSpec(start, rank), normalizeClampedPerSpec(end, rank));
 }
 
-#if 1
 LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
@@ -89,19 +88,21 @@ LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   // Output shape is a 1D vector with "end-start" values
   DimsExpr outputDims(1, LiteralIndexExpr(end - start));
   setOutputDims(outputDims);
+  return success();
+}
 
-#if 0
-  // Store the selected values in selectedData
+void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
+    DimsExpr &selectedDataShape) {
+  assert(start != -1 && end != -1 && "must compute shape first");
+  ONNXShapeOpAdaptor operandAdaptor(operands);
+  Value data = operandAdaptor.data();
+
   selectedDataShape.clear();
   for (int64_t i = start; i < end; ++i)
     selectedDataShape.emplace_back(createIE->getShapeAsDim(data, i));
-#endif
-  return success();
 }
-#endif
 
-// hi alex: need to globally deprecate this
-#if 1
+#if DEPRECATED
 LogicalResult ONNXShapeOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor operandAdaptor) {
   Value data = operandAdaptor.data();
@@ -119,7 +120,7 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 #endif
 
 // Compute the data selected by the Shape operator.
-// hi alex: remove this
+#if 0
 DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
   MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
   int64_t start;
@@ -134,6 +135,7 @@ DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
 
   return selectedData;
 }
+#endif
 
 } // namespace onnx_mlir
 

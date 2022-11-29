@@ -52,7 +52,8 @@ struct ONNXShapeOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Compute the data selected by the Shape operator.
-    DimsExpr selectedData = computeSelectedData(operandAdaptor);
+    DimsExpr selectedData;
+    shapeHelper.computeSelectedDataShape(selectedData);
 
     // Iterate along the data shape storing dim value to result.
     for (uint64_t i = 0; i < selectedData.size(); ++i) {
