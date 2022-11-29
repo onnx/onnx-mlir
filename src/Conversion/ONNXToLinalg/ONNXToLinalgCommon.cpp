@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====----- ONNXToLinalgCommon.cpp - ONNX dialects to Linalg lowering ---------===//
+//====----- ONNXToLinalgCommon.cpp - ONNX dialects to Linalg lowering -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"

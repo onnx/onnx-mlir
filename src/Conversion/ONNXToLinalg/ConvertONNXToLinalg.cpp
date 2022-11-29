@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ConvertONNXToLinalg.cpp - ONNX dialects to Krnl lowering -------===//
+//====------ ConvertONNXToLinalg.cpp - ONNX dialects to Krnl lowering -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -28,8 +28,7 @@ void populateONNXToLinalgConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
 
   // Math
-  populateLoweringONNXMatMulOpLinalgPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXMatMulOpLinalgPattern(patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -68,7 +67,8 @@ void ONNXToLinalgLoweringPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
       func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
-      memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
+      memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect,
+      tensor::TensorDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
@@ -76,19 +76,22 @@ void ONNXToLinalgLoweringPass::runOnOperation() {
   // lowering. ONNXNoneOp will be dangling and removed by calling
   // canonicalization after the lowering.
   target.addLegalOp<::mlir::ONNXNoneOp>();
+  target.addLegalOp<linalg::MatmulOp>();
+  target.addLegalOp<tensor::EmptyOp>();
 
   // The following requirements are from Krnl and they are kept if ONNXToKrnl
   // is after this pass.
-  // If the Linalg is on tensor instead of memref, this lowering will not generate
-  // memref or Affine load/store. However, these requiremnts will may be an issue
-  // if Ops are lowered other than Krnl
-  // Use krnl.load/store instead of std.load/store and affine.load/store.
-  // krnl.load/store will be lowered to std.load/store and affine.load/store by
-  // `convert-krnl-to-affine` pass.
+  // If the Linalg is on tensor instead of memref, this lowering will not
+  // generate memref or Affine load/store. However, these requiremnts will may
+  // be an issue if Ops are lowered other than Krnl Use krnl.load/store instead
+  // of std.load/store and affine.load/store. krnl.load/store will be lowered to
+  // std.load/store and affine.load/store by `convert-krnl-to-affine` pass.
   target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
+
+  target.addIllegalOp<ONNXMatMulOp>();
 
   // TODO: add any other ops which are considered legal.
   // Some operations can be marked as being still legal.
@@ -111,7 +114,8 @@ void ONNXToLinalgLoweringPass::runOnOperation() {
 
   // For future: Rewrite patterns for accelerators.
   // for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-  //  accel->rewritePatternONNXToLinalg(patterns, krnlTypeConverter, &getContext());
+  //  accel->rewritePatternONNXToLinalg(patterns, krnlTypeConverter,
+  //  &getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

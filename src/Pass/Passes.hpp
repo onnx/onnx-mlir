@@ -72,6 +72,8 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
 std::unique_ptr<mlir::Pass> createLowerToMhloPass();
 #endif
 
+std::unique_ptr<mlir::Pass> createLowerONNXToLinalgPass();
+
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();
 

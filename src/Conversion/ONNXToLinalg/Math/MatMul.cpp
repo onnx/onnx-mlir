@@ -24,12 +24,25 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXMatMulOpLinalgLowering : public ConversionPattern {
-  ONNXMatMulOpLinalgLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXMatMulOpLinalgLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+
+    auto outputType = op->getResult(0).getType().cast<ShapedType>();
+
+    // ToFix: dimension size is assumed to be static
+    SmallVector<Value> newDynamicSizes;
+    auto outV = rewriter.create<tensor::EmptyOp>(loc, outputType.getShape(),
+        outputType.getElementType(), newDynamicSizes);
+
+    SmallVector<Value, 1> outputs;
+    outputs.emplace_back(outV);
+    auto newOp =
+        rewriter.create<linalg::MatmulOp>(loc, outputType, operands, outputs);
+    rewriter.replaceOp(op, newOp.getResults());
     return success();
   }
 }; // namespace onnx_mlir
