@@ -11,7 +11,6 @@ func.func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf3
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -62,7 +61,7 @@ func.func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf3
 // CHECK:             [[VAR_14_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_14_1_]]#2, [[RES_3_]]{{.}}[[VAR_14_1_]]#0, [[VAR_14_1_]]#1, [[VAR_14_1_]]#2] : memref<1x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
 // CHECK:           [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_4_]], [[CST_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_5_:%.+]] = memref.alloca() : memref<index>
@@ -187,7 +186,6 @@ func.func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, 
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -238,7 +236,7 @@ func.func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, 
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -364,7 +362,6 @@ func.func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %ar
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -415,7 +412,7 @@ func.func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %ar
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x10xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x10xindex>, memref<1x1x10xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x10xindex>, memref<1x1x10xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x10x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 10){
@@ -541,7 +538,6 @@ func.func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %a
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -592,7 +588,7 @@ func.func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %a
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -718,7 +714,6 @@ func.func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: te
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -768,7 +763,7 @@ func.func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: te
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x1xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x1xindex>, memref<1x1x1xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x1xindex>, memref<1x1x1xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x1x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 1){
@@ -894,7 +889,6 @@ func.func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -945,7 +939,7 @@ func.func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -1071,7 +1065,6 @@ func.func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -1122,7 +1115,7 @@ func.func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4
 // CHECK:             [[VAR_15_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_15_1_]]#2, [[RES_3_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1, [[VAR_15_1_]]#2] : memref<1x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x1x6xindex>, memref<1x1x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -1249,7 +1242,6 @@ func.func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: t
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -1300,7 +1292,7 @@ func.func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: t
 // CHECK:             [[VAR_16_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_16_1_]]#2, [[RES_3_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1, [[VAR_16_1_]]#2] : memref<2x1x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<2x1x6xindex>, memref<2x1x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<2x1x6xindex>, memref<2x1x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<2x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 2, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -1428,7 +1420,6 @@ func.func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: t
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -1479,7 +1470,7 @@ func.func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: t
 // CHECK:             [[VAR_16_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_16_1_]]#2, [[RES_3_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1, [[VAR_16_1_]]#2] : memref<1x2x6xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<1x2x6xindex>, memref<1x2x6xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<1x2x6xindex>, memref<1x2x6xf32>, i64, i64, i64) -> ()
 // CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1x6x4xf32>
 // CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 6){
@@ -1610,7 +1601,6 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i64
 // CHECK-DAG:       [[VAR_true_:%.+]] = arith.constant true
@@ -1670,7 +1660,7 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:             [[VAR_16_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_16_1_]]#2, [[RES_3_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1, [[VAR_16_1_]]#2] : memref<?x?x?xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorSort"} : (memref<?x?x?xindex>, memref<?x?x?xf32>, i64, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_3_]], [[SCORES_]], [[CST_2_]], [[CST_0_]], [[CST_2_]]) {funcName = "omTensorSort"} : (memref<?x?x?xindex>, memref<?x?x?xf32>, i64, i64, i64) -> ()
 // CHECK:           [[VAR_11_:%.+]] = arith.muli [[VAR_dim_]], [[VAR_dim_]]_2 : index
 // CHECK:           [[VAR_12_:%.+]] = arith.muli [[VAR_11_]], [[LOAD_RES_MEM_1_]] : index
 // CHECK:           [[RES_4_:%.+]] = memref.alloc([[VAR_12_]]) {{.*}}: memref<?x3xindex>
