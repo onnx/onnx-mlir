@@ -68,8 +68,7 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
   if (sequence_lensTy && inputTy) {
     int64_t batchAxis = batch_axis();
-    if (sequence_lensTy.getShape()[0] != -1 &&
-        inputTy.getShape()[batchAxis] != -1) {
+    if (!sequence_lensTy.isDynamicDim(0) && !inputTy.isDynamicDim(batchAxis)) {
       if (sequence_lensTy.getShape()[0] != inputTy.getShape()[batchAxis]) {
         return emitOpError("Length of sequence_lens should match the sizeof  "
                            "batch axis of the input");

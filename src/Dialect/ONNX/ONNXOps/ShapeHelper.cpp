@@ -50,7 +50,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    if (ShapedType::isDynamic(existingDims[i]))
       continue;
 
     // inferredDim is unknown at shape inference: update it.
@@ -496,7 +496,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
   IndexExprScope scope(nullptr, val.getLoc());
   DimsExpr inferredDims;
   for (int64_t d : shape) {
-    if (d == -1)
+    if (ShapedType::isDynamic(d))
       inferredDims.emplace_back(QuestionmarkIndexExpr());
     else
       inferredDims.emplace_back(LiteralIndexExpr(d));

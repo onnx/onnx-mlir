@@ -69,14 +69,14 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
     hiddenSize = op->hidden_size().value();
   } else {
     // Infer hidden_size from wShape and rShape if possible.
-    if (rShape[2] != -1)
+    if (!ShapedType::isDynamic(rShape[2]))
       hiddenSize = rShape[2];
-    else if (rShape[1] != -1)
+    else if (!ShapedType::isDynamic(rShape[1]))
       hiddenSize = rShape[1] / gates;
-    else if (wShape[1] != -1)
+    else if (!ShapedType::isDynamic(wShape[1]))
       hiddenSize = wShape[1] / gates;
     // Update hidden_size attribute.
-    if (hiddenSize != -1) {
+    if (!ShapedType::isDynamic(hiddenSize)) {
       auto builder = mlir::Builder(op->getContext());
       auto hiddenSizeAttr =
           IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),

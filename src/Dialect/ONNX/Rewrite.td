@@ -128,7 +128,7 @@ def HaveSameLastDim: Constraint<
 
 class HaveSameDim<int dim>: Constraint<
   CPred<"onnx_mlir::hasShapeAndRank($0) && onnx_mlir::hasShapeAndRank($1) && "
-        "$0.getType().cast<RankedTensorType>().getShape()[" # dim # "] != -1 && "
+        "!$0.getType().cast<RankedTensorType>().isDynamicDim(" # dim # ") && "
         "($0.getType().cast<RankedTensorType>().getShape()[" # dim # "] =="
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
@@ -209,7 +209,8 @@ class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
     "All dimensions from axis to the end are val">;
 
 def DimAtIndexIsConstant: Constraint<
-  CPred<"onnx_mlir::hasShapeAndRank($0) && (onnx_mlir::getShape($0.getType())[$1.getValue().getSExtValue()] != -1)">,
+  CPred<"onnx_mlir::hasShapeAndRank($0) &&"
+        "!$0.getType().cast<ShapedType>().isDynamicDim($1.getValue().getSExtValue())">,
   "Dim at the given index is constant"
 >;
 

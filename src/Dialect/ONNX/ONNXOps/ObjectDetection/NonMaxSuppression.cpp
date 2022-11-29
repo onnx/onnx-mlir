@@ -38,7 +38,7 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
     auto shape = boxes.getType().cast<ShapedType>().getShape();
     if (shape.size() != 3)
       return emitOpError("boxes should have a rank of three");
-    if (shape[2] != -1 && shape[2] != 4)
+    if (!ShapedType::isDynamic(shape[2]) && shape[2] != 4)
       return emitOpError("The last dim of Boxes should be four");
   }
 

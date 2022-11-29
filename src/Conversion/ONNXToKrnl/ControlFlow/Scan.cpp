@@ -255,7 +255,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
-          if (rankedScanOutTy.getShape()[i] == -1) {
+          if (rankedScanOutTy.isDynamicDim(i)) {
             if (i == 0) {
               // TODO(tjingrant): in general, it is not correct to expect
               // scan operation scan output to have the leading dimension
