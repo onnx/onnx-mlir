@@ -155,11 +155,13 @@ struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper {
   virtual ~NewONNXOpBroadcastedShapeHelper() {}
 
   // Custom shape compute which takes additional parameters.
-  mlir::LogicalResult customComputeShape(DimsExpr *additionalOperand);
+  mlir::LogicalResult customComputeShape(
+      mlir::ArrayRef<mlir::Value> initialOperands, DimsExpr *additionalOperand);
 
-  // Default shape compute (additional parameters are null).
+  // Default shape compute (every operands of the operation and no additional
+  // parameters).
   mlir::LogicalResult computeShape() override {
-    return customComputeShape(nullptr);
+    return customComputeShape(operands, nullptr);
   }
 
   // Compute access indices to load/store value from/to a given 'operand'.
@@ -192,12 +194,12 @@ protected:
 };
 
 // Helper for ExpandOp
-struct NewONNXExpandOpHelper : public NewONNXOpBroadcastedShapeHelper {
-  NewONNXExpandOpHelper(mlir::Operation *op,
+struct NewONNXExpandOpShapeHelper : public NewONNXOpBroadcastedShapeHelper {
+  NewONNXExpandOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
       : NewONNXOpBroadcastedShapeHelper(op, operands, ieBuilder, scope) {}
-  virtual ~NewONNXExpandOpHelper() {}
+  virtual ~NewONNXExpandOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
 

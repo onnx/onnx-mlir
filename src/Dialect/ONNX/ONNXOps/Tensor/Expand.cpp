@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,6 +28,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 #if 1
+// hi alex, old ways
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
   // Get info about input operands.
@@ -53,14 +55,11 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    #if 0
-    #else
     ONNXShapeOpShapeHelper shapeOpShapeHelper(
         &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
-    #endif
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
@@ -68,7 +67,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // Now that we have the shape's actual computation in
     if (failed(
             ONNXOpBroadcastedShapeHelper::computeShape({input}, selectedData)))
-      return op->emitError("failed to broadcast");
+      return op->emitError("failed to broadcast 1");
 
     return success();
   }
@@ -83,21 +82,20 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
         "onnx.Shape");
 
   if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
-    return op->emitError("failed to broadcast");
+    return op->emitError("failed to broadcast 2");
 
   return success();
 }
+#endif
 
-#else
-LogicalResult NewONNXExpandOpBroadcastedShapeHelper::computeShape() {
+#if 1
+LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
   // Get info about input operands.
   ONNXExpandOpAdaptor operandAdaptor(operands);
-  ONNXExpandOp expandOp = llvm::dyn_cast<ONNXExpandOp>(op);
-
   Value input = operandAdaptor.input();
   Value shape = operandAdaptor.shape();
-  Operation *shapeDefOp = shape.getDefiningOp();
 
+  Operation *shapeDefOp = shape.getDefiningOp();
   ShapedType shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
   if (!shapeType)
     return op->emitError("expected shape parameter to be defined");
@@ -117,18 +115,19 @@ LogicalResult NewONNXExpandOpBroadcastedShapeHelper::computeShape() {
     // pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    ONNXShapeOpShapeHelper shapeOpShapeHelper(
-        &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
+    NewONNXShapeOpShapeHelper shapeOpShapeHelper(
+        shapeOp.getOperation(), {}, createIE);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
-    if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
+    if (failed(shapeOpShapeHelper.computeShape()))
       return op->emitError("failed to get shape op shape");
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData = computeSelectedData(shapeOpOperandAdaptor);
 
     // Now that we have the shape's actual computation
-    if (failed(ONNXOpBroadcastedShapeHelper::customComputeShape(&selectedData)))
-      return op->emitError("failed to broadcast");
+    if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape({input},
+            &selectedData)))
+      return op->emitError("failed to broadcast 3");
 
     return success();
   }
@@ -136,9 +135,10 @@ LogicalResult NewONNXExpandOpBroadcastedShapeHelper::computeShape() {
   if (!shape.getType().isa<ShapedType>())
     return op->emitError("Expecting a shaped type");
   SmallVector<IndexExpr, 4> constVals;
-  ieBuilder->getIntArrayAsSymbols(shape, constVals);
-  if (failed(ONNXOpBroadcastedShapeHelper::customComputeShape(&constVals)))
-    return op->emitError("failed to broadcast");
+  createIE->getIntArrayAsSymbols(shape, constVals);
+  if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape({input},
+          &constVals)))
+    return op->emitError("failed to broadcast 4");
 
   return success();
 }

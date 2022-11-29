@@ -111,8 +111,8 @@ NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
 mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
   if (failed(computeShape())) // Invoke virtual compute.
-    return op->emitError(
-        "Failed to scan " + op->getName().getStringRef() + " parameters successfully");
+    return op->emitError("Failed to scan " + op->getName().getStringRef() +
+                         " parameters successfully");
   llvm::SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(getOutputDims(), outputDims);
   updateType(op->getResult(0), outputDims, elementType);
@@ -125,8 +125,8 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
   assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
 
   if (failed(computeShape())) // Invoke virtual compute.
-    return op->emitError(
-        "Failed to scan " + op->getName().getStringRef() + " parameters successfully");
+    return op->emitError("Failed to scan " + op->getName().getStringRef() +
+                         " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> outputDims;
     IndexExpr::getShape(getOutputDims(i), outputDims);
@@ -165,33 +165,35 @@ LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
-    DimsExpr *additionalOperand) {
+    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
-  uint64_t numOfInputs = operands.size();
+  uint64_t numOfInputs = initialOperands.size();
 
   // Compute rank of the output. Rank of the output is the maximum rank of all
-  // operands.
+  // initial operands.
   uint64_t additionalOperRank =
       additionalOperand ? additionalOperand->size() : 0;
   outputRank = additionalOperRank;
   for (uint64_t i = 0; i < numOfInputs; ++i)
-    outputRank = std::max(outputRank, createIE->getTypeRank(operands[i]));
+    outputRank =
+        std::max(outputRank, createIE->getTypeRank(initialOperands[i]));
   dimsExpr.resize(outputRank);
 
   // Prepare dims for every input. Prepend 1s if the input's shape has smaller
   // rank, so that all the shapes have the same rank.
   LiteralIndexExpr one(1);
   for (uint64_t i = 0; i < numOfInputs; ++i) {
-    uint64_t r = createIE->getTypeRank(operands[i]);
+    uint64_t r = createIE->getTypeRank(initialOperands[i]);
     // Prepend 1s.
     DimsExpr dims(outputRank - r, one);
     // Get from the input.
     for (uint64_t k = 0; k < r; ++k)
-      dims.emplace_back(createIE->getShapeAsDim(operands[i], k));
+      dims.emplace_back(createIE->getShapeAsDim(initialOperands[i], k));
     inputsDims.emplace_back(dims);
   }
+
   // Handle the additional operand here.
   if (additionalOperRank > 0) {
     DimsExpr dims(outputRank - additionalOperRank, one);
@@ -231,7 +233,9 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return failure();
+          return op->emitError("Incompatible broadcast matching " +
+                               std::to_string(currentDimExpr.getLiteral()) + " with " +
+                               std::to_string(currentDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;

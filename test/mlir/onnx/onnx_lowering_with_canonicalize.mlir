@@ -766,7 +766,7 @@ func.func @test_gather_elements_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x
 // CHECK-DAG:         [[CMP:%.+]] = arith.cmpi slt, [[INDEX_CAST]], [[CST_0]] : index
 // CHECK-DAG:         [[VAR_1:%.+]] = arith.addi [[INDEX_CAST]], [[CST_3]] : index
 // CHECK:             [[SEL:%.+]] = arith.select [[CMP]], [[VAR_1]], [[INDEX_CAST]] : index
-// CHECK:             [[DATA_VAL:%.+]] = krnl.load [[PARAM_0]][[[SEL]], [[IV]]#1] : memref<3x2xf32>
+// CHECK:             [[DATA_VAL:%.+]] = krnl.load [[PARAM_0_]][[[SEL]], [[IV]]#1] : memref<3x2xf32>
 // CHECK:             krnl.store [[DATA_VAL]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<2x2xf32>
 // CHECK:           }
 // CHECK:           return [[RES]] : memref<2x2xf32>

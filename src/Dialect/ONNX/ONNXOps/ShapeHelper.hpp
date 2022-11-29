@@ -103,6 +103,10 @@ struct ONNXOpShapeHelper {
   OP *op;
   IndexExprScope *scope;
 
+  // For testing compatibility with new.
+  IndexExprScope *getScope() { return scope; }
+  DimsExpr &getOutputDims(int n = 0) { return dimsForOutput(n); }
+
 protected:
   // Function to get a dense value from an attribute.
   ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
