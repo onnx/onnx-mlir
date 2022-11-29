@@ -89,10 +89,10 @@ std::string getProductFullVersion() {
 std::string getOnnxMlirCommitVersion() {
   std::string buf;
   llvm::raw_string_ostream os(buf);
-  std::string onnxMlirCommit = getOnnxMlirCommit();
 #if defined(ONNX_MLIR_PRODUCT_VERSION)
   os << getProductFullVersion();
 #else
+  std::string onnxMlirCommit = getOnnxMlirCommit();
   os << "onnx-mlir version " ONNX_MLIR_VERSION << ' ' << '(' << onnxMlirCommit
      << ')';
 #endif
@@ -147,7 +147,6 @@ std::string getOnnxMlirFullVersion(bool toIncludeLLVM) {
 #endif
 
 void getVersionPrinter(llvm::raw_ostream &os) {
-  os << getOnnxMlirCommitVersion() << "\n";
 #if defined(ONNX_MLIR_PRODUCT_VERSION)
   os << getProductFullVersion() << "\n";
 #endif
