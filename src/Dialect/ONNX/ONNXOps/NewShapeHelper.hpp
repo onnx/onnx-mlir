@@ -268,9 +268,9 @@ struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
     virtual ~OpName##ShapeHelper() {}                                          \
     mlir::LogicalResult computeShape() final;                                  \
   };
-DECLARE_POOL_SHAPE_HELPER(ONNXAveragePoolOp)
-DECLARE_POOL_SHAPE_HELPER(ONNXConvOp)
-DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
+DECLARE_POOL_SHAPE_HELPER(NewONNXAveragePoolOp)
+DECLARE_POOL_SHAPE_HELPER(NewONNXConvOp)
+DECLARE_POOL_SHAPE_HELPER(NewONNXMaxPoolSingleOutOp)
 #undef DECLARE_POOL_SHAPE_HELPER
 
 } // namespace onnx_mlir
