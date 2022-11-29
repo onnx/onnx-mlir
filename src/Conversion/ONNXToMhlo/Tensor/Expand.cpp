@@ -36,6 +36,9 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     Value shape = expandOp.shape();
     Location loc = op->getLoc();
 
+    // Cannot be used because ExpandOp Shape helper scans for onnx ops in the
+    // inputs, and Mhlo conversion has already removed them.
+
     // IndexExprBuilderForMhlo createIE(rewriter, loc);
     // NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
     // LogicalResult shapeComputed = shapeHelper.computeShape();
