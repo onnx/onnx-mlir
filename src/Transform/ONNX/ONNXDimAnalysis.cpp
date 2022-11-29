@@ -134,7 +134,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
 
   // Build shape helper
   onnx_mlir::IndexExprBuilderForAnalysis createAnalysisIE(op->getLoc());
-  onnx_mlir::NewONNXOpBroadcastedShapeHelper shapeHelper(op,
+  onnx_mlir::NewONNXBroadcastOpShapeHelper shapeHelper(op,
       ArrayRef<Value>({A, B}),
       (onnx_mlir::IndexExprBuilder *)&createAnalysisIE);
   auto shapeComputed = shapeHelper.computeShape();

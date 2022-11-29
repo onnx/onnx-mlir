@@ -923,7 +923,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(
+    NewONNXBroadcastOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -1012,7 +1012,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -1106,7 +1106,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 

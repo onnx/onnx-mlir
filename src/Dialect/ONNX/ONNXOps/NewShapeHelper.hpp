@@ -128,7 +128,7 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// Unary
+// Unary Ops
 //===----------------------------------------------------------------------===//
 
 /// Compute an output shape for a unary element-wise operation. The output and
@@ -144,20 +144,20 @@ struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
-// Broadcast
+// Broadcast Ops
 //===----------------------------------------------------------------------===//
 
-/// Compute a broadcasted shape from the shapes of given operands. Operands must
-/// be ranked in advance.
-struct NewONNXOpBroadcastedShapeHelper : public NewONNXOpShapeHelper {
-  NewONNXOpBroadcastedShapeHelper(mlir::Operation *op,
+// Compute a broadcasted shape from the shapes of given operands. Operands must
+// be ranked in advance.
+struct NewONNXBroadcastOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXBroadcastOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr, bool hasUniBroadcasting = false,
       bool hasNoBroadcasting = false)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
         outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
         hasNoBroadcasting(hasNoBroadcasting) {}
-  virtual ~NewONNXOpBroadcastedShapeHelper() {}
+  virtual ~NewONNXBroadcastOpShapeHelper() {}
 
   // Custom shape compute which takes additional parameters.
   mlir::LogicalResult customComputeShape(
@@ -199,16 +199,19 @@ protected:
 };
 
 // Helper for ExpandOp
-struct NewONNXExpandOpShapeHelper : public NewONNXOpBroadcastedShapeHelper {
+struct NewONNXExpandOpShapeHelper : public NewONNXBroadcastOpShapeHelper {
   NewONNXExpandOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
       IndexExprScope *scope = nullptr)
-      : NewONNXOpBroadcastedShapeHelper(op, operands, ieBuilder, scope) {}
+      : NewONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~NewONNXExpandOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
 
-// Helper for ShapeOp.
+//===----------------------------------------------------------------------===//
+// Shape op
+//===----------------------------------------------------------------------===//
+
 struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXShapeOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
@@ -226,5 +229,48 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   // Additional data for ShapeOp.
   int64_t start, end; // Start and end properly normalized (-1 is undef).
 };
+
+//===----------------------------------------------------------------------===//
+// Pooling Ops
+//===----------------------------------------------------------------------===//
+
+// Generic pool shape helper, further refined by specific pooling ops.
+struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXPoolOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
+      bool hasFilter, bool ceilMode, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope),
+        hasFilter(hasFilter), ceilMode(ceilMode) {}
+  virtual ~NewONNXPoolOpShapeHelper() {}
+  mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
+      mlir::Value W /* filter */,
+      mlir::Optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
+      mlir::Optional<mlir::ArrayAttr> padOpt,
+      mlir::Optional<mlir::ArrayAttr> strideOpt,
+      mlir::Optional<mlir::ArrayAttr> dilationOpt);
+
+  // Additional data for pool operations.
+  bool hasFilter; // If has filter, it also has CO and optional kernel.
+  bool ceilMode;  // Use ceil or floor for auto_pad=NOTSET policy.
+  // Values set by customComputeShape.
+  llvm::SmallVector<IndexExpr, 2> kernelShape;
+  llvm::SmallVector<IndexExpr, 4> pads;
+  llvm::SmallVector<int64_t, 2> strides;
+  llvm::SmallVector<int64_t, 2> dilations;
+};
+
+#define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \
+  class OpName##ShapeHelper : public NewONNXPoolOpShapeHelper {                \
+  public:                                                                      \
+    OpName##ShapeHelper(mlir::Operation *op,                                   \
+        mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,     \
+        bool hasFilter, bool ceilMode, IndexExprScope *scope = nullptr);       \
+    virtual ~OpName##ShapeHelper() {}                                          \
+    mlir::LogicalResult computeShape() final;                                  \
+  };
+DECLARE_POOL_SHAPE_HELPER(ONNXAveragePoolOp)
+DECLARE_POOL_SHAPE_HELPER(ONNXConvOp)
+DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
+#undef DECLARE_POOL_SHAPE_HELPER
 
 } // namespace onnx_mlir

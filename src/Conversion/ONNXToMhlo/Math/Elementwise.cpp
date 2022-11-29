@@ -196,7 +196,7 @@ struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, {}, &createShapeIE);
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -227,7 +227,7 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, {}, &createShapeIE);
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
@@ -257,7 +257,7 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, {}, &createShapeIE);
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createShapeIE);
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 

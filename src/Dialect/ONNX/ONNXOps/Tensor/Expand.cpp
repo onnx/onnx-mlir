@@ -64,7 +64,7 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     shapeHelper.computeSelectedDataShape(selectedData);
 
     // Now that we have the shape's actual computation
-    if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape(
+    if (failed(NewONNXBroadcastOpShapeHelper::customComputeShape(
             {input}, &selectedData)))
       return op->emitError("failed to broadcast 3");
 
@@ -75,7 +75,7 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     return op->emitError("Expecting a shaped type");
   SmallVector<IndexExpr, 4> constVals;
   createIE->getIntArrayAsSymbols(shape, constVals);
-  if (failed(NewONNXOpBroadcastedShapeHelper::customComputeShape(
+  if (failed(NewONNXBroadcastOpShapeHelper::customComputeShape(
           {input}, &constVals)))
     return op->emitError("failed to broadcast 4");
 
