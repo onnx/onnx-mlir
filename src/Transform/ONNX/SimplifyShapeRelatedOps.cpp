@@ -64,6 +64,7 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -177,7 +178,18 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
-    // Get start and end values.
+// Get start and end values.
+#if 1
+    IndexExprBuilderForAnalysis createIE(loc);
+    NewONNXShapeOpShapeHelper shapeHelper(
+        shapeOp.getOperation(), {}, &createIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    if (failed(shapeComputed)) {
+      shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
+                        " parameters successfully");
+      return failure();
+    }
+#else
     ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
     ONNXShapeOpAdaptor operandAdaptor(shapeOp);
     if (failed(shapeHelper.computeShape(operandAdaptor))) {
@@ -185,6 +197,7 @@ public:
                         " parameters successfully");
       return failure();
     }
+#endif
     int64_t start = shapeHelper.start;
     int64_t end = shapeHelper.end;
 
