@@ -471,8 +471,8 @@ void DimAnalysis::visitDim(
 
   // MaxPoolSingleOutOp
   if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
-    exploreSameInputDims<ONNXMaxPoolSingleOutOp,
-        ONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
+    exploreSameInputDims_xxx<ONNXMaxPoolSingleOutOp,
+        NewONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
     return;
   }
 
