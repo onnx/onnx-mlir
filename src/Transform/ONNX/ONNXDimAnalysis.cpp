@@ -107,6 +107,32 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
   findAndAddSameDim(qmOuputIE, op.getOperation()->getOperands(), sameDims);
 }
 
+// _xxx postfix for new shape helper interface
+template <typename ONNX_OP, typename SHAPE_HELPER>
+void exploreSameInputDims_xxx(const onnx_mlir::DimAnalysis::DimT &dim,
+    ONNX_OP op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+  onnx_mlir::IndexExprBuilderForAnalysis createIE(op.getLoc());
+  SHAPE_HELPER shapeHelper(op.getOperation(), {}, &createIE);
+  LogicalResult shapeComputed = shapeHelper.computeShape();
+  assert(succeeded(shapeComputed) && "Could not compute output shape");
+  // The operation may have multiple outputs, find the index of the processing
+  // output.
+  Value outputTensor = dim.first;
+  uint64_t tensorIndex = 0;
+  for (uint64_t i = 0; i < op->getNumResults(); ++i) {
+    if (op->getResult(i) == outputTensor) {
+      tensorIndex = i;
+      break;
+    }
+  }
+  // Find the unknown input dimensions that were transferred to the unknown
+  // output dimension.
+  uint64_t dimIndex = dim.second;
+  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
+      shapeHelper.getOutputDims(tensorIndex)[dimIndex];
+  findAndAddSameDim(qmOuputIE, op.getOperation()->getOperands(), sameDims);
+}
+
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for unary operations.
@@ -370,7 +396,7 @@ void DimAnalysis::visitDim(
 
   // AveragePoolOp
   if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims<ONNXAveragePoolOp, ONNXAveragePoolOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXAveragePoolOp, NewONNXAveragePoolOpShapeHelper>(
         dim, poolOp, sameDims);
     return;
   }
