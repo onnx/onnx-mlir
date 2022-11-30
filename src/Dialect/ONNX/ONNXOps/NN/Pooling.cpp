@@ -271,12 +271,6 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
       getOperation(), {}, &createIE);
   return shapeHelper.computeShapeAndUpdateType(elementType);
-
-#if 0
-  return shapeHelperInferShapes<ONNXMaxPoolSingleOutOpShapeHelper,
-      ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>(
-      *this, elementType);
-#endif
 }
 
 //===----------------------------------------------------------------------===//
