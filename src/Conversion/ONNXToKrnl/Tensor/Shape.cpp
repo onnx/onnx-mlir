@@ -33,7 +33,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     NewONNXShapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeOrAssert();
 

@@ -301,6 +301,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
 };
 #endif
 
+#if DEPRECATED
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
   ONNXSliceOpShapeHelper(
@@ -313,6 +314,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
   // Additional data for SliceOp.
   llvm::SmallVector<IndexExpr, 4> starts, ends, steps;
 };
+#endif
 
 // Shape for GemmOp. Rank of C is known, and its rank can be 0, 1,
 // or 2. Each of the dimensions of C can have 1 (broadcast) or

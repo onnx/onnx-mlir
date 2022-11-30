@@ -282,4 +282,18 @@ DECLARE_SHAPE_HELPER(NewONNXConvOpShapeHelper)
 DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER
 
+//===----------------------------------------------------------------------===//
+// Slice Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXSliceOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXSliceOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for SliceOp.
+  llvm::SmallVector<IndexExpr, 4> starts, ends, steps;
+};
+
 } // namespace onnx_mlir

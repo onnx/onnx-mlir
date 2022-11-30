@@ -320,10 +320,9 @@ public:
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
-    // Get starts, ends, axes and steps via ShapeHelper.
-    ONNXSliceOpShapeHelper shapeHelper(&sliceOp);
-    ONNXSliceOpAdaptor operandAdaptor(sliceOp);
-    if (failed(shapeHelper.computeShape(operandAdaptor))) {
+// Get starts, ends, axes and steps via ShapeHelper.
+    NewONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
+    if (failed(shapeHelper.computeShape())) {
       sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                         " parameters successfully");
       return failure();

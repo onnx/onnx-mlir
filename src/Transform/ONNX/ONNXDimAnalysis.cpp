@@ -563,7 +563,7 @@ void DimAnalysis::visitDim(
 
   // SliceOp
   if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
-    exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXSliceOp, NewONNXSliceOpShapeHelper>(
         dim, sliceOp, sameDims);
     return;
   }
