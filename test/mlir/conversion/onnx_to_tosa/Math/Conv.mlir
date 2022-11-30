@@ -15,8 +15,9 @@ func.func @test_onnx_conv2d_stride_13(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : 
 }
 
 // -----
-func.func @test_onnx_conv2d_novalue(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: none) ->  tensor<5x2x965x967xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {pads = [1, 2, 3, 4], dilations = [1, 1]} : (tensor<5x3x1024x1024xf32>, tensor<2x3x64x64xf32>, none) ->  tensor<5x2x965x967xf32>
+func.func @test_onnx_conv2d_novalue(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tensor<2x3x64x64xf32>) ->  tensor<5x2x965x967xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Conv"(%arg0, %arg1, %none) {pads = [1, 2, 3, 4], dilations = [1, 1]} : (tensor<5x3x1024x1024xf32>, tensor<2x3x64x64xf32>, none) ->  tensor<5x2x965x967xf32>
   return %0 : tensor<5x2x965x967xf32>
 // CHECK-LABEL:  func @test_onnx_conv2d_novalue
 // CHECK: [[PERM1:%.+]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
@@ -30,8 +31,9 @@ func.func @test_onnx_conv2d_novalue(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : te
 }
 
 // -----
-func.func @test_onnx_conv2d_no_dilation_pad(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tensor<7x3x64x64xf32>, %arg2: none) ->   tensor<5x7x74x74xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {strides = [13, 13]} : (tensor<5x3x1024x1024xf32>, tensor<7x3x64x64xf32>, none) ->  tensor<5x7x74x74xf32>
+func.func @test_onnx_conv2d_no_dilation_pad(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tensor<7x3x64x64xf32>) ->   tensor<5x7x74x74xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Conv"(%arg0, %arg1, %none) {strides = [13, 13]} : (tensor<5x3x1024x1024xf32>, tensor<7x3x64x64xf32>, none) ->  tensor<5x7x74x74xf32>
   return %0 :  tensor<5x7x74x74xf32>
 // CHECK-LABEL:  func @test_onnx_conv2d_no_dilation_pad
 // CHECK: [[PERM1:%.+]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
@@ -44,8 +46,9 @@ func.func @test_onnx_conv2d_no_dilation_pad(%arg0: tensor<5x3x1024x1024xf32>, %a
 // CHECK: {{%.+}} = "tosa.transpose"([[OUTPUT]], [[PERM3]]) : (tensor<5x74x74x7xf32>, tensor<4xi64>) -> tensor<5x7x74x74xf32>
 }
 // -----
-func.func @test_onnx_conv2d_no_dilation_pad_stride(%arg0: tensor<5x3x1024x1050xf32>, %arg1 : tensor<2x3x60x64xf32>, %arg2: none) ->  tensor<5x2x965x987xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) : (tensor<5x3x1024x1050xf32>, tensor<2x3x60x64xf32>, none) ->  tensor<5x2x965x987xf32>
+func.func @test_onnx_conv2d_no_dilation_pad_stride(%arg0: tensor<5x3x1024x1050xf32>, %arg1 : tensor<2x3x60x64xf32>) ->  tensor<5x2x965x987xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Conv"(%arg0, %arg1, %none) : (tensor<5x3x1024x1050xf32>, tensor<2x3x60x64xf32>, none) ->  tensor<5x2x965x987xf32>
   return %0 : tensor<5x2x965x987xf32>
 // CHECK-LABEL:  func @test_onnx_conv2d_no_dilation_pad_stride
 // CHECK: [[PERM1:%.+]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
