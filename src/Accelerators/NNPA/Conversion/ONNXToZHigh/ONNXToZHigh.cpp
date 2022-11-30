@@ -18,6 +18,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
@@ -208,9 +209,9 @@ SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
 /// Get kernelShapes using shape helper
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
-  OPAdaptor operandAdaptor = OPAdaptor(op);
-  OPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
+  // hi alex OPAdaptor operandAdaptor = OPAdaptor(op);
+  OPShapeHelper shapeHelper(op.getOperation(), {});
+  assert(succeeded(shapeHelper.computeShape()) &&
          "Failed to scan OP parameters successfully");
 
   // Check if kernelShape is literal. Only static value is supported.
@@ -227,9 +228,8 @@ SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
 /// Get strides using shape helper
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayStrides(OP op) {
-  OPAdaptor operandAdaptor = OPAdaptor(op);
-  OPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
+  OPShapeHelper shapeHelper(op.getOperation(), {});
+  assert(succeeded(shapeHelper.computeShape()) &&
          "Failed to scan OP parameters successfully");
   return shapeHelper.strides;
 }

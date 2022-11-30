@@ -349,7 +349,7 @@ ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
 //===----------------------------------------------------------------------===//
 // ONNX Generic Pool Op Shape Helper
 //===----------------------------------------------------------------------===//
-
+#if 0 // hi alex
 template <typename OP_TYPE, typename OP_ADAPTOR>
 LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
     OP_ADAPTOR operandAdaptor, Value filterValue,
@@ -491,6 +491,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
   ONNXOpShapeHelper<OP_TYPE>::setOutputDims(outputDims);
   return success();
 }
+#endif
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
@@ -576,13 +577,13 @@ template struct ONNXOpShapeHelper<ONNXUnsqueezeV11Op>;
 #if DEPRECATED
 template struct ONNXOpBroadcastedShapeHelper<Operation>;
 template struct ONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
-#endif
 
 template struct ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
     ONNXAveragePoolOpAdaptor>;
 template struct ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>;
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
+#endif
 
 // Keep template instantiation at the end of the file.
 

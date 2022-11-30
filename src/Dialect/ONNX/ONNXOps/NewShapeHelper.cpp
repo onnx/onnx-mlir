@@ -115,6 +115,12 @@ NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
     delete createIE;
 }
 
+void NewONNXOpShapeHelper::computeShapeOrAssert() {
+  // Invoke virtual compute shape.
+  LogicalResult res = computeShape();
+  assert(success(res) && "Failed to compute shape");
+}
+
 void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
   Value output = getOutput(n);
   refineDims(inferredDims, output);

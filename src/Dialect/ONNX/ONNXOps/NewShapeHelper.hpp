@@ -99,6 +99,8 @@ struct NewONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
+  // Compute shape and assert on failure.
+  void computeShapeOrAssert();
 
   // Invoke the virtual computeShape, and on success, update the types of the
   // original operation. First call is used for operations with one result,

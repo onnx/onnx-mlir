@@ -313,7 +313,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
-#if 1 // hi alex, deprecate
+#if 0 // hi alex, deprecate
 
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(
     ONNXConvOp *newOp, IndexExprScope *inScope)

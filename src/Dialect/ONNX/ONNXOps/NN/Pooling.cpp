@@ -29,7 +29,7 @@ namespace onnx_mlir {
 
 // Helper function to infer shapes of average pool operations.
 
-#if 1 // hi alex
+#if 0 // hi alex
 ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
     ONNXAveragePoolOp *newOp, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
@@ -51,7 +51,7 @@ LogicalResult ONNXAveragePoolOpShapeHelper::computeShape(
 }
 #endif
 
-#if 1 // hi alex
+#if 0 // hi alex
 ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
     ONNXMaxPoolSingleOutOp *newOp, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
