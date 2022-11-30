@@ -77,8 +77,9 @@ public:
       keepDimVal = rewriter.create<Torch::ConstantBoolOp>(loc, false);
     else
       keepDimVal = rewriter.create<Torch::ConstantBoolOp>(loc, true);
-    rewriter.replaceOpWithNewOp<Torch::AtenArgmaxOp>(
+    auto newOp = rewriter.replaceOpWithNewOp<Torch::AtenArgmaxOp>(
         op, resultTy, adaptor.data(), dim, keepDimVal);
+    setLayerNameAttr(op, newOp);
     return success();
   }
 };

@@ -150,7 +150,7 @@ public:
     Value result = rewriter.create<AtenConvolutionOp>(loc, resultType, xTorchTensor,
         wTorchTensor, bTorchTensor, stridesList, padsList, dilationList,
         transposeVal, outputPadsList, groupTorchInt);
-
+    setLayerNameAttr(op, result.getDefiningOp());
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, op.getResult().getType(), result);
     return success();

@@ -9,6 +9,6 @@ module attributes {}  {
     %5 = "onnx.Conv"(%2, %3, %4) {dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_1", pads = [2, 2, 2, 2], strides = [3, 3]} : (tensor<1x10x10x10xf32>, tensor<4x10x3x3xf32>, tensor<4xf32>) -> tensor<1x4x4x4xf32>
     %6 = "onnx.Neg"(%5) {onnx_node_name = "Neg_2"} : (tensor<1x4x4x4xf32>) -> tensor<1x4x4x4xf32>
     return %6 : tensor<1x4x4x4xf32>
-//CHECK: torch.aten.neg  %{{[^,]*}}: !torch.vtensor<[1,4,4,4],f32> -> !torch.vtensor<[1,4,4,4],f32>
+//CHECK: torch.aten.neg  %{{[^,]*}} {layer_name = "Neg_2"} : !torch.vtensor<[1,4,4,4],f32> -> !torch.vtensor<[1,4,4,4],f32>
   }
 }

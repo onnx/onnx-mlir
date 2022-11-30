@@ -61,8 +61,9 @@ public:
         inputs);
 
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
-    rewriter.replaceOpWithNewOp<AtenCatOp>(
+    auto newOp = rewriter.replaceOpWithNewOp<AtenCatOp>(
         op, resultType, inputShapeList, axisVal);
+    setLayerNameAttr(op, newOp);
     return success();
   }
 };

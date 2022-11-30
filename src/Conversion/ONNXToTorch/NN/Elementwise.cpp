@@ -49,6 +49,7 @@ struct ONNXToTorchElementwiseUnaryOpLowering : public ConversionPattern {
         toTorchType(context, unaryOp.getResult().getType());
     mlir::Value result =
         rewriter.create<TorchUnaryOp>(loc, resultType, operands[0]);
+    setLayerNameAttr(op, result.getDefiningOp());
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();

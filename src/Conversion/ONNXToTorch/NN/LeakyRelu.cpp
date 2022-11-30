@@ -61,9 +61,10 @@ public:
     Value negSlopeConstFloat =
         rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatAttr);
 
-    rewriter.replaceOpWithNewOp<Torch::AtenLeakyReluOp>(op,
+    auto newOp = rewriter.replaceOpWithNewOp<Torch::AtenLeakyReluOp>(op,
         typeConverter->convertType(op.getResult().getType()), x,
         negSlopeConstFloat);
+    setLayerNameAttr(op, newOp);
     return success();
   }
 };

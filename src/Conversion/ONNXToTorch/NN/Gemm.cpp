@@ -134,7 +134,9 @@ public:
       C = createLiteralTensor(op, rewriter, *getTypeConverter(), 0.0F);
     }
 
-    rewriter.replaceOpWithNewOp<AtenLinearOp>(op, resultType, A, B, C);
+    auto newOp =
+        rewriter.replaceOpWithNewOp<AtenLinearOp>(op, resultType, A, B, C);
+    setLayerNameAttr(op, newOp);
     return success();
   }
 
@@ -264,6 +266,8 @@ public:
     Value transposeBVal = (transB != 0) ? rewriter.create<AtenTOp>(
                                               loc, transposeBType, adaptor.B())
                                         : adaptor.B();
+    setLayerNameAttr(op, transposeAVal.getDefiningOp());
+    setLayerNameAttr(op, transposeBVal.getDefiningOp());
 
     // Compute Y = alpha * A' * B' + beta * C
     // Scalar multiplication with alpha(alpha * A')
@@ -274,6 +278,7 @@ public:
       Value alpha3v = getFloatValue(alpha, rewriter, loc);
       alphaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, transposeAType, transposeAVal, alpha3v);
+      setLayerNameAttr(op, alphaMulResult.getDefiningOp());
     }
 
     FloatAttr beta = adaptor.betaAttr();
@@ -281,6 +286,7 @@ public:
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult = rewriter.create<AtenMulScalarOp>(
           loc, cTensor.getType(), cTensor, beta3v);
+      setLayerNameAttr(op, betaMulResult.getDefiningOp());
     }
 
     // Mm Operation ((alpha * A') * B')
@@ -291,17 +297,20 @@ public:
     else
       mmValue = rewriter.create<AtenMmOp>(
           loc, resultType, transposeAVal, transposeBVal);
+    setLayerNameAttr(op, mmValue);
 
     // Addition ((alpha * A' * B') + (beta * C))
     Value iOne = getIntValue(1, rewriter, context, loc);
     if (betaMulResult) {
-      rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+      auto newOp = rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
           op, resultType, mmValue, betaMulResult, iOne);
+      setLayerNameAttr(op, newOp);
     }
     // C is optional. If C is present but Beta was 1
     else if (IsCPresent) {
-      rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+      auto newOp = rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
           op, resultType, mmValue, cTensor, iOne);
+      setLayerNameAttr(op, newOp);
     }
     // If neither C nor Beta is present, this is equivalent to a Matrix
     // multiply. We return (alpha * A' * B')

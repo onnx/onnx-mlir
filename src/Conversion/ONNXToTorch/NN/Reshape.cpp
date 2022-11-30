@@ -7,6 +7,7 @@
 //
 //===-------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
@@ -93,6 +94,7 @@ public:
         Value endDimConstInt = rewriter.create<Torch::ConstantIntOp>(loc, endDimInt);
         auto flattenedElem = rewriter.create<Torch::AtenFlattenUsingIntsOp>(
             loc, resultType, inputValue, startDimConstInt, endDimConstInt);
+        setLayerNameAttr(op, flattenedElem);
         rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
             op, resultType, flattenedElem);
     }
