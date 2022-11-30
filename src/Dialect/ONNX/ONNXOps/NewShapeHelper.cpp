@@ -84,22 +84,22 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
     ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
-      scope(inputScope), outputsDims(), ownScope(inputScope == nullptr) {
+      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
   if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
     assert(scope && "failed to create a new scope");
   }
-  outputsDims.resize(op->getNumResults());
+  privateOutputsDims.resize(op->getNumResults());
   // When we have no inputOperands, get them from the operation.
   if (inputOperands.size() == 0) {
     // A operand cache is used here, as we don't want to rely on the live range
     // of the passed parameter. Possibly a more elegant solution can be used, I
     // could not find one at this time.
-    operandsCache = llvm::SmallVector<Value, 4>(
+    privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = mlir::ArrayRef<Value>(operandsCache);
+    operands = mlir::ArrayRef<Value>(privateOperandsCache);
   }
 }
 
@@ -108,14 +108,20 @@ NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
     delete scope;
 }
 
+void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
+  Value output = getOutput(n);
+  refineDims(inferredDims, output);
+  privateOutputsDims[n] = inferredDims;
+}
+
 mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
-  if (failed(computeShape())) // Invoke virtual compute.
-    return op->emitError("Failed to scan " + op->getName().getStringRef() +
-                         " parameters successfully");
-  llvm::SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(getOutputDims(), outputDims);
-  updateType(op->getResult(0), outputDims, elementType);
+  // Invoke virtual compute shape.
+  if (failed(computeShape()))
+    return op->emitError("Failed to scan parameters successfully");
+  llvm::SmallVector<int64_t, 4> shapeVect;
+  IndexExpr::getShape(getOutputDims(), shapeVect);
+  updateType(op->getResults()[0], shapeVect, elementType);
   return mlir::success();
 }
 
@@ -128,20 +134,11 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
                          " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {
-    llvm::SmallVector<int64_t, 4> outputDims;
-    IndexExpr::getShape(getOutputDims(i), outputDims);
-    updateType(op->getResults()[i], outputDims, elementTypes[i]);
+    llvm::SmallVector<int64_t, 4> shapeVect;
+    IndexExpr::getShape(getOutputDims(i), shapeVect);
+    updateType(op->getResults()[i], shapeVect, elementTypes[i]);
   }
   return mlir::success();
-}
-
-void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
-  outputsDims[n] = inferredDims;
-  // Try to refine outputsDims[n] using the output's shape if possible. For
-  // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
-  // output's shape.
-  Value output = getOutput(n);
-  refineDims(outputsDims[n], output);
 }
 
 //===----------------------------------------------------------------------===//
@@ -258,9 +255,8 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
       }
     }
   }
-
   // Set the final output.
-  this->setOutputDims(dimsExpr);
+  setOutputDims(dimsExpr);
   return success();
 }
 

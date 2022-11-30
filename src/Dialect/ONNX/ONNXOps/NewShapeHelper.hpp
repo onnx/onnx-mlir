@@ -101,7 +101,7 @@ struct NewONNXOpShapeHelper {
   // tensors.
 
   // Set/get output dims for the N-th output dimension as Index Expressions.
-  DimsExpr &getOutputDims(int n = 0) { return outputsDims[n]; }
+  DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
   void setOutputDims(DimsExpr inferredDims, int n = 0);
 
   // Obtain the n-th output result as value.
@@ -109,6 +109,7 @@ struct NewONNXOpShapeHelper {
 
   // Get index expression scope.
   IndexExprScope *getScope() { return scope; }
+  mlir::Operation *getOp() { return op; }
 
 protected:
   // Data that must be present for every ShapeHelper operation. Op and scope
@@ -121,9 +122,9 @@ protected:
 private:
   //  outputsDims is computed by the child's struct `computeShape` function. It
   //  can be set using setOutputDims and retrieved using getOutputDims.
-  llvm::SmallVector<DimsExpr, 1> outputsDims;
+  llvm::SmallVector<DimsExpr, 1> privateOutputsDims;
   // Used to cache the operation's operands (shape inference only).
-  llvm::SmallVector<mlir::Value> operandsCache;
+  llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope;
 };
 
