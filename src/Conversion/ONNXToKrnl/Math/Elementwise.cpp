@@ -854,8 +854,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     // Insert an allocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -925,8 +924,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
@@ -1013,8 +1011,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
@@ -1107,8 +1104,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(

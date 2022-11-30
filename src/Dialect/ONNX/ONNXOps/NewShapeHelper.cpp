@@ -118,7 +118,7 @@ NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
 void NewONNXOpShapeHelper::computeShapeOrAssert() {
   // Invoke virtual compute shape.
   LogicalResult res = computeShape();
-  assert(success(res) && "Failed to compute shape");
+  assert(succeeded(res) && "Failed to compute shape");
 }
 
 void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
@@ -142,8 +142,8 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypes) {
   uint64_t resNum = op->getNumResults();
   assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
-
-  if (failed(computeShape())) // Invoke virtual compute.
+  // Invoke virtual compute.
+  if (failed(computeShape()))
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
                          " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {

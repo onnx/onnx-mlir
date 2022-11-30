@@ -25,57 +25,6 @@ using namespace onnx_mlir;
 // Support
 //===----------------------------------------------------------------------===//
 
-namespace onnx_mlir {
-
-// Helper function to infer shapes of average pool operations.
-
-#if 0 // hi alex
-ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
-    ONNXAveragePoolOp *newOp, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
-          newOp, false /*hasFilter*/, newOp->ceil_mode(), inScope) {}
-
-ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
-    ONNXAveragePoolOp *newOp, mlir::OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
-          newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
-          fGetDenseVal, fLoadVal, inScope) {}
-
-LogicalResult ONNXAveragePoolOpShapeHelper::computeShape(
-    ONNXAveragePoolOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor>::computeShape(operandAdaptor, nullptr,
-      op->kernel_shape(), op->pads(), op->strides(), None);
-}
-#endif
-
-#if 0 // hi alex
-ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
-    ONNXMaxPoolSingleOutOp *newOp, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
-          ONNXMaxPoolSingleOutOpAdaptor>(
-          newOp, false /*hasFilter*/, newOp->ceil_mode(), inScope) {}
-
-ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
-    ONNXMaxPoolSingleOutOp *newOp, OpBuilder *rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
-          ONNXMaxPoolSingleOutOpAdaptor>(newOp, false /*hasFilter*/,
-          newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal, inScope) {}
-
-LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::computeShape(
-    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor>::computeShape(operandAdaptor, nullptr,
-      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
-}
-#endif
-
-} // namespace onnx_mlir
-
 namespace {
 
 // Helper function to infer shapes of global pool operations.

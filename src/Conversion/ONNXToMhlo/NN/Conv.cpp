@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -37,9 +37,8 @@ struct ONNXConvOpLoweringToMhlo : public ConversionPattern {
 
     IndexExprBuilderForMhlo createMhloIE(rewriter, loc);
     NewONNXConvOpShapeHelper shapeHelper(op, operands, &createMhloIE);
-    LogicalResult shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
-    
+    shapeHelper.computeShapeOrAssert();
+
     llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
     llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
     llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;

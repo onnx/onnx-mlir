@@ -217,9 +217,8 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
 // Check if pads can be inferenced for ONNXConv op.
 //
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
-  // hi alex ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
-  assert(succeeded(shapeHelper.computeShape()));
+  shapeHelper.computeShapeOrAssert();
   RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // dimension of inferenced pads should be 4D
@@ -243,7 +242,7 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
   ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
   NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
-  assert(succeeded(shapeHelper.computeShape()));
+  shapeHelper.computeShapeOrAssert();
   SmallVector<int64_t, 4> vals;
   IndexExpr::getShape(shapeHelper.pads, vals);
   return rewriter.getI64ArrayAttr(vals);

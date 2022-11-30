@@ -49,8 +49,7 @@ bool isValidElementTypeAndRank(Value val) {
 template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
 bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   POOLOPShapeHelper shapeHelper(op.getOperation(), {});
-  assert(succeeded(shapeHelper.computeShape()) &&
-         "Failed to scan POOLOP parameters successfully");
+  shapeHelper.computeShapeOrAssert();
   Value X = op.X();
   int64_t ceilMode = op.ceil_mode();
   ShapedType inputType = X.getType().cast<ShapedType>();
@@ -119,8 +118,7 @@ template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 StringRef getStrPaddingType(OP op) {
   IndexExprBuilderForAnalysis createIE(op.getLoc());
   OPShapeHelper shapeHelper(op.getOperation(), {}, &createIE);
-  assert(succeeded(shapeHelper.computeShape()) &&
-         "Failed to scan OP parameters successfully");
+  shapeHelper.computeShapeOrAssert();
 
   auto autoPad = op.auto_pad();
   if (autoPad == "SAME_UPPER")
@@ -160,7 +158,6 @@ StringRef getStrPaddingType(OP op) {
       // pad_right = pad_along_width - pad_left
 
       // Input height and width.
-      // hi alex MemRefBoundsIndexCapture XBounds(op.X());
       IndexExpr hi = createIE.getShapeAsDim(op.X(), 2);
       IndexExpr wi = createIE.getShapeAsDim(op.X(), 3);
       if (!hi.isLiteral() || !wi.isLiteral())
@@ -708,8 +705,7 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     return false;
 
   NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
-  assert(succeeded(shapeHelper.computeShape()) &&
-         "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
+  shapeHelper.computeShapeOrAssert();
 
   if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
           ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>(
@@ -794,8 +790,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
-  assert(succeeded(shapeHelper.computeShape()) &&
-         "Failed to scan Conv parameters successfully");
+  shapeHelper.computeShapeOrAssert();
 
   ShapedType inputType = op.X().getType().cast<ShapedType>();
   ShapedType outputType = op.Y().getType().cast<ShapedType>();
@@ -824,9 +819,8 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
   // `zdnn_conv2d` only support padding for `SAME_PADDING` and `VALID_PADDING`.
-  StringRef paddingType =
-      getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, NewONNXConvOpShapeHelper>(
-          op);
+  StringRef paddingType = getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor,
+      NewONNXConvOpShapeHelper>(op);
 
   if (paddingType.empty())
     return false;

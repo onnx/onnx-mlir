@@ -212,8 +212,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Get shape.
     PoolOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    LogicalResult shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();
@@ -341,9 +340,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     create.krnlIE.getShapeAsDims(alloc, ubs);
     create.krnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
-        MathBuilder>
-        create(createKrnl);
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+              MemRefBuilder, MathBuilder>
+              create(createKrnl);
 
           // 2. Emit the body of the output loop nest, which applies a pooling
           // window to a region in the input, producing one output pixel.
@@ -366,23 +365,23 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
           // Prepare induction variables.
           SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
-            for (int i = 0; i < kernelShapeSize; ++i) {
-              int j = i + kernelOffset;
-              SmallVector<IndexExpr, 4> ic;
-              // d0, output
-              ic.emplace_back(outputIndices[j]);
-              // s0, input dim
-              ic.emplace_back(create.krnlIE.getShapeAsDim(inputOperand, j));
-              // s1, kernel dim
-              ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
-              // s2, pad dim
-              ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
-              // s3, stride dim
-              ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
-              // s4, dilation dim
-              ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
-              IVExprs.emplace_back(ic);
-            }
+          for (int i = 0; i < kernelShapeSize; ++i) {
+            int j = i + kernelOffset;
+            SmallVector<IndexExpr, 4> ic;
+            // d0, output
+            ic.emplace_back(outputIndices[j]);
+            // s0, input dim
+            ic.emplace_back(create.krnlIE.getShapeAsDim(inputOperand, j));
+            // s1, kernel dim
+            ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
+            // s2, pad dim
+            ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
+            // s3, stride dim
+            ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
+            // s4, dilation dim
+            ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
+            IVExprs.emplace_back(ic);
+          }
 
           // Compute the start and end position of the conv window.
           //   firstValidH = ceil(float(ptH / dH)) * dH - ptH

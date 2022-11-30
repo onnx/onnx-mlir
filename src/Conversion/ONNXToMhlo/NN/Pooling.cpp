@@ -89,8 +89,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     // Get shape.
     IndexExprBuilderForMhlo createMhloIE(rewriter, loc);
     PoolOpShapeHelper shapeHelper(op, operands, &createMhloIE);
-    LogicalResult shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    shapeHelper.computeShapeOrAssert();
 
     llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
     llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;

@@ -112,8 +112,7 @@ template <typename ONNX_OP, typename SHAPE_HELPER>
 void exploreSameInputDims_xxx(const onnx_mlir::DimAnalysis::DimT &dim,
     ONNX_OP op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   SHAPE_HELPER shapeHelper(op.getOperation(), {});
-  LogicalResult shapeComputed = shapeHelper.computeShape();
-  assert(succeeded(shapeComputed) && "Could not compute output shape");
+  shapeHelper.computeShapeOrAssert();
   // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;
@@ -138,8 +137,7 @@ void exploreSameInputDims_xxx(const onnx_mlir::DimAnalysis::DimT &dim,
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   onnx_mlir::NewONNXUnaryOpShapeHelper shapeHelper(op, {});
-  auto shapeComputed = shapeHelper.computeShape();
-  assert(succeeded(shapeComputed) && "Could not compute output shape");
+  shapeHelper.computeShapeOrAssert();
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
@@ -158,8 +156,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   // Build shape helper
   onnx_mlir::NewONNXBroadcastOpShapeHelper shapeHelper(
       op, ArrayRef<Value>({A, B}));
-  auto shapeComputed = shapeHelper.computeShape();
-  assert(succeeded(shapeComputed) && "Could not compute output shape");
+  shapeHelper.computeShapeOrAssert();
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =

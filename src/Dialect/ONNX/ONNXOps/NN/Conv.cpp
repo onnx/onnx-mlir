@@ -12,10 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -313,28 +313,6 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
-#if 0 // hi alex, deprecate
-
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(
-    ONNXConvOp *newOp, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
-          newOp, true /*hasFilter*/, false /*hasCeil*/, inScope) {}
-
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(newOp,
-          true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
-          fLoadVal, inScope) {}
-
-LogicalResult ONNXConvOpShapeHelper::computeShape(
-    ONNXConvOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXConvOp,
-      ONNXConvOpAdaptor>::computeShape(operandAdaptor, operandAdaptor.W(),
-      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
-}
-#endif
-
 NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
@@ -451,11 +429,6 @@ LogicalResult ONNXConvOp::inferShapes(
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-
-  #if 0
-  return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
-      ONNXConvOpAdaptor>(*this, elementType);
-  #endif
 }
 
 //===----------------------------------------------------------------------===//
