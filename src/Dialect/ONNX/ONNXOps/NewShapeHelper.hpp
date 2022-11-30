@@ -129,7 +129,7 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// Unary Ops
+// Unary
 //===----------------------------------------------------------------------===//
 
 /// Compute an output shape for a unary element-wise operation. The output and
@@ -143,6 +143,92 @@ struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
 
   mlir::LogicalResult computeShape() final;
 };
+
+#if 0
+//===----------------------------------------------------------------------===//
+// Broadcast
+//===----------------------------------------------------------------------===//
+
+/// Compute a broadcasted shape from the shapes of given operands. Operands must
+/// be ranked in advance.
+struct NewONNXBroadcastOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXBroadcastOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
+      IndexExprScope *scope = nullptr, bool hasUniBroadcasting = false,
+      bool hasNoBroadcasting = false)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
+        outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
+        hasNoBroadcasting(hasNoBroadcasting) {}
+  virtual ~NewONNXBroadcastOpShapeHelper() {}
+
+  // Custom shape compute which takes additional parameters.
+  mlir::LogicalResult customComputeShape(
+      mlir::ArrayRef<mlir::Value> initialOperands, DimsExpr *additionalOperand);
+
+  // Default shape compute (every operands of the operation and no additional
+  // parameters).
+  mlir::LogicalResult computeShape() override {
+    return customComputeShape(operands, nullptr);
+  }
+
+  // Compute access indices to load/store value from/to a given 'operand'.
+  // Used in a loop to access the operand.
+  // Parameters:
+  //   - operand: operand to access.
+  //   - operandIndex: index of the operand in 'this->inputsDims'.
+  //   - loopAccessExprs: IndexExprs for the loop's IVs.
+  //   - operandAccessExprs: access indices to access the operand.
+  //     This is the output of this function. Use it in subsequent load/stores.
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
+      const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
+
+  // A vector of input shapes where dimensions are padded with 1 if necessary,
+  // so that all inputs have the same rank. Instantiated during ComputeShape.
+  llvm::SmallVector<DimsExpr, 4> inputsDims;
+  // A vector of IndexExprs representing the output shape.
+  // in upper DimsExpr outputDims;
+  uint64_t outputRank;
+
+protected:
+  // When unidirectional broadcasting is true, the other operands are always
+  // unidirectional broadcastable to the first operand.
+  bool hasUniBroadcasting;
+  // When isNoBroadcasting is true, the shape of all input is assumed to be
+  // same. This flag is used to test dynamic shape. There is no impact on static
+  // shape.
+  bool hasNoBroadcasting;
+};
+
+// Helper for ExpandOp
+struct NewONNXExpandOpShapeHelper : public NewONNXBroadcastOpShapeHelper {
+  NewONNXExpandOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
+      IndexExprScope *scope = nullptr)
+      : NewONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXExpandOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+// Helper for ShapeOp.
+struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXShapeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
+      IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), start(-1),
+        end(-1) {}
+  virtual ~NewONNXShapeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Compute the shape values of input data for dimensions between start and
+  // end.
+  void computeSelectedDataShape(DimsExpr &selectedDataShape);
+  // Compute start & end value without calls to computeShape.
+  static void getStartEndValues(
+      mlir::ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal);
+  // Additional data for ShapeOp.
+  int64_t start, end; // Start and end properly normalized (-1 is undef).
+};
+#endif
 
 //===----------------------------------------------------------------------===//
 // Broadcast Ops
