@@ -185,17 +185,17 @@ void IndexExprImpl::copy(IndexExprImpl const *other) {
 bool IndexExprImpl::isDefined() const { return defined; }
 
 bool IndexExprImpl::isLiteral() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return literal;
 }
 
 bool IndexExprImpl::isQuestionmark() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Questionmark;
 }
 
 bool IndexExprImpl::isAffine() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   // To catch predicate that are literals as affine.
   if (isLiteral())
     return true;
@@ -204,17 +204,17 @@ bool IndexExprImpl::isAffine() const {
 }
 
 bool IndexExprImpl::isSymbol() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Symbol;
 }
 
 bool IndexExprImpl::isDim() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Dim;
 }
 
 bool IndexExprImpl::isPredType() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Predicate;
 }
 

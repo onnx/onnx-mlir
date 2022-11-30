@@ -80,33 +80,72 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-template <class OP>
-NewONNXOpShapeHelper<OP>::NewONNXOpShapeHelper(OP *op, ValueRange operands,
-    IndexExprBuilder *ieBuilder, IndexExprScope *scope)
-    : op(op), operands(operands), createIE(ieBuilder), scope(scope),
-      outputsDims(), ownScope(scope == nullptr) {
+NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
+    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    IndexExprScope *inputScope)
+    : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
+      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr) {
   assert(op && "Expecting a valid operation pointer");
   assert(createIE && "Expecting a valid index expression builder");
-  if (ownScope)
+  if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
-  setNumberOfOutputs(op->getNumResults());
+    assert(scope && "failed to create a new scope");
+  }
+  privateOutputsDims.resize(op->getNumResults());
+  // When we have no inputOperands, get them from the operation.
+  if (inputOperands.size() == 0) {
+    // A operand cache is used here, as we don't want to rely on the live range
+    // of the passed parameter. Possibly a more elegant solution can be used, I
+    // could not find one at this time.
+    privateOperandsCache = llvm::SmallVector<Value, 4>(
+        op->getOperands().begin(), op->getOperands().end());
+    operands = mlir::ArrayRef<Value>(privateOperandsCache);
+  }
 }
 
-template <class OP>
-void NewONNXOpShapeHelper<OP>::setOutputDims(DimsExpr inferredDims, int n) {
-  outputsDims[n] = inferredDims;
-  // Try to refine outputsDims[n] using the output's shape if possible. For
-  // example, replacing a dynamic dim in outputsDims[n] by a static dim in the
-  // output's shape.
+NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
+  if (ownScope)
+    delete scope;
+}
+
+void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
   Value output = getOutput(n);
-  refineDims(outputsDims[n], output);
+  refineDims(inferredDims, output);
+  privateOutputsDims[n] = inferredDims;
+}
+
+mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
+    Type elementType) {
+  // Invoke virtual compute shape.
+  if (failed(computeShape()))
+    return op->emitError("Failed to scan parameters successfully");
+  llvm::SmallVector<int64_t, 4> shapeVect;
+  IndexExpr::getShape(getOutputDims(), shapeVect);
+  updateType(op->getResults()[0], shapeVect, elementType);
+  return mlir::success();
+}
+
+mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
+    TypeRange elementTypes) {
+  uint64_t resNum = op->getNumResults();
+  assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
+
+  if (failed(computeShape())) // Invoke virtual compute.
+    return op->emitError("Failed to scan " + op->getName().getStringRef() +
+                         " parameters successfully");
+  for (uint64_t i = 0; i < resNum; ++i) {
+    llvm::SmallVector<int64_t, 4> shapeVect;
+    IndexExpr::getShape(getOutputDims(i), shapeVect);
+    updateType(op->getResults()[i], shapeVect, elementTypes[i]);
+  }
+  return mlir::success();
 }
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
-LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
+LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
   uint64_t rank = createIE->getShapeRank(operands[0]);
@@ -117,6 +156,150 @@ LogicalResult NewONNXGenericOpUnaryShapeHelper::computeShape() {
   return success();
 }
 
-template struct NewONNXOpShapeHelper<Operation>;
+//===----------------------------------------------------------------------===//
+// ONNX Broadcast Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
+    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+  // if additionalOperand is not used, we expect a zero-sized vector.
+  // A temporary IndexExpr vector for the output.
+  DimsExpr dimsExpr;
+  uint64_t numOfInputs = initialOperands.size();
+
+  // Compute rank of the output. Rank of the output is the maximum rank of all
+  // initial operands.
+  uint64_t additionalOperRank =
+      additionalOperand ? additionalOperand->size() : 0;
+  outputRank = additionalOperRank;
+  for (uint64_t i = 0; i < numOfInputs; ++i)
+    outputRank =
+        std::max(outputRank, createIE->getTypeRank(initialOperands[i]));
+  dimsExpr.resize(outputRank);
+
+  // Prepare dims for every input. Prepend 1s if the input's shape has smaller
+  // rank, so that all the shapes have the same rank.
+  LiteralIndexExpr one(1);
+  for (uint64_t i = 0; i < numOfInputs; ++i) {
+    uint64_t r = createIE->getTypeRank(initialOperands[i]);
+    // Prepend 1s.
+    DimsExpr dims(outputRank - r, one);
+    // Get from the input.
+    for (uint64_t k = 0; k < r; ++k)
+      dims.emplace_back(createIE->getShapeAsDim(initialOperands[i], k));
+    inputsDims.emplace_back(dims);
+  }
+
+  // Handle the additional operand here.
+  if (additionalOperRank > 0) {
+    DimsExpr dims(outputRank - additionalOperRank, one);
+    for (uint64_t k = 0; k < additionalOperRank; ++k)
+      dims.emplace_back((*additionalOperand)[k]);
+    inputsDims.emplace_back(dims);
+    numOfInputs++;
+  }
+
+  // Initialize the output with the first operand.
+  dimsExpr = inputsDims[0];
+
+  // Note on IndexExpr. When we are not allowed to generate code, QuestionMark
+  // stands for anything but a literal. When we are allowed to generate code,
+  // there should be no more QuestionMarks as we are allowed to generate
+  // affine/symbols/dims/non-affine expressions. Since this code predominantly
+  // runs when we can gen code (as it actually does gen max ops), we should
+  // use !isLiteral() for anything that is runtime. The comments were left
+  // unchanged.
+
+  //  Now compute each broadcasted dimension for the output. Folding over the
+  //  other operands along the current dimension index.
+  for (uint64_t i = 1; i < numOfInputs; ++i) {
+    for (uint64_t j = 0; j < outputRank; ++j) {
+      // Set the output dimension based on the two dimension values.
+      // Dimension value can be one of 1, QuestionMark, LiteralNot1.
+      IndexExpr currentDimExpr = dimsExpr[j];
+      IndexExpr nextDimExpr = inputsDims[i][j];
+      // Case: 1 - *.
+      if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
+        if (!hasUniBroadcasting && !hasNoBroadcasting)
+          dimsExpr[j] = nextDimExpr;
+        continue;
+      }
+      // Case: LiteralNot1 - *.
+      if (currentDimExpr.isLiteralAndDifferentThan(1)) {
+        // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
+        if (nextDimExpr.isLiteralAndDifferentThan(1) &&
+            !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
+          return op->emitError("Incompatible broadcast matching " +
+                               std::to_string(currentDimExpr.getLiteral()) +
+                               " with " +
+                               std::to_string(currentDimExpr.getLiteral()));
+        // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
+        // verifying.
+        continue;
+      }
+      // Case: QuestionMark - 1 => keep unchanged.
+      if (!currentDimExpr.isLiteral() &&
+          nextDimExpr.isLiteralAndIdenticalTo(1)) {
+        continue;
+      }
+      // Case QuestionMark - LiteralNot1 => set to LiteralNot1 without
+      // verifying.
+      if (!currentDimExpr.isLiteral() &&
+          nextDimExpr.isLiteralAndDifferentThan(1)) {
+        dimsExpr[j] = nextDimExpr;
+        continue;
+      }
+      // Case: QuestionMark - QuestionMark
+      if (!hasUniBroadcasting) {
+        dimsExpr[j] = IndexExpr::max(currentDimExpr, nextDimExpr);
+      }
+    }
+  }
+  // Set the final output.
+  setOutputDims(dimsExpr);
+  return success();
+}
+
+LogicalResult NewONNXOpBroadcastedShapeHelper::getAccessExprs(Value operand,
+    uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
+  if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
+    for (IndexExpr ie : outputAccessExprs)
+      operandAccessExprs.emplace_back(ie);
+    return success();
+  }
+
+  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
+  for (uint64_t i = 0; i < operandRank; ++i) {
+    // Shape helper may pretend 1s, thus adjust dimension index accordingly.
+    uint64_t dimIndex = outputRank - operandRank + i;
+    SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
+
+    // Compute access index based on broadcasting rules.
+    // If all other operand dims are 1, just use the output access index.
+    // Otherwise, emit a select op.
+    bool allOtherInputDimsAreOne = true;
+    for (uint64_t i = 0; i < inputsDims.size(); ++i) {
+      if (i == operandIndex)
+        continue;
+      IndexExpr dim = inputsDims[i][dimIndex];
+      if (!dim.isLiteralAndIdenticalTo(1)) {
+        allOtherInputDimsAreOne = false;
+        break;
+      }
+    }
+    if (allOtherInputDimsAreOne) {
+      operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
+    } else {
+      operandAccessExprs.emplace_back(
+          IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+    }
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Template instantiation (last).
+//===----------------------------------------------------------------------===//
 
 } // namespace onnx_mlir
