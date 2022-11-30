@@ -110,6 +110,8 @@ static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
 // AveragePool
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+
 NewONNXAveragePoolOpShapeHelper::NewONNXAveragePoolOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
@@ -127,6 +129,8 @@ LogicalResult NewONNXAveragePoolOpShapeHelper::computeShape() {
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
       /*dilation*/ None);
 }
+
+} // namespace onnx_mlir
 
 LogicalResult ONNXAveragePoolOp::verify() {
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(*this);
@@ -201,6 +205,8 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 // MaxPoolSingleOut
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+
 NewONNXMaxPoolSingleOutOpShapeHelper::NewONNXMaxPoolSingleOutOpShapeHelper(
     Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
@@ -219,6 +225,8 @@ LogicalResult NewONNXMaxPoolSingleOutOpShapeHelper::computeShape() {
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
       poolOp.dilations());
 }
+
+} // namespace onnx_mlir
 
 LogicalResult ONNXMaxPoolSingleOutOp::verify() {
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =

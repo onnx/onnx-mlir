@@ -13,7 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -311,6 +313,8 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
+#if 1 // hi alex, deprecate
+
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(
     ONNXConvOp *newOp, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
@@ -328,6 +332,21 @@ LogicalResult ONNXConvOpShapeHelper::computeShape(
   return ONNXGenericPoolShapeHelper<ONNXConvOp,
       ONNXConvOpAdaptor>::computeShape(operandAdaptor, operandAdaptor.W(),
       op->kernel_shape(), op->pads(), op->strides(), op->dilations());
+}
+#endif
+
+NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
+    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
+    IndexExprScope *scope)
+    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
+          /*ceil mode*/ false, scope) {}
+
+LogicalResult NewONNXConvOpShapeHelper::computeShape() {
+  ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.X(), operandAdaptor.W(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations());
 }
 
 } // namespace onnx_mlir
@@ -430,8 +449,15 @@ LogicalResult ONNXConvOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {}, nullptr);
+  //NewONNXConvOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+
+  #if 0
   return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
       ONNXConvOpAdaptor>(*this, elementType);
+  #endif
 }
 
 //===----------------------------------------------------------------------===//

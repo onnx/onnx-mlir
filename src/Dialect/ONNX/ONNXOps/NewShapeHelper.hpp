@@ -81,9 +81,10 @@ struct NewONNXOpShapeHelper {
    when the current object is destructed.
 
    */
-  NewONNXOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope);
+  NewONNXOpShapeHelper(mlir::Operation *op, /* Op to be analyzed. */
+      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op */
+      IndexExprBuilder *ieBuilder, /* If null, use IndexExprBuilderForAnalysis*/
+      IndexExprScope *scope);      /* If null, install local scope */
   virtual ~NewONNXOpShapeHelper();
 
   // Every child class is expected to create a computeShape with the following
@@ -125,7 +126,7 @@ private:
   llvm::SmallVector<DimsExpr, 1> privateOutputsDims;
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;
-  bool ownScope;
+  bool ownScope, ownBuilder;
 };
 
 //===----------------------------------------------------------------------===//

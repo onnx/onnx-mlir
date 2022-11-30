@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -84,9 +85,13 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
     ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
-      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr) {
+      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
+      ownBuilder(inputIeBuilder == nullptr) {
   assert(op && "Expecting a valid operation pointer");
-  assert(createIE && "Expecting a valid index expression builder");
+  if (ownBuilder) {
+    createIE = new IndexExprBuilderForAnalysis(op->getLoc());
+    assert(createIE && "failed to create a new builder");
+  }
   if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
     assert(scope && "failed to create a new scope");
@@ -106,6 +111,8 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
 NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
   if (ownScope)
     delete scope;
+  if (ownBuilder)
+    delete createIE;
 }
 
 void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
@@ -436,7 +443,6 @@ LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
   // Set type for the first output.
   setOutputDims(outputDims);
   return success();
-
 }
 
 //===----------------------------------------------------------------------===//
