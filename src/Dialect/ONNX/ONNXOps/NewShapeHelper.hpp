@@ -265,7 +265,7 @@ struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
   public:                                                                      \
     OpName##ShapeHelper(mlir::Operation *op,                                   \
         mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,     \
-        bool hasFilter, bool ceilMode, IndexExprScope *scope = nullptr);       \
+        IndexExprScope *scope = nullptr);                                      \
     virtual ~OpName##ShapeHelper() {}                                          \
     mlir::LogicalResult computeShape() final;                                  \
   };

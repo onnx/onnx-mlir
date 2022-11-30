@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,6 +29,7 @@ namespace onnx_mlir {
 
 // Helper function to infer shapes of average pool operations.
 
+#if 1 // hi alex
 ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
     ONNXAveragePoolOp *newOp, IndexExprScope *inScope)
     : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
@@ -46,6 +49,7 @@ LogicalResult ONNXAveragePoolOpShapeHelper::computeShape(
       ONNXAveragePoolOpAdaptor>::computeShape(operandAdaptor, nullptr,
       op->kernel_shape(), op->pads(), op->strides(), None);
 }
+#endif
 
 ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
     ONNXMaxPoolSingleOutOp *newOp, IndexExprScope *inScope)
@@ -104,6 +108,24 @@ static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
 // AveragePool
 //===----------------------------------------------------------------------===//
 
+NewONNXAveragePoolOpShapeHelper::NewONNXAveragePoolOpShapeHelper(Operation *op,
+    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
+    IndexExprScope *scope)
+    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
+          /*ceil mode, dummy value*/ false, scope) {
+  // Set ceil mode to appropriate value.
+  ONNXAveragePoolOp avgPoolOp = llvm::cast<ONNXAveragePoolOp>(op);
+  ceilMode = avgPoolOp.ceil_mode();
+}
+
+LogicalResult NewONNXAveragePoolOpShapeHelper::computeShape() {
+  ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
+  ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      /*dilation*/ None);
+}
+
 LogicalResult ONNXAveragePoolOp::verify() {
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(*this);
 
@@ -141,8 +163,9 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXAveragePoolOpShapeHelper, ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor>(*this, elementType);
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  NewONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
