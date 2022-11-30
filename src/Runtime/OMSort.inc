@@ -265,7 +265,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   compareFuncType *compareElements = getCompareFunction(ascending, dataType);
 
   // Choose the sorting function
-  sortFuncType *sortFunc;
+  sortFuncType *sortFunc = bubble_sort;
   switch (algorithm) {
   case OMSORT_BUBBLESORT:
     sortFunc = bubble_sort;

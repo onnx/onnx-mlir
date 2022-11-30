@@ -530,13 +530,12 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   if ((algorithm != 0) && (rank <= 6) && (axis == (rank - 1))) {
     // Emit krnl.Call to call omTensorSort API
     MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-    Operation *op = NULL;
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
     Value valAlgorithm = create.math.constant(intType, algorithm);
-    ArrayRef<Value> operands = {input, valAxis, valAscending, valAlgorithm};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, op, operands, true);
+    SmallVector<Value, 4> operands = {input, valAxis, valAscending, valAlgorithm};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
