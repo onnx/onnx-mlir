@@ -18,11 +18,16 @@
 #include <string>
 
 namespace onnx_mlir {
+
 /// Retrieves the repository path from which onnx-mlir was built.
 std::string getOnnxMlirRepositoryPath();
 
 /// Retrieves the repository path from which LLVM was built.
 std::string getLLVMRepositoryPath();
+
+/// Retrieves the repository commit hash from which
+/// this onnx-mlir was built.
+std::string getOnnxMlirCommit();
 
 /// Retrieves the repository revision number (or identifier) from which
 /// this onnx-mlir was built.
@@ -47,6 +52,12 @@ std::string getLLVMFullRepositoryVersion();
 /// and the vendor tag. And LLVM repository version and vendor tag if \p
 /// toIncludeLLVM.
 std::string getOnnxMlirFullVersion(bool toIncludeLLVM = true);
+
+/// Retrieves details about the full product version.
+std::string getProductFullVersion();
+
+/// Retrieves the full product version along with onnx-mlir short commit hash.
+std::string getOnnxMlirCommitVersion();
 
 /// Defines a version printer used to print out the version when –version is
 /// given on the command line.
