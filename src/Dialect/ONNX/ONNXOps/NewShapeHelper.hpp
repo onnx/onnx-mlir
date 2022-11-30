@@ -68,14 +68,15 @@ struct NewONNXOpShapeHelper {
    @param ieBuilder Class that scans the operands to gather IndexExpr from them.
    Typically used to gather shape and constant values.
 
-   During shape inference, we typically use IndexExprBuilderForAnalysis, which
-   uses questionmark for values unkown at compile time. This builder is default
-   when no ieBuilder is given.
+   During shape inference, we typically use IndexExprBuilderForAnalysis
+   (src/Dialect/Mlir/DialectBuilder.hpp), which uses questionmark for values
+   unkown at compile time. This builder is default when no ieBuilder is given.
 
    During lowering, we typically use and Index Expr Builder that generates code
    for values unknown at compile time. Example of such subclasses are
-   IndexExprBuilderForKrnl (generates Krnl ops) or IndexExprBuilderForMhlo
-   (generates Shape/MHLO ops).
+   IndexExprBuilderForKrnl (generates Krnl ops, in
+   src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForMhlo (generates
+   Shape/MHLO ops, in src/Conversion/ONNXToMhlo/DialectBuilder.hpp).
 
    @param scope Index expression scope to be used. If none is provided, a new
    scope is created and stored internally. This scope will then be destructed
@@ -89,9 +90,9 @@ struct NewONNXOpShapeHelper {
    */
 
   NewONNXOpShapeHelper(mlir::Operation *op, /* Op to be analyzed. */
-      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op */
-      IndexExprBuilder *ieBuilder, /* If null, use IndexExprBuilderForAnalysis*/
-      IndexExprScope *scope);      /* If null, install local scope */
+      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op.*/
+      IndexExprBuilder *ieBuilder, /* Use IndexExprBuilderForAnalysis if null.*/
+      IndexExprScope *scope);      /* Install local scope if null. */
   virtual ~NewONNXOpShapeHelper();
 
   // Every leaf class is expected to create a computeShape with the following

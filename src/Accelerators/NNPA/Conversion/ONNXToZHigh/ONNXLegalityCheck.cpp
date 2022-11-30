@@ -699,7 +699,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   return true;
 }
 
-/// Check legality for ONNXMaxpool.
+/// Check legality for ONNXMaxPool.
 template <>
 bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp op, const DimAnalysis *dimAnalysis) {
