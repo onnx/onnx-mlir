@@ -449,9 +449,7 @@ LogicalResult ONNXConvOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  IndexExprBuilderForAnalysis createIE(getLoc());
-  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {}, nullptr);
-  //NewONNXConvOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 
   #if 0

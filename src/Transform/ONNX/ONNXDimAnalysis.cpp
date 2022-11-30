@@ -111,8 +111,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
 template <typename ONNX_OP, typename SHAPE_HELPER>
 void exploreSameInputDims_xxx(const onnx_mlir::DimAnalysis::DimT &dim,
     ONNX_OP op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::IndexExprBuilderForAnalysis createIE(op.getLoc());
-  SHAPE_HELPER shapeHelper(op.getOperation(), {}, &createIE);
+  SHAPE_HELPER shapeHelper(op.getOperation(), {});
   LogicalResult shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");
   // The operation may have multiple outputs, find the index of the processing
@@ -138,9 +137,7 @@ void exploreSameInputDims_xxx(const onnx_mlir::DimAnalysis::DimT &dim,
 /// Use this function for unary operations.
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::IndexExprBuilderForAnalysis createIE(op->getLoc());
-  onnx_mlir::NewONNXUnaryOpShapeHelper shapeHelper(
-      op, {}, (onnx_mlir::IndexExprBuilder *)&createIE);
+  onnx_mlir::NewONNXUnaryOpShapeHelper shapeHelper(op, {});
   auto shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
@@ -159,10 +156,8 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   Value B = op->getOperands()[1];
 
   // Build shape helper
-  onnx_mlir::IndexExprBuilderForAnalysis createAnalysisIE(op->getLoc());
-  onnx_mlir::NewONNXBroadcastOpShapeHelper shapeHelper(op,
-      ArrayRef<Value>({A, B}),
-      (onnx_mlir::IndexExprBuilder *)&createAnalysisIE);
+  onnx_mlir::NewONNXBroadcastOpShapeHelper shapeHelper(
+      op, ArrayRef<Value>({A, B}));
   auto shapeComputed = shapeHelper.computeShape();
   assert(succeeded(shapeComputed) && "Could not compute output shape");
   // Find the unknown input dimensions that were transferred to the unknown
@@ -396,8 +391,8 @@ void DimAnalysis::visitDim(
 
   // AveragePoolOp
   if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims_xxx<ONNXAveragePoolOp, NewONNXAveragePoolOpShapeHelper>(
-        dim, poolOp, sameDims);
+    exploreSameInputDims_xxx<ONNXAveragePoolOp,
+        NewONNXAveragePoolOpShapeHelper>(dim, poolOp, sameDims);
     return;
   }
 
@@ -421,7 +416,7 @@ void DimAnalysis::visitDim(
 
   // ConvOp
   if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
-    exploreSameInputDims<ONNXConvOp, ONNXConvOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXConvOp, NewONNXConvOpShapeHelper>(
         dim, convOp, sameDims);
     return;
   }

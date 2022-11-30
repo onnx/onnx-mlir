@@ -169,8 +169,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  IndexExprBuilderForAnalysis createIE(getLoc());
-  NewONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  NewONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

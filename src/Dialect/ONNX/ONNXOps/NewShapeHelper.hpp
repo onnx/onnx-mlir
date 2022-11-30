@@ -137,8 +137,8 @@ private:
 /// input of an unary element-wise operation have the same shape.
 struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXUnaryOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr)
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~NewONNXUnaryOpShapeHelper() {}
 
@@ -153,9 +153,9 @@ struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
 // be ranked in advance.
 struct NewONNXBroadcastOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXBroadcastOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr, bool hasUniBroadcasting = false,
-      bool hasNoBroadcasting = false)
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
+      bool hasUniBroadcasting = false, bool hasNoBroadcasting = false)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
         outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
         hasNoBroadcasting(hasNoBroadcasting) {}
@@ -203,8 +203,8 @@ protected:
 // Helper for ExpandOp
 struct NewONNXExpandOpShapeHelper : public NewONNXBroadcastOpShapeHelper {
   NewONNXExpandOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr)
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : NewONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~NewONNXExpandOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
@@ -216,8 +216,8 @@ struct NewONNXExpandOpShapeHelper : public NewONNXBroadcastOpShapeHelper {
 
 struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXShapeOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      IndexExprScope *scope = nullptr)
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), start(-1),
         end(-1) {}
   virtual ~NewONNXShapeOpShapeHelper() {}
@@ -240,7 +240,7 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
 struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXPoolOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      bool hasFilter, bool ceilMode, IndexExprScope *scope = nullptr)
+      bool hasFilter, bool ceilMode, IndexExprScope *scope)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope),
         hasFilter(hasFilter), ceilMode(ceilMode) {}
   virtual ~NewONNXPoolOpShapeHelper() {}
@@ -265,7 +265,8 @@ struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
   class OpName##ShapeHelper : public NewONNXPoolOpShapeHelper {                \
   public:                                                                      \
     OpName##ShapeHelper(mlir::Operation *op,                                   \
-        mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,     \
+        mlir::ArrayRef<mlir::Value> operands,                                  \
+        IndexExprBuilder *ieBuilder = nullptr,                                 \
         IndexExprScope *scope = nullptr);                                      \
     virtual ~OpName##ShapeHelper() {}                                          \
     mlir::LogicalResult computeShape() final;                                  \
