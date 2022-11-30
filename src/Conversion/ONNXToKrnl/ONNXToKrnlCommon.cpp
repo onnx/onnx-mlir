@@ -534,7 +534,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
     Value valAlgorithm = create.math.constant(intType, algorithm);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending, valAlgorithm};
+    SmallVector<Value, 4> operands = {
+        input, valAxis, valAscending, valAlgorithm};
     rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
     return order;
   }
