@@ -266,19 +266,18 @@ struct NewONNXPoolOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 2> dilations;
 };
 
-#define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \
-  class OpName##ShapeHelper : public NewONNXPoolOpShapeHelper {                \
+#define DECLARE_SHAPE_HELPER(SHAPE_HELPER)                                     \
+  class SHAPE_HELPER : public NewONNXPoolOpShapeHelper {                       \
   public:                                                                      \
-    OpName##ShapeHelper(mlir::Operation *op,                                   \
-        mlir::ArrayRef<mlir::Value> operands,                                  \
+    SHAPE_HELPER(mlir::Operation *op, mlir::ArrayRef<mlir::Value> operands,    \
         IndexExprBuilder *ieBuilder = nullptr,                                 \
         IndexExprScope *scope = nullptr);                                      \
-    virtual ~OpName##ShapeHelper() {}                                          \
+    virtual ~SHAPE_HELPER() {}                                                 \
     mlir::LogicalResult computeShape() final;                                  \
   };
-DECLARE_POOL_SHAPE_HELPER(NewONNXAveragePoolOp)
-DECLARE_POOL_SHAPE_HELPER(NewONNXConvOp)
-DECLARE_POOL_SHAPE_HELPER(NewONNXMaxPoolSingleOutOp)
-#undef DECLARE_POOL_SHAPE_HELPER
+DECLARE_SHAPE_HELPER(NewONNXAveragePoolOpShapeHelper)
+DECLARE_SHAPE_HELPER(NewONNXConvOpShapeHelper)
+DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
+#undef DECLARE_SHAPE_HELPER
 
 } // namespace onnx_mlir

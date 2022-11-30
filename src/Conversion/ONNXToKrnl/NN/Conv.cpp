@@ -33,7 +33,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
       ONNXConvOpAdaptor &operandAdaptor, NewONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
-    IndexExprScope *topScope = shapeHelper.getScope();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
         MathBuilder, MemRefBuilder>
         create(rewriter, loc);
@@ -61,13 +60,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // where N is Batch Size,
     // where CI (or C) is Channel In (multiple of group num),
     // and where HI & WI are spacial dimensions of the input image.
-    // hi alex MemRefBoundsIndexCapture inputBounds(inputOperand);
 
     // Bounds for kernel/filter W: [CO x CIPerGroup x KH x KW]:
     // where CO (or M) is Channel Out,
     // where CIPerGroup (or C/G) is number of channel in per group,
     // and where KH x KW are the kernel / filter size (e.g. 3x3, 1x1).
-    // hi alex MemRefBoundsIndexCapture filterBounds(filterOperand);
     IndexExpr CIPerGroup = create.krnlIE.getShapeAsSymbol(filterOperand, 1);
 
     // Determine the bounds for the loops over batch & channel out.
@@ -139,7 +136,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                   inputOperand, spatialStartIndex + i));
               SymbolIndexExpr K(create.krnlIE.getShapeAsSymbol(
                   filterOperand, spatialStartIndex + i));
-              SymbolIndexExpr p(shapeHelper.pads[i]); // Begining/left/top pad.
+              SymbolIndexExpr p(shapeHelper.pads[i]); // Beginning/left/top pad.
               LiteralIndexExpr s(shapeHelper.strides[i]);
               LiteralIndexExpr d(shapeHelper.dilations[i]);
               // lb = ceil((p - o * s) / d)
