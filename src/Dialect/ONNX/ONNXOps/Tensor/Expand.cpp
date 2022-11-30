@@ -49,13 +49,11 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     // helper as we need to connect to the actual expressions used to compute
     // it, not just a shape, in presence of runtime dimensions.
 
-    // Use the full constructor as this is called from shape helper which may
-    // be used in either shape inference or lowering to ONNX context. We also
-    // pass here the scope of the ExpandOp shape helper so that the
+    // We also pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    NewONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {}, createIE);
-    ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
+    NewONNXShapeOpShapeHelper shapeHelper(
+        shapeOp.getOperation(), {}, createIE, /* important */ getScope());
     if (failed(shapeHelper.computeShape()))
       return op->emitError("failed to get shape op shape");
 
@@ -67,7 +65,6 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     if (failed(NewONNXBroadcastOpShapeHelper::customComputeShape(
             {input}, &selectedData)))
       return op->emitError("failed to broadcast 3");
-
     return success();
   }
 
