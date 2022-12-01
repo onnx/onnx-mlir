@@ -238,7 +238,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Get shape.
     IndexExprBuilderForKrnl createIE(rewriter, loc);
     NewONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

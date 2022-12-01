@@ -35,7 +35,7 @@ struct ONNXShapeOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     IndexExprBuilderForMhlo createIE(rewriter, loc);
     NewONNXShapeOpShapeHelper shapeHelper(op, operands, &createIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();
     assert(outputType.isa<ShapedType>() && "Expected ShapedType");

@@ -212,7 +212,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Get shape.
     PoolOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();

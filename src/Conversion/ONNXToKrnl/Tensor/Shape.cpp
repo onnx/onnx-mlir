@@ -35,7 +35,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // Get shape.
     ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     NewONNXShapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

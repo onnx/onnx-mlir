@@ -854,7 +854,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -924,7 +924,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
@@ -1011,7 +1011,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
@@ -1104,7 +1104,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
         rewriter, loc);
     NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
