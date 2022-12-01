@@ -145,7 +145,6 @@ LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
   return success();
 }
 
-
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//

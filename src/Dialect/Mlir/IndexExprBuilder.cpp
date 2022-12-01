@@ -80,7 +80,6 @@ uint64_t IndexExprBuilder::getTypeRank(Value val) {
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intArrayVal.
 
-
 uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
   uint64_t rank = getTypeRank(intArrayVal);
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
