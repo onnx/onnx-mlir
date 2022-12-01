@@ -49,7 +49,7 @@ bool isValidElementTypeAndRank(Value val) {
 template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
 bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   POOLOPShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
   Value X = op.X();
   int64_t ceilMode = op.ceil_mode();
   ShapedType inputType = X.getType().cast<ShapedType>();
@@ -118,7 +118,7 @@ template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 StringRef getStrPaddingType(OP op) {
   IndexExprBuilderForAnalysis createIE(op.getLoc());
   OPShapeHelper shapeHelper(op.getOperation(), {}, &createIE);
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   auto autoPad = op.auto_pad();
   if (autoPad == "SAME_UPPER")
@@ -705,7 +705,7 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     return false;
 
   NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
           ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>(
@@ -790,7 +790,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   ShapedType inputType = op.X().getType().cast<ShapedType>();
   ShapedType outputType = op.Y().getType().cast<ShapedType>();

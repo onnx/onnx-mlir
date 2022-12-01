@@ -100,7 +100,7 @@ struct NewONNXOpShapeHelper {
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
   // Compute shape and assert on failure.
-  void computeShapeOrAssert();
+  void computeShapeAndAssertOnFailure();
 
   // Invoke the virtual computeShape, and on success, update the types of the
   // original operation. First call is used for operations with one result,
@@ -331,7 +331,6 @@ struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   virtual ~NewONNXGenericMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for MatMulOp: output = a * b.
-  OP_TYPE unusedOp;                      // hi alex, try to remove this.
   llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying padding.
   llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying padding.
   llvm::BitVector aPadDims;              // When true, that dim was padded.

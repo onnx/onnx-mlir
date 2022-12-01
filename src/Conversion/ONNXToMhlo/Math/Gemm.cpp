@@ -136,7 +136,7 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     // Shape helper version for analysis: does not generate code for lowering.
     NewONNXGemmOpShapeHelper shapeHelper(op, {});
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     ShapedType outpType = gemmOp.getType().dyn_cast<ShapedType>();
     if (outpType == nullptr)
