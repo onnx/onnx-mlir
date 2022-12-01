@@ -78,6 +78,14 @@ uint64_t IndexExprBuilder::getTypeRank(Value val) {
 }
 
 //===----------------------------------------------------------------------===//
+// Get symbols from value defined by intVal.
+
+IndexExpr IndexExprBuilder::getIntAsSymbol(mlir::Value intVal) {
+  assert(getIntArraySize(intVal) == 1 && "Expected a scalar");
+  return getIntArrayAsSymbol(intVal, 0);
+}
+
+//===----------------------------------------------------------------------===//
 // Get symbols from value defined by intArrayVal.
 
 uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {

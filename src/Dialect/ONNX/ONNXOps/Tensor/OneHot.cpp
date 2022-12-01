@@ -39,7 +39,18 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
     axis += indicesRank + 1;
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  // xx fix from here
+  depth = createIE->getIntValAsSymbol(operandAdaptor.depth(), 0)
+  if (depth.isLiteral()) {
+    if (depth.getLiteral() < 1)
+    return op->emitError("OneHot depth must be greater than 1");
+  } else if (! scope->isShapeInferencePass()) {
+    // Convert depth to index
+    MathBuilder createMath(scope->getRewriter(), op->getLoc());
+    Value convertedVal = createMath.castToIndex(depth.getValue());
+    depth = DimIndexExpr(convertedVal);
+  }
+#if 0
+  // Original code.
   Value depthVal = operandAdaptor.depth();
   DenseElementsAttr depthAttr = fGetDenseVal(depthVal);
   if (depthAttr) {
@@ -59,6 +70,7 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
     Value indexVal = createMath.castToIndex(val);
     depth = DimIndexExpr(indexVal);
   }
+#endif
 
   // Compute outputDims
   int outputRank = indicesRank + 1;

@@ -96,8 +96,8 @@ struct IndexExprBuilder : DialectBuilder {
   uint64_t getTypeRank(mlir::Value value);
 
   //===--------------------------------------------------------------------===//
-  // Get symbol index expressions from a 1D integer array value. When the
-  // integer array values are defined by a constant, then literal index
+  // Get symbol index expressions from a scalar or 1D integer array value. When
+  // the integer values are defined by a constant, then literal index
   // expressions are return in place of a symbol index expression. With dynamic
   // values, questionmark index expressions are returned during code analysis
   // phases and symbol index expressions are returned during code generation
@@ -105,13 +105,14 @@ struct IndexExprBuilder : DialectBuilder {
   // support for ranks higher than 1 at this time.  Asserts if the type is
   // not a shaped type with a known rank.
 
+  // Get a symbol index expression from the integer defined by intVal.
+  IndexExpr getIntAsSymbol(mlir::Value intVal);
+
   // Get size of array defined by intArrayVal value. Asserts if rank>1.
   uint64_t getIntArraySize(mlir::Value intArrayVal);
   // Get a symbol index expression from the integer array defined by intArrayVal
-  // at position i. If array is defined by a constant, return a literal index
-  // expression. If defined by a runtime value, return questionmark or symbol
-  // index expressions depending on the phase. If out of bound, return an
-  // undefined index expressions. Asserts if rank>1.
+  // at position i. If out of bound, return an undefined index expressions.
+  // Asserts if rank>1.
   IndexExpr getIntArrayAsSymbol(mlir::Value intArrayVal, uint64_t i);
   // Same as above; if out of bound, return a literal index expression of value
   // defaultVal.
