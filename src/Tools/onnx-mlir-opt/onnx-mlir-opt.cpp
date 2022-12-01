@@ -17,6 +17,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/Bufferization/IR/Bufferization.h>
 #include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
@@ -135,6 +136,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
   registry.insert<mlir::tosa::TosaDialect>();
+  registry.insert<mlir::bufferization::BufferizationDialect>();
 
   // Initialize accelerators if they exist.
   onnx_mlir::accel::initAccelerators(maccel);

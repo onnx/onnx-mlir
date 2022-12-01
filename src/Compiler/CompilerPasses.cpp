@@ -23,6 +23,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
@@ -121,10 +122,24 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
+  if (enableLinalg) {
+    pm.addPass(onnx_mlir::createLowerONNXToLinalgPass());
+    pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
+  }
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
+
+  if (enableLinalg) {
+    // Convert tensor.EmptyOp to bufferization.alloc_tensor
+    pm.addNestedPass<func::FuncOp>(bufferization::createEmptyTensorToAllocTensorPass());
+
+    // ToFix: Convert bufferization.alloc_tensor to memref.alloc
+    
+    // remove bufferization.to_tensor and to_memref
+    pm.addNestedPass<func::FuncOp>(bufferization::createFinalizingBufferizePass());
+  }
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
@@ -132,6 +147,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 } // namespace onnx_mlir
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
+  if (enableLinalg) {
+    pm.addNestedPass<func::FuncOp>(createConvertLinalgToAffineLoopsPass());
+  }
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass());
 }
