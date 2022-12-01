@@ -115,7 +115,7 @@ NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
     delete createIE;
 }
 
-void NewONNXOpShapeHelper::computeShapeOrAssert() {
+void NewONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
   // Invoke virtual compute shape.
   LogicalResult res = computeShape();
   assert(succeeded(res) && "Failed to compute shape");

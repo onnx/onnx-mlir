@@ -100,7 +100,7 @@ struct NewONNXOpShapeHelper {
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
   // Compute shape and assert on failure.
-  void computeShapeOrAssert();
+  void computeShapeAndAssertOnFailure();
 
   // Invoke the virtual computeShape, and on success, update the types of the
   // original operation. First call is used for operations with one result,

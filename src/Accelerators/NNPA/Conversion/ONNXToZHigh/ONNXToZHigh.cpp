@@ -210,7 +210,7 @@ SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
   OPShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Check if kernelShape is literal. Only static value is supported.
   assert((llvm::any_of(shapeHelper.kernelShape, [](IndexExpr val) {
@@ -227,7 +227,7 @@ SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayStrides(OP op) {
   OPShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeOrAssert();
+  shapeHelper.computeShapeAndAssertOnFailure();
   return shapeHelper.strides;
 }
 
