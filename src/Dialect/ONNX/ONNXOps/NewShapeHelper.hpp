@@ -332,6 +332,11 @@ struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::BitVector bPadDims;              // When true, that dim was padded.
 };
 
+//===----------------------------------------------------------------------===//
+// ONNX Shape Helper template instantiation
+// Keep template instantiation at the end of the file.
+//===----------------------------------------------------------------------===//
+
 using NewONNXMatMulOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
 using NewONNXMatMulIntegerOpShapeHelper =
