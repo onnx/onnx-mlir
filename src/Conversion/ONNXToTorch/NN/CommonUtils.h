@@ -64,3 +64,4 @@ Value getIntValue(int val, ConversionPatternRewriter &rewriter,
     mlir::MLIRContext *context, Location loc);
 std::vector<int> toVector(mlir::ArrayAttr axesAttr);
 mlir::FloatAttr convertToIEEEDouble(mlir::FloatAttr attr);
+void setLayerNameAttr(Operation* source, Operation *target);

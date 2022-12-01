@@ -12,6 +12,7 @@
 // transformation on ONNX ops.
 //
 //===-----------------------------------------------------------------===//
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 
 #ifdef _WIN32
@@ -71,10 +72,10 @@ using namespace mlir::torch::TorchConversion;
 //  /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/
 //  backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
 
-typedef struct dim_pads {
+typedef struct dimension_pads {
   int dim_start;
   int dim_end;
-} dim_pads;
+} dimension_pads;
 
 class ONNXConstantPadNdOpToTorchLowering : public OpConversionPattern<ONNXPadOp> {
 public: 
@@ -110,7 +111,7 @@ public:
     // ONNX : b1, e1, b2, e2, b3, e3, b4, e4
     // TORCH : b1, b2, b3, b4, e1, e2, e3, e4
     // TORCH : b4, b3, b2, b1, e4, e3, e2, e1
-    dim_pads dimArray[intValues.size()];
+    dimension_pads dimArray[intValues.size()];
     std::vector<Value> translatePadsList;
     auto intType = IntegerType::get(op.getContext(), 64);
     if (intValues.size() != 0) {
@@ -155,6 +156,7 @@ public:
     
     Value result = rewriter.create<AtenConstantPadNdOp>(
         loc, resultType, dataTorchTensor, padsList1, constTorchTensor);
+    setLayerNameAttr(op, result.getDefiningOp());
 
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
         op, resultType, result);

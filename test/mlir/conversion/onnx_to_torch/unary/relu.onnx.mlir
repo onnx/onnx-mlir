@@ -6,7 +6,7 @@ module attributes {}  {
     %2 = "onnx.Conv"(%arg0, %0, %1) {dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_0", pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<1x10x5x5xf32>, tensor<5x10x3x3xf32>, tensor<5xf32>) -> tensor<1x5x5x5xf32>
     %3 = "onnx.MaxPoolSingleOut"(%2) {kernel_shape = [2, 2], onnx_node_name = "MaxPool_1", pads = [1, 1, 1, 1], strides = [2, 2]} : (tensor<1x5x5x5xf32>) -> tensor<1x5x3x3xf32>
     %4 = "onnx.Relu"(%3) {onnx_node_name = "Relu_2"} : (tensor<1x5x3x3xf32>) -> tensor<1x5x3x3xf32>
-//CHECK: torch.aten.relu %{{[^,]*}} : !torch.vtensor<[1,5,3,3],f32> -> !torch.vtensor<[1,5,3,3],f32>
+//CHECK: torch.aten.relu %{{[^,]*}} {layer_name = "Relu_2"} : !torch.vtensor<[1,5,3,3],f32> -> !torch.vtensor<[1,5,3,3],f32>
     return %4 : tensor<1x5x3x3xf32>
   }
 }

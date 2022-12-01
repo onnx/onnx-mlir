@@ -56,6 +56,7 @@ struct ONNXToTorchElementwiseBinaryOpLowering : public ConversionPattern {
         getTypeConverter()->convertType(op->getResult(0).getType());
     Value result = rewriter.create<TorchBinaryOp>(
         loc, resultType, operands[0], operands[1]);
+    setLayerNameAttr(op, result.getDefiningOp());
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }

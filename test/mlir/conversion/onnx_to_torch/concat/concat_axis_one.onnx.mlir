@@ -4,7 +4,7 @@ module attributes {}  {
 //CHECK-DAG: %[[DIM:.*]] = torch.constant.int 1
 //CHECK-DAG: [[RES:%.]] = torch.prim.ListConstruct %arg0, %arg0 : (!torch.vtensor<[5,5],f32>, !torch.vtensor<[5,5],f32>) -> !torch.list<vtensor>
     %0 = "onnx.Concat"(%arg0, %arg0) {axis = 1 : si64, onnx_node_name = "Concat_0"} : (tensor<5x5xf32>, tensor<5x5xf32>) -> tensor<5x10xf32>
-//CHECK: torch.aten.cat [[RES]], %[[DIM]] : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[5,10],f32>
+//CHECK: torch.aten.cat [[RES]], %[[DIM]] {layer_name = "Concat_0"} : !torch.list<vtensor>, !torch.int -> !torch.vtensor<[5,10],f32>
     return %0 : tensor<5x10xf32>
   }
 }

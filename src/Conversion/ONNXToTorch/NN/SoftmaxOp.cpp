@@ -62,6 +62,7 @@ public:
 
     Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType,
         inputTensor, constAxisValue, halfToFloat);
+    setLayerNameAttr(op, result.getDefiningOp());
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }

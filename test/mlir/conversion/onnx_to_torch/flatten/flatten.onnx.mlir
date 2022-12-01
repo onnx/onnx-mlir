@@ -4,7 +4,7 @@ module {
     %0 = "onnx.Flatten"(%arg0) {axis = 1 : si64, onnx_node_name = "Flatten_0"} : (tensor<1x1x160x160xf32>) -> tensor<1x25600xf32>
 //CHECK-DAG: %[[ENDDIM:.*]] = torch.constant.int 3
 //CHECK-DAG: %[[DIM:.*]] = torch.constant.int 1
-//CHECK-DAG: torch.aten.flatten.using_ints %arg0, %[[DIM]], %[[ENDDIM]] : !torch.vtensor<[1,1,160,160],f32>, !torch.int, !torch.int -> !torch.vtensor<[1,25600],f32>
+//CHECK-DAG: torch.aten.flatten.using_ints %arg0, %[[DIM]], %[[ENDDIM]] {layer_name = "Flatten_0"} : !torch.vtensor<[1,1,160,160],f32>, !torch.int, !torch.int -> !torch.vtensor<[1,25600],f32>
     return %0 : tensor<1x25600xf32>
   }
 }

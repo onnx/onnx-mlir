@@ -4,7 +4,7 @@ module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i6
     //CHECK-DAG: %[[FALSE:.*]] = torch.constant.bool false
     //CHECK-DAG: %[[DIM:.*]] = torch.constant.int 1
     %0 = "onnx.Softmax"(%arg0) {axis = 1 : si64, onnx_node_name = "Softmax_0", onnx_opset = 9 : si64} : (tensor<2x3xf32>) -> tensor<2x3xf32>
-    //CHECK: torch.aten._softmax %arg0, %[[DIM]], %[[FALSE]] : !torch.vtensor<[2,3],f32>, !torch.int, !torch.bool -> !torch.vtensor<[2,3],f32>
+    //CHECK: torch.aten._softmax %arg0, %[[DIM]], %[[FALSE]] {layer_name = "Softmax_0"} : !torch.vtensor<[2,3],f32>, !torch.int, !torch.bool -> !torch.vtensor<[2,3],f32>
     return %0 : tensor<2x3xf32>
   }
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [2 , 3] , \22name\22 : \22x\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [2 , 3] , \22name\22 : \221\22 }\0A\0A]\00"} : () -> ()

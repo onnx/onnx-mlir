@@ -69,10 +69,18 @@ Torch::ValueTensorType getResultType(std::vector<int64_t> tensorShape,
       context, llvm::makeArrayRef(tensorShape), elementType);
 }
 
+template <typename SqueezeOp>
 mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
-    Torch::ValueTensorType resultType, ArrayRef<int64_t> tensorShape,
-    mlir::Type elementType, ConversionPatternRewriter &rewriter,
-    mlir::MLIRContext *context, Location loc) {
+    Torch::ValueTensorType resultType, SqueezeOp squeezeOp,
+    ConversionPatternRewriter &rewriter, mlir::MLIRContext *context,
+    Location loc) {
+  ArrayRef<int64_t> tensorShape =
+      squeezeOp.data().getType().template dyn_cast<TensorType>().getShape();
+
+  mlir::Type elementType = squeezeOp.data()
+                               .getType()
+                               .template dyn_cast<TensorType>()
+                               .getElementType();
   Value result = dataTensor;
   if (axes.size() > 0) {
     std::vector<int64_t> shape(tensorShape.begin(), tensorShape.end());
@@ -90,9 +98,11 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
       auto interimType = getResultType(shape, elementType, context);
       result = rewriter.create<Torch::AtenSqueezeDimOp>(
           loc, interimType, result, dim);
+      setLayerNameAttr(squeezeOp, result.getDefiningOp());
     }
   } else {
     result = rewriter.create<Torch::AtenSqueezeOp>(loc, resultType, dataTensor);
+    setLayerNameAttr(squeezeOp, result.getDefiningOp());
   }
   return result;
 }
@@ -129,13 +139,8 @@ struct ONNXToTorchSqueezeOpLowering : public ConversionPattern {
 
     auto axes = getAxes(squeezeOp);
     auto resultType = toTorchType(context, squeezeOp.getResult().getType());
-    auto result = squeezeResult(axes, operands[0], resultType,
-        squeezeOp.data().getType().template dyn_cast<TensorType>().getShape(),
-        squeezeOp.data()
-            .getType()
-            .template dyn_cast<TensorType>()
-            .getElementType(),
-        rewriter, context, loc);
+    auto result = squeezeResult(
+        axes, operands[0], resultType, squeezeOp, rewriter, context, loc);
 
     rewriter.replaceOpWithNewOp<Torch::TensorStaticInfoCastOp>(
         op, resultType, result);

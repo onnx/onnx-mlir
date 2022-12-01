@@ -142,6 +142,7 @@ public:
       Value zeroPad = rewriter.create<ConstantFloatOp>(loc, negInfAttr);
       Value padTensor = rewriter.create<AtenConstantPadNdOp>(
           loc, padType, x, padsList, zeroPad);
+      setLayerNameAttr(op, padTensor.getDefiningOp());
 
       IntegerAttr zeroIntAttr = IntegerAttr::get(intType, 0);
       Value padValue = rewriter.create<ConstantIntOp>(loc, zeroIntAttr);
@@ -156,6 +157,7 @@ public:
       result = rewriter.create<AtenMaxPool2dOp>(loc, resultType, x,
           kernelShapeList, stridesList, padsList, dilationList, ceilingModeVal);
     }
+    setLayerNameAttr(op, result.getDefiningOp());
 
     rewriter.replaceOpWithNewOp<TorchConversion::ToBuiltinTensorOp>(
         op, op.getResult().getType(), result);

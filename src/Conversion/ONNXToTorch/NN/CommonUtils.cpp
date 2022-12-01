@@ -140,3 +140,11 @@ mlir::FloatAttr convertToIEEEDouble(mlir::FloatAttr attr) {
   return FloatAttr::get(
       mlir::FloatType::getF64(attr.getContext()), std::move(value));
 }
+
+
+void setLayerNameAttr(Operation* source, Operation *target){
+  if(source == nullptr || target == nullptr)
+    return;
+  if(source->hasAttr("onnx_node_name"))
+    target->setAttr("layer_name", source->getAttr("onnx_node_name"));
+}
