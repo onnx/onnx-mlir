@@ -24,6 +24,7 @@ install(TARGETS
 add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
   ONNXToMhloCommon.cpp
+  DialectBuilder.cpp
 
   Math/Elementwise.cpp
   Math/Gemm.cpp

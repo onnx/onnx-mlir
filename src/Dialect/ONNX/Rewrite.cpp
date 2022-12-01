@@ -20,6 +20,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -125,11 +126,8 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
 DenseElementsAttr createDenseElementsAttrFromShapeOp(
     PatternRewriter &rewriter, Operation *op) {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
-  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-
   int64_t start, end;
-  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
-
+  NewONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 

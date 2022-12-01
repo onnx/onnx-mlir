@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "stablehlo/dialect/BroadcastUtils.h"
 
@@ -190,10 +192,14 @@ struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
-    DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
+    auto shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
+
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
         getBroadcastedOperands(op, rewriter, loc, outputRank);
@@ -217,10 +223,13 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
-    DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
+    auto shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
@@ -244,10 +253,13 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
-    DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
+    auto shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =

@@ -64,6 +64,7 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -148,7 +149,7 @@ LogicalResult updateOutputType(
 
 /// Rewrite onnx.Shape into onnx.Dim and onnx.Concat.
 //
-/// For example, the folowing onnx.Shape:
+/// For example, the following onnx.Shape:
 /// %0 = "onnx.Shape"(%arg0) : (tensor<?x256xi64>) -> tensor<2xi64>
 ///
 /// will be rewritten into:
@@ -178,9 +179,11 @@ public:
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
     // Get start and end values.
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
-    ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-    if (failed(shapeHelper.computeShape(operandAdaptor))) {
+    IndexExprBuilderForAnalysis createIE(loc);
+    NewONNXShapeOpShapeHelper shapeHelper(
+        shapeOp.getOperation(), {}, &createIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    if (failed(shapeComputed)) {
       shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
                         " parameters successfully");
       return failure();
