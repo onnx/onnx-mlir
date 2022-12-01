@@ -213,3 +213,11 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
   NewONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;

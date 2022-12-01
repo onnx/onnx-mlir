@@ -317,7 +317,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
     NewONNXGemmOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

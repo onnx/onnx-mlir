@@ -38,7 +38,7 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     IndexExprBuilderForMhlo createIE(rewriter, loc);
     NewONNXMatMulOpShapeHelper shapeHelper(op, operands, &createIE);
-    shapeHelper.computeShapeOrAssert();
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
