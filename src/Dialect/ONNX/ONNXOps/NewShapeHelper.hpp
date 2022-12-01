@@ -289,7 +289,8 @@ DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
 struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXSliceOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope){};
   virtual ~NewONNXSliceOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for SliceOp.
@@ -303,7 +304,9 @@ struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
 struct NewONNXGemmOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXGemmOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
+        cDims(), hasBias(/*dummy value*/ false), cRank(-1) {}
   virtual ~NewONNXGemmOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for GemmOp: output = a * b.
@@ -322,7 +325,9 @@ template <typename OP_TYPE>
 struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXGenericMatMulOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
+        aPadDims(), bPadDims() {}
   virtual ~NewONNXGenericMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for MatMulOp: output = a * b.
@@ -333,11 +338,28 @@ struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::BitVector bPadDims;              // When true, that dim was padded.
 };
 
+// Use template to fetch the proper inputs using operand adaptors for these ops.
 using NewONNXMatMulOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
 using NewONNXMatMulIntegerOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
 using NewONNXQLinearMatMulOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+//===----------------------------------------------------------------------===//
+// Pad Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXPadOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXPadOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
+
+  virtual ~NewONNXPadOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for PadOp.
+  llvm::SmallVector<IndexExpr, 4> pads;
+};
 
 } // namespace onnx_mlir

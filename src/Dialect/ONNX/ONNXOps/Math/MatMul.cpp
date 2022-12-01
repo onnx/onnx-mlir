@@ -26,13 +26,6 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <typename OP_TYPE>
-NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::NewONNXGenericMatMulOpShapeHelper(
-    Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
-      aPadDims(), bPadDims() {}
-
 // Templates below are needed because ONNXMatMulOp and ONNXMatMulIntegerOp use
 // operands A & B, but ONNXQLinearMatMulOp uses a & b.
 

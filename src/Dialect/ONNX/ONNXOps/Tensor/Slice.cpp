@@ -26,11 +26,6 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-NewONNXSliceOpShapeHelper::NewONNXSliceOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope){};
-
 LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);

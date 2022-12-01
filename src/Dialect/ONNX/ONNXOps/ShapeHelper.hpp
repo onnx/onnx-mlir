@@ -365,6 +365,7 @@ using ONNXQLinearMatMulOpShapeHelper =
 
 #endif
 
+#if DEPRECATED
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   ONNXPadOpShapeHelper(
@@ -377,6 +378,7 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   // Additional data for PadOp.
   llvm::SmallVector<IndexExpr, 4> pads;
 };
+#endif
 
 // Shape for OneHotOp.
 struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXOneHotOp> {

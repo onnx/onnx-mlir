@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -26,6 +27,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    // Gather info.
     auto loc = op->getLoc();
     ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
     ONNXPadOpAdaptor operandAdaptor(operands);
@@ -34,14 +36,12 @@ struct ONNXPadOpLowering : public ConversionPattern {
     StringRef padMode = padOp.mode();
 
     // Builder helper.
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
 
     // Shape helper.
-    ONNXPadOpShapeHelper shapeHelper(&padOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    NewONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeOrAssert();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -52,17 +52,15 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
 
     // Bounds.
-    MemRefBoundsIndexCapture dataBounds(data);
-    MemRefBoundsIndexCapture resBounds(resMemRef);
-    uint64_t rank = dataBounds.getRank();
+    uint64_t rank = create.krnlIE.getTypeRank(data);
 
     // Literal indices.
-    LiteralIndexExpr zeroIE(0);
-    LiteralIndexExpr oneIE(1);
-    LiteralIndexExpr twoIE(2);
+    LiteralIndexExpr zero(0);
+    LiteralIndexExpr one(1);
+    LiteralIndexExpr two(2);
 
     if (padMode.equals_insensitive("constant")) {
       // 'constant' mode.
@@ -73,22 +71,22 @@ struct ONNXPadOpLowering : public ConversionPattern {
       Value cValue;
       if (constantValue.getType().isa<NoneType>()) {
         // Default to 0 if constant_value is not specified.
-        MathBuilder createMath(rewriter, loc);
-        cValue = createMath.constant(resElementType, 0);
+        cValue = create.math.constant(resElementType, 0);
       } else
-        cValue = createKrnl.load(constantValue, {});
+        cValue = create.krnl.load(constantValue, {});
 
       // Initialize the result to the constant value.
-      createKrnl.memset(resMemRef, cValue);
+      create.krnl.memset(resMemRef, cValue);
 
       // Copy values from the input to the result.
       // Iterate over the input tensor dimensions.
-      SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+      SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
-      dataBounds.getDimList(ubs);
-      ValueRange mainLoopDef = createKrnl.defineLoops(rank);
-      createKrnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(data, ubs);
+      ValueRange mainLoopDef = create.krnl.defineLoops(rank);
+      create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
+            // hi alex: should probably create a new scope
             SmallVector<IndexExpr, 4> resLoopInd;
             for (uint64_t i = 0; i < rank; ++i) {
               IndexExpr resInd =
@@ -100,24 +98,30 @@ struct ONNXPadOpLowering : public ConversionPattern {
           });
     } else {
       // 'edge' and 'reflect' modes.
-      SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+      SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
-      resBounds.getDimList(ubs);
+      create.krnlIE.getShapeAsDims(resMemRef, ubs);
+      // hi alex resBounds.getDimList(ubs);
       // Copy values from the input to the result.
       // Iterate over the result tensor dimensions.
-      ValueRange mainLoopDef = createKrnl.defineLoops(rank);
-      createKrnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
+      ValueRange mainLoopDef = create.krnl.defineLoops(rank);
+      create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+            // hi alex: should probably create a new scope
+            MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+                createKrnl);
             SmallVector<IndexExpr, 4> dataLoopInd;
             for (uint64_t i = 0; i < rank; ++i) {
               IndexExpr dataInd = DimIndexExpr(resLoopInd[i]);
               IndexExpr pad = shapeHelper.pads[i];
-              IndexExpr dim = dataBounds.getDim(i);
+              IndexExpr dim = create.krnlIE.getShapeAsDim(data, i);
               if (padMode.equals_insensitive("edge")) {
-                // Before the left side of input. Use values on the left edge.
-                dataInd = dataInd.select(dataInd <= pad, zeroIE, dataInd - pad);
-                // After the right side of input. Use values on the right edge.
-                dataInd = dataInd.selectOrSelf(dataInd >= dim, dim - oneIE);
+                // Before the left side of input. Use values on the left
+                // edge.
+                dataInd = dataInd.select(dataInd <= pad, zero, dataInd - pad);
+                // After the right side of input. Use values on the right
+                // edge.
+                dataInd = dataInd.selectOrSelf(dataInd >= dim, dim - one);
               }
               if (padMode.equals_insensitive("reflect")) {
                 // Before the left side of input. Reflect on the left edge.
@@ -125,12 +129,12 @@ struct ONNXPadOpLowering : public ConversionPattern {
                     dataInd.select(dataInd < pad, pad - dataInd, dataInd - pad);
                 // After the right side of input. Reflect on the right edge.
                 dataInd = dataInd.selectOrSelf(
-                    dataInd >= dim, dim - (dataInd - dim) - twoIE);
+                    dataInd >= dim, dim - (dataInd - dim) - two);
               }
               dataLoopInd.emplace_back(dataInd);
             }
-            Value dataValue = createKrnl.loadIE(data, dataLoopInd);
-            createKrnl.store(dataValue, resMemRef, resLoopInd);
+            Value dataValue = create.krnl.loadIE(data, dataLoopInd);
+            create.krnl.store(dataValue, resMemRef, resLoopInd);
           });
     }
 

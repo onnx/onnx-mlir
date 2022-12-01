@@ -470,7 +470,8 @@ void DimAnalysis::visitDim(
 
   // PadOp
   if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
+    exploreSameInputDims_xxx<ONNXPadOp, NewONNXPadOpShapeHelper>(
+        dim, padOp, sameDims);
     return;
   }
 
