@@ -161,7 +161,7 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
 LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = createIE->getShapeRank(operands[0]);
+  uint64_t rank = createIE->getTypeRank(operands[0]);
   DimsExpr outputDims;
   for (uint64_t i = 0; i < rank; ++i)
     outputDims.emplace_back(createIE->getShapeAsDim(operands[0], i));
@@ -320,7 +320,7 @@ LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
     Optional<ArrayAttr> padOpt, Optional<ArrayAttr> strideOpt,
     Optional<ArrayAttr> dilationOpt) {
   // Basic information.
-  int64_t rank = createIE->getShapeRank(xValue);
+  int64_t rank = createIE->getTypeRank(xValue);
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;
 

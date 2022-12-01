@@ -240,7 +240,7 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
-// Pooling Ops
+// Pooling Ops (ONNXMaxPoolSingleOutOp, ONNXAveragePoolOp, ONNXConvOp)
 //===----------------------------------------------------------------------===//
 
 // Generic pool shape helper, further refined by specific pooling ops.
@@ -313,5 +313,31 @@ struct NewONNXGemmOpShapeHelper : public NewONNXOpShapeHelper {
   bool hasBias; // Whether there is a bias (aka C exists).
   int cRank;    // Dim of the original C (not padding dims by 1).
 };
+
+//===----------------------------------------------------------------------===//
+// Matmul Ops (ONNXMatMulOp, ONNXMatMulIntegerOp, ONNXQLinearMatMulOp)
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXGenericMatMulOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXGenericMatMulOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for MatMulOp: output = a * b.
+  OP_TYPE unusedOp; // hi alex, try to remove this.
+  llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying padding.
+  llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying padding.
+  llvm::BitVector aPadDims;              // When true, that dim was padded.
+  llvm::BitVector bPadDims;              // When true, that dim was padded.
+};
+
+using NewONNXMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+using NewONNXMatMulIntegerOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+using NewONNXQLinearMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir
