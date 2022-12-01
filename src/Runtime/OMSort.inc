@@ -132,12 +132,12 @@ typedef struct indexStack {
 #define STACK_PRINT(stack)                                                     \
   do {                                                                         \
     assert(stack.stackTop >= 0);                                               \
-    fprintf(stderr, "indexStack: [");                                          \
+    fprintf(stderr, "Stack: [");                                               \
     for (int64_t i = 0; (i + 1) < stack.stackTop; i += 2) {                    \
       fprintf(                                                                 \
           stderr, "<%ld:%ld>, ", stack.stackData[i], stack.stackData[i + 1]);  \
     }                                                                          \
-    fprintf(stderr, "]\n");                                                    \
+    fprintf(stderr, "] (Top=%ld,Size=%ld)\n", stack.stackTop, stack.stackSize);\
     fflush(stderr);                                                            \
   } while (0)
 
@@ -167,7 +167,7 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
 void quick_sort(
     void *dataPtr, uint64_t *idx, uint64_t dataNum, compareFuncType compFunc) {
   // Calculate the theoritical maximum stack size for index
-  int64_t stackSize = (log2u(dataNum + 1) + 1) * 2;
+  int64_t stackSize = (log2u(dataNum + 1) + 2) * 2;
   indexStack stack;
   STACK_INIT(stack, stackSize);
   int64_t begin = 0;
@@ -182,10 +182,18 @@ void quick_sort(
     if (begin < end) {
       int64_t pivotIdx =
           quick_sort_partition(dataPtr, idx, compFunc, begin, end);
-      if (begin < pivotIdx - 1)
-        STACK_PUSH(stack, begin, pivotIdx - 1);
-      if (pivotIdx + 1 < end)
-        STACK_PUSH(stack, pivotIdx + 1, end);
+      // To limit the stack size, push larger partion at first
+      if ((pivotIdx - begin) > (end - pivotIdx)) {
+        if (begin < pivotIdx - 1)
+          STACK_PUSH(stack, begin, pivotIdx - 1);
+        if (pivotIdx + 1 < end)
+          STACK_PUSH(stack, pivotIdx + 1, end);
+      } else {
+        if (pivotIdx + 1 < end)
+          STACK_PUSH(stack, pivotIdx + 1, end);
+        if (begin < pivotIdx - 1)
+          STACK_PUSH(stack, begin, pivotIdx - 1);
+      }
     }
   }
 }
