@@ -62,7 +62,7 @@ Value convertSoftmax<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
 template <typename SoftmaxOp>
 class ONNXSoftmaxLoweringToTOSA : public OpConversionPattern<SoftmaxOp> {
 public:
-  using ConversionPattern::ConversionPattern;
+  using OpConversionPattern<SoftmaxOp>::OpConversionPattern;
   using OpAdaptor = typename SoftmaxOp::Adaptor;
   LogicalResult matchAndRewrite(SoftmaxOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
