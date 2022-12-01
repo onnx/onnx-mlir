@@ -299,9 +299,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
   // Additional data for ShapeOp.
   int64_t start, end;
 };
-#endif
 
-#if DEPRECATED
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
   ONNXSliceOpShapeHelper(
@@ -314,9 +312,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
   // Additional data for SliceOp.
   llvm::SmallVector<IndexExpr, 4> starts, ends, steps;
 };
-#endif
 
-#if DEPRECATED
 // Shape for GemmOp. Rank of C is known, and its rank can be 0, 1,
 // or 2. Each of the dimensions of C can have 1 (broadcast) or
 // many (same size as position requires).
@@ -336,7 +332,6 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXGemmOp> {
   bool hasBias; // Whether there is a bias (aka C exists).
   int cRank;    // Dim of the original C (not padding dims by 1).
 };
-#endif
 
 template <typename OP_TYPE>
 struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
@@ -367,6 +362,8 @@ using ONNXMatMulIntegerOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
 using ONNXQLinearMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+#endif
 
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {

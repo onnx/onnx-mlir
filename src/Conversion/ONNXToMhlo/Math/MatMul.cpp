@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -33,11 +35,10 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
-    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = op->getLoc();
-    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    NewONNXMatMulOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeOrAssert();
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
@@ -55,7 +56,7 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
     llvm::BitVector aPadDims = shapeHelper.aPadDims;
     llvm::BitVector bPadDims = shapeHelper.bPadDims;
 
-    DimsExpr outputDims = shapeHelper.dimsForOutput();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
     llvm::SmallVector<int64_t, 4> aShapeList;
     llvm::SmallVector<int64_t, 4> bShapeList;
     llvm::SmallVector<int64_t, 4> outputShapeList;
