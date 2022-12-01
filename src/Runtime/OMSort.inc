@@ -137,7 +137,8 @@ typedef struct indexStack {
       fprintf(                                                                 \
           stderr, "<%ld:%ld>, ", stack.stackData[i], stack.stackData[i + 1]);  \
     }                                                                          \
-    fprintf(stderr, "] (Top=%ld,Size=%ld)\n", stack.stackTop, stack.stackSize);\
+    fprintf(                                                                   \
+        stderr, "] (Top=%ld,Size=%ld)\n", stack.stackTop, stack.stackSize);    \
     fflush(stderr);                                                            \
   } while (0)
 
