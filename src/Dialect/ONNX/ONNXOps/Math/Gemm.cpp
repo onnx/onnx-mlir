@@ -57,14 +57,12 @@ LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
       return op->emitError("Gemm with C should be a 1D or 2D tensor");
   }
   // Scan dimensions of A with/without transpose.
-  // hi alex MemRefBoundsIndexCapture ABounds(A);
   if (gemmOp.transA() == 0) {
     aDims = {createIE->getShapeAsDim(A, 0), createIE->getShapeAsDim(A, 1)};
   } else {
     aDims = {createIE->getShapeAsDim(A, 1), createIE->getShapeAsDim(A, 0)};
   }
   // Scan dimensions of B with/without transpose.
-  // hi alex MemRefBoundsIndexCapture BBounds(B);
   if (gemmOp.transB() == 0) {
     bDims = {createIE->getShapeAsDim(B, 0), createIE->getShapeAsDim(B, 1)};
   } else {
@@ -73,7 +71,6 @@ LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
   // Set output dims of result, creating a copy of it to be safe.
   outputDims = {aDims[0].deepCopy(), bDims[1].deepCopy()};
   // Bias C can be a (unidirectional) broadcast.
-  // hi alex MemRefBoundsIndexCapture CBounds(C);
   if (hasBias) {
     if (cRank == 0) {
       // Broadcast for scalar: both dims are 1.
