@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Runtime/OMSort.h"
 
 using namespace mlir;
 
@@ -72,8 +73,8 @@ struct ONNXTopKOpLowering : public ConversionPattern {
         insertDealloc);
 
     // Compute argsort of X along axis.
-    Value argsort =
-        emitArgSort(rewriter, loc, X, axis, /*ascending=*/ascendingMode);
+    Value argsort = emitArgSort(rewriter, loc, X, axis,
+        /*ascending=*/ascendingMode, /*algorithm=*/OMSORT_QUICKSORT);
 
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));

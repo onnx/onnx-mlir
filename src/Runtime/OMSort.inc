@@ -244,6 +244,48 @@ compareFuncType *getCompareFunction(uint64_t ascending, OM_DATA_TYPE dataType) {
   return compFunc;
 }
 
+uint64_t getDataSize(OM_DATA_TYPE dataType) {
+  uint64_t size = 0;
+  switch (dataType) {
+  case ONNX_TYPE_BOOL:
+    size = sizeof(bool);
+    break;
+  case ONNX_TYPE_UINT8:
+    size = sizeof(uint8_t);
+    break;
+  case ONNX_TYPE_INT8:
+    size = sizeof(int8_t);
+    break;
+  case ONNX_TYPE_UINT16:
+    size = sizeof(uint16_t);
+    break;
+  case ONNX_TYPE_INT16:
+    size = sizeof(int16_t);
+    break;
+  case ONNX_TYPE_UINT32:
+    size = sizeof(uint32_t);
+    break;
+  case ONNX_TYPE_INT32:
+    size = sizeof(int32_t);
+    break;
+  case ONNX_TYPE_UINT64:
+    size = sizeof(uint64_t);
+    break;
+  case ONNX_TYPE_INT64:
+    size = sizeof(int64_t);
+    break;
+  case ONNX_TYPE_FLOAT:
+    size = sizeof(float);
+    break;
+  case ONNX_TYPE_DOUBLE:
+    size = sizeof(double);
+    break;
+  default:
+    assert(false && "unexpected data type in getDataSize");
+  }
+  return size;
+}
+
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending, uint64_t algorithm) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
@@ -263,6 +305,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
 
   // Choose the appropriate compare function
   compareFuncType *compareElements = getCompareFunction(ascending, dataType);
+  uint64_t datasize = getDataSize(dataType);
 
   // Choose the sorting function
   sortFuncType *sortFunc = bubble_sort;
@@ -283,7 +326,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
   // the physical memory layout by inserting length=1 ranks at lower ranks.
-  // The sort axis is changed to 5 always.
+  // The 5th axis becomes the sort axis.
   int64_t shape[6] = {1, 1, 1, 1, 1, 1};
   int64_t strides[6] = {0, 0, 0, 0, 0, 0};
   for (uint64_t i = 0; i < rank; i++) {
@@ -300,8 +343,9 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
             uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
                            dim2 * strides[2] + dim3 * strides[3] +
                            dim4 * strides[4];
+            void *data = ((char *)dataPtr) + datasize * off;
             uint64_t *idx = order + off;
-            sortFunc(dataPtr, idx, sort_elems, compareElements);
+            sortFunc(data, idx, sort_elems, compareElements);
           }
         }
       }
