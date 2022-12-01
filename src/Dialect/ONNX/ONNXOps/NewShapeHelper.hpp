@@ -326,7 +326,6 @@ struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   virtual ~NewONNXGenericMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for MatMulOp: output = a * b.
-  OP_TYPE unusedOp;                      // hi alex, try to remove this.
   llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying padding.
   llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying padding.
   llvm::BitVector aPadDims;              // When true, that dim was padded.
