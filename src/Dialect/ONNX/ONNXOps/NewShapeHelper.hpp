@@ -332,4 +332,12 @@ struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::BitVector bPadDims;              // When true, that dim was padded.
 };
 
+// Type definition for the ops that uses NewONNXGenericMatMulOpShapeHelper.
+using NewONNXMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+using NewONNXMatMulIntegerOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+using NewONNXQLinearMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
 } // namespace onnx_mlir
