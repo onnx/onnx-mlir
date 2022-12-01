@@ -16,6 +16,10 @@
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -34,11 +38,12 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   if (!hasShapeAndRank(input))
     return success();
 
-  ONNXGenericOpUnaryShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.computeShape(input)))
+  IndexExprBuilderForAnalysis createIE(op->getLoc());
+  NewONNXUnaryOpShapeHelper shapeHelper(op, {}, &createIE);
+  if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
 
   // Inferred shape is getting from the input's shape.
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
@@ -392,7 +397,7 @@ LogicalResult ONNXPReluOp::inferShapes(
   getBroadcastedShape(xShape, slopeShape, shape);
   // Fine-tune.
   for (unsigned int i = 0; i < shape.size(); ++i)
-    if (xShape[i] != -1)
+    if (!ShapedType::isDynamic(xShape[i]))
       shape[i] = xShape[i];
 
   getResult().setType(RankedTensorType::get(

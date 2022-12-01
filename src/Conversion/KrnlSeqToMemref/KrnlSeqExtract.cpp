@@ -64,7 +64,7 @@ public:
       auto outputType = output.getType().cast<MemRefType>();
       SmallVector<mlir::Value, 4> allocParams;
       for (size_t i = 0; i < outputType.getShape().size(); i++) {
-        if (outputType.getShape()[i] == -1) {
+        if (outputType.isDynamicDim(i)) {
           allocParams.emplace_back(create.mem.dim(output, i));
         }
       }

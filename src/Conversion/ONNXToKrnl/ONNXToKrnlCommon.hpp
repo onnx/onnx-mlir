@@ -54,9 +54,11 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 
 struct OnnxToKrnlBuilder : public OnnxBuilder {
+  OnnxToKrnlBuilder(mlir::Location loc) : OnnxBuilder(loc) {}
   OnnxToKrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : OnnxBuilder(b, loc) {}
   OnnxToKrnlBuilder(DialectBuilder &db) : OnnxBuilder(db) {}
+  virtual ~OnnxToKrnlBuilder() {}
 
   // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
   // is provided by 'shapeDims'.
@@ -244,6 +246,11 @@ public:
     return llvm::all_of(call.getOperandTypes(), f) &&
            llvm::all_of(call.getResultTypes(), f);
   }
+
+  // Return the default alignment value used when allocating a MemRef buffer for
+  // the given type. E.g. some special types for accelerators requires
+  // 4K-aligned buffers.
+  static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
 
 //===----------------------------------------------------------------------===//
@@ -356,6 +363,8 @@ void populateLoweringONNXConstantOfShapeOpPattern(
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

@@ -31,7 +31,8 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder, MemRefBuilder, KrnlBuilder, MathBuilder>
+      create(b(), loc());
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -41,8 +42,8 @@ Value OnnxToKrnlBuilder::reshape(
     for (const IndexExpr &dim : shapeDims)
       shape.push_back(dim.getLiteral());
 
-    auto constantOp =
-        createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
+    auto constantOp = createONNXConstantOpWithDenseAttr(
+        b(), loc(), b().getI64TensorAttr(shape));
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -50,22 +51,18 @@ Value OnnxToKrnlBuilder::reshape(
     return reshapeRes;
   }
 
-  MemRefBuilder memRefBuilder(b, loc);
-  KrnlBuilder krnlBuilder(memRefBuilder);
-  MathBuilder createMath(b, loc);
-
   // When the output dimensions aren't all literals we need to generate code
-  // to compute the shape. Allocate a buffer and store the putput dimension
+  // to compute the shape. Allocate a buffer and store the output dimension
   // into it.
-  IndexType indexTy = b.getIndexType();
+  IndexType indexTy = b().getIndexType();
   int64_t length = shapeDims.size();
   memref::AllocOp alloc =
-      memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
+      create.mem.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = createMath.constant(indexTy, i);
+    Value index = create.math.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
-    krnlBuilder.store(data, alloc, index);
+    create.krnl.store(data, alloc, index);
   }
 
   // Now create the 'onnx.Reshape' operation. Because the shape is not a
@@ -80,7 +77,7 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(create.onnx.toMemref(reshapeRes),
+  Value castRes = create.mem.cast(create.onnx.toMemref(reshapeRes),
       MemRefType::get(castOutputShape, elementType));
 
   return castRes;
@@ -92,7 +89,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
          "Expecting valid permutation array");
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder> create(b(), loc());
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -103,7 +100,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   ShapedType inputType = input.getType().cast<ShapedType>();
   Value transposeRes =
       create.onnx.transpose(MemRefType::get(shape, inputType.getElementType()),
-          input, b.getI64ArrayAttr(perm));
+          input, b().getI64ArrayAttr(perm));
 
   return transposeRes;
 }
@@ -740,6 +737,23 @@ KrnlTypeConverter::KrnlTypeConverter() {
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
+}
+
+int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
+  int64_t alignment = -1;
+  if (auto tensorType = type.dyn_cast<TensorType>()) {
+    // Accelerators may have special versions of TensorType. Call the
+    // conversions of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      // The accelerator knows whether `tensorType` is its target or not to
+      // decide the aligment.
+      // -1 means the accelerator does not have a specific alignment.
+      alignment = accel->getDefaultAllocAlignment(tensorType);
+      if (alignment != -1)
+        break;
+    }
+  }
+  return alignment;
 }
 
 } // namespace onnx_mlir

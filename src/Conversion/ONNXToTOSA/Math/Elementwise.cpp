@@ -48,7 +48,8 @@ public:
 };
 
 template <typename ONNXOpT, typename TosaOpT>
-class ONNXAddSubOpLoweringToTOSA : public OpConversionPattern<ONNXOpT> {
+class ONNXBinaryElementwiseOpLoweringToTOSA
+    : public OpConversionPattern<ONNXOpT> {
 public:
   using OpConversionPattern<ONNXOpT>::OpConversionPattern;
   using OpAdaptor = typename ONNXOpT::Adaptor;
@@ -173,9 +174,9 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
-      ONNXAddSubOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
-      ONNXAddSubOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXLeakyReluOpLoweringToTOSA>(typeConverter, ctx);
 }
 

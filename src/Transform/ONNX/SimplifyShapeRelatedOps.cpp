@@ -58,13 +58,17 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#define DEBUG_TYPE "simplify_shape_related_ops"
 
 using namespace mlir;
 
@@ -125,9 +129,27 @@ void updateFunctionSignature(Operation *op) {
   }
 }
 
+/// Update the output shape using userDims.
+/// Return success if the output shape is updated. Otherwise, return failure.
+LogicalResult updateOutputType(
+    Value output, const SmallVectorImpl<int64_t> &userDims) {
+  // Try to update the output shape using userDims.
+  Type oldOutputType = output.getType();
+  updateType(output, userDims);
+  Type newOutputType = output.getType();
+
+  // No new output type is inferred.
+  if (newOutputType == oldOutputType)
+    return failure();
+
+  // Update the function signature if the output type changed.
+  updateFunctionSignature(output.getDefiningOp());
+  return success();
+}
+
 /// Rewrite onnx.Shape into onnx.Dim and onnx.Concat.
 //
-/// For example, the folowing onnx.Shape:
+/// For example, the following onnx.Shape:
 /// %0 = "onnx.Shape"(%arg0) : (tensor<?x256xi64>) -> tensor<2xi64>
 ///
 /// will be rewritten into:
@@ -157,9 +179,11 @@ public:
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
     // Get start and end values.
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
-    ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-    if (failed(shapeHelper.computeShape(operandAdaptor))) {
+    IndexExprBuilderForAnalysis createIE(loc);
+    NewONNXShapeOpShapeHelper shapeHelper(
+        shapeOp.getOperation(), {}, &createIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    if (failed(shapeComputed)) {
       shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
                         " parameters successfully");
       return failure();
@@ -169,8 +193,9 @@ public:
 
     SmallVector<Value, 4> dimValues;
     for (unsigned i = start; i < end; ++i) {
-      Value dimVal = (dims[i] != -1) ? create.onnx.constantInt64({dims[i]})
-                                     : create.onnx.dim(data, i);
+      Value dimVal = (ShapedType::isDynamic(dims[i]))
+                         ? create.onnx.dim(data, i)
+                         : create.onnx.constantInt64({dims[i]});
       dimValues.emplace_back(dimVal);
     }
     Value replacedValue = emitConcatOpForDims(create, dimValues, outputType);
@@ -418,11 +443,7 @@ public:
       return failure();
 
     // Rewrite
-    updateType(output, userDims);
-    // Update the function signature.
-    updateFunctionSignature(reshapeOp.getOperation());
-
-    return success();
+    return updateOutputType(output, userDims);
   }
 };
 
@@ -448,11 +469,7 @@ public:
       return failure();
 
     // Rewrite
-    updateType(output, userDims);
-    // Update the function signature.
-    updateFunctionSignature(cosOp.getOperation());
-
-    return success();
+    return updateOutputType(output, userDims);
   }
 };
 
@@ -493,7 +510,7 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
   patterns.insert<onnx_mlir::PassThroughGatherPattern>(context);
   patterns.insert<onnx_mlir::PassThroughSlicePattern>(context);
 
-  // Update Reshape's output shape using inferred dimensions.
+  // Update the output shape of the followring ops using inferred dimensions.
   patterns.insert<onnx_mlir::UpdateReshapePattern>(context);
   patterns.insert<onnx_mlir::UpdateConstantOfShapePattern>(context);
 

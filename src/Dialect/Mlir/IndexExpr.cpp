@@ -40,8 +40,8 @@ namespace onnx_mlir {
 
 // Initial scope.
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
-    : dims(), symbols(), rewriter(rewriter), loc(loc),
-      parentScope(getCurrentScopePtr()), container() {
+    : dims(), symbols(), rewriter(rewriter), parentScope(getCurrentScopePtr()),
+      loc(loc), container() {
   getCurrentScopePtr() = this;
 }
 
@@ -51,11 +51,19 @@ IndexExprScope::IndexExprScope(DialectBuilder &db)
 // Nested scopes.
 IndexExprScope::IndexExprScope(
     OpBuilder *innerRewriter, IndexExprScope *enclosingScope)
-    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope->loc),
-      parentScope(enclosingScope), container() {
-  // Check the enclosing scope is the current one.
-  assert(enclosingScope == getCurrentScopePtr() &&
-         "provided parent scope was not the previously active scope");
+    : dims(), symbols(), rewriter(innerRewriter),
+      parentScope(enclosingScope ? enclosingScope : getCurrentScopePtr()),
+      loc(parentScope->loc), container() {
+  // if (!parentScope)
+  //  // Enclosing scope not provided, fetch from environment.
+  //  parentScope = getCurrentScopePtr();
+  // else
+  // Check the provided enclosing scope is the current one.
+  assert(parentScope == getCurrentScopePtr() &&
+         "provided parent scope was not the enclosing active scope");
+  // Set location.
+  // assert(parentScope && "Use this constructor only for nested scopes");
+  // loc = parentScope->loc;
   // Install new inner scope as current one.
   getCurrentScopePtr() = this;
 }
@@ -390,7 +398,7 @@ void IndexExpr::debugPrint(
     const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
   LLVM_DEBUG({
     int s = list.size();
-    llvm::dbgs() << msg.c_str() << " (" << s << "elements)\n";
+    llvm::dbgs() << msg.c_str() << " (" << s << " elements)\n";
     for (int i = 0; i < s; ++i) {
       std::string element = "  " + std::to_string(i) + ": ";
       list[i].debugPrint(element);
@@ -1089,6 +1097,7 @@ LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Subclasses for constructing NonAffineIndexExpr.
 //===----------------------------------------------------------------------===//

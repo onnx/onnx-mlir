@@ -74,7 +74,7 @@ ArrayAttr getSqueezeOpAxesFromShape(
   for (unsigned int i = 0; i < shape.size(); ++i) {
     if (shape[i] == 1) {
       axes.emplace_back(i);
-    } else if (shape[i] == -1) {
+    } else if (ShapedType::isDynamic(shape[i])) {
       llvm_unreachable(
           "only static input shape currently supported with empty axes");
     }

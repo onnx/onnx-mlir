@@ -17,7 +17,7 @@ add_onnx_mlir_library(OMZHighOps
   libzdnn
 
   LINK_LIBS PRIVATE
-  Diagnostic
+  OMDiagnostic
 
   LINK_LIBS PUBLIC
   OMONNXOps # Use ONNXShapeHelper 

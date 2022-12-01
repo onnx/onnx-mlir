@@ -1256,7 +1256,7 @@ class EndiannessAwareExecutionSession(object):
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from PyRuntime import ExecutionSession
+        from PyRuntime import OMExecutionSession
 
         if len(inputs):
             inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -1274,7 +1274,7 @@ class EndiannessAwareExecutionSession(object):
                 inputs = self.turn_model_input_to_constant(inputs)
                 self.exec_name = compile_model(self.model, args.emit)
             if args.emit == "lib":
-                session = ExecutionSession(self.exec_name)
+                session = OMExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
                 # print('input='+str(inputs), file=sys.stderr)
                 # print('output='+str(outputs), file=sys.stderr)
@@ -1293,7 +1293,7 @@ class EndiannessAwareExecutionSession(object):
                 "Cannot deduce desired output endianness, using native endianness by default."
             )
             if args.emit == "lib":
-                session = ExecutionSession(self.exec_name)
+                session = OMExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
             elif args.emit == "jni":
                 outputs = JniExecutionSession(self.exec_name, inputs)

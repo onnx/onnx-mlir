@@ -287,13 +287,13 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           SmallVector<mlir::Value, 4> allocParams;
           SmallVector<int64_t, 4> dims;
           dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
-          if (output.getType().cast<MemRefType>().getShape()[0] == -1)
+          if (output.getType().cast<MemRefType>().isDynamicDim(0))
             allocParams.emplace_back(create.mem.dim(output, 0));
           for (auto i = 0;
                i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
             dims.emplace_back(
                 firstElement.getType().cast<MemRefType>().getShape()[i]);
-            if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
+            if (firstElement.getType().cast<MemRefType>().isDynamicDim(i))
               allocParams.emplace_back(create.mem.dim(firstElement, i));
           }
           ArrayRef<int64_t> shape(dims.data(), dims.size());
@@ -390,7 +390,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         SmallVector<mlir::Value, 4> allocParams;
 
         // Check the loop accumulation dimension
-        if (rankedScanOutTy.getShape()[0] == -1) {
+        if (rankedScanOutTy.isDynamicDim(0)) {
           // TODO(tjingrant): in general, it is not correct to expect
           // loop operation scan output to have the leading dimension extent
           // equal to the max trip count, due to the possibility of early
@@ -415,7 +415,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         // known All the related code will be marked with 'accumulation for
         // dynamic tensor'
         for (int i = 1; i < rankedScanOutTy.getRank(); i++) {
-          if (rankedScanOutTy.getShape()[i] == -1) {
+          if (rankedScanOutTy.isDynamicDim(i)) {
             isDynamic = true;
             break;
           }

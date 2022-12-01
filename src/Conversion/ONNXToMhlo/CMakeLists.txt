@@ -8,6 +8,7 @@ set(MHLO_LIBS
   MLIRMhloUtils
   MhloDialect
   MhloRegisterDialects
+  StablehloAssemblyFormat
   StablehloBase
   StablehloBroadcastUtils
   StablehloOps
@@ -23,6 +24,7 @@ install(TARGETS
 add_onnx_mlir_library(OMONNXToMhlo
   ConvertONNXToMhlo.cpp
   ONNXToMhloCommon.cpp
+  DialectBuilder.cpp
 
   Math/Elementwise.cpp
   Math/Gemm.cpp
@@ -48,7 +50,7 @@ add_onnx_mlir_library(OMONNXToMhlo
   Tensor/Unsqueeze.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   ${MHLO_LIBS}
   MLIRShapeDialect
   MLIRQuantDialect
@@ -62,7 +64,12 @@ add_onnx_mlir_library(OMONNXToMhlo
 # This is a workaround because MhloDialect has a dependency that is needed for
 # the shared libs build, but is currently missing.
 target_link_libraries(MhloDialect PUBLIC
-  MLIRSparseTensorDialect
+  StablehloAssemblyFormat
+  StablehloTypeInference
+  )
+
+target_link_libraries(StablehloTypeInference PUBLIC
+  StablehloBase
   )
 
 target_link_libraries(StablehloTypeInference PUBLIC

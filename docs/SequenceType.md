@@ -358,10 +358,10 @@ Script to run the test
 import numpy as np
 import onnx
 from onnx import numpy_helper
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 model = './seq_insert.so'
-sess = ExecutionSession(model)
+sess = OMExecutionSession(model)
 
 x1_np = np.random.randn(6, 4, 5).astype(np.float32)
 x2_np = np.random.randn(3, 4, 5).astype(np.float32)

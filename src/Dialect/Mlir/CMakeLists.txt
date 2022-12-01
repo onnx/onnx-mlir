@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMMlirDialects
   IndexExpr.cpp
   IndexExprDetail.cpp
+  IndexExprBuilder.cpp
   DialectBuilder.cpp
 
   DEPENDS
@@ -15,4 +16,5 @@ add_onnx_mlir_library(OMMlirDialects
   MLIRSCFDialect
   MLIRVectorDialect
   MLIRLLVMIRTransforms
+  MLIRShapeDialect
   )

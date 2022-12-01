@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEinsumOp::verify() {
-  einsum::ErrorFn errorFn = [this]() -> mlir::InFlightDiagnostic {
+  auto errorFn = [this]() -> mlir::InFlightDiagnostic {
     return this->emitOpError() << "equation '" << this->equation() << "': ";
   };
 
@@ -58,7 +58,7 @@ LogicalResult ONNXEinsumOp::inferShapes(
   if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
     return success(); // Can only infer once operand shapes are known.
 
-  einsum::ErrorFn errorFn = [this]() {
+  auto errorFn = [this]() {
     return this->emitOpError() << "equation '" << this->equation() << "': ";
   };
   FailureOr<einsum::Shape> shape =

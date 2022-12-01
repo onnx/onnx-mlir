@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-mhlo --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -10,6 +12,8 @@ func.func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> ten
 // CHECK-NEXT:    }
 }
 
+// -----
+
 func.func @test_add_dynamic(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
@@ -17,6 +21,8 @@ func.func @test_add_dynamic(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) 
 // CHECK:         [[VAR_0_:%.+]] = mhlo.add [[PARAM_0_:%.+]], [[PARAM_1_:%.+]] : tensor<?x10xf32>
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<?x10xf32>
 }
+
+// -----
 
 func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -28,6 +34,8 @@ func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:     return [[VAR_1_]] : tensor<10x10xf32>
 // CHECK-NEXT:   }
 }
+
+// -----
 
 func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
@@ -42,6 +50,8 @@ func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK-NEXT:   }
 }
 
+// -----
+
 func.func @test_exp(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -49,6 +59,8 @@ func.func @test_exp(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:         [[VAR_0_:%.+]] = mhlo.exponential [[PARAM_0_:%.+]] : tensor<10x10xf32>
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<10x10xf32>
 }
+
+// -----
 
 func.func @test_dynamic_exp(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
@@ -58,12 +70,16 @@ func.func @test_dynamic_exp(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<?x10xf32>
 }
 
+// -----
+
 func.func @test_sigmoid(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_sigmoid
 // CHECK:         [[VAR_0_:%.+]] = mhlo.logistic [[PARAM_0_:%.+]] : tensor<10x10xf32>
 }
+
+// -----
 
 func.func @test_dynamic_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
@@ -72,12 +88,16 @@ func.func @test_dynamic_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK:         [[VAR_0_:%.+]] = mhlo.logistic [[PARAM_0_:%.+]] : tensor<?x10xf32>
 }
 
+// -----
+
 func.func @test_abs(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
 // CHECK-LABEL:  func @test_abs
 // CHECK: %0 = mhlo.abs %arg0 : tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 }
+
+// -----
 
 func.func @test_dyn_abs(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
@@ -86,12 +106,16 @@ func.func @test_dyn_abs(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
 }
 
+// -----
+
 func.func @test_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<10x10xi1> {
   %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<10x10xi1>
 // CHECK-LABEL:  func @test_and
 // CHECK: %0 = mhlo.and %arg0, %arg1 : tensor<10x10xi1>
   "func.return"(%0) : (tensor<10x10xi1>) -> ()
 }
+
+// -----
 
 func.func @test_dyn_and(%arg0 : tensor<?x10xi1>, %arg1 : tensor<?x10xi1>) -> tensor<?x10xi1> {
   %0 = "onnx.And"(%arg0, %arg1) : (tensor<?x10xi1>, tensor<?x10xi1>) -> tensor<?x10xi1>
@@ -103,26 +127,34 @@ func.func @test_dyn_and(%arg0 : tensor<?x10xi1>, %arg1 : tensor<?x10xi1>) -> ten
 // CHECK-NEXT  %5 = mhlo.and %3, %4 : tensor<?x10xi1>
 }
 
+// -----
+
 func.func @cast_float(%arg0: tensor<2xf64>) -> tensor<2xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<2xf64>) -> tensor<2xf32>
   return %0 : tensor<2xf32>
 // CHECK-LABEL:  func @cast_float
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<2xf64>) -> tensor<2xf32>
+// CHECK:         %0 = mhlo.convert %arg0  : (tensor<2xf64>) -> tensor<2xf32>
 }
+
+// -----
 
 func.func @cast_int(%arg0: tensor<2xf32>) -> tensor<2xi32> {
   %0 = "onnx.Cast"(%arg0) {to = i32} : (tensor<2xf32>) -> tensor<2xi32>
   return %0 : tensor<2xi32>
 // CHECK-LABEL:  func @cast_int
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<2xf32>) -> tensor<2xi32>
+// CHECK:         %0 = mhlo.convert %arg0 : (tensor<2xf32>) -> tensor<2xi32>
 }
+
+// -----
 
 func.func @cast_dyn(%arg0: tensor<?x2xf64>) -> tensor<?x2xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<?x2xf64>) -> tensor<?x2xf32>
   return %0 : tensor<?x2xf32>
 // CHECK-LABEL:  func @cast_dyn
-// CHECK:         %0 = mhlo.convert(%arg0) : (tensor<?x2xf64>) -> tensor<?x2xf32>
+// CHECK:         %0 = mhlo.convert %arg0 : (tensor<?x2xf64>) -> tensor<?x2xf32>
 }
+
+// -----
 
 func.func @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Ceil"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
@@ -131,6 +163,8 @@ func.func @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK:         %0 = mhlo.ceil %arg0 : tensor<?x10xf32>
 }
 
+// -----
+
 func.func @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Cos"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
@@ -138,12 +172,16 @@ func.func @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 // CHECK:         %0 = mhlo.cosine %arg0 : tensor<?x10xf32>
 }
 
+// -----
+
 func.func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xi1> {
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
   return %0 : tensor<3x4x5xi1>
 // CHECK-LABEL:  func @test_less
 // CHECK:         %0 = mhlo.compare LT, %arg0, %arg1, NOTYPE : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
 }
+
+// -----
 
 func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>, %arg1: tensor<1x?x1xf32>) -> tensor<?x4x5xi1> {
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x4x5xf32>, tensor<1x?x1xf32>) -> tensor<?x4x5xi1>
@@ -155,6 +193,8 @@ func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5x
 
 }
 
+// -----
+
 func.func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<?x4x5xi1> {
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
   return %0 : tensor<?x4x5xi1>
@@ -164,6 +204,8 @@ func.func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x
 // CHECK: %5 = mhlo.compare LT, %3, %4, NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 }
 
+// -----
+
 func.func @test_pow_verifier_1(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<1x2x3x4xf32> {
   %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<1x2x3x4xf32>
   "func.return"(%0) : (tensor<1x2x3x4xf32>) -> ()
@@ -171,6 +213,8 @@ func.func @test_pow_verifier_1(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -
 // CHECK: %0 = "mhlo.broadcast_in_dim"(%arg1) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>) -> tensor<1x2x3x4xf32>
 // CHECK: %1 = mhlo.power %arg0, %0 : tensor<1x2x3x4xf32>
 }
+
+// -----
 
 func.func @test_mul_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x?xf32>) -> tensor<10x10xf32>
@@ -180,6 +224,8 @@ func.func @test_mul_unknown_dims(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x?x
 // CHECK: %3 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<10x?xf32>, tensor<2xindex>) -> tensor<10x10xf32>
 // CHECK: %4 = mhlo.multiply %arg0, %3 : tensor<10x10xf32>
 }
+
+// -----
 
 func.func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>

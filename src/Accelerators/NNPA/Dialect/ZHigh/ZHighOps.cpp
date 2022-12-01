@@ -615,7 +615,7 @@ LogicalResult ZHighLSTMOp::verify() {
   // Verify hidden size in W.
   if (hasRankedType(W)) {
     int64_t dim2 = W.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim2 != -1 && dim2 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 4))
       return failure();
   }
 
@@ -623,23 +623,23 @@ LogicalResult ZHighLSTMOp::verify() {
   if (hasRankedType(R)) {
     int64_t dim1 = R.getType().cast<RankedTensorType>().getShape()[1];
     int64_t dim2 = R.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim1 != -1 && dim1 != hiddenSize)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize))
       return failure();
-    if (dim2 != -1 && dim2 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 4))
       return failure();
   }
 
   // Verify hidden size in WB.
   if (!WB.getType().isa<NoneType>() && hasRankedType(WB)) {
     int64_t dim1 = WB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 4))
       return failure();
   }
 
   // Verify hidden size in RB.
   if (!RB.getType().isa<NoneType>() && hasRankedType(RB)) {
     int64_t dim1 = RB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 4)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 4))
       return failure();
   }
 
@@ -686,7 +686,7 @@ LogicalResult ZHighGRUOp::verify() {
   // Verify hidden size in W.
   if (hasRankedType(W)) {
     int64_t dim2 = W.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim2 != -1 && dim2 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 3))
       return failure();
   }
 
@@ -694,23 +694,23 @@ LogicalResult ZHighGRUOp::verify() {
   if (hasRankedType(R)) {
     int64_t dim1 = R.getType().cast<RankedTensorType>().getShape()[1];
     int64_t dim2 = R.getType().cast<RankedTensorType>().getShape()[2];
-    if (dim1 != -1 && dim1 != hiddenSize)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize))
       return failure();
-    if (dim2 != -1 && dim2 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim2) && (dim2 != hiddenSize * 3))
       return failure();
   }
 
   // Verify hidden size in WB.
   if (!WB.getType().isa<NoneType>() && hasRankedType(WB)) {
     int64_t dim1 = WB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 3))
       return failure();
   }
 
   // Verify hidden size in RB.
   if (!RB.getType().isa<NoneType>() && hasRankedType(RB)) {
     int64_t dim1 = RB.getType().cast<RankedTensorType>().getShape()[1];
-    if (dim1 != -1 && dim1 != hiddenSize * 3)
+    if (!ShapedType::isDynamic(dim1) && (dim1 != hiddenSize * 3))
       return failure();
   }
 
@@ -762,8 +762,8 @@ LogicalResult ZHighConv2DOp::verify() {
   if (!B.getType().isa<NoneType>() && hasRankedType(B) && hasRankedType(K)) {
     int64_t channelOutB = B.getType().cast<RankedTensorType>().getShape()[0];
     int64_t channelOutK = K.getType().cast<RankedTensorType>().getShape()[3];
-    if ((channelOutB != -1) && (channelOutK != -1) &&
-        (channelOutB != channelOutK))
+    if (!ShapedType::isDynamic(channelOutB) &&
+        !ShapedType::isDynamic(channelOutK) && (channelOutB != channelOutK))
       return failure();
   }
 
@@ -774,9 +774,9 @@ LogicalResult ZHighConv2DOp::verify() {
   if (hasRankedType(K)) {
     int64_t KH = K.getType().cast<RankedTensorType>().getShape()[0];
     int64_t KW = K.getType().cast<RankedTensorType>().getShape()[1];
-    if (KH != -1 && KH != attrKH)
+    if (!ShapedType::isDynamic(KH) && KH != attrKH)
       return failure();
-    if (KW != -1 && KW != attrKW)
+    if (!ShapedType::isDynamic(KW) && KW != attrKW)
       return failure();
   }
 
@@ -845,91 +845,6 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   updateType(getResult(), outputDims, inputType.getElementType(),
       inputType.getEncoding());
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// ConcatOp
-
-LogicalResult ZHighConcatOp::verify() {
-  ZHighConcatOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    if (!hasRankedType(operand)) {
-      // Won't be able to do any checking at this stage.
-      return success();
-    }
-  }
-
-  auto commonType =
-      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> commonShape = commonType.getShape();
-  int64_t commonRank = commonShape.size();
-  int64_t axisIndex = axis();
-
-  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
-  if (axisIndex < -commonRank || axisIndex >= commonRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(**this, "axis",
-        axisIndex,
-        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
-
-  if (axisIndex < 0)
-    axisIndex += commonRank;
-
-  for (const auto &operand : operandAdaptor.getOperands()) {
-    ArrayRef<int64_t> currShape =
-        operand.getType().cast<RankedTensorType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitError("Concat inputs must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex)
-        continue;
-      if (currShape[j] != -1 && commonShape[j] != -1 &&
-          currShape[j] != commonShape[j]) {
-        return emitError("Concat input dimensions must be all identical, "
-                         "except for dimension on the axis of the "
-                         "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << operand.getType() << " instead.";
-      }
-    }
-  }
-
-  return success();
-}
-
-LogicalResult ZHighConcatOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // The check of constraints is kept
-  // However, current check handles dynamic dim only for the concat dim
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!hasRankedType(getOperand(i)))
-      return success();
-  }
-  // Checking value of axis parameter.
-  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
-  auto commonShape = commonType.getShape();
-  int64_t commonRank = commonShape.size();
-  int64_t axisIndex = axis();
-  // Negative axis means values are counted from the opposite side.
-  if (axisIndex < 0) {
-    axisIndex = commonRank + axisIndex;
-    // Tong Chen:
-    // TOFIX: attribute modification should be into canonicalization
-    // I did not move the code into ShapeHelper
-    auto builder = mlir::Builder(getContext());
-    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-
-  ZHighConcatOpAdaptor operandAdaptor(*this);
-  ZHighConcatOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan Tile parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
-  updateType(getResult(), outputDims, commonType.getElementType(),
-      commonType.getEncoding());
   return success();
 }
 
