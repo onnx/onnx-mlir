@@ -218,6 +218,10 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 // Template instantiation; keep at the end of the file.
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+
 template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
 template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
 template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+} // namespace onnx_mlir
