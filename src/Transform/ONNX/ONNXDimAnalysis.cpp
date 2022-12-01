@@ -427,7 +427,7 @@ void DimAnalysis::visitDim(
 
   // GemmOp
   if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXGemmOp, NewONNXGemmOpShapeHelper>(
         dim, gemmOp, sameDims);
     return;
   }

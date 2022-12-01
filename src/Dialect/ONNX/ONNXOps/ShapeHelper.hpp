@@ -316,6 +316,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
 };
 #endif
 
+#if DEPRECATED
 // Shape for GemmOp. Rank of C is known, and its rank can be 0, 1,
 // or 2. Each of the dimensions of C can have 1 (broadcast) or
 // many (same size as position requires).
@@ -335,6 +336,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXGemmOp> {
   bool hasBias; // Whether there is a bias (aka C exists).
   int cRank;    // Dim of the original C (not padding dims by 1).
 };
+#endif
 
 template <typename OP_TYPE>
 struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {

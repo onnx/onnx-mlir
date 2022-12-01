@@ -296,4 +296,22 @@ struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::SmallVector<IndexExpr, 4> starts, ends, steps;
 };
 
+//===----------------------------------------------------------------------===//
+// Gemm Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXGemmOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXGemmOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXGemmOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for GemmOp: output = a * b.
+  llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying transpose.
+  llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying transpose.
+  llvm::SmallVector<IndexExpr, 4> cDims; // Dim after padding 1 when broadcast.
+  bool hasBias; // Whether there is a bias (aka C exists).
+  int cRank;    // Dim of the original C (not padding dims by 1).
+};
+
 } // namespace onnx_mlir
