@@ -46,11 +46,11 @@ func.func @test_beta(%arg0: tensor<3x6xf32>, %arg1: tensor<6x6xf32>, %arg2: tens
 
 // -----
 
-func.func @test_transA(%arg0: tensor<6x3xf32>, %arg1: tensor<6x4xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> { 
+func.func @test_transa(%arg0: tensor<6x3xf32>, %arg1: tensor<6x4xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> { 
   %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transA = 1 : si64} : (tensor<6x3xf32>, tensor<6x4xf32>, tensor<3x4xf32>) -> tensor<3x4xf32>
   return %0 : tensor<3x4xf32>
 }
-// CHECK-LABEL:  @test_transA(%arg0: tensor<6x3xf32>, %arg1: tensor<6x4xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> {
+// CHECK-LABEL:  @test_transa(%arg0: tensor<6x3xf32>, %arg1: tensor<6x4xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> {
 // CHECK-DAG:    %[[A:.*]] = "tosa.reshape"(%arg0) {new_shape = [1, 6, 3]} : (tensor<6x3xf32>) -> tensor<1x6x3xf32>
 // CHECK-DAG:    %[[B:.*]] = "tosa.reshape"(%arg1) {new_shape = [1, 6, 4]} : (tensor<6x4xf32>) -> tensor<1x6x4xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 2, 1]> : tensor<3xi32>} : () -> tensor<3xi32>
@@ -62,11 +62,11 @@ func.func @test_transA(%arg0: tensor<6x3xf32>, %arg1: tensor<6x4xf32>, %arg2: te
 
 // -----
   
-func.func @test_transB(%arg0: tensor<3x6xf32>, %arg1: tensor<4x6xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> {
+func.func @test_transb(%arg0: tensor<3x6xf32>, %arg1: tensor<4x6xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32> {
   %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.184 : f32, transB = 1 : si64} : (tensor<3x6xf32>, tensor<4x6xf32>, tensor<3x4xf32>) -> tensor<3x4xf32>
   return %0 : tensor<3x4xf32>
 }
-// CHECK-LABEL:  @test_transB(%arg0: tensor<3x6xf32>, %arg1: tensor<4x6xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32>
+// CHECK-LABEL:  @test_transb(%arg0: tensor<3x6xf32>, %arg1: tensor<4x6xf32>, %arg2: tensor<3x4xf32>) -> tensor<3x4xf32>
 // CHECK-DAG:    %[[A:.*]] = "tosa.reshape"(%arg0) {new_shape = [1, 3, 6]} : (tensor<3x6xf32>) -> tensor<1x3x6xf32>
 // CHECK-DAG:    %[[B:.*]] = "tosa.reshape"(%arg1) {new_shape = [1, 4, 6]} : (tensor<4x6xf32>) -> tensor<1x4x6xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 2, 1]> : tensor<3xi32>} : () -> tensor<3xi32>
@@ -80,12 +80,12 @@ func.func @test_transB(%arg0: tensor<3x6xf32>, %arg1: tensor<4x6xf32>, %arg2: te
 
 // -----
 
-func.func @test_no_C(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1x5xf32> {
+func.func @test_no_c(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1x5xf32> {
   %none = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Gemm"(%arg0, %arg1, %none) {beta = 1.664 : f32, transB = 1 : si64} : (tensor<1x5xf32>, tensor<5x5xf32>, none) -> tensor<1x5xf32>
   return %0 : tensor<1x5xf32>
 }
-// CHECK-LABEL:  @test_no_C(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1x5xf32> {
+// CHECK-LABEL:  @test_no_c(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1x5xf32> {
 // CHECK-DAG:    %[[A:.*]] = "tosa.reshape"(%arg0) {new_shape = [1, 1, 5]} : (tensor<1x5xf32>) -> tensor<1x1x5xf32>
 // CHECK-DAG:    %[[B:.*]] = "tosa.reshape"(%arg1) {new_shape = [1, 5, 5]} : (tensor<5x5xf32>) -> tensor<1x5x5xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 2, 1]> : tensor<3xi32>} : () 
