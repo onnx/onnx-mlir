@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,6 +25,63 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
+  ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
+  ONNXOneHotOpAdaptor operandAdaptor(operands);
+  Value indices = operandAdaptor.indices();
+
+  // hi alex MemRefBoundsIndexCapture indicesBounds(indices);
+  int64_t indicesRank = createIE->getTypeRank(indices);
+
+  // Axis is a required attribute and should have default value of -1.
+  axis = oneHotOp->axis();
+  if (axis < 0)
+    axis += indicesRank + 1;
+  assert(axis >= 0 && axis <= indicesRank && "tested in verify");
+
+  // xx fix from here
+  Value depthVal = operandAdaptor.depth();
+  DenseElementsAttr depthAttr = fGetDenseVal(depthVal);
+  if (depthAttr) {
+    Type depthType = depthVal.getType();
+    int64_t val = getScalarValue<int64_t>(depthAttr, depthType);
+    if (val < 1)
+      op->emitError("OneHot depth must be greater than 1");
+    depth = LiteralIndexExpr(val);
+  } else if (scope->isShapeInferencePass()) {
+    depth = QuestionmarkIndexExpr();
+  } else {
+    // Code gen phase, compute the value
+    MathBuilder createMath(scope->getRewriter(), op->getLoc());
+    Value val = fLoadVal(scope->getRewriter(), op->getLoc(), depthVal, 0);
+    // Specs allows depth to be any kind of ints or float. Must transform this
+    // to index type as it is used to define data types.
+    Value indexVal = createMath.castToIndex(val);
+    depth = DimIndexExpr(indexVal);
+  }
+
+  // Compute outputDims
+  int outputRank = indicesRank + 1;
+  DimsExpr outputDims(outputRank);
+  for (auto i = 0; i < outputRank; i++) {
+    DimIndexExpr dimOutput;
+    if (i == axis) {
+      dimOutput = depth;
+    } else if (i < axis) {
+      dimOutput = createIE->getShapeAsDim(indices, i);
+    } else {
+      dimOutput = createIE->getShapeAsDim(indices, i - 1);
+    }
+    outputDims[i] = dimOutput;
+  }
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+
+#if 1 // hi alex remove
 ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(
     ONNXOneHotOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXOneHotOp>(
@@ -88,6 +146,7 @@ LogicalResult ONNXOneHotOpShapeHelper::computeShape(
 
   return success();
 }
+#endif
 
 } // namespace onnx_mlir
 
@@ -148,6 +207,6 @@ LogicalResult ONNXOneHotOp::inferShapes(
     return success();
 
   auto elementType = values().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXOneHotOpShapeHelper, ONNXOneHotOp,
-      ONNXOneHotOpAdaptor>(*this, elementType);
+  NewONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

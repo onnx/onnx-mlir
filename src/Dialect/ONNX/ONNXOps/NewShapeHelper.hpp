@@ -354,11 +354,27 @@ struct NewONNXPadOpShapeHelper : public NewONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Value> operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
-
   virtual ~NewONNXPadOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for PadOp.
   llvm::SmallVector<IndexExpr, 4> pads;
+};
+
+//===----------------------------------------------------------------------===//
+// OneHot Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXOneHotOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXOneHotOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), axis(-1),
+        depth() {}
+  virtual ~NewONNXOneHotOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for OneHotOp.
+  int64_t axis;    // Default value.
+  IndexExpr depth; // Depth which may/may not be known at compile time.
 };
 
 } // namespace onnx_mlir
