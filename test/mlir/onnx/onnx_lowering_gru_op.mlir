@@ -4,8 +4,8 @@ func.func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-LABEL:  func private @test_gru_forward_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
 // CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
@@ -68,7 +68,7 @@ func.func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_41_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_41_]]#0, [[VAR_41_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[VAR_43_:%.+]] = affine.apply #map(){{.}}[[VAR_41_1_]]#1]
+// CHECK-DAG:           [[VAR_43_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_41_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_27_MEM_:%.+]] = krnl.load [[VAR_27_]]{{.}}[[VAR_41_1_]]#0, [[VAR_43_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_33_MEM_:%.+]] = krnl.load [[VAR_33_]]{{.}}[[VAR_41_1_]]#0, [[VAR_41_1_]]#1] : memref<2x4xf32>
@@ -105,7 +105,7 @@ func.func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:               [[VAR_51_1_:%.+]] = math.exp [[VAR_50_1_]] : f32
 // CHECK:               [[VAR_52_1_:%.+]] = arith.addf [[VAR_51_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_53_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_52_1_]] : f32
-// CHECK-DAG:           [[VAR_54_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_41_2_]]#1]
+// CHECK-DAG:           [[VAR_54_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_41_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_27_MEM_3_:%.+]] = krnl.load [[VAR_27_]]{{.}}[[VAR_41_2_]]#0, [[VAR_54_1_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_39_MEM_:%.+]] = krnl.load [[VAR_39_]]{{.}}[[VAR_41_2_]]#0, [[VAR_41_2_]]#1] : memref<2x4xf32>
@@ -135,8 +135,8 @@ func.func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64, linear_before_reset = 1 : si64} : (tensor<7x2x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-LABEL:  func private @test_gru_forward_mode_linear_before_reset
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
 // CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
@@ -202,10 +202,10 @@ func.func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3
 // CHECK:               [[VAR_39_:%.+]] = math.exp [[VAR_38_]] : f32
 // CHECK:               [[VAR_40_:%.+]] = arith.addf [[VAR_39_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_41_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_40_]] : f32
-// CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply #map(){{.}}[[VAR_29_1_]]#1]
+// CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_29_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_24_MEM_1_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_29_1_]]#0, [[VAR_42_]]{{.}} : memref<2x12xf32>
-// CHECK-DAG:           [[VAR_44_:%.+]] = affine.apply #map(){{.}}[[VAR_29_1_]]#1]
+// CHECK-DAG:           [[VAR_44_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_29_1_]]#1]
 // CHECK:               [[LOAD_VAR_27_MEM_1_:%.+]] = krnl.load [[VAR_27_]]{{.}}[[VAR_29_1_]]#0, [[VAR_44_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[VAR_46_:%.+]] = arith.addf [[LOAD_VAR_24_MEM_1_]], [[LOAD_VAR_27_MEM_1_]] : f32
 // CHECK-DAG:           [[LOAD_VAR_13_MEM_:%.+]] = krnl.load [[VAR_13_]]{{.}}[[VAR_29_1_]]#1] : memref<4xf32>
@@ -216,10 +216,10 @@ func.func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3
 // CHECK:               [[VAR_52_:%.+]] = math.exp [[VAR_51_]] : f32
 // CHECK:               [[VAR_53_:%.+]] = arith.addf [[VAR_52_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_54_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_53_]] : f32
-// CHECK-DAG:           [[VAR_55_:%.+]] = affine.apply #map1(){{.}}[[VAR_29_1_]]#1]
+// CHECK-DAG:           [[VAR_55_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_29_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_24_MEM_2_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_29_1_]]#0, [[VAR_55_]]{{.}} : memref<2x12xf32>
-// CHECK-DAG:           [[VAR_57_:%.+]] = affine.apply #map1(){{.}}[[VAR_29_1_]]#1]
+// CHECK-DAG:           [[VAR_57_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_29_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_27_MEM_2_:%.+]] = krnl.load [[VAR_27_]]{{.}}[[VAR_29_1_]]#0, [[VAR_57_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_17_MEM_:%.+]] = krnl.load [[VAR_17_]]{{.}}[[VAR_29_1_]]#1] : memref<4xf32>
@@ -252,8 +252,8 @@ func.func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<
 
   %Y, %Y_h = "onnx.GRU"(%arg0, %w, %r, %b, %cst, %arg1) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-LABEL:  func private @test_gru_forward_mode_constant_weight_and_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
 // CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
@@ -315,7 +315,7 @@ func.func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_40_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_40_1_]]#0, [[VAR_40_1_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply #map(){{.}}[[VAR_40_1_]]#1]
+// CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_40_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_26_MEM_:%.+]] = krnl.load [[VAR_26_]]{{.}}[[VAR_40_1_]]#0, [[VAR_42_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_32_MEM_:%.+]] = krnl.load [[VAR_32_]]{{.}}[[VAR_40_1_]]#0, [[VAR_40_1_]]#1] : memref<2x4xf32>
@@ -352,7 +352,7 @@ func.func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<
 // CHECK:               [[VAR_50_1_:%.+]] = math.exp [[VAR_49_1_]] : f32
 // CHECK:               [[VAR_51_1_:%.+]] = arith.addf [[VAR_50_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_52_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_51_1_]] : f32
-// CHECK-DAG:           [[VAR_53_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_40_2_]]#1]
+// CHECK-DAG:           [[VAR_53_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_40_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_26_MEM_3_:%.+]] = krnl.load [[VAR_26_]]{{.}}[[VAR_40_2_]]#0, [[VAR_53_1_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_38_MEM_:%.+]] = krnl.load [[VAR_38_]]{{.}}[[VAR_40_2_]]#0, [[VAR_40_2_]]#1] : memref<2x4xf32>
@@ -382,9 +382,9 @@ func.func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64, direction = "reverse"} : (tensor<7x2x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<(d0) -> (-d0 + 6)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map2 = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0) -> (-d0 + 6)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-LABEL:  func private @test_gru_reverse_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
 // CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
@@ -425,7 +425,7 @@ func.func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7){
 // CHECK:             [[VAR_22_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = affine.apply #map([[VAR_22_1_]])
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = affine.apply [[MAP_0_]]([[VAR_22_1_]])
 // CHECK-DAG:         [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[VAR_c0_]] to [[VAR_c3_]]){
@@ -448,7 +448,7 @@ func.func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_42_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_42_1_]]#0, [[VAR_42_1_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[VAR_44_:%.+]] = affine.apply #map1(){{.}}[[VAR_42_1_]]#1]
+// CHECK-DAG:           [[VAR_44_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_42_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_28_MEM_:%.+]] = krnl.load [[VAR_28_]]{{.}}[[VAR_42_1_]]#0, [[VAR_44_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_34_MEM_:%.+]] = krnl.load [[VAR_34_]]{{.}}[[VAR_42_1_]]#0, [[VAR_42_1_]]#1] : memref<2x4xf32>
@@ -485,7 +485,7 @@ func.func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:               [[VAR_52_1_:%.+]] = math.exp [[VAR_51_1_]] : f32
 // CHECK:               [[VAR_53_1_:%.+]] = arith.addf [[VAR_52_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_54_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_53_1_]] : f32
-// CHECK-DAG:           [[VAR_55_1_:%.+]] = affine.apply #map2(){{.}}[[VAR_42_2_]]#1]
+// CHECK-DAG:           [[VAR_55_1_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_42_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_28_MEM_3_:%.+]] = krnl.load [[VAR_28_]]{{.}}[[VAR_42_2_]]#0, [[VAR_55_1_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_40_MEM_:%.+]] = krnl.load [[VAR_40_]]{{.}}[[VAR_42_2_]]#0, [[VAR_42_2_]]#1] : memref<2x4xf32>
@@ -515,9 +515,9 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64, direction = "bidirectional"} : (tensor<7x2x3xf32>, tensor<2x12x3xf32>, tensor<2x12x4xf32>, tensor<2x24xf32>, none, tensor<2x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 8)>
-// CHECK-DAG: #map2 = affine_map<(d0) -> (-d0 + 6)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_2_:#.+]] = affine_map<(d0) -> (-d0 + 6)>
 // CHECK-LABEL:  func private @test_gru_bidirectional_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<2x12x3xf32>, [[PARAM_2_:%.+]]: memref<2x12x4xf32>, [[PARAM_3_:%.+]]: memref<2x24xf32>, [[PARAM_4_:%.+]]: memref<2x2x4xf32>) -> memref<2x2x4xf32> {
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
@@ -603,7 +603,7 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_62_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_62_1_]]#0, [[VAR_62_1_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[VAR_64_:%.+]] = affine.apply #map(){{.}}[[VAR_62_1_]]#1]
+// CHECK-DAG:           [[VAR_64_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_62_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_48_MEM_:%.+]] = krnl.load [[VAR_48_]]{{.}}[[VAR_62_1_]]#0, [[VAR_64_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_54_MEM_:%.+]] = krnl.load [[VAR_54_]]{{.}}[[VAR_62_1_]]#0, [[VAR_62_1_]]#1] : memref<2x4xf32>
@@ -640,7 +640,7 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
 // CHECK:               [[VAR_72_1_:%.+]] = math.exp [[VAR_71_1_]] : f32
 // CHECK:               [[VAR_73_1_:%.+]] = arith.addf [[VAR_72_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_74_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_73_1_]] : f32
-// CHECK-DAG:           [[VAR_75_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_62_2_]]#1]
+// CHECK-DAG:           [[VAR_75_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_62_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_48_MEM_3_:%.+]] = krnl.load [[VAR_48_]]{{.}}[[VAR_62_2_]]#0, [[VAR_75_1_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_60_MEM_:%.+]] = krnl.load [[VAR_60_]]{{.}}[[VAR_62_2_]]#0, [[VAR_62_2_]]#1] : memref<2x4xf32>
@@ -662,7 +662,7 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
 // CHECK:           [[LOOP_5_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_9_:%.+]] = 0 to 7){
 // CHECK:             [[VAR_43_2_:%.+]] = krnl.get_induction_var_value([[LOOP_5_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[RES_3_:%.+]] = affine.apply #map2([[VAR_43_2_]])
+// CHECK-DAG:         [[RES_3_:%.+]] = affine.apply [[MAP_2_]]([[VAR_43_2_]])
 // CHECK-DAG:         [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[LOOP_6_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_6_]]#1 -> [[I_11_:%.+]] = [[VAR_c0_]] to [[VAR_c3_]]){
@@ -685,7 +685,7 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
 // CHECK:             krnl.iterate([[LOOP_7_]]#0, [[LOOP_7_]]#1) with ([[LOOP_7_]]#0 -> [[I_12_:%.+]] = [[VAR_c0_]] to [[VAR_c2_]], [[LOOP_7_]]#1 -> [[I_13_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[LOAD_PARAM_0_MEM_1_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_7_]]#0, [[LOOP_7_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_2_:%.+]] = krnl.load [[RES_2_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[LOAD_VAR_48_MEM_2_:%.+]] = affine.apply #map(){{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1]
+// CHECK-DAG:           [[LOAD_VAR_48_MEM_2_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_54_MEM_1_:%.+]] = krnl.load [[VAR_49_1_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_VAR_48_MEM_2_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[VAR_67_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
@@ -722,7 +722,7 @@ func.func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: 
 // CHECK:               [[VAR_73_3_:%.+]] = math.exp [[VAR_72_3_]] : f32
 // CHECK:               [[VAR_74_3_:%.+]] = arith.addf [[VAR_73_3_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_75_3_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_74_3_]] : f32
-// CHECK-DAG:           [[VAR_76_2_:%.+]] = affine.apply #map1(){{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#1]
+// CHECK-DAG:           [[VAR_76_2_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_60_MEM_1_:%.+]] = krnl.load [[VAR_49_1_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#0, [[VAR_76_2_]]{{.}} : memref<2x12xf32>
 // CHECK-DAG:           [[VAR_78_1_:%.+]] = krnl.load [[LOOP_4_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_1_]]#1] : memref<2x4xf32>
@@ -759,9 +759,9 @@ func.func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64} : (tensor<?x?x?xf32>, tensor<1x12x?xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG: #map = affine_map<(d0) -> (d0)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 4)>
-// CHECK-DAG: #map2 = affine_map<()[s0] -> (s0 + 8)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 4)>
+// CHECK-DAG: [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-LABEL:  func private @test_gru_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf32>, [[PARAM_1_:%.+]]: memref<1x12x?xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x?x4xf32> {
 // CHECK-DAG:       [[VAR_c16_i64_:%.+]] = arith.constant 16 : i64
@@ -780,7 +780,7 @@ func.func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?x4xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map([[VAR_5_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_5_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){
 // CHECK:             [[VAR_27_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[VAR_c0_]], [[VAR_27_]]#0, [[VAR_27_]]#1] : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[RES_1_]]{{.}}[[VAR_27_]]#0, [[VAR_27_]]#1] : memref<?x4xf32>
@@ -804,7 +804,7 @@ func.func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK-DAG:       [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_16_]]#5 : tensor<4xf32> to memref<4xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:       [[VAR_24_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x?x?xf32>
-// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to #map([[VAR_24_]])){
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to [[MAP_0_]]([[VAR_24_]])){
 // CHECK-DAG:         [[VAR_27_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<?x?x?xf32>
 // CHECK-DAG:         [[VAR_29_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c2_]] : memref<?x?x?xf32>
@@ -831,7 +831,7 @@ func.func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_5_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c4_]]){
 // CHECK:               [[VAR_48_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_48_1_]]#0, [[VAR_48_1_]]#1] : memref<?x4xf32>
-// CHECK-DAG:           [[VAR_50_:%.+]] = affine.apply #map1(){{.}}[[VAR_48_1_]]#1]
+// CHECK-DAG:           [[VAR_50_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_48_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_34_MEM_:%.+]] = krnl.load [[VAR_34_]]{{.}}[[VAR_48_1_]]#0, [[VAR_50_]]{{.}} : memref<?x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_40_MEM_:%.+]] = krnl.load [[VAR_40_]]{{.}}[[VAR_48_1_]]#0, [[VAR_48_1_]]#1] : memref<?x4xf32>
@@ -868,7 +868,7 @@ func.func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK:               [[VAR_58_1_:%.+]] = math.exp [[VAR_57_1_]] : f32
 // CHECK:               [[VAR_59_1_:%.+]] = arith.addf [[VAR_58_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_60_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_59_1_]] : f32
-// CHECK-DAG:           [[VAR_61_1_:%.+]] = affine.apply #map2(){{.}}[[VAR_48_2_]]#1]
+// CHECK-DAG:           [[VAR_61_1_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_48_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_34_MEM_3_:%.+]] = krnl.load [[VAR_34_]]{{.}}[[VAR_48_2_]]#0, [[VAR_61_1_]]{{.}} : memref<?x12xf32>
 // CHECK-DAG:           [[LOAD_VAR_46_MEM_:%.+]] = krnl.load [[VAR_46_]]{{.}}[[VAR_48_2_]]#0, [[VAR_48_2_]]#1] : memref<?x4xf32>
@@ -900,8 +900,8 @@ func.func @gru_default_backend(%arg0: tensor<1x3x2xf32>, %arg1: tensor<1x15x2xf3
     %0 = "onnx.NoValue"() {value} : () -> none
     %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %0, %0, %0) {hidden_size = 5 : si64} : (tensor<1x3x2xf32>, tensor<1x15x2xf32>, tensor<1x15x5xf32>, none, none, none) -> (none, tensor<1x3x5xf32>)
     return %Y_h : tensor<1x3x5xf32>
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 + 5)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 + 10)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 + 5)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 + 10)>
 // CHECK-LABEL:  func @gru_default_backend
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x3x2xf32>, [[PARAM_1_:%.+]]: memref<1x15x2xf32>, [[PARAM_2_:%.+]]: memref<1x15x5xf32>) -> memref<1x3x5xf32> {
 // CHECK-DAG:       [[VAR_c60_i64_:%.+]] = arith.constant 60 : i64
@@ -954,7 +954,7 @@ func.func @gru_default_backend(%arg0: tensor<1x3x2xf32>, %arg1: tensor<1x15x2xf3
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[VAR_c0_]] to [[VAR_c3_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[VAR_c0_]] to [[VAR_c5_]]){
 // CHECK:               [[VAR_32_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_1_]]{{.}}[[VAR_32_1_]]#0, [[VAR_32_1_]]#1] : memref<3x5xf32>
-// CHECK-DAG:           [[VAR_34_:%.+]] = affine.apply #map(){{.}}[[VAR_32_1_]]#1]
+// CHECK-DAG:           [[VAR_34_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_32_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_18_MEM_:%.+]] = krnl.load [[VAR_18_]]{{.}}[[VAR_32_1_]]#0, [[VAR_34_]]{{.}} : memref<3x15xf32>
 // CHECK-DAG:           [[LOAD_VAR_24_MEM_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_32_1_]]#0, [[VAR_32_1_]]#1] : memref<3x5xf32>
@@ -981,7 +981,7 @@ func.func @gru_default_backend(%arg0: tensor<1x3x2xf32>, %arg1: tensor<1x15x2xf3
 // CHECK:               [[VAR_38_1_:%.+]] = math.exp [[VAR_37_1_]] : f32
 // CHECK:               [[VAR_39_1_:%.+]] = arith.addf [[VAR_38_1_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_40_1_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_39_1_]] : f32
-// CHECK-DAG:           [[VAR_41_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_32_2_]]#1]
+// CHECK-DAG:           [[VAR_41_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_32_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_VAR_18_MEM_3_:%.+]] = krnl.load [[VAR_18_]]{{.}}[[VAR_32_2_]]#0, [[VAR_41_1_]]{{.}} : memref<3x15xf32>
 // CHECK-DAG:           [[LOAD_VAR_30_MEM_:%.+]] = krnl.load [[VAR_30_]]{{.}}[[VAR_32_2_]]#0, [[VAR_32_2_]]#1] : memref<3x5xf32>
