@@ -221,7 +221,7 @@ Type OnnxBuilder::toTensor(Type input) const {
   assert(input.isa<MemRefType>() &&
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.cast<ShapedType>();
-  mlir::Type elementTy = aTy.getElementType();
+  Type elementTy = aTy.getElementType();
   if (elementTy.isa<IndexType>()) {
     elementTy = b().getIntegerType(64);
   }
@@ -320,7 +320,7 @@ Value OnnxBuilder::reshapeToNDim(
 // =============================================================================
 
 // Return null if none is found.
-DenseElementsAttr IndexExprBuilderForAnalysis::getConst(mlir::Value value) {
+DenseElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
   return getDenseElementAttributeFromONNXValue(value);
 }
 

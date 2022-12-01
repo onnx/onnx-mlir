@@ -71,15 +71,14 @@ IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intArrayVal.
 
-uint64_t IndexExprBuilder::getIntArrayRank(Value intArrayVal) {
-  assert(hasShapeAndRank(intArrayVal) && "expected shaped type with rank");
-  ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
+uint64_t IndexExprBuilder::getTypeRank(Value arrayVal) {
+  assert(hasShapeAndRank(arrayVal) && "expected shaped type with rank");
   // Find shaped type size (rank of 0 is scalar).
-  return shapeType.getRank();
+  return arrayVal.getType().cast<ShapedType>().getRank();
 }
 
 uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
-  uint64_t rank = getIntArrayRank(intArrayVal);
+  uint64_t rank = getTypeRank(intArrayVal);
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;
@@ -112,14 +111,14 @@ IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
 }
 
 void IndexExprBuilder::getIntArrayAsSymbols(
-    Value intArrayVal, IndexExprList &list, int64_t listSize) {
+    Value intArrayVal, IndexExprList &list, int64_t len) {
   list.clear();
   uint64_t size = getIntArraySize(intArrayVal);
-  if (listSize == -1) // Meaning pick up the full size of the list.
-    listSize = size;
+  if (len == -1) // Meaning pick up the full size of the list.
+    len = size;
   else
-    assert((uint64_t)listSize <= size && "requesting too many elements");
-  for (uint64_t i = 0; i < (uint64_t)listSize; ++i) {
+    assert((uint64_t)len <= size && "requesting too many elements");
+  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);

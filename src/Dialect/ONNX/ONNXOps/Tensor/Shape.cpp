@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -33,71 +35,64 @@ namespace {
 // of negative axis). Thus, specifying any end value > r is equivalent to
 // specifying an end value of r, and specifying any start value < -r is
 // equivalent to specifying a start value of 0."
-int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
+static int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
   if (axis < 0)
     axis += rank;
-
   if (axis < 0)
     axis = 0;
-
   if (axis > rank)
     axis = rank;
-
   return axis;
 }
 
 } // namespace
 
-// Compute a slice of the input tensor's shape. The slice starts from axis 0.
-// The axes up to the last one will be included. Negative axes indicate counting
-// back from the last axis.
-std::pair<int64_t, int64_t> getDataShapeBounds(
-    ONNXShapeOpAdaptor &operandAdaptor) {
+LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
+  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
-  int64_t rank = dataBounds.getRank();
 
-  // Compute the normalized start/end. Negative value means counting
-  // dimensions from the back.
-  int64_t start = operandAdaptor.start();
-  int64_t end = rank;
-  if (operandAdaptor.end().has_value()) {
-    end = operandAdaptor.end().value();
-  }
+  // Compute and store start/end in NewONNXShapeOpShapeHelper object.
+  int64_t rank = createIE->getShapeRank(data);
+  start = shapeOp.start();
+  start = normalizeClampedPerSpec(start, rank);
+  end = shapeOp.end().has_value() ? shapeOp.end().value() : rank;
+  end = normalizeClampedPerSpec(end, rank);
+  if (start > end)
+    return op->emitError("Start must not be greater than end");
 
-  return std::make_pair(
-      normalizeClampedPerSpec(start, rank), normalizeClampedPerSpec(end, rank));
-}
-
-LogicalResult ONNXShapeOpShapeHelper::computeShape(
-    ONNXShapeOpAdaptor operandAdaptor) {
-  Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
-
-  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
-
-  assert(start <= end && "Start must not be greater than end");
-
-  // Output is the actual number of values (1D)
-  dimsForOutput().emplace_back(LiteralIndexExpr(end - start));
-
+  // Output shape is a 1D vector with "end-start" values
+  DimsExpr outputDims(1, LiteralIndexExpr(end - start));
+  setOutputDims(outputDims);
   return success();
 }
 
-// Compute the data selected by the Shape operator.
-DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
-  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
-  int64_t start;
-  int64_t end;
-  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
-  assert(start >= 0 && start <= end && end <= (int64_t)dataBounds.getRank() &&
-         "Unexpected bounds");
+void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
+    DimsExpr &selectedDataShape) {
+  assert(start != -1 && end != -1 && "must compute shape first");
+  ONNXShapeOpAdaptor operandAdaptor(operands);
+  Value data = operandAdaptor.data();
 
-  DimsExpr selectedData;
+  selectedDataShape.clear();
   for (int64_t i = start; i < end; ++i)
-    selectedData.emplace_back(dataBounds.getDim(i));
+    selectedDataShape.emplace_back(createIE->getShapeAsDim(data, i));
+}
 
-  return selectedData;
+/* static */ void NewONNXShapeOpShapeHelper::getStartEndValues(
+    ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal) {
+  // Get rank of data operand.
+  ONNXShapeOpAdaptor operandAdaptor(shapeOp);
+  Value data = operandAdaptor.data();
+  ShapedType shapedType = data.getType().dyn_cast_or_null<ShapedType>();
+  assert(shapedType && shapedType.hasRank() && "need shaped type with rank");
+  int64_t rank = shapedType.getRank();
+  // Compute the normalized start/end. Negative value means counting
+  // dimensions from the back.
+  startVal = operandAdaptor.start();
+  startVal = normalizeClampedPerSpec(startVal, rank);
+  endVal =
+      operandAdaptor.end().has_value() ? operandAdaptor.end().value() : rank;
+  endVal = normalizeClampedPerSpec(endVal, rank);
 }
 
 } // namespace onnx_mlir
@@ -109,10 +104,8 @@ DimsExpr computeSelectedData(ONNXShapeOpAdaptor &operandAdaptor) {
 LogicalResult ONNXShapeOp::verify() {
   if (!data().getType().isa<RankedTensorType>())
     return success();
-  ONNXShapeOpAdaptor operandAdaptor(*this);
-  int64_t start;
-  int64_t end;
-  std::tie(start, end) = getDataShapeBounds(operandAdaptor);
+  int64_t start, end;
+  NewONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
   if (start > end)
     return emitOpError() << "Start: " << start << " is after End: " << end;
   return success();
@@ -130,6 +123,7 @@ LogicalResult ONNXShapeOp::inferShapes(
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   auto elementType = IntegerType::get(getContext(), 64);
-  return shapeHelperInferShapes<ONNXShapeOpShapeHelper, ONNXShapeOp,
-      ONNXShapeOpAdaptor>(*this, elementType);
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
