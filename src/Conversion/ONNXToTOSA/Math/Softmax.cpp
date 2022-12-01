@@ -30,7 +30,7 @@ Value convertSoftmax(PatternRewriter &rewriter, Operation *op,
     RankedTensorType rsumType, const Value &op1ExpIn, int axis,
     int32_t inputRank) = delete;
 
-// The old version of softmax reduces axis and every dimension following
+// Before opset 13, softmax reduces axis and every dimension following.
 template <>
 Value convertSoftmax<ONNXSoftmaxV11Op>(PatternRewriter &rewriter, Operation *op,
     RankedTensorType rsumType, const Value &op1ExpIn, int axis,
@@ -50,7 +50,7 @@ Value convertSoftmax<ONNXSoftmaxV11Op>(PatternRewriter &rewriter, Operation *op,
   return reducedSum;
 }
 
-// The new version uses axis as the reduce axis
+// From opset 13, softmax uses axis as the reduce axis.
 template <>
 Value convertSoftmax<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
     RankedTensorType rsumType, const Value &op1ExpIn, int axis,
