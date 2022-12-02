@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 
 # Load the model mnist.so compiled with onnx-mlir.
 model = './mnist.so'
-session = ExecutionSession(model)
+session = OMExecutionSession(model)
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
 print("input signature in json", session.input_signature())

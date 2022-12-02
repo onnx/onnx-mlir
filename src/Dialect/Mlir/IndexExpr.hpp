@@ -256,6 +256,15 @@ Note that in both case, runtime values may be "question marks" during the shape
 inference part as no code may be generated during such phases.
 */
 
+/* Dialect use in Index Expression stack (when generating ops)
+   IndexExpr.cpp:
+     Arithmetic: cmp, add, sub, mul, floor/ceil div, rem, and, or, select
+     Affine: affine min/max
+   IndexExprImpl.cpp:
+     Arithmetic: constant, constant index, index cast.
+     Affine: affine apply
+*/
+
 #pragma once
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -322,9 +331,9 @@ public:
   // null if we cannot generate code at this time) and location.
   IndexExprScope(mlir::OpBuilder *rewriter, mlir::Location loc);
   IndexExprScope(DialectBuilder &db);
-  // Constructor for subsequent nested scopes. Providing enclosing scope is not
-  // necessary; it is provided for convenience if a user prefer to name the
-  // enclosing scope explicitly.
+  // Constructor for subsequent nested scopes. Providing enclosing scope is
+  // technically not necessary (nullptr can be passed); it is used to allow a
+  // user to explicitly name the enclosing scope.
   IndexExprScope(mlir::OpBuilder *rewriter, IndexExprScope *enclosingScope);
   IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
@@ -373,10 +382,10 @@ private:
   llvm::SmallVector<mlir::Value, 4> symbols;
   // Rewriter, null when during shape inference; otherwise used to create ops.
   mlir::OpBuilder *rewriter;
-  // Location for ops rewriting.
-  mlir::Location loc;
   // Parent scope (used when creating a child scope).
   IndexExprScope *parentScope;
+  // Location for ops rewriting.
+  mlir::Location loc;
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon scope destruction.
   llvm::SmallVector<IndexExprImpl *, 20> container;
@@ -408,7 +417,7 @@ public:
   IndexExpr(IndexExpr &&obj) noexcept : indexExprObj(obj.indexExprObj) {
     obj.indexExprObj = nullptr;
   }
-  virtual ~IndexExpr() {}
+  virtual ~IndexExpr() = default;
   IndexExpr &operator=(const IndexExpr &) = default;
   IndexExpr &operator=(IndexExpr &&) = default;
 
@@ -579,6 +588,7 @@ protected:
 class UndefinedIndexExpr : public IndexExpr {
 public:
   UndefinedIndexExpr();
+  virtual ~UndefinedIndexExpr() = default;
 };
 
 // Subclass to explicitly create affine literal IndexExpr. For predicate literal
@@ -598,7 +608,7 @@ public:
   LiteralIndexExpr(SymbolIndexExpr const &o);
 
   LiteralIndexExpr(LiteralIndexExpr &&) = delete;
-  ~LiteralIndexExpr() = default;
+  virtual ~LiteralIndexExpr() = default;
   LiteralIndexExpr &operator=(const LiteralIndexExpr &) = delete;
   LiteralIndexExpr &operator=(LiteralIndexExpr &&) = delete;
 
@@ -622,7 +632,7 @@ public:
   NonAffineIndexExpr(SymbolIndexExpr const &o);
 
   NonAffineIndexExpr(NonAffineIndexExpr &&) = delete;
-  ~NonAffineIndexExpr() = default;
+  virtual ~NonAffineIndexExpr() = default;
   NonAffineIndexExpr &operator=(const NonAffineIndexExpr &) = delete;
   NonAffineIndexExpr &operator=(NonAffineIndexExpr &&) = delete;
 
@@ -650,7 +660,7 @@ public:
   QuestionmarkIndexExpr(SymbolIndexExpr const &o);
 
   QuestionmarkIndexExpr(QuestionmarkIndexExpr &&) = delete;
-  ~QuestionmarkIndexExpr() = default;
+  virtual ~QuestionmarkIndexExpr() = default;
   QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
   QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
 
@@ -683,7 +693,7 @@ public:
   PredicateIndexExpr(SymbolIndexExpr const &o);
 
   PredicateIndexExpr(PredicateIndexExpr &&) = delete;
-  ~PredicateIndexExpr() = default;
+  virtual ~PredicateIndexExpr() = default;
   PredicateIndexExpr &operator=(const PredicateIndexExpr &) = delete;
   PredicateIndexExpr &operator=(PredicateIndexExpr &&) = delete;
 
@@ -707,7 +717,7 @@ public:
   AffineIndexExpr(SymbolIndexExpr const &o);
 
   AffineIndexExpr(AffineIndexExpr &&) = delete;
-  ~AffineIndexExpr() = default;
+  virtual ~AffineIndexExpr() = default;
   AffineIndexExpr &operator=(const AffineIndexExpr &) = delete;
   AffineIndexExpr &operator=(AffineIndexExpr &&) = delete;
 
@@ -731,7 +741,7 @@ public:
   DimIndexExpr(SymbolIndexExpr const &o);
 
   DimIndexExpr(DimIndexExpr &&) = default;
-  ~DimIndexExpr() = default;
+  virtual ~DimIndexExpr() = default;
   DimIndexExpr &operator=(const DimIndexExpr &) = default;
   DimIndexExpr &operator=(DimIndexExpr &&) = default;
 
@@ -755,7 +765,7 @@ public:
   SymbolIndexExpr(SymbolIndexExpr const &o);
 
   SymbolIndexExpr(SymbolIndexExpr &&) = default;
-  ~SymbolIndexExpr() = default;
+  virtual ~SymbolIndexExpr() = default;
   SymbolIndexExpr &operator=(const SymbolIndexExpr &) = delete;
   SymbolIndexExpr &operator=(SymbolIndexExpr &&) = delete;
 

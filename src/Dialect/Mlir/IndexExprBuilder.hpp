@@ -30,33 +30,39 @@
 
 namespace onnx_mlir {
 
-//===----------------------------------------------------------------------===//
-// IndexShapeBuilder
-//===----------------------------------------------------------------------===//
+// ===----------------------------------------------------------------------===//
+//  IndexShapeBuilder
+// ===----------------------------------------------------------------------===/
 
-// IndexExprBuilder is used to extract index expressions for computations
-// typically related to shapes. This class defines all the algorithms but rely
-// on subclass to extract "runtime" values. Methods are provided to return
-// literal/symbol/dim index expressions related to operation attributes,
-// operation operands, and the shape of operands.
+/*
+  IndexExprBuilder is used to extract index expressions for computations
+  typically related to shapes. This class defines all the algorithms but rely
+  on subclass to extract "runtime" values. Methods are provided to return
+  literal/symbol/dim index expressions related to operation attributes,
+  operation operands, and the shape of operands
+  Recall that literals are compile-time integer values, and symbol and dim are
+  runtime values. The difference between symbol/dim related to affine
+  expression; symbol is not changing in the given context (e.g. batch size in a
+  given loop), and dim are changing (e.g. the loop index inside a given loop).
 
-// Recall that literals are compile-time integer values, and symbol and dim are
-// runtime values. The difference between symbol/dim related to affine
-// expression; symbol is not changing in the given context (e.g. batch size in a
-// given loop), and dim are changing (e.g. the loop index inside a given loop).
-//
-// This class cannot be directly used, and must be refined by subclasses.
-//
-// A first subclass is IndexExprBuilderForAnalysis and is used during the
-// analysis phase; runtime values are described by questionmark index
-// expressions.
-//
-// Other subclasses (e.g. IndexExprBuilderForKrnl) generate dialect operations
-// (e.g. Krnl ops) to generate code that compute runtime values.
-//
-// Subclasses simply have to define three virtual functions: getConst, getVal,
-// and getShape to provide the proper values for the methods defined in this
-// class.
+  This class cannot be directly used, and must be refined by subclasses.
+
+  A first subclass is IndexExprBuilderForAnalysis and is used during the
+  analysis phase; runtime values are described by questionmark index
+  expressions.
+
+  Other subclasses (e.g. IndexExprBuilderForKrnl) generate dialect operations
+  (e.g. Krnl ops) to generate code that compute runtime values.
+
+  Subclasses simply have to define three virtual functions: getConst, getVal,
+  and getShape to provide the proper values for the methods defined in this
+  class.
+*/
+
+/* Dialect use:
+   None here except for what is possibly generated in the virtual subclass
+   method implementation for getConst, getVal, getShapeVal.
+*/
 
 struct IndexExprBuilder : DialectBuilder {
   // Constructor for analysis (no code generation).
@@ -85,6 +91,11 @@ struct IndexExprBuilder : DialectBuilder {
       mlir::ArrayAttr intArrayAttr, uint64_t i, int64_t defaultVal);
 
   //===--------------------------------------------------------------------===//
+  // Get rank of the type defined by value.
+
+  uint64_t getTypeRank(mlir::Value value);
+
+  //===--------------------------------------------------------------------===//
   // Get symbol index expressions from a 1D integer array value. When the
   // integer array values are defined by a constant, then literal index
   // expressions are return in place of a symbol index expression. With dynamic
@@ -94,8 +105,6 @@ struct IndexExprBuilder : DialectBuilder {
   // support for ranks higher than 1 at this time.  Asserts if the type is
   // not a shaped type with a known rank.
 
-  // Get rank of array defined by intArrayVal value.
-  uint64_t getIntArrayRank(mlir::Value intArrayVal);
   // Get size of array defined by intArrayVal value. Asserts if rank>1.
   uint64_t getIntArraySize(mlir::Value intArrayVal);
   // Get a symbol index expression from the integer array defined by intArrayVal
@@ -108,10 +117,10 @@ struct IndexExprBuilder : DialectBuilder {
   // defaultVal.
   IndexExpr getIntArrayAsSymbol(
       mlir::Value intArrayVal, uint64_t i, int64_t defaultVal);
-  // Same as above, but get a list of up to listSize values. Assert when
-  // listSize exceed the array bounds.
+  // Same as above, but get a list of up to len values. Assert when
+  // len exceed the array bounds.
   void getIntArrayAsSymbols(
-      mlir::Value intArrayVal, IndexExprList &list, int64_t listSize = -1);
+      mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
 
   //===--------------------------------------------------------------------===//
   // Get info from tensor/memref shape. Return literal index expressions when
@@ -125,8 +134,6 @@ struct IndexExprBuilder : DialectBuilder {
   bool isLiteralShape(mlir::Value tensorOrMemrefValue, uint64_t i);
   // Return true if the entire shape is known at compile time.
   bool isLiteralShape(mlir::Value tensorOrMemrefValue);
-  // Get rank of shape (which is also the size of the shape vector).
-  uint64_t getShapeRank(mlir::Value tensorOrMemrefValue);
   // Get the raw shape (as integer, -1 when runtime value).
   int64_t getShape(mlir::Value tensorOrMemrefValue, uint64_t i);
 
