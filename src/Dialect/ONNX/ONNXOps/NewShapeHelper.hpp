@@ -415,4 +415,33 @@ using NewONNXArgMaxOpShapeHelper =
 using NewONNXArgMinOpShapeHelper =
     NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
 
+//===----------------------------------------------------------------------===//
+// Non specific Ops, namely ops that
+//   * need customization only for themselves (no sharing of code)
+//   * have no specific parameters
+//===----------------------------------------------------------------------===//
+
+/*
+  These ops require a template instantiation where computeShape is defined.
+  For example like this for ONNXCategoryMapperOp:
+
+  namespace onnx_mlir {
+  template struct NewONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
+  } // namespace onnx_mlir
+
+*/
+
+template <typename OP_TYPE>
+struct NewONNXNonSpecificOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXNonSpecificOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXNonSpecificOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using NewONNXCategoryMapperOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+
 } // namespace onnx_mlir

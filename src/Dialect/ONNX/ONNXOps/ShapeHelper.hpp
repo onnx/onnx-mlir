@@ -253,9 +253,9 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
               fLoadVal, inScope) {}                                            \
     mlir::LogicalResult computeShape(mlir::OpName##Adaptor operandAdaptor);    \
   };
-DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
-DECLARE_SHAPE_HELPER(ONNXArgMinOp)
-DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
+//DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
+//DECLARE_SHAPE_HELPER(ONNXArgMinOp)
+//DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
 DECLARE_SHAPE_HELPER(ONNXClipOp)
 DECLARE_SHAPE_HELPER(ONNXCompressOp)
 DECLARE_SHAPE_HELPER(ONNXConcatOp)

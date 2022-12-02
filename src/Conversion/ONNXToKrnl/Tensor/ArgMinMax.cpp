@@ -21,7 +21,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-template <typename ArgOp>
+template <typename ARG_OP>
 inline Value getCondition(MathBuilder createMath, Value next, Value dstVal);
 
 template <>
@@ -36,23 +36,24 @@ inline Value getCondition<ONNXArgMaxOp>(
   return createMath.sgt(next, dstVal);
 }
 
-template <typename ArgOp, typename OpShapeHelper>
+template <typename ARG_OP>
 struct ONNXArgMinMaxOpLowering : public ConversionPattern {
   ONNXArgMinMaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, ArgOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(typeConverter, ARG_OP::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     auto loc = op->getLoc();
     IndexExprScope scope(&rewriter, loc);
-    ArgOp argOp = llvm::cast<ArgOp>(op);
-    typename ArgOp::Adaptor operandAdaptor(operands);
+    ARG_OP argOp = llvm::cast<ARG_OP>(op);
+    typename ARG_OP::Adaptor operandAdaptor(operands);
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
         create(rewriter, loc);
 
     // Get shape.
-    OpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    NewONNXArgMinMaxOpShapeHelper<ARG_OP> shapeHelper(
+        op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr outputDims = shapeHelper.getOutputDims();
 
@@ -90,8 +91,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     // Constant Value
     Value minusOne = create.math.constant(reducedElementType, -1);
     Value zero = create.math.constant(reducedElementType, 0);
-    // hi alex, fix this
-    auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    auto zeroIndex = create.math.constantIndex(0);
 
     // 1. Krnl loops to initialize the result.
     ValueRange initLoopDef = create.krnl.defineLoops(reducedRank);
@@ -139,10 +139,9 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
           Value dstVal = createKrnl.load(data, dstLoopIVs);
 
           // if next value is smaller/larger than current value, update index
-          Value newDstVal = getCondition<ArgOp>(create.math, next, dstVal);
-          // hi alex, fix this
-          Value pos = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIntegerType(64), inLoopIVs[axis]);
+          Value newDstVal = getCondition<ARG_OP>(create.math, next, dstVal);
+          Value pos =
+              create.math.cast(rewriter.getIntegerType(64), inLoopIVs[axis]);
           idx = create.math.select(newDstVal, pos, idx);
           createKrnl.store(idx, alloc, outLoopIVs);
         });
@@ -154,11 +153,9 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
 
 void populateLoweringONNXArgMinMaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<
-      ONNXArgMinMaxOpLowering<mlir::ONNXArgMinOp, NewONNXArgMinOpShapeHelper>>(
+  patterns.insert<ONNXArgMinMaxOpLowering<mlir::ONNXArgMinOp>>(
       typeConverter, ctx);
-  patterns.insert<
-      ONNXArgMinMaxOpLowering<mlir::ONNXArgMaxOp, NewONNXArgMaxOpShapeHelper>>(
+  patterns.insert<ONNXArgMinMaxOpLowering<mlir::ONNXArgMaxOp>>(
       typeConverter, ctx);
 }
 
