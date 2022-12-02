@@ -119,15 +119,12 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intVal.
 
-IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
-  assert(getArraySize(value) == 1 && "Expected a scalar");
-  return getIntArrayAsSymbol(value, 0);
-}
-
 //===----------------------------------------------------------------------===//
-// Get symbols from value defined by array.
+// Get Index Expr from value defined by array.
 
-IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value array, uint64_t i) {
+// Function that perform the work, creating Literal, Symbol, or Dim IndexExpr.
+IndexExpr IndexExprBuilder::getIntFromArray(
+    Value array, uint64_t i, , bool makeSymbol) {
   uint64_t size = getArraySize(array);
   Type type = array.getType();
 
@@ -142,20 +139,46 @@ IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value array, uint64_t i) {
   if (Value val = getVal(array, i)) {
     // Assume that we can write code.
     MathBuilder createMath(*this);
-    Value intVal = createMath.cast(b().getIndexType(), val);
-    return SymbolIndexExpr(intVal);
+    Value castedVal = createMath.cast(b().getIndexType(), val);
+    if (makeSymbol)
+      return SymbolIndexExpr(castedVal);
+    else
+      return DimIndexExpr(castedVal);
   } else
     return QuestionmarkIndexExpr();
 }
 
-IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
+IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
+  assert(getArraySize(value) == 1 && "Expected a scalar");
+  return getIntFromArrayAsSymbol(value, 0);
+}
+
+IndexExpr IndexExprBuilder::getIntAsDim(Value value) {
+  assert(getArraySize(value) == 1 && "Expected a scalar");
+  return getIntFromArrayAsDim(value, 0);
+}
+
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(Value array, uint64_t i){
+    return getIntFromArray(array, i, /*makeSymbol*/ true)}
+
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value array, uint64_t i){
+    return getIntFromArray(array, i, /*makeSymbol*/ false)}
+
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
     Value array, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getIntArrayAsSymbol(array, i);
+  IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-void IndexExprBuilder::getIntArrayAsSymbols(
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+    Value array, uint64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
+  // Undefined value are set to default value.
+  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+}
+
+void IndexExprBuilder::getIntFromArrayAsSymbols(
     Value array, IndexExprList &list, int64_t len) {
   list.clear();
   uint64_t size = getArraySize(array);
@@ -164,7 +187,22 @@ void IndexExprBuilder::getIntArrayAsSymbols(
   else
     assert((uint64_t)len <= size && "requesting too many elements");
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
-    IndexExpr indexExpr = getIntArrayAsSymbol(array, i);
+    IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
+    assert(!indexExpr.isUndefined() && "expected defined index expr");
+    list.emplace_back(indexExpr);
+  }
+}
+
+void IndexExprBuilder::getIntFromArrayAsDims(
+    Value array, IndexExprList &list, int64_t len) {
+  list.clear();
+  uint64_t size = getArraySize(array);
+  if (len == -1) // Meaning pick up the full size of the list.
+    len = size;
+  else
+    assert((uint64_t)len <= size && "requesting too many elements");
+  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+    IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }

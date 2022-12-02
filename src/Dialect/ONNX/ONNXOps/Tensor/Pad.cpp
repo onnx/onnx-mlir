@@ -46,9 +46,9 @@ LogicalResult NewONNXPadOpShapeHelper::computeShape() {
   // Calculate output dimension sizes.
   for (uint64_t i = 0; i < dataRank; i++) {
     // Get begin/end pads.
-    SymbolIndexExpr padBegin(createIE->getIntArrayAsSymbol(padsOperand, i));
+    SymbolIndexExpr padBegin(createIE->getIntFromArrayAsSymbol(padsOperand, i));
     SymbolIndexExpr padEnd(
-        createIE->getIntArrayAsSymbol(padsOperand, i + dataRank));
+        createIE->getIntFromArrayAsSymbol(padsOperand, i + dataRank));
     if (padBegin.isUndefined() || padEnd.isUndefined())
       return op->emitError("pad parameter could not be processed");
     // Get input dim.

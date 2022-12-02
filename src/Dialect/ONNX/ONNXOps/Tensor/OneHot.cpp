@@ -37,7 +37,7 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
     axis += indicesRank + 1;
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  depth = createIE->getIntAsSymbol(operandAdaptor.depth());
+  depth = createIE->getIntAsDim(operandAdaptor.depth());
   if (depth.isLiteral()) {
     if (depth.getLiteral() < 1)
       return op->emitError("OneHot depth must be greater than 1");
@@ -47,15 +47,13 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
   int outputRank = indicesRank + 1;
   DimsExpr outputDims(outputRank);
   for (auto i = 0; i < outputRank; i++) {
-    DimIndexExpr dimOutput;
     if (i == axis) {
-      dimOutput = depth;
+      outputDims[i] = depth;
     } else if (i < axis) {
-      dimOutput = createIE->getShapeAsDim(indices, i);
+      outputDims[i] = createIE->getShapeAsDim(indices, i);
     } else {
-      dimOutput = createIE->getShapeAsDim(indices, i - 1);
+      outputDims[i] = createIE->getShapeAsDim(indices, i - 1);
     }
-    outputDims[i] = dimOutput;
   }
 
   // Save the final result.

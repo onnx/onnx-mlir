@@ -99,7 +99,7 @@ struct IndexExprBuilder : DialectBuilder {
       mlir::ArrayAttr intAttrArray, uint64_t i, int64_t outOfBoundVal);
 
   //===--------------------------------------------------------------------===//
-  // Get symbol index expressions from a scalar or 1D array value. When
+  // Get symbol/dim index expressions from a scalar or 1D array value. When
   // the values are defined by a constant, then literal index expressions are
   // return in place of a symbol index expression. With dynamic values,
   // questionmark index expressions are returned during code analysis phases and
@@ -110,18 +110,24 @@ struct IndexExprBuilder : DialectBuilder {
   // There is no support for ranks higher than 1 at this time.  Asserts if the
   // type is not a shaped type with a known rank.
 
-  // Get a symbol index expression defined by `value`.
+  // Get a symbol/dim index expression defined by `value`.
   IndexExpr getIntAsSymbol(mlir::Value value);
-  // Get a symbol index expression from the array defined by `array` at position
-  // `i`. If out of bound, return an undefined index expressions.
-  IndexExpr getIntArrayAsSymbol(mlir::Value array, uint64_t i);
+  IndexExpr getIntAsDim(mlir::Value value);
+  // Get a symbol/dim index expression from the array defined by `array` at
+  // position `i`. If out of bound, return an undefined index expressions.
+  IndexExpr getIntFromArrayAsSymbol(mlir::Value array, uint64_t i);
+  IndexExpr getIntFromArrayAsDim(mlir::Value array, uint64_t i);
   // Same as above; if out of bound, return a literal index expression of value
   // `outOfBoundVal`.
-  IndexExpr getIntArrayAsSymbol(
+  IndexExpr getIntFromArrayAsSymbol(
+      mlir::Value array, uint64_t i, int64_t outOfBoundVal);
+  IndexExpr getIntFromArrayAsDim(
       mlir::Value array, uint64_t i, int64_t outOfBoundVal);
   // Same as above, but get a list of up to len values. Assert when `len` exceed
   // the array bounds.
-  void getIntArrayAsSymbols(
+  void getIntFromArrayAsSymbols(
+      mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
+  void getIntFromArrayAsDims(
       mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
 
   //===--------------------------------------------------------------------===//
@@ -163,6 +169,11 @@ protected:
   // locate/generate the value.
   virtual mlir::Value getShapeVal(
       mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
+
+private:
+  // When makeSymbol is true, create a SymbolIndexExpr, otherwise a
+  // DimIndexExpr.
+  IndexExpr getIntFromArray(mlir::Value array, uint64_t i, bool makeSymbol);
 };
 
 } // namespace onnx_mlir
