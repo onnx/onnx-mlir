@@ -299,7 +299,6 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
   // Additional data for ShapeOp.
   int64_t start, end;
 };
-#endif
 
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
@@ -363,6 +362,8 @@ using ONNXMatMulIntegerOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
 using ONNXQLinearMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+#endif
 
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {

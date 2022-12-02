@@ -240,7 +240,7 @@ struct NewONNXShapeOpShapeHelper : public NewONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
-// Pooling Ops
+// Pooling Ops (ONNXMaxPoolSingleOutOp, ONNXAveragePoolOp, ONNXConvOp)
 //===----------------------------------------------------------------------===//
 
 // Generic pool shape helper, further refined by specific pooling ops.
@@ -281,5 +281,63 @@ DECLARE_SHAPE_HELPER(NewONNXAveragePoolOpShapeHelper)
 DECLARE_SHAPE_HELPER(NewONNXConvOpShapeHelper)
 DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER
+
+//===----------------------------------------------------------------------===//
+// Slice Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXSliceOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXSliceOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for SliceOp.
+  llvm::SmallVector<IndexExpr, 4> starts, ends, steps;
+};
+
+//===----------------------------------------------------------------------===//
+// Gemm Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXGemmOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXGemmOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXGemmOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for GemmOp: output = a * b.
+  llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying transpose.
+  llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying transpose.
+  llvm::SmallVector<IndexExpr, 4> cDims; // Dim after padding 1 when broadcast.
+  bool hasBias; // Whether there is a bias (aka C exists).
+  int cRank;    // Dim of the original C (not padding dims by 1).
+};
+
+//===----------------------------------------------------------------------===//
+// Matmul Ops (ONNXMatMulOp, ONNXMatMulIntegerOp, ONNXQLinearMatMulOp)
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXGenericMatMulOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+  virtual ~NewONNXGenericMatMulOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for MatMulOp: output = a * b.
+  llvm::SmallVector<IndexExpr, 4> aDims; // Dim after applying padding.
+  llvm::SmallVector<IndexExpr, 4> bDims; // Dim after applying padding.
+  llvm::BitVector aPadDims;              // When true, that dim was padded.
+  llvm::BitVector bPadDims;              // When true, that dim was padded.
+};
+
+// Type definition for the ops that uses NewONNXGenericMatMulOpShapeHelper.
+using NewONNXMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+using NewONNXMatMulIntegerOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+using NewONNXQLinearMatMulOpShapeHelper =
+    NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir

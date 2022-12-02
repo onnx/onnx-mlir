@@ -17,6 +17,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
@@ -41,31 +42,31 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   bool enableTiling;
 
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
-      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
+      Type elementType, NewONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
 
-    // Create all the loops at once (outerloops followed by inner loop).
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(3);
+    // Create all the loops at once (outer loops followed by inner loop).
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    ValueRange loopDef = create.krnl.defineLoops(3);
     SmallVector<Value, 2> outerLoopDef{loopDef[0], loopDef[1]};
     SmallVector<Value, 1> innerLoopDef{loopDef[2]};
     SmallVector<IndexExpr, 3> loopLbs(3, LiteralIndexExpr(0));
-    IndexExpr outerUb0 = shapeHelper.dimsForOutput()[0];
-    IndexExpr outerUb1 = shapeHelper.dimsForOutput()[1];
+    IndexExpr outerUb0 = shapeHelper.getOutputDims()[0];
+    IndexExpr outerUb1 = shapeHelper.getOutputDims()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Create temp, single scalar, no need for default alignment.
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        createKrnl);
     Value red = create.mem.alloca(MemRefType::get({}, elementType));
     // Outer loops.
-    createKrnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
+    create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
           // Set to zero.
-          createKrnl.store(zeroVal, red);
+          create.krnl.store(zeroVal, red);
           // Inner loop.
           create.krnl.iterate({}, innerLoopDef, {}, {},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
@@ -90,9 +91,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 create.krnl.store(create.math.add(tmp, rVal), red);
               });
           // Handle alpha/beta coefficients.
-          // new scope
-          IndexExprScope innerScope(create.krnl, shapeHelper.scope);
-          Value res = create.math.mul(alphaVal, createKrnl.load(red));
+          IndexExprScope innerScope(create.krnl, shapeHelper.getScope());
+          Value res = create.math.mul(alphaVal, create.krnl.load(red));
           if (shapeHelper.hasBias) {
             SmallVector<Value, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
@@ -111,7 +111,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
   void tiledTransposedGemm(ONNXGemmOp &gemmOp,
       ONNXGemmOpAdaptor &operandAdaptor, Type elementType,
-      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      NewONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
 
@@ -119,8 +119,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
-    IndexExpr I = shapeHelper.dimsForOutput()[0];
-    IndexExpr J = shapeHelper.dimsForOutput()[1];
+    IndexExpr I = shapeHelper.getOutputDims()[0];
+    IndexExpr J = shapeHelper.getOutputDims()[1];
     IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
     LiteralIndexExpr zeroIE(0);
     Value z = zeroIE.getValue();
@@ -290,7 +290,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           if (alphaLit != 1.0)
             res = createMath.mul(alphaVal, res);
           if (shapeHelper.hasBias) {
-            IndexExprScope innerScope(createKrnl, shapeHelper.scope);
+            IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
             SmallVector<Value, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
@@ -315,11 +315,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    NewONNXGemmOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -330,7 +328,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.dimsForOutput(), (int64_t)BUFFER_ALIGN);
+        loc, shapeHelper.getOutputDims(), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();

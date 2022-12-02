@@ -24,6 +24,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
@@ -822,9 +823,8 @@ Value ConstPropSlice(
       allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
 
   // Get starts, ends, axes and steps via ShapeHelper.
-  ONNXSliceOpShapeHelper shapeHelper(&sliceOp);
-  ONNXSliceOpAdaptor operandAdaptor(sliceOp);
-  if (failed(shapeHelper.computeShape(operandAdaptor))) {
+  NewONNXSliceOpShapeHelper shapeHelper(op, {});
+  if (failed(shapeHelper.computeShape())) {
     sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                       " parameters successfully");
     return nullptr;
