@@ -443,5 +443,7 @@ struct NewONNXNonSpecificOpShapeHelper : public NewONNXOpShapeHelper {
 
 using NewONNXCategoryMapperOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+using NewONNXCategoryMapperOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 
 } // namespace onnx_mlir
