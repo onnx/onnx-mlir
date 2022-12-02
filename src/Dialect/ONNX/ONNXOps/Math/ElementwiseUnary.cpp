@@ -509,6 +509,16 @@ LogicalResult ONNXSoftmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
+
+//===----------------------------------------------------------------------===//
+// SoftmaxV11Op
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXSoftmaxV11Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
 //===----------------------------------------------------------------------===//
 // SoftplusOp
 //===----------------------------------------------------------------------===//
