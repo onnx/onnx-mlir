@@ -14,8 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "src/Accelerators/Accelerator.hpp"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"

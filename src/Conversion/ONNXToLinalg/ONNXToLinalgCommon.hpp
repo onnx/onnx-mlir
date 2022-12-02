@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToLinalgCommon.hpp - ONNX dialects to Krnl lowering --------===//
+//====------ ONNXToLinalgCommon.hpp - ONNX dialects to Krnl lowering -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -87,8 +87,7 @@ void populateONNXToLinalgConversionPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 
 // `Math` directory methods:
-void populateLoweringONNXMatMulOpLinalgPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *);
-
+void populateLoweringONNXMatMulOpLinalgPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 } // namespace onnx_mlir
