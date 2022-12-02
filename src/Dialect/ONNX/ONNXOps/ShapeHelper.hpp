@@ -365,6 +365,7 @@ using ONNXQLinearMatMulOpShapeHelper =
 
 #endif
 
+#if DEPRECATED
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   ONNXPadOpShapeHelper(
@@ -407,6 +408,7 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
+#endif
 
 #if DEPRECATED
 #define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \

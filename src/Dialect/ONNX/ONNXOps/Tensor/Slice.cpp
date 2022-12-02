@@ -26,11 +26,6 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-NewONNXSliceOpShapeHelper::NewONNXSliceOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope){};
-
 LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);
@@ -46,7 +41,7 @@ LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
       axesIntLit.emplace_back(i);
   } else {
     SmallVector<IndexExpr, 4> axesSymbol;
-    createIE->getIntArrayAsSymbols(axes, axesSymbol);
+    createIE->getIntFromArrayAsSymbols(axes, axesSymbol);
     for (IndexExpr val : axesSymbol) {
       if (!val.isLiteral())
         return op->emitError("Axes must be known at compile time");
@@ -74,17 +69,17 @@ LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
     // Get start, end, step, and dim index expressions.
     // Get start.
     SymbolIndexExpr startInput =
-        createIE->getIntArrayAsSymbol(operandAdaptor.starts(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
     SymbolIndexExpr endInput =
-        createIE->getIntArrayAsSymbol(operandAdaptor.ends(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
     SymbolIndexExpr stepInput =
-        createIE->getIntArrayAsSymbol(operandAdaptor.steps(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.steps(), i);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)

@@ -26,12 +26,6 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-NewONNXGemmOpShapeHelper::NewONNXGemmOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
-      cDims(), hasBias(/*dummy value*/ false), cRank(-1) {}
-
 LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
