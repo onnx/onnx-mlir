@@ -124,7 +124,7 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
 
 // Function that perform the work, creating Literal, Symbol, or Dim IndexExpr.
 IndexExpr IndexExprBuilder::getIntFromArray(
-    Value array, uint64_t i, , bool makeSymbol) {
+    Value array, uint64_t i, bool makeSymbol) {
   uint64_t size = getArraySize(array);
   Type type = array.getType();
 
@@ -158,11 +158,13 @@ IndexExpr IndexExprBuilder::getIntAsDim(Value value) {
   return getIntFromArrayAsDim(value, 0);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(Value array, uint64_t i){
-    return getIntFromArray(array, i, /*makeSymbol*/ true)}
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(Value array, uint64_t i) {
+  return getIntFromArray(array, i, /*makeSymbol*/ true);
+}
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value array, uint64_t i){
-    return getIntFromArray(array, i, /*makeSymbol*/ false)}
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value array, uint64_t i) {
+  return getIntFromArray(array, i, /*makeSymbol*/ false);
+}
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
     Value array, uint64_t i, int64_t defaultLiteral) {
