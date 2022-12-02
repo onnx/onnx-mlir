@@ -32,6 +32,19 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
+Value sliceTensor(PatternRewriter &rewriter, Operation *op,
+    Value &inputConst, const llvm::ArrayRef<int64_t> &size,
+    const llvm::ArrayRef<int64_t> &start) {
+  ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(size);
+  ArrayAttr startAttr = rewriter.getI64ArrayAttr(start);
+  Value newSliceInput =
+      tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter, op->getLoc(),
+          RankedTensorType::get(llvm::SmallVector<int64_t, 4>(size.size(), -1),
+              inputConst.getType().cast<ShapedType>().getElementType()),
+          inputConst, startAttr, sizeAttr);
+  return newSliceInput;
+}
+
 Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
     Value &value, llvm::ArrayRef<int64_t> perm) {
   // Create Permutation Const

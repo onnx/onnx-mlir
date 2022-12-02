@@ -29,6 +29,11 @@
 namespace onnx_mlir {
 namespace tosa {
 
+// Slices a TOSA Tensor with the specific size and start values
+mlir::Value sliceTensor(mlir::PatternRewriter &rewriter, mlir::Operation *op,
+    mlir::Value &inputConst, const llvm::ArrayRef<int64_t> &size,
+    const llvm::ArrayRef<int64_t> &start);
+
 // Transpose a given TOSA Tensor
 mlir::Value createTosaTransposedTensor(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::Value &value, llvm::ArrayRef<int64_t> perm);
