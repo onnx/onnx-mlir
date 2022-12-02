@@ -72,16 +72,20 @@ func.func @test_onnx_conv2d_only_group(%arg0: tensor<5x64x20x20xf32>, %arg1 : te
 //  CHECK: [[TRANSKERNEL:%.+]] = "tosa.transpose"(%arg1, [[PERM2]]) : (tensor<12x16x3x3xf32>, tensor<4xi64>) -> tensor<12x3x3x16xf32>
 //  CHECK: [[INPUTSLICE1:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 20, 20, 16], start = [0, 0, 0, 0]} : (tensor<5x20x20x64xf32>) -> tensor<5x20x20x16xf32>
 //  CHECK: [[KERNELSLICE1:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 3, 3, 16], start = [0, 0, 0, 0]} : (tensor<12x3x3x16xf32>) -> tensor<3x3x3x16xf32>
-//  CHECK: [[OUTPUTSLICE1:%.+]] = "tosa.conv2d"([[INPUTSLICE1]], [[KERNELSLICE1]], %arg2) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<12xf32>) -> tensor<5x18x18x3xf32>
+//  CHECK: [[BIASSLICE1:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [0]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE1:%.+]] = "tosa.conv2d"([[INPUTSLICE1]], [[KERNELSLICE1]], [[BIASSLICE1]]) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<3xf32>) -> tensor<5x18x18x3xf32>
 //  CHECK: [[INPUTSLICE2:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 20, 20, 16], start = [0, 0, 0, 16]} :  (tensor<5x20x20x64xf32>) -> tensor<5x20x20x16xf32>
 //  CHECK: [[KERNELSLICE2:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 3, 3, 16], start = [3, 0, 0, 0]} : (tensor<12x3x3x16xf32>) -> tensor<3x3x3x16xf32>
-//  CHECK: [[OUTPUTSLICE2:%.+]] = "tosa.conv2d"([[INPUTSLICE2]], [[KERNELSLICE2]], %arg2) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<12xf32>) -> tensor<5x18x18x3xf32>
+//  CHECK: [[BIASSLICE2:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [3]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE2:%.+]] = "tosa.conv2d"([[INPUTSLICE2]], [[KERNELSLICE2]], [[BIASSLICE2]]) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<3xf32>) -> tensor<5x18x18x3xf32>
 //  CHECK: [[INPUTSLICE3:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 20, 20, 16], start = [0, 0, 0, 32]} :  (tensor<5x20x20x64xf32>) -> tensor<5x20x20x16xf32>
 //  CHECK: [[KERNELSLICE3:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 3, 3, 16], start = [6, 0, 0, 0]} : (tensor<12x3x3x16xf32>) -> tensor<3x3x3x16xf32>
-//  CHECK: [[OUTPUTSLICE3:%.+]] = "tosa.conv2d"([[INPUTSLICE3]], [[KERNELSLICE3]], %arg2) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<12xf32>) -> tensor<5x18x18x3xf32>
+//  CHECK: [[BIASSLICE3:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [6]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE3:%.+]] = "tosa.conv2d"([[INPUTSLICE3]], [[KERNELSLICE3]], [[BIASSLICE3]]) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<3xf32>) -> tensor<5x18x18x3xf32>
 //  CHECK: [[INPUTSLICE4:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 20, 20, 16], start = [0, 0, 0, 48]} :  (tensor<5x20x20x64xf32>) -> tensor<5x20x20x16xf32>
 //  CHECK: [[KERNELSLICE4:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 3, 3, 16], start = [9, 0, 0, 0]} : (tensor<12x3x3x16xf32>) -> tensor<3x3x3x16xf32>
-//  CHECK: [[OUTPUTSLICE4:%.+]] = "tosa.conv2d"([[INPUTSLICE4]], [[KERNELSLICE4]], %arg2) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<12xf32>) -> tensor<5x18x18x3xf32>
+//  CHECK: [[BIASSLICE4:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [9]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE4:%.+]] = "tosa.conv2d"([[INPUTSLICE4]], [[KERNELSLICE4]], [[BIASSLICE4]]) {dilation = [1, 1], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x20x20x16xf32>, tensor<3x3x3x16xf32>, tensor<3xf32>) -> tensor<5x18x18x3xf32>
 //  CHECK: [[OUTPUT:%.+]] = "tosa.concat"([[OUTPUTSLICE1]], [[OUTPUTSLICE2]], [[OUTPUTSLICE3]], [[OUTPUTSLICE4]]) {axis = 3 : i64} : (tensor<5x18x18x3xf32>, tensor<5x18x18x3xf32>, tensor<5x18x18x3xf32>, tensor<5x18x18x3xf32>) -> tensor<5x18x18x12xf32>
 //  CHECK: [[PERM3:%.+]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi64>} : () -> tensor<4xi64>
 //  CHECK: {{%.+}} = "tosa.transpose"([[OUTPUT]], [[PERM3]]) : (tensor<5x18x18x12xf32>, tensor<4xi64>) -> tensor<5x12x18x18xf32>
@@ -98,16 +102,20 @@ func.func @test_onnx_conv2d_group(%arg0: tensor<5x64x1024x1024xf32>, %arg1 : ten
 //  CHECK: [[TRANSKERNEL:%.+]] = "tosa.transpose"(%arg1, [[PERM2]]) : (tensor<12x16x45x45xf32>, tensor<4xi64>) -> tensor<12x45x45x16xf32>
 //  CHECK: [[INPUTSLICE1:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 1024, 1024, 16], start = [0, 0, 0, 0]} : (tensor<5x1024x1024x64xf32>) -> tensor<5x1024x1024x16xf32>
 //  CHECK: [[KERNELSLICE1:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 45, 45, 16], start = [0, 0, 0, 0]} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
-//  CHECK: [[OUTPUTSLICE1:%.+]] = "tosa.conv2d"([[INPUTSLICE1]], [[KERNELSLICE1]], %arg2) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<12xf32>) -> tensor<5x76x76x3xf32>
+//  CHECK: [[BIASSLICE1:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [0]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE1:%.+]] = "tosa.conv2d"([[INPUTSLICE1]], [[KERNELSLICE1]], [[BIASSLICE1]]) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x76x76x3xf32>
 //  CHECK: [[INPUTSLICE2:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 1024, 1024, 16], start = [0, 0, 0, 16]} : (tensor<5x1024x1024x64xf32>) -> tensor<5x1024x1024x16xf32>
 //  CHECK: [[KERNELSLICE2:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 45, 45, 16], start = [3, 0, 0, 0]} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
-//  CHECK: [[OUTPUTSLICE2:%.+]] = "tosa.conv2d"([[INPUTSLICE2]], [[KERNELSLICE2]], %arg2) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<12xf32>) -> tensor<5x76x76x3xf32>
+//  CHECK: [[BIASSLICE2:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [3]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE2:%.+]] = "tosa.conv2d"([[INPUTSLICE2]], [[KERNELSLICE2]], [[BIASSLICE2]]) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x76x76x3xf32>
 //  CHECK: [[INPUTSLICE3:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 1024, 1024, 16], start = [0, 0, 0, 32]} : (tensor<5x1024x1024x64xf32>) -> tensor<5x1024x1024x16xf32>
 //  CHECK: [[KERNELSLICE3:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 45, 45, 16], start = [6, 0, 0, 0]} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
-//  CHECK: [[OUTPUTSLICE3:%.+]] = "tosa.conv2d"([[INPUTSLICE3]], [[KERNELSLICE3]], %arg2) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<12xf32>) -> tensor<5x76x76x3xf32>
+//  CHECK: [[BIASSLICE3:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [6]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE3:%.+]] = "tosa.conv2d"([[INPUTSLICE3]], [[KERNELSLICE3]], [[BIASSLICE3]]) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x76x76x3xf32>
 //  CHECK: [[INPUTSLICE4:%.+]] = "tosa.slice"([[TRANSINPUT]]) {size = [5, 1024, 1024, 16], start = [0, 0, 0, 48]} : (tensor<5x1024x1024x64xf32>) -> tensor<5x1024x1024x16xf32>
 //  CHECK: [[KERNELSLICE4:%.+]] = "tosa.slice"([[TRANSKERNEL]]) {size = [3, 45, 45, 16], start = [9, 0, 0, 0]} : (tensor<12x45x45x16xf32>) -> tensor<3x45x45x16xf32>
-//  CHECK: [[OUTPUTSLICE4:%.+]] = "tosa.conv2d"([[INPUTSLICE4]], [[KERNELSLICE4]], %arg2) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<12xf32>) -> tensor<5x76x76x3xf32>
+//  CHECK: [[BIASSLICE4:%.+]] = "tosa.slice"(%arg2) {size = [3], start = [9]} : (tensor<12xf32>) -> tensor<3xf32>
+//  CHECK: [[OUTPUTSLICE4:%.+]] = "tosa.conv2d"([[INPUTSLICE4]], [[KERNELSLICE4]], [[BIASSLICE4]]) {dilation = [1, 1], pad = [1, 1, 1, 1], stride = [13, 13]} : (tensor<5x1024x1024x16xf32>, tensor<3x45x45x16xf32>, tensor<3xf32>) -> tensor<5x76x76x3xf32>
 //  CHECK: [[OUTPUT:%.+]] = "tosa.concat"([[OUTPUTSLICE1]], [[OUTPUTSLICE2]], [[OUTPUTSLICE3]], [[OUTPUTSLICE4]]) {axis = 3 : i64} : (tensor<5x76x76x3xf32>, tensor<5x76x76x3xf32>, tensor<5x76x76x3xf32>, tensor<5x76x76x3xf32>) -> tensor<5x76x76x12xf32>
 //  CHECK: [[PERM3:%.+]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi64>} : () -> tensor<4xi64>
 //  CHECK: {{%.+}} = "tosa.transpose"([[OUTPUT]], [[PERM3]]) : (tensor<5x76x76x12xf32>, tensor<4xi64>) -> tensor<5x12x76x76xf32>
