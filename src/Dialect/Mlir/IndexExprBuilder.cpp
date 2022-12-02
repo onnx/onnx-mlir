@@ -22,22 +22,49 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LogicalResult.h"
 
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 using namespace mlir;
 
-namespace {
-
+//===----------------------------------------------------------------------===//
 // Local helper.
+
 static bool hasShapeAndRank(Value val) {
   ShapedType shapedType = val.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
 }
 
-} // namespace
+// Get scalar value regardless of the type.
+// Code adapted from Dialect/ONNX/ONNXOps/OpHelper.cpp file.
+template <typename RESULT_TYPE>
+static RESULT_TYPE getScalarValue(
+    DenseElementsAttr &denseAttr, Type type, uint64_t i) {
+  Type elementaryType = getElementTypeOrSelf(type);
+  ArrayRef<uint64_t> index({i});
+  if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
+      elementaryType.isInteger(64)) {
+    auto value = denseAttr.getValues<IntegerAttr>()[index];
+    return (RESULT_TYPE)value.cast<IntegerAttr>().getInt();
+  } else if (elementaryType.isF32()) {
+    auto value = denseAttr.getValues<APFloat>()[index];
+    return (RESULT_TYPE)value.convertToFloat();
+  } else if (elementaryType.isF64()) {
+    auto value = denseAttr.getValues<APFloat>()[index];
+    return (RESULT_TYPE)value.convertToDouble();
+  }
+  llvm_unreachable("Unexpected type.");
+  return 0;
+}
+
+// Template instantiation for getScalarValue. I don't see any need to have any
+// other result types that int, but keep it general just in case.
+template static int64_t getScalarValue<int64_t>(
+    DenseElementsAttr &denseAttr, Type type, uint64_t i);
 
 namespace onnx_mlir {
 
@@ -46,91 +73,98 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// Get literals from integer array attribute.
+// Get Rank of Type / Size of 1D array
 
-uint64_t IndexExprBuilder::getIntArrayAttrSize(ArrayAttr intArrayAttr) {
-  return intArrayAttr.size();
+uint64_t IndexExprBuilder::getTypeRank(Value value) {
+  assert(hasShapeAndRank(value) && "expected shaped type with rank");
+  // Find shaped type size (rank of 0 is scalar).
+  return value.getType().cast<ShapedType>().getRank();
 }
 
-IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
-    ArrayAttr intArrayAttr, uint64_t i) {
-  uint64_t size = intArrayAttr.size();
-  if (i >= size)
-    return UndefinedIndexExpr();
-  int64_t val = (intArrayAttr.getValue()[i]).cast<IntegerAttr>().getInt();
-  return LiteralIndexExpr(val);
+// Size from 1D attribute array.
+uint64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
+  return attrArray.size();
 }
 
-IndexExpr IndexExprBuilder::getIntArrayAttrAsLiteral(
-    ArrayAttr intArrayAttr, uint64_t i, int64_t defaultVal) {
-  IndexExpr indexExpr = getIntArrayAttrAsLiteral(intArrayAttr, i);
-  // Undefined value are set to default value.
-  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultVal) : indexExpr;
+// Size from 1D value array.
+uint64_t IndexExprBuilder::getArraySize(Value array) {
+  uint64_t rank = getTypeRank(array);
+  assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
+  if (rank == 0)
+    return 1;
+  ShapedType shapeType = array.getType().cast<ShapedType>();
+  return shapeType.getShape()[0];
 }
 
 //===----------------------------------------------------------------------===//
-// Get Rank of Type.
+// Get literals from integer array attribute.
 
-uint64_t IndexExprBuilder::getTypeRank(Value val) {
-  assert(hasShapeAndRank(val) && "expected shaped type with rank");
-  // Find shaped type size (rank of 0 is scalar).
-  return val.getType().cast<ShapedType>().getRank();
+IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
+    ArrayAttr intAttrArray, uint64_t i) {
+  uint64_t size = intAttrArray.size();
+  if (i >= size)
+    return UndefinedIndexExpr();
+  int64_t val = (intAttrArray.getValue()[i]).cast<IntegerAttr>().getInt();
+  return LiteralIndexExpr(val);
+}
+
+IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
+    ArrayAttr intAttrArray, uint64_t i, int64_t outOfBoundVal) {
+  IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
+  // Undefined value are set to default value.
+  return indexExpr.isUndefined() ? LiteralIndexExpr(outOfBoundVal) : indexExpr;
 }
 
 //===----------------------------------------------------------------------===//
 // Get symbols from value defined by intVal.
 
-IndexExpr IndexExprBuilder::getIntAsSymbol(mlir::Value intVal) {
-  assert(getIntArraySize(intVal) == 1 && "Expected a scalar");
-  return getIntArrayAsSymbol(intVal, 0);
+IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
+  assert(getArraySize(value) == 1 && "Expected a scalar");
+  return getIntArrayAsSymbol(value, 0);
 }
 
 //===----------------------------------------------------------------------===//
-// Get symbols from value defined by intArrayVal.
+// Get symbols from value defined by array.
 
-uint64_t IndexExprBuilder::getIntArraySize(Value intArrayVal) {
-  uint64_t rank = getTypeRank(intArrayVal);
-  assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
-  if (rank == 0)
-    return 1;
-  ShapedType shapeType = intArrayVal.getType().cast<ShapedType>();
-  return shapeType.getShape()[0];
-}
+IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value array, uint64_t i) {
+  uint64_t size = getArraySize(array);
+  Type type = array.getType();
 
-IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value intArrayVal, uint64_t i) {
-  uint64_t size = getIntArraySize(intArrayVal);
   if (i >= size)
     return UndefinedIndexExpr();
-  // If our scalar array is a constant, return it.
-  if (DenseElementsAttr attrArray = getConst(intArrayVal)) {
-    auto attrVal = attrArray.getValues<Attribute>()[ArrayRef<uint64_t>({i})];
-    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    return LiteralIndexExpr(attrInt);
+  if (DenseElementsAttr denseAttr = getConst(array)) {
+    // From OpHelper.cpp's getScalarValue.
+    int64_t intVal = getScalarValue<int64_t>(denseAttr, type, i);
+    return LiteralIndexExpr(intVal);
   }
   // If our scalar array is not a constant; we have a questionmark.
-  if (Value val = getVal(intArrayVal, i))
-    return SymbolIndexExpr(val);
+  if (Value val = getVal(array, i)) {
+    // Assume that we can write code.
+    MathBuilder createMath(*this);
+    Value intVal = createMath.cast(b().getIndexType(), val);
+    return SymbolIndexExpr(intVal);
+  }
   else
     return QuestionmarkIndexExpr();
 }
 
 IndexExpr IndexExprBuilder::getIntArrayAsSymbol(
-    Value intArrayVal, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
+    Value array, uint64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIntArrayAsSymbol(array, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
 void IndexExprBuilder::getIntArrayAsSymbols(
-    Value intArrayVal, IndexExprList &list, int64_t len) {
+    Value array, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getIntArraySize(intArrayVal);
+  uint64_t size = getArraySize(array);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
-    IndexExpr indexExpr = getIntArrayAsSymbol(intArrayVal, i);
+    IndexExpr indexExpr = getIntArrayAsSymbol(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }

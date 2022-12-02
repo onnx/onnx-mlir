@@ -34,20 +34,15 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
   int64_t indicesRank = createIE->getTypeRank(indices);
 
   // Axis is a required attribute and should have default value of -1.
-  axis = oneHotOp->axis();
+  axis = oneHotOp.axis();
   if (axis < 0)
     axis += indicesRank + 1;
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  depth = createIE->getIntValAsSymbol(operandAdaptor.depth(), 0)
+  depth = createIE->getIntAsSymbol(operandAdaptor.depth());
   if (depth.isLiteral()) {
     if (depth.getLiteral() < 1)
-    return op->emitError("OneHot depth must be greater than 1");
-  } else if (! scope->isShapeInferencePass()) {
-    // Convert depth to index
-    MathBuilder createMath(scope->getRewriter(), op->getLoc());
-    Value convertedVal = createMath.castToIndex(depth.getValue());
-    depth = DimIndexExpr(convertedVal);
+      return op->emitError("OneHot depth must be greater than 1");
   }
 #if 0
   // Original code.
@@ -91,7 +86,6 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
   setOutputDims(outputDims);
   return success();
 }
-
 
 #if 1 // hi alex remove
 ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(
