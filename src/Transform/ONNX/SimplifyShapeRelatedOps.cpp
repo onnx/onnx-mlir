@@ -179,9 +179,7 @@ public:
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
     // Get start and end values.
-    IndexExprBuilderForAnalysis createIE(loc);
-    NewONNXShapeOpShapeHelper shapeHelper(
-        shapeOp.getOperation(), {}, &createIE);
+    NewONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {});
     LogicalResult shapeComputed = shapeHelper.computeShape();
     if (failed(shapeComputed)) {
       shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -84,9 +85,13 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
     ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
-      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr) {
+      scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
+      ownBuilder(inputIeBuilder == nullptr) {
   assert(op && "Expecting a valid operation pointer");
-  assert(createIE && "Expecting a valid index expression builder");
+  if (ownBuilder) {
+    createIE = new IndexExprBuilderForAnalysis(op->getLoc());
+    assert(createIE && "failed to create a new builder");
+  }
   if (ownScope) {
     scope = new IndexExprScope(createIE->getBuilderPtr(), createIE->getLoc());
     assert(scope && "failed to create a new scope");
@@ -99,13 +104,21 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
     // could not find one at this time.
     privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = mlir::ArrayRef<Value>(privateOperandsCache);
+    operands = ArrayRef<Value>(privateOperandsCache);
   }
 }
 
 NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
   if (ownScope)
     delete scope;
+  if (ownBuilder)
+    delete createIE;
+}
+
+void NewONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
+  // Invoke virtual compute shape.
+  LogicalResult res = computeShape();
+  assert(succeeded(res) && "Failed to compute shape");
 }
 
 void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
@@ -125,12 +138,12 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
   return mlir::success();
 }
 
-mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
+LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypes) {
   uint64_t resNum = op->getNumResults();
   assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
-
-  if (failed(computeShape())) // Invoke virtual compute.
+  // Invoke virtual compute.
+  if (failed(computeShape()))
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
                          " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {
@@ -138,7 +151,7 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     updateType(op->getResults()[i], shapeVect, elementTypes[i]);
   }
-  return mlir::success();
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -160,7 +173,7 @@ LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
+LogicalResult NewONNXBroadcastOpShapeHelper::customComputeShape(
     ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
@@ -260,7 +273,7 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::customComputeShape(
   return success();
 }
 
-LogicalResult NewONNXOpBroadcastedShapeHelper::getAccessExprs(Value operand,
+LogicalResult NewONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
@@ -295,6 +308,146 @@ LogicalResult NewONNXOpBroadcastedShapeHelper::getAccessExprs(Value operand,
           IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
     }
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Pooling ops.
+//===----------------------------------------------------------------------===//
+
+LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
+    Value wValue, Optional<ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
+    Optional<ArrayAttr> padOpt, Optional<ArrayAttr> strideOpt,
+    Optional<ArrayAttr> dilationOpt) {
+  // Basic information.
+  int64_t rank = createIE->getShapeRank(xValue);
+  int64_t spatialOffset = 2;
+  int64_t spatialRank = rank - spatialOffset;
+
+  // Fill the stride, dilation, kernel.
+  for (int i = 0; i < spatialRank; ++i) {
+    // Strides, default 1.
+    strides.emplace_back(
+        strideOpt.has_value() ? ArrayAttrIntVal(strideOpt, i) : 1);
+    // Dilations, default 1.
+    dilations.emplace_back(
+        dilationOpt.has_value() ? ArrayAttrIntVal(dilationOpt, i) : 1);
+    // Kernel shape from attribute, default from Weight's spatial dims.
+    if (kernelShapeOpt.has_value()) {
+      kernelShape.emplace_back(
+          LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
+    } else {
+      assert(hasFilter && "no kernel shape and no filter: unkown kernel shape");
+      int ii = i + spatialOffset;
+      kernelShape.emplace_back(createIE->getShapeAsSymbol(wValue, ii));
+    }
+  }
+  // Pads, at this stage a given compile-time literal or default 0.
+  for (int i = 0; i < 2 * spatialRank; ++i) {
+    int64_t p = padOpt.has_value() ? ArrayAttrIntVal(padOpt, i) : 0;
+    pads.emplace_back(LiteralIndexExpr(p));
+  }
+
+  // Handle output size: start by inserting batch size and output channels.
+  DimsExpr outputDims;
+  outputDims.emplace_back(createIE->getShapeAsDim(xValue, 0));
+  if (hasFilter)
+    // CO may be different from CI.
+    outputDims.emplace_back(createIE->getShapeAsDim(wValue, 0));
+  else
+    // CO is CI.
+    outputDims.emplace_back(createIE->getShapeAsDim(xValue, 1));
+
+  // Insert dimensions for the spatial axes. From MaxPool:
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
+  //
+  // NOSET:
+  //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
+  // VALID:
+  // * O[i] = floor((I[i] - {(K[i] - 1) * d[i] + 1} + 1) / s[i])
+  // * P = 0
+  // SAME_LOWER or SAME_UPPER:
+  // * O[i] = ceil(I[i] / s[i])
+  // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
+  // * P[i] = p' / 2, if odd, first or second are increased by one.
+  LiteralIndexExpr zero(0);
+  LiteralIndexExpr one(1);
+  for (int64_t i = 0; i < spatialRank; ++i) {
+    int64_t ii = i + spatialOffset;
+    IndexExpr I = createIE->getShapeAsDim(xValue, ii);
+    IndexExpr K = kernelShape[i];
+    LiteralIndexExpr d(dilations[i]);
+    LiteralIndexExpr s(strides[i]);
+    IndexExpr t1 = K - one;
+    IndexExpr kdTerm = t1 * d + one; // (k - 1) * d + 1
+    if (autoPad == "NOTSET") {
+      IndexExpr p = pads[i] + pads[i + spatialRank]; // Sum both pads.
+      IndexExpr t1 = I + p; // Compute floor/ceil((I + p - kdTerm) / s) + 1.
+      IndexExpr t2 = t1 - kdTerm;
+      IndexExpr O;
+      if (ceilMode)
+        O = t2.ceilDiv(s);
+      else
+        O = t2.floorDiv(s);
+      O = O + one;
+      // Set output dim, and pads already set, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "VALID") {
+      IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
+      IndexExpr t2 = t1 + one;
+      IndexExpr O = t2.ceilDiv(s);
+      // Set output dim, and pads already set to zero, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // Compute output as O = ceil(I/s).
+      IndexExpr O = I.ceilDiv(s);
+      outputDims.emplace_back(O);
+      // Compute sum of pads padSum = (O -1)*s + kdTerm - I.
+      IndexExpr t1 = O - one;
+      IndexExpr t2 = t1 * s + kdTerm;
+      IndexExpr t3 = t2 - I;
+      IndexExpr padSum = IndexExpr::max(t3, zero);
+      // Single pad value is padSump / 2.
+      IndexExpr p = padSum.floorDiv(2);
+      // Increment is 1 when pp % 2 != 0
+      IndexExpr test = (padSum % 2) != zero;
+      IndexExpr inc = IndexExpr::select(test, one, zero);
+      // Increment 1st value for SAME_LOWER and 2nd for SAME_UPPER.
+      if (autoPad == "SAME_UPPER") {
+        pads[i] = p;
+        pads[i + spatialRank] = p + inc;
+      } else { // SAME_LOWER.
+        pads[i] = p + inc;
+        pads[i + spatialRank] = p;
+      }
+    }
+  }
+
+#if DEBUG
+  if (outputDims.size() == 4) {
+    cerr << "2d conv const params";
+    if (outputDims[0].isLiteral())
+      cerr << ", N " << outputDims[0].getLiteral();
+    if (outputDims[1].isLiteral())
+      cerr << ", CO " << outputDims[1].getLiteral();
+    if (outputDims[2].isLiteral())
+      cerr << ", WO " << outputDims[2].getLiteral();
+    if (outputDims[3].isLiteral())
+      cerr << ", HO " << outputDims[3].getLiteral();
+    if (pads[0].isLiteral())
+      cerr << ", ph begin " << pads[0].getLiteral();
+    if (pads[2].isLiteral())
+      cerr << ", ph end " << pads[2].getLiteral();
+    if (pads[1].isLiteral())
+      cerr << ", pw begin " << pads[1].getLiteral();
+    if (pads[3].isLiteral())
+      cerr << ", pw end " << pads[3].getLiteral();
+    cerr << endl;
+  }
+#endif
+
+  // Set type for the first output.
+  setOutputDims(outputDims);
   return success();
 }
 
