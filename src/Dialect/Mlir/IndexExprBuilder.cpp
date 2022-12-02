@@ -34,8 +34,10 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 // Local helper.
 
+namespace {
+
 // Test if value has type with defined shape and rank.
-static bool hasShapeAndRank(Value val) {
+bool hasShapeAndRank(Value val) {
   ShapedType shapedType = val.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
 }
@@ -43,7 +45,7 @@ static bool hasShapeAndRank(Value val) {
 // Get scalar value regardless of the type.
 // Code adapted from Dialect/ONNX/ONNXOps/OpHelper.cpp file.
 template <typename RESULT_TYPE>
-static RESULT_TYPE getScalarValue(
+RESULT_TYPE getScalarValue(
     DenseElementsAttr &denseAttr, Type type, uint64_t i) {
   Type elementaryType = getElementTypeOrSelf(type);
   ArrayRef<uint64_t> index({i});
@@ -64,13 +66,15 @@ static RESULT_TYPE getScalarValue(
 
 // Template instantiation for getScalarValue. I don't see any need to have any
 // other result types that int, but keep it general just in case.
-template static int64_t getScalarValue<int64_t>(
+template int64_t getScalarValue<int64_t>(
     DenseElementsAttr &denseAttr, Type type, uint64_t i);
+
+} // namespace
 
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// IndexShapeBuilder
+// IndexExprBuilder
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
