@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,49 +26,37 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(
-    ONNXSliceOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXSliceOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope),
-      starts(), ends(), steps() {}
+NewONNXSliceOpShapeHelper::NewONNXSliceOpShapeHelper(Operation *op,
+    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
+    IndexExprScope *scope)
+    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope){};
 
-ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXSliceOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope),
-      starts(), ends(), steps() {}
-
-LogicalResult ONNXSliceOpShapeHelper::computeShape(
-    ONNXSliceOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Output dims of results.
-  DimsExpr outputDims;
-
+LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
+  ONNXSliceOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
   uint64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get each of the axes, and save the literal values in axesIntLit.
-  SmallVector<int64_t, 2> axesIntLit;
+  SmallVector<int64_t, 4> axesIntLit;
   Value axes = operandAdaptor.axes();
   if (axes.getType().isa<NoneType>()) {
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
-    for (unsigned int i = 0; i < dataRank; ++i)
+    for (uint64_t i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
-  } else if (auto valueAttribute = fGetDenseVal(axes)) {
-    // If `axes` are constants, read them."
-    for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
-      int64_t axis = value.cast<IntegerAttr>().getInt();
+  } else {
+    SmallVector<IndexExpr, 4> axesSymbol;
+    createIE->getIntArrayAsSymbols(axes, axesSymbol);
+    for (IndexExpr val : axesSymbol) {
+      if (!val.isLiteral())
+        return op->emitError("Axes must be known at compile time");
+      int64_t axis = val.getLiteral();
       if (axis < 0)
         axis += dataRank;
       if (!(axis >= 0 && axis < (int64_t)dataRank))
         return op->emitError("Axes contains an out-of-bound index");
       axesIntLit.emplace_back(axis);
     }
-  } else {
-    return op->emitError("Axes must be known at compile time");
   }
   uint64_t sliceRank = axesIntLit.size();
 
@@ -74,37 +64,33 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
   starts.resize(dataRank);
   steps.resize(dataRank);
   ends.resize(dataRank);
+  DimsExpr outputDims;
   outputDims.resize(dataRank);
 
-  // SmallVector<uint64_t, 1> index1D(1, 0);
-  ArrayValueIndexCapture startsCapture(
-      operandAdaptor.starts(), fGetDenseVal, fLoadVal);
-  ArrayValueIndexCapture endsCapture(
-      operandAdaptor.ends(), fGetDenseVal, fLoadVal);
-  ArrayValueIndexCapture stepsCapture(
-      operandAdaptor.steps(), fGetDenseVal, fLoadVal);
-  MemRefBoundsIndexCapture dataBounds(data);
   for (uint64_t i = 0; i < sliceRank; i++) {
     // i is index in start/step/end/output
     // ii is logical index in mem/loop bounds
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
     // Get start.
-    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
+    SymbolIndexExpr startInput =
+        createIE->getIntArrayAsSymbol(operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
-    SymbolIndexExpr endInput(endsCapture.getSymbol(i));
+    SymbolIndexExpr endInput =
+        createIE->getIntArrayAsSymbol(operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    SymbolIndexExpr stepInput(stepsCapture.getSymbol(i));
+    SymbolIndexExpr stepInput =
+        createIE->getIntArrayAsSymbol(operandAdaptor.steps(), i);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
     // Get dim.
-    DimIndexExpr dimInput(dataBounds.getDim(ii));
+    DimIndexExpr dimInput = createIE->getShapeAsDim(data, ii);
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
@@ -148,7 +134,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
       // are fine).
       starts[i] = LiteralIndexExpr(0);
       steps[i] = LiteralIndexExpr(1);
-      DimIndexExpr dimInput(dataBounds.getDim(i));
+      DimIndexExpr dimInput = createIE->getShapeAsDim(data, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }
@@ -156,7 +142,6 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
 
   // Save the final result.
   setOutputDims(outputDims);
-
   return success();
 }
 
@@ -214,6 +199,6 @@ LogicalResult ONNXSliceOp::inferShapes(
   }
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXSliceOpShapeHelper, ONNXSliceOp,
-      ONNXSliceOpAdaptor>(*this, elementType);
+  NewONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

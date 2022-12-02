@@ -196,9 +196,8 @@ struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
@@ -227,9 +226,8 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
@@ -257,9 +255,8 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXOpBroadcastedShapeHelper shapeHelper(op, operands, &createShapeIE);
-    auto shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =

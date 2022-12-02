@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -311,23 +313,18 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(
-    ONNXConvOp *newOp, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
-          newOp, true /*hasFilter*/, false /*hasCeil*/, inScope) {}
+NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
+    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
+    IndexExprScope *scope)
+    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
+          /*ceil mode*/ false, scope) {}
 
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(newOp,
-          true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
-          fLoadVal, inScope) {}
-
-LogicalResult ONNXConvOpShapeHelper::computeShape(
-    ONNXConvOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXConvOp,
-      ONNXConvOpAdaptor>::computeShape(operandAdaptor, operandAdaptor.W(),
-      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
+LogicalResult NewONNXConvOpShapeHelper::computeShape() {
+  ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.X(), operandAdaptor.W(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations());
 }
 
 } // namespace onnx_mlir
@@ -430,8 +427,8 @@ LogicalResult ONNXConvOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXConvOpShapeHelper, ONNXConvOp,
-      ONNXConvOpAdaptor>(*this, elementType);
+  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//

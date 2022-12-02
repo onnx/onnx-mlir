@@ -202,7 +202,6 @@ struct ONNXGenericOpBroadcastedShapeHelper
       IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
       bool noBroadcasting = false);
 };
-#endif
 
 // Shape for generic pooling/conv ops.
 template <typename OP_TYPE, typename OP_ADAPTOR>
@@ -236,6 +235,7 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
   llvm::SmallVector<int64_t, 2> strides;
   llvm::SmallVector<int64_t, 2> dilations;
 };
+#endif
 
 #define DECLARE_SHAPE_HELPER(OpName)                                           \
   class OpName##ShapeHelper : public ONNXOpShapeHelper<mlir::OpName> {         \
@@ -299,7 +299,6 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
   // Additional data for ShapeOp.
   int64_t start, end;
 };
-#endif
 
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXSliceOp> {
@@ -364,6 +363,8 @@ using ONNXMatMulIntegerOpShapeHelper =
 using ONNXQLinearMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
+#endif
+
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   ONNXPadOpShapeHelper(
@@ -407,6 +408,7 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
 
+#if DEPRECATED
 #define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \
   class OpName##ShapeHelper : public ONNXGenericPoolShapeHelper<mlir::OpName,  \
                                   mlir::OpName##Adaptor> {                     \
@@ -424,7 +426,6 @@ DECLARE_POOL_SHAPE_HELPER(ONNXConvOp)
 DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
 #undef DECLARE_POOL_SHAPE_HELPER
 
-#if DEPRECATED
 #define DECLARE_BROADCASTED_SHAPE_HELPER(OpName)                               \
   class OpName##ShapeHelper                                                    \
       : public ONNXOpBroadcastedShapeHelper<mlir::OpName> {                    \

@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,6 +25,16 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
+
+template <typename OP_TYPE>
+NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::NewONNXGenericMatMulOpShapeHelper(
+    Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
+    IndexExprScope *scope)
+    : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
+      aPadDims(), bPadDims() {}
+
+// Templates below are needed because ONNXMatMulOp and ONNXMatMulIntegerOp use
+// operands A & B, but ONNXQLinearMatMulOp uses a & b.
 
 template <typename OpAdaptor>
 std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
@@ -41,22 +52,20 @@ std::pair<Value, Value> matMulInputs(
 }
 
 template <typename OP_TYPE>
-LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
-    typename OP_TYPE::Adaptor operandAdaptor) {
+LogicalResult NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
+  typename OP_TYPE::Adaptor operandAdaptor(operands);
 
-  // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get info.
-  Value A;
-  Value B;
+  Value A, B;
   std::tie(A, B) = matMulInputs(operandAdaptor);
-  MemRefBoundsIndexCapture ABounds(A);
-  MemRefBoundsIndexCapture BBounds(B);
 
   // Size all the arrays to padded length.
-  int paddedRank = std::max(ABounds.getRank(), BBounds.getRank());
+  uint64_t aRank = createIE->getTypeRank(A);
+  uint64_t bRank = createIE->getTypeRank(B);
+  int paddedRank = std::max(aRank, bRank);
   paddedRank = std::max(paddedRank, 2);
   aDims.resize(paddedRank);
   bDims.resize(paddedRank);
@@ -66,32 +75,32 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
   // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the
   // rightmost positions, prepended by 1s to fit the paddedRankSize. (1,1,1...
   // 1, aDim[0]...aDim[aRank-1])
-  LiteralIndexExpr oneIE(1);
-  int aOffset = paddedRank - ABounds.getRank();
+  LiteralIndexExpr one(1);
+  int aOffset = paddedRank - aRank;
   for (int i = 0; i < aOffset; ++i) {
-    aDims[i] = oneIE;
+    aDims[i] = one;
     aPadDims[i] = true;
   }
-  for (unsigned int i = 0; i < ABounds.getRank(); ++i) {
-    aDims[i + aOffset] = ABounds.getDim(i);
+  for (unsigned int i = 0; i < aRank; ++i) {
+    aDims[i + aOffset] = createIE->getShapeAsDim(A, i);
     aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
   // for B: two cases. If bRank = 1, we pad the rightmost position. Namely we
   // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
   // position. Otherwise, when bRank>1, we only pad the leading positions.
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
-  int bOffset = paddedRank - BBounds.getRank();
-  if (BBounds.getRank() == 1) {
-    bDims[paddedRank - 1] = oneIE;
+  int bOffset = paddedRank - bRank;
+  if (bRank == 1) {
+    bDims[paddedRank - 1] = one;
     bPadDims[paddedRank - 1] = true;
     bOffset--;
   }
   for (int i = 0; i < bOffset; ++i) {
-    bDims[i] = oneIE;
+    bDims[i] = one;
     bPadDims[i] = true;
   }
-  for (unsigned int i = 0; i < BBounds.getRank(); ++i) {
-    bDims[i + bOffset] = BBounds.getDim(i);
+  for (unsigned int i = 0; i < bRank; ++i) {
+    bDims[i + bOffset] = createIE->getShapeAsDim(B, i);
     bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }
   assert(aDims.size() == bDims.size() && "padded A&B must have same size");
@@ -148,7 +157,7 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape(
   if (!bPadDims[bM])
     outputDims.emplace_back(bDims[bM]);
   // For the case where both aRank == bRank == 1
-  if (ABounds.getRank() == 1 && BBounds.getRank() == 1) {
+  if (aRank == 1 && bRank == 1) {
     assert(outputDims.empty() && "1-D x 1-D results in scalar");
   }
   // Save the final result.
@@ -170,8 +179,8 @@ LogicalResult ONNXMatMulOp::inferShapes(
     return success();
 
   auto elementType = A().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
-      ONNXMatMulOpAdaptor>(*this, elementType);
+  NewONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -186,8 +195,8 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
     return success();
 
   auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXMatMulIntegerOpShapeHelper,
-      ONNXMatMulIntegerOp, ONNXMatMulIntegerOpAdaptor>(*this, elementType);
+  NewONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -201,6 +210,18 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     return success();
 
   auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXQLinearMatMulOpShapeHelper,
-      ONNXQLinearMatMulOp, ONNXQLinearMatMulOpAdaptor>(*this, elementType);
+  NewONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+} // namespace onnx_mlir
