@@ -45,30 +45,45 @@ using namespace mlir::torch::Torch;
 // Output   : 
 //   output   	tensor of 16-bit/32-bit/64-bit float values or              
 //              tensor of bfloat16 type values or memref of any type values
- 
 
-class ONNXSoftmaxOpToTorchLowering : public OpConversionPattern<ONNXSoftmaxOp> {
+template <typename Softmax>
+class ONNXSoftmaxOpToTorchLowering : public OpConversionPattern<Softmax> {
 public:
-  using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXSoftmaxOp op, OpAdaptor adaptor,
+  using OpConversionPattern<Softmax>::OpConversionPattern;
+  using OpAdaptor = typename Softmax::Adaptor;
+
+  LogicalResult matchAndRewrite(Softmax op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Value inputTensor = adaptor.input();
+    auto inputType = op.getType().template cast<TensorType>();
+    int64_t inputRank = inputType.getRank();
+    int64_t axis = adaptor.axis();
+    if (axis < 0) {
+      axis += inputRank;
+    }
+
+    if (axis != inputRank - 1) {
+      return rewriter.notifyMatchFailure(
+          op, "axis attribute must match last axis");
+    }
+
     Value constAxisValue = rewriter.create<ConstantIntOp>(loc, op.axisAttr());
 
     mlir::Type resultType =
-        getTypeConverter()->convertType(op.getResult().getType());
+        this->getTypeConverter()->convertType(op.getResult().getType());
     Value halfToFloat = rewriter.create<ConstantBoolOp>(loc, false);
 
-    Value result = rewriter.create<Aten_SoftmaxOp>(loc, resultType,
-        inputTensor, constAxisValue, halfToFloat);
+    Value result = rewriter.create<Aten_SoftmaxOp>(
+        loc, resultType, inputTensor, constAxisValue, halfToFloat);
     setLayerNameAttr(op, result.getDefiningOp());
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, resultType, result);
     return success();
   }
 };
 
-void populateLoweringONNXToTorchSoftmaxOpPattern(RewritePatternSet 
-	&patterns, TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXSoftmaxOpToTorchLowering>(typeConverter, ctx);
+void populateLoweringONNXToTorchSoftmaxOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSoftmaxOpToTorchLowering<ONNXSoftmaxOp>,
+      ONNXSoftmaxOpToTorchLowering<ONNXSoftmaxV11Op>>(typeConverter, ctx);
 }
