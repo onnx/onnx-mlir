@@ -70,7 +70,7 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
   if (!shape.getType().isa<ShapedType>())
     return op->emitError("Expecting a shaped type");
   SmallVector<IndexExpr, 4> constVals;
-  createIE->getIntArrayAsSymbols(shape, constVals);
+  createIE->getIntFromArrayAsSymbols(shape, constVals);
   if (failed(customComputeShape({input}, &constVals)))
     return op->emitError("failed to broadcast 4");
 

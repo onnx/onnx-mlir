@@ -494,6 +494,8 @@ func.func @test_conv_transpose_1(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<
   // CHECK: return [[RES_ATTR]] : tensor<1x1x72x96xf32>
 }
 
+// -----
+
 func.func @test_conv_transpose_2(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x2x2xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<*xf32>
@@ -742,6 +744,8 @@ func.func @test_global_maxpool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
 }
 
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when constants are present.
 //===----------------------------------------------------------------------===//
@@ -839,6 +843,7 @@ func.func @test_flatten_4(%arg0 : tensor<2x4x5x?xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<8x?xf32>
 }
 
+// -----
 
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when concat are present.
@@ -886,7 +891,6 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // CHECK:           return [[VAR_0_]] : tensor<?x9x32xf32>
 // CHECK:         }
 }
-
 
 // -----
 
@@ -1531,6 +1535,8 @@ func.func @test_eyelike_1(%arg0 : tensor<8x8xi32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<8x8xf32>
 }
 
+// -----
+
 func.func @test_eyelike_2(%arg0 : tensor<8x8xi32>) -> tensor<*xi32> {
   %1 = "onnx.EyeLike"(%arg0) {} : (tensor<8x8xi32>) -> tensor<*xi32>
   "func.return"(%1) : (tensor<*xi32>) -> ()
@@ -1555,6 +1561,8 @@ func.func @test_cast_1(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
+// -----
+
 func.func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
   %1 = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<*xui8>
   "func.return"(%1) : (tensor<*xui8>) -> ()
@@ -1563,6 +1571,8 @@ func.func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
   // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
   // CHECK: return [[RES]] : tensor<2x3x4xui8>
 }
+
+// -----
 
 func.func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi8> {
   %1 = "onnx.Cast"(%arg0) {to = i8} : (tensor<2x3x4xf32>) -> tensor<*xi8>
@@ -1573,6 +1583,8 @@ func.func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi8> {
   // CHECK: return [[RES]] : tensor<2x3x4xi8>
 }
 
+// -----
+
 func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
   %1 = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<*xf16>
   "func.return"(%1) : (tensor<*xf16>) -> ()
@@ -1581,6 +1593,8 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
   // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
   // CHECK: return [[RES]] : tensor<2x3x4xf16>
 }
+
+// -----
 
 //===----------------------------------------------------------------------===//
 /// Test the quantization op inferences.
@@ -1598,6 +1612,8 @@ func.func @test_dyn_quantize_linear_1(%arg0 : tensor<5x2x3x4xf32>) -> tensor<*xu
  // CHECK: return [[RES]] : tensor<5x2x3x4xui8>
 }
 
+// -----
+
 func.func @test_quantize_linear_1(%arg0 : tensor<5x2x3x4xf32>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<*xi8> {
   %1 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<*xi8>
   "func.return"(%1) {} : (tensor<*xi8>) -> ()
@@ -1607,6 +1623,8 @@ func.func @test_quantize_linear_1(%arg0 : tensor<5x2x3x4xf32>, %arg1 : tensor<f3
   // CHECK: return [[RES]] : tensor<5x2x3x4xi8>
 }
 
+// -----
+
 func.func @test_quantize_linear_2(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<ui8>) -> tensor<*xui8> {
  %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<*xui8>
  "func.return"(%0) {} : (tensor<*xui8>) -> ()
@@ -1615,6 +1633,8 @@ func.func @test_quantize_linear_2(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32
  // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<5x2x3x4xui8>
  // CHECK: return [[RES]] : tensor<5x2x3x4xui8>
 }
+
+// -----
 
 func.func @test_quantize_linear_3(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xui8> {
 %none = "onnx.NoValue"() {value} : () -> none
@@ -1626,6 +1646,8 @@ func.func @test_quantize_linear_3(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32
  // CHECK: return [[RES]] : tensor<5x2x3x4xui8>
 }
 
+// -----
+
 func.func @test_dequantize_linear_1(%arg0 : tensor<5x2x3x4xi8>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<*xf32> {
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x2x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<*xf32>
   "func.return"(%1) {} : (tensor<*xf32>) -> ()
@@ -1635,6 +1657,8 @@ func.func @test_dequantize_linear_1(%arg0 : tensor<5x2x3x4xi8>, %arg1 : tensor<f
   // CHECK: return [[RES]] : tensor<5x2x3x4xf32>
 }
 
+// -----
+
 func.func @test_dequantize_linear_2(%arg0 : tensor<5x?x3x4xi8>, %arg1 : tensor<*xf32>, %arg2 : tensor<2xi8>) -> tensor<*xf32> {
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x?x3x4xi8>, tensor<*xf32>, tensor<2xi8>) -> tensor<*xf32>
   "func.return"(%1) {} : (tensor<*xf32>) -> ()
@@ -1643,6 +1667,8 @@ func.func @test_dequantize_linear_2(%arg0 : tensor<5x?x3x4xi8>, %arg1 : tensor<*
   // CHECK: [[RES:%.+]] = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x?x3x4xi8>, tensor<*xf32>, tensor<2xi8>) -> tensor<5x2x3x4xf32>
   // CHECK: return [[RES]] : tensor<5x2x3x4xf32>
 }
+
+// -----
 
 //===----------------------------------------------------------------------===//
 /// Test shape inference for ConvInteger operation and all its attributes.
@@ -1659,6 +1685,8 @@ func.func @test_convinteger_0(%arg0 : tensor<1x2x32xi8>, %arg1 : tensor<5x2x6xi8
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27xi32>
 }
 
+// -----
+
 /// Default and required attributes.
 
 func.func @test_convinteger_1(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1670,6 +1698,8 @@ func.func @test_convinteger_1(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x58xi32>
 }
 
+// -----
+
 /// kernel_shape attribute.
 
 func.func @test_convinteger_2(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1680,6 +1710,8 @@ func.func @test_convinteger_2(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [8, 9], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x25x56xi32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x25x56xi32>
 }
+
+// -----
 
 /// pads attribute.
 /// Use pads to make output size equal to input size by adding K - 1 to the result.
@@ -1693,6 +1725,8 @@ func.func @test_convinteger_3(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
 }
 
+// -----
+
 /// auto_pad set to SAME_UPPER and SAME_LOWER.
 
 func.func @test_convinteger_4(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x10xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1704,6 +1738,8 @@ func.func @test_convinteger_4(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
 }
 
+// -----
+
 func.func @test_convinteger_5(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x10xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "SAME_LOWER", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
@@ -1712,6 +1748,8 @@ func.func @test_convinteger_5(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [3, 5, 2, 4], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
 }
+
+// -----
 
 /// auto_pad set to VALID.
 
@@ -1724,6 +1762,8 @@ func.func @test_convinteger_6(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x55xi32>
 }
 
+// -----
+
 /// With strides attribute.
 
 func.func @test_convinteger_7(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1734,6 +1774,8 @@ func.func @test_convinteger_7(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x14x20xi32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x14x20xi32>
 }
+
+// -----
 
 /// auto_pad set to SAME_UPPER with strides attribute.
 /// The auto_pad will pas as if stride is equal to 1.
@@ -1747,6 +1789,8 @@ func.func @test_convinteger_8(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x16x22xi32>
 }
 
+// -----
+
 /// dilations attribute.
 
 func.func @test_convinteger_9(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1758,6 +1802,8 @@ func.func @test_convinteger_9(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   // CHECK: return [[RES_ATTR]] : tensor<1x5x22x46xi32>
 }
 
+// -----
+
 /// dilations attribute with stride.
 
 func.func @test_convinteger_10(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
@@ -1768,6 +1814,8 @@ func.func @test_convinteger_10(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x
   // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x11x23xi32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x11x23xi32>
 }
+
+// -----
 
 /// dilations attribute with auto_pad set to SAME_UPPER.
 
@@ -2328,6 +2376,7 @@ func.func @test_loop_simple_no_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK:         }
 }
 
+// -----
 
 func.func @test_loop_simple_one_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) ->(tensor<*xi64>, tensor<*xi64>) { %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
   ^bb0(%body_arg0: tensor<*xi64>, %body_arg1: tensor<*xi1>, %body_arg2: tensor<*xi64>):
@@ -2349,6 +2398,8 @@ func.func @test_loop_simple_one_scan_main_graph(%arg0: tensor<i64>, %arg1: tenso
   // CHECK:           return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1 : tensor<1xi64>, tensor<?x1xi64>
   // CHECK:         }
 }
+
+// -----
 
 func.func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>, %arg3: tensor<1xf32>) -> (tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>) {
   %0:4 = "onnx.Loop"(%arg0, %arg1, %arg2, %arg3) ({
@@ -2375,6 +2426,8 @@ func.func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>
   // CHECK:           return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1, [[LOOP_OUT]]#2, [[LOOP_OUT]]#3 : tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>
   // CHECK:         }
 }
+
+// -----
 
 func.func @test_scan_simple_main_graph(%arg0: tensor<2xf32>, %arg1: tensor<3x2xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0:2 = "onnx.Scan"(%arg0, %arg1) ( {
@@ -2430,6 +2483,8 @@ func.func @test_range_int_constant() -> tensor<*xi32> {
   // CHECK-LABEL: test_range_int_constant
   // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<9xi32>
 }
+
+// -----
 
 //===----------------------------------------------------------------------===//
 /// Test the upsample op inference.
@@ -2489,6 +2544,7 @@ func.func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
 // CHECK:           return [[VAR_0_]] : tensor<10x30xf32>
   }
 
+// -----
 
   func.func @test_reversesequence_2(%arg0: tensor<10x?xf32>, %arg1: tensor<10xi64>) -> tensor<*xf32> {
     %0 = "onnx.ReverseSequence"(%arg0, %arg1) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x?xf32>, tensor<10xi64>) -> tensor<*xf32>
@@ -2498,6 +2554,8 @@ func.func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.ReverseSequence"([[PARAM_0_]], [[PARAM_1_]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x?xf32>, tensor<10xi64>) -> tensor<10x?xf32>
 // CHECK:           return [[VAR_0_]] : tensor<10x?xf32>
   }
+
+// -----
 
 // COM: Output's shape should be the same as input's shape.
 func.func @test_cumsum(%arg0: tensor<2x3xf64>, %arg1: tensor<i32>) -> tensor<*xf64> {
@@ -2569,6 +2627,8 @@ func.func @test_random_normal_static_f16() -> tensor<*xf32> {
   // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
 }
 
+// -----
+
 func.func @test_random_normal_static_f32() -> tensor<*xf32> {
   %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -2576,6 +2636,8 @@ func.func @test_random_normal_static_f32() -> tensor<*xf32> {
   // CHECK-LABEL: @test_random_normal_static_f32
   // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
 }
+
+// -----
 
 func.func @test_random_normal_static_f64() -> tensor<*xf32> {
   %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
@@ -2599,6 +2661,8 @@ func.func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> t
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
 }
 
+// -----
+
 func.func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -2606,6 +2670,8 @@ func.func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> t
   // CHECK-LABEL: @test_random_normal_like_static_f32
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf32>
 }
+
+// -----
 
 func.func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
@@ -2627,6 +2693,8 @@ func.func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> 
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
 }
 
+// -----
+
 func.func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> tensor<*xf32> {
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x?x28xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -2634,6 +2702,8 @@ func.func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> t
   // CHECK-LABEL: @test_random_normal_like_dynamic_f32
   // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<1x1x?x28xf32>
 }
+
+// -----
 
 func.func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf32>
@@ -3095,6 +3165,8 @@ func.func @test_bernoulli_1(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<8x8xf32>
 }
 
+// -----
+
 func.func @test_bernoulli_2(%arg0 : tensor<8x8xf16>) -> tensor<*xf16> {
   %1 = "onnx.Bernoulli"(%arg0) {seed = 2.0 : f32} : (tensor<8x8xf16>) -> tensor<*xf16>
   "func.return"(%1) : (tensor<*xf16>) -> ()
@@ -3139,6 +3211,8 @@ func.func @test_if_1(%arg0: tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor
 // CHECK:           }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
 // CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : tensor<2xf32>, tensor<?xi16>, tensor<*xui8>
 }
+
+// -----
 
 func.func @test_if_2(%arg0: tensor<i1>, %arg1: !onnx.Seq<tensor<2xf32>>) -> (!onnx.Seq<tensor<*xf32>>, !onnx.Opt<tensor<*xi1>>, !onnx.Opt<!onnx.Seq<tensor<*xf32>>>) {
   %0, %1, %2 = "onnx.If"(%arg0) ({
