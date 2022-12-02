@@ -136,11 +136,12 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     // Linalg bufferization can be before or after LowerToKrnlPass
     pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
     // Convert tensor.EmptyOp to bufferization.alloc_tensor
-    pm.addNestedPass<func::FuncOp>(bufferization::createEmptyTensorToAllocTensorPass());
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createEmptyTensorToAllocTensorPass());
 
     // Remove bufferization.to_tensor and to_memref
     // ToFix: Convert bufferization.alloc_tensor to memref.alloc
-    //pm.addNestedPass<func::FuncOp>(bufferization::createFinalizingBufferizePass());
+    // pm.addNestedPass<func::FuncOp>(bufferization::createFinalizingBufferizePass());
   }
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(

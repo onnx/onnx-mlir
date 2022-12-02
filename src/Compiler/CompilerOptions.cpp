@@ -210,7 +210,6 @@ llvm::cl::opt<bool> allowSorting("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph"),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
-
 llvm::cl::opt<bool> enableLinalg("enableLinalg",
     llvm::cl::desc("Enable ONNX to Linalg conversion and related passes"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));

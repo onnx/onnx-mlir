@@ -73,7 +73,6 @@ extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableLinalg;
 
-
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
     llvm::raw_ostream *errs = (llvm::raw_ostream *)nullptr);
