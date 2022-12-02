@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,6 +25,49 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+template <typename OP_TYPE>
+LogicalResult NewONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
+  // Get info about input data operand.
+  OP_TYPE argOp = llvm::cast<OP_TYPE>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands);
+  Value data = operandAdaptor.data();
+  int64_t dataRank = data.getType().cast<ShapedType>().getRank();
+  int64_t axisValue = argOp.axis();
+
+  // axis attribute must be in the range [-r,r-1], where r = rank(data).
+  assert(-dataRank <= axisValue && axisValue < dataRank && "axis out of range");
+
+  // Negative axis means values are counted from the opposite side.
+  if (axisValue < 0) {
+    axisValue = dataRank + axisValue;
+    auto builder = mlir::Builder(op->getContext());
+    argOp.axisAttr(
+        IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
+  }
+
+  // The keepdims is a required attribute and should have default value of 1.
+  int64_t keepdims = argOp.keepdims();
+  bool isKeepdims = (keepdims == 1);
+
+  // Compute outputDims
+  DimsExpr outputDims;
+  int64_t reducedRank = isKeepdims ? dataRank : dataRank - 1;
+  outputDims.resize(reducedRank);
+  for (int64_t i = 0; i < reducedRank; i++) {
+    if (isKeepdims)
+      outputDims[i] = (i != axisValue) ? createIE->getShapeAsDim(data, i)
+                                       : LiteralIndexExpr(1);
+    else
+      outputDims[i] = (i < axisValue) ? createIE->getShapeAsDim(data, i)
+                                      : createIE->getShapeAsDim(data, i + 1);
+  }
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+#if 1 // hi alex remove
 template <typename OpShapeHelper, typename OpAdaptor>
 static LogicalResult computeShape(
     OpShapeHelper &shapeHelper, OpAdaptor &operandAdaptor) {
@@ -84,6 +128,7 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
     ONNXArgMaxOpAdaptor operandAdaptor) {
   return onnx_mlir::computeShape(*this, operandAdaptor);
 }
+#endif
 
 } // namespace onnx_mlir
 
@@ -116,8 +161,8 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
   // ONNX spec specifies the reduced type as an int64
   auto elementType = IntegerType::get(getContext(), 64);
-  return shapeHelperInferShapes<ONNXArgMaxOpShapeHelper, ONNXArgMaxOp,
-      ONNXArgMaxOpAdaptor>(*this, elementType);
+  NewONNXArgMaxOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -149,6 +194,17 @@ LogicalResult ONNXArgMinOp::inferShapes(
 
   // ONNX spec specifies the reduced type as an int64
   auto elementType = IntegerType::get(getContext(), 64);
-  return shapeHelperInferShapes<ONNXArgMinOpShapeHelper, ONNXArgMinOp,
-      ONNXArgMinOpAdaptor>(*this, elementType);
+  NewONNXArgMinOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMaxOp>;
+template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMinOp>;
+
+} // namespace onnx_mlir

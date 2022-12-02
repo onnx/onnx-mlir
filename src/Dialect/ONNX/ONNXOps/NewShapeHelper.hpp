@@ -394,4 +394,25 @@ struct NewONNXRoiAlignOpShapeHelper : public NewONNXOpShapeHelper {
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
 
+//===----------------------------------------------------------------------===//
+// Arg Min/Max Op
+//===----------------------------------------------------------------------===//
+
+// Arg Min and Max operations use the same code, we just have to use their
+// respective identical operand adaptor, so specialize with templated code.
+template <typename OP_TYPE>
+struct NewONNXArgMinMaxOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXArgMinMaxOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXArgMinMaxOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using NewONNXArgMaxOpShapeHelper =
+    NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMaxOp>;
+using NewONNXArgMinOpShapeHelper =
+    NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
+
 } // namespace onnx_mlir
