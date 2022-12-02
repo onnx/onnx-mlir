@@ -427,14 +427,14 @@ void DimAnalysis::visitDim(
 
   // GemmOp
   if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXGemmOp, NewONNXGemmOpShapeHelper>(
         dim, gemmOp, sameDims);
     return;
   }
 
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-    exploreSameInputDims<ONNXMatMulOp, ONNXMatMulOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXMatMulOp, NewONNXMatMulOpShapeHelper>(
         dim, matmulOp, sameDims);
     // If we know by this analysis that two unknown dims at the same index in
     // the batchsize space are the same, then the output dim must be the same
@@ -563,7 +563,7 @@ void DimAnalysis::visitDim(
 
   // SliceOp
   if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
-    exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXSliceOp, NewONNXSliceOpShapeHelper>(
         dim, sliceOp, sameDims);
     return;
   }
