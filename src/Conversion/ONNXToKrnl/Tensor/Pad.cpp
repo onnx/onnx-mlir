@@ -86,7 +86,6 @@ struct ONNXPadOpLowering : public ConversionPattern {
       ValueRange mainLoopDef = create.krnl.defineLoops(rank);
       create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
-            // hi alex: should probably create a new scope
             SmallVector<IndexExpr, 4> resLoopInd;
             for (uint64_t i = 0; i < rank; ++i) {
               IndexExpr resInd =
@@ -101,13 +100,11 @@ struct ONNXPadOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(resMemRef, ubs);
-      // hi alex resBounds.getDimList(ubs);
       // Copy values from the input to the result.
       // Iterate over the result tensor dimensions.
       ValueRange mainLoopDef = create.krnl.defineLoops(rank);
       create.krnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
-            // hi alex: should probably create a new scope
             MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
                 createKrnl);
             SmallVector<IndexExpr, 4> dataLoopInd;

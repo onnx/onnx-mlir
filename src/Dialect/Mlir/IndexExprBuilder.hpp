@@ -80,10 +80,8 @@ struct IndexExprBuilder : DialectBuilder {
 
   // Get rank of the type defined by value. Expect ranked Shaped type.
   uint64_t getTypeRank(mlir::Value value);
-
   // Get size of 1D array attribute. Expect 1D ranked Shaped type.
   uint64_t getArraySize(mlir::ArrayAttr arrayAttr);
-
   // Get size of 1D array defined by arrayVal. Expect 1D ranked Shaped type.
   uint64_t getArraySize(mlir::Value arrayVal);
 
@@ -95,9 +93,7 @@ struct IndexExprBuilder : DialectBuilder {
   // Get literal index expression from the value of an array attribute at
   // position i. If out of bound, return an undefined index expression.
   IndexExpr getIntFromArrayAsLiteral(mlir::ArrayAttr intAttrArray, uint64_t i);
-
-  // Get literal index expression from the value of an integer array attribute
-  // at position i. If out of bound, return an literal index expression of value
+  // Same as above; if out of bound, return an literal index expression of value
   // outOfBoundVal.
   IndexExpr getIntFromArrayAsLiteral(
       mlir::ArrayAttr intAttrArray, uint64_t i, int64_t outOfBoundVal);
@@ -116,19 +112,15 @@ struct IndexExprBuilder : DialectBuilder {
 
   // Get a symbol index expression defined by `value`.
   IndexExpr getIntAsSymbol(mlir::Value value);
-
   // Get a symbol index expression from the array defined by `array` at position
   // `i`. If out of bound, return an undefined index expressions.
   IndexExpr getIntArrayAsSymbol(mlir::Value array, uint64_t i);
-
-  // Get a symbol index expression from the array defined by `array` at position
-  // `i`. If out of bound, return a literal index expression of value
+  // Same as above; if out of bound, return a literal index expression of value
   // `outOfBoundVal`.
   IndexExpr getIntArrayAsSymbol(
       mlir::Value array, uint64_t i, int64_t outOfBoundVal);
-
-  // Same as above, but get a list of up to len values. Assert when
-  // len exceed the array bounds.
+  // Same as above, but get a list of up to len values. Assert when `len` exceed
+  // the array bounds.
   void getIntArrayAsSymbols(
       mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
 

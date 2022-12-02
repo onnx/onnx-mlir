@@ -377,4 +377,21 @@ struct NewONNXOneHotOpShapeHelper : public NewONNXOpShapeHelper {
   IndexExpr depth; // Depth which may/may not be known at compile time.
 };
 
+//===----------------------------------------------------------------------===//
+// RoiAlign Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXRoiAlignOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXRoiAlignOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), xDims(),
+        batchIndicesDims() {}
+  virtual ~NewONNXRoiAlignOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for RoiAlignOp.
+  llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
+  llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
+};
+
 } // namespace onnx_mlir

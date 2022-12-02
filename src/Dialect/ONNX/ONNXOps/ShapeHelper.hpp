@@ -378,7 +378,6 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   // Additional data for PadOp.
   llvm::SmallVector<IndexExpr, 4> pads;
 };
-#endif
 
 // Shape for OneHotOp.
 struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXOneHotOp> {
@@ -409,6 +408,7 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
+#endif
 
 #if DEPRECATED
 #define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \

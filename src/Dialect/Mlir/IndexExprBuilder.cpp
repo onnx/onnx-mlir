@@ -34,6 +34,7 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 // Local helper.
 
+// Test if value has type with defined shape and rank.
 static bool hasShapeAndRank(Value val) {
   ShapedType shapedType = val.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
@@ -143,8 +144,7 @@ IndexExpr IndexExprBuilder::getIntArrayAsSymbol(Value array, uint64_t i) {
     MathBuilder createMath(*this);
     Value intVal = createMath.cast(b().getIndexType(), val);
     return SymbolIndexExpr(intVal);
-  }
-  else
+  } else
     return QuestionmarkIndexExpr();
 }
 
