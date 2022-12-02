@@ -90,6 +90,7 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
+        print("//  Commands:")
         print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output

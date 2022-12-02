@@ -43,21 +43,20 @@ bool hasShapeAndRank(Value val) {
 }
 
 // Get scalar value regardless of the type.
-// Code adapted from Dialect/ONNX/ONNXOps/OpHelper.cpp file.
+// Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(
     DenseElementsAttr &denseAttr, Type type, uint64_t i) {
   Type elementaryType = getElementTypeOrSelf(type);
-  ArrayRef<uint64_t> index({i});
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
-    auto value = denseAttr.getValues<IntegerAttr>()[index];
+    auto value = denseAttr.getValues<IntegerAttr>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.cast<IntegerAttr>().getInt();
   } else if (elementaryType.isF32()) {
-    auto value = denseAttr.getValues<APFloat>()[index];
+    auto value = denseAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.convertToFloat();
   } else if (elementaryType.isF64()) {
-    auto value = denseAttr.getValues<APFloat>()[index];
+    auto value = denseAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.convertToDouble();
   }
   llvm_unreachable("Unexpected type.");
