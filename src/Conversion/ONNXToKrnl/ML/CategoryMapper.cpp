@@ -38,6 +38,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   // When true causes injection of print stmts in the generated code.
   static const bool emitPrintStmts = false;
 
+  using LocalDialectBuilder =
+      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
+
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
@@ -47,8 +50,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     auto categoryMapperOp = cast<ONNXCategoryMapperOp>(op);
     ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
-        create(rewriter, loc);
+    LocalDialectBuilder create(rewriter, loc);
 
     // Get shape.
     NewONNXCategoryMapperOpShapeHelper shapeHelper(
@@ -191,8 +193,7 @@ private:
   PerfectHashTable createPerfectHashTable(DenseElementsAttr cats_int64s,
       DenseElementsAttr cats_strings, ArrayAttr cats_int64s_ArrayAttr,
       ArrayAttr cats_strings_ArrayAttr, Type elementType,
-      const MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-          MathBuilder> &create) const {
+      const LocalDialectBuilder &create) const {
     OpBuilder builder = create.krnl.getBuilder();
     PerfectHashTable res;
 
@@ -277,9 +278,7 @@ private:
   // valid or not.
   std::tuple<Value, Value> emitFindIndex(Value inputElem, Type elementType,
       const PerfectHashTable &pHash, Value constantForCatsInt64s,
-      Value constantForCatsStrings,
-      const MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-          MathBuilder> &create) const {
+      Value constantForCatsStrings, const LocalDialectBuilder &create) const {
     OpBuilder builder = create.krnl.getBuilder();
     Value index = create.krnl.findIndex(inputElem, pHash.G, pHash.V, pHash.len);
 
