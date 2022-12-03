@@ -449,11 +449,11 @@ using NewONNXCompressOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using NewONNXConcatOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
-//using NewONNXConcatOpShapeHelper =
-//    NewONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
-//using NewONNXConcatOpShapeHelper =
-//    NewONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
-//using NewONNXConcatOpShapeHelper =
-//    NewONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
+using NewONNXConcatShapeTransposeOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using NewONNXDepthToSpaceOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
+using NewONNXFlattenOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
 
 } // namespace onnx_mlir
