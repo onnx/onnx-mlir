@@ -455,5 +455,18 @@ using NewONNXDepthToSpaceOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
 using NewONNXFlattenOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
+using NewONNXGatherOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
+using NewONNXGatherElementsOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
+using NewONNXGatherNDOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
+using NewONNXLRNOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using NewONNXReshapeOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
+
+// using NewONNXOpShapeHelper =
+//    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
 
 } // namespace onnx_mlir
