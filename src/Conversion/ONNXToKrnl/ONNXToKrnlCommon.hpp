@@ -72,16 +72,16 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
       const llvm::ArrayRef<DimIndexExpr> outputDims) const;
 };
 
-// Recursive class specialized for LLVMBuilder refereed to as llvm.
+// Recursive class specialized for ONNXtoKrnlBuilder refereed to as krnlOnnx.
 template <class... Ts>
-struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
+    : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), krnlOnnx(b, loc) {}
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), krnlOnnx(db) {}
   OnnxToKrnlBuilder krnlOnnx;
 };
-
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
