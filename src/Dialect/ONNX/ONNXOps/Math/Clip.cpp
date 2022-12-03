@@ -96,6 +96,10 @@ LogicalResult ONNXClipOp::inferShapes(
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
 namespace onnx_mlir {
 template struct NewONNXNonSpecificOpShapeHelper<ONNXClipOp>;
 } // namespace onnx_mlir
