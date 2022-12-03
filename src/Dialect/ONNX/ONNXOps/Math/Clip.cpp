@@ -34,22 +34,6 @@ LogicalResult NewONNXClipOpShapeHelper::computeShape() {
   return success();
 }
 
-#if 0 // remove
-LogicalResult ONNXClipOpShapeHelper::computeShape(
-    ONNXClipOpAdaptor operandAdaptor) {
-  Value input = operandAdaptor.input();
-  MemRefBoundsIndexCapture bounds(input);
-  int64_t rank = bounds.getRank();
-
-  DimsExpr outputDims(rank);
-  for (int64_t i = 0; i < rank; ++i)
-    outputDims[i] = bounds.getDim(i);
-  setOutputDims(outputDims);
-
-  return success();
-}
-#endif
-
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
