@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template<>
+template <>
 LogicalResult NewONNXCategoryMapperOpShapeHelper::computeShape() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
   Value X = operandAdaptor.X();
