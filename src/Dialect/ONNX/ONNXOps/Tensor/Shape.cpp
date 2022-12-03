@@ -126,3 +126,4 @@ LogicalResult ONNXShapeOp::inferShapes(
   NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
