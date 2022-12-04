@@ -21,6 +21,15 @@ using namespace mlir;
 // ONNX Dialect: TableGen generated implementation
 //===----------------------------------------------------------------------===//
 
+Operation *ONNXDialect::materializeConstant(
+    OpBuilder &builder, Attribute value, Type type, Location loc) {
+  if (value.isa<SparseElementsAttr>())
+    return builder.create<ONNXConstantOp>(loc, value, Attribute());
+  if (value.isa<ElementsAttr>())
+    return builder.create<ONNXConstantOp>(loc, Attribute(), value);
+  llvm_unreachable("unsupported constant attribute");
+}
+
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 void ONNXDialect::initialize() {

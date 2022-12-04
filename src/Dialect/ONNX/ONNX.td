@@ -51,6 +51,7 @@ def ONNX_Dialect : Dialect {
     void printAttribute(::mlir::Attribute attr,
                         ::mlir::DialectAsmPrinter &printer) const override;
   }];
+  let hasConstantMaterializer = 1;
 }
 
 //===----------------------------------------------------------------------===//
