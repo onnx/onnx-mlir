@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -59,6 +60,36 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape(
 }
 
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Fold
+//===----------------------------------------------------------------------===//
+
+namespace {
+// TODO: move to OpHelper, it's duplicated in ConstProp.cpp
+template <typename T>
+SmallVector<T, 4> createIntVectorFromArrayAttr(ArrayAttr a) {
+  SmallVector<T, 4> vec;
+  for (auto val : a.getValue())
+    vec.push_back(val.cast<IntegerAttr>().getInt());
+  return vec;
+}
+} // namespace
+
+OpFoldResult ONNXTransposeOp::fold(ArrayRef<Attribute> operands) {
+  assert(operands.size() == 1 && "ONNXTransposeOp has 1 operand");
+  if (!(operands.front())) // Null means operand is not a constant.
+    return nullptr;        // No change when operand is not constant.
+  assert(operands.front().isa<ElementsAttr>() &&
+         "ONNXTransposeOp operand is tensor");
+  ElementsAttr tensor = operands.front().cast<ElementsAttr>();
+  ArrayAttr permAttr = (*this)->getAttr("perm").cast<ArrayAttr>();
+  SmallVector<uint64_t, 4> perm =
+      createIntVectorFromArrayAttr<uint64_t>(permAttr);
+  ElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.transpose(
+      elementsBuilder.fromElementsAttr(tensor), perm);
+}
 
 //===----------------------------------------------------------------------===//
 // Verify

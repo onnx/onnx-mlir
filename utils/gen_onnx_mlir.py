@@ -388,7 +388,8 @@ OpsWithVerifier = [
 
 # Op with fold function
 OpsWithFolder = [
-     'Constant'
+     'Constant',
+     'Transpose'
 ]
 
 # Op with ConstantLike trait
