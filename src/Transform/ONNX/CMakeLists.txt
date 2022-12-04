@@ -1,13 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(OMElideConstants
-  ElideConstants.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  MLIRTransformUtils
-  )
-
 add_onnx_mlir_library(OMConstPropHelper
   ConstPropHelper.cpp
 
