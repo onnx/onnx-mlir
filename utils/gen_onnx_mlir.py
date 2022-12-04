@@ -46,7 +46,7 @@ parser.add_argument("--check-operation-version",
                     action="store_true",
                     default=False)
 parser.add_argument("--list-operation-version",
-                    help="list the version stored in  version_dicts without performing checks",
+                    help="list the version stored in version_dicts without performing checks",
                     action="store_true",
                     default=False)
 
@@ -267,7 +267,7 @@ version_dict = {
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  'Unsqueeze': [13, 11],
- 'Upsample': [10, 7],
+ 'Upsample': [9, 7],
  'Where': [16],
  'Xor': [7],
  'ZipMap': [1]}
