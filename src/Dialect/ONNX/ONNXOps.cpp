@@ -153,26 +153,35 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
 }
 
 void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
-  Type type = getResult().getType();
+  // If the result type is dynamic then it won't match the attribute type and
+  // we fall back to printing as attribute dictionary at the end.
+  // TODO: Ensure constant result types always match their attributes because
+  //       constant folding needs that.
+  Type resultType = getResult().getType();
   if (auto attr = value()) {
+    // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
     auto elements = attr->cast<ElementsAttr>();
-    assert(!elements.isa<SparseElementsAttr>());
-    if (elements.getType() == type) {
-      // NOTE: we print every elements attribute as a DenseElementsAttr.
-      odsPrinter << ' ';
-      onnx_mlir::printIntOrFPElementsAttrAsDense(
-          elements, odsPrinter.getStream());
-      return;
-    }
-  }
-  if (auto attr = sparse_value()) {
-    auto elements = attr->cast<SparseElementsAttr>();
-    if (elements.getType() == type) {
+    assert(!elements.isa<SparseElementsAttr>() && "ONNXConstantOp value cannot be sparse");
+    if (elements.getType() == resultType) {
+      // NOTE: Here we can insert logic to print alternatives to
+      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
+      //       way as DenseElementsAttr to hide these internal representations.
       odsPrinter << ' ';
       odsPrinter.printAttribute(elements);
       return;
     }
   }
+  if (auto attr = sparse_value()) {
+    // ONNXConstantOp sparse_value must be SparseElementsAttr.
+    auto sparseElements = attr->cast<SparseElementsAttr>();
+    if (sparseElements.getType() == resultType) {
+      odsPrinter << ' ';
+      odsPrinter.printAttribute(sparseElements);
+      return;
+    }
+  }
+  // Fallback if there's something funny: no value or sparse_value attribute,
+  // or types mismatch.
   odsPrinter.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{});
-  odsPrinter << " : " << type;
+  odsPrinter << " : " << resultType;
 }
