@@ -21,6 +21,16 @@
 //
 // Declare comparation funcions for data types and sorting directions
 //
+#ifdef __APPLE__
+typedef int(
+    compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(                                               \
+      void *dataPtr, const void *idx1, const void *idx2) {                     \
+    return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
+        (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
+  }
+#else
 typedef int(
     compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
@@ -29,6 +39,7 @@ typedef int(
     return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
         (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
   }
+#endif
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
 // declare ascending functions
@@ -55,13 +66,20 @@ declare_compare_function(Uint64, uint64_t, Descending, <)
 declare_compare_function(Int64, int64_t, Descending, <)
 declare_compare_function(Float, float, Descending, <)
 declare_compare_function(Double, double, Descending, <)
-    // clang-format on
+// clang-format on
 
-    //
-    // Declare sort functions for sorting algorithms
-    //
-    typedef void(sortFuncionType(void *base, size_t dataSize, size_t dataNum,
-        compareFunctionType compFunc, void *dataPtr));
+//
+// Declare sort functions for sorting algorithms
+//
+#ifdef __APPLE__
+                            typedef void(sortFuncionType(void *base,
+                                size_t dataNum, size_t dataSize, void *dataPtr,
+                                compareFunctionType compFunc));
+#else
+                            typedef void(sortFuncionType(void *base,
+                                size_t dataNum, size_t dataSize,
+                                compareFunctionType compFunc, void *dataPtr));
+#endif
 #define SWAP_INDEX(a, b)                                                       \
   do {                                                                         \
     uint64_t tmp = (a);                                                        \
@@ -72,12 +90,23 @@ declare_compare_function(Double, double, Descending, <)
 //
 // Bubble sort
 //
+#ifdef __APPLE__
+void bubble_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
+    compareFunctionType compFunc)
+#else
 void bubble_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr) {
+    compareFunctionType compFunc, void *dataPtr)
+#endif
+{
   uint64_t *idx = (uint64_t *)base;
   for (int i = 0; i < dataNum; i++) {
     for (int j = 0; j < dataNum - 1; j++) {
-      if (compFunc(idx + j, idx + j + 1, dataPtr)) {
+#ifdef __APPLE__
+      if (compFunc(dataPtr, idx + j, idx + j + 1))
+#else
+      if (compFunc(idx + j, idx + j + 1, dataPtr))
+#endif
+      {
         SWAP_INDEX(idx[j], idx[j + 1]);
       }
     }
@@ -87,8 +116,14 @@ void bubble_sort(void *base, size_t dataNum, size_t dataSize,
 //
 // Comb sort
 //
+#ifdef __APPLE__
+void comb_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
+    compareFunctionType compFunc)
+#else
 void comb_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr) {
+    compareFunctionType compFunc, void *dataPtr)
+#endif
+{
   uint64_t *idx = (uint64_t *)base;
   size_t gap = dataNum;
   int swap = TRUE;
@@ -97,7 +132,12 @@ void comb_sort(void *base, size_t dataNum, size_t dataSize,
     gap = (gap < 1) ? 1 : gap;
     swap = FALSE;
     for (int i = 0; i < dataNum - gap; i++) {
-      if (compFunc(idx + i, idx + i + gap, dataPtr)) {
+#ifdef __APPLE__
+      if (compFunc(dataPtr, idx + i, idx + i + gap, dataPtr))
+#else
+      if (compFunc(idx + i, idx + i + gap, dataPtr))
+#endif
+      {
         SWAP_INDEX(idx[i], idx[i + gap]);
       }
     }
@@ -161,7 +201,12 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
   int64_t i = begin;
   for (int64_t j = begin; j < end; j++) {
-    if (!compFunc(idx + j, idx + end, dataPtr)) {
+#ifdef __APPLE__
+    if (!compFunc(dataPtr, idx + j, idx + end))
+#else
+    if (!compFunc(idx + j, idx + end, dataPtr))
+#endif
+    {
       SWAP_INDEX(idx[i], idx[j]);
       i++;
     }
@@ -171,8 +216,13 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
 }
 
 // Quick sort main function (custom version)
+#ifdef __APPLE__
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+    void *dataPtr, compareFunctionType compFunc) {
+#else
 void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
     compareFunctionType compFunc, void *dataPtr) {
+#endif
   uint64_t *idx = (uint64_t *)base;
   // Calculate the theoritical maximum stack size for index
   int64_t stackSize = (log2u(dataNum + 1) + 2) * 2;
@@ -335,9 +385,12 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     sortFunc = comb_sort;
     break;
   case OMSORT_QUICKSORT:
-#if defined(__APPLE__) || defined(_MSC_VER)
-    // Use custom qsort, if standard qsort_r is not supported.
-    sortFunc = quick_sort_custom;
+#if defined(__APPLE__)
+    // MacOS supports qsort_r in different API
+    sortFunc = qsort_r;
+#elif defined(_MSC_VER)
+    // Windows supports qsort_s
+    sortFunc = qsort_s;
 #else
     // Use standard quick sort in libc
     sortFunc = qsort_r;
@@ -372,8 +425,13 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
                            dim4 * strides[4];
             void *data = ((char *)dataPtr) + datasize * off;
             uint64_t *idx = order + off;
+#if defined(__APPLE__)
+            sortFunc((void *)idx, sort_elems, sizeof(uint64_t), data,
+                compareElements);
+#else
             sortFunc((void *)idx, sort_elems, sizeof(uint64_t), compareElements,
                 data);
+#endif
           }
         }
       }
