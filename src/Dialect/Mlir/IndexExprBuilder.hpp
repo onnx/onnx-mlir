@@ -78,6 +78,10 @@ struct IndexExprBuilder : DialectBuilder {
   //===--------------------------------------------------------------------===//
   // Get info about rank and sizes
 
+  // check/assert that value has shape and rank.
+  bool hasShapeAndRank(mlir::Value value);
+  void assertHasShapeAndRank(mlir::Value value);
+
   // Get rank of the type defined by value. Expect ranked shaped type.
   uint64_t getTypeRank(mlir::Value value);
   // Get size of 1D array attribute. Expect 1D ranked shaped type.
