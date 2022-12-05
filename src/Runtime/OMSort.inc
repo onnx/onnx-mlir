@@ -4,6 +4,7 @@
 #include <assert.h>
 #endif
 
+#define __USE_GNU
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,9 +21,11 @@
 //
 // Declare comparation funcions for data types and sorting directions
 //
-typedef int(compareFunctionType(void *idx1, void *idx2, void *dataPtr));
+typedef int(
+    compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(void *idx1, void *idx2, void *dataPtr) {       \
+  int compare##fname##direction(                                               \
+      const void *idx1, const void *idx2, void *dataPtr) {                     \
     return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
         (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
   }
@@ -167,8 +170,8 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
   return i;
 }
 
-// Quick sort main function
-void quick_sort(void *base, size_t dataNum, size_t dataSize,
+// Quick sort main function (custom version)
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
     compareFunctionType compFunc, void *dataPtr) {
   uint64_t *idx = (uint64_t *)base;
   // Calculate the theoritical maximum stack size for index
@@ -332,7 +335,10 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     sortFunc = comb_sort;
     break;
   case OMSORT_QUICKSORT:
-    sortFunc = quick_sort; // XXX WORKTODO: use the qsort_r;
+    sortFunc = qsort_r; // standard quick sort in libc
+    break;
+  case OMSORT_QUICKSORT_CUSTOM:
+    sortFunc = quick_sort_custom; // custum quick sort
     break;
   default:
     assert("invalid sorting algorithm");
