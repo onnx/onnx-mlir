@@ -31,8 +31,6 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ONNXConcatShapeTransposeOp concatShapeTransposeOp =
-        llvm::cast<ONNXConcatShapeTransposeOp>(op);
     ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
         operands, op->getAttrDictionary());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
