@@ -99,8 +99,8 @@ void bubble_sort(void *base, size_t dataNum, size_t dataSize,
 #endif
 {
   uint64_t *idx = (uint64_t *)base;
-  for (int i = 0; i < dataNum; i++) {
-    for (int j = 0; j < dataNum - 1; j++) {
+  for (uint64_t i = 0; i < dataNum; i++) {
+    for (uint64_t j = 0; j < dataNum - 1; j++) {
 #if defined(__APPLE__) || defined(_MSC_VER)
       if (compFunc(dataPtr, idx + j, idx + j + 1))
 #else
@@ -131,9 +131,9 @@ void comb_sort(void *base, size_t dataNum, size_t dataSize,
     gap = gap / 1.3;
     gap = (gap < 1) ? 1 : gap;
     swap = FALSE;
-    for (int i = 0; i < dataNum - gap; i++) {
+    for (uint64_t i = 0; i < dataNum - gap; i++) {
 #if defined(__APPLE__) || defined(_MSC_VER)
-      if (compFunc(dataPtr, idx + i, idx + i + gap, dataPtr))
+      if (compFunc(dataPtr, idx + i, idx + i + gap))
 #else
       if (compFunc(idx + i, idx + i + gap, dataPtr))
 #endif
