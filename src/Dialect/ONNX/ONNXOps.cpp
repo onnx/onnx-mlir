@@ -163,7 +163,8 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
   if (auto attr = value()) {
     // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
     auto elements = attr->cast<ElementsAttr>();
-    assert(!elements.isa<SparseElementsAttr>() && "ONNXConstantOp value cannot be sparse");
+    assert(!elements.isa<SparseElementsAttr>() &&
+           "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
       // NOTE: Here we can insert logic to print alternatives to
       //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
