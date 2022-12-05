@@ -36,12 +36,6 @@ using namespace mlir;
 
 namespace {
 
-// Test if value has type with defined shape and rank.
-bool hasShapeAndRank(Value val) {
-  ShapedType shapedType = val.getType().dyn_cast_or_null<ShapedType>();
-  return shapedType && shapedType.hasRank();
-}
-
 // Get scalar value regardless of the type.
 // Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
 template <typename RESULT_TYPE>
@@ -77,10 +71,22 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Test/assert that value has type with defined shape and rank.
+
+bool IndexExprBuilder::hasShapeAndRank(Value value) {
+  ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
+  return shapedType && shapedType.hasRank();
+}
+
+void IndexExprBuilder::assertHasShapeAndRank(Value value) {
+  assert(hasShapeAndRank(value) && "expected value with shape and rank");
+}
+
+//===----------------------------------------------------------------------===//
 // Get Rank of Type / Size of 1D array
 
 uint64_t IndexExprBuilder::getTypeRank(Value value) {
-  assert(hasShapeAndRank(value) && "expected shaped type with rank");
+  assertHasShapeAndRank(value);
   // Find shaped type size (rank of 0 is scalar).
   return value.getType().cast<ShapedType>().getRank();
 }

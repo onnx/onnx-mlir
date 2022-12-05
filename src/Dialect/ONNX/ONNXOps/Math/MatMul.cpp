@@ -213,8 +213,8 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 
 namespace onnx_mlir {
 
-template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct NewONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir
