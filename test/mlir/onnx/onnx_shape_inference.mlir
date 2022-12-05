@@ -1,3 +1,5 @@
+
+
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 // -----
@@ -95,36 +97,13 @@ func.func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32>
 /// Test shape inference for DFT.
 //===----------------------------------------------------------------------===//
 
-func.func @test_dft_1(%arg0: tensor<1x10x10x1xf32>) -> tensor<*xf32> {
-  %0 = "onnx.DFT"(%arg0) : (tensor<1x10x10x1xf32>) -> tensor<*f32>
+func.func @test_dft_1(%arg0: tensor<1x10x10x2xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
+  %0 = "onnx.DFT"(%arg0, %arg1) : (tensor<1x10x10x2xf32>, tensor<i32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_dft_1
-  // CHECK: [[RES1:%.+]] = "onnx.DFT"(%arg0) {onesided = 0} : (tensor<1x10x10x1xf32>) -> tensor<1x10x10x1xf32>
+  // CHECK: [[RES1:%.+]] = "onnx.DFT"(%arg0, %arg1) {axis = 1 : si64, onesided = 0 : si64} : (tensor<1x10x10x2xf32>, tensor<i32>) -> tensor<*xf32>
   // CHECK: return [[RES1]] : tensor<1x10x10x1xf32>
-}
-
-// -----
-
-func.func @test_dft_2(%arg0: tensor<1x10x10x1xf32>) -> tensor<*xf32> {
-  %0 = "onnx.DFT"(%arg0) : (tensor<1x10x10x1xf32>) -> tensor<*xf32>
-  "func.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_dft_2
-  // CHECK: [[RES2:%.+]] = "onnx.DFT"(%arg0) {onesided = 1} : (tensor<1x10x10x1xf32>) -> tensor<1x10x10x1xf32>
-  // CHECK: return [[RES2]] : tensor<1x10x10x1xf32>
-}
-
-// -----
-
-
-func.func @test_dft_3(%arg0: tensor<1x10x10x2xf32> , %arg1 : tensor<?x?x?x?xf32>) -> tensor<*xf32> {
-  %0 = "onnx.DFT"(%arg0, %arg1) : (tensor<1x10x10x2xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
-  "func.return"(%0) : (tensor<*xf32>) -> ()
-  
-  // CHECK-LABEL: test_dft_3
-  // CHECK: [[RES3:%.+]] = "onnx.DFT"(%arg0,%arg1) {onesided = 1, axis = 0 } : (tensor<1x10x10x1xf32> , tensor<?x?x?x?xf32>)  -> tensor<?x?x?x?xf32>
-  // CHECK: return [[RES3]] : tensor<?x?x?x?xf32>
 }
 
 // -----

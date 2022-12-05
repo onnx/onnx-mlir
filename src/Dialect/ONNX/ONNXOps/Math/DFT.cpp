@@ -17,31 +17,25 @@
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
-using namespace std;
 
 //===----------------------------------------------------------------------===//
 // Support
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
+
 LogicalResult ONNXDFTOpShapeHelper::computeShape(
     ONNXDFTOpAdaptor operandAdaptor) {
-
   // Get info about input data operand.
-  auto *op = shapeHelper.op;
-  Value data = operandAdaptor.data();
-  Optional<int64_t> dftLength = op->dft_length();
+  Value input = operandAdaptor.input();
+  auto inputType = input.getType().cast<ShapedType>();
 
   // Get the rank to compensate for N dimensions
-  int64_t rank = data.getType().cast<ShapedType>().getRank();
+  int64_t rank = inputType.getRank();
+
 
   // axis is a required attribute and should have default value of 1.
   int64_t axis = op->axis();
-  bool isAxis = (axis == 1);
-
-  // inverse is a required attribute and should have default value of 0.
-  int64_t inverse = op->inverse();
-  bool isInverse = (inverse == 0);
 
   // onesided is a required attribute and should have default value of 0.
   // However onesided can also be a value of 1 and if so a specific shape is
@@ -51,8 +45,8 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
 
   // Compute outputDims for DFT
   DimsExpr outputDims;
-  MemRefBoundsIndexCapture dataBounds(data);
-  if (i = 0; i < rank - 1; i++) {
+  MemRefBoundsIndexCapture dataBounds(input);
+  for (int64_t i = 0; i < rank - 1; i++) {
     if (isOneSided) {
       outputDims.emplace_back(dataBounds.getDim(i));
     } else {
@@ -66,6 +60,24 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
   }
 
   // Save the final result.
-  shapeHelper.setOutputDims(dimOutput);
+  setOutputDims(outputDims);
+
   return success();
-} // namespace onnx_mlir
+  } // namespace onnx_mlir
+
+}
+
+//===----------------------------------------------------------------------===//
+// Shape Inference
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDFTOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer the output shape if the input shape is not yet knwon.
+  if (!hasShapeAndRank(input()))
+    return success();
+
+  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  return shapeHelperInferShapes<ONNXDFTOpShapeHelper, ONNXDFTOp,
+      ONNXDFTOpAdaptor>(*this, elementType);
+}

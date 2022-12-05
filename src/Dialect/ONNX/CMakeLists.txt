@@ -22,7 +22,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/NewShapeHelper.cpp
   ONNXTypes.cpp
   Rewrite.cpp
-  
+
   # Support for shape inference and verifiers
   ONNXOps/Additional/CallOp.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
@@ -38,6 +38,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ML/OneHotEncoder.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/Clip.cpp
+  ONNXOps/Math/DFT.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
   ONNXOps/Math/ElementwiseBroadcast.cpp
@@ -107,7 +108,7 @@ add_onnx_mlir_library(OMONNXOps
 
   LINK_LIBS PRIVATE
   OMDiagnostic
-    
+
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
