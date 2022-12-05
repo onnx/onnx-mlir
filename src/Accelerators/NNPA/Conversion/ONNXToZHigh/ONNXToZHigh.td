@@ -348,17 +348,17 @@ def replaceONNXReduceMeanPattern : Pat<
 
 def GetStrAttrPaddingtypeMaxPool : NativeCodeCall<
   "$_builder.getStringAttr(getStrPaddingType<ONNXMaxPoolSingleOutOp,"
-  "ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>"
+  "ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>"
   "($0.getDefiningOp<ONNXMaxPoolSingleOutOp>()))">;
 
 def GetI64ArrayAttrKernelShapeMaxPool: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayKernelShape<ONNXMaxPoolSingleOutOp,"
-  "ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>"
+  "ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>"
   "($0.getDefiningOp<ONNXMaxPoolSingleOutOp>()))">;
 
 def GetI64ArrayAttrStridesMaxPool: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayStrides<ONNXMaxPoolSingleOutOp,"
-  "ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>"
+  "ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>"
   "($0.getDefiningOp<ONNXMaxPoolSingleOutOp>()))">;
 
 def replaceONNXMaxPoolSingleOutPattern : Pattern<
@@ -390,17 +390,17 @@ def replaceONNXMaxPoolSingleOutPattern : Pattern<
 
 def GetStrAttrPaddingtypeAveragePool : NativeCodeCall<
   "$_builder.getStringAttr(getStrPaddingType<ONNXAveragePoolOp,"
-  "ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>"
+  "ONNXAveragePoolOpAdaptor, NewONNXAveragePoolOpShapeHelper>"
   "($0.getDefiningOp<ONNXAveragePoolOp>()))">;
 
 def GetI64ArrayAttrKernelShapeAveragePool: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayKernelShape<ONNXAveragePoolOp,"
-  "ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>"
+  "ONNXAveragePoolOpAdaptor, NewONNXAveragePoolOpShapeHelper>"
   "($0.getDefiningOp<ONNXAveragePoolOp>()))">;
 
 def GetI64ArrayAttrStridesAveragePool: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayStrides<ONNXAveragePoolOp,"
-  "ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>"
+  "ONNXAveragePoolOpAdaptor, NewONNXAveragePoolOpShapeHelper>"
   "($0.getDefiningOp<ONNXAveragePoolOp>()))">;
 
 def replaceONNXAveragePoolPattern : Pattern<
@@ -931,15 +931,15 @@ def replaceONNXGRUPattern4 : Pattern<
 
 def GetStrAttrPaddingtypeConv: NativeCodeCall<
   "$_builder.getStringAttr(getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor,"
-  "ONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
+  "NewONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
 
 def GetI64ArrayAttrKernelShapeConv: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayKernelShape<ONNXConvOp, ONNXConvOpAdaptor,"
-  "ONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
+  "NewONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
 
 def GetI64ArrayAttrStridesConv: NativeCodeCall<
   "$_builder.getI64ArrayAttr(getArrayStrides<ONNXConvOp, ONNXConvOpAdaptor,"
-  "ONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
+  "NewONNXConvOpShapeHelper>($0.getDefiningOp<ONNXConvOp>()))">;
 
 def replaceONNXConv2DPattern : Pattern<
   (ONNXConvOp:$res $x, $w, $b, $_, $_, $_, $_, $_, $_),

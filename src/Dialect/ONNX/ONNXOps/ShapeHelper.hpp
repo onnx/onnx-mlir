@@ -103,6 +103,10 @@ struct ONNXOpShapeHelper {
   OP *op;
   IndexExprScope *scope;
 
+  // For testing compatibility with new.
+  IndexExprScope *getScope() { return scope; }
+  DimsExpr &getOutputDims(int n = 0) { return dimsForOutput(n); }
+
 protected:
   // Function to get a dense value from an attribute.
   ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
@@ -114,6 +118,7 @@ private:
   bool ownScope;
 };
 
+#if DEPRECATED
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
 struct ONNXGenericOpUnaryShapeHelper
@@ -230,6 +235,7 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
   llvm::SmallVector<int64_t, 2> strides;
   llvm::SmallVector<int64_t, 2> dilations;
 };
+#endif
 
 #define DECLARE_SHAPE_HELPER(OpName)                                           \
   class OpName##ShapeHelper : public ONNXOpShapeHelper<mlir::OpName> {         \
@@ -247,11 +253,11 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
               fLoadVal, inScope) {}                                            \
     mlir::LogicalResult computeShape(mlir::OpName##Adaptor operandAdaptor);    \
   };
-DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
-DECLARE_SHAPE_HELPER(ONNXArgMinOp)
-DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
-DECLARE_SHAPE_HELPER(ONNXClipOp)
-DECLARE_SHAPE_HELPER(ONNXCompressOp)
+// DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
+// DECLARE_SHAPE_HELPER(ONNXArgMinOp)
+// DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
+// DECLARE_SHAPE_HELPER(ONNXClipOp)
+// DECLARE_SHAPE_HELPER(ONNXCompressOp)
 DECLARE_SHAPE_HELPER(ONNXConcatOp)
 DECLARE_SHAPE_HELPER(ONNXConcatShapeTransposeOp)
 DECLARE_SHAPE_HELPER(ONNXDepthToSpaceOp)
@@ -275,14 +281,7 @@ DECLARE_SHAPE_HELPER(ONNXUnsqueezeOp)
 DECLARE_SHAPE_HELPER(ONNXUnsqueezeV11Op)
 #undef DECLARE_SHAPE_HELPER
 
-// Compute a slice of the input tensor's shape. The slice starts from axis 0.
-// The axes up to the last one will be included. Negative axes indicate counting
-// back from the last axis.
-std::pair<int64_t, int64_t> getDataShapeBounds(
-    mlir::ONNXShapeOpAdaptor &operandAdaptor);
-
-// Compute the data selected by the Shape operator.
-DimsExpr computeSelectedData(mlir::ONNXShapeOpAdaptor &operandAdaptor);
+#if DEPRECATED
 
 // Shape for ShapeOp.
 struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXShapeOp> {
@@ -365,6 +364,9 @@ using ONNXMatMulIntegerOpShapeHelper =
 using ONNXQLinearMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
+#endif
+
+#if DEPRECATED
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   ONNXPadOpShapeHelper(
@@ -407,7 +409,9 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
+#endif
 
+#if DEPRECATED
 #define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \
   class OpName##ShapeHelper : public ONNXGenericPoolShapeHelper<mlir::OpName,  \
                                   mlir::OpName##Adaptor> {                     \
@@ -442,6 +446,7 @@ DECLARE_POOL_SHAPE_HELPER(ONNXMaxPoolSingleOutOp)
   };
 DECLARE_BROADCASTED_SHAPE_HELPER(ONNXExpandOp)
 #undef DECLARE_BROADCASTED_SHAPE_HELPER
+#endif
 
 /// Handle shape inference for unary element-wise operators.
 mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);

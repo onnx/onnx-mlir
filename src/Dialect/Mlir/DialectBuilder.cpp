@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -532,6 +533,23 @@ void MathBuilder::addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
 }
 
 //===----------------------------------------------------------------------===//
+// Shape support.
+//===----------------------------------------------------------------------===//
+
+Value ShapeBuilder::dim(Value val, int64_t index) const {
+  Value inputShape = shapeOf(val);
+  return getExtent(inputShape, index);
+}
+
+Value ShapeBuilder::shapeOf(Value val) const {
+  return b().create<shape::ShapeOfOp>(loc(), val);
+}
+
+Value ShapeBuilder::getExtent(Value val, int64_t index) const {
+  return b().create<shape::GetExtentOp>(loc(), val, index);
+}
+
+//===----------------------------------------------------------------------===//
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
 
@@ -611,19 +629,15 @@ Value MemRefBuilder::reinterpretCast(
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
-  assert((val.getType().isa<MemRefType>() ||
-             val.getType().isa<UnrankedMemRefType>()) &&
-         "memref::DimOp expects input operand to have MemRefType or "
-         "UnrankedMemRefType");
   assert(index >= 0 && "Expecting a valid index");
   return dim(val, b().create<arith::ConstantIndexOp>(loc(), index));
 }
 
 Value MemRefBuilder::dim(Value val, Value index) const {
-  assert((val.getType().isa<MemRefType>() ||
-             val.getType().isa<UnrankedMemRefType>()) &&
-         "memref::DimOp expects input operand to have MemRefType or "
-         "UnrankedMemRefType");
+  // assert((val.getType().isa<MemRefType>() ||
+  //           val.getType().isa<UnrankedMemRefType>()) &&
+  //       "memref::DimOp expects input operand to have MemRefType or "
+  //       "UnrankedMemRefType");
   return b().createOrFold<memref::DimOp>(loc(), val, index);
 }
 
@@ -846,7 +860,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   outputVecArray.clear();
   MathBuilder createMath(*this);
   for (uint64_t r = 0; r < N; r += machineVL) {
-    // Algorithm for the set of input arrays from tmp[r] to tmp[r+machineVL-1].
+    // Algorithm for the set of input arrays from tmp[r] to
+    // tmp[r+machineVL-1].
     uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
     for (uint64_t step = 1; step < machineVL; step = step * 2) {
       for (uint64_t p = 0; p < numPairs; ++p) {
