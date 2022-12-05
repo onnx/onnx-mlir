@@ -335,7 +335,13 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     sortFunc = comb_sort;
     break;
   case OMSORT_QUICKSORT:
-    sortFunc = qsort_r; // standard quick sort in libc
+#if defined(__APPLE__) || defined(_MSC_VER)
+    // Use custom qsort, if standard qsort_r is not supported.
+    sortFunc = quick_sort_custom;
+#else
+    // Use standard quick sort in libc
+    sortFunc = qsort_r;
+#endif
     break;
   case OMSORT_QUICKSORT_CUSTOM:
     sortFunc = quick_sort_custom; // custum quick sort
