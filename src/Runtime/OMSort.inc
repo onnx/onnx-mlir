@@ -21,7 +21,7 @@
 //
 // Declare comparation funcions for data types and sorting directions
 //
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_MSC_VER)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
@@ -101,7 +101,7 @@ void bubble_sort(void *base, size_t dataNum, size_t dataSize,
   uint64_t *idx = (uint64_t *)base;
   for (int i = 0; i < dataNum; i++) {
     for (int j = 0; j < dataNum - 1; j++) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_MSC_VER)
       if (compFunc(dataPtr, idx + j, idx + j + 1))
 #else
       if (compFunc(idx + j, idx + j + 1, dataPtr))
@@ -132,7 +132,7 @@ void comb_sort(void *base, size_t dataNum, size_t dataSize,
     gap = (gap < 1) ? 1 : gap;
     swap = FALSE;
     for (int i = 0; i < dataNum - gap; i++) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_MSC_VER)
       if (compFunc(dataPtr, idx + i, idx + i + gap, dataPtr))
 #else
       if (compFunc(idx + i, idx + i + gap, dataPtr))
@@ -201,7 +201,7 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
   int64_t i = begin;
   for (int64_t j = begin; j < end; j++) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_MSC_VER)
     if (!compFunc(dataPtr, idx + j, idx + end))
 #else
     if (!compFunc(idx + j, idx + end, dataPtr))
