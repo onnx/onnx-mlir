@@ -422,7 +422,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
 
-#if 0
+#if 0 // Should that be removed?
   typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
     Type elementType = type.getElementType();
     if (!elementType.isa<StringType>())
