@@ -39,8 +39,7 @@ namespace {
 // Get scalar value regardless of the type.
 // Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(
-    ElementsAttr &elementsAttr, Type type, uint64_t i) {
+RESULT_TYPE getScalarValue(ElementsAttr &elementsAttr, Type type, uint64_t i) {
   Type elementaryType = getElementTypeOrSelf(type);
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
