@@ -309,7 +309,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXSplitV11Op>();
   target.addIllegalOp<ONNXSqueezeV11Op>();
   target.addIllegalOp<ONNXUpsampleOp>();
-  target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
   target.addIllegalOp<ONNXUnsqueezeV11Op>();
   target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
