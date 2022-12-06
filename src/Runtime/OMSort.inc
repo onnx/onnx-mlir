@@ -80,7 +80,7 @@ declare_compare_function(Double, double, Descending, <)
 // Declare sort functions for sorting algorithms
 //
 #ifdef __APPLE__
-                            typedef void(sortFuncionType(void *base,
+                            typedef void(sortFunctionType(void *base,
                                 size_t dataNum, size_t dataSize, void *dataPtr,
                                 compareFunctionType compFunc));
 #elif defined(_MSC_VER)
@@ -88,7 +88,7 @@ declare_compare_function(Double, double, Descending, <)
                                 size_t num, size_t width,
                                 compareFunctionType compFunc, void *context);
 #else
-                            typedef void(sortFuncionType(void *base,
+                            typedef void(sortFunctionType(void *base,
                                 size_t dataNum, size_t dataSize,
                                 compareFunctionType compFunc, void *dataPtr));
 #endif
@@ -388,7 +388,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   uint64_t datasize = getDataSize(dataType);
 
   // Choose the sorting function
-  sortFuncionType *sortFunc = bubble_sort;
+  sortFunctionType *sortFunc = bubble_sort;
   switch (algorithm) {
   case OMSORT_BUBBLESORT:
     sortFunc = bubble_sort;
