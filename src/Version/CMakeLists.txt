@@ -68,15 +68,13 @@ function(get_short_hash path out_var)
   endif()
   find_package(Git)
   if(GIT_FOUND)
-    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD --git-dir
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
       WORKING_DIRECTORY ${path}
       RESULT_VARIABLE SHORT_HASH_RESULT
       OUTPUT_VARIABLE SHORT_HASH_OUTPUT
       ERROR_QUIET
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-    string(REGEX REPLACE ".*\n" "" SHORT_HASH_OUTPUT_STRIPPED "${SHORT_HASH_OUTPUT}")
-    string(STRIP "${SHORT_HASH_OUTPUT_STRIPPED}" SHORT_HASH_OUTPUT_STRIPPED)
-    file(WRITE "${ONNX_MLIR_BIN_ROOT}/SHORT_HASH_FILE" ${SHORT_HASH_OUTPUT_STRIPPED})
+    file(WRITE "${ONNX_MLIR_BIN_ROOT}/SHORT_HASH_FILE" ${SHORT_HASH_OUTPUT})
   endif()
 endfunction()
 
