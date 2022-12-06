@@ -15,6 +15,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -34,14 +35,13 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
         llvm::cast<ONNXConcatShapeTransposeOp>(op);
     ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
         operands, op->getAttrDictionary());
-    ONNXConcatShapeTransposeOpShapeHelper shapeHelper(&concatShapeTransposeOp,
-        &rewriter, krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    // Get shape.
+    NewONNXConcatShapeTransposeOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Compute concat output shape.
     unsigned numInputs = op->getNumOperands();
@@ -59,24 +59,25 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
     IndexExprScope IEScope(&rewriter, loc);
     DimsExpr outputConcatDims(rank);
-    MemRefBoundsIndexCapture firstInputBounds(operandAdaptor.inputs()[0]);
     for (unsigned dim = 0; dim < rank; dim++) {
-      outputConcatDims[dim] = firstInputBounds.getDim(dim);
+      outputConcatDims[dim] = create.krnlIE.getShapeAsDim(firstInput, dim);
     }
-    IndexExpr cumulativeAxisSize = DimIndexExpr(firstInputBounds.getDim(axis));
+    IndexExpr cumulativeAxisSize =
+        create.krnlIE.getShapeAsDim(firstInput, axis);
 
     // Handle the rest of input
     for (unsigned i = 1; i < numInputs; ++i) {
-      Value currentInput = operandAdaptor.inputs()[i];
-      MemRefBoundsIndexCapture currInputBounds(currentInput);
+      Value currInput = operandAdaptor.inputs()[i];
       for (unsigned dim = 0; dim < rank; dim++) {
         if (dim == axis) {
-          DimIndexExpr currentSize(currInputBounds.getDim(axis));
+          IndexExpr currentSize = create.krnlIE.getShapeAsDim(currInput, axis);
           cumulativeAxisSize = cumulativeAxisSize + currentSize;
         } else {
-          if (currInputBounds.getDim(dim).isLiteral()) {
+          IndexExpr currInputPossiblyLit =
+              create.krnlIE.getShapeAsDim(currInput, dim);
+          if (currInputPossiblyLit.isLiteral()) {
             // The size of current dimension of current input  is a constant
-            outputConcatDims[dim] = currInputBounds.getDim(dim);
+            outputConcatDims[dim] = currInputPossiblyLit;
           }
         }
       }
@@ -92,17 +93,15 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     // Handle negative
     if (start < 0)
       start += rank;
-
     if (end < 0)
       end += rank;
-
     Type outputShapeType = op->getResultTypes()[0];
 
     // Alloc and set value for ShapeOp output
     auto convertedShapeType =
         typeConverter->convertType(outputShapeType).cast<MemRefType>();
     Value shapeAlloc = insertAllocAndDeallocSimple(
-        rewriter, op, convertedShapeType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, convertedShapeType, loc, shapeHelper.getOutputDims());
     Type elementType = convertedShapeType.getElementType();
     for (int64_t i = start; i < end; i++) {
       Value intVal =
@@ -112,7 +111,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     }
 
     // Convert the output type to MemRefType.
-    DimsExpr outputTransposeDims = shapeHelper.dimsForOutput(1);
+    DimsExpr outputTransposeDims = shapeHelper.getOutputDims(1);
     ArrayAttr permAttr = operandAdaptor.permAttr();
     Type t = op->getResultTypes()[1];
     auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
@@ -121,26 +120,25 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
-    // axis), we will try to make the loop upper bound the same for futher
+    // axis), we will try to make the loop upper bound the same for further
     // optimization. Difference may come from constant vs. dynamic, or dynamic
     // dim of different inputs.
-    KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 4> commonUB = outputConcatDims;
     IndexExpr accumulatedOffset = LiteralIndexExpr(0);
     for (unsigned int i = 0; i < numInputs; ++i) {
-      // Since the acculatedOffsetValue will be used in a nested IndexExprScope,
-      // we get the Value of this IndexExpr and pass it as a symbol
+      // Since the accumulatedOffsetValue will be used in a nested
+      // IndexExprScope, we get the Value of this IndexExpr and pass it as a
+      // symbol
       Value accumulatedOffsetValue = accumulatedOffset.getValue();
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
-      ValueRange loopDef = createKrnl.defineLoops(rank);
+      ValueRange loopDef = create.krnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture bounds(operands[i]);
       SmallVector<IndexExpr, 4> ubs;
-      bounds.getDimList(ubs);
+      create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
-      createKrnl.iterateIE(loopDef, loopDef, lbs, commonUB,
+      create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
@@ -165,8 +163,9 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
             }
             createKrnl.store(loadData, alloc, transposedWriteIndices);
           });
-      MemRefBoundsIndexCapture operandJBounds(operands[i]);
-      accumulatedOffset = accumulatedOffset + operandJBounds.getDim(axis);
+      Value operandJ = operands[i];
+      accumulatedOffset =
+          accumulatedOffset + create.krnlIE.getShapeAsDim(operandJ, axis);
     }
     SmallVector<Value, 2> outputs;
     rewriter.replaceOp(op, {shapeAlloc, alloc});

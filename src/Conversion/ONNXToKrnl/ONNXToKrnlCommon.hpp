@@ -34,6 +34,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -57,7 +58,7 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
   OnnxToKrnlBuilder(mlir::Location loc) : OnnxBuilder(loc) {}
   OnnxToKrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : OnnxBuilder(b, loc) {}
-  OnnxToKrnlBuilder(DialectBuilder &db) : OnnxBuilder(db) {}
+  OnnxToKrnlBuilder(const DialectBuilder &db) : OnnxBuilder(db) {}
   virtual ~OnnxToKrnlBuilder() {}
 
   // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
@@ -70,6 +71,17 @@ struct OnnxToKrnlBuilder : public OnnxBuilder {
   mlir::Value transpose(const mlir::Value input,
       const llvm::ArrayRef<int64_t> perm,
       const llvm::ArrayRef<DimIndexExpr> outputDims) const;
+};
+
+// Recursive class specialized for ONNXtoKrnlBuilder refereed to as krnlOnnx.
+template <class... Ts>
+struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
+    : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), krnlOnnx(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), krnlOnnx(db) {}
+  OnnxToKrnlBuilder krnlOnnx;
 };
 
 //===----------------------------------------------------------------------===//
