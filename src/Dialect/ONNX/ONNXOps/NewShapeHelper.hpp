@@ -109,7 +109,10 @@ struct NewONNXOpShapeHelper {
   // original operation. First call is used for operations with one result,
   // second for operations with one or more results.
   mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
-  mlir::LogicalResult computeShapeAndUpdateTypes(mlir::TypeRange elementTypes);
+  // When elementTypeRange has 1 element, this time is reused for all results;
+  // otherwise one element type per output is expected.
+  mlir::LogicalResult computeShapeAndUpdateTypes(
+      mlir::TypeRange elementTypeRange);
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }

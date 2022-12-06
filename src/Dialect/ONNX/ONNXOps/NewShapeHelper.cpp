@@ -148,9 +148,12 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
 }
 
 LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
-    TypeRange elementTypes) {
+    TypeRange elementTypeRange) {
   uint64_t resNum = op->getNumResults();
-  assert(elementTypes.size() == resNum && "Incorrect elementTypes size");
+  // If we have 1 element in the range, it is reused for all results.
+  bool reuseType = elementTypeRange.size() == 1;
+  assert((reuseType || elementTypeRange.size() == resNum) &&
+         "Incorrect elementTypes size");
   // Invoke virtual compute.
   if (failed(computeShape()))
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
@@ -158,7 +161,8 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
-    updateType(op->getResults()[i], shapeVect, elementTypes[i]);
+    Type currElementType = elementTypeRange[reuseType ? 0 : i];
+    updateType(op->getResults()[i], shapeVect, currElementType);
   }
   return success();
 }
