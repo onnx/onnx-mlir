@@ -496,10 +496,8 @@ ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  auto tensorType = RankedTensorType::get({1}, elementType);
+  return DenseElementsAttr::get(tensorType, {attr.getValue()});
 }
 
 //===----------------------------------------------------------------------===//

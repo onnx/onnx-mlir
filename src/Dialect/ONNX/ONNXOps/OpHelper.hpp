@@ -204,7 +204,7 @@ bool hasShapeAndRank(mlir::Value val);
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
 
-// Create a DenseElementsAttr from a float attribute.
+// Create a (rank 1) DenseElementsAttr from a float attribute.
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
