@@ -253,11 +253,11 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
               fLoadVal, inScope) {}                                            \
     mlir::LogicalResult computeShape(mlir::OpName##Adaptor operandAdaptor);    \
   };
-DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
-DECLARE_SHAPE_HELPER(ONNXArgMinOp)
-DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
-DECLARE_SHAPE_HELPER(ONNXClipOp)
-DECLARE_SHAPE_HELPER(ONNXCompressOp)
+// DECLARE_SHAPE_HELPER(ONNXArgMaxOp)
+// DECLARE_SHAPE_HELPER(ONNXArgMinOp)
+// DECLARE_SHAPE_HELPER(ONNXCategoryMapperOp)
+// DECLARE_SHAPE_HELPER(ONNXClipOp)
+// DECLARE_SHAPE_HELPER(ONNXCompressOp)
 DECLARE_SHAPE_HELPER(ONNXConcatOp)
 DECLARE_SHAPE_HELPER(ONNXConcatShapeTransposeOp)
 DECLARE_SHAPE_HELPER(ONNXDepthToSpaceOp)
@@ -365,6 +365,7 @@ using ONNXQLinearMatMulOpShapeHelper =
 
 #endif
 
+#if DEPRECATED
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<mlir::ONNXPadOp> {
   ONNXPadOpShapeHelper(
@@ -407,6 +408,7 @@ struct ONNXRoiAlignOpShapeHelper
   llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
   llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
 };
+#endif
 
 #if DEPRECATED
 #define DECLARE_POOL_SHAPE_HELPER(OpName)                                      \

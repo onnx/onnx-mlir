@@ -289,7 +289,8 @@ DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
 struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXSliceOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope){};
   virtual ~NewONNXSliceOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for SliceOp.
@@ -303,7 +304,9 @@ struct NewONNXSliceOpShapeHelper : public NewONNXOpShapeHelper {
 struct NewONNXGemmOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXGemmOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
+        cDims(), hasBias(/*dummy value*/ false), cRank(-1) {}
   virtual ~NewONNXGemmOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for GemmOp: output = a * b.
@@ -322,7 +325,9 @@ template <typename OP_TYPE>
 struct NewONNXGenericMatMulOpShapeHelper : public NewONNXOpShapeHelper {
   NewONNXGenericMatMulOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr);
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), aDims(), bDims(),
+        aPadDims(), bPadDims() {}
   virtual ~NewONNXGenericMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for MatMulOp: output = a * b.
@@ -339,5 +344,108 @@ using NewONNXMatMulIntegerOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
 using NewONNXQLinearMatMulOpShapeHelper =
     NewONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
+
+//===----------------------------------------------------------------------===//
+// Pad Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXPadOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXPadOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
+  virtual ~NewONNXPadOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for PadOp.
+  llvm::SmallVector<IndexExpr, 4> pads;
+};
+
+//===----------------------------------------------------------------------===//
+// OneHot Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXOneHotOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXOneHotOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), axis(-1),
+        depth() {}
+  virtual ~NewONNXOneHotOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for OneHotOp.
+  int64_t axis;    // Default value.
+  IndexExpr depth; // Depth which may/may not be known at compile time.
+};
+
+//===----------------------------------------------------------------------===//
+// RoiAlign Op
+//===----------------------------------------------------------------------===//
+
+struct NewONNXRoiAlignOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXRoiAlignOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope), xDims(),
+        batchIndicesDims() {}
+  virtual ~NewONNXRoiAlignOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for RoiAlignOp.
+  llvm::SmallVector<IndexExpr, 4> xDims;            // Dim of X.
+  llvm::SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
+};
+
+//===----------------------------------------------------------------------===//
+// Arg Min/Max Op
+//===----------------------------------------------------------------------===//
+
+// Arg Min and Max operations use the same code, we just have to use their
+// respective identical operand adaptor, so specialize with templated code.
+template <typename OP_TYPE>
+struct NewONNXArgMinMaxOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXArgMinMaxOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXArgMinMaxOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using NewONNXArgMaxOpShapeHelper =
+    NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMaxOp>;
+using NewONNXArgMinOpShapeHelper =
+    NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
+
+//===----------------------------------------------------------------------===//
+// Non specific Ops, namely ops that
+//   * need customization only for themselves (no sharing of code)
+//   * have no specific parameters
+//===----------------------------------------------------------------------===//
+
+/*
+  These ops require a template instantiation where computeShape is defined.
+  For example like this for ONNXCategoryMapperOp:
+
+  namespace onnx_mlir {
+  template struct NewONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
+  } // namespace onnx_mlir
+
+*/
+
+template <typename OP_TYPE>
+struct NewONNXNonSpecificOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXNonSpecificOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXNonSpecificOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using NewONNXCategoryMapperOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+using NewONNXClipOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
+using NewONNXCompressOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 
 } // namespace onnx_mlir

@@ -395,7 +395,7 @@ void DimAnalysis::visitDim(
 
   // ArgMaxOp
   if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
-    exploreSameInputDims<ONNXArgMaxOp, ONNXArgMaxOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXArgMaxOp, NewONNXArgMaxOpShapeHelper>(
         dim, argmaxOp, sameDims);
     return;
   }
@@ -470,7 +470,8 @@ void DimAnalysis::visitDim(
 
   // PadOp
   if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
+    exploreSameInputDims_xxx<ONNXPadOp, NewONNXPadOpShapeHelper>(
+        dim, padOp, sameDims);
     return;
   }
 

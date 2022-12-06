@@ -40,10 +40,6 @@ void initOMPasses(int optLevel) {
     return createConstPropONNXToONNXPass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createElideConstantValuePass();
-  });
-
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createInstrumentPass(); });
 

@@ -48,11 +48,15 @@ def print_usage():
     dprint("")
     dprint("Workflow for debugging test.mlir:")
     dprint(" * Test original file: \"fixLitTest -t test.mlir\".")
-    dprint(" * For errors, test a given func X: \"fixLitTest -tf X test.mlir\".")
-    dprint("   * You may inspect the \"flt_*.mlir\" temp files in the current dir.")
-    dprint("   * Using the additional \"-d\" flag will print each employed commands.")
+    dprint("   - Test (-t) each function separately, easier to read errors in a long test file.")
+    dprint(" * Check a failing function X (\"-f X\"): \"fixLitTest -tdf X test.mlir\".")
+    dprint("   - You may inspect the \"flt_*.mlir\" temp files in the current dir.")
+    dprint("   - The \"-d\" flag list each employed commands, so you may run the command natively.")
     dprint(" * Spurious errors repair in func X:  \"fixLitTest -trf X test.mlir\".")
+    dprint("   - Create a new FileCheck version for function X (\"-rf X\"), and test it right away (\"-t\").")
     dprint(" * If good, save fix for X:  \"fixLitTest -prf X test.mlir > test.mlir\".")
+    dprint("   - Create a new FileCheck version for function X (\"-rf X\"),")
+    dprint("     and print the other tests unmodified (\"p\").")
     dprint("")
     sys.exit()
 
@@ -86,7 +90,8 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
-        print("//    onnx-mlir-opt command:", ' '.join(command))
+        print("//  Commands:")
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -110,7 +115,7 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
     if debug:
-        print("//    mlir2FileCheck command:", ' '.join(command))
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -121,7 +126,7 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name):
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
-        print("//    FileCheck command:", ' '.join(command))
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stderr
     if len(res) == 0:
         dprint(">> Successful test of \"" + test_name + "\".")
