@@ -571,7 +571,7 @@ void DimAnalysis::visitDim(
 
   // SplitOp
   if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
-    exploreSameInputDims<ONNXSplitOp, ONNXSplitOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXSplitOp, NewONNXSplitOpShapeHelper>(
         dim, splitOp, sameDims);
     return;
   }
