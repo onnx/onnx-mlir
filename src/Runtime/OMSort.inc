@@ -31,7 +31,7 @@ typedef int(
         (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
   }
 #elif defined(_MSC_VER)
-typedef int(__cdecl *compareFunctionType)(void *, const void *, const void *);
+typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1, const void *idx2) {                     \
@@ -84,9 +84,9 @@ declare_compare_function(Double, double, Descending, <)
                                 size_t dataNum, size_t dataSize, void *dataPtr,
                                 compareFunctionType compFunc));
 #elif defined(_MSC_VER)
-                            typedef void sortFunctionType(void *base,
+                            typedef void(sortFunctionType(void *base,
                                 size_t num, size_t width,
-                                compareFunctionType compFunc, void *context);
+                                compareFunctionType compFunc, void *context));
 #else
                             typedef void(sortFunctionType(void *base,
                                 size_t dataNum, size_t dataSize,
