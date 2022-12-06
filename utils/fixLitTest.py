@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -48,10 +48,15 @@ def print_usage():
     dprint("")
     dprint("Workflow for debugging test.mlir:")
     dprint(" * Test original file: \"fixLitTest -t test.mlir\".")
-    dprint(" * If errors, test a given func X: \"fixLitTest -t -f X test.mlir\".")
-    dprint(" * You may inspect the \"flt_*.mlir\" files in the current dir for more info.")
-    dprint(" * Spurious error, repair func X:  \"fixLitTest -t -r -f X test.mlir\".")
-    dprint(" * If good, save fix for X:  \"fixLitTest -r -f X -p test.mlir > test.mlir\".")
+    dprint("   - Test (-t) each function separately, easier to read errors in a long test file.")
+    dprint(" * Check a failing function X (\"-f X\"): \"fixLitTest -tdf X test.mlir\".")
+    dprint("   - You may inspect the \"flt_*.mlir\" temp files in the current dir.")
+    dprint("   - The \"-d\" flag list each employed commands, so you may run the command natively.")
+    dprint(" * Spurious errors repair in func X:  \"fixLitTest -trf X test.mlir\".")
+    dprint("   - Create a new FileCheck version for function X (\"-rf X\"), and test it right away (\"-t\").")
+    dprint(" * If good, save fix for X:  \"fixLitTest -prf X test.mlir > test.mlir\".")
+    dprint("   - Create a new FileCheck version for function X (\"-rf X\"),")
+    dprint("     and print the other tests unmodified (\"p\").")
     dprint("")
     sys.exit()
 
@@ -61,9 +66,9 @@ def print_usage():
 run_command = ""
 fix_fct_name = ""
 debug = 0
-test_error_num = 0
+test_error_functions = []
 
-# file names
+# File names.
 flt_orig_model_file_name = "flt_orig_model.mlir"
 flt_compiled_file_name = "flt_compiled.mlir"
 flt_new_model_file_name = "flt_new_model.mlir"
@@ -73,6 +78,7 @@ flt_new_model_file_name = "flt_new_model.mlir"
 segment_text = []
 segment_fct_name = []
 segment_mlir2FileCheck_command = []
+
 
 ################################################################################
 # Run commands.
@@ -84,7 +90,8 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
-        print("//    onnx-mlir-opt command:", command)
+        print("//  Commands:")
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -108,23 +115,23 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
     if debug:
-        print("//    mlir2FileCheck command:", command)
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
         f.write(res)
 
 def run_FileCheck(test_name, compiled_file_name, model_file_name):
-    global debug, test_error_num
+    global debug, test_error_functions
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
-        print("//    FileCheck command:", command)
+        print("//    ", ' '.join(command))
     res = subprocess.run(command, capture_output=True, text=True).stderr
     if len(res) == 0:
         dprint(">> Successful test of \"" + test_name + "\".")
     else:
-        test_error_num += 1
+        test_error_functions.append(test_name)
         dprint(">> Start failure report of test \"" + test_name + "\".")
         dprint(res)
         dprint(">> Stop failure report of test \"" + test_name + "\".")
@@ -180,7 +187,7 @@ def emit_modified_segment(i, has_test):
 
 
 def test_orig_model(i):
-    global run_command, debug, test_error_num
+    global run_command, debug
     global flt_orig_model_file_name, flt_compiled_file_name
 
     gen_orig_model(i, flt_orig_model_file_name)
@@ -201,7 +208,7 @@ def main(argv):
     has_test = False
     has_print = False
     try:
-        opts, args = getopt.getopt(
+        opts, args = getopt.gnu_getopt(
             argv, "rtdf:hp", ["repair", "test", "debug", "func=", "help", "print"])
     except getopt.GetoptError:
         dprint("Error: unknown options")
@@ -271,15 +278,13 @@ def main(argv):
             # Strip the "%s" and "-split-input-file"
             run_command = run_command.replace("%s", "")
             run_command = run_command.replace("-split-input-file", "")
-            if debug:
-                print('//  Run command is "' + run_command + '".')
             continue
         # Handle function
         m = re.match(r'\s*func.*@(\w+)\(', line)
         if m is not None:
             curr_segment_fct_name = m.group(1)
             if fct_between_delimiters > 0:
-                dprint('Got too many function bodies between "// ----" command starting with', curr_segment_fct_name)
+                dprint('Got too many function bodies between "// -----" command starting with ' + curr_segment_fct_name)
                 print_usage()
             fct_between_delimiters = 1
             if has_fct and curr_segment_fct_name == fix_fct_name:
@@ -298,7 +303,7 @@ def main(argv):
 
     # Make sure we got what we were waiting for.
     if len(segment_text) < 2:
-        dprint('Expected at least 2 segments (text between "// ----"): one for RUN command and one for a function.')
+        dprint('Expected at least 2 segments (text between "// -----"): one for RUN command and one for a function.')
         print_usage()
     if has_fct and not found_fct_to_fix:
         dprint("Did not find function to fix: \'" + fix_fct_name + "\'.")
@@ -326,11 +331,14 @@ def main(argv):
                 sys.stderr.write("// > print "+ segment_fct_name[i] + "\n")
                 emit_unmodified_segment(i)
 
+    test_error_num = len(test_error_functions)
     if has_test:
         if test_error_num == 0:
             dprint("\n>> Tested successfully without errors.")
         else:
-            dprint("\n>> Tested with " + str(test_error_num) + " errors.")
+            dprint("\n>> Tested with " + str(test_error_num) + " errors:")
+            for f in  test_error_functions:
+                dprint(">>   "+f)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

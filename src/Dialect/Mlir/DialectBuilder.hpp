@@ -11,6 +11,7 @@
 #pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Builders.h"
@@ -139,6 +140,22 @@ private:
       mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpFPredicate pred) const;
   mlir::Value castToSignless(mlir::Value source, int64_t width) const;
   mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
+};
+
+//===----------------------------------------------------------------------===//
+// Shape Builder
+//===----------------------------------------------------------------------===//
+
+struct ShapeBuilder final : DialectBuilder {
+  ShapeBuilder(mlir::Location loc) : DialectBuilder(loc) {}
+  ShapeBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
+  ShapeBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  virtual ~ShapeBuilder() {}
+
+  mlir::Value dim(mlir::Value val, int64_t index) const;
+  mlir::Value shapeOf(mlir::Value val) const;
+  mlir::Value getExtent(mlir::Value val, int64_t index) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -477,6 +494,16 @@ struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), math(db) {}
   MathBuilder math;
+};
+
+// Recursive class specialized for ShapeBuilder refereed to as shape.
+template <class... Ts>
+struct MultiDialectBuilder<ShapeBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), shape(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), shape(db) {}
+  ShapeBuilder shape;
 };
 
 // Recursive class specialized for MemRefBuilder refereed to as mem.

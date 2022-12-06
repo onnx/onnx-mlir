@@ -4,7 +4,7 @@
 
 //===----------- DialectBuilder.hpp - Builder for ONNX dialects -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -25,7 +25,7 @@ namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : onnx_mlir::DialectBuilder {
+struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
