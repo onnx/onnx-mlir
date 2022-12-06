@@ -4439,10 +4439,13 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
       } else if (dtype() == 2) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF64(getContext())));
+      } else {
+        llvm_unreachable("dtype not supported for RandomNormal");
       }
+    } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF32(getContext())));
     }
-    resultTypes.push_back(mlir::UnrankedTensorType::get(
-        FloatType::getF32(getContext())));
       return resultTypes;
     }
   }];
