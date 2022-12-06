@@ -33,10 +33,9 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
   // Get the rank to compensate for N dimensions
   int64_t rank = inputType.getRank();
 
-
   // axis is a required attribute and should have default value of 1.
   int64_t axis = op->axis();
-
+  
   // onesided is a required attribute and should have default value of 0.
   // However onesided can also be a value of 1 and if so a specific shape is
   // expected Values can be 0 or 1.
@@ -63,8 +62,8 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
   setOutputDims(outputDims);
 
   return success();
-  } // namespace onnx_mlir
 }
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Shape Inference
