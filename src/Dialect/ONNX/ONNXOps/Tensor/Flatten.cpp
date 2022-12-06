@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,20 +25,23 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXFlattenOpShapeHelper::computeShape(
-    ONNXFlattenOpAdaptor operandAdaptor) {
+template <>
+LogicalResult NewONNXFlattenOpShapeHelper::computeShape() {
   // Get info about input operand.
+  ONNXFlattenOpAdaptor operandAdaptor(operands);
+  ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
   Value input = operandAdaptor.input();
   auto inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
-  int64_t axis = op->axis();
+  int64_t axis = flattenOp.axis();
   assert(axis >= -inputRank && axis < inputRank && "Invalid inputRank");
 
   // Negative axis means values are counted from the opposite side.
   if (axis < 0)
     axis += inputRank;
 
+  // Warning: code does appear to only work for shape inference.
   // Compute outputDims.
   DimsExpr outputDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
   for (int64_t i = 0; i < axis; ++i) {
@@ -96,6 +100,14 @@ LogicalResult ONNXFlattenOp::inferShapes(
     return success();
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXFlattenOpShapeHelper, ONNXFlattenOp,
-      ONNXFlattenOpAdaptor>(*this, elementType);
+  NewONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXFlattenOp>;
+} // namespace onnx_mlir
