@@ -419,6 +419,30 @@ using NewONNXArgMinOpShapeHelper =
     NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
 
 //===----------------------------------------------------------------------===//
+// Split ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+template <typename OP_TYPE>
+struct NewONNXCommonSplitOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXCommonSplitOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXCommonSplitOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Common code for compute shape.
+  mlir::LogicalResult customComputeShape(
+      mlir::ArrayRef<IndexExpr> indexExprArray);
+};
+
+using NewONNXSplitOpShapeHelper =
+    NewONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
+using NewONNXSplitV11OpShapeHelper =
+    NewONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters
@@ -469,17 +493,13 @@ using NewONNXLRNOpShapeHelper =
 using NewONNXReshapeOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using NewONNXReverseSequenceOpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using NewONNXSpaceToDepthOpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
-using NewONNXSplitOpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXSplitOp>;
-using NewONNXSplitV11OpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXSplitV11Op>;
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using NewONNXSqueezeOpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeOp>;
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeOp>;
 using NewONNXSqueezeV11OpShapeHelper =
-   NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeV11Op>;
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 
 // using NewONNXOpShapeHelper =
 //    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
