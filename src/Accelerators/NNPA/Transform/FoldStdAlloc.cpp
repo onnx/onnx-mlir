@@ -79,7 +79,7 @@ public:
       return failure();
 
     // Only support static 1D MemRefs with integer type.
-    if ((memRefType.getRank() != 1) || (memRefType.getShape()[0] == -1) ||
+    if ((memRefType.getRank() != 1) || memRefType.isDynamicDim(0) ||
         (!elementType.isa<IntegerType>()))
       return failure();
 

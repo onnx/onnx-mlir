@@ -48,7 +48,7 @@ private:
 
 PYBIND11_MODULE(PyCompileAndRuntime, m) {
   py::class_<onnx_mlir::PyOMCompileExecutionSession>(
-      m, "PyOMCompileExecutionSession")
+      m, "OMCompileExecutionSession")
       .def(py::init<const std::string &, const std::string &,
                const std::string &>(),
           py::arg("input_model_path"), py::arg("compiled_file_path"),

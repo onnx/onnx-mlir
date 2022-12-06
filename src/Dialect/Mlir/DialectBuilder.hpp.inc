@@ -1,10 +1,15 @@
 //===---- DialectBuilder.hpp.inc - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file contains helper functions for building MLIR operations.
+//
+// Note on usage of template keyword. Since the GenericAffineBuilder is
+// templated, and we use templated functions (such as create<OP>), we must add
+// the "template" keyword before the "create" function to indicate what is being
+// templated.
 //
 //===----------------------------------------------------------------------===//
 
@@ -12,7 +17,7 @@
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::load(
     mlir::Value memref, mlir::ValueRange indices) const {
-  return b.create<LOAD_OP>(loc, memref, indices);
+  return b().template create<LOAD_OP>(loc(), memref, indices);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -36,7 +41,7 @@ mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::loadIE(mlir::Value memref,
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::store(
     mlir::Value val, mlir::Value memref, mlir::ValueRange indices) const {
-  b.create<STORE_OP>(loc, val, memref, indices);
+  b().template create<STORE_OP>(loc(), val, memref, indices);
 }
 
 template <class LOAD_OP, class STORE_OP>
@@ -70,8 +75,8 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
   lb.getAffineMapAndOperands(lbMap, lbOperands);
   ub.getAffineMapAndOperands(ubMap, ubOperands);
   // Create affine for.
-  b.create<mlir::AffineForOp>(loc, lbOperands, lbMap, ubOperands, ubMap, step,
-      mlir::ValueRange{},
+  b().template create<mlir::AffineForOp>(loc(), lbOperands, lbMap, ubOperands,
+      ubMap, step, mlir::ValueRange{},
       [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
           mlir::ValueRange args) {
         GenericAffineBuilder createAffine(b, loc);
@@ -120,18 +125,19 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
       scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
   llvm::SmallVector<mlir::Value, 8> dimAndSymbolList;
   scope.getDimAndSymbolList(dimAndSymbolList);
-  auto ifOp = b.create<mlir::AffineIfOp>(loc, inset, dimAndSymbolList, true);
+  auto ifOp = b().template create<mlir::AffineIfOp>(
+      loc(), inset, dimAndSymbolList, true);
   mlir::Block *thenBlock = ifOp.getThenBlock();
   mlir::Block *elseBlock = ifOp.getElseBlock();
   if (!allFalse) {
     appendToBlock(thenBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b, loc);
+      GenericAffineBuilder createAffine(b(), loc());
       thenFn(createAffine);
     });
   }
   if (!allTrue) {
     appendToBlock(elseBlock, [&](mlir::ValueRange args) {
-      GenericAffineBuilder createAffine(b, loc);
+      GenericAffineBuilder createAffine(b(), loc());
       elseFn(createAffine);
     });
   }
@@ -139,7 +145,7 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
-  b.create<mlir::AffineYieldOp>(loc);
+  b().template create<mlir::AffineYieldOp>(loc());
 }
 
 // Support for multiple forIE loops.
@@ -161,7 +167,7 @@ void GenericAffineBuilder<LOAD_OP, STORE_OP>::recursionForIE(
         });
   } else {
     // Call lambda function
-    GenericAffineBuilder createAffine(b, loc);
+    GenericAffineBuilder createAffine(b(), loc());
     builderFn(createAffine, loopIndices);
   }
 }
@@ -171,11 +177,11 @@ template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
     mlir::Block *block,
     mlir::function_ref<void(mlir::ValueRange)> builderFn) const {
-  mlir::OpBuilder::InsertionGuard guard(b);
+  mlir::OpBuilder::InsertionGuard guard(b());
   if (block->empty() ||
       !block->back().mightHaveTrait<mlir::OpTrait::IsTerminator>()) {
-    b.setInsertionPointToEnd(block);
+    b().setInsertionPointToEnd(block);
   } else
-    b.setInsertionPoint(&block->back());
+    b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
 }

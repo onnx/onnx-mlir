@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -31,16 +33,17 @@ struct ONNXShapeOpLoweringToMhlo : public ConversionPattern {
     ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    NewONNXShapeOpShapeHelper shapeHelper(op, operands, &createIE);
+    LogicalResult shapeComputed = shapeHelper.computeShape();
+    assert(succeeded(shapeComputed) && "Failed to compute shape");
 
     Type outputType = *op->result_type_begin();
     assert(outputType.isa<ShapedType>() && "Expected ShapedType");
     ShapedType outputShapedType = outputType.cast<ShapedType>();
     Type elementType = outputShapedType.getElementType();
     Type resultOutputType = RankedTensorType::get(
-        shapeHelper.dimsForOutput(0)[0].getLiteral(), elementType);
+        shapeHelper.getOutputDims(0)[0].getLiteral(), elementType);
 
     Value input = shapeOp.data();
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, input);

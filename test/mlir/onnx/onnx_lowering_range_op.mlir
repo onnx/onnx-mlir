@@ -24,7 +24,7 @@ func.func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2:
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map1([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xf32>
@@ -59,7 +59,7 @@ func.func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2:
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map1([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xf64>
@@ -92,7 +92,7 @@ func.func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2:
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map1([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi16>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi16>
@@ -125,7 +125,7 @@ func.func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2:
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map1([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi32>
@@ -158,7 +158,7 @@ func.func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2:
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map1([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi64>

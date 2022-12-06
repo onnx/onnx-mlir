@@ -328,7 +328,8 @@ def check_model(model_path, model_name, compile_args, report_dir):
             options += RunONNXModel_additional_options[model_name]
         if (args.compile_only):
             options += ['--compile-only']
-        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + [onnx_file] + options)
+        options += ['--model={}'.format(onnx_file)]
+        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options)
         state = TEST_PASSED if ok else TEST_FAILED
         logger.debug("[{}] {}".format(model_name, msg))
 

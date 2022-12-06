@@ -115,8 +115,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-      "before-onnx-to-krnl", instrumentOps, instrumentControlBits.getBits()));
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
 
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
@@ -147,6 +148,9 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
+  // After affine is lowered, KrnlRegion for affine scope can be removed.
+  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+
   // Hoist allocations out of loop nests to avoid stack overflow.
   pm.addPass(bufferization::createBufferLoopHoistingPass());
 
@@ -163,7 +167,6 @@ void addKrnlToLLVMPasses(
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
   pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 

@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
+  mlir::registerAsmPrinterCLOptions();
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 

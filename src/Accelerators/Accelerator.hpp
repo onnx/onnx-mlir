@@ -23,6 +23,9 @@
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerators.inc"
 
+// TODO: Remove NNPA from this header
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+
 // Define the macros used to generate various accelerators artifacts (via the
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
 // generated file Accelerators.inc).
@@ -41,6 +44,10 @@
   }
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
   map[accel::Accelerator::Kind::name] = #name;
+
+#define ACCEL_INSTRUMENTSTAGE_ENUM(name) INSTRUMENTSTAGE_EUM_##name
+
+#define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name) INSTRUMENTSTAGE_CL_ENUM_##name
 
 namespace onnx_mlir {
 namespace accel {
@@ -106,6 +113,14 @@ public:
   /// method and return nullptr.
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
       const mlir::TensorType tensorType) const = 0;
+
+  // Return the default alignment value used when allocating a MemRef buffer for
+  // the given type. E.g. some special types for accelerators requires
+  // 4K-aligned buffers.
+  // Return -1 if there is no specific alignment.
+  virtual int64_t getDefaultAllocAlignment(const mlir::TensorType type) const {
+    return -1;
+  }
 
   /// Define conversion target to be used with ONNXToKrnl.
   virtual void conversionTargetONNXToKrnl(

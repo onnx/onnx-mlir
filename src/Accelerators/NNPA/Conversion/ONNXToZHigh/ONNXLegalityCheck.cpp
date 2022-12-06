@@ -348,16 +348,19 @@ bool isSuitableForZDNN<ONNXMaxOp>(
 }
 
 /// Check legality for ONNXSoftmax.
-/// zDNN softmax only supports axis = 1 (or -1 when rank = 2). If axis is not
-/// 1 (or -1 when rank = 2), keep ONNXSoftmax unchanged.
+/// zDNN softmax only supports axis = rank-1 (or -1) when rank = 2 or 3). If
+/// axis is not rank-1 (or -1) when rank = 2/3), keep ONNXSoftmax unchanged.
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
-  return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
-         (inputType.getRank() == 2);
+  if (!inputType.hasRank())
+    return false;
+  int64_t rank = inputType.getRank();
+  return (((rank == 2) || (rank == 3)) &&
+          ((op.axis() == rank - 1) || (op.axis() == -1)));
 }
 
 /// Check legality for ONNXRelu.
@@ -508,7 +511,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   // (A(m, n) * B(n, p) + C(p))
   if (hasC && cShape.size() == 1) {
     // Cannot check broadcasting at compile time.
-    if (cShape[0] == -1)
+    if (ShapedType::isDynamic(cShape[0]))
       return false;
     if (cShape[0] != bShape1)
       return false;
@@ -807,8 +810,10 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // Do not support dynamic height and weight dimensions since we can not check
   // them at compile time.
-  if (shapeInput[2] == -1 || shapeInput[3] == -1 || shapeOutput[2] == -1 ||
-      shapeOutput[3] == -1)
+  if (ShapedType::isDynamic(shapeInput[2]) ||
+      ShapedType::isDynamic(shapeInput[3]) ||
+      ShapedType::isDynamic(shapeOutput[2]) ||
+      ShapedType::isDynamic(shapeOutput[3]))
     return false;
 
   // Do not support group.

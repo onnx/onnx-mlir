@@ -35,8 +35,8 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {
   this->inputFileName = inputFileName;
   if (this->inputFileName.empty()) {
-    errorMessage =
-        "No PyOMCompileSession was created with the input file name specified.";
+    errorMessage = "No OMCompileExecuteSession was created with the input file "
+                   "name specified.";
   }
   const char *outputName, *errorMsg;
   int64_t rc;
@@ -201,6 +201,8 @@ std::vector<py::array> PyOMCompileExecutionSession::pyRun(
     outputPyArrays.emplace_back(
         py::array(dtype, shape, omTensorGetDataPtr(omt)));
   }
+  omTensorListDestroy(wrappedOutput);
+  omTensorListDestroy(wrappedInput);
 
   return outputPyArrays;
 }

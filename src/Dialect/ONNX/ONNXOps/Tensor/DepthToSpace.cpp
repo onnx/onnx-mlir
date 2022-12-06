@@ -83,7 +83,7 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
     return emitOpError("Blocksize should be non negative");
 
   int64_t C = inputShape[1];
-  if (C != -1 && C % (blocksize * blocksize) != 0)
+  if (!ShapedType::isDynamic(C) && C % (blocksize * blocksize) != 0)
     return emitOpError("The input tensor depth must be divisible by the "
                        "(blocksize * blocksize)");
 
