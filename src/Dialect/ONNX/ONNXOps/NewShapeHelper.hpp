@@ -99,6 +99,9 @@ struct NewONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
+  // Helper function that set single output dims from the given value.
+  mlir::LogicalResult computeShapeFromOperand(mlir::Value operand);
+
   // Compute shape and assert on failure.
   void computeShapeAndAssertOnFailure();
 
@@ -447,5 +450,26 @@ using NewONNXClipOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using NewONNXCompressOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
+using NewONNXConcatOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
+using NewONNXConcatShapeTransposeOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using NewONNXDepthToSpaceOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
+using NewONNXFlattenOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
+using NewONNXGatherOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
+using NewONNXGatherElementsOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
+using NewONNXGatherNDOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
+using NewONNXLRNOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using NewONNXReshapeOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
+
+// using NewONNXOpShapeHelper =
+//    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
 
 } // namespace onnx_mlir
