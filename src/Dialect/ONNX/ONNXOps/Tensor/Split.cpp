@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -24,6 +25,8 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+
+#if 1
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {

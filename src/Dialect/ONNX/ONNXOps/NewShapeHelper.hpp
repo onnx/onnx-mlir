@@ -468,17 +468,17 @@ using NewONNXLRNOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
 using NewONNXReshapeOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
-using NewONNXOpShapeHelper =
+using NewONNXReverseSequenceOpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
-using NewONNXOpShapeHelper =
+using NewONNXSpaceToDepthOpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
-using NewONNXOpShapeHelper =
+using NewONNXSplitOpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSplitOp>;
-using NewONNXOpShapeHelper =
+using NewONNXSplitV11OpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSplitV11Op>;
-using NewONNXOpShapeHelper =
+using NewONNXSqueezeOpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeOp>;
-using NewONNXOpShapeHelper =
+using NewONNXSqueezeV11OpShapeHelper =
    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 
 // using NewONNXOpShapeHelper =
