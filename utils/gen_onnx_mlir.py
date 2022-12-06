@@ -335,7 +335,6 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'DequantizeLinear',
-    'DFT',
     'Div',
     'Einsum',
     'Equal',
