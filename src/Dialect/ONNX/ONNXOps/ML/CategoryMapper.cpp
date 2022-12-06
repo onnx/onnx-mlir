@@ -28,12 +28,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult NewONNXCategoryMapperOpShapeHelper::computeShape() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
-  Value X = operandAdaptor.X();
-
-  DimsExpr outputDims;
-  createIE->getShapeAsDims(X, outputDims);
-  setOutputDims(outputDims);
-  return success();
+  return computeShapeFromOperand(operandAdaptor.X());
 }
 
 } // namespace onnx_mlir
