@@ -21,9 +21,18 @@
 //
 // Declare comparation funcions for data types and sorting directions
 //
-#if defined(__APPLE__) || defined(_MSC_VER)
+#if defined(__APPLE__)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(                                               \
+      void *dataPtr, const void *idx1, const void *idx2) {                     \
+    return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
+        (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
+  }
+#elif defined(_MSC_VER)
+typedef int(
+    __cdecl *compareFunctionType)(void *dataPtr, const void *idx1, const void *idx2));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1, const void *idx2) {                     \
