@@ -51,7 +51,6 @@ LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
   // size is used if there is one. Otherwise, the dimension of the first
   // input tensor (implementation dependent) is used for the output tensor.
   DimsExpr outputDims(commonRank);
-  // hi alex Value firstInput = operandAdaptor.inputs()[0];
   for (unsigned dim = 0; dim < commonRank; dim++) {
     outputDims[dim] = createIE->getShapeAsDim(firstInput, dim);
   }
