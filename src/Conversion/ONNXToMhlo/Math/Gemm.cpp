@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -37,8 +38,8 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
 
   void replaceGemmOp(ONNXGemmOp &gemmOp, Operation *op,
       ONNXGemmOpAdaptor &operandAdaptor, Type elemType,
-      ONNXGemmOpShapeHelper &shapeHelper, ConversionPatternRewriter &rewriter,
-      Location loc) const {
+      NewONNXGemmOpShapeHelper &shapeHelper,
+      ConversionPatternRewriter &rewriter, Location loc) const {
     float alphaLit = gemmOp.alpha().convertToFloat();
     float betaLit = gemmOp.beta().convertToFloat();
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -133,9 +134,9 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     ONNXGemmOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Shape helper version for analysis: does not generate code for lowering.
+    NewONNXGemmOpShapeHelper shapeHelper(op, {});
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     ShapedType outpType = gemmOp.getType().dyn_cast<ShapedType>();
     if (outpType == nullptr)

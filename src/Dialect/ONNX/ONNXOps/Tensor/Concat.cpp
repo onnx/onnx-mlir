@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,14 +26,16 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXConcatOpShapeHelper::computeShape(
-    ONNXConcatOpAdaptor operandAdaptor) {
+template <>
+LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
+  ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
+  ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
   Value firstInput = operandAdaptor.inputs().front();
   ArrayRef<int64_t> commonShape =
       firstInput.getType().cast<ShapedType>().getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = op->axis();
+  int64_t axisIndex = concatOp.axis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   assert(-commonRank <= axisIndex && axisIndex < commonRank &&
@@ -47,25 +51,24 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
   // size is used if there is one. Otherwise, the dimension of the first
   // input tensor (implementation dependent) is used for the output tensor.
   DimsExpr outputDims(commonRank);
-  MemRefBoundsIndexCapture firstInputBounds(operandAdaptor.inputs()[0]);
+  // hi alex Value firstInput = operandAdaptor.inputs()[0];
   for (unsigned dim = 0; dim < commonRank; dim++) {
-    outputDims[dim] = firstInputBounds.getDim(dim);
+    outputDims[dim] = createIE->getShapeAsDim(firstInput, dim);
   }
-  IndexExpr cumulativeAxisSize =
-      DimIndexExpr(firstInputBounds.getDim(axisIndex));
+  IndexExpr cumulativeAxisSize = createIE->getShapeAsDim(firstInput, axisIndex);
 
   // Handle the rest of input
   for (unsigned i = 1; i < numInputs; ++i) {
-    Value currentInput = operandAdaptor.inputs()[i];
-    MemRefBoundsIndexCapture currInputBounds(currentInput);
+    Value currInput = operandAdaptor.inputs()[i];
     for (unsigned dim = 0; dim < commonRank; dim++) {
       if (dim == axisIndex) {
-        DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
+        IndexExpr currentSize = createIE->getShapeAsDim(currInput, axisIndex);
         cumulativeAxisSize = cumulativeAxisSize + currentSize;
       } else {
-        if (currInputBounds.getDim(dim).isLiteral()) {
+        IndexExpr possiblyLiteralDim = createIE->getShapeAsDim(currInput, dim);
+        if (possiblyLiteralDim.isLiteral()) {
           // The size of current dimension of current input  is a constant
-          outputDims[dim] = currInputBounds.getDim(dim);
+          outputDims[dim] = possiblyLiteralDim;
         }
       }
     }
@@ -159,6 +162,14 @@ LogicalResult ONNXConcatOp::inferShapes(
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  return shapeHelperInferShapes<ONNXConcatOpShapeHelper, ONNXConcatOp,
-      ONNXConcatOpAdaptor>(*this, commonType.getElementType());
+  NewONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(commonType.getElementType());
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
+} // namespace onnx_mlir
