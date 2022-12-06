@@ -634,15 +634,15 @@ Value normalizeConstantOp(
   }
 
   DenseElementsAttr denseAttr;
-  if (attr.dyn_cast<FloatAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromFloatAttrs(rewriter, elementType, {attr});
-  } else if (attr.dyn_cast<IntegerAttr>()) {
-    denseAttr = createDenseElementsAttrFromIntegerAttr(
-        rewriter, elementType, attr.cast<IntegerAttr>());
-  } else if (attr.dyn_cast<StringAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromStringAttrs(rewriter, elementType, {attr});
+  if (FloatAttr f = attr.dyn_cast<FloatAttr>()) {
+    denseAttr = DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), {f.getValue()});
+  } else if (IntegerAttr i = attr.dyn_cast<IntegerAttr>()) {
+    denseAttr = DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), i.getSInt());
+  } else if (StringAttr s = attr.dyn_cast<StringAttr>()) {
+    denseAttr = DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), {s.getValue()});
   } else if (attr.dyn_cast<ArrayAttr>()) {
     ArrayAttr myAttr = attr.cast<ArrayAttr>();
     SmallVector<Attribute> attrs(

@@ -31,10 +31,8 @@ OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
 
   // A handful of funny attributes that appear in a lit test:
   if (FloatAttr floatAttr = value_floatAttr()) {
-    // rank 1 seems wrong, but if we set rank to 0 a constant with rank 1 is
-    // created somehow and we shouldn't have type mismatch with the attribute
     return DenseElementsAttr::get(
-        RankedTensorType::get({1}, FloatType::getF32(getContext())), floatAttr);
+        RankedTensorType::get({}, FloatType::getF32(getContext())), floatAttr);
   }
   if (ArrayAttr floatsAttr = value_floatsAttr()) {
     return DenseElementsAttr::get(
@@ -43,10 +41,8 @@ OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
         floatsAttr.getValue());
   }
   if (IntegerAttr intAttr = value_intAttr()) {
-    // rank 1 seems wrong, but if we set rank to 0 a constant with rank 1 is
-    // created somehow and we shouldn't have type mismatch with the attribute
     return DenseElementsAttr::get(
-        RankedTensorType::get({1}, IntegerType::get(getContext(), 64)),
+        RankedTensorType::get({}, IntegerType::get(getContext(), 64)),
         intAttr.getSInt());
   }
   if (ArrayAttr intsAttr = value_intsAttr()) {
