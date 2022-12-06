@@ -64,7 +64,6 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
 
   return success();
   } // namespace onnx_mlir
-
 }
 
 //===----------------------------------------------------------------------===//
