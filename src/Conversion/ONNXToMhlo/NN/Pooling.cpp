@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -85,14 +87,14 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     PoolOp poolOp = llvm::cast<PoolOp>(op);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForMhlo createMhloIE(rewriter, loc);
+    PoolOpShapeHelper shapeHelper(op, operands, &createMhloIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
     llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
     llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
-    DimsExpr outputDims = shapeHelper.dimsForOutput();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Type information about the input and result of this operation.
     Value inputOperand = operandAdaptor.X();
@@ -157,7 +159,8 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLoweringToMhlo<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>>(
+      ctx);
 }
 
 } // namespace onnx_mlir

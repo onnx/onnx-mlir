@@ -242,7 +242,7 @@ version_dict = {
  'Sinh': [9],
  'Size': [13],
  'Slice': [13],
- 'Softmax': [13],
+ 'Softmax': [13, 11],
  'SoftmaxCrossEntropyLoss': [13],
  'Softplus': [1],
  'Softsign': [1],
@@ -290,7 +290,6 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    ("Softmax", "ImportNodeSoftmax")
 ])
 
 # Operations supporting canonicalization (alphabetical order).

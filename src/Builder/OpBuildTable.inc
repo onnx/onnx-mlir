@@ -175,7 +175,7 @@ op_dialect_version_map_["Sin"] = {7};
 op_dialect_version_map_["Sinh"] = {9};
 op_dialect_version_map_["Size"] = {13};
 op_dialect_version_map_["Slice"] = {13};
-op_dialect_version_map_["Softmax"] = {13};
+op_dialect_version_map_["Softmax"] = {13, 11};
 op_dialect_version_map_["SoftmaxCrossEntropyLoss"] = {13};
 op_dialect_version_map_["Softplus"] = {1};
 op_dialect_version_map_["Softsign"] = {1};
@@ -527,7 +527,9 @@ import_handler_map_["Size"] =
 import_handler_map_["Slice"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSoftmax;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+import_handler_map_["SoftmaxV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxV11Op>;
 import_handler_map_["SoftmaxCrossEntropyLoss"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 
@@ -781,7 +783,7 @@ op_dialect_top_version_map_["Sin"] = 7;
 op_dialect_top_version_map_["Sinh"] = 9;
 op_dialect_top_version_map_["Size"] = 13;
 op_dialect_top_version_map_["Slice"] = 13;
-op_dialect_top_version_map_["Softmax"] = 13;
+op_dialect_top_version_map_["Softmax"] = 11;
 op_dialect_top_version_map_["SoftmaxCrossEntropyLoss"] = 13;
 op_dialect_top_version_map_["Softplus"] = 1;
 op_dialect_top_version_map_["Softsign"] = 1;

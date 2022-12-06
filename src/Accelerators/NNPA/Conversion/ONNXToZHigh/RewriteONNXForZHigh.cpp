@@ -28,6 +28,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
@@ -153,7 +154,7 @@ Type getMatMulResultType(
 /// A: [1], B: [128x256]
 /// More info about unidirectional broadcasting:
 /// https://github.com/onnx/onnx/blob/main/docs/Broadcasting.md
-/// Note: being differenct from ONNX broadcasting, we return false if A and B
+/// Note: being different from ONNX broadcasting, we return false if A and B
 /// have exactly the same static shape.
 bool isUniBroadcatableFirstToSecond(Value A, Value B) {
   if (!hasStaticShape(A.getType()) || !hasStaticShape(B.getType()))
@@ -213,12 +214,11 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
 }
 
 //
-// Check if pads can be inferenced for ONNXConv op
+// Check if pads can be inferenced for ONNXConv op.
 //
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
-  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
-  ONNXConvOpShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
   RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // dimension of inferenced pads should be 4D
@@ -237,13 +237,12 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   return true;
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// Create an ArrayAttr of IntegerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
   ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
-  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
-  ONNXConvOpShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)));
+  NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 4> vals;
   IndexExpr::getShape(shapeHelper.pads, vals);
   return rewriter.getI64ArrayAttr(vals);
@@ -284,7 +283,7 @@ DenseElementsAttr createDenseFloatAttrOfValue(
       RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
 }
 
-// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// Create an ArrayAttr of IntegerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
 ArrayAttr createArrayAttrOfZeros(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {

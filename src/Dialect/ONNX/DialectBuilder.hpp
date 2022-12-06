@@ -4,7 +4,7 @@
 
 //===----------- DialectBuilder.hpp - Builder for ONNX dialects -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
