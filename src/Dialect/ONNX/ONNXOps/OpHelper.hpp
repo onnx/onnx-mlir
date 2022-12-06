@@ -209,30 +209,6 @@ mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
 
-mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Create a DenseElementsAttr from a integer attribute.
-// The attribute is assumed to be SingedInteger.
-mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    mlir::IntegerAttr attr);
-
-mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Integer attribute is assumed to be Signedless
-mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Create a DenseElementsAttr from a String attribute.
-mlir::DenseElementsAttr createDenseElementsAttrFromStringAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
 /// Create a DenseElementsAttr from a raw buffer.
 mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
     mlir::Type resType, char *buf);
