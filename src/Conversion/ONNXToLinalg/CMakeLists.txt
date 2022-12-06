@@ -7,7 +7,7 @@ add_onnx_mlir_library(OMONNXToLinalg
   Math/MatMul.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   OMConstPropHelper
   OMONNXOps
   OMSupport
