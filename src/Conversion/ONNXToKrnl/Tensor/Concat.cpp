@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -29,15 +30,14 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     auto loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
-    ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    NewONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     auto axis = concatOp.axis();
     assert(axis >= 0 && "negative axis is supposed to have been normalized");
@@ -56,33 +56,30 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.dimsForOutput(), alignment);
-
-    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+        loc, shapeHelper.getOutputDims(), alignment);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
     // axis), we will try to make the loop upper bound the same for futher
     // optimization. Difference may come from constant vs. dynamic, or dynamic
     // dim of different inputs.
-    KrnlBuilder createKrnl(rewriter, loc);
-    SmallVector<IndexExpr, 4> commonUB(shapeHelper.dimsForOutput());
+    SmallVector<IndexExpr, 4> commonUB(shapeHelper.getOutputDims());
     // IndexExprScope IEScope(&rewriter, loc);
     IndexExpr accumulatedOffset = LiteralIndexExpr(0);
     for (unsigned int i = 0; i < inputNum; ++i) {
-      // Since the acculatedOffsetValue will be used in a nested IndexExprScope,
-      // we get the Value of this IndexExpr and pass it as a symbol
+      // Since the accumulatedOffsetValue will be used in a nested
+      // IndexExprScope, we get the Value of this IndexExpr and pass it as a
+      // symbol
       Value accumulatedOffsetValue = accumulatedOffset.getValue();
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
-      ValueRange loopDef = createKrnl.defineLoops(rank);
+      ValueRange loopDef = create.krnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture bounds(operands[i]);
       SmallVector<IndexExpr, 4> ubs;
-      bounds.getDimList(ubs);
+      create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
-      createKrnl.iterateIE(loopDef, loopDef, lbs, commonUB,
+      create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> readIndices, writeIndices;
@@ -102,8 +99,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
             Value loadData = createKrnl.load(operands[i], loopInd);
             createKrnl.store(loadData, alloc, writeIndices);
           });
-      MemRefBoundsIndexCapture operandJBounds(operands[i]);
-      accumulatedOffset = accumulatedOffset + operandJBounds.getDim(axis);
+      accumulatedOffset =
+          accumulatedOffset + create.krnlIE.getShapeAsDim(operands[i], axis);
     }
     rewriter.replaceOp(op, alloc);
     return success();
