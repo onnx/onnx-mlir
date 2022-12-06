@@ -16,6 +16,7 @@
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -728,8 +729,14 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
     // Use ToTensorOp instead of UnrealizedConversionCastOp
     // because Linalg use ToTensor, though they are the same in semantic
-    return builder.create<bufferization::ToTensorOp>(loc, resultType, inputs)
-        .getResult();
+    // Since UnrealizedConversionCastOp is used in other places and will not
+    // be replaced in this PR
+    if (enableLinalg)
+      return builder.create<bufferization::ToTensorOp>(loc, resultType, inputs)
+          .getResult();
+    else
+      return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+          .getResult(0);
   });
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
@@ -739,8 +746,12 @@ KrnlTypeConverter::KrnlTypeConverter() {
       return llvm::None;
 
     // Replace UnrealizedConversionCastOp
-    return builder.create<bufferization::ToMemrefOp>(loc, resultType, inputs)
-        .getResult();
+    if (enableLinalg)
+      return builder.create<bufferization::ToMemrefOp>(loc, resultType, inputs)
+          .getResult();
+    else
+      return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+          .getResult(0);
   });
 }
 
