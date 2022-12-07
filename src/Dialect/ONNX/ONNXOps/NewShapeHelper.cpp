@@ -127,6 +127,15 @@ void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
   privateOutputsDims[n] = inferredDims;
 }
 
+LogicalResult NewONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
+  // Output and operand have the same shape. Just pass the operand shape to the
+  // output.
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(operand, outputDims);
+  setOutputDims(outputDims);
+  return success();
+}
+
 mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
   // Invoke virtual compute shape.
@@ -161,12 +170,7 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
 LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
-  uint64_t rank = createIE->getTypeRank(operands[0]);
-  DimsExpr outputDims;
-  for (uint64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(createIE->getShapeAsDim(operands[0], i));
-  setOutputDims(outputDims);
-  return success();
+  return computeShapeFromOperand(operands[0]);
 }
 
 //===----------------------------------------------------------------------===//
