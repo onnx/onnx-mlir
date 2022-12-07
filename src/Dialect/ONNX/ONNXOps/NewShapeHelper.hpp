@@ -24,6 +24,8 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/Value.h"
+#include "mlir/IR/ValueRange.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -565,4 +567,40 @@ using NewONNXTransposeOpShapeHelper =
 // using NewONNXOpShapeHelper =
 //    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
 
+//===----------------------------------------------------------------------===//
+// Setting a new constant or attribute value.
+//===----------------------------------------------------------------------===//
+
+/* 
+   Save into op's mutable operand a newly formed ONNX Constant that holds the
+   integer values provided in "vals".
+   
+   Example:
+     ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
+     SaveOnnxConstInOp(op, unsqueezeOp.axesMutable(), unsqueezedAxes);
+*/
+void SaveOnnxConstInOp(mlir::Operation *op, mlir::MutableOperandRange operand,
+    const llvm::SmallVectorImpl<int64_t> &vals);
+
+/*
+   Save into op's attributes a newly formed attributes that holds the integer
+   values provided in "vals". The actual setting is performed by a lambda
+   function with parameter OP_TYPE op and new Attribute. The user can then set
+   that value in the proper attribute.
+
+   Example:
+     SaveOnnxAttrInOp<ONNXUnsqueezeV11Op>(op, unsqueezedAxes,
+       [](ONNXUnsqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
+*/
+
+template <typename OP_TYPE>
+void SaveOnnxAttrInOp(mlir::Operation *op,
+    const llvm::SmallVectorImpl<int64_t> &vals,
+    mlir::function_ref<void(OP_TYPE op, mlir::ArrayAttr &attr)> setAttr) {
+  // Inlined so that we don't need template instantiation.
+  mlir::OpBuilder builder(op->getContext());
+  mlir::ArrayAttr newAttr = builder.getI64ArrayAttr(vals);
+  OP_TYPE specificOp = llvm::cast<OP_TYPE>(op);
+  setAttr(specificOp, newAttr);
+}
 } // namespace onnx_mlir

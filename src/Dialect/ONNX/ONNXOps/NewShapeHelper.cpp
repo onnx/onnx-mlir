@@ -13,8 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -155,8 +156,7 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
 LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypeRange) {
   uint64_t resNum = op->getNumResults();
-  assert((elementTypeRange.size() == resNum) &&
-         "Incorrect elementTypes size");
+  assert((elementTypeRange.size() == resNum) && "Incorrect elementTypes size");
   // Invoke virtual compute.
   if (failed(computeShape()))
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
@@ -463,7 +463,31 @@ LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
 }
 
 //===----------------------------------------------------------------------===//
+// Setting a new constant or attribute value.
+//===----------------------------------------------------------------------===//
+
+void SaveOnnxConstInOp(mlir::Operation *op,
+    const llvm::SmallVectorImpl<int64_t> &vals, int operandId) {
+  OpBuilder builder(op->getContext());
+  builder.setInsertionPoint(op);
+  OnnxBuilder createONNX(builder, op->getLoc());
+  Value constVal = createONNX.constantInt64(vals);
+  op->setOperand(operandId, constVal);
+}
+
+void SaveOnnxConstInOp(mlir::Operation *op, MutableOperandRange operand,
+    const llvm::SmallVectorImpl<int64_t> &vals) {
+  OpBuilder builder(op->getContext());
+  builder.setInsertionPoint(op);
+  OnnxBuilder createONNX(builder, op->getLoc());
+  Value constVal = createONNX.constantInt64(vals);
+  operand.assign(constVal);
+}
+
+//===----------------------------------------------------------------------===//
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
+
+// Ideally should be in more specific files
 
 } // namespace onnx_mlir
