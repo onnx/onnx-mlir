@@ -44,7 +44,7 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
-    Value data, StringAttr targetLayoutAttr) {
+    Value data, Attribute targetLayoutAttr) {
   Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
       builder, data.getType(), targetLayoutAttr);
   build(builder, state, resType, data, targetLayoutAttr);

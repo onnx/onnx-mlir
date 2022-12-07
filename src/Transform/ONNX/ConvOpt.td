@@ -28,9 +28,9 @@ include "src/Dialect/ONNX/ONNX.td"
 
 // Layouts that are used in this optimization phase.
 def NHWC4LayoutAttr:
-  NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_NCHW4C)">;
+  NativeCodeCall<"ONNXTensorEncodingAttr::get($_builder.getContext(), ONNXTensorEncodingAttr::DataLayout::NCHWxC, 4, 0)">;
 def KCMN4C4KLayoutAttr:
-  NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_KCMN4C4K)">;
+  NativeCodeCall<"ONNXTensorEncodingAttr::get($_builder.getContext(), ONNXTensorEncodingAttr::DataLayout::KCNMxCyK, 4, 4)">;
 def StandardLayoutAttr:
   NativeCodeCall<"$_builder.getStringAttr(::onnx_mlir::LAYOUT_STANDARD)">;
 

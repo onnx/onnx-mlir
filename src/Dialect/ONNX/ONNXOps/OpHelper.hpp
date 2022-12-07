@@ -66,7 +66,7 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // type.
 mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
     mlir::Builder &builder, const mlir::Type inputType,
-    mlir::StringAttr layoutAttr);
+    mlir::Attribute encodingAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
