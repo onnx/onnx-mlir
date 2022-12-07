@@ -125,24 +125,20 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableLinalg) {
     pm.addPass(onnx_mlir::createLowerONNXToLinalgPass());
     // Linalg bufferization can be before or after LowerToKrnlPass
-    // pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
+    // However, sice bufferization::AllocTensorOp is in LowerToKrnl temporarily,
+    // these passes have to be called before LowerToKrnlPass
+    pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
+    // Convert tensor.EmptyOp to bufferization.alloc_tensor
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createEmptyTensorToAllocTensorPass());
   }
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
 
-  if (enableLinalg) {
-    // Linalg bufferization can be before or after LowerToKrnlPass
-    pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
-    // Convert tensor.EmptyOp to bufferization.alloc_tensor
-    pm.addNestedPass<func::FuncOp>(
-        bufferization::createEmptyTensorToAllocTensorPass());
-
-    // Remove bufferization.to_tensor and to_memref
-    // ToFix: Convert bufferization.alloc_tensor to memref.alloc
-    // pm.addNestedPass<func::FuncOp>(bufferization::createFinalizingBufferizePass());
-  }
+  // For Linalg and Krnl mixed IR:
+  // Canonicalization pass will clean up bufferization::to_tensor and to_memref
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
