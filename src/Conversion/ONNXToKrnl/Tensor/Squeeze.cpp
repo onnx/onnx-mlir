@@ -27,8 +27,8 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
   typename OP_TYPE::Adaptor operandAdaptor(operands);
 
   Location loc = op->getLoc();
-  Value data = operandAdaptor.data();
   IndexExprBuilderForKrnl createIE(rewriter, loc);
+  Value data = operandAdaptor.data();
 
   // Convert the output type to MemRefType.
   Type convertedType = typeConverter->convertType(*op->result_type_begin());

@@ -97,7 +97,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
           SmallVector<Value, 4> loadIndices;
           for (uint64_t i = 0; i < outputRank; ++i) {
             DimIndexExpr index(indices[i]);
-            // hi alex, was dim, think it needs to be symbol
             IndexExpr dimSize = create.krnlIE.getShapeAsSymbol(input, i);
             IndexExpr exprVal = index % dimSize;
             loadIndices.emplace_back(exprVal.getValue());

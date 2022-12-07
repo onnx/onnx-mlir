@@ -474,6 +474,34 @@ using NewONNXSqueezeV11OpShapeHelper =
     NewONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 
 //===----------------------------------------------------------------------===//
+// Unsqueeze ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+template <typename OP_TYPE>
+struct NewONNXCommonUnsqueezeOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXCommonUnsqueezeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXCommonUnsqueezeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Custom method to save axes in the op/graph.
+  void saveAxes();
+  // Common code for compute shape.
+  mlir::LogicalResult customComputeShape(DimsExpr &unsqueezedDims);
+  // Data: unsqueezedAxes contains all of the axles to unsqueeze, normalized
+  // (i.e. between 0 and dataRank).
+  llvm::SmallVector<int64_t, 4> unsqueezedAxes;
+};
+
+using NewONNXUnsqueezeOpShapeHelper =
+    NewONNXCommonUnsqueezeOpShapeHelper<mlir::ONNXUnsqueezeOp>;
+using NewONNXUnsqueezeV11OpShapeHelper =
+    NewONNXCommonUnsqueezeOpShapeHelper<mlir::ONNXUnsqueezeV11Op>;
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters

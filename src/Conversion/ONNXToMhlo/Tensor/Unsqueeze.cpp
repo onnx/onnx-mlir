@@ -12,9 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -39,9 +41,11 @@ struct ONNXUnsqueezeOpLoweringToMhlo : public ConversionPattern {
     ShapedType dataType = data.getType().cast<ShapedType>();
     int64_t rank = dataType.getRank();
 
-    ONNXUnsqueezeOpShapeHelper shapeHelper(&unsqueezeOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Unused; for example, axles can be read from it.
+    // Code below does not seems to handle >v11 where axles are inputs.
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    NewONNXUnsqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> axesList;
     if (DenseElementsAttr axesAttr =

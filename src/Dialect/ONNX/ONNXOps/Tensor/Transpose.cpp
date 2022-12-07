@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -23,16 +24,18 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-
-LogicalResult ONNXTransposeOpShapeHelper::computeShape(
-    ONNXTransposeOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
+template <>
+LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
   // Basic information.
-  auto rank = operandAdaptor.data().getType().cast<ShapedType>().getRank();
+  ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
+
+  Value data = operandAdaptor.data();
+  auto rank = createIE->getTypeRank(data);
 
   // Transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
-  ArrayAttr permAttr = op->permAttr();
+  ArrayAttr permAttr = operandAdaptor.permAttr();
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
@@ -41,19 +44,17 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape(
       defaultVals.emplace_back(i);
     // Set default attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
-    op->permAttr(builder.getI64ArrayAttr(defaultRefs));
-    permAttr = op->permAttr();
+    transposeOp.permAttr(builder.getI64ArrayAttr(defaultRefs));
+    permAttr = transposeOp.permAttr();
   }
 
   // Perform transposition according to perm attribute.
   DimsExpr transposedDims;
-  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
   for (decltype(rank) i = 0; i < rank; ++i) {
     int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
-    transposedDims.emplace_back(dataBounds.getDim(inputIndex));
+    transposedDims.emplace_back(createIE->getShapeAsDim(data, inputIndex));
   }
 
-  // Set type for the first output.
   setOutputDims(transposedDims);
   return success();
 }
@@ -75,6 +76,14 @@ LogicalResult ONNXTransposeOp::inferShapes(
     return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXTransposeOpShapeHelper, ONNXTransposeOp,
-      ONNXTransposeOpAdaptor>(*this, elementType);
+  NewONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXTransposeOp>;
+} // namespace onnx_mlir

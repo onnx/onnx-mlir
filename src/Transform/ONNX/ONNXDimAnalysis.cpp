@@ -82,6 +82,7 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for operations that use adaptor to compute shape.
+#if 0
 template <typename ONNX_OP, typename SHAPE_HELPER>
 void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
     onnx_mlir::DimAnalysis::DimSetT &sameDims) {
@@ -106,6 +107,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
       shapeHelper.dimsForOutput(tensorIndex)[dimIndex];
   findAndAddSameDim(qmOuputIE, op.getOperation()->getOperands(), sameDims);
 }
+#endif
 
 // _xxx postfix for new shape helper interface
 template <typename ONNX_OP, typename SHAPE_HELPER>
@@ -585,14 +587,14 @@ void DimAnalysis::visitDim(
 
   // TransposeOp
   if (auto transposeOp = dyn_cast<ONNXTransposeOp>(op)) {
-    exploreSameInputDims<ONNXTransposeOp, ONNXTransposeOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXTransposeOp, NewONNXTransposeOpShapeHelper>(
         dim, transposeOp, sameDims);
     return;
   }
 
   // Unsqueeze
   if (auto unsqueezeOp = dyn_cast<ONNXUnsqueezeOp>(op)) {
-    exploreSameInputDims<ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXUnsqueezeOp, NewONNXUnsqueezeOpShapeHelper>(
         dim, unsqueezeOp, sameDims);
     return;
   }

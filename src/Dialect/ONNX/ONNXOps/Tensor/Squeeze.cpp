@@ -15,7 +15,6 @@
 
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/Tensor/SqueezeUnsqueeze.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -96,7 +95,6 @@ LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
 
   // Save the final result.
   setOutputDims(outputDims);
-
   // Save the modified state
   if (modified)
     saveAxes();
@@ -119,8 +117,7 @@ void NewONNXSqueezeOpShapeHelper::saveAxes() {
   builder.setInsertionPoint(squeezeOp);
   auto constOp = builder.create<mlir::ONNXConstantOp>(
       squeezeOp.getLoc(), mlir::Attribute(), constDenseAttr);
-  Value constRes = constOp.output();
-  squeezeOp.setOperand(1, constRes);
+  squeezeOp.setOperand(1, constOp.output());
 }
 
 template <>
