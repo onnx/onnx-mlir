@@ -237,18 +237,6 @@ func.func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> te
 
 // -----
 
-func.func @test_upsamplev9(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
-  %0 = "onnx.UpsampleV9"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
-  return %0 : tensor<1x1x4x6xf32>
-  // CHECK-LABEL: test_upsamplev9
-  // CHECK: [[NONE_0:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK: [[NONE_1:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], %arg1, [[NONE_1]]) {coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "round_prefer_floor"} : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
-  // CHECK: return [[RES]] : tensor<1x1x4x6xf32>
-}
-
-// -----
-
 func.func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
   %0 = "onnx.UpsampleV7"(%arg0) {mode = "nearest", scales = [0.1 : f32, 0.2 : f32, 0.3 : f32, 0.4 : f32]} : (tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32>
   return %0 : tensor<1x1x4x6xf32>
