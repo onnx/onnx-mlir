@@ -50,7 +50,6 @@ LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   }
 
   SmallVector<IndexExpr, 4> splitDims;
-  // MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
   if (!indexExprArray.empty()) {
     if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
