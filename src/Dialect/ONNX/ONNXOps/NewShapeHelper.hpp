@@ -106,17 +106,16 @@ struct NewONNXOpShapeHelper {
   void computeShapeAndAssertOnFailure();
 
   // Invoke the virtual computeShape, and on success, update the types of the
-  // original operation. First call is used for operations with one result,
-  // second for operations with one or more results.
+  // original operation. First call is used for operations where all the results
+  // share the same output type, second for operations where all results have
+  // their own output types.
   mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
-  // When elementTypeRange has 1 element, this time is reused for all results;
-  // otherwise one element type per output is expected.
   mlir::LogicalResult computeShapeAndUpdateTypes(
       mlir::TypeRange elementTypeRange);
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
-  void setOutputDims(DimsExpr inferredDims, int n = 0);
+  void setOutputDims(const DimsExpr &inferredDims, int n = 0);
 
   // Obtain the n-th output result as value.
   mlir::Value getOutput(int n = 0) { return op->getResult(n); }
@@ -528,6 +527,12 @@ using NewONNXReverseSequenceOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using NewONNXSpaceToDepthOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
+using NewONNXTileOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
+using NewONNXTopKOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
+using NewONNXTransposeOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 
 // using NewONNXOpShapeHelper =
 //    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;

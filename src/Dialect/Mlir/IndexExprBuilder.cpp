@@ -159,8 +159,10 @@ IndexExpr IndexExprBuilder::getIntFromArray(
     int64_t intVal = getScalarValue<int64_t>(denseAttr, type, i);
     return LiteralIndexExpr(intVal);
   }
-  // If our scalar array is not a constant; we have a questionmark.
+  // If our scalar array is not a constant; we have a runtime value.
+  fprintf(stderr, "hi alex in get int from array, before getval\n");
   if (Value val = getVal(array, i)) {
+    fprintf(stderr, "  can write code\n");
     // Assume that we can write code.
     MathBuilder createMath(*this);
     Value castedVal = createMath.cast(b().getIndexType(), val);
@@ -168,8 +170,12 @@ IndexExpr IndexExprBuilder::getIntFromArray(
       return SymbolIndexExpr(castedVal);
     else
       return DimIndexExpr(castedVal);
-  } else
-    return QuestionmarkIndexExpr();
+  } else {
+    fprintf(stderr, "  cannot write code\n");
+    IndexExpr q = QuestionmarkIndexExpr();
+    fprintf(stderr, "  gen ?\n");
+    return q;
+  }
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {

@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -31,10 +33,10 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
     ONNXTileOp tileOp = cast<ONNXTileOp>(op);
     Location loc = op->getLoc();
 
-    ONNXTileOpShapeHelper shapeHelper(&tileOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(!failed(shapecomputed) && "shapehelper failed");
+    // I believe it is not currently used. 
+    IndexExprBuilderForAnalysis createIE(loc);
+    NewONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type outputType = *op->result_type_begin();

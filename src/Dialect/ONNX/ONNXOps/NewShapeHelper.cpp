@@ -121,10 +121,10 @@ void NewONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
   assert(succeeded(res) && "Failed to compute shape");
 }
 
-void NewONNXOpShapeHelper::setOutputDims(DimsExpr inferredDims, int n) {
+void NewONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
   Value output = getOutput(n);
-  refineDims(inferredDims, output);
   privateOutputsDims[n] = inferredDims;
+  refineDims(privateOutputsDims[n], output);
 }
 
 LogicalResult NewONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
@@ -136,23 +136,26 @@ LogicalResult NewONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
   return success();
 }
 
+// Reuse the same type for each of the outputs.
 mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
-  llvm::SmallVector<int64_t, 4> shapeVect;
-  IndexExpr::getShape(getOutputDims(), shapeVect);
-  updateType(op->getResults()[0], shapeVect, elementType);
+  uint64_t resNum = op->getNumResults();
+  for (uint64_t i = 0; i < resNum; ++i) {
+    llvm::SmallVector<int64_t, 4> shapeVect;
+    IndexExpr::getShape(getOutputDims(i), shapeVect);
+    updateType(op->getResults()[i], shapeVect, elementType);
+  }
   return mlir::success();
 }
 
+// Use a distinct type for each of the output.
 LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypeRange) {
   uint64_t resNum = op->getNumResults();
-  // If we have 1 element in the range, it is reused for all results.
-  bool reuseType = elementTypeRange.size() == 1;
-  assert((reuseType || elementTypeRange.size() == resNum) &&
+  assert((elementTypeRange.size() == resNum) &&
          "Incorrect elementTypes size");
   // Invoke virtual compute.
   if (failed(computeShape()))
@@ -161,7 +164,7 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
-    Type currElementType = elementTypeRange[reuseType ? 0 : i];
+    Type currElementType = elementTypeRange[i];
     updateType(op->getResults()[i], shapeVect, currElementType);
   }
   return success();

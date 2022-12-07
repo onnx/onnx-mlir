@@ -155,7 +155,7 @@ LogicalResult ONNXSplitOp::inferShapes(
   Type elementType = inputType.getElementType();
   NewONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
-  return shapeHelper.computeShapeAndUpdateTypes({elementType});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(
@@ -168,7 +168,7 @@ LogicalResult ONNXSplitV11Op::inferShapes(
   Type elementType = inputType.getElementType();
   NewONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
-  return shapeHelper.computeShapeAndUpdateTypes({elementType});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
